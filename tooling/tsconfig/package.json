@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "@effect/language-service": "catalog:"
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
   }
 }

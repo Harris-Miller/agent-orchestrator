@@ -1,3 +1,3 @@
-import config from '@tooling/eslint-config';
+import config from '@tooling/eslint';
 
 export default config;

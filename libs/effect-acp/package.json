@@ -19,6 +19,9 @@
     "@types/node": "catalog:",
     "@tooling/eslint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
-    "@tooling/vitest": "workspace:^"
+    "@tooling/vitest": "workspace:^",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

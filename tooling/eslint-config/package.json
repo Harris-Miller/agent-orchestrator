@@ -13,6 +13,6 @@
     "eslint-config-harris": "catalog:"
   },
   "peerDependencies": {
-    "eslint": "^9.39.5"
+    "eslint": "catalog:"
   }
 }

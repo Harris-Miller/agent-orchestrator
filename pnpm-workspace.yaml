@@ -20,6 +20,7 @@ catalog:
   typescript: '^6.0.3'
   turbo: '^2.5.4'
   vitest: '^4.1.10'
+  '@agentclientprotocol/sdk': ^1.4.0
 
 allowBuilds:
   msgpackr-extract: true # effect-ts dependency

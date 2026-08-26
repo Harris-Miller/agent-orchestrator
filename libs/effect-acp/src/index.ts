@@ -1,1 +1,1 @@
-export {};
+export * from './AcpSchema.ts';

@@ -10,6 +10,7 @@ catalog:
   '@effect/language-service': '^0.87.0'
   '@effect/opentelemetry': '4.0.0-rc.112'
   '@effect/platform-node': '4.0.0-rc.112'
+  '@effect/platform-bun': '4.0.0-rc.112'
   '@effect/vitest': '4.0.0-rc.112'
   '@types/node': '^24.13.3'
   '@vitest/coverage-v8': '^4.1.10'

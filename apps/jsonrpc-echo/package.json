@@ -1,0 +1,23 @@
+{
+  "name": "jsonrpc-echo",
+  "private": true,
+  "type": "module",
+  "module": "src/main.ts",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@tooling/eslint": "workspace:^",
+    "@tooling/tsconfig": "workspace:^",
+    "@types/bun": "latest",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -50,6 +50,9 @@ importers:
       '@effect/language-service':
         specifier: 'catalog:'
         version: 0.87.2
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112

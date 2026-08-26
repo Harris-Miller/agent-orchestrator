@@ -1,0 +1,46 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "transit": {
+      "dependsOn": [
+        "^transit"
+      ]
+    },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "transit"
+      ]
+    },
+    "lint": {
+      "dependsOn": [
+        "transit"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "transit"
+      ]
+    },
+    "test:ci": {
+      "dependsOn": [
+        "transit"
+      ],
+      "outputs": [
+        "coverage/blob/**"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+  }
+}

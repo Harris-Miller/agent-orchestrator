@@ -1,0 +1,26 @@
+packages:
+  - 'apps/*'
+  - 'libs/*'
+  - 'tooling/*'
+
+catalogMode: 'strict'
+
+catalog:
+  '@cursor/sdk': '^1.0.23'
+  '@effect/language-service': '^0.87.0'
+  '@effect/opentelemetry': '4.0.0-rc.112'
+  '@effect/platform-node': '4.0.0-rc.112'
+  '@effect/vitest': '4.0.0-rc.112'
+  '@types/node': '^24.13.3'
+  '@vitest/coverage-v8': '^4.1.10'
+  effect: '4.0.0-rc.112'
+  eslint: '^9.39.5'
+  eslint-config-harris: '6.0.0-beta.4'
+  rimraf: ^6.1.3
+  typescript: '^6.0.3'
+  turbo: '^2.5.4'
+  vitest: '^4.1.10'
+
+allowBuilds:
+  msgpackr-extract: true # effect-ts dependency
+  unrs-resolver: true # eslint-plugin-import-x

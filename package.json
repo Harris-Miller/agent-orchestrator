@@ -1,0 +1,26 @@
+{
+  "name": "agent-orchestrator",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@11.20.0",
+  "scripts": {
+    "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist'",
+    "lint": "turbo run lint",
+    "local-ci": "turbo run typecheck lint test",
+    "prepare": "effect-language-service patch",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@effect/language-service": "catalog:",
+    "effect": "catalog:",
+    "rimraf": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}

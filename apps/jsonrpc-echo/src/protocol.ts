@@ -10,6 +10,13 @@ export const InitializeRequest = Schema.Struct({
 });
 export type InitializeRequest = typeof InitializeRequest.Type;
 
+export const InitializeResponse = Schema.Struct({
+  id: JsonRpcId,
+  jsonrpc: Schema.Literal('2.0'),
+  result: Schema.Struct({}),
+});
+export type InitializeResponse = typeof InitializeResponse.Type;
+
 export const MessageRequest = Schema.Struct({
   id: JsonRpcId,
   jsonrpc: Schema.Literal('2.0'),

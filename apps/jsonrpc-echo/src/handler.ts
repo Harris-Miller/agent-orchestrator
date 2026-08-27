@@ -1,6 +1,7 @@
 import { Effect, Ref, Result, Schema } from 'effect';
 
 import { writeMessage } from './io';
+import type { InitializeResponse } from './protocol';
 import { InitializeRequest, MessageRequest, UnknownRequest } from './protocol';
 
 export const handleLine = Effect.fn('handleLine')(function* (line: string, initialized: Ref.Ref<boolean>) {
@@ -33,7 +34,7 @@ export const handleLine = Effect.fn('handleLine')(function* (line: string, initi
     }
 
     yield* Ref.set(initialized, true);
-    const initializedResponse = {
+    const initializedResponse: InitializeResponse = {
       id: request.id,
       jsonrpc: '2.0',
       result: {},

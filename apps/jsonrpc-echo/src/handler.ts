@@ -62,10 +62,13 @@ export const handleLine = Effect.fn('handleLine')(function* (line: string, initi
   }
 
   yield* writeMessage({
-    code: -32601,
-    data: {},
+    error: {
+      code: -32601,
+
+      data: {},
+      message: 'Method not found',
+    },
     id: request.id,
     jsonrpc: '2.0',
-    message: 'Method not found',
   });
 });

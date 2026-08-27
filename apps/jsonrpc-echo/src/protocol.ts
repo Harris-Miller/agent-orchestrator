@@ -29,8 +29,3 @@ export const UnknownRequest = Schema.Struct({
   params: Schema.optionalKey(Schema.Unknown),
 });
 export type UnknownRequest = typeof UnknownRequest.Type;
-
-export const ok = (id: null | number | string, result: unknown) => ({ id, jsonrpc: '2.0', result }) as const;
-
-export const fail = (id: null | number | string, code: number, message: string, data: unknown = {}) =>
-  ({ error: { code, data, message }, id, jsonrpc: '2.0' }) as const;

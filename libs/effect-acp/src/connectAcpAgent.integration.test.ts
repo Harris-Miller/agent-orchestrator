@@ -1,0 +1,67 @@
+import { NodeChildProcessSpawner, NodeFileSystem } from '@effect/platform-node';
+import { assert, describe, it } from '@effect/vitest';
+import { Effect, Layer, Path } from 'effect';
+import { ChildProcess } from 'effect/unstable/process';
+
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { ClientRpcs } from '@libs/effect-acp';
+
+import { connectAcpAgent } from './AcpConnection.ts';
+
+const echoMain = path.join(fileURLToPath(new URL('../../../apps/jsonrpc-echo/src/main.ts', import.meta.url)));
+
+const echoCommand = ChildProcess.make('bun', ['run', echoMain], {
+  extendEnv: true,
+  stderr: 'inherit',
+  stdin: 'pipe',
+  stdout: 'pipe',
+});
+
+const TestLayer = NodeChildProcessSpawner.layer.pipe(Layer.provide(Layer.mergeAll(NodeFileSystem.layer, Path.layer)));
+
+const stubClientHandlers = (sessionUpdates: { sessionId: string; update: unknown }[]) =>
+  ClientRpcs.toLayer(
+    Effect.succeed({
+      'elicitation/complete': () => Effect.void,
+      'elicitation/create': () => Effect.succeed({}),
+      'fs/read_text_file': () => Effect.succeed({ content: '' }),
+      'fs/write_text_file': () => Effect.succeed({}),
+      'session/request_permission': () => Effect.succeed({ outcome: { outcome: 'cancelled' as const } }),
+      'session/update': payload =>
+        Effect.sync(() => {
+          sessionUpdates.push({ sessionId: payload.sessionId, update: payload.update });
+        }),
+      'terminal/create': () => Effect.succeed({ terminalId: 'stub-terminal' }),
+      'terminal/kill': () => Effect.succeed({}),
+      'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
+      'terminal/release': () => Effect.succeed({}),
+      'terminal/wait_for_exit': () => Effect.succeed({ exitCode: 0, signal: null }),
+    }),
+  );
+
+describe('connectAcpAgent', () => {
+  it.effect('calls jsonrpc-echo over stdio', () =>
+    Effect.gen(function* () {
+      const sessionUpdates: { sessionId: string; update: unknown }[] = [];
+      const { agent } = yield* connectAcpAgent(echoCommand, stubClientHandlers(sessionUpdates));
+
+      yield* agent.initialize({ protocolVersion: 1 });
+      const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
+      const result = yield* agent['session/prompt']({
+        prompt: [{ text: 'hi', type: 'text' }],
+        sessionId: session.sessionId,
+      });
+
+      assert.strictEqual(result.stopReason, 'end_turn');
+      assert.strictEqual(session.sessionId, 'echo-session-1');
+      assert.strictEqual(sessionUpdates.length, 1);
+      assert.strictEqual(sessionUpdates[0]?.sessionId, 'echo-session-1');
+      assert.deepStrictEqual(sessionUpdates[0]?.update, {
+        content: [{ text: 'hi', type: 'text' }],
+        type: 'agent_message',
+      });
+    }).pipe(Effect.scoped, Effect.provide(TestLayer)),
+  );
+});

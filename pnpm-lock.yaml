@@ -111,6 +111,9 @@ importers:
       '@effect/platform-bun':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)
+      '@libs/effect-acp':
+        specifier: workspace:^
+        version: link:../../libs/effect-acp
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -211,6 +214,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)

@@ -8,4 +8,4 @@ export interface OS {
   readonly platform: () => string;
 }
 
-export const OS = Context.Service<OS>('agent-github-watcher/OS');
+export const OS = Context.Service<OS>('OS');

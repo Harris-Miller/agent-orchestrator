@@ -10,29 +10,9 @@
         "dist/**"
       ]
     },
-    "typecheck": {
-      "dependsOn": [
-        "transit"
-      ]
-    },
-    "lint": {
-      "dependsOn": [
-        "transit"
-      ]
-    },
-    "test": {
-      "dependsOn": [
-        "transit"
-      ]
-    },
-    "test:ci": {
-      "dependsOn": [
-        "transit"
-      ],
-      "outputs": [
-        "coverage/blob/**"
-      ]
-    },
+    "lint": {},
+    "test": {},
+    "typecheck": {},
     "dev": {
       "cache": false,
       "persistent": true

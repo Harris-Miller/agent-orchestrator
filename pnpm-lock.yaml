@@ -244,6 +244,9 @@ importers:
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
+      '@tooling/vitest':
+        specifier: workspace:^
+        version: link:../../tooling/vitest-config
       '@types/bun':
         specifier: latest
         version: 1.4.0
@@ -253,6 +256,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
 
   libs/context-services:
     dependencies:

@@ -90,11 +90,16 @@ const extractAgentText = (update: unknown): string | undefined => {
     return undefined;
   }
   const record = update as Record<string, unknown>;
-  if (record.type !== 'agent_message' || !Array.isArray(record.content)) {
+  if (record.sessionUpdate !== 'agent_message_chunk') {
     return undefined;
   }
-  const parts = record.content.filter(isTextBlock).map(block => block.text);
-  return parts.length > 0 ? parts.join('') : undefined;
+
+  const { content } = record;
+  if (!isTextBlock(content)) {
+    return undefined;
+  }
+
+  return content.text;
 };
 
 const makeClientHandlers = (onAgentMessage: (text: string) => void) =>

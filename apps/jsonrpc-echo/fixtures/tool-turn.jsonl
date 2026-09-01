@@ -1,0 +1,6 @@
+{"sessionUpdate":"plan","entries":[{"content":"Analyze the request","priority":"high","status":"in_progress"},{"content":"Summarize findings","priority":"medium","status":"pending"}]}
+{"sessionUpdate":"agent_message_chunk","messageId":"msg_tool_1","content":{"type":"text","text":"I'll read the configuration file."}}
+{"sessionUpdate":"tool_call","toolCallId":"call_001","title":"Reading configuration file","kind":"read","status":"pending"}
+{"sessionUpdate":"tool_call_update","toolCallId":"call_001","status":"in_progress"}
+{"sessionUpdate":"tool_call_update","toolCallId":"call_001","status":"completed","content":[{"type":"content","content":{"type":"text","text":"Found 3 configuration files."}}]}
+{"sessionUpdate":"agent_message_chunk","messageId":"msg_tool_2","content":{"type":"text","text":"Analysis complete. No issues found."}}

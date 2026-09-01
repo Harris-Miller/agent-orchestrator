@@ -3,7 +3,7 @@ import { AcpError, AgentRpcs } from '@libs/effect-acp';
 import { Effect, Layer, Ref } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
-import { notifyClient } from './notifyClient.ts';
+import { replayFixture } from './fixtures.ts';
 
 const ECHO_SESSION_ID = 'echo-session-1';
 
@@ -50,14 +50,7 @@ const Handlers = AgentRpcs.toLayer(
       'session/prompt': ({ prompt, sessionId }) =>
         Effect.gen(function* () {
           yield* Effect.log(`prompt blocks: ${String(prompt.length)}`);
-
-          yield* notifyClient('session/update', {
-            sessionId,
-            update: {
-              content: prompt,
-              type: 'agent_message',
-            },
-          }).pipe(Effect.orDie);
+          yield* replayFixture(sessionId, prompt);
 
           return { stopReason: 'end_turn' as const };
         }),

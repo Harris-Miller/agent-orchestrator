@@ -6,6 +6,7 @@
   "scripts": {
     "build": "bun build src/main.ts --compile --outfile bin/jsonrpc-echo",
     "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -18,8 +19,10 @@
     "@effect/vitest": "catalog:",
     "@tooling/eslint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
+    "@tooling/vitest": "workspace:^",
     "@types/bun": "latest",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

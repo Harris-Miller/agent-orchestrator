@@ -49,19 +49,32 @@ describe('connectAcpAgent', () => {
 
       yield* agent.initialize({ protocolVersion: 1 });
       const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
-      const result = yield* agent['session/prompt']({
+
+      const simpleReply = yield* agent['session/prompt']({
         prompt: [{ text: 'hi', type: 'text' }],
         sessionId: session.sessionId,
       });
 
-      assert.strictEqual(result.stopReason, 'end_turn');
+      assert.strictEqual(simpleReply.stopReason, 'end_turn');
       assert.strictEqual(session.sessionId, 'echo-session-1');
       assert.strictEqual(sessionUpdates.length, 1);
       assert.strictEqual(sessionUpdates[0]?.sessionId, 'echo-session-1');
       assert.deepStrictEqual(sessionUpdates[0]?.update, {
-        content: [{ text: 'hi', type: 'text' }],
-        type: 'agent_message',
+        content: { text: 'hi', type: 'text' },
+        messageId: 'msg_simple_1',
+        sessionUpdate: 'agent_message_chunk',
       });
+
+      const toolTurn = yield* agent['session/prompt']({
+        prompt: [{ text: '/fixture tool-turn', type: 'text' }],
+        sessionId: session.sessionId,
+      });
+
+      assert.strictEqual(toolTurn.stopReason, 'end_turn');
+      assert.strictEqual(sessionUpdates.length, 7);
+      assert.strictEqual((sessionUpdates[1]?.update as { sessionUpdate: string }).sessionUpdate, 'plan');
+      assert.strictEqual((sessionUpdates[3]?.update as { sessionUpdate: string }).sessionUpdate, 'tool_call');
+      assert.strictEqual((sessionUpdates[6]?.update as { sessionUpdate: string }).sessionUpdate, 'agent_message_chunk');
     }).pipe(Effect.scoped, Effect.provide(TestLayer)),
   );
 });

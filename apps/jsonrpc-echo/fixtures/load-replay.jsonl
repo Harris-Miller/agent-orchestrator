@@ -1,0 +1,2 @@
+{"sessionUpdate":"user_message_chunk","messageId":"msg_user_1","content":{"type":"text","text":"What's the capital of France?"}}
+{"sessionUpdate":"agent_message_chunk","messageId":"msg_agent_1","content":{"type":"text","text":"The capital of France is Paris."}}

@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react';
 
-import type { EchoHarnessSnapshot } from './echoAgentHarness.ts';
+import type { AcpAgentBackend, EchoHarnessSnapshot } from './echoAgentHarness.ts';
 
 export type EchoAgentContextValue = {
+  readonly backend: AcpAgentBackend;
   readonly sendMessage: (text: string) => Promise<void>;
+  readonly setBackend: (backend: AcpAgentBackend) => void;
   readonly snapshot: EchoHarnessSnapshot;
 };
 

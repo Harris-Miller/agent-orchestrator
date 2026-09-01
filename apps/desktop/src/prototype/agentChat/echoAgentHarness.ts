@@ -1,6 +1,6 @@
 /**
- * PROTOTYPE — throwaway harness wiring jsonrpc-echo through connectAcpAgent.
- * Question: can the desktop Agent Harness speak ACP to a spawned echo agent on bootstrap?
+ * PROTOTYPE — throwaway harness wiring ACP agents through connectAcpAgent.
+ * Backends: jsonrpc-echo (local dev), codex-acp, claude-agent-acp (global bins).
  */
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
@@ -14,6 +14,15 @@ import { ChildProcess } from 'effect/unstable/process';
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
 
 import type { ChatItem } from './sessionUpdateReducer.ts';
+
+export type AcpAgentBackend = 'claude-agent-acp' | 'codex-acp' | 'echo';
+
+const pipedSpawnOptions = {
+  extendEnv: true,
+  stderr: 'inherit' as const,
+  stdin: 'pipe' as const,
+  stdout: 'pipe' as const,
+};
 
 const echoEntrySegments = ['jsonrpc-echo', 'src', 'main.ts'] as const;
 
@@ -49,13 +58,18 @@ const resolveEchoMain = Effect.fn('resolveEchoMain')(function* () {
   });
 });
 
-const makeEchoCommand = (echoMain: string) =>
-  ChildProcess.make('bun', ['run', echoMain], {
-    extendEnv: true,
-    stderr: 'inherit',
-    stdin: 'pipe',
-    stdout: 'pipe',
-  });
+const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (backend: AcpAgentBackend) {
+  switch (backend) {
+    case 'claude-agent-acp':
+      return ChildProcess.make('claude-agent-acp', [], pipedSpawnOptions);
+    case 'codex-acp':
+      return ChildProcess.make('codex-acp', [], pipedSpawnOptions);
+    case 'echo': {
+      const echoMain = yield* resolveEchoMain();
+      return ChildProcess.make('bun', ['run', echoMain], pipedSpawnOptions);
+    }
+  }
+});
 
 export type EchoHarnessStatus = 'connecting' | 'error' | 'idle' | 'ready';
 
@@ -95,25 +109,38 @@ const makeClientHandlers = (onSessionUpdate: (update: unknown) => void) =>
 
 export type EchoAgentHandle = AcpAgentConnection['agent'];
 
-/** Spawns jsonrpc-echo, initializes ACP, and opens a session. Blocks until interrupted. */
-export const startEchoHarness = (handlers: {
-  onReady: (sessionId: string, agent: EchoAgentHandle) => void;
-  onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
-  onSessionUpdate: (update: unknown) => void;
-  onStatus: (status: EchoHarnessStatus, error?: string) => void;
-}) =>
+/** Spawns an ACP agent, initializes ACP, and opens a session. Blocks until interrupted. */
+export const startEchoHarness = (
+  handlers: {
+    onConnection?: (connection: AcpAgentConnection) => void;
+    onReady: (sessionId: string, agent: EchoAgentHandle) => void;
+    onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
+    onSessionUpdate: (update: unknown) => void;
+    onStatus: (status: EchoHarnessStatus, error?: string) => void;
+  },
+  options?: {
+    readonly backend?: AcpAgentBackend;
+  },
+) =>
   Effect.gen(function* () {
+    const backend = options?.backend ?? 'echo';
     handlers.onStatus('connecting');
 
-    const echoMain = yield* resolveEchoMain();
-    const { agent } = yield* connectAcpAgent(makeEchoCommand(echoMain), makeClientHandlers(handlers.onSessionUpdate), {
+    const os = yield* OS;
+    const command = yield* makeAgentCommand(backend);
+    const connection = yield* connectAcpAgent(command, makeClientHandlers(handlers.onSessionUpdate), {
       wireTap: {
         onMessage: handlers.onRpcMessage,
       },
     });
+    handlers.onConnection?.(connection);
+    const { agent } = connection;
 
     yield* agent.initialize({ protocolVersion: 1 });
-    const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
+    const session = yield* agent['session/new']({
+      cwd: backend === 'echo' ? '.' : os.cwd(),
+      mcpServers: [],
+    });
 
     handlers.onReady(session.sessionId, agent);
     handlers.onStatus('ready');

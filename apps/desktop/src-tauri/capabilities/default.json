@@ -22,6 +22,16 @@
           "args": true,
           "cmd": "bun",
           "name": "bun"
+        },
+        {
+          "args": true,
+          "cmd": "codex-acp",
+          "name": "codex-acp"
+        },
+        {
+          "args": true,
+          "cmd": "claude-agent-acp",
+          "name": "claude-agent-acp"
         }
       ]
     },
@@ -32,6 +42,16 @@
           "args": true,
           "cmd": "bun",
           "name": "bun"
+        },
+        {
+          "args": true,
+          "cmd": "codex-acp",
+          "name": "codex-acp"
+        },
+        {
+          "args": true,
+          "cmd": "claude-agent-acp",
+          "name": "claude-agent-acp"
         }
       ]
     }

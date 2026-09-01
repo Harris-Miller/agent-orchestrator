@@ -80,11 +80,14 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
   const wireTap = options?.wireTap;
   const handle = yield* command;
 
+  yield* Effect.addFinalizer(() => handle.kill().pipe(Effect.ignore));
+
   const pendingClientRequestIds = new Set<number | string>();
   const notificationIds = new Set<number | string>();
 
   let clientWriteResponse: ((clientId: number, message: FromServerEncoded) => Effect.Effect<void>) | undefined;
   let serverWriteRequest: ((clientId: number, message: FromClientEncoded) => Effect.Effect<void>) | undefined;
+  let rpcClientId = 0;
 
   const demuxRoute = (message: unknown) =>
     Effect.gen(function* () {
@@ -101,7 +104,7 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
           pendingClientRequestIds.has(message.requestId as number | string)
         ) {
           if (clientWriteResponse !== undefined) {
-            yield* clientWriteResponse(0, message as FromServerEncoded);
+            yield* clientWriteResponse(rpcClientId, message as FromServerEncoded);
           }
         }
         return;
@@ -109,7 +112,7 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
 
       if (message._tag === 'ClientProtocolError') {
         if (clientWriteResponse !== undefined) {
-          yield* clientWriteResponse(0, message as FromServerEncoded);
+          yield* clientWriteResponse(rpcClientId, message as FromServerEncoded);
         }
         return;
       }
@@ -121,7 +124,7 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
           pendingClientRequestIds.has(message.requestId as number | string)
         ) {
           if (clientWriteResponse !== undefined) {
-            yield* clientWriteResponse(0, message as FromServerEncoded);
+            yield* clientWriteResponse(rpcClientId, message as FromServerEncoded);
           }
           pendingClientRequestIds.delete(message.requestId as number | string);
         }
@@ -150,7 +153,8 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
 
       return {
         codecFor: transport.codecFor,
-        send: (_clientId: number, message: FromClientEncoded) => {
+        send: (clientId: number, message: FromClientEncoded) => {
+          rpcClientId = clientId;
           if (message._tag === 'Request' && message.isNotification !== true) {
             pendingClientRequestIds.add(message.id);
           }

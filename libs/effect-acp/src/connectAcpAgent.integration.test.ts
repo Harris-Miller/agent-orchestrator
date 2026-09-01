@@ -1,6 +1,6 @@
 import { NodeChildProcessSpawner, NodeFileSystem } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Layer, Path } from 'effect';
+import { Effect, Fiber, Layer, Path } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import path from 'node:path';
@@ -77,4 +77,60 @@ describe('connectAcpAgent', () => {
       assert.strictEqual((sessionUpdates[6]?.update as { sessionUpdate: string }).sessionUpdate, 'agent_message_chunk');
     }).pipe(Effect.scoped, Effect.provide(TestLayer)),
   );
+
+  it.effect('spawns twice sequentially', () =>
+    Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        const { handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* handle.kill();
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+
+      yield* Effect.gen(function* () {
+        const { handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* handle.kill();
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+    }),
+  );
+
+  it.effect('initializes twice sequentially', () =>
+    Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        const { agent, handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* agent.initialize({ protocolVersion: 1 });
+        yield* handle.kill();
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+
+      yield* Effect.gen(function* () {
+        const { agent, handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* agent.initialize({ protocolVersion: 1 });
+        yield* handle.kill();
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+    }),
+  );
+
+  it('connects once via Effect.runPromise', async () => {
+    const runOnce = () =>
+      Effect.gen(function* () {
+        const { agent, handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* agent.initialize({ protocolVersion: 1 });
+        const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
+        yield* handle.kill();
+        return session.sessionId;
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+
+    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
+  });
+
+  it('reconnects across separate Effect.runPromise calls', async () => {
+    const runOnce = () =>
+      Effect.gen(function* () {
+        const { agent } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+        yield* agent.initialize({ protocolVersion: 1 });
+        const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
+        return session.sessionId;
+      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+
+    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
+    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
+  });
 });

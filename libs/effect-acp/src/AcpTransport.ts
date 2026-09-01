@@ -21,6 +21,8 @@ export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
   const parser = serialization.makeUnsafe();
   const queue = yield* Queue.make<Uint8Array>();
 
+  yield* Effect.addFinalizer(() => Queue.shutdown(queue).pipe(Effect.ignore));
+
   const encodeToBytes = (message: unknown): Effect.Effect<Uint8Array | undefined, TransportError> =>
     Effect.try({
       catch: cause => TransportError.make({ message: `Failed to encode message: ${String(cause)}` }),

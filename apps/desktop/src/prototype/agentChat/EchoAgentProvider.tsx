@@ -6,11 +6,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { sendEchoPrompt, startEchoHarness } from './echoAgentHarness.ts';
-import type { ChatMessage, EchoAgentHandle, EchoHarnessSnapshot } from './echoAgentHarness.ts';
+import type { EchoAgentHandle, EchoHarnessSnapshot } from './echoAgentHarness.ts';
+import {
+  appendUserChatMessage,
+  chatItemsFromAccumulator,
+  emptyChatAccumulator,
+  reduceSessionUpdate,
+} from './sessionUpdateReducer.ts';
 import { EchoAgentContext } from './useEchoAgent.ts';
 
 const initialSnapshot = (): EchoHarnessSnapshot => ({
-  messages: [],
+  chatItems: [],
   rpcCalls: [],
   status: 'idle',
 });
@@ -26,19 +32,19 @@ export const EchoAgentProvider: FC<{ children: ReactNode }> = ({ children }) => 
   const [snapshot, setSnapshot] = useState<EchoHarnessSnapshot>(initialSnapshot);
   const agentRef = useRef<EchoAgentHandle | null>(null);
   const sessionIdRef = useRef<string | undefined>(undefined);
+  const chatAccumulatorRef = useRef(emptyChatAccumulator());
 
   useEffect(() => {
-    const appendMessage = (role: ChatMessage['role'], text: string) => {
+    chatAccumulatorRef.current = emptyChatAccumulator();
+
+    const syncChatItems = () => {
       setSnapshot(current => ({
         ...current,
-        messages: [...current.messages, { id: crypto.randomUUID(), role, text }],
+        chatItems: chatItemsFromAccumulator(chatAccumulatorRef.current),
       }));
     };
 
     const program = startEchoHarness({
-      onAgentMessage: text => {
-        appendMessage('agent', text);
-      },
       onReady: (sessionId, agent) => {
         sessionIdRef.current = sessionId;
         agentRef.current = agent;
@@ -52,6 +58,10 @@ export const EchoAgentProvider: FC<{ children: ReactNode }> = ({ children }) => 
           ...current,
           rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message }],
         }));
+      },
+      onSessionUpdate: update => {
+        chatAccumulatorRef.current = reduceSessionUpdate(chatAccumulatorRef.current, update);
+        syncChatItems();
       },
       onStatus: (status, error) => {
         setSnapshot(current => ({
@@ -90,9 +100,10 @@ export const EchoAgentProvider: FC<{ children: ReactNode }> = ({ children }) => 
       return;
     }
 
+    chatAccumulatorRef.current = appendUserChatMessage(chatAccumulatorRef.current, trimmed);
     setSnapshot(current => ({
       ...current,
-      messages: [...current.messages, { id: crypto.randomUUID(), role: 'user', text: trimmed }],
+      chatItems: chatItemsFromAccumulator(chatAccumulatorRef.current),
     }));
 
     await Effect.runPromise(sendEchoPrompt(agent, sessionId, trimmed));

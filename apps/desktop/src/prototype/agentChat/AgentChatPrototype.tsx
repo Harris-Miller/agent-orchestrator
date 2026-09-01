@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
+import { ChatItemView } from './ChatItemView.tsx';
 import { EchoAgentProvider } from './EchoAgentProvider.tsx';
 import { useEchoAgent } from './useEchoAgent.ts';
 
@@ -72,32 +73,19 @@ const AgentChatContent: FC = () => {
       >
         <Paper sx={{ flex: 1, minHeight: 360, overflow: 'auto', p: 1 }}>
           <List dense disablePadding>
-            {snapshot.messages.length === 0 ? (
+            {snapshot.chatItems.length === 0 ? (
               <ListItem>
                 <ListItemText
                   primary="No messages yet"
                   secondary={
                     snapshot.status === 'ready'
-                      ? 'jsonrpc-echo is connected — send a prompt to see the echo.'
+                      ? 'jsonrpc-echo is connected — send a prompt or try /fixture tool-turn.'
                       : 'Starting jsonrpc-echo over ACP…'
                   }
                 />
               </ListItem>
             ) : (
-              snapshot.messages.map(message => (
-                <ListItem key={message.id} sx={{ alignItems: 'flex-start' }}>
-                  <ListItemText
-                    primary={message.role === 'user' ? 'You' : 'Agent'}
-                    secondary={message.text}
-                    slotProps={{
-                      primary: {
-                        sx: { color: message.role === 'user' ? 'primary.main' : 'text.primary', fontWeight: 600 },
-                      },
-                      secondary: { sx: { color: 'text.primary', whiteSpace: 'pre-wrap' } },
-                    }}
-                  />
-                </ListItem>
-              ))
+              snapshot.chatItems.map(item => <ChatItemView item={item} key={item.id} />)
             )}
           </List>
         </Paper>

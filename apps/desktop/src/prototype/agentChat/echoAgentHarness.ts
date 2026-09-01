@@ -13,6 +13,8 @@ import { ChildProcess } from 'effect/unstable/process';
 
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
 
+import type { ChatItem } from './sessionUpdateReducer.ts';
+
 const echoEntrySegments = ['jsonrpc-echo', 'src', 'main.ts'] as const;
 
 /** Walk up from host cwd until jsonrpc-echo's entry file is found (sibling or under apps/). */
@@ -55,12 +57,6 @@ const makeEchoCommand = (echoMain: string) =>
     stdout: 'pipe',
   });
 
-export type ChatMessage = {
-  readonly id: string;
-  readonly role: 'agent' | 'user';
-  readonly text: string;
-};
-
 export type EchoHarnessStatus = 'connecting' | 'error' | 'idle' | 'ready';
 
 export type RpcWireEntry = {
@@ -70,39 +66,14 @@ export type RpcWireEntry = {
 };
 
 export type EchoHarnessSnapshot = {
+  readonly chatItems: readonly ChatItem[];
   readonly error?: string;
-  readonly messages: readonly ChatMessage[];
   readonly rpcCalls: readonly RpcWireEntry[];
   readonly sessionId?: string;
   readonly status: EchoHarnessStatus;
 };
 
-const isTextBlock = (block: unknown): block is { readonly text: string; readonly type: 'text' } => {
-  if (typeof block !== 'object' || block === null) {
-    return false;
-  }
-  const record = block as Record<string, unknown>;
-  return record.type === 'text' && typeof record.text === 'string';
-};
-
-const extractAgentText = (update: unknown): string | undefined => {
-  if (typeof update !== 'object' || update === null) {
-    return undefined;
-  }
-  const record = update as Record<string, unknown>;
-  if (record.sessionUpdate !== 'agent_message_chunk') {
-    return undefined;
-  }
-
-  const { content } = record;
-  if (!isTextBlock(content)) {
-    return undefined;
-  }
-
-  return content.text;
-};
-
-const makeClientHandlers = (onAgentMessage: (text: string) => void) =>
+const makeClientHandlers = (onSessionUpdate: (update: unknown) => void) =>
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
@@ -112,10 +83,7 @@ const makeClientHandlers = (onAgentMessage: (text: string) => void) =>
       'session/request_permission': () => Effect.succeed({ outcome: { outcome: 'cancelled' as const } }),
       'session/update': payload =>
         Effect.sync(() => {
-          const text = extractAgentText(payload.update);
-          if (text !== undefined) {
-            onAgentMessage(text);
-          }
+          onSessionUpdate(payload.update);
         }),
       'terminal/create': () => Effect.succeed({ terminalId: 'prototype-terminal' }),
       'terminal/kill': () => Effect.succeed({}),
@@ -129,16 +97,16 @@ export type EchoAgentHandle = AcpAgentConnection['agent'];
 
 /** Spawns jsonrpc-echo, initializes ACP, and opens a session. Blocks until interrupted. */
 export const startEchoHarness = (handlers: {
-  onAgentMessage: (text: string) => void;
   onReady: (sessionId: string, agent: EchoAgentHandle) => void;
   onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
+  onSessionUpdate: (update: unknown) => void;
   onStatus: (status: EchoHarnessStatus, error?: string) => void;
 }) =>
   Effect.gen(function* () {
     handlers.onStatus('connecting');
 
     const echoMain = yield* resolveEchoMain();
-    const { agent } = yield* connectAcpAgent(makeEchoCommand(echoMain), makeClientHandlers(handlers.onAgentMessage), {
+    const { agent } = yield* connectAcpAgent(makeEchoCommand(echoMain), makeClientHandlers(handlers.onSessionUpdate), {
       wireTap: {
         onMessage: handlers.onRpcMessage,
       },

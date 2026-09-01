@@ -28,13 +28,21 @@ _Avoid_: Thread, chat, conversation
 Content blocks the Client sends to the Agent within a session via `session/prompt`.
 _Avoid_: Message, input, query
 
+**Turn**:
+One handle-a-prompt cycle within a session — from `session/prompt` through the stream of session updates until the Agent returns a stop reason.
+_Avoid_: Round, exchange, iteration
+
 **Stop reason**:
 Why the Agent ended its turn after handling a prompt (`end_turn`, `cancelled`, `max_tokens`, …).
 _Avoid_: Finish reason, completion reason
 
 **Session update**:
-An Agent→Client notification (`session/update`) emitted while a prompt is in flight, carrying streaming progress (e.g. an `agent_message`).
-_Avoid_: Event, delta, chunk
+An Agent→Client `session/update` notification emitted while a turn is in flight. Each payload is discriminated by `sessionUpdate` (e.g. `agent_message_chunk`, `tool_call`, `plan`, `usage_update`) and streams incremental progress for that turn.
+_Avoid_: Event, delta, chunk, message
+
+**Tool call**:
+An Agent action during a turn, announced via `tool_call` / `tool_call_update` session updates and identified by `toolCallId`.
+_Avoid_: Function call, invocation, plugin
 
 ## Agent-initiated interactions
 

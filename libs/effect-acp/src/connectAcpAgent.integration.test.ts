@@ -1,6 +1,6 @@
 import { NodeChildProcessSpawner, NodeFileSystem } from '@effect/platform-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Fiber, Layer, Path } from 'effect';
+import { Effect, Layer, Path } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import path from 'node:path';

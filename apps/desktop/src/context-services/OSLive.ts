@@ -1,0 +1,68 @@
+import { OS } from '@lib/context-services';
+import { invoke } from '@tauri-apps/api/core';
+import { homeDir } from '@tauri-apps/api/path';
+import { platform } from '@tauri-apps/plugin-os';
+import { Effect, Layer, Schema } from 'effect';
+
+import { mapTauriPlatformToNode } from './mapTauriPlatform.ts';
+
+class HostProcessInfoError extends Schema.TaggedError<HostProcessInfoError>()('HostProcessInfoError', {
+  cause: Schema.optional(Schema.Unknown),
+  message: Schema.String,
+}) {}
+
+class HomeDirError extends Schema.TaggedError<HomeDirError>()('HomeDirError', {
+  cause: Schema.optional(Schema.Unknown),
+  message: Schema.String,
+}) {}
+
+const HostProcessInfoSchema = Schema.Struct({
+  cwd: Schema.String,
+  env: Schema.Record(Schema.String, Schema.String),
+});
+
+/**
+ * Tauri Live for {@link OS}: loads allowlisted env + cwd from `host_process_info`,
+ * resolves `homeDir` once, and exposes Node-compatible `platform()` strings.
+ */
+export const OSLive = Layer.effect(
+  OS,
+  Effect.gen(function* () {
+    const raw = yield* Effect.tryPromise({
+      catch: cause =>
+        new HostProcessInfoError({
+          cause,
+          message: cause instanceof Error ? cause.message : String(cause),
+        }),
+      try: () => invoke<unknown>('host_process_info'),
+    }).pipe(Effect.orDie);
+    const host = yield* Schema.decodeUnknownEffect(HostProcessInfoSchema)(raw).pipe(
+      Effect.mapError(
+        issue =>
+          new HostProcessInfoError({
+            cause: issue,
+            message: `Invalid host_process_info: ${String(issue)}`,
+          }),
+      ),
+      Effect.orDie,
+    );
+
+    const home = yield* Effect.tryPromise({
+      catch: cause =>
+        new HomeDirError({
+          cause,
+          message: cause instanceof Error ? cause.message : String(cause),
+        }),
+      try: () => homeDir(),
+    }).pipe(Effect.orDie);
+
+    const nodePlatform = mapTauriPlatformToNode(platform());
+
+    return {
+      cwd: () => host.cwd,
+      env: () => host.env,
+      homedir: () => home,
+      platform: () => nodePlatform,
+    };
+  }),
+);

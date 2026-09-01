@@ -24,7 +24,7 @@ declare module '@tanstack/react-router' {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultMode="system" noSsr theme={theme}>
+    <ThemeProvider noSsr theme={theme}>
       <CssBaseline />
       <RouterProvider router={router} />
     </ThemeProvider>

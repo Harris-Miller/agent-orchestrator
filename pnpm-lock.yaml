@@ -131,6 +131,9 @@ importers:
       '@lib/context-services':
         specifier: workspace:^
         version: link:../../libs/context-services
+      '@libs/effect-acp':
+        specifier: workspace:^
+        version: link:../../libs/effect-acp
       '@mui/material':
         specifier: 'catalog:'
         version: 9.4.0(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

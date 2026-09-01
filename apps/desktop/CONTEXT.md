@@ -32,6 +32,10 @@ _Avoid_: Spawn config, agent command, connection string
 
 ## Desktop host
 
+**WebView runtime**:
+The JavaScript execution environment for all code under `apps/desktop/src` — the Tauri WebView (Vite-bundled), not Node.js or Bun.
+_Avoid_: Frontend runtime, browser, Node, JS host
+
 **Tauri host**:
 The desktop runtime (Rust + WebView) that runs the Harness UI and supplies OS capabilities to Effect code through Tauri plugins.
 _Avoid_: Backend, native layer, shell

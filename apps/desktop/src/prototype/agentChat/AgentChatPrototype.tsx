@@ -129,6 +129,38 @@ const AgentChatContent: FC = () => {
             </Box>
           </Stack>
         </Paper>
+
+        <Paper sx={{ maxHeight: 320, overflow: 'auto', p: 2 }}>
+          <Stack spacing={1}>
+            <Typography color="text.secondary" variant="caption">
+              RPC wire log ({snapshot.rpcCalls.length})
+            </Typography>
+            {snapshot.rpcCalls.length === 0 ? (
+              <Typography color="text.secondary" variant="body2">
+                No RPC traffic yet.
+              </Typography>
+            ) : (
+              snapshot.rpcCalls.map(entry => (
+                <Box
+                  component="pre"
+                  key={entry.id}
+                  sx={{
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    m: 0,
+                    overflow: 'auto',
+                    p: 1,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                </Box>
+              ))
+            )}
+          </Stack>
+        </Paper>
       </Box>
     </Box>
   );

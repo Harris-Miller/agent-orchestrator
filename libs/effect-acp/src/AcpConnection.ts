@@ -52,6 +52,10 @@ export const routeDecodedMessage = (
   }
 };
 
+export type AcpWireTap = {
+  readonly onMessage: (direction: 'in' | 'out', message: unknown) => void;
+};
+
 export type AcpAgentConnection = {
   readonly agent: RpcClient.FromGroup<typeof AgentRpcs, RpcClientError>;
   readonly handle: ChildProcessSpawner.ChildProcessHandle;
@@ -69,7 +73,11 @@ const toRpcClientError = (error: TransportError): RpcClientErrorValue =>
 export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
   command: ChildProcess.Command,
   clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ClientRpcs>>>,
+  options?: {
+    readonly wireTap?: AcpWireTap;
+  },
 ) {
+  const wireTap = options?.wireTap;
   const handle = yield* command;
 
   const pendingClientRequestIds = new Set<number | string>();
@@ -83,6 +91,8 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
       if (typeof message !== 'object' || message === null || !('_tag' in message)) {
         return;
       }
+
+      wireTap?.onMessage('in', message);
 
       if (message._tag === 'Chunk' || message._tag === 'Defect') {
         if (
@@ -129,7 +139,7 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
       }
     });
 
-  const transport = yield* makeStdioTransport(handle, demuxRoute).pipe(
+  const transport = yield* makeStdioTransport(handle, demuxRoute, wireTap).pipe(
     Effect.provideService(RpcSerialization.RpcSerialization, RpcSerialization.ndJsonRpc()),
   );
 

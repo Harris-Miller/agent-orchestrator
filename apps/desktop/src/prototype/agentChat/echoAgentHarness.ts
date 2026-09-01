@@ -63,9 +63,16 @@ export type ChatMessage = {
 
 export type EchoHarnessStatus = 'connecting' | 'error' | 'idle' | 'ready';
 
+export type RpcWireEntry = {
+  readonly direction: 'in' | 'out';
+  readonly id: string;
+  readonly message: unknown;
+};
+
 export type EchoHarnessSnapshot = {
   readonly error?: string;
   readonly messages: readonly ChatMessage[];
+  readonly rpcCalls: readonly RpcWireEntry[];
   readonly sessionId?: string;
   readonly status: EchoHarnessStatus;
 };
@@ -119,13 +126,18 @@ export type EchoAgentHandle = AcpAgentConnection['agent'];
 export const startEchoHarness = (handlers: {
   onAgentMessage: (text: string) => void;
   onReady: (sessionId: string, agent: EchoAgentHandle) => void;
+  onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   onStatus: (status: EchoHarnessStatus, error?: string) => void;
 }) =>
   Effect.gen(function* () {
     handlers.onStatus('connecting');
 
     const echoMain = yield* resolveEchoMain();
-    const { agent } = yield* connectAcpAgent(makeEchoCommand(echoMain), makeClientHandlers(handlers.onAgentMessage));
+    const { agent } = yield* connectAcpAgent(makeEchoCommand(echoMain), makeClientHandlers(handlers.onAgentMessage), {
+      wireTap: {
+        onMessage: handlers.onRpcMessage,
+      },
+    });
 
     yield* agent.initialize({ protocolVersion: 1 });
     const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });

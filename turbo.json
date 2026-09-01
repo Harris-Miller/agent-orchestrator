@@ -2,11 +2,6 @@
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
   "tasks": {
-    "transit": {
-      "dependsOn": [
-        "^transit"
-      ]
-    },
     "build": {
       "dependsOn": [
         "^build"
@@ -42,5 +37,9 @@
       "cache": false,
       "persistent": true
     },
+    "tauri:dev": {
+      "cache": false,
+      "persistent": true
+    }
   }
 }

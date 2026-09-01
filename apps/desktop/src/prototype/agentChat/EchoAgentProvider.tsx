@@ -11,6 +11,7 @@ import { EchoAgentContext } from './useEchoAgent.ts';
 
 const initialSnapshot = (): EchoHarnessSnapshot => ({
   messages: [],
+  rpcCalls: [],
   status: 'idle',
 });
 
@@ -44,6 +45,12 @@ export const EchoAgentProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setSnapshot(current => ({
           ...current,
           sessionId,
+        }));
+      },
+      onRpcMessage: (direction, message) => {
+        setSnapshot(current => ({
+          ...current,
+          rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message }],
         }));
       },
       onStatus: (status, error) => {

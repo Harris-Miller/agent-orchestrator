@@ -13,6 +13,9 @@ const textDecoder = new TextDecoder();
 export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
   handle: ChildProcessSpawner.ChildProcessHandle,
   route: (message: unknown) => Effect.Effect<void>,
+  wireTap?: {
+    readonly onMessage: (direction: 'in' | 'out', message: unknown) => void;
+  },
 ) {
   const serialization = yield* RpcSerialization.RpcSerialization;
   const parser = serialization.makeUnsafe();
@@ -32,6 +35,7 @@ export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
 
   const send = (message: unknown): Effect.Effect<void, TransportError> =>
     Effect.gen(function* () {
+      wireTap?.onMessage('out', message);
       const bytes = yield* encodeToBytes(message);
       if (bytes === undefined) {
         return;

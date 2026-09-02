@@ -122,6 +122,23 @@ export const echoSessionNewResponse = (sessionId: string) => ({
   sessionId,
 });
 
+export const echoSessionLoadResponse = (modeId: string, modelId: string) => {
+  const base = echoSessionNewResponse('placeholder');
+  return {
+    configOptions: base.configOptions.map(option =>
+      option.id === 'model'
+        ? { ...option, currentValue: modelId }
+        : option.id === 'mode'
+          ? { ...option, currentValue: modeId }
+          : option,
+    ),
+    modes: {
+      ...base.modes,
+      currentModeId: modeId,
+    },
+  };
+};
+
 export const echoAvailableCommandsUpdate = () => ({
   availableCommands: [...ECHO_AVAILABLE_COMMANDS],
   sessionUpdate: 'available_commands_update' as const,

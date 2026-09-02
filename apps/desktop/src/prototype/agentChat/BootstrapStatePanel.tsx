@@ -13,12 +13,13 @@ import type { FC, ReactNode } from 'react';
 
 import { normalizeInitialize, normalizeSession } from './acpSessionBootstrap.ts';
 import type {
-  BackendSnapshot,
   NormalizedCapability,
   NormalizedConfigOption,
   NormalizedMode,
   NormalizedModel,
+  SessionSnapshot,
 } from './acpSessionBootstrap.ts';
+import type { AvailableCommand } from './sessionUpdateReducer.ts';
 
 export const SESSION_STATE_DRAWER_WIDTH = 380;
 
@@ -163,20 +164,21 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
 );
 
 const SessionStateContent: FC<{
-  readonly availableCommands: BackendSnapshot['availableCommands'];
-  readonly initializeResult: BackendSnapshot['initializeResult'];
+  readonly availableCommands?: readonly AvailableCommand[];
+  readonly initializeResult: unknown;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
-  readonly sessionNewResult: BackendSnapshot['sessionNewResult'];
-}> = ({ availableCommands, initializeResult, selectedModeId, selectedModelId, sessionNewResult }) => {
+  readonly session?: SessionSnapshot;
+  readonly showSessionDetails: boolean;
+}> = ({ availableCommands, initializeResult, selectedModeId, selectedModelId, session, showSessionDetails }) => {
   const initialize = normalizeInitialize(initializeResult);
-  const session = normalizeSession(sessionNewResult);
+  const sessionState = session?.sessionState !== undefined ? normalizeSession(session.sessionState) : undefined;
   const capabilityGroups = initialize === undefined ? [] : groupCapabilities(initialize.capabilities);
 
   return (
     <Stack spacing={2}>
       <Typography color="text.secondary" variant="body2">
-        Abstracted from initialize, session/new, and available_commands_update.
+        Abstracted from initialize, session lifecycle RPCs, and available_commands_update.
       </Typography>
 
       <Divider />
@@ -268,127 +270,143 @@ const SessionStateContent: FC<{
         ) : null}
       </Section>
 
-      <Divider />
+      {showSessionDetails ? (
+        <>
+          <Divider />
 
-      <Section pending={session === undefined} title="Session">
-        {session !== undefined ? (
-          <Stack spacing={1.5}>
-            {session.sessionId !== undefined ? (
-              <Chip label={session.sessionId} size="small" sx={{ alignSelf: 'flex-start', fontFamily: 'monospace' }} />
-            ) : null}
+          <Section pending={sessionState === undefined} title="Session">
+            {sessionState !== undefined ? (
+              <Stack spacing={1.5}>
+                {session?.sessionId !== undefined ? (
+                  <Chip
+                    label={session.sessionId}
+                    size="small"
+                    sx={{ alignSelf: 'flex-start', fontFamily: 'monospace' }}
+                  />
+                ) : null}
 
-            <Stack spacing={0.75}>
-              <Typography color="text.secondary" variant="caption">
-                Models
-              </Typography>
-              <OptionChips currentId={selectedModelId ?? session.models.currentId} options={session.models.options} />
-            </Stack>
-
-            <Stack spacing={0.75}>
-              <Typography color="text.secondary" variant="caption">
-                Modes
-              </Typography>
-              <OptionChips currentId={selectedModeId ?? session.modes.currentId} options={session.modes.options} />
-            </Stack>
-
-            {session.configOptions.length > 0 ? (
-              <Stack spacing={0.75}>
-                <Typography color="text.secondary" variant="caption">
-                  Config options
-                </Typography>
-                <Stack spacing={1}>
-                  {session.configOptions.map(option => (
-                    <ConfigOptionCard key={option.id} option={option} />
-                  ))}
+                <Stack spacing={0.75}>
+                  <Typography color="text.secondary" variant="caption">
+                    Models
+                  </Typography>
+                  <OptionChips
+                    currentId={selectedModelId ?? sessionState.models.currentId}
+                    options={sessionState.models.options}
+                  />
                 </Stack>
+
+                <Stack spacing={0.75}>
+                  <Typography color="text.secondary" variant="caption">
+                    Modes
+                  </Typography>
+                  <OptionChips
+                    currentId={selectedModeId ?? sessionState.modes.currentId}
+                    options={sessionState.modes.options}
+                  />
+                </Stack>
+
+                {sessionState.configOptions.length > 0 ? (
+                  <Stack spacing={0.75}>
+                    <Typography color="text.secondary" variant="caption">
+                      Config options
+                    </Typography>
+                    <Stack spacing={1}>
+                      {sessionState.configOptions.map(option => (
+                        <ConfigOptionCard key={option.id} option={option} />
+                      ))}
+                    </Stack>
+                  </Stack>
+                ) : null}
               </Stack>
             ) : null}
-          </Stack>
-        ) : null}
-      </Section>
+          </Section>
 
-      <Divider />
+          <Divider />
 
-      <Section pending={availableCommands === undefined} title="Commands">
-        {availableCommands !== undefined ? (
-          availableCommands.length === 0 ? (
-            <Typography color="text.secondary" variant="body2">
-              None reported
-            </Typography>
-          ) : (
-            <List dense disablePadding>
-              {availableCommands.map(command => (
-                <ListItem disableGutters key={command.name} sx={{ px: 0 }}>
-                  <ListItemText
-                    primary={command.name}
-                    secondary={command.description}
-                    slotProps={{
-                      primary: { sx: { fontFamily: 'monospace', fontWeight: 600 } },
-                      secondary: { sx: { color: 'text.secondary' } },
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )
-        ) : null}
-      </Section>
+          <Section pending={availableCommands === undefined} title="Commands">
+            {availableCommands !== undefined ? (
+              availableCommands.length === 0 ? (
+                <Typography color="text.secondary" variant="body2">
+                  None reported
+                </Typography>
+              ) : (
+                <List dense disablePadding>
+                  {availableCommands.map(command => (
+                    <ListItem disableGutters key={command.name} sx={{ px: 0 }}>
+                      <ListItemText
+                        primary={command.name}
+                        secondary={command.description}
+                        slotProps={{
+                          primary: { sx: { fontFamily: 'monospace', fontWeight: 600 } },
+                          secondary: { sx: { color: 'text.secondary' } },
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )
+            ) : null}
+          </Section>
+        </>
+      ) : null}
     </Stack>
   );
 };
 
 export const BootstrapStatePanel: FC<{
-  readonly availableCommands: BackendSnapshot['availableCommands'];
-  readonly initializeResult: BackendSnapshot['initializeResult'];
+  readonly initializeResult: unknown;
   readonly onClose: () => void;
   readonly open: boolean;
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
-  readonly sessionNewResult: BackendSnapshot['sessionNewResult'];
-}> = ({ availableCommands, initializeResult, onClose, open, selectedModeId, selectedModelId, sessionNewResult }) => (
-  <Drawer
-    anchor="right"
-    open={open}
-    sx={{
-      '& .MuiDrawer-paper': {
-        borderColor: 'divider',
-        borderLeft: 1,
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        width: SESSION_STATE_DRAWER_WIDTH,
-      },
-      flexShrink: 0,
-      width: SESSION_STATE_DRAWER_WIDTH,
-    }}
-    variant="persistent"
-  >
-    <Box
+  readonly session?: SessionSnapshot;
+}> = ({ initializeResult, onClose, open, session }) => {
+  const showSessionDetails = session?.status === 'active';
+
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
       sx={{
-        alignItems: 'center',
-        display: 'flex',
+        '& .MuiDrawer-paper': {
+          borderColor: 'divider',
+          borderLeft: 1,
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          width: SESSION_STATE_DRAWER_WIDTH,
+        },
         flexShrink: 0,
-        justifyContent: 'space-between',
-        px: 2,
-        py: 1.5,
+        width: SESSION_STATE_DRAWER_WIDTH,
       }}
+      variant="persistent"
     >
-      <Typography variant="h6">Session state</Typography>
-      <IconButton aria-label="Close session state drawer" edge="end" onClick={onClose} size="small">
-        <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-          ›
-        </Typography>
-      </IconButton>
-    </Box>
-    <Divider />
-    <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
-      <SessionStateContent
-        availableCommands={availableCommands}
-        initializeResult={initializeResult}
-        selectedModeId={selectedModeId}
-        selectedModelId={selectedModelId}
-        sessionNewResult={sessionNewResult}
-      />
-    </Box>
-  </Drawer>
-);
+      <Box
+        sx={{
+          alignItems: 'center',
+          display: 'flex',
+          flexShrink: 0,
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1.5,
+        }}
+      >
+        <Typography variant="h6">Session state</Typography>
+        <IconButton aria-label="Close session state drawer" edge="end" onClick={onClose} size="small">
+          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+            ›
+          </Typography>
+        </IconButton>
+      </Box>
+      <Divider />
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
+        <SessionStateContent
+          availableCommands={session?.availableCommands}
+          initializeResult={initializeResult}
+          selectedModeId={session?.selectedModeId}
+          selectedModelId={session?.selectedModelId}
+          session={session}
+          showSessionDetails={showSessionDetails}
+        />
+      </Box>
+    </Drawer>
+  );
+};

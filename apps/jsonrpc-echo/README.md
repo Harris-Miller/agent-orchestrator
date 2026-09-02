@@ -21,15 +21,18 @@ Available fixtures:
 
 Each `.jsonl` line is one ACP `SessionUpdate` object (the `params.update` payload). Use `{{promptText}}` in string fields to substitute the joined prompt text.
 
-### Basic example
+### Session lifecycle
 
 ```
 (printf '%s\n' \
   '{ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": 1 } }' \
-  '{ "jsonrpc": "2.0", "id": 2, "method": "session/new", "params": { "cwd": ".", "mcpServers": [] } }' \
-  '{ "jsonrpc": "2.0", "id": 3, "method": "session/prompt", "params": { "sessionId": "echo-session-1", "prompt": [{ "type": "text", "text": "Hello" }] } }' \
+  '{ "jsonrpc": "2.0", "id": 2, "method": "session/list", "params": {} }' \
+  '{ "jsonrpc": "2.0", "id": 3, "method": "session/new", "params": { "cwd": ".", "mcpServers": [] } }' \
+  '{ "jsonrpc": "2.0", "id": 4, "method": "session/prompt", "params": { "sessionId": "<from session/new>", "prompt": [{ "type": "text", "text": "Hello" }] } }' \
 ; cat) | bun run src/main.ts
 ```
+
+`session/list` returns an empty array on a fresh instance; created session UUIDs appear after `session/new`. `session/load` replays stored chat history via `session/update` notifications.
 
 ### Tool-turn fixture
 
@@ -37,7 +40,7 @@ Each `.jsonl` line is one ACP `SessionUpdate` object (the `params.update` payloa
 (printf '%s\n' \
   '{ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": 1 } }' \
   '{ "jsonrpc": "2.0", "id": 2, "method": "session/new", "params": { "cwd": ".", "mcpServers": [] } }' \
-  '{ "jsonrpc": "2.0", "id": 3, "method": "session/prompt", "params": { "sessionId": "echo-session-1", "prompt": [{ "type": "text", "text": "/fixture tool-turn" }] } }' \
+  '{ "jsonrpc": "2.0", "id": 3, "method": "session/prompt", "params": { "sessionId": "<from session/new>", "prompt": [{ "type": "text", "text": "/fixture tool-turn" }] } }' \
 ; cat) | bun run src/main.ts
 ```
 

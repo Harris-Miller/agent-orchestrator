@@ -17,12 +17,42 @@ A single ordered unit in the Harness UI transcript — a user message, agent mes
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `session_open` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/new`, accumulates chat items from session updates, and retries on failure. One per mounted target; runs in parallel with siblings.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/list`, accumulates chat items from session updates, and retries on failure. One per mounted target; runs in parallel with siblings.
 _Avoid_: Connection, provider instance, worker
+
+## Sessions
+
+**Session roster**:
+Cached `session/list` results for an agent; shown in the left session drawer.
+_Avoid_: Session list, session catalog
+
+**Roster entry**:
+One row in the session roster: agent-reported identity and metadata (`sessionId`, `cwd`, optional `title`). May exist without a session snapshot until the user creates or activates it.
+_Avoid_: Session (when you mean the full working copy)
+
+**Session snapshot**:
+The Harness working copy for one session: transcript, status, model/mode selection, and session configuration. One per `sessionId` per backend harness.
+_Avoid_: Session record, session object
+
+**Session status**:
+Harness-reported lifecycle for a session snapshot: `activating` (load or resume in flight), `active` (loaded on the agent; prompts allowed), or `inactive` (not loaded, or closed via Deactivate). Not an ACP protocol concept.
+_Avoid_: Session state (ambiguous with session configuration)
+
+**Session configuration**:
+Normalized agent-reported session settings from a `session/new`, `session/load`, or `session/resume` response (models, modes, config options). Cached on the session snapshot.
+_Avoid_: Session state, session/new result
+
+**Selected session**:
+Per-agent UI focus; determines which transcript the main chat shows and which session receives prompts. One per agent; persists when switching agents.
+_Avoid_: Current session, focused session
+
+**Active session**:
+A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Multiple may be active per agent simultaneously; only the selected session accepts prompts.
+_Avoid_: Open session, live session
 
 ## Agent backends
 

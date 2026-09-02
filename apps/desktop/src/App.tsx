@@ -1,3 +1,4 @@
+import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,7 +27,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider noSsr theme={theme}>
       <CssBaseline />
-      <RouterProvider router={router} />
+      <Container
+        disableGutters
+        maxWidth={false}
+        sx={muiTheme => ({ minHeight: '100vh', minWidth: muiTheme.breakpoints.values.md })}
+      >
+        <RouterProvider router={router} />
+      </Container>
     </ThemeProvider>
   </QueryClientProvider>
 );

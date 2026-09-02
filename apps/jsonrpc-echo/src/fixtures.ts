@@ -94,18 +94,22 @@ export const loadFixtureUpdates = (name: string) =>
     return parseFixtureLines(readFileSync(fixturePath, 'utf8'));
   });
 
-export const replayFixture = (sessionId: string, prompt: readonly PromptBlock[]) =>
+export const resolveFixtureUpdates = (prompt: readonly PromptBlock[]) =>
   Effect.gen(function* () {
     const name = resolveFixtureName(prompt);
     const template = promptText(prompt);
     const updates = yield* loadFixtureUpdates(name);
+    return updates.map(update => applyPromptTemplate(update, template));
+  });
+
+export const replayFixture = (sessionId: string, prompt: readonly PromptBlock[]) =>
+  Effect.gen(function* () {
+    const name = resolveFixtureName(prompt);
+    const updates = yield* resolveFixtureUpdates(prompt);
 
     yield* Effect.log(`fixture: ${name} (${String(updates.length)} updates)`);
 
     for (const update of updates) {
-      yield* notifyClient('session/update', {
-        sessionId,
-        update: applyPromptTemplate(update, template),
-      }).pipe(Effect.orDie);
+      yield* notifyClient('session/update', { sessionId, update }).pipe(Effect.orDie);
     }
   });

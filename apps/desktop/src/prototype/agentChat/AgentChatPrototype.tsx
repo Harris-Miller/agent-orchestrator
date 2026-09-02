@@ -24,7 +24,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
 import {
@@ -33,6 +33,7 @@ import {
   draftAtom,
   restartBackendFn,
   selectedBackendAtom,
+  selectedSessionAtom,
   sendChatItemFn,
   setModeFn,
   setModelFn,
@@ -41,6 +42,7 @@ import { backendLabel, isRecord, normalizeModels, normalizeModes } from './acpSe
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
+import { SESSION_ROSTER_DRAWER_WIDTH, SessionRosterDrawer } from './SessionRosterDrawer.tsx';
 
 const RPC_WIRE_LOG_DRAWER_HEIGHT = 320;
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -56,10 +58,8 @@ const entryIdNameMap = new Map<number, string>();
 const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
   const arrow = entry.direction === 'out' ? '→' : '←';
   if (isRecord(entry.message)) {
-    console.log(entry.message);
     if (entry.direction === 'in') {
       if (entry.message.requestId != null) {
-        console.log('entryIdNameMap', entryIdNameMap);
         const cachedName = entryIdNameMap.get(entry.message.requestId as number);
         return `${arrow} ${cachedName ?? 'message'}`;
       }
@@ -99,7 +99,6 @@ const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' 
   switch (phase) {
     case 'connecting':
     case 'initialized':
-    case 'session_open':
       return 'warning';
     case 'error':
       return 'error';
@@ -111,11 +110,13 @@ const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' 
 };
 
 export const AgentChatPrototype: FC = () => {
+  const [sessionRosterOpen, setSessionRosterOpen] = useState(true);
   const [sessionStateOpen, setSessionStateOpen] = useState(true);
   const [rpcWireLogOpen, setRpcWireLogOpen] = useState(false);
   const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
   const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
   const snapshot = useAtomValue(activeSnapshotAtom);
+  const selectedSession = useAtomValue(selectedSessionAtom);
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
@@ -125,10 +126,12 @@ export const AgentChatPrototype: FC = () => {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
 
-  const models = normalizeModels(snapshot.sessionNewResult);
-  const modes = normalizeModes(snapshot.sessionNewResult);
-  const canSend = snapshot.phase === 'ready' && draft.trim().length > 0;
-  const controlsEnabled = snapshot.phase === 'ready';
+  const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
+  const models = normalizeModels(selectedSession?.sessionState);
+  const modes = normalizeModes(selectedSession?.sessionState);
+  const promptEnabled = selectedSession?.status === 'active';
+  const canSend = promptEnabled && draft.trim().length > 0;
+  const controlsEnabled = promptEnabled;
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -141,14 +144,25 @@ export const AgentChatPrototype: FC = () => {
     sendChatItem({ backend: selectedBackend, text }).catch(() => undefined);
   };
 
-  const emptyStateSecondary =
-    snapshot.phase === 'ready'
-      ? `${backendLabel(selectedBackend)} is connected — send a prompt${selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.`
-      : `Starting ${backendLabel(selectedBackend)} over ACP…`;
+  const emptyStateSecondary = (() => {
+    if (snapshot.phase !== 'ready') {
+      return `Starting ${backendLabel(selectedBackend)} over ACP…`;
+    }
+    if (selectedSession === undefined) {
+      return 'No session selected — create or select a session from the left panel.';
+    }
+    if (selectedSession.status === 'activating') {
+      return 'Activating session…';
+    }
+    if (selectedSession.status === 'inactive') {
+      return 'Session is inactive — activate it to send prompts.';
+    }
+    return `${backendLabel(selectedBackend)} is connected — send a prompt${selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.`;
+  })();
 
   useEffect(() => {
     pinnedToBottomRef.current = true;
-  }, [selectedBackend]);
+  }, [selectedBackend, selectedSession?.sessionId]);
 
   useLayoutEffect(() => {
     const chatScroll = chatScrollRef.current;
@@ -157,7 +171,7 @@ export const AgentChatPrototype: FC = () => {
     }
 
     chatScroll.scrollTop = chatScroll.scrollHeight;
-  }, [snapshot.chatItems]);
+  }, [chatItems]);
 
   return (
     <Box
@@ -179,17 +193,29 @@ export const AgentChatPrototype: FC = () => {
             easing: theme.transitions.easing.sharp,
           }),
           zIndex: theme.zIndex.appBar,
-          ...(sessionStateOpen && {
-            marginRight: `${SESSION_STATE_DRAWER_WIDTH}px`,
+          ...((sessionRosterOpen || sessionStateOpen) && {
+            marginLeft: sessionRosterOpen ? `${SESSION_ROSTER_DRAWER_WIDTH}px` : 0,
+            marginRight: sessionStateOpen ? `${SESSION_STATE_DRAWER_WIDTH}px` : 0,
             transition: theme.transitions.create(['margin', 'width'], {
               duration: theme.transitions.duration.enteringScreen,
               easing: theme.transitions.easing.easeOut,
             }),
-            width: `calc(100% - ${SESSION_STATE_DRAWER_WIDTH}px)`,
+            width: `calc(100% - ${sessionRosterOpen ? SESSION_ROSTER_DRAWER_WIDTH : 0}px - ${sessionStateOpen ? SESSION_STATE_DRAWER_WIDTH : 0}px)`,
           }),
         })}
       >
         <Toolbar sx={{ gap: 1 }}>
+          {sessionRosterOpen ? null : (
+            <Button
+              onClick={() => {
+                setSessionRosterOpen(true);
+              }}
+              size="small"
+              variant="outlined"
+            >
+              Sessions
+            </Button>
+          )}
           <Typography sx={{ flexGrow: 1 }} variant="h3">
             Agent Chat
           </Typography>
@@ -244,6 +270,14 @@ export const AgentChatPrototype: FC = () => {
       </AppBar>
 
       <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <SessionRosterDrawer
+          backend={selectedBackend}
+          onClose={() => {
+            setSessionRosterOpen(false);
+          }}
+          open={sessionRosterOpen}
+        />
+
         <Box
           component="main"
           sx={theme => ({
@@ -251,19 +285,17 @@ export const AgentChatPrototype: FC = () => {
             flex: 1,
             flexDirection: 'column',
             gap: 2,
-            marginBottom: rpcWireLogOpen ? `${RPC_WIRE_LOG_DRAWER_HEIGHT}px` : 0,
-            marginRight: sessionStateOpen ? 0 : `-${SESSION_STATE_DRAWER_WIDTH}px`,
             minHeight: 0,
             minWidth: 0,
             overflow: 'hidden',
             p: 2,
             position: 'relative',
-            transition: theme.transitions.create(['margin-bottom', 'margin-right'], {
+            transition: theme.transitions.create(['margin-bottom', 'margin-left', 'margin-right'], {
               duration: theme.transitions.duration.leavingScreen,
               easing: theme.transitions.easing.sharp,
             }),
-            ...((sessionStateOpen || rpcWireLogOpen) && {
-              transition: theme.transitions.create(['margin-bottom', 'margin-right'], {
+            ...((sessionRosterOpen || sessionStateOpen || rpcWireLogOpen) && {
+              transition: theme.transitions.create(['margin-bottom', 'margin-left', 'margin-right'], {
                 duration: theme.transitions.duration.enteringScreen,
                 easing: theme.transitions.easing.easeOut,
               }),
@@ -280,12 +312,12 @@ export const AgentChatPrototype: FC = () => {
             sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}
           >
             <List dense disablePadding>
-              {snapshot.chatItems.length === 0 ? (
+              {chatItems.length === 0 ? (
                 <ListItem>
                   <ListItemText primary="No messages yet" secondary={emptyStateSecondary} />
                 </ListItem>
               ) : (
-                snapshot.chatItems.map(item => <ChatItemView item={item} key={item.id} />)
+                chatItems.map(item => <ChatItemView item={item} key={item.id} />)
               )}
             </List>
           </Paper>
@@ -293,7 +325,7 @@ export const AgentChatPrototype: FC = () => {
           <Paper sx={{ flexShrink: 0, p: 2 }}>
             <Stack spacing={1}>
               <Typography color="text.secondary" variant="caption">
-                PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {snapshot.sessionId ?? '—'}
+                PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {selectedSession?.sessionId ?? '—'}
               </Typography>
               {snapshot.error !== undefined ? (
                 <Typography color="error" variant="body2">
@@ -320,7 +352,7 @@ export const AgentChatPrototype: FC = () => {
                       onChange={event => {
                         setModel({ backend: selectedBackend, modelId: event.target.value }).catch(() => undefined);
                       }}
-                      value={snapshot.selectedModelId ?? models.currentId ?? ''}
+                      value={selectedSession?.selectedModelId ?? models.currentId ?? ''}
                     >
                       {models.options.map(option => (
                         <MenuItem key={option.id} value={option.id}>
@@ -337,7 +369,7 @@ export const AgentChatPrototype: FC = () => {
                       onChange={event => {
                         setMode({ backend: selectedBackend, modeId: event.target.value }).catch(() => undefined);
                       }}
-                      value={snapshot.selectedModeId ?? modes.currentId ?? ''}
+                      value={selectedSession?.selectedModeId ?? modes.currentId ?? ''}
                     >
                       {modes.options.map(option => (
                         <MenuItem key={option.id} value={option.id}>
@@ -368,15 +400,12 @@ export const AgentChatPrototype: FC = () => {
         </Box>
 
         <BootstrapStatePanel
-          availableCommands={snapshot.availableCommands}
           initializeResult={snapshot.initializeResult}
           onClose={() => {
             setSessionStateOpen(false);
           }}
           open={sessionStateOpen}
-          selectedModeId={snapshot.selectedModeId}
-          selectedModelId={snapshot.selectedModelId}
-          sessionNewResult={snapshot.sessionNewResult}
+          session={selectedSession}
         />
       </Box>
 

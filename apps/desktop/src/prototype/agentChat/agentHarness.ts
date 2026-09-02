@@ -5,7 +5,7 @@
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
 import type { AcpAgentConnection } from '@libs/effect-acp';
-import { Deferred, Effect, Exit, Ref } from 'effect';
+import { Effect, Exit, Ref } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
@@ -96,22 +96,17 @@ export type RpcWireEntry = {
 
 export type AgentHandle = AcpAgentConnection['agent'];
 
-export type AgentSessionHandle = {
-  readonly agent: AgentHandle;
-  readonly sessionId: string;
-};
-
 export type BackendHarnessCallbacks = {
-  readonly onChatItems: (chatItems: readonly ChatItem[]) => void;
-  readonly onCommandsReady: (commands: readonly AvailableCommand[]) => void;
+  readonly onCommandsReady: (sessionId: string, commands: readonly AvailableCommand[]) => void;
   readonly onInitializeResult: (result: unknown) => void;
   readonly onPhase: (phase: AcpBootstrapPhase, error?: string) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
-  readonly onSessionNewResult: (result: unknown, sessionId: string, agent: AgentHandle) => void;
+  readonly onSessionRosterResult: (result: unknown) => void;
+  readonly onSessionUpdate: (sessionId: string, chatItems: readonly ChatItem[], update: unknown) => void;
 };
 
-const agentHandles = new Map<AcpAgentBackend, AgentSessionHandle>();
-const chatAccumulators = new Map<AcpAgentBackend, ReturnType<typeof emptyChatAccumulator>>();
+const agentHandles = new Map<AcpAgentBackend, AgentHandle>();
+const chatAccumulators = new Map<AcpAgentBackend, Map<string, ReturnType<typeof emptyChatAccumulator>>>();
 const stoppedRefs = new Map<AcpAgentBackend, Ref.Ref<boolean>>();
 
 const getStoppedRef = (backend: AcpAgentBackend): Ref.Ref<boolean> => {
@@ -125,29 +120,49 @@ const getStoppedRef = (backend: AcpAgentBackend): Ref.Ref<boolean> => {
   return created;
 };
 
-export const getAgentSessionHandle = (backend: AcpAgentBackend): AgentSessionHandle | undefined =>
-  agentHandles.get(backend);
+const getSessionAccumulators = (backend: AcpAgentBackend): Map<string, ReturnType<typeof emptyChatAccumulator>> => {
+  const existing = chatAccumulators.get(backend);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const created = new Map<string, ReturnType<typeof emptyChatAccumulator>>();
+  chatAccumulators.set(backend, created);
+  return created;
+};
+
+export const getAgentHandle = (backend: AcpAgentBackend): AgentHandle | undefined => agentHandles.get(backend);
 
 export const resetBackendHarnessState = (backend: AcpAgentBackend): void => {
   agentHandles.delete(backend);
-  chatAccumulators.set(backend, emptyChatAccumulator());
+  chatAccumulators.set(backend, new Map());
 };
 
-export const appendBackendUserChatItem = (backend: AcpAgentBackend, text: string): readonly ChatItem[] => {
-  const accumulator = chatAccumulators.get(backend) ?? emptyChatAccumulator();
+export const appendBackendUserChatItem = (
+  backend: AcpAgentBackend,
+  sessionId: string,
+  text: string,
+): readonly ChatItem[] => {
+  const sessionAccumulators = getSessionAccumulators(backend);
+  const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
   const next = appendUserChatMessage(accumulator, text);
-  chatAccumulators.set(backend, next);
+  sessionAccumulators.set(sessionId, next);
   return chatItemsFromAccumulator(next);
 };
 
-const reduceBackendSessionUpdate = (backend: AcpAgentBackend, update: unknown): readonly ChatItem[] => {
-  const accumulator = chatAccumulators.get(backend) ?? emptyChatAccumulator();
+const reduceBackendSessionUpdate = (
+  backend: AcpAgentBackend,
+  sessionId: string,
+  update: unknown,
+): readonly ChatItem[] => {
+  const sessionAccumulators = getSessionAccumulators(backend);
+  const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
   const next = reduceSessionUpdate(accumulator, update);
-  chatAccumulators.set(backend, next);
+  sessionAccumulators.set(sessionId, next);
   return chatItemsFromAccumulator(next);
 };
 
-const makeClientHandlers = (onSessionUpdate: (update: unknown) => void) =>
+const makeClientHandlers = (onSessionUpdate: (sessionId: string, update: unknown) => void) =>
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
@@ -157,7 +172,7 @@ const makeClientHandlers = (onSessionUpdate: (update: unknown) => void) =>
       'session/request_permission': () => Effect.succeed({ outcome: { outcome: 'cancelled' as const } }),
       'session/update': payload =>
         Effect.sync(() => {
-          onSessionUpdate(payload.update);
+          onSessionUpdate(payload.sessionId, payload.update);
         }),
       'terminal/create': () => Effect.succeed({ terminalId: 'prototype-terminal' }),
       'terminal/kill': () => Effect.succeed({}),
@@ -169,25 +184,19 @@ const makeClientHandlers = (onSessionUpdate: (update: unknown) => void) =>
 
 const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
   Effect.gen(function* () {
-    const os = yield* OS;
     handlers.onPhase('connecting');
-    chatAccumulators.set(backend, emptyChatAccumulator());
-
-    const commandsDeferred = yield* Deferred.make<readonly AvailableCommand[]>();
-    let commandsSent = false;
+    chatAccumulators.set(backend, new Map());
 
     const command = yield* makeAgentCommand(backend);
     const connection = yield* connectAcpAgent(
       command,
-      makeClientHandlers(update => {
-        const chatItems = reduceBackendSessionUpdate(backend, update);
-        handlers.onChatItems(chatItems);
+      makeClientHandlers((sessionId, update) => {
+        const chatItems = reduceBackendSessionUpdate(backend, sessionId, update);
+        handlers.onSessionUpdate(sessionId, chatItems, update);
 
-        if (isRecord(update) && update.sessionUpdate === 'available_commands_update' && !commandsSent) {
+        if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
           const commands = parseAvailableCommands(update.availableCommands);
-          commandsSent = true;
-          handlers.onCommandsReady(commands);
-          Deferred.doneUnsafe(commandsDeferred, Effect.succeed(commands));
+          handlers.onCommandsReady(sessionId, commands);
         }
       }),
       {
@@ -198,20 +207,14 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     );
 
     const { agent } = connection;
+    agentHandles.set(backend, agent);
+
     const initializeResult = yield* agent.initialize({ protocolVersion: 1 });
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
 
-    const session = yield* agent['session/new']({
-      cwd: backend === 'echo' ? '.' : os.cwd(),
-      mcpServers: [],
-    });
-
-    agentHandles.set(backend, { agent, sessionId: session.sessionId });
-    handlers.onSessionNewResult(session, session.sessionId, agent);
-    handlers.onPhase('session_open');
-
-    yield* Deferred.await(commandsDeferred);
+    const listResult = yield* agent['session/list']({});
+    handlers.onSessionRosterResult(listResult);
     handlers.onPhase('ready');
 
     return yield* Effect.never;
@@ -244,6 +247,38 @@ export const stopBackendHarness = (backend: AcpAgentBackend) =>
     yield* Ref.set(getStoppedRef(backend), true);
     agentHandles.delete(backend);
   });
+
+const sessionCwd = (backend: AcpAgentBackend) =>
+  Effect.gen(function* () {
+    const os = yield* OS;
+    return backend === 'echo' ? '.' : os.cwd();
+  }).pipe(Effect.provide(TauriServicesLive));
+
+export const listSessions = (agent: AgentHandle) => agent['session/list']({}).pipe(Effect.provide(TauriServicesLive));
+
+export const createSession = (agent: AgentHandle, backend: AcpAgentBackend) =>
+  Effect.gen(function* () {
+    const cwd = yield* sessionCwd(backend);
+    return yield* agent['session/new']({ cwd, mcpServers: [] });
+  });
+
+export const loadSession = (agent: AgentHandle, backend: AcpAgentBackend, sessionId: string) =>
+  Effect.gen(function* () {
+    const cwd = yield* sessionCwd(backend);
+    return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
+  });
+
+export const resumeSession = (agent: AgentHandle, backend: AcpAgentBackend, sessionId: string) =>
+  Effect.gen(function* () {
+    const cwd = yield* sessionCwd(backend);
+    return yield* agent['session/resume']({ cwd, sessionId });
+  });
+
+export const closeSession = (agent: AgentHandle, sessionId: string) =>
+  agent['session/close']({ sessionId }).pipe(Effect.provide(TauriServicesLive));
+
+export const deleteSession = (agent: AgentHandle, sessionId: string) =>
+  agent['session/delete']({ sessionId }).pipe(Effect.provide(TauriServicesLive));
 
 export const sendPrompt = (agent: AgentHandle, sessionId: string, text: string) =>
   agent['session/prompt']({

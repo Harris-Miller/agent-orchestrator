@@ -6,14 +6,22 @@ import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import {
   echoAvailableCommandsUpdate,
   echoInitializeResponse,
+  echoSessionLoadResponse,
   echoSessionNewResponse,
   echoSetConfigOptionResponse,
   echoSetModeResponse,
 } from './bootstrapResponses.ts';
-import { replayFixture } from './fixtures.ts';
+import { resolveFixtureUpdates } from './fixtures.ts';
 import { notifyClient } from './notifyClient.ts';
 
-const ECHO_SESSION_ID = 'echo-session-1';
+type EchoSession = {
+  active: boolean;
+  chatUpdates: unknown[];
+  cwd: string;
+  modeId: string;
+  modelId: string;
+  sessionId: string;
+};
 
 const methodNotFound = (method: string) =>
   Effect.fail(
@@ -23,11 +31,37 @@ const methodNotFound = (method: string) =>
     }),
   );
 
+const sessionNotFound = (sessionId: string) =>
+  Effect.fail(
+    AcpError.make({
+      code: -32602,
+      message: `Session not found: ${sessionId}`,
+    }),
+  );
+
+const notifySessionUpdate = (session: EchoSession, update: unknown) =>
+  Effect.gen(function* () {
+    session.chatUpdates.push(update);
+    yield* notifyClient('session/update', {
+      sessionId: session.sessionId,
+      update,
+    }).pipe(Effect.orDie);
+  });
+
 const Handlers = AgentRpcs.toLayer(
   Effect.gen(function* () {
     const initialized = yield* Ref.make(false);
-    const currentModeId = yield* Ref.make('default');
-    const currentModelId = yield* Ref.make('echo-model');
+    const sessions = yield* Ref.make(new Map<string, EchoSession>());
+
+    const getSession = (sessionId: string) =>
+      Effect.gen(function* () {
+        const store = yield* Ref.get(sessions);
+        const session = store.get(sessionId);
+        if (session === undefined) {
+          return yield* sessionNotFound(sessionId);
+        }
+        return session;
+      });
 
     return {
       authenticate: () => methodNotFound('authenticate'),
@@ -48,28 +82,95 @@ const Handlers = AgentRpcs.toLayer(
         }),
       logout: () => methodNotFound('logout'),
       'session/cancel': () => Effect.void,
-      'session/close': () => methodNotFound('session/close'),
-      'session/delete': () => methodNotFound('session/delete'),
-      'session/list': () => methodNotFound('session/list'),
-      'session/load': () => methodNotFound('session/load'),
-      'session/new': () =>
+      'session/close': ({ sessionId }) =>
         Effect.gen(function* () {
-          yield* Effect.log('Creating session...');
-          const response = echoSessionNewResponse(ECHO_SESSION_ID);
-          yield* notifyClient('session/update', {
-            sessionId: ECHO_SESSION_ID,
-            update: echoAvailableCommandsUpdate(),
-          }).pipe(Effect.orDie);
+          const session = yield* getSession(sessionId);
+          session.active = false;
+          yield* Effect.log(`Closed session ${sessionId}`);
+          return {};
+        }),
+      'session/delete': ({ sessionId }) =>
+        Effect.gen(function* () {
+          const store = yield* Ref.get(sessions);
+          if (!store.has(sessionId)) {
+            return yield* sessionNotFound(sessionId);
+          }
+
+          const next = new Map(store);
+          next.delete(sessionId);
+          yield* Ref.set(sessions, next);
+          yield* Effect.log(`Deleted session ${sessionId}`);
+          return {};
+        }),
+      'session/list': () =>
+        Effect.gen(function* () {
+          const store = yield* Ref.get(sessions);
+          return {
+            sessions: [...store.values()].map(session => ({
+              cwd: session.cwd,
+              sessionId: session.sessionId,
+            })),
+          };
+        }),
+      'session/load': ({ sessionId }) =>
+        Effect.gen(function* () {
+          const session = yield* getSession(sessionId);
+          session.active = true;
+          yield* Effect.log(`Loading session ${sessionId}`);
+
+          for (const update of session.chatUpdates) {
+            yield* notifyClient('session/update', {
+              sessionId: session.sessionId,
+              update,
+            }).pipe(Effect.orDie);
+          }
+
+          return echoSessionLoadResponse(session.modeId, session.modelId);
+        }),
+      'session/new': ({ cwd }) =>
+        Effect.gen(function* () {
+          const sessionId = crypto.randomUUID();
+          yield* Effect.log(`Creating session ${sessionId}...`);
+
+          const session: EchoSession = {
+            active: true,
+            chatUpdates: [],
+            cwd,
+            modeId: 'default',
+            modelId: 'echo-model',
+            sessionId,
+          };
+
+          const store = yield* Ref.get(sessions);
+          const next = new Map(store);
+          next.set(sessionId, session);
+          yield* Ref.set(sessions, next);
+
+          const response = echoSessionNewResponse(sessionId);
+          yield* notifySessionUpdate(session, echoAvailableCommandsUpdate());
           return response;
         }),
       'session/prompt': ({ prompt, sessionId }) =>
         Effect.gen(function* () {
+          const session = yield* getSession(sessionId);
           yield* Effect.log(`prompt blocks: ${String(prompt.length)}`);
-          yield* replayFixture(sessionId, prompt);
+
+          const updates = yield* resolveFixtureUpdates(prompt);
+          yield* Effect.log(`fixture replay: ${String(updates.length)} updates`);
+
+          for (const update of updates) {
+            yield* notifySessionUpdate(session, update);
+          }
 
           return { stopReason: 'end_turn' as const };
         }),
-      'session/resume': () => methodNotFound('session/resume'),
+      'session/resume': ({ sessionId }) =>
+        Effect.gen(function* () {
+          const session = yield* getSession(sessionId);
+          session.active = true;
+          yield* Effect.log(`Resuming session ${sessionId}`);
+          return echoSessionLoadResponse(session.modeId, session.modelId);
+        }),
       'session/set_config_option': ({ configId, sessionId, value }) =>
         Effect.gen(function* () {
           if (typeof value !== 'string') {
@@ -81,30 +182,31 @@ const Handlers = AgentRpcs.toLayer(
             );
           }
 
+          const session = yield* getSession(sessionId);
+
           if (configId === 'model') {
-            yield* Ref.set(currentModelId, value);
+            session.modelId = value;
           }
 
-          yield* notifyClient('session/update', {
-            sessionId,
-            update: {
-              configOptions: echoSetConfigOptionResponse(configId, value).configOptions,
-              sessionUpdate: 'config_option_update',
-            },
-          }).pipe(Effect.orDie);
+          const update = {
+            configOptions: echoSetConfigOptionResponse(configId, value).configOptions,
+            sessionUpdate: 'config_option_update' as const,
+          };
+          yield* notifySessionUpdate(session, update);
 
           return echoSetConfigOptionResponse(configId, value);
         }),
       'session/set_mode': ({ modeId, sessionId }) =>
         Effect.gen(function* () {
-          yield* Ref.set(currentModeId, modeId);
-          yield* notifyClient('session/update', {
-            sessionId,
-            update: {
-              configOptions: echoSetModeResponse(modeId).configOptions,
-              sessionUpdate: 'config_option_update',
-            },
-          }).pipe(Effect.orDie);
+          const session = yield* getSession(sessionId);
+          session.modeId = modeId;
+
+          const update = {
+            configOptions: echoSetModeResponse(modeId).configOptions,
+            sessionUpdate: 'config_option_update' as const,
+          };
+          yield* notifySessionUpdate(session, update);
+
           return {};
         }),
     };

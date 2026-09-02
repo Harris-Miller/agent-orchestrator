@@ -3,19 +3,35 @@
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import type { AvailableCommand, ChatItem } from './sessionUpdateReducer.ts';
 
-export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready' | 'session_open';
+export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
 
-export type BackendSnapshot = {
+export type SessionStatus = 'activating' | 'active' | 'inactive';
+
+export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
   readonly chatItems: readonly ChatItem[];
+  readonly selectedModeId?: string;
+  readonly selectedModelId?: string;
+  readonly sessionId: string;
+  readonly sessionState?: unknown;
+  readonly status: SessionStatus;
+};
+
+export type NormalizedSessionInfo = {
+  readonly cwd: string;
+  readonly sessionId: string;
+  readonly title?: string;
+  readonly updatedAt?: string;
+};
+
+export type BackendSnapshot = {
   readonly error?: string;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
-  readonly sessionId?: string;
-  readonly sessionNewResult?: unknown;
+  readonly selectedSessionId?: string;
+  readonly sessionRoster: readonly NormalizedSessionInfo[];
+  readonly sessions: Readonly<Record<string, SessionSnapshot>>;
 };
 
 export type NormalizedModel = {
@@ -101,13 +117,49 @@ export const backendLabel = (backend: AcpAgentBackend): string => {
 };
 
 export const initialBackendSnapshot = (): BackendSnapshot => ({
-  chatItems: [],
   phase: 'connecting',
   rpcCalls: [],
+  sessionRoster: [],
+  sessions: {},
 });
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
+
+export const initialSessionSnapshot = (sessionId: string, status: SessionStatus = 'inactive'): SessionSnapshot => ({
+  chatItems: [],
+  sessionId,
+  status,
+});
+
+export const normalizeSessionRoster = (listResult: unknown): readonly NormalizedSessionInfo[] => {
+  if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
+    return [];
+  }
+
+  return listResult.sessions.flatMap(entry => {
+    if (!isRecord(entry) || typeof entry.sessionId !== 'string' || typeof entry.cwd !== 'string') {
+      return [];
+    }
+
+    return [
+      {
+        cwd: entry.cwd,
+        sessionId: entry.sessionId,
+        title: typeof entry.title === 'string' ? entry.title : undefined,
+        updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
+      },
+    ];
+  });
+};
+
+export const selectedSessionSnapshot = (snapshot: BackendSnapshot): SessionSnapshot | undefined => {
+  if (snapshot.selectedSessionId === undefined) {
+    return undefined;
+  }
+
+  return snapshot.sessions[snapshot.selectedSessionId];
+};
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   if (!Array.isArray(value)) {

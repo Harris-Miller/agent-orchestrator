@@ -17,6 +17,10 @@ Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/iss
 
 Multi-context: root `CONTEXT-MAP.md` points to per-package `CONTEXT.md` files; system-wide ADRs in `docs/adr/`, context-scoped ADRs under each package. See `docs/agents/domain.md`.
 
+## ACP (Agent Client Protocol)
+
+This repo communicates with ACP Servers that implement the V1 Spec. When needing to review that spec, refer to here: https://agentclientprotocol.com/llms.txt
+
 ## Learning more about Effect
 
 This repository uses the Effect Typescript library.

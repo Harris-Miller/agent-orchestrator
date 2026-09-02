@@ -318,7 +318,7 @@ export const deleteSessionFn = acpRuntime
       }
 
       const snapshot = get(backendStateAtom(arg.backend));
-      if (!(arg.sessionId in snapshot.sessions) || snapshot.sessions[arg.sessionId].status !== 'inactive') {
+      if (arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].status !== 'inactive') {
         return;
       }
 
@@ -326,17 +326,13 @@ export const deleteSessionFn = acpRuntime
 
       const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
       const selectedSessionId = snapshot.selectedSessionId === arg.sessionId ? undefined : snapshot.selectedSessionId;
+      const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);
 
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
         selectedSessionId,
+        sessionRoster,
         sessions: remainingSessions,
-      });
-
-      const listResult = yield* listSessions(agent);
-      get.set(backendStateAtom(arg.backend), {
-        ...get(backendStateAtom(arg.backend)),
-        sessionRoster: normalizeSessionRoster(listResult),
       });
     }),
   )

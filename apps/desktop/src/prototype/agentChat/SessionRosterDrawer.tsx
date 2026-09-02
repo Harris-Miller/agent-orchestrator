@@ -274,10 +274,16 @@ export const SessionRosterDrawer: FC<{
           <Button
             color="error"
             onClick={() => {
-              if (deleteTarget !== undefined) {
-                deleteSession({ backend, sessionId: deleteTarget }).catch(() => undefined);
+              if (deleteTarget === undefined) {
+                return;
               }
-              setDeleteTarget(undefined);
+
+              const sessionId = deleteTarget;
+              deleteSession({ backend, sessionId })
+                .then(() => {
+                  setDeleteTarget(undefined);
+                })
+                .catch(() => undefined);
             }}
             variant="contained"
           >

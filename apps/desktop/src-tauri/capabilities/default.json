@@ -32,6 +32,11 @@
           "args": true,
           "cmd": "claude-agent-acp",
           "name": "claude-agent-acp"
+        },
+        {
+          "args": true,
+          "cmd": "gemini",
+          "name": "gemini"
         }
       ]
     },
@@ -52,6 +57,11 @@
           "args": true,
           "cmd": "claude-agent-acp",
           "name": "claude-agent-acp"
+        },
+        {
+          "args": true,
+          "cmd": "gemini",
+          "name": "gemini"
         }
       ]
     }

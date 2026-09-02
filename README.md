@@ -12,13 +12,14 @@ Current in Proof-of-Concept stage
 * pnpm: https://pnpm.io/installation
 
 
-For `codex` and `claude` to work, you must have their respective CLI's installed and have already authenticated into them
+For **Codex** and **Claude** to work, you must have their respective CLIs installed and authenticated. You also need the following ACP adapter packages installed globally (I'm working on removing this requirement):
 
-Additionally, you need to following to packages installed globally (I'm working on removing this requirement)
 ```sh
 pnpm install -g @agentclientprotocol/codex-acp
 pnpm install -g @agentclientprotocol/claude-agent-acp
 ```
+
+For **Gemini**, you just need to have it's CLI installed and authenticated. It already speaks ACP, so no extra npm package needed.
 
 ## Developing locally
 

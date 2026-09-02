@@ -7,5 +7,7 @@ export const AcpBackendsMount: FC = () => {
   useAtomMount(backendHarnessAtom('echo'));
   useAtomMount(backendHarnessAtom('codex-acp'));
   useAtomMount(backendHarnessAtom('claude-agent-acp'));
+  // disabled until I shim gemini-cli in `libs/effect-acp`
+  // useAtomMount(backendHarnessAtom('gemini-cli'));
   return null;
 };

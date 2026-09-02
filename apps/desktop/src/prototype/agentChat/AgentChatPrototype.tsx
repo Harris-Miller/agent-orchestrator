@@ -58,10 +58,15 @@ const formatClientError = (error: unknown): string => {
   return String(error);
 };
 
-const backendOptions: readonly { readonly label: string; readonly value: AcpAgentBackend }[] = [
+const backendOptions: readonly {
+  readonly disabled?: boolean;
+  readonly label: string;
+  readonly value: AcpAgentBackend;
+}[] = [
   { label: 'Echo (jsonrpc-echo)', value: 'echo' },
   { label: 'Codex', value: 'codex-acp' },
   { label: 'Claude', value: 'claude-agent-acp' },
+  { disabled: true, label: 'Gemini', value: 'gemini-cli' },
 ];
 
 const entryIdNameMap = new Map<number, string>();
@@ -264,7 +269,7 @@ export const AgentChatPrototype: FC = () => {
               value={selectedBackend}
             >
               {backendOptions.map(option => (
-                <MenuItem key={option.value} value={option.value}>
+                <MenuItem disabled={option.disabled} key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>
               ))}

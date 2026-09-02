@@ -106,7 +106,12 @@ export type NormalizedSessionState = {
   readonly sessionId?: string;
 };
 
-export const ALL_ACP_BACKENDS = ['echo', 'codex-acp', 'claude-agent-acp'] as const satisfies readonly AcpAgentBackend[];
+export const ALL_ACP_BACKENDS = [
+  'echo',
+  'codex-acp',
+  'claude-agent-acp',
+  // 'gemini-cli',
+] as const satisfies readonly AcpAgentBackend[];
 
 export const backendLabel = (backend: AcpAgentBackend): string => {
   switch (backend) {
@@ -116,6 +121,8 @@ export const backendLabel = (backend: AcpAgentBackend): string => {
       return 'Codex';
     case 'echo':
       return 'Echo (jsonrpc-echo)';
+    case 'gemini-cli':
+      return 'Gemini';
   }
 };
 

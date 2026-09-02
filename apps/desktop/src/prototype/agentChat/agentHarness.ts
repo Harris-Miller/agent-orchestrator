@@ -1,6 +1,6 @@
 /**
  * PROTOTYPE — throwaway harness wiring ACP agents through connectAcpAgent.
- * Backends: jsonrpc-echo (local dev), codex-acp, claude-agent-acp (global bins).
+ * Backends: jsonrpc-echo (local dev), codex-acp, claude-agent-acp, gemini-cli (global bins).
  */
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
@@ -24,7 +24,7 @@ import {
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
 
-export type AcpAgentBackend = 'claude-agent-acp' | 'codex-acp' | 'echo';
+export type AcpAgentBackend = 'claude-agent-acp' | 'codex-acp' | 'echo' | 'gemini-cli';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -84,6 +84,8 @@ const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (backend: AcpAg
       const echoMain = yield* resolveEchoMain();
       return ChildProcess.make('bun', ['run', echoMain], pipedSpawnOptions);
     }
+    case 'gemini-cli':
+      return ChildProcess.make('gemini', ['--acp'], pipedSpawnOptions);
   }
 });
 

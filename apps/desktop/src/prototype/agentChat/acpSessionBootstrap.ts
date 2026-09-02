@@ -3,7 +3,7 @@
 import { isRecord } from '../../utils.ts';
 
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
-import type { AvailableCommand, ChatItem } from './sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
 
@@ -18,6 +18,7 @@ export type SessionSnapshot = {
   readonly sessionId: string;
   readonly sessionState?: unknown;
   readonly status: SessionStatus;
+  readonly usage?: SessionUsage;
 };
 
 export type NormalizedSessionInfo = {
@@ -139,24 +140,45 @@ export const initialSessionSnapshot = (sessionId: string, status: SessionStatus 
   status,
 });
 
+export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | undefined => {
+  if (!isRecord(entry) || typeof entry.sessionId !== 'string' || typeof entry.cwd !== 'string') {
+    return undefined;
+  }
+
+  return {
+    cwd: entry.cwd,
+    sessionId: entry.sessionId,
+    title: typeof entry.title === 'string' ? entry.title : undefined,
+    updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
+  };
+};
+
+export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined => {
+  if (!isRecord(result) || typeof result.sessionId !== 'string') {
+    return undefined;
+  }
+
+  return {
+    cwd,
+    sessionId: result.sessionId,
+    title: typeof result.title === 'string' ? result.title : undefined,
+    updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
+  };
+};
+
+export const upsertRosterEntry = (
+  roster: readonly NormalizedSessionInfo[],
+  entry: NormalizedSessionInfo,
+): readonly NormalizedSessionInfo[] => [entry, ...roster.filter(item => item.sessionId !== entry.sessionId)];
+
 export const normalizeSessionRoster = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];
   }
 
   return listResult.sessions.flatMap(entry => {
-    if (!isRecord(entry) || typeof entry.sessionId !== 'string' || typeof entry.cwd !== 'string') {
-      return [];
-    }
-
-    return [
-      {
-        cwd: entry.cwd,
-        sessionId: entry.sessionId,
-        title: typeof entry.title === 'string' ? entry.title : undefined,
-        updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
-      },
-    ];
+    const normalized = normalizeSessionInfo(entry);
+    return normalized === undefined ? [] : [normalized];
   });
 };
 

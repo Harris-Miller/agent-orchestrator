@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
@@ -9,15 +8,6 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { ChatItem } from './sessionUpdateReducer.ts';
-
-const formatUsage = (item: Extract<ChatItem, { kind: 'usage' }>): string => {
-  const percent = item.size > 0 ? ((item.used / item.size) * 100).toFixed(1) : '0.0';
-  const tokens = `${item.used.toLocaleString()} / ${item.size.toLocaleString()} tokens (${percent}%)`;
-  if (item.cost === undefined) {
-    return tokens;
-  }
-  return `${tokens} · ${item.cost.currency} ${item.cost.amount.toFixed(3)}`;
-};
 
 const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
   switch (status) {
@@ -54,25 +44,6 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
   switch (item.kind) {
     case 'agent_message':
       return <MessageRow label="Agent" text={item.text} tone="agent" />;
-    case 'available_commands':
-      return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Typography sx={{ fontWeight: 600, mb: 1 }} variant="body2">
-            Available commands
-          </Typography>
-          <List dense disablePadding>
-            {item.commands.map(command => (
-              <ListItem disableGutters key={`${item.id}-${command.name}`}>
-                <ListItemText
-                  primary={command.name}
-                  secondary={command.description}
-                  slotProps={{ primary: { sx: { fontFamily: 'monospace' } } }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </ListItem>
-      );
 
     case 'config_options':
       return (
@@ -160,20 +131,6 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
               ) : null}
             </Stack>
           </Paper>
-        </ListItem>
-      );
-
-    case 'usage':
-      return (
-        <ListItem>
-          <ListItemText
-            primary="Usage"
-            secondary={formatUsage(item)}
-            slotProps={{
-              primary: { sx: { fontWeight: 600 } },
-              secondary: { sx: { color: 'text.primary' } },
-            }}
-          />
         </ListItem>
       );
 

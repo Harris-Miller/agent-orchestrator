@@ -13,6 +13,12 @@ export type AvailableCommand = {
   readonly name: string;
 };
 
+export type SessionUsage = {
+  readonly cost?: { readonly amount: number; readonly currency: string };
+  readonly size: number;
+  readonly used: number;
+};
+
 export type ConfigOption = {
   readonly currentValue?: string;
   readonly id: string;
@@ -21,14 +27,6 @@ export type ConfigOption = {
 };
 
 export type ChatItem =
-  | { readonly commands: readonly AvailableCommand[]; readonly id: string; readonly kind: 'available_commands' }
-  | {
-      readonly cost?: { readonly amount: number; readonly currency: string };
-      readonly id: string;
-      readonly kind: 'usage';
-      readonly size: number;
-      readonly used: number;
-    }
   | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
@@ -133,6 +131,27 @@ const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
   });
 };
 
+export const parseUsageUpdate = (update: unknown): SessionUsage | undefined => {
+  if (!isRecord(update) || update.sessionUpdate !== 'usage_update') {
+    return undefined;
+  }
+
+  if (typeof update.used !== 'number' || typeof update.size !== 'number') {
+    return undefined;
+  }
+
+  const cost =
+    isRecord(update.cost) && typeof update.cost.amount === 'number' && typeof update.cost.currency === 'string'
+      ? { amount: update.cost.amount, currency: update.cost.currency }
+      : undefined;
+
+  return {
+    cost,
+    size: update.size,
+    used: update.used,
+  };
+};
+
 export const parseAvailableCommands = (value: unknown): readonly AvailableCommand[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -198,15 +217,9 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
           );
     }
 
-    case 'available_commands_update': {
-      const commands = parseAvailableCommands(update.availableCommands);
-      return commands.length === 0
-        ? accumulator
-        : {
-            ...accumulator,
-            items: [...accumulator.items, { commands, id: crypto.randomUUID(), kind: 'available_commands' }],
-          };
-    }
+    case 'available_commands_update':
+    case 'usage_update':
+      return accumulator;
 
     case 'config_option_update': {
       const options = parseConfigOptions(update.configOptions);
@@ -301,31 +314,6 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
       const toolCallIndices = new Map(accumulator.toolCallIndices).set(update.toolCallId, items.length - 1);
 
       return { ...accumulator, items, toolCallIndices };
-    }
-
-    case 'usage_update': {
-      if (typeof update.used !== 'number' || typeof update.size !== 'number') {
-        return accumulator;
-      }
-
-      const cost =
-        isRecord(update.cost) && typeof update.cost.amount === 'number' && typeof update.cost.currency === 'string'
-          ? { amount: update.cost.amount, currency: update.cost.currency }
-          : undefined;
-
-      return {
-        ...accumulator,
-        items: [
-          ...accumulator.items,
-          {
-            cost,
-            id: crypto.randomUUID(),
-            kind: 'usage',
-            size: update.size,
-            used: update.used,
-          },
-        ],
-      };
     }
 
     case 'user_message_chunk': {

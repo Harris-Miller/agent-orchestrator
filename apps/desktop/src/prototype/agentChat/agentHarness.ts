@@ -15,12 +15,13 @@ import { layer as TauriServicesLive } from '../../context-services/TauriServices
 import { isRecord } from '../../utils.ts';
 
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
-import type { AvailableCommand, ChatItem } from './sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
   chatItemsFromAccumulator,
   emptyChatAccumulator,
   parseAvailableCommands,
+  parseUsageUpdate,
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
 
@@ -104,6 +105,7 @@ export type BackendHarnessCallbacks = {
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionRosterResult: (result: unknown) => void;
   readonly onSessionUpdate: (sessionId: string, chatItems: readonly ChatItem[], update: unknown) => void;
+  readonly onUsageUpdate: (sessionId: string, usage: SessionUsage) => void;
 };
 
 const agentHandles = new Map<AcpAgentBackend, AgentHandle>();
@@ -199,6 +201,11 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
           const commands = parseAvailableCommands(update.availableCommands);
           handlers.onCommandsReady(sessionId, commands);
         }
+
+        const usage = parseUsageUpdate(update);
+        if (usage !== undefined) {
+          handlers.onUsageUpdate(sessionId, usage);
+        }
       }),
       {
         wireTap: {
@@ -260,7 +267,8 @@ export const listSessions = (agent: AgentHandle) => agent['session/list']({}).pi
 export const createSession = (agent: AgentHandle, backend: AcpAgentBackend) =>
   Effect.gen(function* () {
     const cwd = yield* sessionCwd(backend);
-    return yield* agent['session/new']({ cwd, mcpServers: [] });
+    const result = yield* agent['session/new']({ cwd, mcpServers: [] });
+    return { cwd, result };
   });
 
 export const loadSession = (agent: AgentHandle, backend: AcpAgentBackend, sessionId: string) =>

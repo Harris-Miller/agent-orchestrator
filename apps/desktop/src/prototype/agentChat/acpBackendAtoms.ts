@@ -11,9 +11,11 @@ import {
   backendLabel,
   initialBackendSnapshot,
   initialSessionSnapshot,
+  normalizeSessionInfoFromNew,
   normalizeSessionRoster,
   selectedSessionSnapshot,
   selectionFromSessionConfiguration,
+  upsertRosterEntry,
 } from './acpSessionBootstrap.ts';
 import type { BackendSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
@@ -23,7 +25,6 @@ import {
   createSession,
   deleteSession,
   getAgentHandle,
-  listSessions,
   loadSession,
   resetBackendHarnessState,
   resumeSession,
@@ -76,6 +77,7 @@ const applySessionActivationResult = (
     sessionId,
     sessionState: result,
     status: 'active',
+    usage: existing?.usage,
   };
 };
 
@@ -212,6 +214,15 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
             };
           });
         },
+        onUsageUpdate: (sessionId, usage) => {
+          updateState(current => ({
+            ...current,
+            sessions: patchSession(current.sessions, sessionId, session => ({
+              ...session,
+              usage,
+            })),
+          }));
+        },
       });
     })
     .pipe(Atom.keepAlive),
@@ -236,20 +247,18 @@ export const createSessionFn = acpRuntime
         return;
       }
 
-      const result = yield* createSession(agent, backend);
+      const { cwd, result } = yield* createSession(agent, backend);
       const { sessionId } = result;
       const session = applySessionActivationResult(sessionId, result);
+      const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
+      const snapshot = get(backendStateAtom(backend));
 
       get.set(backendStateAtom(backend), {
-        ...get(backendStateAtom(backend)),
+        ...snapshot,
         selectedSessionId: sessionId,
-        sessions: upsertSession(get(backendStateAtom(backend)).sessions, session),
-      });
-
-      const listResult = yield* listSessions(agent);
-      get.set(backendStateAtom(backend), {
-        ...get(backendStateAtom(backend)),
-        sessionRoster: normalizeSessionRoster(listResult),
+        sessionRoster:
+          rosterEntry === undefined ? snapshot.sessionRoster : upsertRosterEntry(snapshot.sessionRoster, rosterEntry),
+        sessions: upsertSession(snapshot.sessions, session),
       });
     }),
   )
@@ -268,6 +277,7 @@ export const activateSessionFn = acpRuntime
 
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
+        selectedSessionId: arg.sessionId,
         sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
           ...session,
           status: 'activating',

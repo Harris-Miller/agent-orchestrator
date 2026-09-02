@@ -9,7 +9,10 @@ import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
 import FormControl from '@mui/material/FormControl';
+import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -21,7 +24,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
 import {
@@ -38,6 +41,9 @@ import { backendLabel, isRecord, normalizeModels, normalizeModes } from './acpSe
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
+
+const RPC_WIRE_LOG_DRAWER_HEIGHT = 320;
+const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
 const backendOptions: readonly { readonly label: string; readonly value: AcpAgentBackend }[] = [
   { label: 'Echo (jsonrpc-echo)', value: 'echo' },
@@ -106,6 +112,7 @@ const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' 
 
 export const AgentChatPrototype: FC = () => {
   const [sessionStateOpen, setSessionStateOpen] = useState(true);
+  const [rpcWireLogOpen, setRpcWireLogOpen] = useState(false);
   const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
   const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
   const snapshot = useAtomValue(activeSnapshotAtom);
@@ -114,6 +121,9 @@ export const AgentChatPrototype: FC = () => {
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
   const setMode = useAtomSet(setModeFn, { mode: 'promise' });
   const setModel = useAtomSet(setModelFn, { mode: 'promise' });
+
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const pinnedToBottomRef = useRef(true);
 
   const models = normalizeModels(snapshot.sessionNewResult);
   const modes = normalizeModes(snapshot.sessionNewResult);
@@ -136,15 +146,39 @@ export const AgentChatPrototype: FC = () => {
       ? `${backendLabel(selectedBackend)} is connected — send a prompt${selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.`
       : `Starting ${backendLabel(selectedBackend)} over ACP…`;
 
+  useEffect(() => {
+    pinnedToBottomRef.current = true;
+  }, [selectedBackend]);
+
+  useLayoutEffect(() => {
+    const chatScroll = chatScrollRef.current;
+    if (chatScroll === null || !pinnedToBottomRef.current) {
+      return;
+    }
+
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }, [snapshot.chatItems]);
+
   return (
-    <Box sx={{ bgcolor: 'background.default', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box
+      sx={{
+        bgcolor: 'background.default',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden',
+      }}
+    >
       <AppBar
-        position="static"
+        position="sticky"
         sx={theme => ({
+          flexShrink: 0,
+          top: 0,
           transition: theme.transitions.create(['margin', 'width'], {
             duration: theme.transitions.duration.leavingScreen,
             easing: theme.transitions.easing.sharp,
           }),
+          zIndex: theme.zIndex.appBar,
           ...(sessionStateOpen && {
             marginRight: `${SESSION_STATE_DRAWER_WIDTH}px`,
             transition: theme.transitions.create(['margin', 'width'], {
@@ -217,23 +251,34 @@ export const AgentChatPrototype: FC = () => {
             flex: 1,
             flexDirection: 'column',
             gap: 2,
+            marginBottom: rpcWireLogOpen ? `${RPC_WIRE_LOG_DRAWER_HEIGHT}px` : 0,
             marginRight: sessionStateOpen ? 0 : `-${SESSION_STATE_DRAWER_WIDTH}px`,
+            minHeight: 0,
             minWidth: 0,
+            overflow: 'hidden',
             p: 2,
             position: 'relative',
-            transition: theme.transitions.create('margin', {
+            transition: theme.transitions.create(['margin-bottom', 'margin-right'], {
               duration: theme.transitions.duration.leavingScreen,
               easing: theme.transitions.easing.sharp,
             }),
-            ...(sessionStateOpen && {
-              transition: theme.transitions.create('margin', {
+            ...((sessionStateOpen || rpcWireLogOpen) && {
+              transition: theme.transitions.create(['margin-bottom', 'margin-right'], {
                 duration: theme.transitions.duration.enteringScreen,
                 easing: theme.transitions.easing.easeOut,
               }),
             }),
           })}
         >
-          <Paper sx={{ flex: 1, minHeight: 360, overflow: 'auto', p: 1 }}>
+          <Paper
+            onScroll={event => {
+              const target = event.currentTarget;
+              pinnedToBottomRef.current =
+                target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
+            }}
+            ref={chatScrollRef}
+            sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}
+          >
             <List dense disablePadding>
               {snapshot.chatItems.length === 0 ? (
                 <ListItem>
@@ -245,7 +290,7 @@ export const AgentChatPrototype: FC = () => {
             </List>
           </Paper>
 
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ flexShrink: 0, p: 2 }}>
             <Stack spacing={1}>
               <Typography color="text.secondary" variant="caption">
                 PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {snapshot.sessionId ?? '—'}
@@ -301,62 +346,23 @@ export const AgentChatPrototype: FC = () => {
                       ))}
                     </Select>
                   </FormControl>
+                  {rpcWireLogOpen ? null : (
+                    <Button
+                      onClick={() => {
+                        setRpcWireLogOpen(true);
+                      }}
+                      size="small"
+                      variant="outlined"
+                    >
+                      RPC wire log ({snapshot.rpcCalls.length})
+                    </Button>
+                  )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Button disabled={!canSend} type="submit" variant="contained">
                     Send
                   </Button>
                 </Box>
               </Box>
-            </Stack>
-          </Paper>
-
-          <Paper sx={{ maxHeight: 320, overflow: 'auto', p: 2 }}>
-            <Stack spacing={1}>
-              <Typography color="text.secondary" variant="caption">
-                RPC wire log ({snapshot.rpcCalls.length})
-              </Typography>
-              {snapshot.rpcCalls.length === 0 ? (
-                <Typography color="text.secondary" variant="body2">
-                  No RPC traffic yet.
-                </Typography>
-              ) : (
-                snapshot.rpcCalls.map(entry => (
-                  <Accordion
-                    disableGutters
-                    elevation={0}
-                    key={entry.id}
-                    sx={{
-                      '&::before': { display: 'none' },
-                      bgcolor: 'action.hover',
-                      borderRadius: 1,
-                    }}
-                  >
-                    <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 0.5 }, minHeight: 36 }}>
-                      <Typography
-                        component="span"
-                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
-                        variant="body2"
-                      >
-                        {rpcWireEntryTitle(entry)}
-                      </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ pt: 0 }}>
-                      <Box
-                        component="pre"
-                        sx={{
-                          fontFamily: 'monospace',
-                          fontSize: '0.75rem',
-                          m: 0,
-                          overflow: 'auto',
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
-                      </Box>
-                    </AccordionDetails>
-                  </Accordion>
-                ))
-              )}
             </Stack>
           </Paper>
         </Box>
@@ -373,6 +379,92 @@ export const AgentChatPrototype: FC = () => {
           sessionNewResult={snapshot.sessionNewResult}
         />
       </Box>
+
+      <Drawer
+        anchor="bottom"
+        open={rpcWireLogOpen}
+        sx={{
+          '& .MuiDrawer-paper': {
+            borderColor: 'divider',
+            borderTop: 1,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            height: RPC_WIRE_LOG_DRAWER_HEIGHT,
+          },
+          flexShrink: 0,
+          height: rpcWireLogOpen ? RPC_WIRE_LOG_DRAWER_HEIGHT : 0,
+        }}
+        variant="persistent"
+      >
+        <Box
+          sx={{
+            alignItems: 'center',
+            display: 'flex',
+            flexShrink: 0,
+            justifyContent: 'space-between',
+            px: 2,
+            py: 1.5,
+          }}
+        >
+          <Typography variant="h6">RPC wire log ({snapshot.rpcCalls.length})</Typography>
+          <IconButton
+            aria-label="Close RPC wire log drawer"
+            edge="end"
+            onClick={() => {
+              setRpcWireLogOpen(false);
+            }}
+            size="small"
+          >
+            <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+              ∨
+            </Typography>
+          </IconButton>
+        </Box>
+        <Divider />
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
+          {snapshot.rpcCalls.length === 0 ? (
+            <Typography color="text.secondary" variant="body2">
+              No RPC traffic yet.
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {snapshot.rpcCalls.map(entry => (
+                <Accordion
+                  disableGutters
+                  elevation={0}
+                  key={entry.id}
+                  sx={{
+                    '&::before': { display: 'none' },
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                  }}
+                >
+                  <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 0.5 }, minHeight: 36 }}>
+                    <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                      {rpcWireEntryTitle(entry)}
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ pt: 0 }}>
+                    <Box
+                      component="pre"
+                      sx={{
+                        fontFamily: 'monospace',
+                        fontSize: '0.75rem',
+                        m: 0,
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </Drawer>
     </Box>
   );
 };

@@ -50,6 +50,13 @@ describe('connectAcpAgent', () => {
       yield* agent.initialize({ protocolVersion: 1 });
       const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
 
+      assert.strictEqual(sessionUpdates.length, 1);
+      assert.strictEqual(sessionUpdates[0]?.sessionId, 'echo-session-1');
+      assert.strictEqual(
+        (sessionUpdates[0]?.update as { sessionUpdate: string }).sessionUpdate,
+        'available_commands_update',
+      );
+
       const simpleReply = yield* agent['session/prompt']({
         prompt: [{ text: 'hi', type: 'text' }],
         sessionId: session.sessionId,
@@ -57,9 +64,9 @@ describe('connectAcpAgent', () => {
 
       assert.strictEqual(simpleReply.stopReason, 'end_turn');
       assert.strictEqual(session.sessionId, 'echo-session-1');
-      assert.strictEqual(sessionUpdates.length, 1);
-      assert.strictEqual(sessionUpdates[0]?.sessionId, 'echo-session-1');
-      assert.deepStrictEqual(sessionUpdates[0]?.update, {
+      assert.strictEqual(sessionUpdates.length, 2);
+      assert.strictEqual(sessionUpdates[1]?.sessionId, 'echo-session-1');
+      assert.deepStrictEqual(sessionUpdates[1]?.update, {
         content: { text: 'hi', type: 'text' },
         messageId: 'msg_simple_1',
         sessionUpdate: 'agent_message_chunk',
@@ -71,10 +78,10 @@ describe('connectAcpAgent', () => {
       });
 
       assert.strictEqual(toolTurn.stopReason, 'end_turn');
-      assert.strictEqual(sessionUpdates.length, 7);
-      assert.strictEqual((sessionUpdates[1]?.update as { sessionUpdate: string }).sessionUpdate, 'plan');
-      assert.strictEqual((sessionUpdates[3]?.update as { sessionUpdate: string }).sessionUpdate, 'tool_call');
-      assert.strictEqual((sessionUpdates[6]?.update as { sessionUpdate: string }).sessionUpdate, 'agent_message_chunk');
+      assert.strictEqual(sessionUpdates.length, 8);
+      assert.strictEqual((sessionUpdates[2]?.update as { sessionUpdate: string }).sessionUpdate, 'plan');
+      assert.strictEqual((sessionUpdates[4]?.update as { sessionUpdate: string }).sessionUpdate, 'tool_call');
+      assert.strictEqual((sessionUpdates[7]?.update as { sessionUpdate: string }).sessionUpdate, 'agent_message_chunk');
     }).pipe(Effect.scoped, Effect.provide(TestLayer)),
   );
 
@@ -108,9 +115,9 @@ describe('connectAcpAgent', () => {
     }),
   );
 
-  it('connects once via Effect.runPromise', async () => {
-    const runOnce = () =>
-      Effect.gen(function* () {
+  it.effect('connects once', () =>
+    Effect.gen(function* () {
+      const sessionId = yield* Effect.gen(function* () {
         const { agent, handle } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
         yield* agent.initialize({ protocolVersion: 1 });
         const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
@@ -118,19 +125,22 @@ describe('connectAcpAgent', () => {
         return session.sessionId;
       }).pipe(Effect.scoped, Effect.provide(TestLayer));
 
-    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
-  });
+      assert.strictEqual(sessionId, 'echo-session-1');
+    }),
+  );
 
-  it('reconnects across separate Effect.runPromise calls', async () => {
-    const runOnce = () =>
-      Effect.gen(function* () {
-        const { agent } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
-        yield* agent.initialize({ protocolVersion: 1 });
-        const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
-        return session.sessionId;
-      }).pipe(Effect.scoped, Effect.provide(TestLayer));
+  it.effect('reconnects across separate scoped runs', () =>
+    Effect.gen(function* () {
+      const runOnce = () =>
+        Effect.gen(function* () {
+          const { agent } = yield* connectAcpAgent(echoCommand, stubClientHandlers([]));
+          yield* agent.initialize({ protocolVersion: 1 });
+          const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
+          return session.sessionId;
+        }).pipe(Effect.scoped, Effect.provide(TestLayer));
 
-    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
-    assert.strictEqual(await Effect.runPromise(runOnce()), 'echo-session-1');
-  });
+      assert.strictEqual(yield* runOnce(), 'echo-session-1');
+      assert.strictEqual(yield* runOnce(), 'echo-session-1');
+    }),
+  );
 });

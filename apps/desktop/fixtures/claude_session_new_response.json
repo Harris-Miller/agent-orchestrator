@@ -1,0 +1,159 @@
+{
+  "direction": "in",
+  "message": {
+    "_tag": "Exit",
+    "requestId": 5,
+    "exit": {
+      "_tag": "Success",
+      "value": {
+        "sessionId": "ecdb353e-166f-4a07-8267-6f2d1e78a6ea",
+        "modes": {
+          "currentModeId": "default",
+          "availableModes": [
+            {
+              "id": "auto",
+              "name": "Auto",
+              "description": "Use a model classifier to approve/deny permission prompts"
+            },
+            {
+              "id": "default",
+              "name": "Manual",
+              "description": "Standard behavior, prompts for dangerous operations"
+            },
+            {
+              "id": "acceptEdits",
+              "name": "Accept Edits",
+              "description": "Auto-accept file edit operations"
+            },
+            {
+              "id": "plan",
+              "name": "Plan Mode",
+              "description": "Planning mode, no actual tool execution"
+            },
+            {
+              "id": "dontAsk",
+              "name": "Don't Ask",
+              "description": "Don't prompt for permissions, deny if not pre-approved"
+            },
+            {
+              "id": "bypassPermissions",
+              "name": "Bypass Permissions",
+              "description": "Bypass all permission checks"
+            }
+          ]
+        },
+        "configOptions": [
+          {
+            "id": "mode",
+            "name": "Mode",
+            "description": "Session permission mode",
+            "category": "mode",
+            "type": "select",
+            "currentValue": "default",
+            "options": [
+              {
+                "value": "auto",
+                "name": "Auto",
+                "description": "Use a model classifier to approve/deny permission prompts"
+              },
+              {
+                "value": "default",
+                "name": "Manual",
+                "description": "Standard behavior, prompts for dangerous operations"
+              },
+              {
+                "value": "acceptEdits",
+                "name": "Accept Edits",
+                "description": "Auto-accept file edit operations"
+              },
+              {
+                "value": "plan",
+                "name": "Plan Mode",
+                "description": "Planning mode, no actual tool execution"
+              },
+              {
+                "value": "dontAsk",
+                "name": "Don't Ask",
+                "description": "Don't prompt for permissions, deny if not pre-approved"
+              },
+              {
+                "value": "bypassPermissions",
+                "name": "Bypass Permissions",
+                "description": "Bypass all permission checks"
+              }
+            ]
+          },
+          {
+            "id": "model",
+            "name": "Model",
+            "description": "AI model to use",
+            "category": "model",
+            "type": "select",
+            "currentValue": "sonnet",
+            "options": [
+              {
+                "value": "default",
+                "name": "Default (recommended)",
+                "description": "Opus (1M context)"
+              },
+              {
+                "value": "opus[1m]",
+                "name": "Opus (1M context)",
+                "description": "Opus 5 with 1M context · Best for everyday, complex tasks · $5/$25 per Mtok"
+              },
+              {
+                "value": "claude-fable-5[1m]",
+                "name": "Fable",
+                "description": "Fable 5 · Most capable for your hardest and longest-running tasks · $10/$50 per Mtok"
+              },
+              {
+                "value": "sonnet",
+                "name": "Sonnet",
+                "description": "Sonnet 5 · Efficient for routine tasks · $2/$10 per Mtok · promo through Aug 31"
+              },
+              {
+                "value": "haiku",
+                "name": "Haiku",
+                "description": "Haiku 4.5 · Fastest for quick answers · $1/$5 per Mtok"
+              }
+            ]
+          },
+          {
+            "id": "effort",
+            "name": "Effort",
+            "description": "Available effort levels for this model",
+            "category": "thought_level",
+            "type": "select",
+            "currentValue": "medium",
+            "options": [
+              {
+                "value": "default",
+                "name": "Default"
+              },
+              {
+                "value": "low",
+                "name": "Low"
+              },
+              {
+                "value": "medium",
+                "name": "Medium"
+              },
+              {
+                "value": "high",
+                "name": "High"
+              },
+              {
+                "value": "xhigh",
+                "name": "Xhigh"
+              },
+              {
+                "value": "max",
+                "name": "Max"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -3,7 +3,15 @@ import { AcpError, AgentRpcs } from '@libs/effect-acp';
 import { Effect, Layer, Ref } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 
+import {
+  echoAvailableCommandsUpdate,
+  echoInitializeResponse,
+  echoSessionNewResponse,
+  echoSetConfigOptionResponse,
+  echoSetModeResponse,
+} from './bootstrapResponses.ts';
 import { replayFixture } from './fixtures.ts';
+import { notifyClient } from './notifyClient.ts';
 
 const ECHO_SESSION_ID = 'echo-session-1';
 
@@ -18,6 +26,8 @@ const methodNotFound = (method: string) =>
 const Handlers = AgentRpcs.toLayer(
   Effect.gen(function* () {
     const initialized = yield* Ref.make(false);
+    const currentModeId = yield* Ref.make('default');
+    const currentModelId = yield* Ref.make('echo-model');
 
     return {
       authenticate: () => methodNotFound('authenticate'),
@@ -34,7 +44,7 @@ const Handlers = AgentRpcs.toLayer(
 
           yield* Effect.log('Initializing...');
           yield* Ref.set(initialized, true);
-          return { protocolVersion };
+          return echoInitializeResponse(protocolVersion);
         }),
       logout: () => methodNotFound('logout'),
       'session/cancel': () => Effect.void,
@@ -45,7 +55,12 @@ const Handlers = AgentRpcs.toLayer(
       'session/new': () =>
         Effect.gen(function* () {
           yield* Effect.log('Creating session...');
-          return { sessionId: ECHO_SESSION_ID };
+          const response = echoSessionNewResponse(ECHO_SESSION_ID);
+          yield* notifyClient('session/update', {
+            sessionId: ECHO_SESSION_ID,
+            update: echoAvailableCommandsUpdate(),
+          }).pipe(Effect.orDie);
+          return response;
         }),
       'session/prompt': ({ prompt, sessionId }) =>
         Effect.gen(function* () {
@@ -55,8 +70,43 @@ const Handlers = AgentRpcs.toLayer(
           return { stopReason: 'end_turn' as const };
         }),
       'session/resume': () => methodNotFound('session/resume'),
-      'session/set_config_option': () => methodNotFound('session/set_config_option'),
-      'session/set_mode': () => methodNotFound('session/set_mode'),
+      'session/set_config_option': ({ configId, sessionId, value }) =>
+        Effect.gen(function* () {
+          if (typeof value !== 'string') {
+            return yield* Effect.fail(
+              AcpError.make({
+                code: -32602,
+                message: 'Only string config values are supported in echo',
+              }),
+            );
+          }
+
+          if (configId === 'model') {
+            yield* Ref.set(currentModelId, value);
+          }
+
+          yield* notifyClient('session/update', {
+            sessionId,
+            update: {
+              configOptions: echoSetConfigOptionResponse(configId, value).configOptions,
+              sessionUpdate: 'config_option_update',
+            },
+          }).pipe(Effect.orDie);
+
+          return echoSetConfigOptionResponse(configId, value);
+        }),
+      'session/set_mode': ({ modeId, sessionId }) =>
+        Effect.gen(function* () {
+          yield* Ref.set(currentModeId, modeId);
+          yield* notifyClient('session/update', {
+            sessionId,
+            update: {
+              configOptions: echoSetModeResponse(modeId).configOptions,
+              sessionUpdate: 'config_option_update',
+            },
+          }).pipe(Effect.orDie);
+          return {};
+        }),
     };
   }),
 ).pipe(Layer.provide(BunStdio.layer));
@@ -68,6 +118,6 @@ const Server = RpcServer.layer(AgentRpcs).pipe(
   Layer.provide(BunStdio.layer),
 );
 
-BunRuntime.runMain(Layer.launch(Server), {
+BunRuntime.runMain(Layer.launch(Server).pipe(Effect.provide(BunStdio.layer)), {
   disableErrorReporting: true,
 });

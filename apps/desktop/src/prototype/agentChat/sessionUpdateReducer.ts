@@ -133,7 +133,7 @@ const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
   });
 };
 
-const parseAvailableCommands = (value: unknown): readonly AvailableCommand[] => {
+export const parseAvailableCommands = (value: unknown): readonly AvailableCommand[] => {
   if (!Array.isArray(value)) {
     return [];
   }

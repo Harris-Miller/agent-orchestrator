@@ -1,6 +1,7 @@
 /**
  * PROTOTYPE — simple MUI agent chat surface for the ACP harness.
  */
+import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -17,13 +18,21 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
+import {
+  activeSnapshotAtom,
+  allBackendPhasesAtom,
+  draftAtom,
+  restartBackendFn,
+  selectedBackendAtom,
+  sendChatItemFn,
+  setModeFn,
+  setModelFn,
+} from './acpBackendAtoms.ts';
+import { backendLabel, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from './agentHarness.ts';
 import { ChatItemView } from './ChatItemView.tsx';
-import type { AcpAgentBackend } from './echoAgentHarness.ts';
-import { EchoAgentProvider } from './EchoAgentProvider.tsx';
-import { useEchoAgent } from './useEchoAgent.ts';
 
 const backendOptions: readonly { readonly label: string; readonly value: AcpAgentBackend }[] = [
   { label: 'Echo (jsonrpc-echo)', value: 'echo' },
@@ -31,12 +40,11 @@ const backendOptions: readonly { readonly label: string; readonly value: AcpAgen
   { label: 'Claude', value: 'claude-agent-acp' },
 ];
 
-const backendLabel = (backend: AcpAgentBackend): string =>
-  backendOptions.find(option => option.value === backend)?.label ?? backend;
-
-const statusColor = (status: string): 'default' | 'error' | 'success' | 'warning' => {
-  switch (status) {
+const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
+  switch (phase) {
     case 'connecting':
+    case 'initialized':
+    case 'session_open':
       return 'warning';
     case 'error':
       return 'error';
@@ -47,47 +55,72 @@ const statusColor = (status: string): 'default' | 'error' | 'success' | 'warning
   }
 };
 
-const AgentChatContent: FC = () => {
-  const { backend, sendMessage, setBackend, snapshot } = useEchoAgent();
-  const [draft, setDraft] = useState('');
-  const canSend = snapshot.status === 'ready' && draft.trim().length > 0;
+export const AgentChatPrototype: FC = () => {
+  const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
+  const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
+  const snapshot = useAtomValue(activeSnapshotAtom);
+  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
+  const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
+  const setMode = useAtomSet(setModeFn, { mode: 'promise' });
+  const setModel = useAtomSet(setModelFn, { mode: 'promise' });
 
-  const onBackendChange = (next: AcpAgentBackend) => {
-    setDraft('');
-    setBackend(next);
-  };
+  const models = normalizeModels(snapshot.sessionNewResult);
+  const modes = normalizeModes(snapshot.sessionNewResult);
+  const canSend = snapshot.phase === 'ready' && draft.trim().length > 0;
+  const controlsEnabled = snapshot.phase === 'ready';
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSend) {
       return;
     }
+
     const text = draft;
     setDraft('');
-    sendMessage(text).catch(() => undefined);
+    sendChatItem({ backend: selectedBackend, text }).catch(() => undefined);
   };
 
   const emptyStateSecondary =
-    snapshot.status === 'ready'
-      ? `${backendLabel(backend)} is connected — send a prompt${backend === 'echo' ? ' or try /fixture tool-turn' : ''}.`
-      : `Starting ${backendLabel(backend)} over ACP…`;
+    snapshot.phase === 'ready'
+      ? `${backendLabel(selectedBackend)} is connected — send a prompt${selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.`
+      : `Starting ${backendLabel(selectedBackend)} over ACP…`;
 
   return (
     <Box sx={{ bgcolor: 'background.default', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
-        <Toolbar>
+        <Toolbar sx={{ gap: 1 }}>
           <Typography sx={{ flexGrow: 1 }} variant="h3">
             Agent Chat
           </Typography>
-          <FormControl size="small" sx={{ minWidth: 200, mr: 2 }}>
+          <Stack direction="row" spacing={1}>
+            {backendPhases.map(entry => (
+              <Chip
+                color={phaseColor(entry.phase)}
+                key={entry.backend}
+                label={`${entry.label}: ${entry.phase}`}
+                onClick={
+                  entry.phase === 'error'
+                    ? () => {
+                        restartBackend(entry.backend).catch(() => undefined);
+                      }
+                    : undefined
+                }
+                size="small"
+                sx={{ cursor: entry.phase === 'error' ? 'pointer' : 'default' }}
+                variant="outlined"
+              />
+            ))}
+          </Stack>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel id="acp-agent-backend-label">Agent</InputLabel>
             <Select
               label="Agent"
               labelId="acp-agent-backend-label"
               onChange={event => {
-                onBackendChange(event.target.value);
+                setSelectedBackend(event.target.value);
               }}
-              value={backend}
+              value={selectedBackend}
             >
               {backendOptions.map(option => (
                 <MenuItem key={option.value} value={option.value}>
@@ -96,7 +129,6 @@ const AgentChatContent: FC = () => {
               ))}
             </Select>
           </FormControl>
-          <Chip color={statusColor(snapshot.status)} label={snapshot.status} size="small" variant="outlined" />
         </Toolbar>
       </AppBar>
 
@@ -127,27 +159,64 @@ const AgentChatContent: FC = () => {
         <Paper sx={{ p: 2 }}>
           <Stack spacing={1}>
             <Typography color="text.secondary" variant="caption">
-              PROTOTYPE · agent: {backendLabel(backend)} · session: {snapshot.sessionId ?? '—'}
+              PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {snapshot.sessionId ?? '—'}
             </Typography>
             {snapshot.error !== undefined ? (
               <Typography color="error" variant="body2">
                 {snapshot.error}
               </Typography>
             ) : null}
-            <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', gap: 1 }}>
+            <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <TextField
-                disabled={snapshot.status !== 'ready'}
+                disabled={!controlsEnabled}
                 fullWidth
                 onChange={event => {
                   setDraft(event.target.value);
                 }}
-                placeholder={`Message ${backendLabel(backend)}…`}
+                placeholder={`Message ${backendLabel(selectedBackend)}…`}
                 size="small"
                 value={draft}
               />
-              <Button disabled={!canSend} type="submit" variant="contained">
-                Send
-              </Button>
+              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel id="acp-model-label">Model</InputLabel>
+                  <Select
+                    label="Model"
+                    labelId="acp-model-label"
+                    onChange={event => {
+                      setModel({ backend: selectedBackend, modelId: event.target.value }).catch(() => undefined);
+                    }}
+                    value={snapshot.selectedModelId ?? models.currentId ?? ''}
+                  >
+                    {models.options.map(option => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel id="acp-mode-label">Mode</InputLabel>
+                  <Select
+                    label="Mode"
+                    labelId="acp-mode-label"
+                    onChange={event => {
+                      setMode({ backend: selectedBackend, modeId: event.target.value }).catch(() => undefined);
+                    }}
+                    value={snapshot.selectedModeId ?? modes.currentId ?? ''}
+                  >
+                    {modes.options.map(option => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Box sx={{ flexGrow: 1 }} />
+                <Button disabled={!canSend} type="submit" variant="contained">
+                  Send
+                </Button>
+              </Box>
             </Box>
           </Stack>
         </Paper>
@@ -187,9 +256,3 @@ const AgentChatContent: FC = () => {
     </Box>
   );
 };
-
-export const AgentChatPrototype: FC = () => (
-  <EchoAgentProvider>
-    <AgentChatContent />
-  </EchoAgentProvider>
-);

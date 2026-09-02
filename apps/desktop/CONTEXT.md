@@ -16,11 +16,27 @@ _Avoid_: Frontend, view layer, shell
 A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, usage readout, etc. Derived from session updates (and locally appended user prompts), not sent on the wire.
 _Avoid_: Message, bubble, row, event
 
+**Bootstrap phase**:
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `session_open` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn.
+_Avoid_: Status, connection state
+
+**Backend harness**:
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/new`, accumulates chat items from session updates, and retries on failure. One per mounted target; runs in parallel with siblings.
+_Avoid_: Connection, provider instance, worker
+
 ## Agent backends
 
 **Agent provider**:
 A supported external coding-agent backend the Harness can connect to: **Codex**, **Claude**, or **Gemini**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
+
+**Agent launch target**:
+The spawn identity for a selectable harness connection — an ACP adapter binary (`codex-acp`, `claude-agent-acp`), a native ACP agent CLI, or the jsonrpc-echo dev fixture. Distinct from the agent provider name (Codex, Claude, Gemini).
+_Avoid_: Backend (ambiguous with Tauri host), provider id
+
+**Harness dev backend**:
+The jsonrpc-echo fixture selectable in the prototype agent picker for local development. Exercises the same bootstrap path as real providers but is not an agent provider.
+_Avoid_: Echo backend, mock agent, test provider
 
 **ACP adapter**:
 A published stdio process that wraps a vendor CLI or SDK and speaks ACP on stdin/stdout. Used for Codex ([`codex-acp`](https://github.com/agentclientprotocol/codex-acp)) and Claude ([`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).

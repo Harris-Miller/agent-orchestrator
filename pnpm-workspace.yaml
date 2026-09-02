@@ -6,6 +6,7 @@ packages:
 catalogMode: 'strict'
 
 catalog:
+  '@effect/atom-react': '4.0.0-rc.112'
   '@cursor/sdk': '^1.0.23'
   '@effect/language-service': '^0.87.0'
   '@effect/opentelemetry': '4.0.0-rc.112'

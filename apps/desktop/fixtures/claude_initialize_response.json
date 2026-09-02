@@ -1,0 +1,69 @@
+{
+  "direction": "in",
+  "message": {
+    "_tag": "Exit",
+    "requestId": 4,
+    "exit": {
+      "_tag": "Success",
+      "value": {
+        "protocolVersion": 1,
+        "agentCapabilities": {
+          "_meta": {
+            "claudeCode": {
+              "promptQueueing": true
+            }
+          },
+          "promptCapabilities": {
+            "image": true,
+            "embeddedContext": true
+          },
+          "mcpCapabilities": {
+            "http": true,
+            "sse": true
+          },
+          "auth": {
+            "logout": {}
+          },
+          "providers": {},
+          "loadSession": true,
+          "sessionCapabilities": {
+            "additionalDirectories": {},
+            "close": {},
+            "delete": {},
+            "fork": {},
+            "list": {},
+            "resume": {}
+          }
+        },
+        "agentInfo": {
+          "name": "@agentclientprotocol/claude-agent-acp",
+          "title": "Claude Agent",
+          "version": "0.70.0"
+        },
+        "authMethods": [],
+        "_meta": {
+          "jetbrains": {
+            "air": {
+              "version": 1,
+              "capabilities": [
+                "sessionFailure",
+                "agentFileChangeReport"
+              ]
+            }
+          },
+          "steering": {
+            "supported": true
+          },
+          "goal": {
+            "version": 1,
+            "controlMethod": "_session/goal",
+            "actions": [
+              "set",
+              "clear"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

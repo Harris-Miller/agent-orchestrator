@@ -1,0 +1,316 @@
+{
+  "direction": "in",
+  "message": {
+    "_tag": "Request",
+    "id": "",
+    "tag": "session/update",
+    "payload": {
+      "sessionId": "01a05f21-d3e6-77c3-bb38-7972c8cfc072",
+      "update": {
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": [
+          {
+            "name": "plan",
+            "description": "Turn plan mode on.",
+            "input": null,
+            "_meta": {
+              "commandAction": {
+                "kind": "setConfigOption",
+                "configId": "collaboration_mode",
+                "value": "plan",
+                "resetValue": "default",
+                "presentation": "state"
+              }
+            }
+          },
+          {
+            "name": "mcp",
+            "description": "List configured Model Context Protocol (MCP) tools.",
+            "input": null
+          },
+          {
+            "name": "skills",
+            "description": "List available skills.",
+            "input": null
+          },
+          {
+            "name": "status",
+            "description": "Display session configuration and token usage.",
+            "input": null
+          },
+          {
+            "name": "review",
+            "description": "Review uncommitted changes, or review with custom instructions.",
+            "input": {
+              "hint": "optional review instructions"
+            }
+          },
+          {
+            "name": "review-branch",
+            "description": "Review changes relative to a base branch.",
+            "input": {
+              "hint": "branch name"
+            }
+          },
+          {
+            "name": "review-commit",
+            "description": "Review a specific commit.",
+            "input": {
+              "hint": "commit sha"
+            }
+          },
+          {
+            "name": "compact",
+            "description": "Summarize conversation to avoid hitting the context limit.",
+            "input": null
+          },
+          {
+            "name": "goal",
+            "description": "Set a goal to keep pursuing.",
+            "input": {
+              "hint": "[<objective>|clear|pause|resume]"
+            },
+            "_meta": {
+              "commandAction": {
+                "kind": "prefixPrompt",
+                "presentation": "state"
+              }
+            }
+          },
+          {
+            "name": "logout",
+            "description": "Sign out of Codex. This option is available when you are logged in via ChatGPT.",
+            "input": null
+          },
+          {
+            "name": "$code-review",
+            "description": "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\".",
+            "input": null
+          },
+          {
+            "name": "$codebase-design",
+            "description": "Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.",
+            "input": null
+          },
+          {
+            "name": "$diagnosing-bugs",
+            "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
+            "input": null
+          },
+          {
+            "name": "$domain-modeling",
+            "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.",
+            "input": null
+          },
+          {
+            "name": "$grill-me",
+            "description": "A relentless interview to sharpen a plan or design.",
+            "input": null
+          },
+          {
+            "name": "$grill-with-docs",
+            "description": "A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go.",
+            "input": null
+          },
+          {
+            "name": "$grilling",
+            "description": "Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.",
+            "input": null
+          },
+          {
+            "name": "$handoff",
+            "description": "Compact the current conversation into a handoff document for another agent to pick up.",
+            "input": null
+          },
+          {
+            "name": "$implement",
+            "description": "Implement a piece of work based on a spec or set of tickets.",
+            "input": null
+          },
+          {
+            "name": "$improve-codebase-architecture",
+            "description": "Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.",
+            "input": null
+          },
+          {
+            "name": "$material-ui-styling",
+            "description": "Chooses the right Material UI styling approach (sx, styled, theme overrides, global CSS) from official MUI guidance. Use when styling @mui/material components, customizing themes, overriding slots, or comparing sx vs styled.",
+            "input": null
+          },
+          {
+            "name": "$prototype",
+            "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
+            "input": null
+          },
+          {
+            "name": "$research",
+            "description": "Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.",
+            "input": null
+          },
+          {
+            "name": "$resolving-merge-conflicts",
+            "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
+            "input": null
+          },
+          {
+            "name": "$tanstack-query",
+            "description": "Powerful asynchronous state management, server-state utilities, and data fetching for TS/JS, React, Vue, Solid, Svelte & Angular.",
+            "input": null
+          },
+          {
+            "name": "$tanstack-router",
+            "description": "Type-safe routing for React and Solid applications with first-class search params, data loading, and seamless integration with the React ecosystem.",
+            "input": null
+          },
+          {
+            "name": "$tauri-v2",
+            "description": "Tauri v2+ cross-platform app development with Rust backend. Use when configuring tauri.conf.json, implementing Rust commands (#[tauri::command]), setting up IPC patterns (invoke, emit, channels), configuring permissions/capabilities, troubleshooting build issues, or deploying desktop/mobile apps. Triggers on Tauri, src-tauri, invoke, emit, capabilities.json.",
+            "input": null
+          },
+          {
+            "name": "$tdd",
+            "description": "Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions \"red-green-refactor\", or wants integration tests.",
+            "input": null
+          },
+          {
+            "name": "$teach",
+            "description": "Teach the user a new skill or concept, within this workspace.",
+            "input": null
+          },
+          {
+            "name": "$to-spec",
+            "description": "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed.",
+            "input": null
+          },
+          {
+            "name": "$to-tickets",
+            "description": "Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).",
+            "input": null
+          },
+          {
+            "name": "$triage",
+            "description": "Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs.",
+            "input": null
+          },
+          {
+            "name": "$turborepo",
+            "description": "Turborepo monorepo build system guidance. Triggers on: turbo.json, task pipelines, dependsOn, caching, remote cache, the \"turbo\" CLI, --filter, --affected, CI optimization, environment variables, internal packages, monorepo structure/best practices, and boundaries. Use when user: configures tasks/workflows/pipelines, creates packages, sets up monorepo, shares code between apps, runs changed/affected packages, debugs cache, or has apps/packages directories.",
+            "input": null
+          },
+          {
+            "name": "$vitest",
+            "description": "Vitest fast unit testing framework powered by Vite with Jest-compatible API. Use when writing tests, mocking, configuring coverage, or working with test filtering and fixtures.",
+            "input": null
+          },
+          {
+            "name": "$wait-what",
+            "description": "Stop. That last message did not land: re-pitch it.",
+            "input": null
+          },
+          {
+            "name": "$wizard",
+            "description": "Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don't invoke this for steps the agent can perform itself.",
+            "input": null
+          },
+          {
+            "name": "$writing-for-agents",
+            "description": "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.",
+            "input": null
+          },
+          {
+            "name": "$browser:control-in-app-browser",
+            "description": "Control the in-app Browser for opening, navigating, inspecting visible or interactive page state, clicking, typing, screenshots, and local web testing. It can have existing signed-in sessions. For semantic operations on linked resources, prefer a purpose-built connector, API, or CLI when available.",
+            "input": null
+          },
+          {
+            "name": "$caveman",
+            "description": "Ultra-compressed communication mode. Cuts output tokens 65% (measured) by speaking like caveman while keeping full technical accuracy. Supports intensity levels: lite, full (default), ultra, wenyan-lite, wenyan-full, wenyan-ultra. Use when user says \"caveman mode\", \"talk like caveman\", \"use caveman\", \"less tokens\", \"be brief\", or invokes /caveman. Also auto-triggers when token efficiency is requested.",
+            "input": null
+          },
+          {
+            "name": "$context7-mcp",
+            "description": "This skill should be used when the user asks about libraries, frameworks, API references, or needs code examples. Activates for setup questions, code generation involving libraries, or mentions of specific frameworks like React, Vue, Next.js, Prisma, Supabase, etc.",
+            "input": null
+          },
+          {
+            "name": "$documents:documents",
+            "description": "Create, edit, redline, and comment on `.docx`, Word, and Google Docs-targeted document artifacts inside the container, with a strict render-and-verify workflow. Use `render_docx.py` to generate page PNGs (and optional PDF) for visual QA, then iterate until layout is flawless before delivering the final document.",
+            "input": null
+          },
+          {
+            "name": "$find-skills",
+            "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
+            "input": null
+          },
+          {
+            "name": "$pdf:pdf",
+            "description": "Read, create, inspect, render, and verify PDF files where visual layout matters, including fillable AcroForms. Use Poppler rendering plus Python tools such as reportlab, pdfplumber, and pypdf for generation and extraction.",
+            "input": null
+          },
+          {
+            "name": "$ponytail",
+            "description": "Forces the laziest solution that actually works, simplest, shortest, most minimal. Channels a senior dev who has seen everything: question whether the task needs to exist at all (YAGNI), reach for the standard library before custom code, native platform features before dependencies, one line before fifty. Supports intensity levels: lite, full (default), ultra. Use on ANY coding task: writing, adding, refactoring, fixing, reviewing, or designing code, and choosing libraries or dependencies. Also use whenever the user says \"ponytail\", \"be lazy\", \"lazy mode\", \"simplest solution\", \"minimal solution\", \"yagni\", \"do less\", or \"shortest path\", or complains about over-engineering, bloat, boilerplate, or unnecessary dependencies. Do NOT use for non-coding requests (general knowledge, prose, translation, summaries, recipes).",
+            "input": null
+          },
+          {
+            "name": "$presentations:Presentations",
+            "description": "Read, create or edit PowerPoint or Google Slides decks. Use for presentation, slide deck, PowerPoint, PPT, PPTX, or Google Slides requests.",
+            "input": null
+          },
+          {
+            "name": "$spreadsheets:Spreadsheets",
+            "description": "Create, edit, analyze, and verify standalone spreadsheet files or Google Sheets-ready workbooks, including .xlsx, .xls, .csv, and .tsv. Do not use for live controlling Microsoft Excel app or a live Excel session.",
+            "input": null
+          },
+          {
+            "name": "$spreadsheets:excel-live-control",
+            "description": "Control an open or active Microsoft Excel workbook through the ChatGPT add-in or connected session. Use when the user tags the Microsoft Excel app in Codex or follows up on an established live Excel task. Do not use for standalone spreadsheet files or Google Sheets.",
+            "input": null
+          },
+          {
+            "name": "$template-creator:template-creator",
+            "description": "Create or update a reusable personal Codex artifact-template skill. Use when the user invokes $template-creator or asks in natural language to create a reusable template from a reference document, presentation, spreadsheet, Google Docs, Slides, or Sheets link, ImageGen or Product Design image, email, Slack message, or Site project, or explicitly asks to edit or update a passed artifact-template skill. Do not use for one-off creation from an existing template.",
+            "input": null
+          },
+          {
+            "name": "$visualize:visualize",
+            "description": "Create visualizations and interactive tools directly in conversation. Use when asked to show how something works, make simulators or labs, maps, plots, charts or graphs, comparisons, UI mockups, scenarios, adjustable inputs, and exploration beyond regular text.",
+            "input": null
+          },
+          {
+            "name": "$imagegen",
+            "description": "Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas.",
+            "input": null
+          },
+          {
+            "name": "$openai-docs",
+            "description": "Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, and self-knowledge; OpenAI APIs and ChatGPT Work. 'You'/'this app' means Codex only.",
+            "input": null
+          },
+          {
+            "name": "$plugin-creator",
+            "description": "Create and scaffold plugin directories for Codex with a required `.codex-plugin/plugin.json`, optional plugin folders/files, valid manifest defaults, and personal-marketplace entries by default. Use when Codex needs to create a new personal plugin, add optional plugin structure, generate or update marketplace entries for plugin ordering and availability metadata, or update an existing local plugin during development with the CLI-driven cachebuster and reinstall flow.",
+            "input": null
+          },
+          {
+            "name": "$review-agent",
+            "description": "Perform a read-only, defect-first review of a specified code change and return every actionable finding. Use when another agent delegates review of uncommitted changes, a base-branch diff, a commit, or custom review instructions.",
+            "input": null
+          },
+          {
+            "name": "$skill-creator",
+            "description": "Create or update a skill",
+            "input": null
+          },
+          {
+            "name": "$skill-installer",
+            "description": "Install curated skills from openai/skills or other repos",
+            "input": null
+          }
+        ]
+      }
+    },
+    "headers": [],
+    "isNotification": true
+  }
+}

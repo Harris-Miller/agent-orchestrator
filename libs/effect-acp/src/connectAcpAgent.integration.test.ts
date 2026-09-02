@@ -51,7 +51,7 @@ describe('connectAcpAgent', () => {
       const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
 
       assert.strictEqual(sessionUpdates.length, 1);
-      assert.strictEqual(sessionUpdates[0]?.sessionId, 'echo-session-1');
+      assert.strictEqual(sessionUpdates[0]?.sessionId, session.sessionId);
       assert.strictEqual(
         (sessionUpdates[0]?.update as { sessionUpdate: string }).sessionUpdate,
         'available_commands_update',
@@ -63,9 +63,9 @@ describe('connectAcpAgent', () => {
       });
 
       assert.strictEqual(simpleReply.stopReason, 'end_turn');
-      assert.strictEqual(session.sessionId, 'echo-session-1');
+      assert.match(session.sessionId, /^[0-9a-f-]{36}$/);
       assert.strictEqual(sessionUpdates.length, 2);
-      assert.strictEqual(sessionUpdates[1]?.sessionId, 'echo-session-1');
+      assert.strictEqual(sessionUpdates[1]?.sessionId, session.sessionId);
       assert.deepStrictEqual(sessionUpdates[1]?.update, {
         content: { text: 'hi', type: 'text' },
         messageId: 'msg_simple_1',
@@ -125,7 +125,7 @@ describe('connectAcpAgent', () => {
         return session.sessionId;
       }).pipe(Effect.scoped, Effect.provide(TestLayer));
 
-      assert.strictEqual(sessionId, 'echo-session-1');
+      assert.match(sessionId, /^[0-9a-f-]{36}$/);
     }),
   );
 
@@ -139,8 +139,10 @@ describe('connectAcpAgent', () => {
           return session.sessionId;
         }).pipe(Effect.scoped, Effect.provide(TestLayer));
 
-      assert.strictEqual(yield* runOnce(), 'echo-session-1');
-      assert.strictEqual(yield* runOnce(), 'echo-session-1');
+      const firstSessionId = yield* runOnce();
+      const secondSessionId = yield* runOnce();
+      assert.match(firstSessionId, /^[0-9a-f-]{36}$/);
+      assert.match(secondSessionId, /^[0-9a-f-]{36}$/);
     }),
   );
 });

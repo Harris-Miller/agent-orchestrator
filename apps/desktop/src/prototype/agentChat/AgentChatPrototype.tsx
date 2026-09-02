@@ -18,6 +18,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
 import {
@@ -32,6 +33,7 @@ import {
 } from './acpBackendAtoms.ts';
 import { backendLabel, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
+import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
 
 const backendOptions: readonly { readonly label: string; readonly value: AcpAgentBackend }[] = [
@@ -56,6 +58,7 @@ const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' 
 };
 
 export const AgentChatPrototype: FC = () => {
+  const [sessionStateOpen, setSessionStateOpen] = useState(true);
   const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
   const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
   const snapshot = useAtomValue(activeSnapshotAtom);
@@ -88,7 +91,23 @@ export const AgentChatPrototype: FC = () => {
 
   return (
     <Box sx={{ bgcolor: 'background.default', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static">
+      <AppBar
+        position="static"
+        sx={theme => ({
+          transition: theme.transitions.create(['margin', 'width'], {
+            duration: theme.transitions.duration.leavingScreen,
+            easing: theme.transitions.easing.sharp,
+          }),
+          ...(sessionStateOpen && {
+            marginRight: `${SESSION_STATE_DRAWER_WIDTH}px`,
+            transition: theme.transitions.create(['margin', 'width'], {
+              duration: theme.transitions.duration.enteringScreen,
+              easing: theme.transitions.easing.easeOut,
+            }),
+            width: `calc(100% - ${SESSION_STATE_DRAWER_WIDTH}px)`,
+          }),
+        })}
+      >
         <Toolbar sx={{ gap: 1 }}>
           <Typography sx={{ flexGrow: 1 }} variant="h3">
             Agent Chat
@@ -129,129 +148,165 @@ export const AgentChatPrototype: FC = () => {
               ))}
             </Select>
           </FormControl>
+          {sessionStateOpen ? null : (
+            <Button
+              onClick={() => {
+                setSessionStateOpen(true);
+              }}
+              size="small"
+              variant="outlined"
+            >
+              Session state
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
 
-      <Box
-        sx={{
-          display: 'flex',
-          flex: 1,
-          flexDirection: 'column',
-          gap: 2,
-          maxWidth: 900,
-          mx: 'auto',
-          p: 2,
-          width: '100%',
-        }}
-      >
-        <Paper sx={{ flex: 1, minHeight: 360, overflow: 'auto', p: 1 }}>
-          <List dense disablePadding>
-            {snapshot.chatItems.length === 0 ? (
-              <ListItem>
-                <ListItemText primary="No messages yet" secondary={emptyStateSecondary} />
-              </ListItem>
-            ) : (
-              snapshot.chatItems.map(item => <ChatItemView item={item} key={item.id} />)
-            )}
-          </List>
-        </Paper>
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Box
+          component="main"
+          sx={theme => ({
+            display: 'flex',
+            flex: 1,
+            flexDirection: 'column',
+            gap: 2,
+            marginRight: sessionStateOpen ? 0 : `-${SESSION_STATE_DRAWER_WIDTH}px`,
+            minWidth: 0,
+            p: 2,
+            position: 'relative',
+            transition: theme.transitions.create('margin', {
+              duration: theme.transitions.duration.leavingScreen,
+              easing: theme.transitions.easing.sharp,
+            }),
+            ...(sessionStateOpen && {
+              transition: theme.transitions.create('margin', {
+                duration: theme.transitions.duration.enteringScreen,
+                easing: theme.transitions.easing.easeOut,
+              }),
+            }),
+          })}
+        >
+          <Paper sx={{ flex: 1, minHeight: 360, overflow: 'auto', p: 1 }}>
+            <List dense disablePadding>
+              {snapshot.chatItems.length === 0 ? (
+                <ListItem>
+                  <ListItemText primary="No messages yet" secondary={emptyStateSecondary} />
+                </ListItem>
+              ) : (
+                snapshot.chatItems.map(item => <ChatItemView item={item} key={item.id} />)
+              )}
+            </List>
+          </Paper>
 
-        <Paper sx={{ p: 2 }}>
-          <Stack spacing={1}>
-            <Typography color="text.secondary" variant="caption">
-              PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {snapshot.sessionId ?? '—'}
-            </Typography>
-            {snapshot.error !== undefined ? (
-              <Typography color="error" variant="body2">
-                {snapshot.error}
+          <Paper sx={{ p: 2 }}>
+            <Stack spacing={1}>
+              <Typography color="text.secondary" variant="caption">
+                PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {snapshot.sessionId ?? '—'}
               </Typography>
-            ) : null}
-            <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <TextField
-                disabled={!controlsEnabled}
-                fullWidth
-                onChange={event => {
-                  setDraft(event.target.value);
-                }}
-                placeholder={`Message ${backendLabel(selectedBackend)}…`}
-                size="small"
-                value={draft}
-              />
-              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel id="acp-model-label">Model</InputLabel>
-                  <Select
-                    label="Model"
-                    labelId="acp-model-label"
-                    onChange={event => {
-                      setModel({ backend: selectedBackend, modelId: event.target.value }).catch(() => undefined);
-                    }}
-                    value={snapshot.selectedModelId ?? models.currentId ?? ''}
-                  >
-                    {models.options.map(option => (
-                      <MenuItem key={option.id} value={option.id}>
-                        {option.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel id="acp-mode-label">Mode</InputLabel>
-                  <Select
-                    label="Mode"
-                    labelId="acp-mode-label"
-                    onChange={event => {
-                      setMode({ backend: selectedBackend, modeId: event.target.value }).catch(() => undefined);
-                    }}
-                    value={snapshot.selectedModeId ?? modes.currentId ?? ''}
-                  >
-                    {modes.options.map(option => (
-                      <MenuItem key={option.id} value={option.id}>
-                        {option.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Box sx={{ flexGrow: 1 }} />
-                <Button disabled={!canSend} type="submit" variant="contained">
-                  Send
-                </Button>
-              </Box>
-            </Box>
-          </Stack>
-        </Paper>
-
-        <Paper sx={{ maxHeight: 320, overflow: 'auto', p: 2 }}>
-          <Stack spacing={1}>
-            <Typography color="text.secondary" variant="caption">
-              RPC wire log ({snapshot.rpcCalls.length})
-            </Typography>
-            {snapshot.rpcCalls.length === 0 ? (
-              <Typography color="text.secondary" variant="body2">
-                No RPC traffic yet.
-              </Typography>
-            ) : (
-              snapshot.rpcCalls.map(entry => (
-                <Box
-                  component="pre"
-                  key={entry.id}
-                  sx={{
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    m: 0,
-                    overflow: 'auto',
-                    p: 1,
-                    whiteSpace: 'pre-wrap',
+              {snapshot.error !== undefined ? (
+                <Typography color="error" variant="body2">
+                  {snapshot.error}
+                </Typography>
+              ) : null}
+              <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <TextField
+                  disabled={!controlsEnabled}
+                  fullWidth
+                  onChange={event => {
+                    setDraft(event.target.value);
                   }}
-                >
-                  {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                  placeholder={`Message ${backendLabel(selectedBackend)}…`}
+                  size="small"
+                  value={draft}
+                />
+                <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                  <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel id="acp-model-label">Model</InputLabel>
+                    <Select
+                      label="Model"
+                      labelId="acp-model-label"
+                      onChange={event => {
+                        setModel({ backend: selectedBackend, modelId: event.target.value }).catch(() => undefined);
+                      }}
+                      value={snapshot.selectedModelId ?? models.currentId ?? ''}
+                    >
+                      {models.options.map(option => (
+                        <MenuItem key={option.id} value={option.id}>
+                          {option.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel id="acp-mode-label">Mode</InputLabel>
+                    <Select
+                      label="Mode"
+                      labelId="acp-mode-label"
+                      onChange={event => {
+                        setMode({ backend: selectedBackend, modeId: event.target.value }).catch(() => undefined);
+                      }}
+                      value={snapshot.selectedModeId ?? modes.currentId ?? ''}
+                    >
+                      {modes.options.map(option => (
+                        <MenuItem key={option.id} value={option.id}>
+                          {option.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Button disabled={!canSend} type="submit" variant="contained">
+                    Send
+                  </Button>
                 </Box>
-              ))
-            )}
-          </Stack>
-        </Paper>
+              </Box>
+            </Stack>
+          </Paper>
+
+          <Paper sx={{ maxHeight: 320, overflow: 'auto', p: 2 }}>
+            <Stack spacing={1}>
+              <Typography color="text.secondary" variant="caption">
+                RPC wire log ({snapshot.rpcCalls.length})
+              </Typography>
+              {snapshot.rpcCalls.length === 0 ? (
+                <Typography color="text.secondary" variant="body2">
+                  No RPC traffic yet.
+                </Typography>
+              ) : (
+                snapshot.rpcCalls.map(entry => (
+                  <Box
+                    component="pre"
+                    key={entry.id}
+                    sx={{
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      m: 0,
+                      overflow: 'auto',
+                      p: 1,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                  </Box>
+                ))
+              )}
+            </Stack>
+          </Paper>
+        </Box>
+
+        <BootstrapStatePanel
+          availableCommands={snapshot.availableCommands}
+          initializeResult={snapshot.initializeResult}
+          onClose={() => {
+            setSessionStateOpen(false);
+          }}
+          open={sessionStateOpen}
+          selectedModeId={snapshot.selectedModeId}
+          selectedModelId={snapshot.selectedModelId}
+          sessionNewResult={snapshot.sessionNewResult}
+        />
       </Box>
     </Box>
   );

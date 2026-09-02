@@ -35,16 +35,24 @@ One row in the session roster: agent-reported identity and metadata (`sessionId`
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
-The Harness working copy for one session: transcript, status, model/mode selection, and session configuration. One per `sessionId` per backend harness.
+The Harness working copy for one session: transcript, status, session configuration, and pending client request state. One per `sessionId` per backend harness.
 _Avoid_: Session record, session object
 
 **Session status**:
 Harness-reported lifecycle for a session snapshot: `activating` (load or resume in flight), `active` (loaded on the agent; prompts allowed), or `inactive` (not loaded, or closed via Deactivate). Not an ACP protocol concept.
 _Avoid_: Session state (ambiguous with session configuration)
 
+**Config option**:
+An agent-reported selectable setting on a session — model, mode, and other provider-specific choices. Populated from session activation responses and update notifications.
+_Avoid_: Setting, preference, parameter
+
 **Session configuration**:
-Normalized agent-reported session settings from a `session/new`, `session/load`, or `session/resume` response (models, modes, config options). Cached on the session snapshot.
+Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
 _Avoid_: Session state, session/new result
+
+**Pending client request**:
+Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation.
+_Avoid_: In flight, loading, busy flag
 
 **Selected session**:
 Per-agent UI focus; determines which transcript the main chat shows and which session receives prompts. One per agent; persists when switching agents.

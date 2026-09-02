@@ -1,5 +1,7 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
+import { isRecord } from '../../utils.ts';
+
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import type { AvailableCommand, ChatItem } from './sessionUpdateReducer.ts';
 
@@ -10,6 +12,7 @@ export type SessionStatus = 'activating' | 'active' | 'inactive';
 export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
   readonly chatItems: readonly ChatItem[];
+  readonly pendingClientRequest?: boolean;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
   readonly sessionId: string;
@@ -123,9 +126,6 @@ export const initialBackendSnapshot = (): BackendSnapshot => ({
   sessions: {},
 });
 
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
 export const initialSessionSnapshot = (sessionId: string, status: SessionStatus = 'inactive'): SessionSnapshot => ({
   chatItems: [],
   sessionId,
@@ -194,58 +194,141 @@ const parseModeOptions = (value: unknown): readonly NormalizedMode[] => {
   }
 
   return value.flatMap(entry => {
-    if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
+    if (!isRecord(entry)) {
+      return [];
+    }
+
+    const modeId = typeof entry.id === 'string' ? entry.id : typeof entry.value === 'string' ? entry.value : undefined;
+    const name = typeof entry.name === 'string' ? entry.name : modeId;
+    if (modeId === undefined || name === undefined) {
       return [];
     }
 
     return [
       {
         description: typeof entry.description === 'string' ? entry.description : undefined,
-        id: entry.id,
-        name: entry.name,
+        id: modeId,
+        name,
       },
     ];
   });
 };
 
-/** Codex exposes top-level `models`; Claude uses `configOptions` where `id === 'model'`. */
+const findConfigOption = (sessionState: unknown, id: string): Record<string, unknown> | undefined => {
+  if (!isRecord(sessionState) || !Array.isArray(sessionState.configOptions)) {
+    return undefined;
+  }
+
+  return sessionState.configOptions.find(
+    (option): option is Record<string, unknown> => isRecord(option) && option.id === id,
+  );
+};
+
+/** Partial set_config_option responses often omit `options`; keep prior choices by id. */
+const mergeConfigOptions = (existing: unknown, incoming: readonly unknown[]): readonly unknown[] => {
+  if (!Array.isArray(existing) || existing.length === 0) {
+    return incoming;
+  }
+
+  const existingOptions = existing.filter((option): option is Record<string, unknown> => isRecord(option));
+  const existingById = new Map(
+    existingOptions.flatMap(option => (typeof option.id === 'string' ? [[option.id, option] as const] : [])),
+  );
+
+  const mergedIds = new Set<string>();
+
+  const merged = incoming.flatMap(incomingOption => {
+    if (!isRecord(incomingOption) || typeof incomingOption.id !== 'string') {
+      return [incomingOption];
+    }
+
+    mergedIds.add(incomingOption.id);
+    const previous = existingById.get(incomingOption.id);
+    if (previous === undefined) {
+      return [incomingOption];
+    }
+
+    return [
+      {
+        ...previous,
+        ...incomingOption,
+        options: Array.isArray(incomingOption.options) ? incomingOption.options : previous.options,
+      },
+    ];
+  });
+
+  const untouched = existingOptions.filter(option => typeof option.id === 'string' && !mergedIds.has(option.id));
+
+  return [...merged, ...untouched];
+};
+
+/** Reads model selection from session config options. */
 export const normalizeModels = (sessionNew: unknown): NormalizedModels => {
   if (!isRecord(sessionNew)) {
     return { options: [] };
   }
 
-  if (isRecord(sessionNew.models)) {
-    const { models } = sessionNew;
-    return {
-      currentId: typeof models.currentModelId === 'string' ? models.currentModelId : undefined,
-      options: parseModelOptions(models.availableModels),
-    };
-  }
-
-  if (Array.isArray(sessionNew.configOptions)) {
-    const modelOption = sessionNew.configOptions.find(
-      (option): option is Record<string, unknown> => isRecord(option) && option.id === 'model',
-    );
-    if (modelOption !== undefined) {
-      return {
-        currentId: typeof modelOption.currentValue === 'string' ? modelOption.currentValue : undefined,
-        options: parseModelOptions(modelOption.options),
-      };
-    }
-  }
-
-  return { options: [] };
-};
-
-export const normalizeModes = (sessionNew: unknown): NormalizedModes => {
-  if (!isRecord(sessionNew) || !isRecord(sessionNew.modes)) {
+  const modelOption = findConfigOption(sessionNew, 'model');
+  if (modelOption === undefined) {
     return { options: [] };
   }
 
-  const { modes } = sessionNew;
   return {
-    currentId: typeof modes.currentModeId === 'string' ? modes.currentModeId : undefined,
-    options: parseModeOptions(modes.availableModes),
+    currentId: typeof modelOption.currentValue === 'string' ? modelOption.currentValue : undefined,
+    options: parseModelOptions(modelOption.options),
+  };
+};
+
+/** Reads mode selection from session config options. */
+export const normalizeModes = (sessionNew: unknown): NormalizedModes => {
+  if (!isRecord(sessionNew)) {
+    return { options: [] };
+  }
+
+  const modeOption = findConfigOption(sessionNew, 'mode');
+  if (modeOption === undefined) {
+    return { options: [] };
+  }
+
+  return {
+    currentId: typeof modeOption.currentValue === 'string' ? modeOption.currentValue : undefined,
+    options: parseModeOptions(modeOption.options),
+  };
+};
+
+export const selectionFromSessionConfiguration = (
+  result: unknown,
+): {
+  readonly selectedModeId?: string;
+  readonly selectedModelId?: string;
+} => {
+  const models = normalizeModels(result);
+  const modes = normalizeModes(result);
+  return {
+    selectedModeId: modes.currentId,
+    selectedModelId: models.currentId,
+  };
+};
+
+export const applySetConfigOptionResult = (
+  sessionState: unknown,
+  result: unknown,
+): {
+  readonly selectedModeId?: string;
+  readonly selectedModelId?: string;
+  readonly sessionState: unknown;
+} => {
+  const base: Record<string, unknown> = isRecord(sessionState) ? { ...sessionState } : {};
+
+  if (isRecord(result) && Array.isArray(result.configOptions)) {
+    base.configOptions = mergeConfigOptions(base.configOptions, result.configOptions);
+  }
+
+  const selection = selectionFromSessionConfiguration(base);
+  return {
+    selectedModeId: selection.selectedModeId,
+    selectedModelId: selection.selectedModelId,
+    sessionState: base,
   };
 };
 

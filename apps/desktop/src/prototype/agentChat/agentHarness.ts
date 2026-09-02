@@ -12,6 +12,7 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
+import { isRecord } from '../../utils.ts';
 
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AvailableCommand, ChatItem } from './sessionUpdateReducer.ts';
@@ -33,8 +34,6 @@ const pipedSpawnOptions = {
 };
 
 const echoEntrySegments = ['jsonrpc-echo', 'src', 'main.ts'] as const;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const formatError = (error: unknown): string => {
   if (error instanceof Error) {
@@ -283,12 +282,6 @@ export const deleteSession = (agent: AgentHandle, sessionId: string) =>
 export const sendPrompt = (agent: AgentHandle, sessionId: string, text: string) =>
   agent['session/prompt']({
     prompt: [{ text, type: 'text' }],
-    sessionId,
-  }).pipe(Effect.provide(TauriServicesLive));
-
-export const setMode = (agent: AgentHandle, sessionId: string, modeId: string) =>
-  agent['session/set_mode']({
-    modeId,
     sessionId,
   }).pipe(Effect.provide(TauriServicesLive));
 

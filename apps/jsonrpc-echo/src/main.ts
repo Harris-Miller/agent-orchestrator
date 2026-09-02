@@ -9,7 +9,6 @@ import {
   echoSessionLoadResponse,
   echoSessionNewResponse,
   echoSetConfigOptionResponse,
-  echoSetModeResponse,
 } from './bootstrapResponses.ts';
 import { resolveFixtureUpdates } from './fixtures.ts';
 import { notifyClient } from './notifyClient.ts';
@@ -186,6 +185,8 @@ const Handlers = AgentRpcs.toLayer(
 
           if (configId === 'model') {
             session.modelId = value;
+          } else if (configId === 'mode') {
+            session.modeId = value;
           }
 
           const update = {
@@ -202,7 +203,7 @@ const Handlers = AgentRpcs.toLayer(
           session.modeId = modeId;
 
           const update = {
-            configOptions: echoSetModeResponse(modeId).configOptions,
+            configOptions: echoSetConfigOptionResponse('mode', modeId).configOptions,
             sessionUpdate: 'config_option_update' as const,
           };
           yield* notifySessionUpdate(session, update);

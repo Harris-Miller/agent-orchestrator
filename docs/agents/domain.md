@@ -46,6 +46,8 @@ Multi-context repo (this repo):
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
 
+When a glossary term names state held on a domain object (for example a flag on a session snapshot), use the glossary term's camelCase form for the property name in code (`Pending client request` → `pendingClientRequest`). Do not use synonyms listed under `_Avoid_`.
+
 If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
 
 ## Flag ADR conflicts

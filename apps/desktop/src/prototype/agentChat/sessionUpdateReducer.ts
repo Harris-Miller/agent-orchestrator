@@ -1,5 +1,7 @@
 /** Pure reducer turning ACP `session/update` payloads into ordered chat items. */
 
+import { isRecord } from '../../utils.ts';
+
 export type PlanEntry = {
   readonly content: string;
   readonly priority?: string;
@@ -52,8 +54,6 @@ type ChatAccumulator = {
   readonly messageIndices: ReadonlyMap<string, number>;
   readonly toolCallIndices: ReadonlyMap<string, number>;
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const isTextBlock = (block: unknown): block is { readonly text: string; readonly type: 'text' } => {
   if (!isRecord(block)) {

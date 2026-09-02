@@ -5,6 +5,7 @@ import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
+import Alert from '@mui/material/Alert';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -20,12 +21,15 @@ import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
+import Snackbar from '@mui/material/Snackbar';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
+
+import { isRecord } from '../../utils.ts';
 
 import {
   activeSnapshotAtom,
@@ -38,7 +42,7 @@ import {
   setModeFn,
   setModelFn,
 } from './acpBackendAtoms.ts';
-import { backendLabel, isRecord, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
+import { backendLabel, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
@@ -46,6 +50,13 @@ import { SESSION_ROSTER_DRAWER_WIDTH, SessionRosterDrawer } from './SessionRoste
 
 const RPC_WIRE_LOG_DRAWER_HEIGHT = 320;
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
+
+const formatClientError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
 
 const backendOptions: readonly { readonly label: string; readonly value: AcpAgentBackend }[] = [
   { label: 'Echo (jsonrpc-echo)', value: 'echo' },
@@ -113,6 +124,7 @@ export const AgentChatPrototype: FC = () => {
   const [sessionRosterOpen, setSessionRosterOpen] = useState(true);
   const [sessionStateOpen, setSessionStateOpen] = useState(true);
   const [rpcWireLogOpen, setRpcWireLogOpen] = useState(false);
+  const [clientError, setClientError] = useState<null | string>(null);
   const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
   const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
   const snapshot = useAtomValue(activeSnapshotAtom);
@@ -129,9 +141,12 @@ export const AgentChatPrototype: FC = () => {
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
   const models = normalizeModels(selectedSession?.sessionState);
   const modes = normalizeModes(selectedSession?.sessionState);
-  const promptEnabled = selectedSession?.status === 'active';
-  const canSend = promptEnabled && draft.trim().length > 0;
-  const controlsEnabled = promptEnabled;
+  const controlsEnabled = selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true;
+  const canSend = controlsEnabled && draft.trim().length > 0;
+
+  const showClientError = (error: unknown) => {
+    setClientError(formatClientError(error));
+  };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -141,7 +156,7 @@ export const AgentChatPrototype: FC = () => {
 
     const text = draft;
     setDraft('');
-    sendChatItem({ backend: selectedBackend, text }).catch(() => undefined);
+    sendChatItem({ backend: selectedBackend, text }).catch(showClientError);
   };
 
   const emptyStateSecondary = (() => {
@@ -350,7 +365,7 @@ export const AgentChatPrototype: FC = () => {
                       label="Model"
                       labelId="acp-model-label"
                       onChange={event => {
-                        setModel({ backend: selectedBackend, modelId: event.target.value }).catch(() => undefined);
+                        setModel({ backend: selectedBackend, modelId: event.target.value }).catch(showClientError);
                       }}
                       value={selectedSession?.selectedModelId ?? models.currentId ?? ''}
                     >
@@ -367,7 +382,7 @@ export const AgentChatPrototype: FC = () => {
                       label="Mode"
                       labelId="acp-mode-label"
                       onChange={event => {
-                        setMode({ backend: selectedBackend, modeId: event.target.value }).catch(() => undefined);
+                        setMode({ backend: selectedBackend, modeId: event.target.value }).catch(showClientError);
                       }}
                       value={selectedSession?.selectedModeId ?? modes.currentId ?? ''}
                     >
@@ -494,6 +509,26 @@ export const AgentChatPrototype: FC = () => {
           )}
         </Box>
       </Drawer>
+
+      <Snackbar
+        anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+        autoHideDuration={6000}
+        onClose={() => {
+          setClientError(null);
+        }}
+        open={clientError !== null}
+      >
+        <Alert
+          onClose={() => {
+            setClientError(null);
+          }}
+          severity="error"
+          sx={{ width: '100%' }}
+          variant="filled"
+        >
+          {clientError}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

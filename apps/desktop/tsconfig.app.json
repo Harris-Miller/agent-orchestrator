@@ -14,7 +14,8 @@
     ]
   },
   "include": [
-    "src"
+    "src",
+    "fixtures"
   ],
   "exclude": [
     "node_modules",

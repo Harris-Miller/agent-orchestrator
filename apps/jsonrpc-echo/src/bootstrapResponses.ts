@@ -89,36 +89,6 @@ export const echoSessionNewResponse = (sessionId: string) => ({
       type: 'select',
     },
   ],
-  models: {
-    availableModels: [
-      {
-        description: 'Default echo model',
-        modelId: 'echo-model',
-        name: 'Echo Model',
-      },
-      {
-        description: 'Verbose echo model',
-        modelId: 'echo-model-verbose',
-        name: 'Echo Model (verbose)',
-      },
-    ],
-    currentModelId: 'echo-model',
-  },
-  modes: {
-    availableModes: [
-      {
-        description: 'Standard echo behavior',
-        id: 'default',
-        name: 'Default',
-      },
-      {
-        description: 'Fixture replay mode',
-        id: 'fixture',
-        name: 'Fixture',
-      },
-    ],
-    currentModeId: 'default',
-  },
   sessionId,
 });
 
@@ -132,28 +102,13 @@ export const echoSessionLoadResponse = (modeId: string, modelId: string) => {
           ? { ...option, currentValue: modeId }
           : option,
     ),
-    modes: {
-      ...base.modes,
-      currentModeId: modeId,
-    },
+    sessionId: base.sessionId,
   };
 };
 
 export const echoAvailableCommandsUpdate = () => ({
   availableCommands: [...ECHO_AVAILABLE_COMMANDS],
   sessionUpdate: 'available_commands_update' as const,
-});
-
-export const echoSetModeResponse = (modeId: string) => ({
-  configOptions: [
-    {
-      category: 'mode',
-      currentValue: modeId,
-      id: 'mode',
-      name: 'Mode',
-      type: 'select',
-    },
-  ],
 });
 
 export const echoSetConfigOptionResponse = (configId: string, value: string) => ({

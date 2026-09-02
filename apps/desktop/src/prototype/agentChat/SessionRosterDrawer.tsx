@@ -13,7 +13,7 @@ import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
@@ -51,6 +51,16 @@ const rosterEntryStatus = (
   sessions: Readonly<Record<string, SessionSnapshot>>,
 ): SessionSnapshot['status'] => (sessionId in sessions ? sessions[sessionId].status : 'inactive');
 
+const sessionCardSx = (selected: boolean) =>
+  ({
+    border: 1,
+    borderColor: selected ? 'primary.main' : 'divider',
+    borderRadius: 1,
+    overflow: 'hidden',
+    width: '100%',
+    ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
+  }) as const;
+
 const SessionRow: FC<{
   readonly backend: AcpAgentBackend;
   readonly entry: NormalizedSessionInfo;
@@ -63,78 +73,92 @@ const SessionRow: FC<{
   const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
 
   const isActivating = status === 'activating';
+  const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
 
   return (
-    <ListItem
-      disablePadding
-      secondaryAction={
-        <Stack direction="row" spacing={0.5}>
-          {status === 'inactive' ? (
-            <Button
-              onClick={event => {
-                event.stopPropagation();
-                activateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
-              }}
-              size="small"
-              variant="outlined"
-            >
-              Activate
-            </Button>
-          ) : (
-            <Button
-              disabled={isActivating}
-              onClick={event => {
-                event.stopPropagation();
-                deactivateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
-              }}
-              size="small"
-              variant="outlined"
-            >
-              {isActivating ? 'Activating…' : 'Deactivate'}
-            </Button>
-          )}
-          {status === 'inactive' ? (
-            <Button
-              color="error"
-              onClick={event => {
-                event.stopPropagation();
-                onDeleteRequest(entry.sessionId);
-              }}
-              size="small"
-              variant="outlined"
-            >
-              Delete
-            </Button>
+    <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
+      <Paper elevation={0} sx={sessionCardSx(selected)}>
+        <ListItemButton
+          onClick={() => {
+            selectSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+          }}
+          selected={selected}
+          sx={{
+            alignItems: 'flex-start',
+            flexDirection: 'column',
+            gap: 0.5,
+            py: 1.25,
+            width: '100%',
+          }}
+        >
+          <Typography
+            sx={{
+              display: '-webkit-box',
+              fontWeight: selected ? 600 : 400,
+              lineHeight: 1.4,
+              overflow: 'hidden',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 2,
+              width: '100%',
+            }}
+            variant="body2"
+          >
+            {displayTitle}
+          </Typography>
+          {entry.title !== undefined ? (
+            <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} variant="caption">
+              {truncateSessionId(entry.sessionId)}
+            </Typography>
           ) : null}
+        </ListItemButton>
+        <Divider />
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{ alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.75 }}
+        >
+          <Chip color={statusColor(status)} label={status} size="small" variant="outlined" />
+          <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+            {status === 'inactive' ? (
+              <Button
+                onClick={event => {
+                  event.stopPropagation();
+                  activateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+                }}
+                size="small"
+                variant="outlined"
+              >
+                Activate
+              </Button>
+            ) : (
+              <Button
+                disabled={isActivating}
+                onClick={event => {
+                  event.stopPropagation();
+                  deactivateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+                }}
+                size="small"
+                variant="outlined"
+              >
+                {isActivating ? 'Activating…' : 'Deactivate'}
+              </Button>
+            )}
+            {status === 'inactive' ? (
+              <Button
+                color="error"
+                onClick={event => {
+                  event.stopPropagation();
+                  onDeleteRequest(entry.sessionId);
+                }}
+                size="small"
+                variant="outlined"
+              >
+                Delete
+              </Button>
+            ) : null}
+          </Stack>
         </Stack>
-      }
-      sx={{ alignItems: 'flex-start', flexDirection: 'column', py: 1 }}
-    >
-      <ListItemButton
-        onClick={() => {
-          selectSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
-        }}
-        selected={selected}
-        sx={{ borderRadius: 1, width: '100%' }}
-      >
-        <ListItemText
-          primary={
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Typography sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }} variant="body2">
-                {entry.title ?? truncateSessionId(entry.sessionId)}
-              </Typography>
-              <Chip color={statusColor(status)} label={status} size="small" variant="outlined" />
-            </Stack>
-          }
-          secondary={
-            entry.title !== undefined ? (
-              <Typography sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} variant="caption">
-                {truncateSessionId(entry.sessionId)}
-              </Typography>
-            ) : undefined
-          }
-        />
-      </ListItemButton>
+      </Paper>
     </ListItem>
   );
 };
@@ -207,7 +231,7 @@ export const SessionRosterDrawer: FC<{
               No sessions yet. Create one to get started.
             </Typography>
           ) : (
-            <List dense disablePadding sx={{ px: 1 }}>
+            <List disablePadding sx={{ py: 0.5 }}>
               {snapshot.sessionRoster.map(entry => (
                 <SessionRow
                   backend={backend}

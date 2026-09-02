@@ -2,6 +2,9 @@
  * PROTOTYPE — simple MUI agent chat surface for the ACP harness.
  */
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,8 +34,8 @@ import {
   setModeFn,
   setModelFn,
 } from './acpBackendAtoms.ts';
-import { backendLabel, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
+import { backendLabel, isRecord, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
+import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
 
@@ -41,6 +44,50 @@ const backendOptions: readonly { readonly label: string; readonly value: AcpAgen
   { label: 'Codex', value: 'codex-acp' },
   { label: 'Claude', value: 'claude-agent-acp' },
 ];
+
+const entryIdNameMap = new Map<number, string>();
+
+const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
+  const arrow = entry.direction === 'out' ? '→' : '←';
+  if (isRecord(entry.message)) {
+    console.log(entry.message);
+    if (entry.direction === 'in') {
+      if (entry.message.requestId != null) {
+        console.log('entryIdNameMap', entryIdNameMap);
+        const cachedName = entryIdNameMap.get(entry.message.requestId as number);
+        return `${arrow} ${cachedName ?? 'message'}`;
+      }
+      if (typeof entry.message.tag === 'string') {
+        return `${arrow} ${entry.message.tag}`;
+      }
+      return `${arrow} message`;
+    }
+
+    const cachedName = (() => {
+      if (typeof entry.message.tag === 'string') {
+        return entry.message.tag;
+      }
+      if (typeof entry.message.method === 'string') {
+        return entry.message.method;
+      }
+      if ('error' in entry.message) {
+        return 'error';
+      }
+      if ('result' in entry.message) {
+        return 'response';
+      }
+      return 'message';
+    })();
+
+    if (entry.message.id != null) {
+      entryIdNameMap.set(entry.message.id as number, cachedName);
+    }
+
+    return `${arrow} ${cachedName}`;
+  }
+
+  return `${arrow} message`;
+};
 
 const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
@@ -274,22 +321,40 @@ export const AgentChatPrototype: FC = () => {
                 </Typography>
               ) : (
                 snapshot.rpcCalls.map(entry => (
-                  <Box
-                    component="pre"
+                  <Accordion
+                    disableGutters
+                    elevation={0}
                     key={entry.id}
                     sx={{
+                      '&::before': { display: 'none' },
                       bgcolor: 'action.hover',
                       borderRadius: 1,
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem',
-                      m: 0,
-                      overflow: 'auto',
-                      p: 1,
-                      whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
-                  </Box>
+                    <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 0.5 }, minHeight: 36 }}>
+                      <Typography
+                        component="span"
+                        sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                        variant="body2"
+                      >
+                        {rpcWireEntryTitle(entry)}
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0 }}>
+                      <Box
+                        component="pre"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontSize: '0.75rem',
+                          m: 0,
+                          overflow: 'auto',
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
                 ))
               )}
             </Stack>

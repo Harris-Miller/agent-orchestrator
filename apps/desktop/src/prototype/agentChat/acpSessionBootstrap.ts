@@ -106,7 +106,8 @@ export const initialBackendSnapshot = (): BackendSnapshot => ({
   rpcCalls: [],
 });
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   if (!Array.isArray(value)) {

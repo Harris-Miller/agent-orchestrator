@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
+import { ChatMarkdown } from './ChatMarkdown.tsx';
 import type { ChatItem } from './sessionUpdateReducer.ts';
 
 const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
@@ -26,17 +27,14 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
 };
 
 const MessageRow: FC<{ label: string; text: string; tone: 'agent' | 'user' }> = ({ label, text, tone }) => (
-  <ListItem sx={{ alignItems: 'flex-start' }}>
-    <ListItemText
-      primary={label}
-      secondary={text}
-      slotProps={{
-        primary: {
-          sx: { color: tone === 'user' ? 'primary.main' : 'text.primary', fontWeight: 600 },
-        },
-        secondary: { sx: { color: 'text.primary', whiteSpace: 'pre-wrap' } },
-      }}
-    />
+  <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
+    <Typography
+      sx={{ color: tone === 'user' ? 'primary.main' : 'text.primary', fontWeight: 600, mb: 0.5 }}
+      variant="body2"
+    >
+      {label}
+    </Typography>
+    <ChatMarkdown text={text} />
   </ListItem>
 );
 

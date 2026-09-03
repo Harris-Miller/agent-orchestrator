@@ -16,14 +16,12 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import {
   activateSessionFn,
   backendStateAtom,
-  createSessionFn,
   deactivateSessionFn,
   deleteSessionFn,
   refreshSessionRosterFn,
@@ -31,6 +29,7 @@ import {
 } from './acpBackendAtoms.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
+import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 
 export const SESSION_ROSTER_PANEL_WIDTH = 320;
@@ -190,19 +189,12 @@ export const SessionRosterPanel: FC<{
   readonly onClose: () => void;
 }> = ({ backend, onClose }) => {
   const snapshot = useAtomValue(backendStateAtom(backend));
-  const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const refreshSessionRoster = useAtomSet(refreshSessionRosterFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedCwd, setSelectedCwd] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<string | undefined>(undefined);
 
   const controlsEnabled = snapshot.phase === 'ready';
-
-  const closeCreateDialog = () => {
-    setCreateOpen(false);
-    setSelectedCwd(undefined);
-  };
 
   return (
     <>
@@ -292,64 +284,14 @@ export const SessionRosterPanel: FC<{
         </Box>
       </Box>
 
-      <Dialog
-        onClose={(_event, reason) => {
-          if (reason === 'backdropClick') {
-            return;
-          }
-          closeCreateDialog();
-        }}
-        open={createOpen}
-      >
-        <DialogTitle>Create New Session</DialogTitle>
-        <DialogContent>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
-            <Typography
-              color={selectedCwd === undefined ? 'text.secondary' : 'text.primary'}
-              sx={{ flex: 1, fontFamily: 'monospace', minWidth: 0, overflowWrap: 'anywhere' }}
-              variant="body2"
-            >
-              {selectedCwd ?? 'None'}
-            </Typography>
-            <Button
-              onClick={() => {
-                openDirectoryDialog({ directory: true, multiple: false })
-                  .then(selected => {
-                    if (typeof selected === 'string') {
-                      setSelectedCwd(selected);
-                    }
-                  })
-                  .catch(() => undefined);
-              }}
-              size="small"
-              variant="outlined"
-            >
-              Select directory
-            </Button>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeCreateDialog}>Cancel</Button>
-          <Button
-            disabled={selectedCwd === undefined}
-            onClick={() => {
-              if (selectedCwd === undefined) {
-                return;
-              }
-
-              const cwd = selectedCwd;
-              createSession({ backend, cwd })
-                .then(() => {
-                  closeCreateDialog();
-                })
-                .catch(() => undefined);
-            }}
-            variant="contained"
-          >
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {createOpen ? (
+        <CreateSessionDirectoryPicker
+          backend={backend}
+          onClose={() => {
+            setCreateOpen(false);
+          }}
+        />
+      ) : null}
 
       <Dialog
         onClose={() => {

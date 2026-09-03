@@ -36,8 +36,21 @@ import {
   setConfigOption,
   stopBackendHarness,
 } from './agentHarness.ts';
+import { joinDirectory, listChildDirectories, parentDirectory, resolveHomeDir } from './sessionDirectoryBrowser.ts';
 
 const acpRuntime = Atom.runtime(() => TauriServicesLive);
+
+export const resolveHomeDirFn = acpRuntime.fn((_arg: undefined) => resolveHomeDir()).pipe(Atom.keepAlive);
+
+export const listChildDirectoriesFn = acpRuntime
+  .fn((dirPath: string) => listChildDirectories(dirPath))
+  .pipe(Atom.keepAlive);
+
+export const parentDirectoryFn = acpRuntime.fn((dirPath: string) => parentDirectory(dirPath)).pipe(Atom.keepAlive);
+
+export const joinDirectoryFn = acpRuntime
+  .fn((arg: { childName: string; dirPath: string }) => joinDirectory(arg.dirPath, arg.childName))
+  .pipe(Atom.keepAlive);
 
 export const selectedBackendAtom = Atom.make<AcpAgentBackend>('echo').pipe(Atom.keepAlive);
 

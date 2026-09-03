@@ -26,6 +26,7 @@ import {
   createSessionFn,
   deactivateSessionFn,
   deleteSessionFn,
+  refreshSessionRosterFn,
   selectSessionFn,
 } from './acpBackendAtoms.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
@@ -186,6 +187,7 @@ export const SessionRosterDrawer: FC<{
 }> = ({ backend, onClose, open }) => {
   const snapshot = useAtomValue(backendStateAtom(backend));
   const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
+  const refreshSessionRoster = useAtomSet(refreshSessionRosterFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCwd, setSelectedCwd] = useState<string | undefined>(undefined);
@@ -227,7 +229,21 @@ export const SessionRosterDrawer: FC<{
             py: 1.5,
           }}
         >
-          <Typography variant="h6">Sessions</Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+            <Typography variant="h6">Sessions</Typography>
+            <IconButton
+              aria-label="Reload sessions"
+              disabled={!controlsEnabled}
+              onClick={() => {
+                refreshSessionRoster(backend).catch(() => undefined);
+              }}
+              size="small"
+            >
+              <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                ↻
+              </Typography>
+            </IconButton>
+          </Stack>
           <IconButton aria-label="Close session roster drawer" edge="end" onClick={onClose} size="small">
             <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
               ‹

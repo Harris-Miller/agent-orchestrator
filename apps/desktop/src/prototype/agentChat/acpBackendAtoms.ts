@@ -27,6 +27,7 @@ import {
   createSession,
   deleteSession,
   getAgentHandle,
+  listSessions,
   loadSession,
   resetBackendHarnessState,
   resumeSession,
@@ -236,6 +237,24 @@ export const selectSessionFn = acpRuntime
       get.set(backendStateAtom(arg.backend), {
         ...get(backendStateAtom(arg.backend)),
         selectedSessionId: arg.sessionId,
+      });
+    }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const refreshSessionRosterFn = acpRuntime
+  .fn((backend: AcpAgentBackend, get) =>
+    Effect.gen(function* () {
+      const agent = getAgentHandle(backend);
+      if (agent === undefined) {
+        return;
+      }
+
+      const listResult = yield* listSessions(agent);
+      const snapshot = get(backendStateAtom(backend));
+      get.set(backendStateAtom(backend), {
+        ...snapshot,
+        sessionRoster: normalizeSessionRoster(listResult),
       });
     }),
   )

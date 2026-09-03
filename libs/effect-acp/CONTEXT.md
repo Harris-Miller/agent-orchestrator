@@ -24,6 +24,10 @@ _Avoid_: Server, worker, model
 A bounded conversation context between Client and Agent, identified by `sessionId`. Created via `session/new`; prompts and updates are scoped to a session.
 _Avoid_: Thread, chat, conversation
 
+**Working directory**:
+The absolute `cwd` passed on `session/new`, `session/load`, and `session/resume` — the session's primary filesystem context and base for relative paths. Must stay consistent for that session across load/resume.
+_Avoid_: Host cwd, spawn directory, project root (ambiguous)
+
 **Prompt**:
 Content blocks the Client sends to the Agent within a session via `session/prompt`.
 _Avoid_: Message, input, query

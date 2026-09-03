@@ -26,12 +26,16 @@ _Avoid_: Connection, provider instance, worker
 
 ## Sessions
 
+**Session cwd**:
+The absolute directory that is a session's primary filesystem context (ACP `cwd`). Chosen by the user when creating a session; carried on the roster entry; required on `session/new`, `session/load`, and `session/resume`. Distinct from the Tauri host process cwd.
+_Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
+
 **Session roster**:
-Cached `session/list` results for an agent; shown in the left session drawer.
-_Avoid_: Session list, session catalog
+Cached `session/list` results for an agent; shown in the Harness UI grouped by session cwd. Can be refreshed with another `session/list` without restarting the backend harness.
+_Avoid_: Session list, session catalog, session drawer
 
 **Roster entry**:
-One row in the session roster: agent-reported identity and metadata (`sessionId`, `cwd`, optional `title`). May exist without a session snapshot until the user creates or activates it.
+One row in the session roster: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`). May exist without a session snapshot until the user creates or activates it.
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
@@ -101,6 +105,10 @@ _Avoid_: Frontend runtime, browser, Node, JS host
 **Tauri host**:
 The desktop runtime (Rust + WebView) that runs the Harness UI and supplies OS capabilities to Effect code through Tauri plugins.
 _Avoid_: Backend, native layer, shell
+
+**Host cwd**:
+The Tauri host process current working directory from the OS service. Used for provider launch and fixture resolution — not a session's project context.
+_Avoid_: Session cwd
 
 **Tauri services**:
 Live Effect layers in `src/context-services/` that implement portable `@lib/context-services` and platform primitives (OS, Path, FileSystem, ChildProcessSpawner) on top of Tauri — analogous to `@effect/platform-node`'s `NodeServices.layer`.

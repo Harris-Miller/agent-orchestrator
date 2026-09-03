@@ -6,7 +6,6 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, SubmitEvent } from 'react';
@@ -21,6 +20,7 @@ import {
 } from './acpBackendAtoms.ts';
 import { backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import { ChatItemView } from './ChatItemView.tsx';
+import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { UsagePopover } from './UsageCard.tsx';
 
@@ -46,8 +46,7 @@ export const AgentChatMain: FC<{
   const controlsEnabled = selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true;
   const canSend = controlsEnabled && draft.trim().length > 0;
 
-  const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const sendDraft = () => {
     if (!canSend) {
       return;
     }
@@ -55,6 +54,11 @@ export const AgentChatMain: FC<{
     const text = draft;
     setDraft('');
     sendChatItem({ backend: selectedBackend, text }).catch(onClientError);
+  };
+
+  const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    sendDraft();
   };
 
   const emptyStateSecondary = (() => {
@@ -133,14 +137,12 @@ export const AgentChatMain: FC<{
             </Typography>
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <TextField
+            <ComposerPromptEditor
               disabled={!controlsEnabled}
-              fullWidth
-              onChange={event => {
-                setDraft(event.target.value);
-              }}
+              key={selectedBackend}
+              onChange={setDraft}
+              onSubmit={sendDraft}
               placeholder={`Message ${backendLabel(selectedBackend)}…`}
-              size="small"
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>

@@ -264,9 +264,8 @@ const sessionCwd = (backend: AcpAgentBackend) =>
 
 export const listSessions = (agent: AgentHandle) => agent['session/list']({}).pipe(Effect.provide(TauriServicesLive));
 
-export const createSession = (agent: AgentHandle, backend: AcpAgentBackend) =>
+export const createSession = (agent: AgentHandle, cwd: string) =>
   Effect.gen(function* () {
-    const cwd = yield* sessionCwd(backend);
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
     return { cwd, result };
   });

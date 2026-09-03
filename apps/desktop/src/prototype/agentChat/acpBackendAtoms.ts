@@ -242,20 +242,20 @@ export const selectSessionFn = acpRuntime
   .pipe(Atom.keepAlive);
 
 export const createSessionFn = acpRuntime
-  .fn((backend: AcpAgentBackend, get) =>
+  .fn((arg: { backend: AcpAgentBackend; cwd: string }, get) =>
     Effect.gen(function* () {
-      const agent = getAgentHandle(backend);
+      const agent = getAgentHandle(arg.backend);
       if (agent === undefined) {
         return;
       }
 
-      const { cwd, result } = yield* createSession(agent, backend);
+      const { cwd, result } = yield* createSession(agent, arg.cwd);
       const { sessionId } = result;
       const session = applySessionActivationResult(sessionId, result);
       const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
-      const snapshot = get(backendStateAtom(backend));
+      const snapshot = get(backendStateAtom(arg.backend));
 
-      get.set(backendStateAtom(backend), {
+      get.set(backendStateAtom(arg.backend), {
         ...snapshot,
         selectedSessionId: sessionId,
         sessionRoster:

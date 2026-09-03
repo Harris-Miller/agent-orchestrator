@@ -16,6 +16,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -110,6 +111,21 @@ const SessionRow: FC<{
               {truncateSessionId(entry.sessionId)}
             </Typography>
           ) : null}
+          <Typography
+            color="text.secondary"
+            sx={{
+              display: '-webkit-box',
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              overflow: 'hidden',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 2,
+              width: '100%',
+            }}
+            variant="caption"
+          >
+            {entry.cwd}
+          </Typography>
         </ListItemButton>
         <Divider />
         <Stack
@@ -171,9 +187,16 @@ export const SessionRosterDrawer: FC<{
   const snapshot = useAtomValue(backendStateAtom(backend));
   const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedCwd, setSelectedCwd] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<string | undefined>(undefined);
 
   const controlsEnabled = snapshot.phase === 'ready';
+
+  const closeCreateDialog = () => {
+    setCreateOpen(false);
+    setSelectedCwd(undefined);
+  };
 
   return (
     <>
@@ -217,7 +240,7 @@ export const SessionRosterDrawer: FC<{
             disabled={!controlsEnabled}
             fullWidth
             onClick={() => {
-              createSession(backend).catch(() => undefined);
+              setCreateOpen(true);
             }}
             variant="contained"
           >
@@ -246,6 +269,65 @@ export const SessionRosterDrawer: FC<{
           )}
         </Box>
       </Drawer>
+
+      <Dialog
+        onClose={(_event, reason) => {
+          if (reason === 'backdropClick') {
+            return;
+          }
+          closeCreateDialog();
+        }}
+        open={createOpen}
+      >
+        <DialogTitle>Create New Session</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+            <Typography
+              color={selectedCwd === undefined ? 'text.secondary' : 'text.primary'}
+              sx={{ flex: 1, fontFamily: 'monospace', minWidth: 0, overflowWrap: 'anywhere' }}
+              variant="body2"
+            >
+              {selectedCwd ?? 'None'}
+            </Typography>
+            <Button
+              onClick={() => {
+                openDirectoryDialog({ directory: true, multiple: false })
+                  .then(selected => {
+                    if (typeof selected === 'string') {
+                      setSelectedCwd(selected);
+                    }
+                  })
+                  .catch(() => undefined);
+              }}
+              size="small"
+              variant="outlined"
+            >
+              Select directory
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCreateDialog}>Cancel</Button>
+          <Button
+            disabled={selectedCwd === undefined}
+            onClick={() => {
+              if (selectedCwd === undefined) {
+                return;
+              }
+
+              const cwd = selectedCwd;
+              createSession({ backend, cwd })
+                .then(() => {
+                  closeCreateDialog();
+                })
+                .catch(() => undefined);
+            }}
+            variant="contained"
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         onClose={() => {

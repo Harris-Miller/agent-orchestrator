@@ -33,6 +33,7 @@ catalog:
   '@tanstack/router-cli': ^1.167.33
   '@tanstack/router-plugin': ^1.168.35
   '@tauri-apps/plugin-clipboard-manager': ~2.3.3
+  '@tauri-apps/plugin-dialog': ~2.4.0
   '@tauri-apps/plugin-fs': ~2.5.1
   '@tauri-apps/plugin-opener': ^2.5.4
   '@tauri-apps/plugin-os': ~2.3.2

@@ -13,6 +13,7 @@ import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
+import ListSubheader from '@mui/material/ListSubheader';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -52,6 +53,21 @@ const rosterEntryStatus = (
   sessionId: string,
   sessions: Readonly<Record<string, SessionSnapshot>>,
 ): SessionSnapshot['status'] => (sessionId in sessions ? sessions[sessionId].status : 'inactive');
+
+const groupSessionsByCwd = (
+  roster: readonly NormalizedSessionInfo[],
+): readonly { cwd: string; sessions: readonly NormalizedSessionInfo[] }[] => {
+  const groups = new Map<string, NormalizedSessionInfo[]>();
+  for (const entry of roster) {
+    const existing = groups.get(entry.cwd);
+    if (existing === undefined) {
+      groups.set(entry.cwd, [entry]);
+    } else {
+      existing.push(entry);
+    }
+  }
+  return [...groups.entries()].map(([cwd, sessions]) => ({ cwd, sessions }));
+};
 
 const sessionCardSx = (selected: boolean) =>
   ({
@@ -112,21 +128,6 @@ const SessionRow: FC<{
               {truncateSessionId(entry.sessionId)}
             </Typography>
           ) : null}
-          <Typography
-            color="text.secondary"
-            sx={{
-              display: '-webkit-box',
-              fontFamily: 'monospace',
-              fontSize: '0.7rem',
-              overflow: 'hidden',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: 2,
-              width: '100%',
-            }}
-            variant="caption"
-          >
-            {entry.cwd}
-          </Typography>
         </ListItemButton>
         <Divider />
         <Stack
@@ -271,15 +272,34 @@ export const SessionRosterDrawer: FC<{
             </Typography>
           ) : (
             <List disablePadding sx={{ py: 0.5 }}>
-              {snapshot.sessionRoster.map(entry => (
-                <SessionRow
-                  backend={backend}
-                  entry={entry}
-                  key={entry.sessionId}
-                  onDeleteRequest={setDeleteTarget}
-                  selected={snapshot.selectedSessionId === entry.sessionId}
-                  status={rosterEntryStatus(entry.sessionId, snapshot.sessions)}
-                />
+              {groupSessionsByCwd(snapshot.sessionRoster).map(({ cwd, sessions }) => (
+                <li key={cwd}>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    <ListSubheader
+                      sx={{
+                        bgcolor: 'background.paper',
+                        fontFamily: 'monospace',
+                        fontSize: '0.7rem',
+                        lineHeight: 1.4,
+                        overflowWrap: 'anywhere',
+                        py: 1,
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {cwd}
+                    </ListSubheader>
+                    {sessions.map(entry => (
+                      <SessionRow
+                        backend={backend}
+                        entry={entry}
+                        key={entry.sessionId}
+                        onDeleteRequest={setDeleteTarget}
+                        selected={snapshot.selectedSessionId === entry.sessionId}
+                        status={rosterEntryStatus(entry.sessionId, snapshot.sessions)}
+                      />
+                    ))}
+                  </ul>
+                </li>
               ))}
             </List>
           )}

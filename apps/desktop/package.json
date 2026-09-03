@@ -32,6 +32,7 @@
     "@tauri-apps/plugin-opener": "catalog:",
     "@tauri-apps/plugin-os": "catalog:",
     "@tauri-apps/plugin-shell": "catalog:",
+    "allotment": "catalog:",
     "effect": "catalog:",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

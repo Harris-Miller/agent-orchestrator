@@ -8,7 +8,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -32,8 +31,9 @@ import {
 } from './acpBackendAtoms.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
+import { PanelHeader } from './PanelHeader.tsx';
 
-export const SESSION_ROSTER_DRAWER_WIDTH = 320;
+export const SESSION_ROSTER_PANEL_WIDTH = 320;
 
 const truncateSessionId = (sessionId: string): string =>
   sessionId.length > 12 ? `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}` : sessionId;
@@ -66,7 +66,11 @@ const groupSessionsByCwd = (
       existing.push(entry);
     }
   }
-  return [...groups.entries()].map(([cwd, sessions]) => ({ cwd, sessions }));
+
+  return groups
+    .entries()
+    .map(([cwd, sessions]) => ({ cwd, sessions }))
+    .toArray();
 };
 
 const sessionCardSx = (selected: boolean) =>
@@ -181,11 +185,10 @@ const SessionRow: FC<{
   );
 };
 
-export const SessionRosterDrawer: FC<{
+export const SessionRosterPanel: FC<{
   readonly backend: AcpAgentBackend;
   readonly onClose: () => void;
-  readonly open: boolean;
-}> = ({ backend, onClose, open }) => {
+}> = ({ backend, onClose }) => {
   const snapshot = useAtomValue(backendStateAtom(backend));
   const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const refreshSessionRoster = useAtomSet(refreshSessionRosterFn, { mode: 'promise' });
@@ -203,35 +206,24 @@ export const SessionRosterDrawer: FC<{
 
   return (
     <>
-      <Drawer
-        anchor="left"
-        open={open}
+      <Box
         sx={{
-          '& .MuiDrawer-paper': {
-            borderColor: 'divider',
-            borderRight: 1,
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            width: SESSION_ROSTER_DRAWER_WIDTH,
-          },
-          flexShrink: 0,
-          width: SESSION_ROSTER_DRAWER_WIDTH,
+          bgcolor: 'background.paper',
+          borderColor: 'divider',
+          borderRight: 1,
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
         }}
-        variant="persistent"
       >
-        <Box
-          sx={{
-            alignItems: 'center',
-            display: 'flex',
-            flexShrink: 0,
-            justifyContent: 'space-between',
-            px: 2,
-            py: 1.5,
-          }}
-        >
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
-            <Typography variant="h6">Sessions</Typography>
+        <PanelHeader
+          closeAriaLabel="Close session roster panel"
+          closeGlyph="‹"
+          onClose={onClose}
+          title="Sessions"
+          titleEnd={
             <IconButton
               aria-label="Reload sessions"
               disabled={!controlsEnabled}
@@ -244,14 +236,8 @@ export const SessionRosterDrawer: FC<{
                 ↻
               </Typography>
             </IconButton>
-          </Stack>
-          <IconButton aria-label="Close session roster drawer" edge="end" onClick={onClose} size="small">
-            <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-              ‹
-            </Typography>
-          </IconButton>
-        </Box>
-        <Divider />
+          }
+        />
         <Box sx={{ flexShrink: 0, p: 2 }}>
           <Button
             disabled={!controlsEnabled}
@@ -304,7 +290,7 @@ export const SessionRosterDrawer: FC<{
             </List>
           )}
         </Box>
-      </Drawer>
+      </Box>
 
       <Dialog
         onClose={(_event, reason) => {

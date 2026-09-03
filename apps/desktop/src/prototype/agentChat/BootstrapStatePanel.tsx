@@ -1,8 +1,6 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
-import Drawer from '@mui/material/Drawer';
-import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -19,10 +17,11 @@ import type {
   NormalizedModel,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
+import { PanelHeader } from './PanelHeader.tsx';
 import type { AvailableCommand } from './sessionUpdateReducer.ts';
 import { UsageCard } from './UsageCard.tsx';
 
-export const SESSION_STATE_DRAWER_WIDTH = 380;
+export const SESSION_STATE_PANEL_WIDTH = 380;
 
 const sectionCardSx = {
   bgcolor: 'background.default',
@@ -370,47 +369,24 @@ const SessionStateContent: FC<{
 export const BootstrapStatePanel: FC<{
   readonly initializeResult: unknown;
   readonly onClose: () => void;
-  readonly open: boolean;
   readonly session?: SessionSnapshot;
-}> = ({ initializeResult, onClose, open, session }) => {
+}> = ({ initializeResult, onClose, session }) => {
   const showSessionDetails = session?.status === 'active';
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
+    <Box
       sx={{
-        '& .MuiDrawer-paper': {
-          borderColor: 'divider',
-          borderLeft: 1,
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          width: SESSION_STATE_DRAWER_WIDTH,
-        },
-        flexShrink: 0,
-        width: SESSION_STATE_DRAWER_WIDTH,
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
+        borderLeft: 1,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
       }}
-      variant="persistent"
     >
-      <Box
-        sx={{
-          alignItems: 'center',
-          display: 'flex',
-          flexShrink: 0,
-          justifyContent: 'space-between',
-          px: 2,
-          py: 1.5,
-        }}
-      >
-        <Typography variant="h6">Session state</Typography>
-        <IconButton aria-label="Close session state drawer" edge="end" onClick={onClose} size="small">
-          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-            ›
-          </Typography>
-        </IconButton>
-      </Box>
-      <Divider />
+      <PanelHeader closeAriaLabel="Close session state panel" closeGlyph="›" onClose={onClose} title="Session state" />
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
         <SessionStateContent
           availableCommands={session?.availableCommands}
@@ -421,6 +397,6 @@ export const BootstrapStatePanel: FC<{
           showSessionDetails={showSessionDetails}
         />
       </Box>
-    </Drawer>
+    </Box>
   );
 };

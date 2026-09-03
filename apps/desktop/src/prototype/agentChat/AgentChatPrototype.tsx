@@ -26,6 +26,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
@@ -39,14 +40,15 @@ import {
   selectedBackendAtom,
   selectedSessionAtom,
   sendChatItemFn,
-  setModeFn,
-  setModelFn,
+  setConfigOptionFn,
 } from './acpBackendAtoms.ts';
-import { backendLabel, normalizeModels, normalizeModes } from './acpSessionBootstrap.ts';
+import { backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_DRAWER_WIDTH } from './BootstrapStatePanel.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
+import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { SESSION_ROSTER_DRAWER_WIDTH, SessionRosterDrawer } from './SessionRosterDrawer.tsx';
+import { UsagePopover } from './UsageCard.tsx';
 
 const RPC_WIRE_LOG_DRAWER_HEIGHT = 320;
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -111,6 +113,9 @@ const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
   return `${arrow} message`;
 };
 
+const rpcWireEntryClipboardText = (entry: RpcWireEntry): string =>
+  JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2);
+
 const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
     case 'connecting':
@@ -137,15 +142,13 @@ export const AgentChatPrototype: FC = () => {
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
-  const setMode = useAtomSet(setModeFn, { mode: 'promise' });
-  const setModel = useAtomSet(setModelFn, { mode: 'promise' });
+  const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
 
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
-  const models = normalizeModels(selectedSession?.sessionState);
-  const modes = normalizeModes(selectedSession?.sessionState);
+  const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
   const controlsEnabled = selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true;
   const canSend = controlsEnabled && draft.trim().length > 0;
 
@@ -363,41 +366,17 @@ export const AgentChatPrototype: FC = () => {
                   size="small"
                   value={draft}
                 />
-                <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                  <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel id="acp-model-label">Model</InputLabel>
-                    <Select
-                      label="Model"
-                      labelId="acp-model-label"
-                      onChange={event => {
-                        setModel({ backend: selectedBackend, modelId: event.target.value }).catch(showClientError);
+                <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {configOptions.map(option => (
+                    <SessionConfigOptionSelect
+                      disabled={!controlsEnabled}
+                      key={option.id}
+                      onChange={(configId, value) => {
+                        setConfigOption({ backend: selectedBackend, configId, value }).catch(showClientError);
                       }}
-                      value={selectedSession?.selectedModelId ?? models.currentId ?? ''}
-                    >
-                      {models.options.map(option => (
-                        <MenuItem key={option.id} value={option.id}>
-                          {option.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl disabled={!controlsEnabled} size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel id="acp-mode-label">Mode</InputLabel>
-                    <Select
-                      label="Mode"
-                      labelId="acp-mode-label"
-                      onChange={event => {
-                        setMode({ backend: selectedBackend, modeId: event.target.value }).catch(showClientError);
-                      }}
-                      value={selectedSession?.selectedModeId ?? modes.currentId ?? ''}
-                    >
-                      {modes.options.map(option => (
-                        <MenuItem key={option.id} value={option.id}>
-                          {option.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      option={option}
+                    />
+                  ))}
                   {rpcWireLogOpen ? null : (
                     <Button
                       onClick={() => {
@@ -410,6 +389,7 @@ export const AgentChatPrototype: FC = () => {
                     </Button>
                   )}
                   <Box sx={{ flexGrow: 1 }} />
+                  <UsagePopover usage={selectedSession?.usage} />
                   <Button disabled={!canSend} type="submit" variant="contained">
                     Send
                   </Button>
@@ -489,10 +469,22 @@ export const AgentChatPrototype: FC = () => {
                     borderRadius: 1,
                   }}
                 >
-                  <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 0.5 }, minHeight: 36 }}>
+                  <AccordionSummary
+                    sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+                  >
                     <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
                       {rpcWireEntryTitle(entry)}
                     </Typography>
+                    <Button
+                      onClick={event => {
+                        event.stopPropagation();
+                        writeText(rpcWireEntryClipboardText(entry)).catch(showClientError);
+                      }}
+                      size="small"
+                      variant="text"
+                    >
+                      copy
+                    </Button>
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 0 }}>
                     <Box
@@ -505,7 +497,7 @@ export const AgentChatPrototype: FC = () => {
                         whiteSpace: 'pre-wrap',
                       }}
                     >
-                      {JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2)}
+                      {rpcWireEntryClipboardText(entry)}
                     </Box>
                   </AccordionDetails>
                 </Accordion>

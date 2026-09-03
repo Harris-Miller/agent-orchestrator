@@ -19,6 +19,7 @@ type EchoSession = {
   cwd: string;
   modeId: string;
   modelId: string;
+  reasoningEffortId: string;
   sessionId: string;
 };
 
@@ -124,7 +125,7 @@ const Handlers = AgentRpcs.toLayer(
             }).pipe(Effect.orDie);
           }
 
-          return echoSessionLoadResponse(session.modeId, session.modelId);
+          return echoSessionLoadResponse(session.modeId, session.modelId, session.reasoningEffortId);
         }),
       'session/new': ({ cwd }) =>
         Effect.gen(function* () {
@@ -137,6 +138,7 @@ const Handlers = AgentRpcs.toLayer(
             cwd,
             modeId: 'default',
             modelId: 'echo-model',
+            reasoningEffortId: 'medium',
             sessionId,
           };
 
@@ -168,7 +170,7 @@ const Handlers = AgentRpcs.toLayer(
           const session = yield* getSession(sessionId);
           session.active = true;
           yield* Effect.log(`Resuming session ${sessionId}`);
-          return echoSessionLoadResponse(session.modeId, session.modelId);
+          return echoSessionLoadResponse(session.modeId, session.modelId, session.reasoningEffortId);
         }),
       'session/set_config_option': ({ configId, sessionId, value }) =>
         Effect.gen(function* () {
@@ -187,6 +189,8 @@ const Handlers = AgentRpcs.toLayer(
             session.modelId = value;
           } else if (configId === 'mode') {
             session.modeId = value;
+          } else if (configId === 'reasoning_effort') {
+            session.reasoningEffortId = value;
           }
 
           const update = {

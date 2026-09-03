@@ -26,6 +26,7 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "catalog:",
     "@tauri-apps/plugin-fs": "catalog:",
     "@tauri-apps/plugin-opener": "catalog:",
     "@tauri-apps/plugin-os": "catalog:",

@@ -524,6 +524,23 @@ export const normalizeConfigOptions = (sessionNew: unknown): readonly Normalized
   });
 };
 
+export const normalizeSelectableConfigOptions = (sessionState: unknown): readonly NormalizedConfigOption[] =>
+  normalizeConfigOptions(sessionState).filter(option => option.type === 'select' && option.choices.length > 0);
+
+export const patchConfigOptionValue = (sessionState: unknown, configId: string, value: string): unknown => {
+  if (!isRecord(sessionState) || !Array.isArray(sessionState.configOptions)) {
+    return sessionState;
+  }
+
+  const configOptions: readonly unknown[] = sessionState.configOptions;
+  return {
+    ...sessionState,
+    configOptions: configOptions.map(option =>
+      isRecord(option) && option.id === configId ? { ...option, currentValue: value } : option,
+    ),
+  };
+};
+
 export const normalizeSession = (sessionNew: unknown): NormalizedSessionState | undefined => {
   if (!isRecord(sessionNew)) {
     return undefined;

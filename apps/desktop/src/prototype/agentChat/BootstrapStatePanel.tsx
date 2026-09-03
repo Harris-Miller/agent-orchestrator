@@ -20,6 +20,7 @@ import type {
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import type { AvailableCommand } from './sessionUpdateReducer.ts';
+import { UsageCard } from './UsageCard.tsx';
 
 export const SESSION_STATE_DRAWER_WIDTH = 380;
 
@@ -178,7 +179,7 @@ const SessionStateContent: FC<{
   return (
     <Stack spacing={2}>
       <Typography color="text.secondary" variant="body2">
-        Abstracted from initialize, session lifecycle RPCs, and available_commands_update.
+        Abstracted from initialize, session lifecycle RPCs, available_commands_update, and usage_update.
       </Typography>
 
       <Divider />
@@ -284,6 +285,19 @@ const SessionStateContent: FC<{
                     sx={{ alignSelf: 'flex-start', fontFamily: 'monospace' }}
                   />
                 ) : null}
+
+                <Stack spacing={0.75}>
+                  <Typography color="text.secondary" variant="caption">
+                    Usage
+                  </Typography>
+                  {session?.usage === undefined ? (
+                    <Typography color="text.secondary" variant="body2">
+                      None reported
+                    </Typography>
+                  ) : (
+                    <UsageCard usage={session.usage} />
+                  )}
+                </Stack>
 
                 <Stack spacing={0.75}>
                   <Typography color="text.secondary" variant="caption">

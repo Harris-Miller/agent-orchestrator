@@ -88,20 +88,47 @@ export const echoSessionNewResponse = (sessionId: string) => ({
       ],
       type: 'select',
     },
+    {
+      category: 'thought_level',
+      currentValue: 'medium',
+      description: 'How much reasoning effort the model should use',
+      id: 'reasoning_effort',
+      name: 'Reasoning effort',
+      options: [
+        {
+          description: 'Fast responses with lighter reasoning',
+          name: 'Low',
+          value: 'low',
+        },
+        {
+          description: 'Balances speed and reasoning depth',
+          name: 'Medium',
+          value: 'medium',
+        },
+        {
+          description: 'Greater reasoning depth for complex problems',
+          name: 'High',
+          value: 'high',
+        },
+      ],
+      type: 'select',
+    },
   ],
   sessionId,
 });
 
-export const echoSessionLoadResponse = (modeId: string, modelId: string) => {
+export const echoSessionLoadResponse = (modeId: string, modelId: string, reasoningEffortId: string) => {
+  const currentValues: Record<string, string> = {
+    mode: modeId,
+    model: modelId,
+    reasoning_effort: reasoningEffortId,
+  };
   const base = echoSessionNewResponse('placeholder');
   return {
-    configOptions: base.configOptions.map(option =>
-      option.id === 'model'
-        ? { ...option, currentValue: modelId }
-        : option.id === 'mode'
-          ? { ...option, currentValue: modeId }
-          : option,
-    ),
+    configOptions: base.configOptions.map(option => ({
+      ...option,
+      currentValue: currentValues[option.id] ?? option.currentValue,
+    })),
     sessionId: base.sessionId,
   };
 };

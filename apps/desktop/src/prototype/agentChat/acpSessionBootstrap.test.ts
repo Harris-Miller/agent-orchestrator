@@ -8,6 +8,8 @@ import {
   applySetConfigOptionResult,
   normalizeModels,
   normalizeModes,
+  normalizeSelectableConfigOptions,
+  patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 
@@ -113,5 +115,71 @@ describe('selectionFromSessionConfiguration', () => {
     const selection = selectionFromSessionConfiguration(claudeSession);
     assert.strictEqual(selection.selectedModelId, 'sonnet');
     assert.strictEqual(selection.selectedModeId, 'default');
+  });
+});
+
+describe('normalizeSelectableConfigOptions', () => {
+  it('keeps select options in agent order (Codex fixture)', () => {
+    const options = normalizeSelectableConfigOptions(codexSession);
+    assert.deepStrictEqual(
+      options.map(option => option.id),
+      ['mode', 'collaboration_mode', 'model', 'reasoning_effort', 'fast-mode'],
+    );
+  });
+
+  it('keeps select options in agent order (Claude fixture)', () => {
+    const options = normalizeSelectableConfigOptions(claudeSession);
+    assert.deepStrictEqual(
+      options.map(option => option.id),
+      ['mode', 'model', 'effort'],
+    );
+  });
+
+  it('returns empty options when configOptions are absent', () => {
+    assert.deepStrictEqual(normalizeSelectableConfigOptions({}), []);
+  });
+
+  it('skips non-select options and options without choices', () => {
+    const options = normalizeSelectableConfigOptions({
+      configOptions: [
+        { currentValue: true, id: 'brave', name: 'Brave', type: 'boolean' },
+        { currentValue: 'a', id: 'empty', name: 'Empty', options: [], type: 'select' },
+        {
+          currentValue: 'a',
+          id: 'kept',
+          name: 'Kept',
+          options: [{ name: 'A', value: 'a' }],
+          type: 'select',
+        },
+      ],
+    });
+    assert.deepStrictEqual(
+      options.map(option => option.id),
+      ['kept'],
+    );
+  });
+});
+
+describe('patchConfigOptionValue', () => {
+  it('updates currentValue without dropping options', () => {
+    const sessionState = {
+      configOptions: [
+        {
+          currentValue: 'old-model',
+          id: 'model',
+          name: 'Model',
+          options: [
+            { name: 'Echo Model', value: 'echo-model' },
+            { name: 'Echo Model (verbose)', value: 'echo-model-verbose' },
+          ],
+        },
+      ],
+    };
+
+    const patched = patchConfigOptionValue(sessionState, 'model', 'echo-model-verbose') as Record<string, unknown>;
+    const configOptions = patched.configOptions as readonly Record<string, unknown>[];
+
+    assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
+    assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
   });
 });

@@ -11,8 +11,10 @@ import {
   backendLabel,
   initialBackendSnapshot,
   initialSessionSnapshot,
+  normalizeConfigOptions,
   normalizeSessionInfoFromNew,
   normalizeSessionRoster,
+  patchConfigOptionValue,
   selectedSessionSnapshot,
   selectionFromSessionConfiguration,
   upsertRosterEntry,
@@ -395,24 +397,32 @@ export const restartBackendFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const setModeFn = acpRuntime
-  .fn((arg: { backend: AcpAgentBackend; modeId: string }, get) =>
+export const setConfigOptionFn = acpRuntime
+  .fn((arg: { backend: AcpAgentBackend; configId: string; value: string }, get) =>
     Effect.gen(function* () {
       const snapshot = get(backendStateAtom(arg.backend));
       const session = selectedSessionSnapshot(snapshot);
+      const currentValue = normalizeConfigOptions(session?.sessionState).find(
+        option => option.id === arg.configId,
+      )?.currentValue;
 
-      if (session?.status !== 'active' || session.selectedModeId === arg.modeId) {
+      if (session?.status !== 'active' || currentValue === arg.value) {
         return;
       }
 
       const previousModeId = session.selectedModeId;
+      const previousModelId = session.selectedModelId;
       const previousSessionState = session.sessionState;
+      const patchedSessionState = patchConfigOptionValue(session.sessionState, arg.configId, arg.value);
+      const selection = selectionFromSessionConfiguration(patchedSessionState);
 
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
           ...current,
-          selectedModeId: arg.modeId,
+          selectedModeId: selection.selectedModeId ?? current.selectedModeId,
+          selectedModelId: selection.selectedModelId ?? current.selectedModelId,
+          sessionState: patchedSessionState,
         })),
       });
 
@@ -422,7 +432,7 @@ export const setModeFn = acpRuntime
           return;
         }
 
-        const result = yield* setConfigOption(agent, session.sessionId, 'mode', arg.modeId);
+        const result = yield* setConfigOption(agent, session.sessionId, arg.configId, arg.value);
         const currentSnapshot = get(backendStateAtom(arg.backend));
         const applied = applySetConfigOptionResult(currentSnapshot.sessions[session.sessionId].sessionState, result);
         get.set(backendStateAtom(arg.backend), {
@@ -444,64 +454,6 @@ export const setModeFn = acpRuntime
               sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, session.sessionId, current => ({
                 ...current,
                 selectedModeId: previousModeId,
-                sessionState: previousSessionState,
-              })),
-            });
-          }),
-        ),
-      );
-    }),
-  )
-  .pipe(Atom.keepAlive);
-
-export const setModelFn = acpRuntime
-  .fn((arg: { backend: AcpAgentBackend; modelId: string }, get) =>
-    Effect.gen(function* () {
-      const snapshot = get(backendStateAtom(arg.backend));
-      const session = selectedSessionSnapshot(snapshot);
-
-      if (session?.status !== 'active' || session.selectedModelId === arg.modelId) {
-        return;
-      }
-
-      const previousModelId = session.selectedModelId;
-      const previousSessionState = session.sessionState;
-
-      get.set(backendStateAtom(arg.backend), {
-        ...snapshot,
-        sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
-          ...current,
-          selectedModelId: arg.modelId,
-        })),
-      });
-
-      const rpc = Effect.gen(function* () {
-        const agent = getAgentHandle(arg.backend);
-        if (agent === undefined) {
-          return;
-        }
-
-        const result = yield* setConfigOption(agent, session.sessionId, 'model', arg.modelId);
-        const currentSnapshot = get(backendStateAtom(arg.backend));
-        const applied = applySetConfigOptionResult(currentSnapshot.sessions[session.sessionId].sessionState, result);
-        get.set(backendStateAtom(arg.backend), {
-          ...currentSnapshot,
-          sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({
-            ...current,
-            selectedModeId: applied.selectedModeId ?? current.selectedModeId,
-            selectedModelId: applied.selectedModelId ?? current.selectedModelId,
-            sessionState: applied.sessionState,
-          })),
-        });
-      });
-
-      yield* withSessionClientRequest(arg.backend, get, session.sessionId, rpc).pipe(
-        Effect.tapError(() =>
-          Effect.sync(() => {
-            get.set(backendStateAtom(arg.backend), {
-              ...get(backendStateAtom(arg.backend)),
-              sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, session.sessionId, current => ({
-                ...current,
                 selectedModelId: previousModelId,
                 sessionState: previousSessionState,
               })),

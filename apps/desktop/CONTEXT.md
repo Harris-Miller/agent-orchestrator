@@ -13,7 +13,7 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Chat item**:
-A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, usage readout, etc. Derived from session updates (and locally appended user prompts), not sent on the wire.
+A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire.
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
@@ -35,7 +35,7 @@ One row in the session roster: agent-reported identity and metadata (`sessionId`
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
-The Harness working copy for one session: transcript, status, session configuration, and pending client request state. One per `sessionId` per backend harness.
+The Harness working copy for one session: transcript, status, session configuration, usage, and pending client request state. One per `sessionId` per backend harness.
 _Avoid_: Session record, session object
 
 **Session status**:
@@ -49,6 +49,10 @@ _Avoid_: Setting, preference, parameter
 **Session configuration**:
 Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
 _Avoid_: Session state, session/new result
+
+**Usage**:
+Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.
+_Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Pending client request**:
 Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation.

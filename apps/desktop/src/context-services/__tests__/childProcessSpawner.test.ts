@@ -1,5 +1,6 @@
 import { assert, describe, layer } from '@effect/vitest';
 import { OS } from '@lib/context-services';
+import { invoke } from '@tauri-apps/api/core';
 import { Effect, Layer, Option, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { beforeEach, vi } from 'vitest';
@@ -9,9 +10,17 @@ import { ChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';
 const writes: number[][] = [];
 const kills: number[] = [];
 
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(() => Promise.resolve()),
+}));
+
+const mockedInvoke = vi.mocked(invoke);
+
 beforeEach(() => {
   writes.length = 0;
   kills.length = 0;
+  mockedInvoke.mockClear();
+  mockedInvoke.mockResolvedValue(undefined);
 });
 
 vi.mock('@tauri-apps/plugin-shell', () => {
@@ -103,6 +112,26 @@ describe('ChildProcessSpawnerLive', () => {
         assert.deepStrictEqual(writes[0], Array.from(new TextEncoder().encode('ping')));
         yield* handle.kill();
         assert.deepStrictEqual(kills, [99]);
+      }),
+    );
+
+    it.effect('tracks spawned pid with the host so reload can reap orphans', () =>
+      Effect.gen(function* () {
+        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+        const handle = yield* spawner.spawn(ChildProcess.make('agent', ['acp'], { cwd: '/tmp' }));
+        assert.strictEqual(handle.pid, 99);
+        assert.isTrue(
+          mockedInvoke.mock.calls.some(
+            ([command, args]) => command === 'track_child_process' && (args as { pid: number }).pid === 99,
+          ),
+        );
+
+        yield* handle.kill();
+        assert.isTrue(
+          mockedInvoke.mock.calls.some(
+            ([command, args]) => command === 'untrack_child_process' && (args as { pid: number }).pid === 99,
+          ),
+        );
       }),
     );
   });

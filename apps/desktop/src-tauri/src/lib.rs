@@ -1,11 +1,21 @@
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::process::Command;
+use std::sync::Mutex;
+use tauri::{Manager, State};
+use tauri::webview::PageLoadEvent;
 
 #[derive(Serialize)]
 struct HostProcessInfo {
     cwd: String,
     env: HashMap<String, String>,
 }
+
+/// PIDs spawned from the WebView via `@tauri-apps/plugin-shell`.
+/// Cleared and killed on WebView reload / app exit so orphans cannot keep
+/// agent-side session locks (e.g. Codex "already has an active writer").
+#[derive(Default)]
+struct TrackedChildPids(Mutex<HashSet<u32>>);
 
 #[tauri::command]
 fn host_process_info() -> Result<HostProcessInfo, String> {
@@ -24,6 +34,50 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[tauri::command]
+fn track_child_process(pid: u32, state: State<'_, TrackedChildPids>) {
+    if let Ok(mut pids) = state.0.lock() {
+        pids.insert(pid);
+    }
+}
+
+#[tauri::command]
+fn untrack_child_process(pid: u32, state: State<'_, TrackedChildPids>) {
+    if let Ok(mut pids) = state.0.lock() {
+        pids.remove(&pid);
+    }
+}
+
+/// Kill `pid` and its descendants (depth-first). Unix only — desktop target.
+fn kill_process_tree(pid: u32) {
+    #[cfg(unix)]
+    {
+        if let Ok(output) = Command::new("pgrep").args(["-P", &pid.to_string()]).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if let Ok(child) = line.trim().parse::<u32>() {
+                    kill_process_tree(child);
+                }
+            }
+        }
+        let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
+    }
+}
+
+fn reap_tracked_children(state: &TrackedChildPids) {
+    let pids: Vec<u32> = match state.0.lock() {
+        Ok(mut guard) => {
+            let drained: Vec<u32> = guard.iter().copied().collect();
+            guard.clear();
+            drained
+        }
+        Err(_) => return,
+    };
+    for pid in pids {
+        kill_process_tree(pid);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
@@ -33,7 +87,13 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build());
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .manage(TrackedChildPids::default())
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), PageLoadEvent::Started) {
+                reap_tracked_children(&webview.state::<TrackedChildPids>());
+            }
+        });
 
     #[cfg(debug_assertions)]
     {
@@ -41,7 +101,17 @@ pub fn run() {
     }
 
     builder
-        .invoke_handler(tauri::generate_handler![greet, host_process_info])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            host_process_info,
+            track_child_process,
+            untrack_child_process
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                reap_tracked_children(&app_handle.state::<TrackedChildPids>());
+            }
+        });
 }

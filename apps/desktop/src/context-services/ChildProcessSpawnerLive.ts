@@ -4,13 +4,31 @@
  * Bridges Effect's stdin Sink / stdout+stderr Streams to Tauri `Command` events
  * and `Child.write` / `Child.kill`. Piped commands are not supported.
  * `extendEnv` merges host env from {@link OS}.env.
+ *
+ * Spawned PIDs are registered with the Tauri host (`track_child_process`) so a
+ * WebView reload can reap orphans whose Effect finalizers never ran.
  */
 import { OS } from '@lib/context-services';
+import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
 import { Deferred, Effect, Layer, Queue, Sink, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import type { Command as EffectCommand } from 'effect/unstable/process/ChildProcess';
+
+const trackChildProcess = (pid: number): void => {
+  invoke('track_child_process', { pid }).then(
+    () => undefined,
+    () => undefined,
+  );
+};
+
+const untrackChildProcess = (pid: number): void => {
+  invoke('untrack_child_process', { pid }).then(
+    () => undefined,
+    () => undefined,
+  );
+};
 
 const mapSpawnError = (method: string, cause: unknown): PlatformError.PlatformError =>
   PlatformError.systemError({
@@ -78,14 +96,24 @@ const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(function* (
   // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
   // active Stream.fromQueue readers. Scope finalizers shut the queues down.
   const runFork = Effect.runForkWith(yield* Effect.context());
+  const trackedPid = { current: undefined as number | undefined };
+
   tauriCommand.on('close', payload => {
     runningRef.current = false;
+    if (trackedPid.current !== undefined) {
+      untrackChildProcess(trackedPid.current);
+      trackedPid.current = undefined;
+    }
     const code = payload.code ?? (payload.signal !== null ? 1 : 0);
     runFork(Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code)));
   });
 
   tauriCommand.on('error', message => {
     runningRef.current = false;
+    if (trackedPid.current !== undefined) {
+      untrackChildProcess(trackedPid.current);
+      trackedPid.current = undefined;
+    }
     runFork(Deferred.fail(exitDeferred, mapSpawnError('spawn', new Error(message))));
   });
 
@@ -110,9 +138,14 @@ const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(function* (
     try: () => tauriCommand.spawn(),
   });
 
+  trackedPid.current = child.pid;
+  trackChildProcess(child.pid);
+
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
       if (runningRef.current) {
+        untrackChildProcess(child.pid);
+        trackedPid.current = undefined;
         yield* Effect.tryPromise({
           catch: cause => mapSpawnError('kill', cause),
           try: () => child.kill(),
@@ -133,10 +166,16 @@ const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(function* (
     getOutputFd: () => Stream.empty,
     isRunning: Effect.sync(() => runningRef.current),
     kill: () =>
-      Effect.tryPromise({
-        catch: cause => mapSpawnError('kill', cause),
-        try: () => child.kill(),
+      Effect.sync(() => {
+        untrackChildProcess(child.pid);
+        trackedPid.current = undefined;
       }).pipe(
+        Effect.andThen(
+          Effect.tryPromise({
+            catch: cause => mapSpawnError('kill', cause),
+            try: () => child.kill(),
+          }),
+        ),
         Effect.tap(() =>
           Effect.sync(() => {
             runningRef.current = false;

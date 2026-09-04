@@ -25,6 +25,7 @@
       ]
     },
     "os:default",
+    "window-state:default",
     "shell:default",
     "shell:allow-kill",
     "shell:allow-stdin-write",

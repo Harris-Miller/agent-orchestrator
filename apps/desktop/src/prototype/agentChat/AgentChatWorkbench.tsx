@@ -13,8 +13,10 @@ import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
+
+import { isRecord } from '../../utils.ts';
 
 import {
   activeSnapshotAtom,
@@ -28,6 +30,60 @@ import type { AcpAgentBackend } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './BootstrapStatePanel.tsx';
 import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './RpcWireLogPanel.tsx';
 import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './SessionRosterPanel.tsx';
+
+const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
+
+type WorkbenchLayout = {
+  readonly horizontalSizes?: readonly number[];
+  readonly rpcWireLogOpen: boolean;
+  readonly sessionRosterOpen: boolean;
+  readonly sessionStateOpen: boolean;
+  readonly verticalSizes?: readonly number[];
+};
+
+const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
+  rpcWireLogOpen: false,
+  sessionRosterOpen: true,
+  sessionStateOpen: true,
+};
+
+const isFiniteNumberArray = (value: unknown, length: number): value is number[] =>
+  Array.isArray(value) &&
+  value.length === length &&
+  value.every(item => typeof item === 'number' && Number.isFinite(item));
+
+const loadWorkbenchLayout = (): WorkbenchLayout => {
+  try {
+    const raw = localStorage.getItem(WORKBENCH_LAYOUT_KEY);
+    if (raw == null) {
+      return DEFAULT_WORKBENCH_LAYOUT;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      return DEFAULT_WORKBENCH_LAYOUT;
+    }
+    return {
+      horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
+      rpcWireLogOpen:
+        typeof parsed.rpcWireLogOpen === 'boolean' ? parsed.rpcWireLogOpen : DEFAULT_WORKBENCH_LAYOUT.rpcWireLogOpen,
+      sessionRosterOpen:
+        typeof parsed.sessionRosterOpen === 'boolean'
+          ? parsed.sessionRosterOpen
+          : DEFAULT_WORKBENCH_LAYOUT.sessionRosterOpen,
+      sessionStateOpen:
+        typeof parsed.sessionStateOpen === 'boolean'
+          ? parsed.sessionStateOpen
+          : DEFAULT_WORKBENCH_LAYOUT.sessionStateOpen,
+      verticalSizes: isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
+    };
+  } catch {
+    return DEFAULT_WORKBENCH_LAYOUT;
+  }
+};
+
+const saveWorkbenchLayout = (layout: WorkbenchLayout): void => {
+  localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
+};
 
 const backendOptions: readonly {
   readonly disabled?: boolean;
@@ -57,14 +113,22 @@ const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' 
 export const AgentChatWorkbench: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ onClientError }) => {
-  const [sessionRosterOpen, setSessionRosterOpen] = useState(true);
-  const [sessionStateOpen, setSessionStateOpen] = useState(true);
-  const [rpcWireLogOpen, setRpcWireLogOpen] = useState(false);
+  const [layout, setLayout] = useState(loadWorkbenchLayout);
+  const layoutRef = useRef(layout);
   const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
   const snapshot = useAtomValue(activeSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
+
+  const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
+    const next = { ...layoutRef.current, ...patch };
+    layoutRef.current = next;
+    saveWorkbenchLayout(next);
+    if (rerender) {
+      setLayout(next);
+    }
+  };
 
   return (
     <Box
@@ -89,28 +153,41 @@ export const AgentChatWorkbench: FC<{
       }}
     >
       <Allotment
+        defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}
+        onChange={sizes => {
+          commitLayout({ verticalSizes: sizes }, false);
+        }}
         onVisibleChange={(index, visible) => {
           if (index === 1) {
-            setRpcWireLogOpen(visible);
+            commitLayout({ rpcWireLogOpen: visible });
           }
         }}
         vertical
       >
         <Allotment.Pane>
           <Allotment
+            defaultSizes={layout.horizontalSizes === undefined ? undefined : [...layout.horizontalSizes]}
+            onChange={sizes => {
+              commitLayout({ horizontalSizes: sizes }, false);
+            }}
             onVisibleChange={(index, visible) => {
               if (index === 0) {
-                setSessionRosterOpen(visible);
+                commitLayout({ sessionRosterOpen: visible });
               } else if (index === 2) {
-                setSessionStateOpen(visible);
+                commitLayout({ sessionStateOpen: visible });
               }
             }}
           >
-            <Allotment.Pane minSize={200} preferredSize={SESSION_ROSTER_PANEL_WIDTH} snap visible={sessionRosterOpen}>
+            <Allotment.Pane
+              minSize={200}
+              preferredSize={SESSION_ROSTER_PANEL_WIDTH}
+              snap
+              visible={layout.sessionRosterOpen}
+            >
               <SessionRosterPanel
                 backend={selectedBackend}
                 onClose={() => {
-                  setSessionRosterOpen(false);
+                  commitLayout({ sessionRosterOpen: false });
                 }}
               />
             </Allotment.Pane>
@@ -119,10 +196,10 @@ export const AgentChatWorkbench: FC<{
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                 <AppBar position="static" sx={{ flexShrink: 0 }}>
                   <Toolbar sx={{ gap: 1 }}>
-                    {sessionRosterOpen ? null : (
+                    {layout.sessionRosterOpen ? null : (
                       <Button
                         onClick={() => {
-                          setSessionRosterOpen(true);
+                          commitLayout({ sessionRosterOpen: true });
                         }}
                         size="small"
                         variant="outlined"
@@ -169,10 +246,10 @@ export const AgentChatWorkbench: FC<{
                         ))}
                       </Select>
                     </FormControl>
-                    {sessionStateOpen ? null : (
+                    {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {
-                          setSessionStateOpen(true);
+                          commitLayout({ sessionStateOpen: true });
                         }}
                         size="small"
                         variant="outlined"
@@ -186,18 +263,23 @@ export const AgentChatWorkbench: FC<{
                 <AgentChatMain
                   onClientError={onClientError}
                   onOpenRpcWireLog={() => {
-                    setRpcWireLogOpen(true);
+                    commitLayout({ rpcWireLogOpen: true });
                   }}
-                  rpcWireLogOpen={rpcWireLogOpen}
+                  rpcWireLogOpen={layout.rpcWireLogOpen}
                 />
               </Box>
             </Allotment.Pane>
 
-            <Allotment.Pane minSize={240} preferredSize={SESSION_STATE_PANEL_WIDTH} snap visible={sessionStateOpen}>
+            <Allotment.Pane
+              minSize={240}
+              preferredSize={SESSION_STATE_PANEL_WIDTH}
+              snap
+              visible={layout.sessionStateOpen}
+            >
               <BootstrapStatePanel
                 initializeResult={snapshot.initializeResult}
                 onClose={() => {
-                  setSessionStateOpen(false);
+                  commitLayout({ sessionStateOpen: false });
                 }}
                 session={selectedSession}
               />
@@ -205,11 +287,11 @@ export const AgentChatWorkbench: FC<{
           </Allotment>
         </Allotment.Pane>
 
-        <Allotment.Pane minSize={120} preferredSize={RPC_WIRE_LOG_PANEL_HEIGHT} snap visible={rpcWireLogOpen}>
+        <Allotment.Pane minSize={120} preferredSize={RPC_WIRE_LOG_PANEL_HEIGHT} snap visible={layout.rpcWireLogOpen}>
           <RpcWireLogPanel
             entries={snapshot.rpcCalls}
             onClose={() => {
-              setRpcWireLogOpen(false);
+              commitLayout({ rpcWireLogOpen: false });
             }}
             onCopyError={onClientError}
           />

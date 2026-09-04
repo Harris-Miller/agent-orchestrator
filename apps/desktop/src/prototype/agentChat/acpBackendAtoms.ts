@@ -36,6 +36,7 @@ import {
   stopBackendHarness,
 } from './agentHarness.ts';
 import { joinDirectory, listChildDirectories, parentDirectory, resolveHomeDir } from './sessionDirectoryBrowser.ts';
+import { persistSessionUsage, readPersistedSessionUsage } from './sessionUsageStorage.ts';
 
 const acpRuntime = Atom.runtime(() => TauriServicesLive);
 
@@ -290,6 +291,7 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
           });
         },
         onUsageUpdate: (sessionId, usage) => {
+          persistSessionUsage(sessionId, usage);
           updateState(current => ({
             ...current,
             sessions: patchSession(current.sessions, sessionId, session => ({
@@ -404,11 +406,13 @@ export const activateSessionFn = acpRuntime
         ? yield* resumeSession(agent, arg.backend, arg.sessionId)
         : yield* loadSession(agent, arg.backend, arg.sessionId);
 
+      const persistedUsage = readPersistedSessionUsage(arg.sessionId);
       get.set(backendStateAtom(arg.backend), {
         ...get(backendStateAtom(arg.backend)),
-        sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session =>
-          applySessionActivationResult(arg.sessionId, result, session),
-        ),
+        sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
+          ...applySessionActivationResult(arg.sessionId, result, session),
+          usage: persistedUsage,
+        })),
       });
     }),
   )

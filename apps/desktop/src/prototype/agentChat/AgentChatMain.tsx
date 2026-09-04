@@ -11,10 +11,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, SubmitEvent } from 'react';
 
 import {
-  activeSnapshotAtom,
   draftAtom,
-  selectedBackendAtom,
+  rpcWireLogSnapshotAtom,
   selectedSessionAtom,
+  selectedSessionBackendAtom,
+  selectedSessionIdAtom,
+  selectedSessionSnapshotAtom,
   sendChatItemFn,
   setConfigOptionFn,
 } from './acpBackendAtoms.ts';
@@ -31,9 +33,12 @@ export const AgentChatMain: FC<{
   readonly onOpenRpcWireLog: () => void;
   readonly rpcWireLogOpen: boolean;
 }> = ({ onClientError, onOpenRpcWireLog, rpcWireLogOpen }) => {
-  const [selectedBackend] = useAtom(selectedBackendAtom);
-  const [draft, setDraft] = useAtom(draftAtom(selectedBackend));
-  const snapshot = useAtomValue(activeSnapshotAtom);
+  const selectedBackend = useAtomValue(selectedSessionBackendAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const draftSessionId = selectedSessionId ?? '';
+  const [draft, setDraft] = useAtom(draftAtom(draftSessionId));
+  const backendSnapshot = useAtomValue(selectedSessionSnapshotAtom);
+  const rpcSnapshot = useAtomValue(rpcWireLogSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
@@ -44,10 +49,10 @@ export const AgentChatMain: FC<{
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
   const controlsEnabled = selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true;
-  const canSend = controlsEnabled && draft.trim().length > 0;
+  const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
 
   const sendDraft = () => {
-    if (!canSend) {
+    if (selectedBackend === undefined || !controlsEnabled || draft.trim().length === 0) {
       return;
     }
 
@@ -62,7 +67,10 @@ export const AgentChatMain: FC<{
   };
 
   const emptyStateSecondary = (() => {
-    if (snapshot.phase !== 'ready') {
+    if (selectedBackend === undefined) {
+      return 'No session selected — create or select a session from the left panel.';
+    }
+    if (backendSnapshot?.phase !== 'ready') {
       return `Starting ${backendLabel(selectedBackend)} over ACP…`;
     }
     if (selectedSession === undefined) {
@@ -129,28 +137,34 @@ export const AgentChatMain: FC<{
       <Paper sx={{ flexShrink: 0, p: 2 }}>
         <Stack spacing={1}>
           <Typography color="text.secondary" variant="caption">
-            PROTOTYPE · agent: {backendLabel(selectedBackend)} · session: {selectedSession?.sessionId ?? '—'}
+            PROTOTYPE · agent: {selectedBackend === undefined ? '—' : backendLabel(selectedBackend)} · session:{' '}
+            {selectedSession?.sessionId ?? '—'}
           </Typography>
-          {snapshot.error !== undefined ? (
+          {backendSnapshot?.error !== undefined ? (
             <Typography color="error" variant="body2">
-              {snapshot.error}
+              {backendSnapshot.error}
             </Typography>
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <ComposerPromptEditor
               disabled={!controlsEnabled}
-              key={selectedBackend}
+              key={selectedSessionId ?? 'none'}
               onChange={setDraft}
               onSubmit={sendDraft}
-              placeholder={`Message ${backendLabel(selectedBackend)}…`}
+              placeholder={
+                selectedBackend === undefined ? 'Select a session…' : `Message ${backendLabel(selectedBackend)}…`
+              }
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {configOptions.map(option => (
                 <SessionConfigOptionSelect
-                  disabled={!controlsEnabled}
+                  disabled={!controlsEnabled || selectedBackend === undefined}
                   key={option.id}
                   onChange={(configId, value) => {
+                    if (selectedBackend === undefined) {
+                      return;
+                    }
                     setConfigOption({ backend: selectedBackend, configId, value }).catch(onClientError);
                   }}
                   option={option}
@@ -158,7 +172,7 @@ export const AgentChatMain: FC<{
               ))}
               {rpcWireLogOpen ? null : (
                 <Button onClick={onOpenRpcWireLog} size="small" variant="outlined">
-                  RPC wire log ({snapshot.rpcCalls.length})
+                  RPC wire log ({rpcSnapshot.rpcCalls.length})
                 </Button>
               )}
               <Box sx={{ flexGrow: 1 }} />

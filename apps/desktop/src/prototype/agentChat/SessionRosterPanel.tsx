@@ -21,14 +21,17 @@ import type { FC } from 'react';
 
 import {
   activateSessionFn,
+  allBackendPhasesAtom,
   backendStateAtom,
   deactivateSessionFn,
   deleteSessionFn,
-  refreshSessionRosterFn,
+  refreshAllSessionRostersFn,
+  selectedSessionIdAtom,
   selectSessionFn,
+  unifiedSessionRosterAtom,
 } from './acpBackendAtoms.ts';
-import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
+import { backendLabel, groupAndSortSessionsByCwd } from './acpSessionBootstrap.ts';
+import type { SessionSnapshot, UnifiedRosterEntry } from './acpSessionBootstrap.ts';
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 
@@ -53,25 +56,6 @@ const rosterEntryStatus = (
   sessions: Readonly<Record<string, SessionSnapshot>>,
 ): SessionSnapshot['status'] => (sessionId in sessions ? sessions[sessionId].status : 'inactive');
 
-const groupSessionsByCwd = (
-  roster: readonly NormalizedSessionInfo[],
-): readonly { cwd: string; sessions: readonly NormalizedSessionInfo[] }[] => {
-  const groups = new Map<string, NormalizedSessionInfo[]>();
-  for (const entry of roster) {
-    const existing = groups.get(entry.cwd);
-    if (existing === undefined) {
-      groups.set(entry.cwd, [entry]);
-    } else {
-      existing.push(entry);
-    }
-  }
-
-  return groups
-    .entries()
-    .map(([cwd, sessions]) => ({ cwd, sessions }))
-    .toArray();
-};
-
 const sessionCardSx = (selected: boolean) =>
   ({
     border: 1,
@@ -83,16 +67,16 @@ const sessionCardSx = (selected: boolean) =>
   }) as const;
 
 const SessionRow: FC<{
-  readonly backend: AcpAgentBackend;
-  readonly entry: NormalizedSessionInfo;
-  readonly onDeleteRequest: (sessionId: string) => void;
+  readonly entry: UnifiedRosterEntry;
+  readonly onDeleteRequest: (entry: UnifiedRosterEntry) => void;
   readonly selected: boolean;
-  readonly status: SessionSnapshot['status'];
-}> = ({ backend, entry, onDeleteRequest, selected, status }) => {
+}> = ({ entry, onDeleteRequest, selected }) => {
+  const snapshot = useAtomValue(backendStateAtom(entry.backend));
   const selectSession = useAtomSet(selectSessionFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
 
+  const status = rosterEntryStatus(entry.sessionId, snapshot.sessions);
   const isActivating = status === 'activating';
   const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
 
@@ -101,7 +85,7 @@ const SessionRow: FC<{
       <Paper elevation={0} sx={sessionCardSx(selected)}>
         <ListItemButton
           onClick={() => {
-            selectSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+            selectSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
           }}
           selected={selected}
           sx={{
@@ -126,11 +110,14 @@ const SessionRow: FC<{
           >
             {displayTitle}
           </Typography>
-          {entry.title !== undefined ? (
-            <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} variant="caption">
-              {truncateSessionId(entry.sessionId)}
-            </Typography>
-          ) : null}
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
+            <Chip label={backendLabel(entry.backend)} size="small" variant="outlined" />
+            {entry.title !== undefined ? (
+              <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} variant="caption">
+                {truncateSessionId(entry.sessionId)}
+              </Typography>
+            ) : null}
+          </Stack>
         </ListItemButton>
         <Divider />
         <Stack
@@ -144,7 +131,7 @@ const SessionRow: FC<{
               <Button
                 onClick={event => {
                   event.stopPropagation();
-                  activateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+                  activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
                 }}
                 size="small"
                 variant="outlined"
@@ -156,7 +143,7 @@ const SessionRow: FC<{
                 disabled={isActivating}
                 onClick={event => {
                   event.stopPropagation();
-                  deactivateSession({ backend, sessionId: entry.sessionId }).catch(() => undefined);
+                  deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
                 }}
                 size="small"
                 variant="outlined"
@@ -169,7 +156,7 @@ const SessionRow: FC<{
                 color="error"
                 onClick={event => {
                   event.stopPropagation();
-                  onDeleteRequest(entry.sessionId);
+                  onDeleteRequest(entry);
                 }}
                 size="small"
                 variant="outlined"
@@ -185,16 +172,17 @@ const SessionRow: FC<{
 };
 
 export const SessionRosterPanel: FC<{
-  readonly backend: AcpAgentBackend;
   readonly onClose: () => void;
-}> = ({ backend, onClose }) => {
-  const snapshot = useAtomValue(backendStateAtom(backend));
-  const refreshSessionRoster = useAtomSet(refreshSessionRosterFn, { mode: 'promise' });
+}> = ({ onClose }) => {
+  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | undefined>(undefined);
+  const [deleteTarget, setDeleteTarget] = useState<undefined | UnifiedRosterEntry>(undefined);
 
-  const controlsEnabled = snapshot.phase === 'ready';
+  const anyReady = backendPhases.some(entry => entry.phase === 'ready');
 
   return (
     <>
@@ -218,9 +206,9 @@ export const SessionRosterPanel: FC<{
           titleEnd={
             <IconButton
               aria-label="Reload sessions"
-              disabled={!controlsEnabled}
+              disabled={!anyReady}
               onClick={() => {
-                refreshSessionRoster(backend).catch(() => undefined);
+                refreshAllSessionRosters(undefined).catch(() => undefined);
               }}
               size="small"
             >
@@ -232,7 +220,7 @@ export const SessionRosterPanel: FC<{
         />
         <Box sx={{ flexShrink: 0, p: 2 }}>
           <Button
-            disabled={!controlsEnabled}
+            disabled={!anyReady}
             fullWidth
             onClick={() => {
               setCreateOpen(true);
@@ -244,13 +232,13 @@ export const SessionRosterPanel: FC<{
         </Box>
         <Divider />
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          {snapshot.sessionRoster.length === 0 ? (
+          {roster.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.
             </Typography>
           ) : (
             <List disablePadding sx={{ py: 0.5 }}>
-              {groupSessionsByCwd(snapshot.sessionRoster).map(({ cwd, sessions }) => (
+              {groupAndSortSessionsByCwd(roster).map(({ cwd, sessions }) => (
                 <li key={cwd}>
                   <ul style={{ listStyle: 'none', padding: 0 }}>
                     <ListSubheader
@@ -268,12 +256,10 @@ export const SessionRosterPanel: FC<{
                     </ListSubheader>
                     {sessions.map(entry => (
                       <SessionRow
-                        backend={backend}
                         entry={entry}
-                        key={entry.sessionId}
+                        key={`${entry.backend}:${entry.sessionId}`}
                         onDeleteRequest={setDeleteTarget}
-                        selected={snapshot.selectedSessionId === entry.sessionId}
-                        status={rosterEntryStatus(entry.sessionId, snapshot.sessions)}
+                        selected={selectedSessionId === entry.sessionId}
                       />
                     ))}
                   </ul>
@@ -286,7 +272,6 @@ export const SessionRosterPanel: FC<{
 
       {createOpen ? (
         <CreateSessionDirectoryPicker
-          backend={backend}
           onClose={() => {
             setCreateOpen(false);
           }}
@@ -304,7 +289,7 @@ export const SessionRosterPanel: FC<{
           <DialogContentText>
             This will permanently delete session{' '}
             <Typography component="span" sx={{ fontFamily: 'monospace' }}>
-              {deleteTarget !== undefined ? truncateSessionId(deleteTarget) : ''}
+              {deleteTarget !== undefined ? truncateSessionId(deleteTarget.sessionId) : ''}
             </Typography>
             . This action cannot be undone.
           </DialogContentText>
@@ -324,7 +309,7 @@ export const SessionRosterPanel: FC<{
                 return;
               }
 
-              const sessionId = deleteTarget;
+              const { backend, sessionId } = deleteTarget;
               deleteSession({ backend, sessionId })
                 .then(() => {
                   setDeleteTarget(undefined);

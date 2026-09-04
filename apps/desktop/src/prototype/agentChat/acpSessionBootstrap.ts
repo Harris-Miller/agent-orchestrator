@@ -28,12 +28,15 @@ export type NormalizedSessionInfo = {
   readonly updatedAt?: string;
 };
 
+export type UnifiedRosterEntry = {
+  readonly backend: AcpAgentBackend;
+} & NormalizedSessionInfo;
+
 export type BackendSnapshot = {
   readonly error?: string;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];
-  readonly selectedSessionId?: string;
   readonly sessionRoster: readonly NormalizedSessionInfo[];
   readonly sessions: Readonly<Record<string, SessionSnapshot>>;
 };
@@ -162,7 +165,7 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
     cwd,
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,
-    updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : undefined,
+    updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : new Date(Date.now()).toISOString(),
   };
 };
 
@@ -182,12 +185,60 @@ export const normalizeSessionRoster = (listResult: unknown): readonly Normalized
   });
 };
 
-export const selectedSessionSnapshot = (snapshot: BackendSnapshot): SessionSnapshot | undefined => {
-  if (snapshot.selectedSessionId === undefined) {
-    return undefined;
+/** Missing `updatedAt` sorts last (oldest). Equal timestamps tie-break by `sessionId`. */
+export const compareRosterEntriesByUpdatedAtDesc = (
+  left: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
+  right: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
+): number => {
+  const leftTime = left.updatedAt === undefined ? Number.NEGATIVE_INFINITY : Date.parse(left.updatedAt);
+  const rightTime = right.updatedAt === undefined ? Number.NEGATIVE_INFINITY : Date.parse(right.updatedAt);
+  const leftMs = Number.isFinite(leftTime) ? leftTime : Number.NEGATIVE_INFINITY;
+  const rightMs = Number.isFinite(rightTime) ? rightTime : Number.NEGATIVE_INFINITY;
+  if (leftMs !== rightMs) {
+    return rightMs - leftMs;
+  }
+  return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
+};
+
+const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'updatedAt'>[]): number => {
+  let max = Number.NEGATIVE_INFINITY;
+  for (const entry of sessions) {
+    if (entry.updatedAt !== undefined) {
+      const parsed = Date.parse(entry.updatedAt);
+      if (Number.isFinite(parsed) && parsed > max) {
+        max = parsed;
+      }
+    }
+  }
+  return max;
+};
+
+export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
+  roster: readonly T[],
+): readonly { cwd: string; sessions: readonly T[] }[] => {
+  const groups = new Map<string, T[]>();
+  for (const entry of roster) {
+    const existing = groups.get(entry.cwd);
+    if (existing === undefined) {
+      groups.set(entry.cwd, [entry]);
+    } else {
+      existing.push(entry);
+    }
   }
 
-  return snapshot.sessions[snapshot.selectedSessionId];
+  return [...groups.entries()]
+    .map(([cwd, sessions]) => ({
+      cwd,
+      sessions: [...sessions].sort(compareRosterEntriesByUpdatedAtDesc),
+    }))
+    .sort((left, right) => {
+      const leftMax = maxUpdatedAtMs(left.sessions);
+      const rightMax = maxUpdatedAtMs(right.sessions);
+      if (leftMax !== rightMax) {
+        return rightMax - leftMax;
+      }
+      return left.cwd < right.cwd ? -1 : left.cwd > right.cwd ? 1 : 0;
+    });
 };
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {

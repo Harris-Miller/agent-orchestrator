@@ -1,16 +1,21 @@
+import { useAtom, useAtomValue } from '@effect/atom-react';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import type { FC } from 'react';
+import type { FC, SyntheticEvent } from 'react';
 
 import { isRecord } from '../../utils.ts';
 
-import type { RpcWireEntry } from './agentHarness.ts';
+import { backendStateAtom, rpcWireLogBackendAtom } from './acpBackendAtoms.ts';
+import { ALL_ACP_BACKENDS, backendLabel } from './acpSessionBootstrap.ts';
+import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { PanelHeader } from './PanelHeader.tsx';
 
 export const RPC_WIRE_LOG_PANEL_HEIGHT = 320;
@@ -61,81 +66,103 @@ const rpcWireEntryClipboardText = (entry: RpcWireEntry): string =>
   JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2);
 
 export const RpcWireLogPanel: FC<{
-  readonly entries: readonly RpcWireEntry[];
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
-}> = ({ entries, onClose, onCopyError }) => (
-  <Box
-    sx={{
-      bgcolor: 'background.paper',
-      borderColor: 'divider',
-      borderTop: 1,
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      minHeight: 0,
-    }}
-  >
-    <PanelHeader
-      closeAriaLabel="Close RPC wire log panel"
-      closeGlyph="∨"
-      onClose={onClose}
-      title={`RPC wire log (${entries.length})`}
-    />
-    <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
-      {entries.length === 0 ? (
-        <Typography color="text.secondary" variant="body2">
-          No RPC traffic yet.
-        </Typography>
-      ) : (
-        <Stack spacing={1}>
-          {entries.map(entry => (
-            <Accordion
-              disableGutters
-              elevation={0}
-              key={entry.id}
-              sx={{
-                '&::before': { display: 'none' },
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-              }}
-            >
-              <AccordionSummary
-                sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+}> = ({ onClose, onCopyError }) => {
+  const [rpcBackend, setRpcBackend] = useAtom(rpcWireLogBackendAtom);
+  const snapshot = useAtomValue(backendStateAtom(rpcBackend));
+  const entries = snapshot.rpcCalls;
+
+  return (
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
+        borderTop: 1,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+      }}
+    >
+      <PanelHeader
+        closeAriaLabel="Close RPC wire log panel"
+        closeGlyph="∨"
+        onClose={onClose}
+        title={`RPC wire log (${entries.length})`}
+      />
+      <Tabs
+        onChange={(_event: SyntheticEvent, value: AcpAgentBackend) => {
+          setRpcBackend(value);
+        }}
+        sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
+        value={rpcBackend}
+        variant="scrollable"
+      >
+        {ALL_ACP_BACKENDS.map(backend => (
+          <Tab
+            key={backend}
+            label={backendLabel(backend)}
+            sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
+            value={backend}
+          />
+        ))}
+      </Tabs>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
+        {entries.length === 0 ? (
+          <Typography color="text.secondary" variant="body2">
+            No RPC traffic yet.
+          </Typography>
+        ) : (
+          <Stack spacing={1}>
+            {entries.map(entry => (
+              <Accordion
+                disableGutters
+                elevation={0}
+                key={entry.id}
+                sx={{
+                  '&::before': { display: 'none' },
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                }}
               >
-                <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-                  {rpcWireEntryTitle(entry)}
-                </Typography>
-                <Button
-                  onClick={event => {
-                    event.stopPropagation();
-                    writeText(rpcWireEntryClipboardText(entry)).catch(onCopyError);
-                  }}
-                  size="small"
-                  variant="text"
+                <AccordionSummary
+                  sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
                 >
-                  copy
-                </Button>
-              </AccordionSummary>
-              <AccordionDetails sx={{ pt: 0 }}>
-                <Box
-                  component="pre"
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    m: 0,
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {rpcWireEntryClipboardText(entry)}
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Stack>
-      )}
+                  <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                    {rpcWireEntryTitle(entry)}
+                  </Typography>
+                  <Button
+                    onClick={event => {
+                      event.stopPropagation();
+                      writeText(rpcWireEntryClipboardText(entry)).catch(onCopyError);
+                    }}
+                    size="small"
+                    variant="text"
+                  >
+                    copy
+                  </Button>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  <Box
+                    component="pre"
+                    sx={{
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      m: 0,
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {rpcWireEntryClipboardText(entry)}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Stack>
+        )}
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};

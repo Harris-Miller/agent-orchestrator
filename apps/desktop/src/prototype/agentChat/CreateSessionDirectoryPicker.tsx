@@ -1,4 +1,4 @@
-import { useAtomSet } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
@@ -13,14 +13,17 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FC, KeyboardEvent } from 'react';
+import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
 import {
+  allBackendPhasesAtom,
   createSessionFn,
   joinDirectoryFn,
   listChildDirectoriesFn,
@@ -51,14 +54,14 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
 );
 
 export const CreateSessionDirectoryPicker: FC<{
-  readonly backend: AcpAgentBackend;
   readonly onClose: () => void;
-}> = ({ backend, onClose }) => {
+}> = ({ onClose }) => {
   const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const resolveHomeDir = useAtomSet(resolveHomeDirFn, { mode: 'promise' });
   const listChildDirectories = useAtomSet(listChildDirectoriesFn, { mode: 'promise' });
   const parentDirectory = useAtomSet(parentDirectoryFn, { mode: 'promise' });
   const joinDirectory = useAtomSet(joinDirectoryFn, { mode: 'promise' });
+  const backendPhases = useAtomValue(allBackendPhasesAtom);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
@@ -69,6 +72,8 @@ export const CreateSessionDirectoryPicker: FC<{
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
+  const [createCwd, setCreateCwd] = useState<string | undefined>(undefined);
 
   const pathPrefix =
     homePath !== undefined && browsePath !== undefined ? toTildeBrowsePrefix(browsePath, homePath) : '';
@@ -166,12 +171,24 @@ export const CreateSessionDirectoryPicker: FC<{
       });
   };
 
-  const addCurrentPath = () => {
-    if (browsePath === undefined || creating) {
+  const openAgentMenu = (anchor: HTMLElement, cwd: string) => {
+    setCreateCwd(cwd);
+    setAgentMenuAnchor(anchor);
+  };
+
+  const closeAgentMenu = () => {
+    setAgentMenuAnchor(null);
+    setCreateCwd(undefined);
+  };
+
+  const createWithAgent = (backend: AcpAgentBackend) => {
+    if (createCwd === undefined || creating) {
       return;
     }
+    const cwd = createCwd;
     setCreating(true);
-    createSession({ backend, cwd: browsePath })
+    closeAgentMenu();
+    createSession({ backend, cwd })
       .then(() => {
         onClose();
       })
@@ -181,7 +198,7 @@ export const CreateSessionDirectoryPicker: FC<{
       });
   };
 
-  const openFinderAndCreate = () => {
+  const openFinder = () => {
     if (creating) {
       return;
     }
@@ -190,15 +207,9 @@ export const CreateSessionDirectoryPicker: FC<{
         if (typeof selected !== 'string') {
           return;
         }
-        setCreating(true);
-        return createSession({ backend, cwd: selected }).then(() => {
-          onClose();
-        });
+        loadDirectory(normalizeDirPath(selected));
       })
-      .catch(() => undefined)
-      .finally(() => {
-        setCreating(false);
-      });
+      .catch(() => undefined);
   };
 
   const onInputChange = (value: string) => {
@@ -213,13 +224,11 @@ export const CreateSessionDirectoryPicker: FC<{
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
+      if (agentMenuAnchor !== null) {
+        closeAgentMenu();
+        return;
+      }
       onClose();
-      return;
-    }
-
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault();
-      addCurrentPath();
       return;
     }
 
@@ -307,19 +316,40 @@ export const CreateSessionDirectoryPicker: FC<{
         />
         <Button
           disabled={browsePath === undefined || creating || loading}
-          onClick={() => {
-            addCurrentPath();
+          onClick={(event: MouseEvent<HTMLButtonElement>) => {
+            if (browsePath === undefined) {
+              return;
+            }
+            openAgentMenu(event.currentTarget, browsePath);
           }}
           size="small"
           sx={{ flexShrink: 0, textTransform: 'none' }}
           variant="outlined"
         >
-          Add
-          <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.7rem', ml: 1 }}>
-            ⌘ Enter
-          </Box>
+          Select
         </Button>
       </Stack>
+
+      <Menu
+        anchorEl={agentMenuAnchor}
+        onClose={() => {
+          closeAgentMenu();
+        }}
+        open={agentMenuAnchor !== null}
+      >
+        {backendPhases.map(entry => (
+          <MenuItem
+            disabled={entry.phase !== 'ready' || creating}
+            key={entry.backend}
+            onClick={() => {
+              createWithAgent(entry.backend);
+            }}
+          >
+            {entry.label}
+            {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
+          </MenuItem>
+        ))}
+      </Menu>
 
       <Box sx={{ height: 360, overflow: 'auto', px: 1.5, py: 1 }}>
         <Typography color="text.secondary" sx={{ mb: 0.75, px: 0.5 }} variant="caption">
@@ -397,7 +427,7 @@ export const CreateSessionDirectoryPicker: FC<{
           </Stack>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             <Keycap label="Enter" />
-            <Typography variant="caption">Select</Typography>
+            <Typography variant="caption">Open folder</Typography>
           </Stack>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             <Keycap label="Backspace" />
@@ -411,7 +441,7 @@ export const CreateSessionDirectoryPicker: FC<{
         <Button
           disabled={creating}
           onClick={() => {
-            openFinderAndCreate();
+            openFinder();
           }}
           size="small"
           sx={{ textTransform: 'none' }}

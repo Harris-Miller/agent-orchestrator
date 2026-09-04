@@ -15,11 +15,10 @@ import {
   normalizeSessionInfoFromNew,
   normalizeSessionRoster,
   patchConfigOptionValue,
-  selectedSessionSnapshot,
   selectionFromSessionConfiguration,
   upsertRosterEntry,
 } from './acpSessionBootstrap.ts';
-import type { BackendSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
+import type { BackendSnapshot, SessionSnapshot, UnifiedRosterEntry } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
 import {
   appendBackendUserChatItem,
@@ -52,22 +51,67 @@ export const joinDirectoryFn = acpRuntime
   .fn((arg: { childName: string; dirPath: string }) => joinDirectory(arg.dirPath, arg.childName))
   .pipe(Atom.keepAlive);
 
-export const selectedBackendAtom = Atom.make<AcpAgentBackend>('echo').pipe(Atom.keepAlive);
+export const selectedSessionIdAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
+
+export const rpcWireLogBackendAtom = Atom.make<AcpAgentBackend>('echo').pipe(Atom.keepAlive);
 
 export const backendStateAtom = Atom.family((backend: AcpAgentBackend) =>
   Atom.make(initialBackendSnapshot()).pipe(Atom.withLabel(`backendState:${backend}`), Atom.keepAlive),
 );
 
-export const draftAtom = Atom.family((_backend: AcpAgentBackend) => Atom.make('').pipe(Atom.keepAlive));
+export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
-export const activeSnapshotAtom = Atom.make(get => get(backendStateAtom(get(selectedBackendAtom)))).pipe(
-  Atom.keepAlive,
-);
+export const unifiedSessionRosterAtom = Atom.make(get => {
+  const entries: UnifiedRosterEntry[] = [];
+  for (const backend of ALL_ACP_BACKENDS) {
+    for (const entry of get(backendStateAtom(backend)).sessionRoster) {
+      entries.push({ ...entry, backend });
+    }
+  }
+  return entries;
+}).pipe(Atom.keepAlive);
+
+const findBackendForSessionId = (
+  getSnapshot: (backend: AcpAgentBackend) => BackendSnapshot,
+  sessionId: string,
+): AcpAgentBackend | undefined => {
+  for (const backend of ALL_ACP_BACKENDS) {
+    const snapshot = getSnapshot(backend);
+    if (sessionId in snapshot.sessions || snapshot.sessionRoster.some(entry => entry.sessionId === sessionId)) {
+      return backend;
+    }
+  }
+  return undefined;
+};
+
+export const selectedSessionBackendAtom = Atom.make(get => {
+  const sessionId = get(selectedSessionIdAtom);
+  if (sessionId === undefined) {
+    return undefined;
+  }
+  return findBackendForSessionId(backend => get(backendStateAtom(backend)), sessionId);
+}).pipe(Atom.keepAlive);
 
 export const selectedSessionAtom = Atom.make(get => {
-  const snapshot = get(activeSnapshotAtom);
-  return selectedSessionSnapshot(snapshot);
+  const sessionId = get(selectedSessionIdAtom);
+  const backend = get(selectedSessionBackendAtom);
+  if (sessionId === undefined || backend === undefined) {
+    return undefined;
+  }
+  return get(backendStateAtom(backend)).sessions[sessionId];
 }).pipe(Atom.keepAlive);
+
+export const selectedSessionSnapshotAtom = Atom.make(get => {
+  const backend = get(selectedSessionBackendAtom);
+  if (backend === undefined) {
+    return undefined;
+  }
+  return get(backendStateAtom(backend));
+}).pipe(Atom.keepAlive);
+
+export const rpcWireLogSnapshotAtom = Atom.make(get => get(backendStateAtom(get(rpcWireLogBackendAtom)))).pipe(
+  Atom.keepAlive,
+);
 
 export const allBackendPhasesAtom = Atom.make(get =>
   ALL_ACP_BACKENDS.map(backend => ({
@@ -77,6 +121,23 @@ export const allBackendPhasesAtom = Atom.make(get =>
     phase: get(backendStateAtom(backend)).phase,
   })),
 ).pipe(Atom.keepAlive);
+
+type AcpAtomGet = Parameters<Parameters<typeof acpRuntime.fn>[0]>[1];
+
+const clearSelectedSessionIfMissing = (get: AcpAtomGet) => {
+  const sessionId = get(selectedSessionIdAtom);
+  if (sessionId === undefined) {
+    return;
+  }
+  if (findBackendForSessionId(backend => get(backendStateAtom(backend)), sessionId) === undefined) {
+    get.set(selectedSessionIdAtom, undefined);
+  }
+};
+
+const selectSession = (get: AcpAtomGet, backend: AcpAgentBackend, sessionId: string) => {
+  get.set(selectedSessionIdAtom, sessionId);
+  get.set(rpcWireLogBackendAtom, backend);
+};
 
 const applySessionActivationResult = (
   sessionId: string,
@@ -113,8 +174,6 @@ const patchSession = (
   const current = sessions[sessionId] ?? initialSessionSnapshot(sessionId);
   return upsertSession(sessions, patch(current));
 };
-
-type AcpAtomGet = Parameters<Parameters<typeof acpRuntime.fn>[0]>[1];
 
 const withSessionClientRequest = <A, E, R>(
   backend: AcpAgentBackend,
@@ -247,10 +306,7 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
 export const selectSessionFn = acpRuntime
   .fn((arg: { backend: AcpAgentBackend; sessionId: string }, get) =>
     Effect.sync(() => {
-      get.set(backendStateAtom(arg.backend), {
-        ...get(backendStateAtom(arg.backend)),
-        selectedSessionId: arg.sessionId,
-      });
+      selectSession(get, arg.backend, arg.sessionId);
     }),
   )
   .pipe(Atom.keepAlive);
@@ -269,6 +325,32 @@ export const refreshSessionRosterFn = acpRuntime
         ...snapshot,
         sessionRoster: normalizeSessionRoster(listResult),
       });
+      clearSelectedSessionIfMissing(get);
+    }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const refreshAllSessionRostersFn = acpRuntime
+  .fn((_arg: undefined, get) =>
+    Effect.gen(function* () {
+      yield* Effect.forEach(
+        ALL_ACP_BACKENDS,
+        backend =>
+          Effect.gen(function* () {
+            const agent = getAgentHandle(backend);
+            if (agent === undefined) {
+              return;
+            }
+            const listResult = yield* listSessions(agent);
+            const snapshot = get(backendStateAtom(backend));
+            get.set(backendStateAtom(backend), {
+              ...snapshot,
+              sessionRoster: normalizeSessionRoster(listResult),
+            });
+          }),
+        { concurrency: 'unbounded' },
+      );
+      clearSelectedSessionIfMissing(get);
     }),
   )
   .pipe(Atom.keepAlive);
@@ -289,11 +371,11 @@ export const createSessionFn = acpRuntime
 
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
-        selectedSessionId: sessionId,
         sessionRoster:
           rosterEntry === undefined ? snapshot.sessionRoster : upsertRosterEntry(snapshot.sessionRoster, rosterEntry),
         sessions: upsertSession(snapshot.sessions, session),
       });
+      selectSession(get, arg.backend, sessionId);
     }),
   )
   .pipe(Atom.keepAlive);
@@ -309,9 +391,9 @@ export const activateSessionFn = acpRuntime
       const snapshot = get(backendStateAtom(arg.backend));
       const hasHistory = arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].chatItems.length > 0;
 
+      selectSession(get, arg.backend, arg.sessionId);
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
-        selectedSessionId: arg.sessionId,
         sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
           ...session,
           status: 'activating',
@@ -369,15 +451,17 @@ export const deleteSessionFn = acpRuntime
       yield* deleteSession(agent, arg.sessionId);
 
       const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
-      const selectedSessionId = snapshot.selectedSessionId === arg.sessionId ? undefined : snapshot.selectedSessionId;
       const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);
 
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
-        selectedSessionId,
         sessionRoster,
         sessions: remainingSessions,
       });
+
+      if (get(selectedSessionIdAtom) === arg.sessionId) {
+        get.set(selectedSessionIdAtom, undefined);
+      }
     }),
   )
   .pipe(Atom.keepAlive);
@@ -386,8 +470,9 @@ export const sendChatItemFn = acpRuntime
   .fn((arg: { backend: AcpAgentBackend; text: string }, get) =>
     Effect.gen(function* () {
       const trimmed = arg.text.trim();
+      const sessionId = get(selectedSessionIdAtom);
       const snapshot = get(backendStateAtom(arg.backend));
-      const session = selectedSessionSnapshot(snapshot);
+      const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
       if (trimmed.length === 0 || session?.status !== 'active') {
         return;
@@ -424,6 +509,7 @@ export const restartBackendFn = acpRuntime
       yield* stopBackendHarness(backend);
       resetBackendHarnessState(backend);
       get.set(backendStateAtom(backend), initialBackendSnapshot());
+      clearSelectedSessionIfMissing(get);
       get.refresh(backendHarnessAtom(backend));
     }),
   )
@@ -432,8 +518,9 @@ export const restartBackendFn = acpRuntime
 export const setConfigOptionFn = acpRuntime
   .fn((arg: { backend: AcpAgentBackend; configId: string; value: string }, get) =>
     Effect.gen(function* () {
+      const sessionId = get(selectedSessionIdAtom);
       const snapshot = get(backendStateAtom(arg.backend));
-      const session = selectedSessionSnapshot(snapshot);
+      const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
       const currentValue = normalizeConfigOptions(session?.sessionState).find(
         option => option.id === arg.configId,
       )?.currentValue;

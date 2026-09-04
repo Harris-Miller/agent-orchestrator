@@ -6,12 +6,15 @@ import { isRecord } from '../../utils.ts';
 
 import {
   applySetConfigOptionResult,
+  groupAndSortSessionsByCwd,
   normalizeModels,
   normalizeModes,
   normalizeSelectableConfigOptions,
+  normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
+import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
 
 const fixtureSessionValue = (fixture: unknown): unknown => {
   if (!isRecord(fixture) || !isRecord(fixture.message) || !isRecord(fixture.message.exit)) {
@@ -181,5 +184,61 @@ describe('patchConfigOptionValue', () => {
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
+  });
+});
+
+describe('normalizeSessionInfoFromNew', () => {
+  it('stamps updatedAt from Date.now when session/new omits it', () => {
+    const before = Date.now();
+    const entry = normalizeSessionInfoFromNew({ sessionId: 's1' }, '/tmp/proj');
+    const after = Date.now();
+
+    assert.isDefined(entry);
+    assert.strictEqual(entry.sessionId, 's1');
+    assert.strictEqual(entry.cwd, '/tmp/proj');
+    assert.isDefined(entry.updatedAt);
+    const stamped = Date.parse(entry.updatedAt);
+    assert.isTrue(stamped >= before && stamped <= after);
+  });
+
+  it('keeps server updatedAt when present', () => {
+    const entry = normalizeSessionInfoFromNew({ sessionId: 's1', updatedAt: '2024-01-01T00:00:00.000Z' }, '/tmp/proj');
+    assert.isDefined(entry);
+    assert.strictEqual(entry.updatedAt, '2024-01-01T00:00:00.000Z');
+  });
+});
+
+describe('groupAndSortSessionsByCwd', () => {
+  it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
+    const roster: readonly UnifiedRosterEntry[] = [
+      { backend: 'echo', cwd: '/old', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { backend: 'codex-acp', cwd: '/new', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
+      { backend: 'claude-agent-acp', cwd: '/new', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
+      { backend: 'echo', cwd: '/new', sessionId: 'd' },
+      { backend: 'echo', cwd: '/mid', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+    ];
+
+    const groups = groupAndSortSessionsByCwd(roster);
+    assert.deepStrictEqual(
+      groups.map(group => group.cwd),
+      ['/new', '/mid', '/old'],
+    );
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['b', 'c', 'd'],
+    );
+  });
+
+  it('tie-breaks equal updatedAt by sessionId', () => {
+    const roster: readonly UnifiedRosterEntry[] = [
+      { backend: 'echo', cwd: '/x', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { backend: 'echo', cwd: '/x', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+    ];
+
+    const groups = groupAndSortSessionsByCwd(roster);
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['a', 'z'],
+    );
   });
 });

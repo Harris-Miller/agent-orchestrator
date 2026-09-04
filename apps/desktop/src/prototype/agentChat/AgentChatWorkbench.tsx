@@ -1,14 +1,10 @@
 import 'allotment/dist/style.css';
 
-import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -19,14 +15,12 @@ import type { FC } from 'react';
 import { isRecord } from '../../utils.ts';
 
 import {
-  activeSnapshotAtom,
   allBackendPhasesAtom,
   restartBackendFn,
-  selectedBackendAtom,
   selectedSessionAtom,
+  selectedSessionSnapshotAtom,
 } from './acpBackendAtoms.ts';
 import { AgentChatMain } from './AgentChatMain.tsx';
-import type { AcpAgentBackend } from './agentHarness.ts';
 import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './BootstrapStatePanel.tsx';
 import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './RpcWireLogPanel.tsx';
 import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './SessionRosterPanel.tsx';
@@ -85,17 +79,6 @@ const saveWorkbenchLayout = (layout: WorkbenchLayout): void => {
   localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
 };
 
-const backendOptions: readonly {
-  readonly disabled?: boolean;
-  readonly label: string;
-  readonly value: AcpAgentBackend;
-}[] = [
-  { label: 'Echo (jsonrpc-echo)', value: 'echo' },
-  { label: 'Codex', value: 'codex-acp' },
-  { label: 'Claude', value: 'claude-agent-acp' },
-  { disabled: true, label: 'Gemini', value: 'gemini-cli' },
-];
-
 const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
     case 'connecting':
@@ -115,9 +98,8 @@ export const AgentChatWorkbench: FC<{
 }> = ({ onClientError }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
-  const [selectedBackend, setSelectedBackend] = useAtom(selectedBackendAtom);
-  const snapshot = useAtomValue(activeSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const selectedSnapshot = useAtomValue(selectedSessionSnapshotAtom);
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
 
@@ -185,7 +167,6 @@ export const AgentChatWorkbench: FC<{
               visible={layout.sessionRosterOpen}
             >
               <SessionRosterPanel
-                backend={selectedBackend}
                 onClose={() => {
                   commitLayout({ sessionRosterOpen: false });
                 }}
@@ -229,23 +210,6 @@ export const AgentChatWorkbench: FC<{
                         />
                       ))}
                     </Stack>
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel id="acp-agent-backend-label">Agent</InputLabel>
-                      <Select
-                        label="Agent"
-                        labelId="acp-agent-backend-label"
-                        onChange={event => {
-                          setSelectedBackend(event.target.value);
-                        }}
-                        value={selectedBackend}
-                      >
-                        {backendOptions.map(option => (
-                          <MenuItem disabled={option.disabled} key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
                     {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {
@@ -277,7 +241,7 @@ export const AgentChatWorkbench: FC<{
               visible={layout.sessionStateOpen}
             >
               <BootstrapStatePanel
-                initializeResult={snapshot.initializeResult}
+                initializeResult={selectedSnapshot?.initializeResult}
                 onClose={() => {
                   commitLayout({ sessionStateOpen: false });
                 }}
@@ -289,7 +253,6 @@ export const AgentChatWorkbench: FC<{
 
         <Allotment.Pane minSize={120} preferredSize={RPC_WIRE_LOG_PANEL_HEIGHT} snap visible={layout.rpcWireLogOpen}>
           <RpcWireLogPanel
-            entries={snapshot.rpcCalls}
             onClose={() => {
               commitLayout({ rpcWireLogOpen: false });
             }}

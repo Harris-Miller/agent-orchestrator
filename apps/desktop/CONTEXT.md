@@ -31,11 +31,11 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session roster**:
-Cached `session/list` results for an agent; shown in the Harness UI grouped by session cwd. Can be refreshed with another `session/list` without restarting the backend harness.
+Cached `session/list` results across mounted backend harnesses; shown in the Harness UI grouped by session cwd (each row carries its agent launch target). Can be refreshed with another `session/list` without restarting the backend harnesses.
 _Avoid_: Session list, session catalog, session drawer
 
 **Roster entry**:
-One row in the session roster: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`). May exist without a session snapshot until the user creates or activates it.
+One row in the session roster: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
@@ -63,7 +63,7 @@ Harness flag on a session snapshot while a client→agent RPC is outstanding for
 _Avoid_: In flight, loading, busy flag
 
 **Selected session**:
-Per-agent UI focus; determines which transcript the main chat shows and which session receives prompts. One per agent; persists when switching agents.
+App-wide UI focus by `sessionId`; determines which transcript the main chat shows, which session receives prompts, and what the session-state panel displays. Not per-agent — switching focus is choosing a session, not an agent.
 _Avoid_: Current session, focused session
 
 **Active session**:

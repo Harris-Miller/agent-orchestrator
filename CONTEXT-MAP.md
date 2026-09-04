@@ -20,7 +20,7 @@ System-wide ADRs live in [`docs/adr/`](./docs/adr/).
 - **desktop → context-services**: portable host abstractions; Tauri live layers live under `apps/desktop/src/context-services/`
 - **effect-acp → jsonrpc-echo**: jsonrpc-echo is a private test Agent; effect-acp integration tests spawn it via `connectAcpAgent`
 - **context-services → context-services-node**: context-services-node provides the Node/Bun live layer for the OS service defined in context-services
-- **desktop → external ACP agents**: Harness spawns provider subprocesses — `codex-acp`, `claude-agent-acp`, or Gemini CLI (native ACP) — and connects over stdio
+- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`), or Gemini CLI (native ACP) — and connects over stdio
 
 ## Which context to read
 

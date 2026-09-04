@@ -11,18 +11,12 @@ Current in Proof-of-Concept stage
 * BunJS: https://bun.sh/docs/installation
 * pnpm: https://pnpm.io/installation
 
+For **Codex** and **Claude**, install and authenticate their vendor CLIs (`codex`, `claude`) on your PATH. The desktop app detects those CLIs and runs the ACP adapters from a Tauri resource tree shipped with the app (no global `@agentclientprotocol/*` install).
 
-For **Codex** and **Claude** to work, you must have their respective CLIs installed and authenticated. You also need the following ACP adapter packages installed globally (I'm working on removing this requirement):
+For **Gemini**, install and authenticate the Gemini CLI. It already speaks ACP, so no adapter package is needed.
 
-```sh
-pnpm install -g @agentclientprotocol/codex-acp
-pnpm install -g @agentclientprotocol/claude-agent-acp
-```
-
-For **Gemini**, you just need to have it's CLI installed and authenticated. It already speaks ACP, so no extra npm package needed.
-
-## Developing locally
+### Developing
 
 `pnpm run local-ci` is the core quality gate, everything should pass
 
-`pnpm run tauri:dev` launch the desktop-app as a dev-build
+`pnpm run tauri:dev` launches the desktop app as a dev build (materializes ACP adapter resources, then starts Vite)

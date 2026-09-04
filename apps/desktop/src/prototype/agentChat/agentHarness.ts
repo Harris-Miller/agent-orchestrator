@@ -1,6 +1,6 @@
 /**
  * PROTOTYPE — throwaway harness wiring ACP agents through connectAcpAgent.
- * Backends: jsonrpc-echo (local dev), codex-acp, claude-agent-acp, gemini-cli (global bins).
+ * Backends: jsonrpc-echo (local), Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
  */
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
@@ -14,6 +14,8 @@ import { ChildProcess } from 'effect/unstable/process';
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
 import { isRecord } from '../../utils.ts';
 
+import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
+import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
@@ -78,9 +80,8 @@ const resolveEchoMain = Effect.fn('resolveEchoMain')(function* () {
 const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (backend: AcpAgentBackend) {
   switch (backend) {
     case 'claude-agent-acp':
-      return ChildProcess.make('claude-agent-acp', [], pipedSpawnOptions);
     case 'codex-acp':
-      return ChildProcess.make('codex-acp', [], pipedSpawnOptions);
+      return yield* makeAcpAdapterCommand(backend);
     case 'echo': {
       const echoMain = yield* resolveEchoMain();
       return ChildProcess.make('bun', ['run', echoMain], pipedSpawnOptions);
@@ -185,7 +186,9 @@ const makeClientHandlers = (onSessionUpdate: (sessionId: string, update: unknown
     }),
   );
 
-const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
+const MAX_CONNECT_ATTEMPTS = 3;
+
+const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) =>
   Effect.gen(function* () {
     handlers.onPhase('connecting');
     chatAccumulators.set(backend, new Map());
@@ -224,24 +227,43 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     const listResult = yield* agent['session/list']({});
     handlers.onSessionRosterResult(listResult);
     handlers.onPhase('ready');
+    onReady();
 
     return yield* Effect.never;
   });
 
-/** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries on failure. */
+/** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
 export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
   Effect.gen(function* () {
     const stoppedRef = getStoppedRef(backend);
     yield* Ref.set(stoppedRef, false);
+    const consecutiveFailures = { count: 0 };
 
     while (!(yield* Ref.get(stoppedRef))) {
-      const exit = yield* Effect.exit(bootstrapOnce(backend, handlers));
+      const exit = yield* Effect.exit(
+        bootstrapOnce(backend, handlers, () => {
+          consecutiveFailures.count = 0;
+        }).pipe(
+          Effect.scoped,
+          Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
+            Effect.sync(() => {
+              handlers.onPhase('error', error.message);
+            }),
+          ),
+        ),
+      );
       if (Exit.isSuccess(exit)) {
+        // MissingLaunchPrerequisite is terminal until Restart; Effect.never never succeeds.
         return;
       }
 
       handlers.onPhase('error', Exit.isFailure(exit) ? formatError(exit.cause) : 'Unknown error');
       if (yield* Ref.get(stoppedRef)) {
+        return;
+      }
+
+      consecutiveFailures.count += 1;
+      if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
         return;
       }
 

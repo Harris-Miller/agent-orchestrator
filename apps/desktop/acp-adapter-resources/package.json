@@ -1,0 +1,12 @@
+{
+  "name": "acp-adapter-resources",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Isolated ACP adapter install (own lockfile; not a monorepo workspace member). Hoisted node_modules for Tauri resources.",
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.73.0",
+    "@agentclientprotocol/codex-acp": "1.8.0"
+  }
+}

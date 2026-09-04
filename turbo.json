@@ -20,6 +20,13 @@
     "tauri:dev": {
       "cache": false,
       "persistent": true
+    },
+    "tauri:build": {
+      "outputs": [
+        "src-tauri/target/release/CACHEDIR.TAG",
+        "src-tauri/target/release/.rustc_info.json",
+        "src-tauri/target/release"
+      ]
     }
   }
 }

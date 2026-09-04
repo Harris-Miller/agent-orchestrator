@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window (app dirs via fs:default; recursive $HOME read/write for Agent Harness)",
+  "description": "Capability for the main window (app dirs via fs:default; recursive $HOME read/write for Agent Harness; exists on common PATH bins)",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
+    "mcp-bridge:default",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "dialog:default",
@@ -14,6 +15,15 @@
     "fs:default",
     "fs:allow-home-read-recursive",
     "fs:allow-home-write-recursive",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "/opt/homebrew/**" },
+        { "path": "/usr/local/**" },
+        { "path": "/usr/bin/**" },
+        { "path": "/bin/**" }
+      ]
+    },
     "os:default",
     "shell:default",
     "shell:allow-kill",
@@ -28,13 +38,8 @@
         },
         {
           "args": true,
-          "cmd": "codex-acp",
-          "name": "codex-acp"
-        },
-        {
-          "args": true,
-          "cmd": "claude-agent-acp",
-          "name": "claude-agent-acp"
+          "cmd": "node",
+          "name": "node"
         },
         {
           "args": true,
@@ -53,13 +58,8 @@
         },
         {
           "args": true,
-          "cmd": "codex-acp",
-          "name": "codex-acp"
-        },
-        {
-          "args": true,
-          "cmd": "claude-agent-acp",
-          "name": "claude-agent-acp"
+          "cmd": "node",
+          "name": "node"
         },
         {
           "args": true,

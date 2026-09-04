@@ -1,18 +1,19 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "desktop",
+  "productName": "agent-orchestrator",
   "version": "0.1.0",
   "identifier": "com.agent-orchestrator",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm run materialize-acp-adapters && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm run materialize-acp-adapters && pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "title": "desktop",
+        "title": "agent-orchestrator",
         "width": 800,
         "height": 600
       }
@@ -24,6 +25,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../acp-adapter-resources/node_modules": "acp-adapter-resources/node_modules"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -31,5 +35,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    }
   }
 }

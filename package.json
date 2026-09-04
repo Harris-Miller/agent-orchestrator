@@ -14,6 +14,7 @@
     "local-ci": "turbo run typecheck lint test",
     "prepare": "effect-language-service patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
+    "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck"
   },

@@ -77,7 +77,7 @@ A supported external coding-agent backend the Harness can connect to: **Codex**,
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter binary (`codex-acp`, `claude-agent-acp`), a native ACP agent CLI, or the jsonrpc-echo dev fixture. Distinct from the agent provider name (Codex, Claude, Gemini).
+The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), a native ACP agent CLI, or the jsonrpc-echo dev fixture. Distinct from the agent provider name (Codex, Claude, Gemini).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **Harness dev backend**:
@@ -88,15 +88,27 @@ _Avoid_: Echo backend, mock agent, test provider
 A published stdio process that wraps a vendor CLI or SDK and speaks ACP on stdin/stdout. Used for Codex ([`codex-acp`](https://github.com/agentclientprotocol/codex-acp)) and Claude ([`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).
 _Avoid_: Bridge, wrapper, proxy, shim
 
+**Adapter resource tree**:
+Isolated ACP adapter install under `apps/desktop/acp-adapter-resources` (own lockfile, hoisted `node_modules`) copied into the Tauri application package for provider launch. Shared by `tauri:dev` and packaged builds.
+_Avoid_: node_modules, Vite assets, sidecar, bundled adapters (ambiguous with Vite)
+
+**Vendor CLI**:
+User-installed agent CLI on PATH (`codex`, `claude`, `gemini`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.
+_Avoid_: Agent binary, provider CLI, global install
+
 **Native ACP agent**:
 A vendor CLI that implements ACP directly — no separate adapter package. Gemini is the initial native provider (ACP built into the Gemini CLI).
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:
-How the Harness starts a provider subprocess: executable, arguments, working directory, and environment. Differs per provider (adapter binary vs native CLI) but always yields a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
+How the Harness starts a provider subprocess: executable, arguments, working directory, and environment. Differs per provider (adapter from the adapter resource tree vs native CLI) but always yields a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
 _Avoid_: Spawn config, agent command, connection string
 
 ## Desktop host
+
+**Bundle**:
+The Tauri application package produced by `tauri build` (resources, binaries, installers). Distinct from the WebView Vite build.
+_Avoid_: Vite bundle, frontend build, webpack bundle
 
 **WebView runtime**:
 The JavaScript execution environment for all code under `apps/desktop/src` — the Tauri WebView (Vite-bundled), not Node.js or Bun.

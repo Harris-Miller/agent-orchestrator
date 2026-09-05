@@ -31,6 +31,28 @@ describe('routeDecodedMessage', () => {
 
     assert.strictEqual(toClient.length, 1);
     assert.strictEqual(toServer.length, 0);
+    assert.deepStrictEqual([...pending], []);
+  });
+
+  it('clears pending id on Exit but not on Chunk', () => {
+    const pending = new Set<number | string>(['req-1']);
+    const notifications = new Set<number | string>();
+
+    routeDecodedMessage(
+      {
+        _tag: 'Chunk',
+        requestId: 'req-1',
+        values: [],
+      },
+      pending,
+      notifications,
+      {
+        toClient: noop,
+        toServer: noop,
+      },
+    );
+
+    assert.deepStrictEqual([...pending], ['req-1']);
   });
 
   it('routes agent-initiated requests to the server handler', () => {

@@ -1,5 +1,5 @@
 /** Effect Atom state for parallel ACP backend harnesses. */
-import { Effect } from 'effect';
+import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
@@ -9,6 +9,7 @@ import {
   ALL_ACP_BACKENDS,
   applySetConfigOptionResult,
   backendLabel,
+  defectsFromActivationFailure,
   initialBackendSnapshot,
   initialSessionSnapshot,
   normalizeConfigOptions,
@@ -398,19 +399,33 @@ export const activateSessionFn = acpRuntime
         ...snapshot,
         sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
           ...session,
+          defects: undefined,
           status: 'activating',
         })),
       });
 
-      const result = hasHistory
-        ? yield* resumeSession(agent, arg.backend, arg.sessionId)
-        : yield* loadSession(agent, arg.backend, arg.sessionId);
+      const exit = yield* Effect.exit(
+        hasHistory ? resumeSession(agent, arg.backend, arg.sessionId) : loadSession(agent, arg.backend, arg.sessionId),
+      );
+
+      if (Exit.isFailure(exit)) {
+        const current = get(backendStateAtom(arg.backend));
+        get.set(backendStateAtom(arg.backend), {
+          ...current,
+          sessions: patchSession(current.sessions, arg.sessionId, session => ({
+            ...session,
+            defects: defectsFromActivationFailure(current.rpcCalls, exit.cause),
+            status: 'inactive',
+          })),
+        });
+        return;
+      }
 
       const persistedUsage = readPersistedSessionUsage(arg.sessionId);
       get.set(backendStateAtom(arg.backend), {
         ...get(backendStateAtom(arg.backend)),
         sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
-          ...applySessionActivationResult(arg.sessionId, result, session),
+          ...applySessionActivationResult(arg.sessionId, exit.value, session),
           usage: persistedUsage,
         })),
       });

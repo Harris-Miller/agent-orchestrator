@@ -65,7 +65,13 @@ const backendIconSrc = (backend: AcpAgentBackend): string => {
   }
 };
 
-const statusButtonColor = (status: SessionSnapshot['status']): 'inherit' | 'success' | 'warning' => {
+const statusButtonColor = (
+  status: SessionSnapshot['status'],
+  hasActivationError: boolean,
+): 'error' | 'inherit' | 'success' | 'warning' => {
+  if (hasActivationError) {
+    return 'error';
+  }
   switch (status) {
     case 'activating':
       return 'warning';
@@ -76,10 +82,10 @@ const statusButtonColor = (status: SessionSnapshot['status']): 'inherit' | 'succ
   }
 };
 
-const rosterEntryStatus = (
+const rosterEntrySession = (
   sessionId: string,
   sessions: Readonly<Record<string, SessionSnapshot>>,
-): SessionSnapshot['status'] => (sessionId in sessions ? sessions[sessionId].status : 'inactive');
+): SessionSnapshot | undefined => (sessionId in sessions ? sessions[sessionId] : undefined);
 
 const sessionCardSx = (selected: boolean) =>
   ({
@@ -107,11 +113,15 @@ const SessionRow: FC<{
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const [statusHovered, setStatusHovered] = useState(false);
 
-  const status = rosterEntryStatus(entry.sessionId, snapshot.sessions);
+  const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
+  const status = session?.status ?? 'inactive';
+  const hasActivationError = status === 'inactive' && session?.defects !== undefined && session.defects.length > 0;
   const isActivating = status === 'activating';
   const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
   const menuOpen = menuAnchor !== null;
-  const statusActionLabel = isActivating || !statusHovered ? status : status === 'inactive' ? 'Activate' : 'Deactivate';
+  const idleStatusLabel = hasActivationError ? 'error' : status;
+  const statusActionLabel =
+    isActivating || !statusHovered ? idleStatusLabel : status === 'inactive' ? 'Activate' : 'Deactivate';
 
   const closeMenu = () => {
     setMenuAnchor(null);
@@ -181,7 +191,7 @@ const SessionRow: FC<{
           sx={{ alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.75 }}
         >
           <Button
-            color={statusButtonColor(status)}
+            color={statusButtonColor(status, hasActivationError)}
             disabled={isActivating}
             onClick={event => {
               event.stopPropagation();

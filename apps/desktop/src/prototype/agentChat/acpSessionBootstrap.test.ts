@@ -1,4 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Cause } from 'effect';
 
 import claudeSessionNewFixture from '../../../fixtures/claude_session_new_response.json';
 import codexSessionNewFixture from '../../../fixtures/codex_session_new_response.json';
@@ -6,6 +7,9 @@ import { isRecord } from '../../utils.ts';
 
 import {
   applySetConfigOptionResult,
+  defectsFromActivationFailure,
+  defectsFromCause,
+  defectsFromWireCause,
   groupAndSortSessionsByCwd,
   normalizeModels,
   normalizeModes,
@@ -15,6 +19,7 @@ import {
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
+import type { RpcWireEntry } from './agentHarness.ts';
 
 const fixtureSessionValue = (fixture: unknown): unknown => {
   if (!isRecord(fixture) || !isRecord(fixture.message) || !isRecord(fixture.message.exit)) {
@@ -239,6 +244,58 @@ describe('groupAndSortSessionsByCwd', () => {
     assert.deepStrictEqual(
       groups[0].sessions.map(entry => entry.sessionId),
       ['a', 'z'],
+    );
+  });
+});
+
+describe('defectsFromCause', () => {
+  it('collects Die defects and ignores Fail reasons', () => {
+    const defect = {
+      code: -32603,
+      data: { details: 'thread already has an active writer' },
+      message: 'Internal error',
+    };
+    const cause = Cause.die(defect).pipe(Cause.combine(Cause.fail('typed')), Cause.combine(Cause.die({ code: 2 })));
+    assert.deepStrictEqual(defectsFromCause(cause), [defect, { code: 2 }]);
+  });
+});
+
+describe('defectsFromActivationFailure', () => {
+  it('prefers wire cause[].defect over Schema.Defect-decoded Errors', () => {
+    const wireDefect = {
+      code: -32603,
+      data: { details: 'thread already has an active writer' },
+      message: 'Internal error',
+    };
+    const rpcCalls: readonly RpcWireEntry[] = [
+      {
+        direction: 'in',
+        id: '1',
+        message: {
+          _tag: 'Exit',
+          exit: { _tag: 'Failure', cause: [{ _tag: 'Die', defect: wireDefect }] },
+          requestId: 6,
+        },
+      },
+    ];
+    const cause = Cause.die(new Error('Internal error'));
+    assert.deepStrictEqual(defectsFromActivationFailure(rpcCalls, cause), [wireDefect]);
+  });
+
+  it('falls back to Cause Die defects when wire has none', () => {
+    const defect = { code: 2 };
+    assert.deepStrictEqual(defectsFromActivationFailure([], Cause.die(defect)), [defect]);
+  });
+});
+
+describe('defectsFromWireCause', () => {
+  it('reads Die defects from a wire cause array', () => {
+    assert.deepStrictEqual(
+      defectsFromWireCause([
+        { _tag: 'Die', defect: { message: 'Internal error' } },
+        { _tag: 'Fail', error: 'x' },
+      ]),
+      [{ message: 'Internal error' }],
     );
   });
 });

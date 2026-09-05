@@ -1,5 +1,7 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
+import type { Cause } from 'effect';
+
 import { isRecord } from '../../utils.ts';
 
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
@@ -12,6 +14,8 @@ export type SessionStatus = 'activating' | 'active' | 'inactive';
 export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
   readonly chatItems: readonly ChatItem[];
+  /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
+  readonly defects?: readonly unknown[];
   readonly pendingClientRequest?: boolean;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
@@ -19,6 +23,46 @@ export type SessionSnapshot = {
   readonly sessionState?: unknown;
   readonly status: SessionStatus;
   readonly usage?: SessionUsage;
+};
+
+/** Collects `cause.reasons[].defect` values from Die reasons. */
+export const defectsFromCause = <E>(cause: Cause.Cause<E>): readonly unknown[] =>
+  cause.reasons.flatMap(reason => (reason._tag === 'Die' ? [reason.defect] : []));
+
+/** Collects `cause[].defect` from a wire-encoded Exit Failure cause array. */
+export const defectsFromWireCause = (cause: unknown): readonly unknown[] => {
+  if (!Array.isArray(cause)) {
+    return [];
+  }
+
+  return cause.flatMap(reason => (isRecord(reason) && reason._tag === 'Die' ? [reason.defect] : []));
+};
+
+/**
+ * Prefers the latest inbound Exit Failure's wire `cause[].defect` (keeps JSON-RPC
+ * `data`), falling back to Effect Cause Die defects after Schema.Defect decode.
+ */
+export const defectsFromActivationFailure = <E>(
+  rpcCalls: readonly RpcWireEntry[],
+  cause: Cause.Cause<E>,
+): readonly unknown[] => {
+  for (let index = rpcCalls.length - 1; index >= 0; index -= 1) {
+    const entry = rpcCalls[index];
+    if (
+      entry.direction === 'in' &&
+      isRecord(entry.message) &&
+      entry.message._tag === 'Exit' &&
+      isRecord(entry.message.exit) &&
+      entry.message.exit._tag === 'Failure'
+    ) {
+      const wireDefects = defectsFromWireCause(entry.message.exit.cause);
+      if (wireDefects.length > 0) {
+        return wireDefects;
+      }
+    }
+  }
+
+  return defectsFromCause(cause);
 };
 
 export type NormalizedSessionInfo = {

@@ -1,4 +1,5 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import List from '@mui/material/List';
@@ -8,7 +9,9 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import type { FC, SubmitEvent } from 'react';
+import type { FC, ReactNode, SubmitEvent } from 'react';
+
+import { isRecord } from '../../utils.ts';
 
 import {
   draftAtom,
@@ -27,6 +30,21 @@ import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { UsagePopover } from './UsageCard.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
+
+const formatActivationDefect = (defect: unknown): string => {
+  if (!isRecord(defect)) {
+    return String(defect);
+  }
+  const message = typeof defect.message === 'string' ? defect.message : undefined;
+  const details = isRecord(defect.data) && typeof defect.data.details === 'string' ? defect.data.details : undefined;
+  if (message !== undefined && details !== undefined) {
+    return `${message}: ${details}`;
+  }
+  if (message !== undefined) {
+    return message;
+  }
+  return JSON.stringify(defect);
+};
 
 export const AgentChatMain: FC<{
   readonly onClientError: (error: unknown) => void;
@@ -66,23 +84,35 @@ export const AgentChatMain: FC<{
     sendDraft();
   };
 
-  const emptyStateSecondary = (() => {
+  const emptyStateSecondary: ReactNode = (() => {
     if (selectedBackend === undefined) {
-      return 'No session selected — create or select a session from the left panel.';
+      return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
     }
     if (backendSnapshot?.phase !== 'ready') {
-      return `Starting ${backendLabel(selectedBackend)} over ACP…`;
+      return <Alert severity="info">Starting {backendLabel(selectedBackend)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {
-      return 'No session selected — create or select a session from the left panel.';
+      return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
     }
     if (selectedSession.status === 'activating') {
-      return 'Activating session…';
+      return <Alert severity="info">Activating session…</Alert>;
     }
     if (selectedSession.status === 'inactive') {
-      return 'Session is inactive — activate it to send prompts.';
+      if (selectedSession.defects !== undefined && selectedSession.defects.length > 0) {
+        return (
+          <Alert severity="error">
+            Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
+          </Alert>
+        );
+      }
+      return <Alert severity="info">Session is inactive — activate it to send prompts.</Alert>;
     }
-    return `${backendLabel(selectedBackend)} is connected — send a prompt${selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.`;
+    return (
+      <Alert severity="info">
+        {backendLabel(selectedBackend)} is connected — send a prompt
+        {selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.
+      </Alert>
+    );
   })();
 
   useEffect(() => {
@@ -126,7 +156,11 @@ export const AgentChatMain: FC<{
         <List dense disablePadding>
           {chatItems.length === 0 ? (
             <ListItem>
-              <ListItemText primary="No messages yet" secondary={emptyStateSecondary} />
+              <ListItemText
+                primary="No messages yet"
+                secondary={emptyStateSecondary}
+                slotProps={{ secondary: { component: 'div' } }}
+              />
             </ListItem>
           ) : (
             chatItems.map(item => <ChatItemView item={item} key={item.id} />)

@@ -6,7 +6,6 @@ import {
   AgentCapabilities,
   AuthMethod,
   AuthMethodId,
-  ClientCapabilities,
   ContentBlock,
   EmptyResult,
   Implementation,
@@ -23,6 +22,7 @@ import {
   StopReason,
   Usage,
 } from './common.ts';
+import { ClientCapabilities } from './elicitation.ts';
 
 const AGENT_METHODS = {
   authenticate: 'authenticate',

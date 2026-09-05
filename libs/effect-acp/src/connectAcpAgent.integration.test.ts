@@ -25,7 +25,7 @@ const stubClientHandlers = (sessionUpdates: { sessionId: string; update: unknown
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
-      'elicitation/create': () => Effect.succeed({}),
+      'elicitation/create': () => Effect.succeed({ action: 'cancel' as const }),
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
       'session/request_permission': () => Effect.succeed({ outcome: { outcome: 'cancelled' as const } }),

@@ -55,8 +55,8 @@ An Agent→Client call (`session/request_permission`) asking the user to approve
 _Avoid_: Approval, auth request
 
 **Elicitation**:
-An Agent→Client flow for gathering structured input from the user (`elicitation/create` → `elicitation/complete`).
-_Avoid_: Form, user prompt
+An Agent→Client request (`elicitation/create`) that gathers structured user input. The Client responds with `accept` (optional content), `decline`, or `cancel`. Form mode uses a restricted JSON Schema; URL mode is a separate out-of-band flow whose completion may be signaled with the `elicitation/complete` notification.
+_Avoid_: Form, user prompt, permission request
 
 ## Wire and API surface
 

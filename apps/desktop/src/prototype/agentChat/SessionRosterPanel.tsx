@@ -1,7 +1,13 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Delete from '@mui/icons-material/Delete';
+import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
+import FolderOutlined from '@mui/icons-material/FolderOutlined';
+import MoreHoriz from '@mui/icons-material/MoreHoriz';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -9,12 +15,11 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListSubheader from '@mui/material/ListSubheader';
 import Paper from '@mui/material/Paper';
+import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -32,6 +37,7 @@ import {
 } from './acpBackendAtoms.ts';
 import { backendLabel, groupAndSortSessionsByCwd } from './acpSessionBootstrap.ts';
 import type { SessionSnapshot, UnifiedRosterEntry } from './acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from './agentHarness.ts';
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 
@@ -40,14 +46,33 @@ export const SESSION_ROSTER_PANEL_WIDTH = 320;
 const truncateSessionId = (sessionId: string): string =>
   sessionId.length > 12 ? `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}` : sessionId;
 
-const statusColor = (status: SessionSnapshot['status']): 'default' | 'success' | 'warning' => {
+const directoryName = (cwd: string): string => {
+  const trimmed = cwd.replace(/[/\\]+$/, '');
+  const segment = trimmed.split(/[/\\]/).pop();
+  return segment !== undefined && segment.length > 0 ? segment : cwd;
+};
+
+const backendIconSrc = (backend: AcpAgentBackend): string => {
+  switch (backend) {
+    case 'claude-agent-acp':
+      return '/claude_icon.svg';
+    case 'codex-acp':
+      return '/openai_icon.svg';
+    case 'echo':
+      return '/tauri.svg';
+    case 'gemini-cli':
+      return '/gemini_icon.svg';
+  }
+};
+
+const statusButtonColor = (status: SessionSnapshot['status']): 'inherit' | 'success' | 'warning' => {
   switch (status) {
     case 'activating':
       return 'warning';
     case 'active':
       return 'success';
     case 'inactive':
-      return 'default';
+      return 'inherit';
   }
 };
 
@@ -61,9 +86,13 @@ const sessionCardSx = (selected: boolean) =>
     border: 1,
     borderColor: selected ? 'primary.main' : 'divider',
     borderRadius: 1,
+    cursor: 'pointer',
     overflow: 'hidden',
     width: '100%',
     ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
   }) as const;
 
 const SessionRow: FC<{
@@ -75,98 +104,138 @@ const SessionRow: FC<{
   const selectSession = useAtomSet(selectSessionFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const [statusHovered, setStatusHovered] = useState(false);
 
   const status = rosterEntryStatus(entry.sessionId, snapshot.sessions);
   const isActivating = status === 'activating';
   const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
+  const menuOpen = menuAnchor !== null;
+  const statusActionLabel = isActivating || !statusHovered ? status : status === 'inactive' ? 'Activate' : 'Deactivate';
+
+  const closeMenu = () => {
+    setMenuAnchor(null);
+  };
+
+  const selectThisSession = () => {
+    selectSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+  };
 
   return (
     <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
-      <Paper elevation={0} sx={sessionCardSx(selected)}>
-        <ListItemButton
-          onClick={() => {
-            selectSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
-          }}
-          selected={selected}
-          sx={{
-            alignItems: 'flex-start',
-            flexDirection: 'column',
-            gap: 0.5,
-            py: 1.25,
-            width: '100%',
-          }}
-        >
-          <Typography
-            sx={{
-              display: '-webkit-box',
-              fontWeight: selected ? 600 : 400,
-              lineHeight: 1.4,
-              overflow: 'hidden',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: 2,
-              width: '100%',
-            }}
-            variant="body2"
-          >
-            {displayTitle}
-          </Typography>
-          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
-            <Chip label={backendLabel(entry.backend)} size="small" variant="outlined" />
+      <Paper
+        elevation={0}
+        onClick={selectThisSession}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectThisSession();
+          }
+        }}
+        role="button"
+        sx={sessionCardSx(selected)}
+        tabIndex={0}
+      >
+        <Stack direction="row" sx={{ alignItems: 'flex-start', gap: 0.5, px: 1.5, py: 1.25 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                display: '-webkit-box',
+                fontWeight: selected ? 600 : 400,
+                lineHeight: 1.4,
+                overflow: 'hidden',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
+                width: '100%',
+              }}
+              variant="body2"
+            >
+              {displayTitle}
+            </Typography>
             {entry.title !== undefined ? (
-              <Typography color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} variant="caption">
+              <Typography
+                color="text.secondary"
+                sx={{ display: 'block', fontFamily: 'monospace', fontSize: '0.7rem', mt: 0.5 }}
+                variant="caption"
+              >
                 {truncateSessionId(entry.sessionId)}
               </Typography>
             ) : null}
-          </Stack>
-        </ListItemButton>
+          </Box>
+          <IconButton
+            aria-label="Session actions"
+            onClick={event => {
+              event.stopPropagation();
+              setMenuAnchor(event.currentTarget);
+            }}
+            size="small"
+            sx={{ flexShrink: 0, mr: -0.5, mt: -0.5 }}
+          >
+            <MoreHoriz fontSize="small" />
+          </IconButton>
+        </Stack>
         <Divider />
         <Stack
           direction="row"
           spacing={0.75}
           sx={{ alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.75 }}
         >
-          <Chip color={statusColor(status)} label={status} size="small" variant="outlined" />
-          <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-            {status === 'inactive' ? (
-              <Button
-                onClick={event => {
-                  event.stopPropagation();
-                  activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
-                }}
-                size="small"
-                variant="outlined"
-              >
-                Activate
-              </Button>
-            ) : (
-              <Button
-                disabled={isActivating}
-                onClick={event => {
-                  event.stopPropagation();
-                  deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
-                }}
-                size="small"
-                variant="outlined"
-              >
-                {isActivating ? 'Activating…' : 'Deactivate'}
-              </Button>
-            )}
-            {status === 'inactive' ? (
-              <Button
-                color="error"
-                onClick={event => {
-                  event.stopPropagation();
-                  onDeleteRequest(entry);
-                }}
-                size="small"
-                variant="outlined"
-              >
-                Delete
-              </Button>
-            ) : null}
-          </Stack>
+          <Button
+            color={statusButtonColor(status)}
+            disabled={isActivating}
+            onClick={event => {
+              event.stopPropagation();
+              if (status === 'inactive') {
+                activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+                return;
+              }
+              deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+            }}
+            onMouseEnter={() => {
+              setStatusHovered(true);
+            }}
+            onMouseLeave={() => {
+              setStatusHovered(false);
+            }}
+            size="small"
+            variant="outlined"
+          >
+            {statusActionLabel}
+          </Button>
+          <Tooltip title={backendLabel(entry.backend)}>
+            <Box
+              alt=""
+              component="img"
+              src={backendIconSrc(entry.backend)}
+              sx={{ display: 'block', height: 16, width: 16 }}
+            />
+          </Tooltip>
         </Stack>
       </Paper>
+
+      <Popover
+        anchorEl={menuAnchor}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        onClose={closeMenu}
+        open={menuOpen}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+      >
+        <Stack sx={{ p: 1 }}>
+          <Button
+            color="error"
+            disabled={status !== 'inactive'}
+            onClick={() => {
+              closeMenu();
+              onDeleteRequest(entry);
+            }}
+            size="small"
+            startIcon={<Delete />}
+            variant="outlined"
+          >
+            Delete
+          </Button>
+        </Stack>
+      </Popover>
     </ListItem>
   );
 };
@@ -237,23 +306,45 @@ export const SessionRosterPanel: FC<{
               No sessions yet. Create one to get started.
             </Typography>
           ) : (
-            <List disablePadding sx={{ py: 0.5 }}>
+            <Box sx={{ py: 0.5 }}>
               {groupAndSortSessionsByCwd(roster).map(({ cwd, sessions }) => (
-                <li key={cwd}>
-                  <ul style={{ listStyle: 'none', padding: 0 }}>
-                    <ListSubheader
-                      sx={{
-                        bgcolor: 'background.paper',
-                        fontFamily: 'monospace',
-                        fontSize: '0.7rem',
-                        lineHeight: 1.4,
-                        overflowWrap: 'anywhere',
-                        py: 1,
-                        whiteSpace: 'normal',
-                      }}
-                    >
-                      {cwd}
-                    </ListSubheader>
+                <Accordion
+                  defaultExpanded
+                  disableGutters
+                  elevation={0}
+                  key={cwd}
+                  square
+                  sx={{
+                    '&::before': { display: 'none' },
+                    bgcolor: 'transparent',
+                  }}
+                >
+                  <AccordionSummary
+                    sx={{
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                      '& .folder-open': { display: 'none' },
+                      '&.Mui-expanded .folder-closed': { display: 'none' },
+                      '&.Mui-expanded .folder-open': { display: 'inline-flex' },
+                      '& .MuiAccordionSummary-content': {
+                        alignItems: 'center',
+                        gap: 0.75,
+                        m: 0,
+                      },
+                      fontWeight: 600,
+                      minHeight: 0,
+                      px: 2,
+                      py: 1,
+                    }}
+                  >
+                    <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                    <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                    <Box component="span" sx={{ overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                      {directoryName(cwd)}
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0 }}>
                     {sessions.map(entry => (
                       <SessionRow
                         entry={entry}
@@ -262,10 +353,10 @@ export const SessionRosterPanel: FC<{
                         selected={selectedSessionId === entry.sessionId}
                       />
                     ))}
-                  </ul>
-                </li>
+                  </AccordionDetails>
+                </Accordion>
               ))}
-            </List>
+            </Box>
           )}
         </Box>
       </Box>

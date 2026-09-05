@@ -123,9 +123,16 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
                 </Typography>
               ) : null}
               {item.resultText !== undefined ? (
-                <Typography sx={{ whiteSpace: 'pre-wrap' }} variant="body2">
-                  {item.resultText}
-                </Typography>
+                <ChatMarkdown
+                  sx={{
+                    '& pre': { bgcolor: 'background.paper' },
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                    color: 'text.secondary',
+                    p: 1.5,
+                  }}
+                  text={item.resultText}
+                />
               ) : null}
             </Stack>
           </Paper>

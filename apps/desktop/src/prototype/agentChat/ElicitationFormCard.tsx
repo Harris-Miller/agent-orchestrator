@@ -1,3 +1,11 @@
+import {
+  CreateElicitationFormRequest,
+  ElicitationArrayProperty,
+  ElicitationBooleanProperty,
+  ElicitationIntegerProperty,
+  ElicitationNumberProperty,
+  ElicitationStringProperty,
+} from '@libs/effect-acp';
 import type { CreateElicitationRequestBody, ElicitationContent, ElicitationPropertySchema } from '@libs/effect-acp';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -10,26 +18,21 @@ import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { Schema } from 'effect';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { isRecord } from '../../utils.ts';
+const SupportedFormProperty = Schema.Union([
+  ElicitationStringProperty,
+  ElicitationBooleanProperty,
+  ElicitationNumberProperty,
+  ElicitationIntegerProperty,
+]);
+type SupportedFormProperty = typeof SupportedFormProperty.Type;
 
-type FormRequest = {
-  readonly message: string;
-  readonly mode: 'form';
-  readonly requestedSchema: {
-    readonly properties?: Readonly<Record<string, ElicitationPropertySchema>>;
-  };
-};
-
-const isFormRequest = (request: CreateElicitationRequestBody): request is CreateElicitationRequestBody & FormRequest =>
-  'mode' in request &&
-  (request as { mode?: unknown }).mode === 'form' &&
-  'requestedSchema' in request &&
-  'message' in request;
-
-const propertyEntries = (request: FormRequest): readonly (readonly [string, ElicitationPropertySchema])[] => {
+const propertyEntries = (
+  request: CreateElicitationFormRequest,
+): readonly (readonly [string, ElicitationPropertySchema])[] => {
   const { properties } = request.requestedSchema;
   if (properties === undefined) {
     return [];
@@ -37,35 +40,25 @@ const propertyEntries = (request: FormRequest): readonly (readonly [string, Elic
   return Object.entries(properties);
 };
 
-const isSupportedProperty = (property: ElicitationPropertySchema): boolean => {
-  if (!isRecord(property) || typeof property.type !== 'string') {
-    return false;
+const defaultValueFor = (property: SupportedFormProperty): boolean | number | string => {
+  if (Schema.is(ElicitationBooleanProperty)(property)) {
+    return property.default ?? false;
   }
-  return (
-    property.type === 'string' ||
-    property.type === 'boolean' ||
-    property.type === 'number' ||
-    property.type === 'integer'
-  );
-};
-
-const defaultValueFor = (property: ElicitationPropertySchema): boolean | number | string => {
-  if (!isRecord(property)) {
-    return '';
+  if (Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)) {
+    return property.default ?? 0;
   }
-  if (property.type === 'boolean') {
-    return typeof property.default === 'boolean' ? property.default : false;
-  }
-  if (property.type === 'number' || property.type === 'integer') {
-    return typeof property.default === 'number' ? property.default : 0;
-  }
-  if (typeof property.default === 'string') {
+  if (property.default != null) {
     return property.default;
   }
-  if (Array.isArray(property.enum) && typeof property.enum[0] === 'string') {
-    return property.enum[0];
+  const firstEnum = property.enum?.[0];
+  return firstEnum ?? '';
+};
+
+const unsupportedTypeLabel = (property: ElicitationPropertySchema): string => {
+  if (Schema.is(ElicitationArrayProperty)(property)) {
+    return property.type;
   }
-  return '';
+  return 'unknown';
 };
 
 export const ElicitationFormCard: FC<{
@@ -75,13 +68,13 @@ export const ElicitationFormCard: FC<{
   readonly onDecline: () => void;
   readonly request: CreateElicitationRequestBody;
 }> = ({ agentTitle, onAccept, onCancel, onDecline, request }) => {
-  const formRequest = isFormRequest(request) ? request : undefined;
+  const formRequest = Schema.is(CreateElicitationFormRequest)(request) ? request : undefined;
   const entries = formRequest === undefined ? [] : propertyEntries(formRequest);
 
   const [values, setValues] = useState<Record<string, boolean | number | string>>(() => {
     const initial: Record<string, boolean | number | string> = {};
     for (const [name, property] of entries) {
-      if (isSupportedProperty(property)) {
+      if (Schema.is(SupportedFormProperty)(property)) {
         initial[name] = defaultValueFor(property);
       }
     }
@@ -116,20 +109,18 @@ export const ElicitationFormCard: FC<{
       </Typography>
       <Stack spacing={1.5} sx={{ mb: 2, mt: 1 }}>
         {entries.map(([name, property]) => {
-          if (!isSupportedProperty(property) || !isRecord(property)) {
+          if (!Schema.is(SupportedFormProperty)(property)) {
             return (
               <Typography color="text.secondary" key={name} variant="body2">
-                Unsupported field “{name}” (type{' '}
-                {isRecord(property) && typeof property.type === 'string' ? property.type : 'unknown'}) — decline or
-                cancel.
+                Unsupported field “{name}” (type {unsupportedTypeLabel(property)}) — decline or cancel.
               </Typography>
             );
           }
 
-          const title = typeof property.title === 'string' ? property.title : name;
-          const description = typeof property.description === 'string' ? property.description : undefined;
+          const title = property.title ?? name;
+          const description = property.description ?? undefined;
 
-          if (property.type === 'boolean') {
+          if (Schema.is(ElicitationBooleanProperty)(property)) {
             return (
               <FormControlLabel
                 control={
@@ -146,7 +137,7 @@ export const ElicitationFormCard: FC<{
             );
           }
 
-          if (Array.isArray(property.enum) && property.enum.every(item => typeof item === 'string')) {
+          if (Schema.is(ElicitationStringProperty)(property) && property.enum != null) {
             return (
               <FormControl fullWidth key={name} size="small">
                 <InputLabel id={`elicit-${name}`}>{title}</InputLabel>
@@ -176,7 +167,7 @@ export const ElicitationFormCard: FC<{
               label={title}
               onChange={event => {
                 const raw = event.target.value;
-                if (property.type === 'number' || property.type === 'integer') {
+                if (Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)) {
                   const parsed = Number(raw);
                   setValues(current => ({ ...current, [name]: Number.isFinite(parsed) ? parsed : 0 }));
                   return;
@@ -184,7 +175,11 @@ export const ElicitationFormCard: FC<{
                 setValues(current => ({ ...current, [name]: raw }));
               }}
               size="small"
-              type={property.type === 'number' || property.type === 'integer' ? 'number' : 'text'}
+              type={
+                Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)
+                  ? 'number'
+                  : 'text'
+              }
               value={values[name] ?? ''}
             />
           );
@@ -193,11 +188,7 @@ export const ElicitationFormCard: FC<{
       <Stack direction="row" spacing={1}>
         <Button
           onClick={() => {
-            const content: Record<string, boolean | number | string> = {};
-            for (const [name, value] of Object.entries(values)) {
-              content[name] = value;
-            }
-            onAccept(content);
+            onAccept(values);
           }}
           size="small"
           variant="contained"

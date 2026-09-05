@@ -214,6 +214,18 @@ export class CreateElicitationUrlRequestScopeRequest extends Schema.Opaque<Creat
 export const CreateElicitationUnknownRequest = Schema.Record(Schema.String, Schema.Unknown);
 export type CreateElicitationUnknownRequest = typeof CreateElicitationUnknownRequest.Type;
 
+export const CreateElicitationFormRequest = Schema.Union([
+  CreateElicitationFormSessionRequest,
+  CreateElicitationFormRequestScopeRequest,
+]);
+export type CreateElicitationFormRequest = typeof CreateElicitationFormRequest.Type;
+
+export const CreateElicitationSessionRequest = Schema.Union([
+  CreateElicitationFormSessionRequest,
+  CreateElicitationUrlSessionRequest,
+]);
+export type CreateElicitationSessionRequest = typeof CreateElicitationSessionRequest.Type;
+
 export const CreateElicitationRequestBody = Schema.Union([
   CreateElicitationFormSessionRequest,
   CreateElicitationFormRequestScopeRequest,
@@ -254,12 +266,8 @@ export type CreateElicitationResponseBody = typeof CreateElicitationResponseBody
 
 /** True when Client advertised form elicitation via a present non-null `form` field. */
 export const clientSupportsFormElicitation = (capabilities: unknown): boolean => {
-  if (typeof capabilities !== 'object' || capabilities === null) {
+  if (!Schema.is(ClientCapabilities)(capabilities)) {
     return false;
   }
-  const { elicitation } = capabilities as { elicitation?: unknown };
-  if (typeof elicitation !== 'object' || elicitation === null) {
-    return false;
-  }
-  return (elicitation as { form?: unknown }).form !== undefined && (elicitation as { form?: unknown }).form !== null;
+  return capabilities.elicitation?.form != null;
 };

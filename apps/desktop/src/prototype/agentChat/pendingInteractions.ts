@@ -1,9 +1,11 @@
+import { CreateElicitationSessionRequest } from '@libs/effect-acp';
 import type {
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
+import { Schema } from 'effect';
 
 export type PendingElicitation = {
   readonly request: CreateElicitationRequestBody;
@@ -18,8 +20,8 @@ export type PendingPermission = {
 };
 
 export const sessionIdFromElicitationRequest = (request: CreateElicitationRequestBody): string | undefined => {
-  if ('sessionId' in request && typeof (request as { sessionId?: unknown }).sessionId === 'string') {
-    return (request as { sessionId: string }).sessionId;
+  if (Schema.is(CreateElicitationSessionRequest)(request)) {
+    return request.sessionId;
   }
   return undefined;
 };

@@ -26,8 +26,8 @@ describe('elicitation schemas', () => {
       sessionId: 'sess_1',
     });
 
-    assert.strictEqual(decoded.mode, 'form');
-    assert.strictEqual(decoded.sessionId, 'sess_1');
+    assert.ok('mode' in decoded && decoded.mode === 'form');
+    assert.ok('sessionId' in decoded && decoded.sessionId === 'sess_1');
   });
 
   it('decodes accept / decline / cancel responses', () => {

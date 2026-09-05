@@ -12,6 +12,7 @@ import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
+import { ThemeSelect } from '../../ThemeChoice.tsx';
 import { isRecord } from '../../utils.ts';
 
 import {
@@ -191,6 +192,7 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
+                    <ThemeSelect />
                     <Stack direction="row" spacing={1}>
                       {backendPhases.map(entry => (
                         <Chip

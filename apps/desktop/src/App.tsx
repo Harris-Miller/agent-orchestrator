@@ -1,10 +1,9 @@
 import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 
 import { routeTree } from './routeTree.gen';
-import { theme } from './theme';
+import { AppThemeProvider } from './ThemeChoice.tsx';
 
 // Set up a Router instance
 const router = createRouter({
@@ -21,7 +20,7 @@ declare module '@tanstack/react-router' {
 }
 
 const App = () => (
-  <ThemeProvider noSsr theme={theme}>
+  <AppThemeProvider>
     <CssBaseline />
     <Container
       disableGutters
@@ -30,7 +29,7 @@ const App = () => (
     >
       <RouterProvider router={router} />
     </Container>
-  </ThemeProvider>
+  </AppThemeProvider>
 );
 
 export default App;

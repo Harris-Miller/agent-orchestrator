@@ -30,7 +30,7 @@ export const PermissionRequestCard: FC<{
     <Typography gutterBottom variant="subtitle1">
       {toolCallTitle(request)}
     </Typography>
-    <Stack direction="row" flexWrap="wrap" spacing={1} useFlexGap>
+    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
       {request.options.map(option => (
         <Button
           key={option.optionId}

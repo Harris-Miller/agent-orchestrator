@@ -4,7 +4,13 @@
  */
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
-import type { AcpAgentConnection } from '@libs/effect-acp';
+import type {
+  AcpAgentConnection,
+  CreateElicitationRequestBody,
+  CreateElicitationResponseBody,
+  RequestPermissionRequest,
+  RequestPermissionResponse,
+} from '@libs/effect-acp';
 import { Effect, Exit, Ref } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
@@ -17,6 +23,7 @@ import { isRecord } from '../../utils.ts';
 import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
+import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
@@ -101,7 +108,17 @@ export type AgentHandle = AcpAgentConnection['agent'];
 
 export type BackendHarnessCallbacks = {
   readonly onCommandsReady: (sessionId: string, commands: readonly AvailableCommand[]) => void;
+  readonly onElicitationCreate: (
+    sessionId: string,
+    request: CreateElicitationRequestBody,
+    resolve: (response: CreateElicitationResponseBody) => void,
+  ) => void;
   readonly onInitializeResult: (result: unknown) => void;
+  readonly onPermissionRequest: (
+    sessionId: string,
+    request: RequestPermissionRequest,
+    resolve: (response: RequestPermissionResponse) => void,
+  ) => void;
   readonly onPhase: (phase: AcpBootstrapPhase, error?: string) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionRosterResult: (result: unknown) => void;
@@ -166,14 +183,36 @@ const reduceBackendSessionUpdate = (
   return chatItemsFromAccumulator(next);
 };
 
-const makeClientHandlers = (onSessionUpdate: (sessionId: string, update: unknown) => void) =>
+const makeClientHandlers = (
+  onSessionUpdate: (sessionId: string, update: unknown) => void,
+  onElicitationCreate: BackendHarnessCallbacks['onElicitationCreate'],
+  onPermissionRequest: BackendHarnessCallbacks['onPermissionRequest'],
+) =>
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
-      'elicitation/create': () => Effect.succeed({}),
+      'elicitation/create': (request: CreateElicitationRequestBody) =>
+        Effect.gen(function* () {
+          const sessionId = sessionIdFromElicitationRequest(request);
+          if (sessionId === undefined) {
+            return { action: 'cancel' as const };
+          }
+          return yield* Effect.promise(
+            () =>
+              new Promise<CreateElicitationResponseBody>(resolve => {
+                onElicitationCreate(sessionId, request, resolve);
+              }),
+          );
+        }),
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
-      'session/request_permission': () => Effect.succeed({ outcome: { outcome: 'cancelled' as const } }),
+      'session/request_permission': (request: RequestPermissionRequest) =>
+        Effect.promise(
+          () =>
+            new Promise<RequestPermissionResponse>(resolve => {
+              onPermissionRequest(request.sessionId, request, resolve);
+            }),
+        ),
       'session/update': payload =>
         Effect.sync(() => {
           onSessionUpdate(payload.sessionId, payload.update);
@@ -196,20 +235,24 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     const command = yield* makeAgentCommand(backend);
     const connection = yield* connectAcpAgent(
       command,
-      makeClientHandlers((sessionId, update) => {
-        const chatItems = reduceBackendSessionUpdate(backend, sessionId, update);
-        handlers.onSessionUpdate(sessionId, chatItems, update);
+      makeClientHandlers(
+        (sessionId, update) => {
+          const chatItems = reduceBackendSessionUpdate(backend, sessionId, update);
+          handlers.onSessionUpdate(sessionId, chatItems, update);
 
-        if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
-          const commands = parseAvailableCommands(update.availableCommands);
-          handlers.onCommandsReady(sessionId, commands);
-        }
+          if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
+            const commands = parseAvailableCommands(update.availableCommands);
+            handlers.onCommandsReady(sessionId, commands);
+          }
 
-        const usage = parseUsageUpdate(update);
-        if (usage !== undefined) {
-          handlers.onUsageUpdate(sessionId, usage);
-        }
-      }),
+          const usage = parseUsageUpdate(update);
+          if (usage !== undefined) {
+            handlers.onUsageUpdate(sessionId, usage);
+          }
+        },
+        handlers.onElicitationCreate,
+        handlers.onPermissionRequest,
+      ),
       {
         wireTap: {
           onMessage: handlers.onRpcMessage,
@@ -220,7 +263,10 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     const { agent } = connection;
     agentHandles.set(backend, agent);
 
-    const initializeResult = yield* agent.initialize({ protocolVersion: 1 });
+    const initializeResult = yield* agent.initialize({
+      clientCapabilities: { elicitation: { form: {} } },
+      protocolVersion: 1,
+    });
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
 

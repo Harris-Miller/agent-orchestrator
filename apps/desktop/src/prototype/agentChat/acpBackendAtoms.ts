@@ -1,4 +1,5 @@
 /** Effect Atom state for parallel ACP backend harnesses. */
+import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
@@ -188,7 +189,13 @@ const withSessionClientRequest = <A, E, R>(
     const session = snapshot.sessions[sessionId];
     const agent = getAgentHandle(backend);
 
-    if (session.status !== 'active' || session.pendingClientRequest === true || agent === undefined) {
+    if (
+      session.status !== 'active' ||
+      session.pendingClientRequest === true ||
+      session.pendingElicitation !== undefined ||
+      session.pendingPermission !== undefined ||
+      agent === undefined
+    ) {
       return undefined as A;
     }
 
@@ -233,11 +240,29 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
             })),
           }));
         },
+        onElicitationCreate: (sessionId, request, resolve) => {
+          updateState(current => ({
+            ...current,
+            sessions: patchSession(current.sessions, sessionId, session => ({
+              ...session,
+              pendingElicitation: { request, resolve, sessionId },
+            })),
+          }));
+        },
         onInitializeResult: initializeResult => {
           updateState(current => ({
             ...current,
             initializeResult,
             phase: 'initialized',
+          }));
+        },
+        onPermissionRequest: (sessionId, request, resolve) => {
+          updateState(current => ({
+            ...current,
+            sessions: patchSession(current.sessions, sessionId, session => ({
+              ...session,
+              pendingPermission: { request, resolve, sessionId },
+            })),
           }));
         },
         onPhase: (phase, error) => {
@@ -519,6 +544,62 @@ export const sendChatItemFn = acpRuntime
         }),
       );
     }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const respondElicitationFn = acpRuntime
+  .fn(
+    (
+      arg: {
+        backend: AcpAgentBackend;
+        response: CreateElicitationResponseBody;
+        sessionId: string;
+      },
+      get,
+    ) =>
+      Effect.sync(() => {
+        const snapshot = get(backendStateAtom(arg.backend));
+        const pending = snapshot.sessions[arg.sessionId].pendingElicitation;
+        if (pending === undefined) {
+          return;
+        }
+        pending.resolve(arg.response);
+        get.set(backendStateAtom(arg.backend), {
+          ...snapshot,
+          sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
+            ...current,
+            pendingElicitation: undefined,
+          })),
+        });
+      }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const respondPermissionFn = acpRuntime
+  .fn(
+    (
+      arg: {
+        backend: AcpAgentBackend;
+        optionId: string;
+        sessionId: string;
+      },
+      get,
+    ) =>
+      Effect.sync(() => {
+        const snapshot = get(backendStateAtom(arg.backend));
+        const pending = snapshot.sessions[arg.sessionId].pendingPermission;
+        if (pending === undefined) {
+          return;
+        }
+        pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
+        get.set(backendStateAtom(arg.backend), {
+          ...snapshot,
+          sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
+            ...current,
+            pendingPermission: undefined,
+          })),
+        });
+      }),
   )
   .pipe(Atom.keepAlive);
 

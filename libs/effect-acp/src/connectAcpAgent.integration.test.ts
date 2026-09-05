@@ -47,7 +47,10 @@ describe('connectAcpAgent', () => {
       const sessionUpdates: { sessionId: string; update: unknown }[] = [];
       const { agent } = yield* connectAcpAgent(echoCommand, stubClientHandlers(sessionUpdates));
 
-      yield* agent.initialize({ protocolVersion: 1 });
+      yield* agent.initialize({
+        clientCapabilities: { elicitation: { form: {} } },
+        protocolVersion: 1,
+      });
       const session = yield* agent['session/new']({ cwd: '.', mcpServers: [] });
 
       assert.strictEqual(sessionUpdates.length, 1);

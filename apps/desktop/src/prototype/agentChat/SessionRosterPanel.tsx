@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Add from '@mui/icons-material/Add';
 import Delete from '@mui/icons-material/Delete';
 import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
@@ -16,18 +17,21 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import type { FC } from 'react';
+import type { FC, MouseEvent } from 'react';
 
 import {
   activateSessionFn,
   allBackendPhasesAtom,
   backendStateAtom,
+  createSessionFn,
   deactivateSessionFn,
   deleteSessionFn,
   refreshAllSessionRostersFn,
@@ -257,11 +261,40 @@ export const SessionRosterPanel: FC<{
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersFn, { mode: 'promise' });
+  const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<undefined | UnifiedRosterEntry>(undefined);
+  const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
+  const [createCwd, setCreateCwd] = useState<string | undefined>(undefined);
+  const [creating, setCreating] = useState(false);
 
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
+
+  const closeAgentMenu = () => {
+    setAgentMenuAnchor(null);
+    setCreateCwd(undefined);
+  };
+
+  const openAgentMenu = (event: MouseEvent<HTMLButtonElement>, cwd: string) => {
+    event.stopPropagation();
+    setCreateCwd(cwd);
+    setAgentMenuAnchor(event.currentTarget);
+  };
+
+  const createWithAgent = (backend: AcpAgentBackend) => {
+    if (createCwd === undefined || creating) {
+      return;
+    }
+    const cwd = createCwd;
+    setCreating(true);
+    closeAgentMenu();
+    createSession({ backend, cwd })
+      .catch(() => undefined)
+      .finally(() => {
+        setCreating(false);
+      });
+  };
 
   return (
     <>
@@ -341,6 +374,7 @@ export const SessionRosterPanel: FC<{
                         alignItems: 'center',
                         gap: 0.75,
                         m: 0,
+                        width: '100%',
                       },
                       fontWeight: 600,
                       minHeight: 0,
@@ -350,9 +384,21 @@ export const SessionRosterPanel: FC<{
                   >
                     <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
                     <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <Box component="span" sx={{ overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                    <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
                       {directoryName(cwd)}
                     </Box>
+                    <IconButton
+                      aria-label={`Create session in ${directoryName(cwd)}`}
+                      disabled={!anyReady || creating}
+                      edge="end"
+                      onClick={event => {
+                        openAgentMenu(event, cwd);
+                      }}
+                      size="small"
+                      sx={{ flexShrink: 0, ml: 'auto' }}
+                    >
+                      <Add fontSize="small" />
+                    </IconButton>
                   </AccordionSummary>
                   <AccordionDetails sx={{ p: 0 }}>
                     {sessions.map(entry => (
@@ -378,6 +424,27 @@ export const SessionRosterPanel: FC<{
           }}
         />
       ) : null}
+
+      <Menu
+        anchorEl={agentMenuAnchor}
+        onClose={() => {
+          closeAgentMenu();
+        }}
+        open={agentMenuAnchor !== null}
+      >
+        {backendPhases.map(entry => (
+          <MenuItem
+            disabled={entry.phase !== 'ready' || creating}
+            key={entry.backend}
+            onClick={() => {
+              createWithAgent(entry.backend);
+            }}
+          >
+            {entry.label}
+            {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
+          </MenuItem>
+        ))}
+      </Menu>
 
       <Dialog
         onClose={() => {

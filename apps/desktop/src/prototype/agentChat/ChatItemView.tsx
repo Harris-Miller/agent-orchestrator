@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -89,20 +88,6 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
               </Paper>
             ))}
           </Stack>
-        </ListItem>
-      );
-
-    case 'session_info':
-      return (
-        <ListItem>
-          <ListItemText
-            primary="Session"
-            secondary={[item.title, item.updatedAt].filter(value => value !== undefined).join(' · ')}
-            slotProps={{
-              primary: { sx: { fontWeight: 600 } },
-              secondary: { sx: { color: 'text.secondary', fontStyle: 'italic' } },
-            }}
-          />
         </ListItem>
       );
 

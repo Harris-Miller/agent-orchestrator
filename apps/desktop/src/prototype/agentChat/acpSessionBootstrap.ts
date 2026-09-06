@@ -221,6 +221,14 @@ export const upsertRosterEntry = (
   entry: NormalizedSessionInfo,
 ): readonly NormalizedSessionInfo[] => [entry, ...roster.filter(item => item.sessionId !== entry.sessionId)];
 
+/** Apply `session_info_update.title` onto the matching roster row (same field as `session/list`). */
+export const applySessionInfoTitle = (
+  roster: readonly NormalizedSessionInfo[],
+  sessionId: string,
+  title: string,
+): readonly NormalizedSessionInfo[] =>
+  roster.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
+
 export const normalizeSessionRoster = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];

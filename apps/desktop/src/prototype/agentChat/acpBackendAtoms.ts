@@ -8,6 +8,7 @@ import { isRecord } from '../../utils.ts';
 
 import {
   ALL_ACP_BACKENDS,
+  applySessionInfoTitle,
   applySetConfigOptionResult,
   backendLabel,
   defectsFromActivationFailure,
@@ -294,8 +295,14 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
               chatItems,
             }));
 
-            if (!skipConfigSync && isRecord(update)) {
-              if (update.sessionUpdate === 'config_option_update' && Array.isArray(update.configOptions)) {
+            let { sessionRoster } = current;
+
+            if (isRecord(update)) {
+              if (
+                !skipConfigSync &&
+                update.sessionUpdate === 'config_option_update' &&
+                Array.isArray(update.configOptions)
+              ) {
                 sessions = patchSession(sessions, sessionId, session => {
                   const applied = applySetConfigOptionResult(session.sessionState, {
                     configOptions: update.configOptions,
@@ -308,10 +315,15 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
                   };
                 });
               }
+
+              if (update.sessionUpdate === 'session_info_update' && typeof update.title === 'string') {
+                sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
+              }
             }
 
             return {
               ...current,
+              sessionRoster,
               sessions,
             };
           });

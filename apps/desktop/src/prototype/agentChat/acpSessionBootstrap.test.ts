@@ -6,6 +6,7 @@ import codexSessionNewFixture from '../../../fixtures/codex_session_new_response
 import { isRecord } from '../../utils.ts';
 
 import {
+  applySessionInfoTitle,
   applySetConfigOptionResult,
   defectsFromActivationFailure,
   defectsFromCause,
@@ -189,6 +190,20 @@ describe('patchConfigOptionValue', () => {
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
+  });
+});
+
+describe('applySessionInfoTitle', () => {
+  it('updates title on the matching sessionId only', () => {
+    const roster = [
+      { cwd: '/a', sessionId: 's1', title: 'Old' },
+      { cwd: '/b', sessionId: 's2', title: 'Other' },
+    ] as const;
+
+    assert.deepStrictEqual(applySessionInfoTitle(roster, 's1', 'Implement auth'), [
+      { cwd: '/a', sessionId: 's1', title: 'Implement auth' },
+      { cwd: '/b', sessionId: 's2', title: 'Other' },
+    ]);
   });
 });
 

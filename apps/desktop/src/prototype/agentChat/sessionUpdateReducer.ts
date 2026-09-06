@@ -32,12 +32,6 @@ export type ChatItem =
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   | {
       readonly id: string;
-      readonly kind: 'session_info';
-      readonly title?: string;
-      readonly updatedAt?: string;
-    }
-  | {
-      readonly id: string;
       readonly kind: 'tool_call';
       readonly resultText?: string;
       readonly status: string;
@@ -218,6 +212,7 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
     }
 
     case 'available_commands_update':
+    case 'session_info_update':
     case 'usage_update':
       return accumulator;
 
@@ -239,21 +234,6 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
             ...accumulator,
             items: [...accumulator.items, { entries, id: crypto.randomUUID(), kind: 'plan' }],
           };
-    }
-
-    case 'session_info_update': {
-      return {
-        ...accumulator,
-        items: [
-          ...accumulator.items,
-          {
-            id: crypto.randomUUID(),
-            kind: 'session_info',
-            title: typeof update.title === 'string' ? update.title : undefined,
-            updatedAt: typeof update.updatedAt === 'string' ? update.updatedAt : undefined,
-          },
-        ],
-      };
     }
 
     case 'tool_call': {

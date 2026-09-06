@@ -59,10 +59,10 @@ const baseSx = {
   },
   color: 'text.primary',
   typography: 'body2',
-} satisfies SxProps<Theme>;
+};
 
 export const ChatMarkdown: FC<{ sx?: SxProps<Theme>; text: string }> = ({ sx, text }) => (
-  <Box sx={sx == null ? baseSx : [baseSx, sx]}>
+  <Box sx={[baseSx, sx] as SxProps<Theme>}>
     <Markdown components={markdownComponents} skipHtml>
       {text}
     </Markdown>

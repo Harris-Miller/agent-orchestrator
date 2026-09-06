@@ -4,8 +4,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { notifyClient } from './notifyClient.ts';
-
 const FIXTURES_DIR = path.join(fileURLToPath(new URL('..', import.meta.url)), 'fixtures');
 
 const FIXTURE_PREFIX = /^\/fixture\s+(\S+)/;
@@ -100,16 +98,4 @@ export const resolveFixtureUpdates = (prompt: readonly PromptBlock[]) =>
     const template = promptText(prompt);
     const updates = yield* loadFixtureUpdates(name);
     return updates.map(update => applyPromptTemplate(update, template));
-  });
-
-export const replayFixture = (sessionId: string, prompt: readonly PromptBlock[]) =>
-  Effect.gen(function* () {
-    const name = resolveFixtureName(prompt);
-    const updates = yield* resolveFixtureUpdates(prompt);
-
-    yield* Effect.log(`fixture: ${name} (${String(updates.length)} updates)`);
-
-    for (const update of updates) {
-      yield* notifyClient('session/update', { sessionId, update }).pipe(Effect.orDie);
-    }
   });

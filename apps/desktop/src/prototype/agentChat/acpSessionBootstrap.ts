@@ -5,6 +5,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../../utils.ts';
 
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
+import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
@@ -17,6 +18,8 @@ export type SessionSnapshot = {
   /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
   readonly defects?: readonly unknown[];
   readonly pendingClientRequest?: boolean;
+  readonly pendingElicitation?: PendingElicitation;
+  readonly pendingPermission?: PendingPermission;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
   readonly sessionId: string;

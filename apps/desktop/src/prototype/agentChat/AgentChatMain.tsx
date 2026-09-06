@@ -15,6 +15,8 @@ import { isRecord } from '../../utils.ts';
 
 import {
   draftAtom,
+  respondElicitationFn,
+  respondPermissionFn,
   rpcWireLogSnapshotAtom,
   selectedSessionAtom,
   selectedSessionBackendAtom,
@@ -26,6 +28,8 @@ import {
 import { backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
+import { ElicitationFormCard } from './ElicitationFormCard.tsx';
+import { PermissionRequestCard } from './PermissionRequestCard.tsx';
 import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { UsagePopover } from './UsageCard.tsx';
 
@@ -60,14 +64,20 @@ export const AgentChatMain: FC<{
   const selectedSession = useAtomValue(selectedSessionAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
+  const respondElicitation = useAtomSet(respondElicitationFn, { mode: 'promise' });
+  const respondPermission = useAtomSet(respondPermissionFn, { mode: 'promise' });
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
 
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
-  const controlsEnabled = selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true;
+  const hasPendingInteraction =
+    selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
+  const controlsEnabled =
+    selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true && !hasPendingInteraction;
   const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
+  const agentTitle = selectedBackend === undefined ? 'Agent' : backendLabel(selectedBackend);
 
   const sendDraft = () => {
     if (selectedBackend === undefined || !controlsEnabled || draft.trim().length === 0) {
@@ -110,7 +120,7 @@ export const AgentChatMain: FC<{
     return (
       <Alert severity="info">
         {backendLabel(selectedBackend)} is connected — send a prompt
-        {selectedBackend === 'echo' ? ' or try /fixture tool-turn' : ''}.
+        {selectedBackend === 'echo' ? ' or try /fixture elicitation-form, /fixture permission-tool.' : ''}
       </Alert>
     );
   })();
@@ -126,7 +136,7 @@ export const AgentChatMain: FC<{
     }
 
     chatScroll.scrollTop = chatScroll.scrollHeight;
-  }, [chatItems]);
+  }, [chatItems, selectedSession?.pendingElicitation, selectedSession?.pendingPermission]);
 
   return (
     <Box
@@ -154,7 +164,7 @@ export const AgentChatMain: FC<{
         sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}
       >
         <List dense disablePadding>
-          {chatItems.length === 0 ? (
+          {chatItems.length === 0 && !hasPendingInteraction ? (
             <ListItem>
               <ListItemText
                 primary="No messages yet"
@@ -165,6 +175,50 @@ export const AgentChatMain: FC<{
           ) : (
             chatItems.map(item => <ChatItemView item={item} key={item.id} />)
           )}
+          {selectedSession?.pendingElicitation !== undefined && selectedBackend !== undefined ? (
+            <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
+              <ElicitationFormCard
+                agentTitle={agentTitle}
+                onAccept={content => {
+                  respondElicitation({
+                    backend: selectedBackend,
+                    response: { action: 'accept', content },
+                    sessionId: selectedSession.sessionId,
+                  }).catch(onClientError);
+                }}
+                onCancel={() => {
+                  respondElicitation({
+                    backend: selectedBackend,
+                    response: { action: 'cancel' },
+                    sessionId: selectedSession.sessionId,
+                  }).catch(onClientError);
+                }}
+                onDecline={() => {
+                  respondElicitation({
+                    backend: selectedBackend,
+                    response: { action: 'decline' },
+                    sessionId: selectedSession.sessionId,
+                  }).catch(onClientError);
+                }}
+                request={selectedSession.pendingElicitation.request}
+              />
+            </ListItem>
+          ) : null}
+          {selectedSession?.pendingPermission !== undefined && selectedBackend !== undefined ? (
+            <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
+              <PermissionRequestCard
+                agentTitle={agentTitle}
+                onSelect={optionId => {
+                  respondPermission({
+                    backend: selectedBackend,
+                    optionId,
+                    sessionId: selectedSession.sessionId,
+                  }).catch(onClientError);
+                }}
+                request={selectedSession.pendingPermission.request}
+              />
+            </ListItem>
+          ) : null}
         </List>
       </Paper>
 

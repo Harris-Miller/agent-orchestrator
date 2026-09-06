@@ -3,8 +3,6 @@ import { Rpc } from 'effect/unstable/rpc';
 
 import {
   AcpError,
-  CreateElicitationRequestBody,
-  CreateElicitationResponseBody,
   ElicitationId,
   EmptyResult,
   EnvVariable,
@@ -18,6 +16,7 @@ import {
   TerminalId,
   ToolCallUpdate,
 } from './common.ts';
+import { CreateElicitationRequestBody, CreateElicitationResponseBody } from './elicitation.ts';
 
 const CLIENT_METHODS = {
   elicitation_complete: 'elicitation/complete',

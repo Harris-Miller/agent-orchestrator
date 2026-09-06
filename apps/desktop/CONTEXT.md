@@ -13,7 +13,7 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Chat item**:
-A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire.
+A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
@@ -59,8 +59,20 @@ Agent-reported context-window fill and cumulative session cost on a session snap
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Pending client request**:
-Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation.
+Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).
 _Avoid_: In flight, loading, busy flag
+
+**Pending elicitation**:
+Outstanding Agent `elicitation/create` held on a session snapshot until the user accepts, declines, or cancels. Ephemeral snapshot state — not a chat item.
+_Avoid_: Elicitation form, form card, open elicitation
+
+**Pending permission**:
+Outstanding Agent `session/request_permission` held on a session snapshot until the user selects an option. Ephemeral snapshot state — not a chat item.
+_Avoid_: Permission card, approval prompt, open permission
+
+**Pending interaction**:
+A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present.
+_Avoid_: Pending client request, blocking dialog, modal
 
 **Selected session**:
 App-wide UI focus by `sessionId`; determines which transcript the main chat shows, which session receives prompts, and what the session-state panel displays. Not per-agent — switching focus is choosing a session, not an agent.

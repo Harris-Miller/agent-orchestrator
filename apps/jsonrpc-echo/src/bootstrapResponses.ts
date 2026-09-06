@@ -1,5 +1,8 @@
 const ECHO_AVAILABLE_COMMANDS = [
   { description: 'Replay a named fixture transcript.', name: '/fixture' },
+  { description: 'Form elicitation (capability-gated).', name: 'elicitation-form' },
+  { description: 'Always take elicitation unsupported path.', name: 'elicitation-no-cap' },
+  { description: 'Tool call with permission request.', name: 'permission-tool' },
   { description: 'Echo the prompt text back.', name: 'simple-reply' },
 ] as const;
 

@@ -22,6 +22,17 @@ export const RPC_WIRE_LOG_PANEL_HEIGHT = 320;
 
 const entryIdNameMap = new Map<number, string>();
 
+const rpcWireTagLabel = (message: Record<string, unknown>): null | string => {
+  if (typeof message.tag !== 'string') return null;
+  if (message.tag === 'session/update' && isRecord(message.payload) && isRecord(message.payload.update)) {
+    const { sessionUpdate } = message.payload.update;
+    if (typeof sessionUpdate === 'string') {
+      return `${message.tag} ${sessionUpdate}`;
+    }
+  }
+  return message.tag;
+};
+
 const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
   const arrow = entry.direction === 'out' ? '→' : '←';
   if (isRecord(entry.message)) {
@@ -30,15 +41,17 @@ const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
         const cachedName = entryIdNameMap.get(entry.message.requestId as number);
         return `${arrow} ${cachedName ?? 'message'}`;
       }
-      if (typeof entry.message.tag === 'string') {
-        return `${arrow} ${entry.message.tag}`;
+      const tagLabel = rpcWireTagLabel(entry.message);
+      if (tagLabel != null) {
+        return `${arrow} ${tagLabel}`;
       }
       return `${arrow} message`;
     }
 
     const cachedName = (() => {
-      if (typeof entry.message.tag === 'string') {
-        return entry.message.tag;
+      const tagLabel = rpcWireTagLabel(entry.message);
+      if (tagLabel != null) {
+        return tagLabel;
       }
       if (typeof entry.message.method === 'string') {
         return entry.message.method;

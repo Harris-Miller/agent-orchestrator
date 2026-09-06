@@ -1,4 +1,6 @@
-import { Effect, Queue, Schema, Stream } from 'effect';
+import type { Sink } from 'effect';
+import { Effect, Queue, Schema, Stdio, Stream } from 'effect';
+import type { PlatformError } from 'effect/PlatformError';
 import type { ChildProcessSpawner } from 'effect/unstable/process';
 import { RpcSerialization } from 'effect/unstable/rpc';
 import { RpcClientDefect, RpcClientError } from 'effect/unstable/rpc/RpcClientError';
@@ -10,12 +12,20 @@ export class TransportError extends Schema.TaggedError<TransportError>()('Transp
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
-  handle: ChildProcessSpawner.ChildProcessHandle,
+type WireTap = {
+  readonly onMessage: (direction: 'in' | 'out', message: unknown) => void;
+};
+
+type DuplexStreams = {
+  readonly onReadClosed?: Effect.Effect<void>;
+  readonly read: Stream.Stream<Uint8Array, unknown>;
+  readonly writeSink: Sink.Sink<void, Uint8Array, never, PlatformError>;
+};
+
+const makeDuplexTransport = Effect.fn('makeDuplexTransport')(function* (
+  streams: DuplexStreams,
   route: (message: unknown) => Effect.Effect<void>,
-  wireTap?: {
-    readonly onMessage: (direction: 'in' | 'out', message: unknown) => void;
-  },
+  wireTap?: WireTap,
 ) {
   const serialization = yield* RpcSerialization.RpcSerialization;
   const parser = serialization.makeUnsafe();
@@ -60,7 +70,7 @@ export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
   const start = Effect.gen(function* () {
     const lineBuffer = { value: '' };
 
-    yield* handle.stdout.pipe(
+    yield* streams.read.pipe(
       Stream.runForEach(data =>
         Effect.gen(function* () {
           lineBuffer.value += textDecoder.decode(data, { stream: true });
@@ -90,10 +100,33 @@ export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
       Effect.forkScoped,
     );
 
-    yield* Stream.fromQueue(queue).pipe(Stream.run(handle.stdin), Effect.tapError(Effect.logError), Effect.forkScoped);
+    yield* Stream.fromQueue(queue).pipe(
+      Stream.run(streams.writeSink),
+      Effect.tapError(Effect.logError),
+      Effect.forkScoped,
+    );
 
-    yield* Effect.forkScoped(
-      handle.exitCode.pipe(
+    if (streams.onReadClosed !== undefined) {
+      yield* Effect.forkScoped(streams.onReadClosed);
+    }
+  });
+
+  return {
+    codecFor: serialization.codecFor,
+    notify,
+    send,
+    start,
+  } as const;
+});
+
+export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
+  handle: ChildProcessSpawner.ChildProcessHandle,
+  route: (message: unknown) => Effect.Effect<void>,
+  wireTap?: WireTap,
+) {
+  return yield* makeDuplexTransport(
+    {
+      onReadClosed: handle.exitCode.pipe(
         Effect.flatMap(exitCode =>
           route({
             _tag: 'ClientProtocolError',
@@ -107,13 +140,28 @@ export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
         ),
         Effect.catch(() => Effect.void),
       ),
-    );
-  });
+      read: handle.stdout,
+      writeSink: handle.stdin,
+    },
+    route,
+    wireTap,
+  );
+});
 
-  return {
-    codecFor: serialization.codecFor,
-    notify,
-    send,
-    start,
-  } as const;
+/** Parent-process stdio duplex for Agent processes (read stdin, write stdout). */
+export const makeParentStdioTransport = Effect.fn('makeParentStdioTransport')(function* (
+  route: (message: unknown) => Effect.Effect<void>,
+  wireTap?: WireTap,
+) {
+  const stdio = yield* Stdio.Stdio;
+
+  return yield* makeDuplexTransport(
+    {
+      read: stdio.stdin,
+      // stdout accepts string | Uint8Array; we only enqueue Uint8Array frames
+      writeSink: stdio.stdout({ endOnDone: false }),
+    },
+    route,
+    wireTap,
+  );
 });

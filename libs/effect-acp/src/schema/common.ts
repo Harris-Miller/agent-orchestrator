@@ -115,7 +115,6 @@ export class TerminalExitStatus extends Schema.Opaque<TerminalExitStatus>()(
 /** Opaque placeholders for large nested unions (expand later). */
 export class ContentBlock extends Schema.Opaque<ContentBlock>()(Schema.Unknown) {}
 export class SessionUpdate extends Schema.Opaque<SessionUpdate>()(Schema.Unknown) {}
-export class ClientCapabilities extends Schema.Opaque<ClientCapabilities>()(Schema.Unknown) {}
 export class AgentCapabilities extends Schema.Opaque<AgentCapabilities>()(Schema.Unknown) {}
 export class AuthMethod extends Schema.Opaque<AuthMethod>()(Schema.Unknown) {}
 export class McpServer extends Schema.Opaque<McpServer>()(Schema.Unknown) {}
@@ -123,5 +122,3 @@ export class SessionConfigOption extends Schema.Opaque<SessionConfigOption>()(Sc
 export class SessionModeState extends Schema.Opaque<SessionModeState>()(Schema.Unknown) {}
 export class ToolCallUpdate extends Schema.Opaque<ToolCallUpdate>()(Schema.Unknown) {}
 export class Usage extends Schema.Opaque<Usage>()(Schema.Unknown) {}
-export class CreateElicitationRequestBody extends Schema.Opaque<CreateElicitationRequestBody>()(Schema.Unknown) {}
-export class CreateElicitationResponseBody extends Schema.Opaque<CreateElicitationResponseBody>()(Schema.Unknown) {}

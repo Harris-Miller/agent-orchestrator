@@ -55,8 +55,20 @@ An Agent→Client call (`session/request_permission`) asking the user to approve
 _Avoid_: Approval, auth request
 
 **Elicitation**:
-An Agent→Client flow for gathering structured input from the user (`elicitation/create` → `elicitation/complete`).
-_Avoid_: Form, user prompt
+An Agent→Client request (`elicitation/create`) that gathers structured user input. The Client responds with `accept` (optional content), `decline`, or `cancel`.
+_Avoid_: Form, user prompt, permission request
+
+**Form mode**:
+Elicitation mode that collects non-sensitive fields via a restricted JSON Schema (`mode: "form"`).
+_Avoid_: Form elicitation (when naming the mode), dialog, questionnaire
+
+**URL mode**:
+Elicitation mode that asks the user to consent to an out-of-band URL (`mode: "url"`). `accept` means consent to open, not that the external flow finished; the Agent may later send `elicitation/complete` for that `elicitationId`.
+_Avoid_: OAuth elicitation, redirect, external form
+
+**Elicitation content**:
+Optional structured field values on an `accept` response. Meaningful for form mode; normally omitted for URL mode.
+_Avoid_: Form data, answers, payload
 
 ## Wire and API surface
 
@@ -81,5 +93,5 @@ The newline-delimited JSON-RPC byte stream over a child process's stdin/stdout.
 _Avoid_: Pipe, socket
 
 **Connection**:
-The full duplex ACP link: transport plus demux routing and typed RPC client/server endpoints (`connectAcpAgent`).
+The full duplex ACP link: transport plus demux routing and typed RPC client/server endpoints. Entered as Client via `connectAcpAgent` (spawn child stdio) or as Agent via `serveAcpAgent` (parent stdio).
 _Avoid_: Session, link

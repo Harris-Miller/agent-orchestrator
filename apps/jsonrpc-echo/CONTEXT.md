@@ -5,7 +5,7 @@ Private test fixture — an ACP Agent with controlled I/O for `@libs/effect-acp`
 ## Language
 
 **Echo agent**:
-This app's Agent implementation: accepts `session/prompt`, replays a fixture as spec-correct `session/update` notifications, then returns `stopReason: end_turn`.
+This app's Agent implementation: accepts `session/prompt`, then either replays a fixture or runs a scenario, and returns `stopReason: end_turn`.
 _Avoid_: Reference agent, mock agent, production agent
 
 **Bootstrap response**:
@@ -14,4 +14,8 @@ _Avoid_: Mock response, stub
 
 **Fixture**:
 A named `fixtures/<name>.jsonl` file — one JSON object per line, each a SessionUpdate payload replayed in order on `session/prompt`. Selected by `/fixture <name>` in the prompt text; defaults to `simple-reply`.
-_Avoid_: Mock, scenario, recording
+_Avoid_: Mock, recording
+
+**Scenario**:
+A named interactive Agent procedure selected via `/fixture <name>` (e.g. `elicitation-form`, `permission-tool`) that may call Client RPCs (`elicitation/create`, `session/request_permission`) instead of only replaying JSONL.
+_Avoid_: Fixture, script, demo

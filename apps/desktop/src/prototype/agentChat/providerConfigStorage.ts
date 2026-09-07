@@ -195,3 +195,24 @@ export const defaultsFromSelectable = (
   }
   return defaults;
 };
+
+export type HarnessDefaultDiff = {
+  readonly configId: string;
+  readonly value: string;
+};
+
+/** Config options where harness defaults differ from the session's current values and remain valid choices. */
+export const harnessDefaultDiffs = (
+  sessionState: unknown,
+  defaults: Readonly<Record<string, string>>,
+): readonly HarnessDefaultDiff[] =>
+  normalizeSelectableConfigOptions(sessionState).flatMap(option => {
+    if (!Object.hasOwn(defaults, option.id)) {
+      return [];
+    }
+    const desired = defaults[option.id];
+    if (desired === option.currentValue || !option.choices.some(choice => choice.id === desired)) {
+      return [];
+    }
+    return [{ configId: option.id, value: desired }];
+  });

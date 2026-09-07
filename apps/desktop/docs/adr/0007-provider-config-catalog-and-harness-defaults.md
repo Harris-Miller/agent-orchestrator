@@ -4,6 +4,8 @@ Session configuration is session-scoped and ephemeral across app restarts. Creat
 
 The catalog is overwritten whenever a session activation or config update returns selectable `configOptions`. Defaults are seeded once from agent `currentValue` on first catalog write, then changed only via explicit **Save as defaults** — not by mid-session `set_config_option`, create pickers, or handoff overrides. If a stored default disappears from the refreshed choice list, it falls back to the agent's new `currentValue`.
 
+On **Create new session**, after `session/new` the Harness applies harness defaults that differ from the agent-returned values via `session/set_config_option` (ACP has no config fields on `session/new`). That apply does not rewrite stored defaults.
+
 ## Considered options
 
 - **Session-only configuration (previous):** accurate while a session is active, but cannot drive create/handoff pickers or survive restart without re-opening a session.

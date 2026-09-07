@@ -3,6 +3,7 @@ import { beforeEach } from 'vitest';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import {
+  harnessDefaultDiffs,
   mergeProviderConfigRefresh,
   persistProviderConfig,
   readProviderConfig,
@@ -188,5 +189,56 @@ describe('providerConfigStorage persistence', () => {
     const saved = saveHarnessDefaults('codex-acp', { model: 'b' });
     assert.deepStrictEqual(saved.defaults, { model: 'b' });
     assert.strictEqual(saved.catalog[0]?.id, 'model');
+  });
+});
+
+describe('harnessDefaultDiffs', () => {
+  it('returns only defaults that differ from session currentValue and remain valid', () => {
+    const diffs = harnessDefaultDiffs(
+      {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+            ],
+            type: 'select',
+          },
+          {
+            currentValue: 'default',
+            id: 'mode',
+            name: 'Mode',
+            options: [
+              { name: 'Default', value: 'default' },
+              { name: 'Plan', value: 'plan' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+      { mode: 'plan', model: 'sonnet', unknown: 'x' },
+    );
+    assert.deepStrictEqual(diffs, [{ configId: 'mode', value: 'plan' }]);
+  });
+
+  it('skips defaults whose value is no longer in choices', () => {
+    const diffs = harnessDefaultDiffs(
+      {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [{ name: 'Sonnet', value: 'sonnet' }],
+            type: 'select',
+          },
+        ],
+      },
+      { model: 'opus' },
+    );
+    assert.deepStrictEqual(diffs, []);
   });
 });

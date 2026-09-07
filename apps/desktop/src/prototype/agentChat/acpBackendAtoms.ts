@@ -41,6 +41,7 @@ import {
 } from './agentHarness.ts';
 import {
   defaultsFromSelectable,
+  harnessDefaultDiffs,
   readProviderConfig,
   refreshCatalogFromSessionState,
   saveHarnessDefaults,
@@ -437,11 +438,27 @@ export const createSessionFn = acpRuntime
 
       const { cwd, result } = yield* createSession(agent, arg.cwd);
       const { sessionId } = result;
-      const session = applySessionActivationResult(sessionId, result);
+
+      syncProviderConfigFromSessionState(get, arg.backend, result);
+
+      let sessionState: unknown = result;
+      const { defaults } = get(providerConfigAtom(arg.backend)) ?? { defaults: {} };
+      for (const diff of harnessDefaultDiffs(sessionState, defaults)) {
+        const patched = patchConfigOptionValue(sessionState, diff.configId, diff.value);
+        const exit = yield* Effect.exit(setConfigOption(agent, sessionId, diff.configId, diff.value));
+        if (Exit.isFailure(exit)) {
+          break;
+        }
+        const { sessionState: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
+        sessionState = nextSessionState;
+      }
+
+      syncProviderConfigFromSessionState(get, arg.backend, sessionState);
+
+      const session = applySessionActivationResult(sessionId, sessionState);
       const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
       const snapshot = get(backendStateAtom(arg.backend));
 
-      syncProviderConfigFromSessionState(get, arg.backend, result);
       get.set(backendStateAtom(arg.backend), {
         ...snapshot,
         sessionRoster:

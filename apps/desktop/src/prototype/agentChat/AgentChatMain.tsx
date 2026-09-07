@@ -18,6 +18,7 @@ import {
   respondElicitationFn,
   respondPermissionFn,
   rpcWireLogSnapshotAtom,
+  saveHarnessDefaultsFn,
   selectedSessionAtom,
   selectedSessionBackendAtom,
   selectedSessionIdAtom,
@@ -64,6 +65,7 @@ export const AgentChatMain: FC<{
   const selectedSession = useAtomValue(selectedSessionAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
+  const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionFn, { mode: 'promise' });
 
@@ -77,6 +79,7 @@ export const AgentChatMain: FC<{
   const controlsEnabled =
     selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true && !hasPendingInteraction;
   const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
+  const canSaveDefaults = controlsEnabled && configOptions.length > 0;
   const agentTitle = selectedBackend === undefined ? 'Agent' : backendLabel(selectedBackend);
 
   const sendDraft = () => {
@@ -258,6 +261,17 @@ export const AgentChatMain: FC<{
                   option={option}
                 />
               ))}
+              {selectedBackend !== undefined && canSaveDefaults ? (
+                <Button
+                  onClick={() => {
+                    saveHarnessDefaults({ backend: selectedBackend }).catch(onClientError);
+                  }}
+                  size="small"
+                  variant="outlined"
+                >
+                  Save as defaults for {backendLabel(selectedBackend)}
+                </Button>
+              ) : null}
               {rpcWireLogOpen ? null : (
                 <Button onClick={onOpenRpcWireLog} size="small" variant="outlined">
                   RPC wire log ({rpcSnapshot.rpcCalls.length})

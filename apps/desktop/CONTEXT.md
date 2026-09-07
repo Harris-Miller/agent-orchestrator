@@ -54,6 +54,14 @@ _Avoid_: Setting, preference, parameter
 Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
 _Avoid_: Session state, session/new result
 
+**Provider config catalog**:
+Agent-reported selectable config options (ids, labels, choices) for one agent launch target, shared across that target's sessions. Not tied to a session snapshot.
+_Avoid_: Session configuration, agent defaults
+
+**Harness config defaults**:
+User-preferred values per config option id for one agent launch target.
+_Avoid_: Agent defaults, session configuration, currentValue
+
 **Usage**:
 Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.
 _Avoid_: Usage readout, token usage, telemetry, context meter

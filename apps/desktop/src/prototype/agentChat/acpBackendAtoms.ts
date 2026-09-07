@@ -15,6 +15,7 @@ import {
   initialBackendSnapshot,
   initialSessionSnapshot,
   normalizeConfigOptions,
+  normalizeSelectableConfigOptions,
   normalizeSessionInfoFromNew,
   normalizeSessionRoster,
   patchConfigOptionValue,
@@ -38,10 +39,25 @@ import {
   setConfigOption,
   stopBackendHarness,
 } from './agentHarness.ts';
+import {
+  defaultsFromSelectable,
+  harnessDefaultDiffs,
+  readProviderConfig,
+  refreshCatalogFromSessionConfiguration,
+  saveHarnessDefaults,
+} from './providerConfigStorage.ts';
+import type { ProviderConfigStored } from './providerConfigStorage.ts';
 import { joinDirectory, listChildDirectories, parentDirectory, resolveHomeDir } from './sessionDirectoryBrowser.ts';
 import { persistSessionUsage, readPersistedSessionUsage } from './sessionUsageStorage.ts';
 
 const acpRuntime = Atom.runtime(() => TauriServicesLive);
+
+export const providerConfigAtom = Atom.family((backend: AcpAgentBackend) =>
+  Atom.make<ProviderConfigStored | undefined>(readProviderConfig(backend)).pipe(
+    Atom.withLabel(`providerConfig:${backend}`),
+    Atom.keepAlive,
+  ),
+);
 
 export const resolveHomeDirFn = acpRuntime.fn((_arg: undefined) => resolveHomeDir()).pipe(Atom.keepAlive);
 
@@ -127,6 +143,15 @@ export const allBackendPhasesAtom = Atom.make(get =>
 ).pipe(Atom.keepAlive);
 
 type AcpAtomGet = Parameters<Parameters<typeof acpRuntime.fn>[0]>[1];
+
+const syncProviderConfigFromSessionConfiguration = (
+  get: AcpAtomGet,
+  backend: AcpAgentBackend,
+  sessionConfiguration: unknown,
+) => {
+  const next = refreshCatalogFromSessionConfiguration(backend, sessionConfiguration);
+  get.set(providerConfigAtom(backend), next);
+};
 
 const clearSelectedSessionIfMissing = (get: AcpAtomGet) => {
   const sessionId = get(selectedSessionIdAtom);
@@ -287,9 +312,15 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
           }));
         },
         onSessionUpdate: (sessionId, chatItems, update) => {
-          updateState(current => {
-            const skipConfigSync = sessionId in current.sessions && current.sessions[sessionId].status === 'activating';
+          const before = get.registry.get(backendStateAtom(backend));
+          const skipConfigSync = sessionId in before.sessions && before.sessions[sessionId].status === 'activating';
+          const shouldSyncConfig =
+            !skipConfigSync &&
+            isRecord(update) &&
+            update.sessionUpdate === 'config_option_update' &&
+            Array.isArray(update.configOptions);
 
+          updateState(current => {
             let sessions = patchSession(current.sessions, sessionId, session => ({
               ...session,
               chatItems,
@@ -297,28 +328,26 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
 
             let { sessionRoster } = current;
 
-            if (isRecord(update)) {
-              if (
-                !skipConfigSync &&
-                update.sessionUpdate === 'config_option_update' &&
-                Array.isArray(update.configOptions)
-              ) {
-                sessions = patchSession(sessions, sessionId, session => {
-                  const applied = applySetConfigOptionResult(session.sessionState, {
-                    configOptions: update.configOptions,
-                  });
-                  return {
-                    ...session,
-                    selectedModeId: applied.selectedModeId ?? session.selectedModeId,
-                    selectedModelId: applied.selectedModelId ?? session.selectedModelId,
-                    sessionState: applied.sessionState,
-                  };
+            if (shouldSyncConfig) {
+              sessions = patchSession(sessions, sessionId, session => {
+                const applied = applySetConfigOptionResult(session.sessionState, {
+                  configOptions: update.configOptions,
                 });
-              }
+                return {
+                  ...session,
+                  selectedModeId: applied.selectedModeId ?? session.selectedModeId,
+                  selectedModelId: applied.selectedModelId ?? session.selectedModelId,
+                  sessionState: applied.sessionState,
+                };
+              });
+            }
 
-              if (update.sessionUpdate === 'session_info_update' && typeof update.title === 'string') {
-                sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
-              }
+            if (
+              isRecord(update) &&
+              update.sessionUpdate === 'session_info_update' &&
+              typeof update.title === 'string'
+            ) {
+              sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
             }
 
             return {
@@ -327,6 +356,11 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
               sessions,
             };
           });
+
+          if (shouldSyncConfig) {
+            const session = get.registry.get(backendStateAtom(backend)).sessions[sessionId];
+            syncProviderConfigFromSessionConfiguration(get, backend, session.sessionState);
+          }
         },
         onUsageUpdate: (sessionId, usage) => {
           persistSessionUsage(sessionId, usage);
@@ -405,7 +439,24 @@ export const createSessionFn = acpRuntime
 
       const { cwd, result } = yield* createSession(agent, arg.cwd);
       const { sessionId } = result;
-      const session = applySessionActivationResult(sessionId, result);
+
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, result);
+
+      let sessionState: unknown = result;
+      const { defaults } = get(providerConfigAtom(arg.backend)) ?? { defaults: {} };
+      for (const diff of harnessDefaultDiffs(sessionState, defaults)) {
+        const patched = patchConfigOptionValue(sessionState, diff.configId, diff.value);
+        const exit = yield* Effect.exit(setConfigOption(agent, sessionId, diff.configId, diff.value));
+        if (Exit.isFailure(exit)) {
+          break;
+        }
+        const { sessionState: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
+        sessionState = nextSessionState;
+      }
+
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionState);
+
+      const session = applySessionActivationResult(sessionId, sessionState);
       const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
       const snapshot = get(backendStateAtom(arg.backend));
 
@@ -459,6 +510,7 @@ export const activateSessionFn = acpRuntime
       }
 
       const persistedUsage = readPersistedSessionUsage(arg.sessionId);
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, exit.value);
       get.set(backendStateAtom(arg.backend), {
         ...get(backendStateAtom(arg.backend)),
         sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
@@ -666,6 +718,7 @@ export const setConfigOptionFn = acpRuntime
         const result = yield* setConfigOption(agent, session.sessionId, arg.configId, arg.value);
         const currentSnapshot = get(backendStateAtom(arg.backend));
         const applied = applySetConfigOptionResult(currentSnapshot.sessions[session.sessionId].sessionState, result);
+        syncProviderConfigFromSessionConfiguration(get, arg.backend, applied.sessionState);
         get.set(backendStateAtom(arg.backend), {
           ...currentSnapshot,
           sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({
@@ -692,6 +745,27 @@ export const setConfigOptionFn = acpRuntime
           }),
         ),
       );
+    }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const saveHarnessDefaultsFn = acpRuntime
+  .fn((arg: { backend: AcpAgentBackend }, get) =>
+    Effect.sync(() => {
+      const sessionId = get(selectedSessionIdAtom);
+      const snapshot = get(backendStateAtom(arg.backend));
+      const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+      if (session?.status !== 'active') {
+        return;
+      }
+
+      const values = defaultsFromSelectable(normalizeSelectableConfigOptions(session.sessionState));
+      if (Object.keys(values).length === 0) {
+        return;
+      }
+
+      const next = saveHarnessDefaults(arg.backend, values);
+      get.set(providerConfigAtom(arg.backend), next);
     }),
   )
   .pipe(Atom.keepAlive);

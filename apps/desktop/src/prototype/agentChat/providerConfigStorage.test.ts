@@ -7,7 +7,7 @@ import {
   mergeProviderConfigRefresh,
   persistProviderConfig,
   readProviderConfig,
-  refreshCatalogFromSessionState,
+  refreshCatalogFromSessionConfiguration,
   saveHarnessDefaults,
 } from './providerConfigStorage.ts';
 import type { ProviderConfigStored } from './providerConfigStorage.ts';
@@ -133,8 +133,8 @@ describe('providerConfigStorage persistence', () => {
     assert.strictEqual(readProviderConfig('codex-acp'), undefined);
   });
 
-  it('refreshCatalogFromSessionState seeds then preserves across second activation', () => {
-    const first = refreshCatalogFromSessionState('claude-agent-acp', {
+  it('refreshCatalogFromSessionConfiguration seeds then preserves across second activation', () => {
+    const first = refreshCatalogFromSessionConfiguration('claude-agent-acp', {
       configOptions: [
         {
           currentValue: 'sonnet',
@@ -152,7 +152,7 @@ describe('providerConfigStorage persistence', () => {
 
     saveHarnessDefaults('claude-agent-acp', { model: 'opus' });
 
-    const second = refreshCatalogFromSessionState('claude-agent-acp', {
+    const second = refreshCatalogFromSessionConfiguration('claude-agent-acp', {
       configOptions: [
         {
           currentValue: 'sonnet',
@@ -172,12 +172,12 @@ describe('providerConfigStorage persistence', () => {
     assert.isTrue(hasHaiku);
   });
 
-  it('refreshCatalogFromSessionState skips empty selectable without wiping storage', () => {
+  it('refreshCatalogFromSessionConfiguration skips empty selectable without wiping storage', () => {
     persistProviderConfig('echo', {
       catalog: [{ choices: [{ id: 'x', name: 'X' }], id: 'model', name: 'Model' }],
       defaults: { model: 'x' },
     });
-    const result = refreshCatalogFromSessionState('echo', { configOptions: [] });
+    const result = refreshCatalogFromSessionConfiguration('echo', { configOptions: [] });
     assert.deepStrictEqual(result?.defaults, { model: 'x' });
   });
 

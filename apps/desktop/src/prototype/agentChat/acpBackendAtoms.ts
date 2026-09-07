@@ -43,7 +43,7 @@ import {
   defaultsFromSelectable,
   harnessDefaultDiffs,
   readProviderConfig,
-  refreshCatalogFromSessionState,
+  refreshCatalogFromSessionConfiguration,
   saveHarnessDefaults,
 } from './providerConfigStorage.ts';
 import type { ProviderConfigStored } from './providerConfigStorage.ts';
@@ -144,8 +144,12 @@ export const allBackendPhasesAtom = Atom.make(get =>
 
 type AcpAtomGet = Parameters<Parameters<typeof acpRuntime.fn>[0]>[1];
 
-const syncProviderConfigFromSessionState = (get: AcpAtomGet, backend: AcpAgentBackend, sessionState: unknown) => {
-  const next = refreshCatalogFromSessionState(backend, sessionState);
+const syncProviderConfigFromSessionConfiguration = (
+  get: AcpAtomGet,
+  backend: AcpAgentBackend,
+  sessionConfiguration: unknown,
+) => {
+  const next = refreshCatalogFromSessionConfiguration(backend, sessionConfiguration);
   get.set(providerConfigAtom(backend), next);
 };
 
@@ -310,6 +314,11 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
         onSessionUpdate: (sessionId, chatItems, update) => {
           const before = get.registry.get(backendStateAtom(backend));
           const skipConfigSync = sessionId in before.sessions && before.sessions[sessionId].status === 'activating';
+          const shouldSyncConfig =
+            !skipConfigSync &&
+            isRecord(update) &&
+            update.sessionUpdate === 'config_option_update' &&
+            Array.isArray(update.configOptions);
 
           updateState(current => {
             let sessions = patchSession(current.sessions, sessionId, session => ({
@@ -319,28 +328,26 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
 
             let { sessionRoster } = current;
 
-            if (isRecord(update)) {
-              if (
-                !skipConfigSync &&
-                update.sessionUpdate === 'config_option_update' &&
-                Array.isArray(update.configOptions)
-              ) {
-                sessions = patchSession(sessions, sessionId, session => {
-                  const applied = applySetConfigOptionResult(session.sessionState, {
-                    configOptions: update.configOptions,
-                  });
-                  return {
-                    ...session,
-                    selectedModeId: applied.selectedModeId ?? session.selectedModeId,
-                    selectedModelId: applied.selectedModelId ?? session.selectedModelId,
-                    sessionState: applied.sessionState,
-                  };
+            if (shouldSyncConfig) {
+              sessions = patchSession(sessions, sessionId, session => {
+                const applied = applySetConfigOptionResult(session.sessionState, {
+                  configOptions: update.configOptions,
                 });
-              }
+                return {
+                  ...session,
+                  selectedModeId: applied.selectedModeId ?? session.selectedModeId,
+                  selectedModelId: applied.selectedModelId ?? session.selectedModelId,
+                  sessionState: applied.sessionState,
+                };
+              });
+            }
 
-              if (update.sessionUpdate === 'session_info_update' && typeof update.title === 'string') {
-                sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
-              }
+            if (
+              isRecord(update) &&
+              update.sessionUpdate === 'session_info_update' &&
+              typeof update.title === 'string'
+            ) {
+              sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
             }
 
             return {
@@ -350,15 +357,9 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
             };
           });
 
-          if (
-            !skipConfigSync &&
-            isRecord(update) &&
-            update.sessionUpdate === 'config_option_update' &&
-            Array.isArray(update.configOptions)
-          ) {
+          if (shouldSyncConfig) {
             const session = get.registry.get(backendStateAtom(backend)).sessions[sessionId];
-            const next = refreshCatalogFromSessionState(backend, session.sessionState);
-            get.registry.set(providerConfigAtom(backend), next);
+            syncProviderConfigFromSessionConfiguration(get, backend, session.sessionState);
           }
         },
         onUsageUpdate: (sessionId, usage) => {
@@ -439,7 +440,7 @@ export const createSessionFn = acpRuntime
       const { cwd, result } = yield* createSession(agent, arg.cwd);
       const { sessionId } = result;
 
-      syncProviderConfigFromSessionState(get, arg.backend, result);
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, result);
 
       let sessionState: unknown = result;
       const { defaults } = get(providerConfigAtom(arg.backend)) ?? { defaults: {} };
@@ -453,7 +454,7 @@ export const createSessionFn = acpRuntime
         sessionState = nextSessionState;
       }
 
-      syncProviderConfigFromSessionState(get, arg.backend, sessionState);
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionState);
 
       const session = applySessionActivationResult(sessionId, sessionState);
       const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
@@ -509,7 +510,7 @@ export const activateSessionFn = acpRuntime
       }
 
       const persistedUsage = readPersistedSessionUsage(arg.sessionId);
-      syncProviderConfigFromSessionState(get, arg.backend, exit.value);
+      syncProviderConfigFromSessionConfiguration(get, arg.backend, exit.value);
       get.set(backendStateAtom(arg.backend), {
         ...get(backendStateAtom(arg.backend)),
         sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
@@ -717,7 +718,7 @@ export const setConfigOptionFn = acpRuntime
         const result = yield* setConfigOption(agent, session.sessionId, arg.configId, arg.value);
         const currentSnapshot = get(backendStateAtom(arg.backend));
         const applied = applySetConfigOptionResult(currentSnapshot.sessions[session.sessionId].sessionState, result);
-        syncProviderConfigFromSessionState(get, arg.backend, applied.sessionState);
+        syncProviderConfigFromSessionConfiguration(get, arg.backend, applied.sessionState);
         get.set(backendStateAtom(arg.backend), {
           ...currentSnapshot,
           sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({

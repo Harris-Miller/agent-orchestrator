@@ -94,7 +94,19 @@ const parseStored = (value: unknown): ProviderConfigStored | undefined => {
   return { catalog, defaults };
 };
 
-export const catalogEntriesFromSelectable = (
+export const defaultsFromSelectable = (
+  selectable: readonly NormalizedConfigOption[],
+): Readonly<Record<string, string>> => {
+  const defaults: Record<string, string> = {};
+  for (const option of selectable) {
+    if (option.currentValue !== undefined) {
+      defaults[option.id] = option.currentValue;
+    }
+  }
+  return defaults;
+};
+
+const catalogEntriesFromSelectable = (
   selectable: readonly NormalizedConfigOption[],
 ): readonly ProviderConfigCatalogEntry[] =>
   selectable.map(option => ({
@@ -113,13 +125,7 @@ export const mergeProviderConfigRefresh = (
   const catalog = catalogEntriesFromSelectable(selectable);
 
   if (previous === undefined) {
-    const defaults: Record<string, string> = {};
-    for (const option of selectable) {
-      if (option.currentValue !== undefined) {
-        defaults[option.id] = option.currentValue;
-      }
-    }
-    return { catalog, defaults };
+    return { catalog, defaults: defaultsFromSelectable(selectable) };
   }
 
   const defaults: Record<string, string> = {};
@@ -156,11 +162,11 @@ export const persistProviderConfig = (backend: AcpAgentBackend, stored: Provider
  * Refresh catalog from session configuration. Skips when there are no selectable options.
  * Seeds defaults on first write; preserves valid defaults on later refreshes.
  */
-export const refreshCatalogFromSessionState = (
+export const refreshCatalogFromSessionConfiguration = (
   backend: AcpAgentBackend,
-  sessionState: unknown,
+  sessionConfiguration: unknown,
 ): ProviderConfigStored | undefined => {
-  const selectable = normalizeSelectableConfigOptions(sessionState);
+  const selectable = normalizeSelectableConfigOptions(sessionConfiguration);
   if (selectable.length === 0) {
     return readProviderConfig(backend);
   }
@@ -184,18 +190,6 @@ export const saveHarnessDefaults = (
   return next;
 };
 
-export const defaultsFromSelectable = (
-  selectable: readonly NormalizedConfigOption[],
-): Readonly<Record<string, string>> => {
-  const defaults: Record<string, string> = {};
-  for (const option of selectable) {
-    if (option.currentValue !== undefined) {
-      defaults[option.id] = option.currentValue;
-    }
-  }
-  return defaults;
-};
-
 export type HarnessDefaultDiff = {
   readonly configId: string;
   readonly value: string;
@@ -203,10 +197,10 @@ export type HarnessDefaultDiff = {
 
 /** Config options where harness defaults differ from the session's current values and remain valid choices. */
 export const harnessDefaultDiffs = (
-  sessionState: unknown,
+  sessionConfiguration: unknown,
   defaults: Readonly<Record<string, string>>,
 ): readonly HarnessDefaultDiff[] =>
-  normalizeSelectableConfigOptions(sessionState).flatMap(option => {
+  normalizeSelectableConfigOptions(sessionConfiguration).flatMap(option => {
     if (!Object.hasOwn(defaults, option.id)) {
       return [];
     }

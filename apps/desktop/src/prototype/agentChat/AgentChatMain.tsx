@@ -86,7 +86,6 @@ export const AgentChatMain: FC<{
   const respondPermission = useAtomSet(respondPermissionFn, { mode: 'promise' });
   const claudeProviderConfig = useAtomValue(providerConfigAtom('claude-agent-acp'));
   const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
-  const echoProviderConfig = useAtomValue(providerConfigAtom('echo'));
   const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));
 
   const getProviderConfig = (backend: AcpAgentBackend): ProviderConfigStored | undefined => {
@@ -95,8 +94,6 @@ export const AgentChatMain: FC<{
         return claudeProviderConfig;
       case 'codex-acp':
         return codexProviderConfig;
-      case 'echo':
-        return echoProviderConfig;
       case 'gemini-cli':
         return geminiProviderConfig;
     }
@@ -172,12 +169,7 @@ export const AgentChatMain: FC<{
       }
       return <Alert severity="info">Session is inactive — activate it to send prompts.</Alert>;
     }
-    return (
-      <Alert severity="info">
-        {backendLabel(selectedBackend)} is connected — send a prompt
-        {selectedBackend === 'echo' ? ' or try /fixture elicitation-form, /fixture permission-tool.' : ''}
-      </Alert>
-    );
+    return <Alert severity="info">{backendLabel(selectedBackend)} is connected — send a prompt</Alert>;
   })();
 
   useEffect(() => {

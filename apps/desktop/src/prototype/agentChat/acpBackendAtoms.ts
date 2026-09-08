@@ -81,7 +81,7 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
   message: Schema.String,
 }) {}
 
-export const rpcWireLogBackendAtom = Atom.make<AcpAgentBackend>('echo').pipe(Atom.keepAlive);
+export const rpcWireLogBackendAtom = Atom.make<AcpAgentBackend>('codex-acp').pipe(Atom.keepAlive);
 
 export const backendStateAtom = Atom.family((backend: AcpAgentBackend) =>
   Atom.make(initialBackendSnapshot()).pipe(Atom.withLabel(`backendState:${backend}`), Atom.keepAlive),
@@ -641,7 +641,7 @@ export const activateSessionFn = acpRuntime
       });
 
       const exit = yield* Effect.exit(
-        hasHistory ? resumeSession(agent, arg.backend, arg.sessionId) : loadSession(agent, arg.backend, arg.sessionId),
+        hasHistory ? resumeSession(agent, arg.sessionId) : loadSession(agent, arg.sessionId),
       );
 
       if (Exit.isFailure(exit)) {

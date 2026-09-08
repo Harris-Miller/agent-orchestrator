@@ -158,7 +158,6 @@ export type NormalizedSessionState = {
 };
 
 export const ALL_ACP_BACKENDS = [
-  'echo',
   'codex-acp',
   'claude-agent-acp',
   // 'gemini-cli',
@@ -170,8 +169,6 @@ export const backendLabel = (backend: AcpAgentBackend): string => {
       return 'Claude';
     case 'codex-acp':
       return 'Codex';
-    case 'echo':
-      return 'Echo (jsonrpc-echo)';
     case 'gemini-cli':
       return 'Gemini';
   }

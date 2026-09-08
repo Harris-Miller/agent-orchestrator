@@ -231,11 +231,11 @@ describe('normalizeSessionInfoFromNew', () => {
 describe('groupAndSortSessionsByCwd', () => {
   it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { backend: 'echo', cwd: '/old', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { backend: 'gemini-cli', cwd: '/old', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { backend: 'codex-acp', cwd: '/new', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { backend: 'claude-agent-acp', cwd: '/new', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { backend: 'echo', cwd: '/new', sessionId: 'd' },
-      { backend: 'echo', cwd: '/mid', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+      { backend: 'gemini-cli', cwd: '/new', sessionId: 'd' },
+      { backend: 'gemini-cli', cwd: '/mid', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);
@@ -251,8 +251,8 @@ describe('groupAndSortSessionsByCwd', () => {
 
   it('tie-breaks equal updatedAt by sessionId', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { backend: 'echo', cwd: '/x', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
-      { backend: 'echo', cwd: '/x', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { backend: 'codex-acp', cwd: '/x', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { backend: 'codex-acp', cwd: '/x', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);

@@ -15,7 +15,7 @@ The party that spawns an Agent subprocess and drives the protocol — calling `i
 _Avoid_: Host, parent, caller
 
 **Agent**:
-A subprocess that implements ACP methods (`session/new`, `session/prompt`, …) and may call back into the Client (`session/update`, `fs/read_text_file`, …). Communicates over stdin/stdout. Production Agents (Cursor, Claude Code, …) are external; the only in-repo Agent is the private test fixture `jsonrpc-echo`.
+A subprocess that implements ACP methods (`session/new`, `session/prompt`, …) and may call back into the Client (`session/update`, `fs/read_text_file`, …). Communicates over stdin/stdout. Agents (Cursor, Claude Code, Codex, …) are external to this repo.
 _Avoid_: Server, worker, model
 
 ## Sessions and turns

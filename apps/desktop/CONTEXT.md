@@ -101,12 +101,8 @@ A supported external coding-agent backend the Harness can connect to: **Codex**,
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), a native ACP agent CLI, or the jsonrpc-echo dev fixture. Distinct from the agent provider name (Codex, Claude, Gemini).
+The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), or a native ACP agent CLI. Distinct from the agent provider name (Codex, Claude, Gemini).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
-
-**Harness dev backend**:
-The jsonrpc-echo fixture selectable in the prototype agent picker for local development. Exercises the same bootstrap path as real providers but is not an agent provider.
-_Avoid_: Echo backend, mock agent, test provider
 
 **ACP adapter**:
 A published stdio process that wraps a vendor CLI or SDK and speaks ACP on stdin/stdout. Used for Codex ([`codex-acp`](https://github.com/agentclientprotocol/codex-acp)) and Claude ([`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).

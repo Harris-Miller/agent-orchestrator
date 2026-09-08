@@ -1,4 +1,0 @@
-{"sessionUpdate":"available_commands_update","availableCommands":[{"name":"web","description":"Search the web for information","input":{"hint":"query to search for"}},{"name":"test","description":"Run tests for the current project"}]}
-{"sessionUpdate":"config_option_update","configOptions":[{"id":"mode","name":"Session Mode","type":"select","currentValue":"code","options":[{"value":"ask","name":"Ask"},{"value":"code","name":"Code"}]}]}
-{"sessionUpdate":"session_info_update","title":"Simulated session","updatedAt":"2026-09-01T00:00:00Z"}
-{"sessionUpdate":"agent_message_chunk","messageId":"msg_metadata_1","content":{"type":"text","text":"Session metadata updates sent."}}

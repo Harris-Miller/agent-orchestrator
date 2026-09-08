@@ -1,6 +1,6 @@
 /**
  * PROTOTYPE — throwaway harness wiring ACP agents through connectAcpAgent.
- * Backends: jsonrpc-echo (local), Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
+ * Backends: Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
  */
 import { OS } from '@lib/context-services';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
@@ -12,9 +12,6 @@ import type {
   RequestPermissionResponse,
 } from '@libs/effect-acp';
 import { Effect, Exit, Ref } from 'effect';
-import { FileSystem } from 'effect/FileSystem';
-import { Path } from 'effect/Path';
-import * as PlatformError from 'effect/PlatformError';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
@@ -34,7 +31,7 @@ import {
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
 
-export type AcpAgentBackend = 'claude-agent-acp' | 'codex-acp' | 'echo' | 'gemini-cli';
+export type AcpAgentBackend = 'claude-agent-acp' | 'codex-acp' | 'gemini-cli';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -43,8 +40,6 @@ const pipedSpawnOptions = {
   stdout: 'pipe' as const,
 };
 
-const echoEntrySegments = ['jsonrpc-echo', 'src', 'main.ts'] as const;
-
 const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
@@ -52,47 +47,11 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
-/** Walk up from host cwd until jsonrpc-echo's entry file is found (sibling or under apps/). */
-const resolveEchoMain = Effect.fn('resolveEchoMain')(function* () {
-  const os = yield* OS;
-  const path = yield* Path;
-  const fs = yield* FileSystem;
-
-  let dir = os.cwd();
-  for (let depth = 0; depth < 8; depth += 1) {
-    const direct = path.join(dir, ...echoEntrySegments);
-    if (yield* fs.exists(direct)) {
-      return direct;
-    }
-
-    const underApps = path.join(dir, 'apps', ...echoEntrySegments);
-    if (yield* fs.exists(underApps)) {
-      return underApps;
-    }
-
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-
-  return yield* PlatformError.badArgument({
-    description: `jsonrpc-echo entry not found from host cwd ${os.cwd()}`,
-    method: 'resolveEchoMain',
-    module: 'AgentHarness',
-  });
-});
-
 const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (backend: AcpAgentBackend) {
   switch (backend) {
     case 'claude-agent-acp':
     case 'codex-acp':
       return yield* makeAcpAdapterCommand(backend);
-    case 'echo': {
-      const echoMain = yield* resolveEchoMain();
-      return ChildProcess.make('bun', ['run', echoMain], pipedSpawnOptions);
-    }
     case 'gemini-cli':
       return ChildProcess.make('gemini', ['--acp'], pipedSpawnOptions);
   }
@@ -324,10 +283,10 @@ export const stopBackendHarness = (backend: AcpAgentBackend) =>
     agentHandles.delete(backend);
   });
 
-const sessionCwd = (backend: AcpAgentBackend) =>
+const sessionCwd = () =>
   Effect.gen(function* () {
     const os = yield* OS;
-    return backend === 'echo' ? '.' : os.cwd();
+    return os.cwd();
   }).pipe(Effect.provide(TauriServicesLive));
 
 export const listSessions = (agent: AgentHandle) => agent['session/list']({}).pipe(Effect.provide(TauriServicesLive));
@@ -338,15 +297,15 @@ export const createSession = (agent: AgentHandle, cwd: string) =>
     return { cwd, result };
   });
 
-export const loadSession = (agent: AgentHandle, backend: AcpAgentBackend, sessionId: string) =>
+export const loadSession = (agent: AgentHandle, sessionId: string) =>
   Effect.gen(function* () {
-    const cwd = yield* sessionCwd(backend);
+    const cwd = yield* sessionCwd();
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
   });
 
-export const resumeSession = (agent: AgentHandle, backend: AcpAgentBackend, sessionId: string) =>
+export const resumeSession = (agent: AgentHandle, sessionId: string) =>
   Effect.gen(function* () {
-    const cwd = yield* sessionCwd(backend);
+    const cwd = yield* sessionCwd();
     return yield* agent['session/resume']({ cwd, sessionId });
   });
 

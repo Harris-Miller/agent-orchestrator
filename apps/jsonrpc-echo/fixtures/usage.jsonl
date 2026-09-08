@@ -1,2 +1,0 @@
-{"sessionUpdate":"usage_update","used":53000,"size":200000,"cost":{"amount":0.045,"currency":"USD"}}
-{"sessionUpdate":"agent_message_chunk","messageId":"msg_usage_1","content":{"type":"text","text":"Context is at 26.5% of the window."}}

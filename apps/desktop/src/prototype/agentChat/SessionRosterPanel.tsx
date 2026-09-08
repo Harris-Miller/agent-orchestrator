@@ -62,8 +62,6 @@ const backendIconSrc = (backend: AcpAgentBackend): string => {
       return '/claude_icon.svg';
     case 'codex-acp':
       return '/openai_icon.svg';
-    case 'echo':
-      return '/tauri.svg';
     case 'gemini-cli':
       return '/gemini_icon.svg';
   }

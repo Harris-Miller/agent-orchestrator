@@ -173,11 +173,11 @@ describe('providerConfigStorage persistence', () => {
   });
 
   it('refreshCatalogFromSessionConfiguration skips empty selectable without wiping storage', () => {
-    persistProviderConfig('echo', {
+    persistProviderConfig('codex-acp', {
       catalog: [{ choices: [{ id: 'x', name: 'X' }], id: 'model', name: 'Model' }],
       defaults: { model: 'x' },
     });
-    const result = refreshCatalogFromSessionConfiguration('echo', { configOptions: [] });
+    const result = refreshCatalogFromSessionConfiguration('codex-acp', { configOptions: [] });
     assert.deepStrictEqual(result?.defaults, { model: 'x' });
   });
 

@@ -33,7 +33,7 @@ Multi-context repo (this repo):
 ├── CONTEXT-MAP.md
 ├── docs/adr/                          ← system-wide decisions
 ├── apps/
-│   └── jsonrpc-echo/
+│   └── desktop/
 │       ├── CONTEXT.md
 │       └── docs/adr/
 └── libs/

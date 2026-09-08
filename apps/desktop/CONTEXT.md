@@ -66,6 +66,10 @@ _Avoid_: Agent defaults, session configuration, currentValue
 Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
+**Handoff**:
+Harness action that asks the source active session for a tagged handoff document via `session/prompt`, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Not an ACP protocol concept; not a durable Harness record (v1).
+_Avoid_: Transfer, migrate session, export chat
+
 **Pending client request**:
 Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).
 _Avoid_: In flight, loading, busy flag

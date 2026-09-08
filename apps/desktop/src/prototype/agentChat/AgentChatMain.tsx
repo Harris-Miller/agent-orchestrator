@@ -1,20 +1,28 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import { isRecord } from '../../utils.ts';
 
 import {
+  allBackendPhasesAtom,
   draftAtom,
+  handoffInProgressAtom,
+  handoffSessionFn,
+  providerConfigAtom,
   respondElicitationFn,
   respondPermissionFn,
   rpcWireLogSnapshotAtom,
@@ -25,12 +33,16 @@ import {
   selectedSessionSnapshotAtom,
   sendChatItemFn,
   setConfigOptionFn,
+  unifiedSessionRosterAtom,
 } from './acpBackendAtoms.ts';
-import { backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
+import { ALL_ACP_BACKENDS, backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from './agentHarness.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { ElicitationFormCard } from './ElicitationFormCard.tsx';
+import { HandoffModal } from './HandoffModal.tsx';
 import { PermissionRequestCard } from './PermissionRequestCard.tsx';
+import type { ProviderConfigStored } from './providerConfigStorage.ts';
 import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { UsagePopover } from './UsageCard.tsx';
 
@@ -63,24 +75,64 @@ export const AgentChatMain: FC<{
   const backendSnapshot = useAtomValue(selectedSessionSnapshotAtom);
   const rpcSnapshot = useAtomValue(rpcWireLogSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const handoffInProgress = useAtomValue(handoffInProgressAtom);
+  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const backendPhases = useAtomValue(allBackendPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
+  const handoffSession = useAtomSet(handoffSessionFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
   const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionFn, { mode: 'promise' });
+  const claudeProviderConfig = useAtomValue(providerConfigAtom('claude-agent-acp'));
+  const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
+  const echoProviderConfig = useAtomValue(providerConfigAtom('echo'));
+  const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));
+
+  const getProviderConfig = (backend: AcpAgentBackend): ProviderConfigStored | undefined => {
+    switch (backend) {
+      case 'claude-agent-acp':
+        return claudeProviderConfig;
+      case 'codex-acp':
+        return codexProviderConfig;
+      case 'echo':
+        return echoProviderConfig;
+      case 'gemini-cli':
+        return geminiProviderConfig;
+    }
+  };
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
+  const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
+  const [handoffModalOpen, setHandoffModalOpen] = useState(false);
 
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
   const controlsEnabled =
-    selectedSession?.status === 'active' && selectedSession.pendingClientRequest !== true && !hasPendingInteraction;
+    selectedSession?.status === 'active' &&
+    selectedSession.pendingClientRequest !== true &&
+    !hasPendingInteraction &&
+    !handoffInProgress;
   const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
+  const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
+  const sourceCwd =
+    selectedBackend === undefined || selectedSessionId === undefined
+      ? undefined
+      : roster.find(entry => entry.backend === selectedBackend && entry.sessionId === selectedSessionId)?.cwd;
+  const canHandoff =
+    controlsEnabled &&
+    selectedBackend !== undefined &&
+    selectedSessionId !== undefined &&
+    hasTranscriptMessage &&
+    sourceCwd !== undefined;
   const canSaveDefaults = controlsEnabled && configOptions.length > 0;
   const agentTitle = selectedBackend === undefined ? 'Agent' : backendLabel(selectedBackend);
+  const readyBackends = ALL_ACP_BACKENDS.filter(backend =>
+    backendPhases.some(entry => entry.backend === backend && entry.phase === 'ready'),
+  );
 
   const sendDraft = () => {
     if (selectedBackend === undefined || !controlsEnabled || draft.trim().length === 0) {
@@ -279,13 +331,71 @@ export const AgentChatMain: FC<{
               )}
               <Box sx={{ flexGrow: 1 }} />
               <UsagePopover usage={selectedSession?.usage} />
-              <Button disabled={!canSend} type="submit" variant="contained">
-                Send
-              </Button>
+              <ButtonGroup variant="contained">
+                <Button disabled={!canSend} type="submit">
+                  Send
+                </Button>
+                <Button
+                  aria-controls={splitMenuAnchor !== null ? 'send-split-menu' : undefined}
+                  aria-expanded={splitMenuAnchor !== null ? 'true' : undefined}
+                  aria-haspopup="menu"
+                  aria-label="Open send options"
+                  disabled={handoffInProgress || selectedBackend === undefined}
+                  onClick={event => {
+                    setSplitMenuAnchor(event.currentTarget);
+                  }}
+                  size="small"
+                >
+                  <KeyboardArrowDown />
+                </Button>
+              </ButtonGroup>
+              <Menu
+                anchorEl={splitMenuAnchor}
+                id="send-split-menu"
+                onClose={() => {
+                  setSplitMenuAnchor(null);
+                }}
+                open={splitMenuAnchor !== null}
+              >
+                <MenuItem
+                  disabled={!canHandoff}
+                  onClick={() => {
+                    setSplitMenuAnchor(null);
+                    setHandoffModalOpen(true);
+                  }}
+                >
+                  Handoff
+                </MenuItem>
+              </Menu>
             </Box>
           </Box>
         </Stack>
       </Paper>
+
+      {selectedBackend !== undefined && handoffModalOpen ? (
+        <HandoffModal
+          getProviderConfig={getProviderConfig}
+          key={`${selectedBackend}:${selectedSessionId ?? ''}`}
+          onCancel={() => {
+            setHandoffModalOpen(false);
+          }}
+          onConfirm={({ configValues, targetBackend }) => {
+            if (selectedSessionId === undefined) {
+              return;
+            }
+            setHandoffModalOpen(false);
+            handoffSession({
+              configValues,
+              sourceBackend: selectedBackend,
+              sourceSessionId: selectedSessionId,
+              targetBackend,
+            }).catch(onClientError);
+          }}
+          open
+          readyBackends={readyBackends}
+          sourceBackend={selectedBackend}
+        />
+      ) : null}
     </Box>
   );
 };

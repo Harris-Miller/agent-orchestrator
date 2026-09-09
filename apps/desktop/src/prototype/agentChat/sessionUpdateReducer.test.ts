@@ -72,8 +72,17 @@ describe('reduceSessionUpdate', () => {
       toolCallId: 'call_003',
     });
 
-    const [otherItem] = chatItemsFromAccumulator(other);
-    assert.strictEqual(otherItem.kind, 'tool_call');
-    assert.strictEqual(otherItem.title, 'Reading configuration file');
+    assert.deepStrictEqual(chatItemsFromAccumulator(other), [
+      {
+        command: undefined,
+        id: 'call_003',
+        kind: 'tool_call',
+        resultText: undefined,
+        status: 'pending',
+        title: 'Reading configuration file',
+        toolCallId: 'call_003',
+        toolKind: undefined,
+      },
+    ]);
   });
 });

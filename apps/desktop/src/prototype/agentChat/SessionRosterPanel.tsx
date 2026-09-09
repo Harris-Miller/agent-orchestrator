@@ -382,9 +382,14 @@ export const SessionRosterPanel: FC<{
                   >
                     <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
                     <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <Box component="span" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
-                      {directoryName(cwd)}
-                    </Box>
+                    <Tooltip title={cwd}>
+                      <Box
+                        component="span"
+                        sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
+                      >
+                        {directoryName(cwd)}
+                      </Box>
+                    </Tooltip>
                     <IconButton
                       aria-label={`Create session in ${directoryName(cwd)}`}
                       disabled={!anyReady || creating}

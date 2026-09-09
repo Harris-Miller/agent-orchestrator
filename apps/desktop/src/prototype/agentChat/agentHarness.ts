@@ -311,74 +311,90 @@ const sessionCwd = () =>
     return os.cwd();
   }).pipe(Effect.provide(TauriServicesLive));
 
-export const listSessions = (agent: AgentHandle) =>
-  agent['session/list']({}).pipe(
-    Effect.tap(() => Effect.logDebug('session/list ok')),
-    Effect.tapError(error => Effect.logError('session/list failed', error)),
-    Effect.provide(TauriServicesLive),
-  );
+export const listSessions = Effect.fn('listSessions')(
+  function* (agent: AgentHandle) {
+    return yield* agent['session/list']({});
+  },
+  Effect.tap(() => Effect.logDebug('session/list ok')),
+  Effect.tapError(error => Effect.logError('session/list failed', error)),
+  Effect.provide(TauriServicesLive),
+);
 
-export const createSession = (agent: AgentHandle, cwd: string) =>
-  Effect.gen(function* () {
+export const createSession = Effect.fn('createSession')(
+  function* (agent: AgentHandle, cwd: string) {
     yield* Effect.logInfo('Creating ACP session', { cwd });
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
     return { cwd, result };
-  }).pipe(Effect.tapError(error => Effect.logError('session/new failed', error)));
+  },
+  Effect.tapError(error => Effect.logError('session/new failed', error)),
+);
 
-export const loadSession = (agent: AgentHandle, sessionId: string) =>
-  Effect.gen(function* () {
+export const loadSession = Effect.fn('loadSession')(
+  function* (agent: AgentHandle, sessionId: string) {
     yield* Effect.logInfo('Loading ACP session', sessionId);
     const cwd = yield* sessionCwd();
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
-  }).pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error)));
+  },
+  (effect, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error))),
+);
 
-export const resumeSession = (agent: AgentHandle, sessionId: string) =>
-  Effect.gen(function* () {
+export const resumeSession = Effect.fn('resumeSession')(
+  function* (agent: AgentHandle, sessionId: string) {
     yield* Effect.logInfo('Resuming ACP session', sessionId);
     const cwd = yield* sessionCwd();
     return yield* agent['session/resume']({ cwd, sessionId });
-  }).pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error)));
+  },
+  (effect, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error))),
+);
 
-export const closeSession = (agent: AgentHandle, sessionId: string) =>
-  Effect.gen(function* () {
+export const closeSession = Effect.fn('closeSession')(
+  function* (agent: AgentHandle, sessionId: string) {
     yield* Effect.logInfo('Closing ACP session', sessionId);
     yield* agent['session/close']({ sessionId });
-  }).pipe(
-    Effect.tapError(error => Effect.logError('session/close failed', sessionId, error)),
-    Effect.provide(TauriServicesLive),
-  );
+  },
+  (effect, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
+  Effect.provide(TauriServicesLive),
+);
 
-export const deleteSession = (agent: AgentHandle, sessionId: string) =>
-  Effect.gen(function* () {
+export const deleteSession = Effect.fn('deleteSession')(
+  function* (agent: AgentHandle, sessionId: string) {
     yield* Effect.logInfo('Deleting ACP session', sessionId);
     yield* agent['session/delete']({ sessionId });
-  }).pipe(
-    Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error)),
-    Effect.provide(TauriServicesLive),
-  );
+  },
+  (effect, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error))),
+  Effect.provide(TauriServicesLive),
+);
 
-export const sendPrompt = (agent: AgentHandle, sessionId: string, text: string) =>
-  Effect.gen(function* () {
+export const sendPrompt = Effect.fn('sendPrompt')(
+  function* (agent: AgentHandle, sessionId: string, text: string) {
     yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
     yield* agent['session/prompt']({
       prompt: [{ text, type: 'text' }],
       sessionId,
     });
-  }).pipe(
-    Effect.tapError(error => Effect.logError('session/prompt failed', sessionId, error)),
-    Effect.provide(TauriServicesLive),
-  );
+  },
+  (effect, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', sessionId, error))),
+  Effect.provide(TauriServicesLive),
+);
 
-export const setConfigOption = (agent: AgentHandle, sessionId: string, configId: string, value: string) =>
-  Effect.gen(function* () {
+export const setConfigOption = Effect.fn('setConfigOption')(
+  function* (agent: AgentHandle, sessionId: string, configId: string, value: string) {
     yield* Effect.logDebug('session/set_config_option', sessionId, configId, value);
     return yield* agent['session/set_config_option']({
       configId,
       sessionId,
       value,
     });
-  }).pipe(
-    Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
-    Effect.provide(TauriServicesLive),
-  );
+  },
+  (effect, _agent, sessionId, configId) =>
+    effect.pipe(
+      Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
+    ),
+  Effect.provide(TauriServicesLive),
+);

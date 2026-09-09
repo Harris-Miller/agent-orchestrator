@@ -85,19 +85,27 @@ const makeStdioDemuxRoute =
   (message: unknown): Effect.Effect<void> =>
     Effect.gen(function* () {
       if (typeof message !== 'object' || message === null || !('_tag' in message)) {
+        yield* Effect.logDebug('ACP demux dropped untagged message');
         return;
       }
 
+      const tag = (message as { _tag: string })._tag;
+      yield* Effect.logDebug('ACP demux inbound', tag);
       wireTap?.onMessage('in', message);
 
       let next: Effect.Effect<void> = Effect.void;
       routeDecodedMessage(message, pendingClientRequestIds, notificationIds, {
         toClient: m => {
           next =
-            writes.clientWriteResponse !== undefined ? writes.clientWriteResponse(writes.rpcClientId, m) : Effect.void;
+            writes.clientWriteResponse !== undefined
+              ? writes.clientWriteResponse(writes.rpcClientId, m)
+              : Effect.logWarning('ACP demux toClient before client protocol ready', tag);
         },
         toServer: m => {
-          next = writes.serverWriteRequest !== undefined ? writes.serverWriteRequest(0, m) : Effect.void;
+          next =
+            writes.serverWriteRequest !== undefined
+              ? writes.serverWriteRequest(0, m)
+              : Effect.logWarning('ACP demux toServer before server protocol ready', tag);
         },
       });
       yield* next;
@@ -124,178 +132,206 @@ const toRpcClientError = (error: TransportError): RpcClientErrorValue =>
     }),
   });
 
-export const connectAcpAgent = Effect.fn('connectAcpAgent')(function* (
-  command: ChildProcess.Command,
-  clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ClientRpcs>>>,
-  options?: {
-    readonly wireTap?: AcpWireTap;
+export const connectAcpAgent = Effect.fn('connectAcpAgent')(
+  function* (
+    command: ChildProcess.Command,
+    clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ClientRpcs>>>,
+    options?: {
+      readonly wireTap?: AcpWireTap;
+    },
+  ) {
+    yield* Effect.logInfo('Connecting ACP agent');
+    const wireTap = options?.wireTap;
+    const handle = yield* command;
+    yield* Effect.logInfo('ACP agent child spawned', { pid: handle.pid });
+
+    yield* Effect.addFinalizer(() =>
+      Effect.logInfo('Disconnecting ACP agent', { pid: handle.pid }).pipe(
+        Effect.andThen(handle.kill()),
+        Effect.tapError(error => Effect.logWarning('ACP agent kill failed', error)),
+        Effect.ignore,
+      ),
+    );
+
+    const pendingClientRequestIds = new Set<number | string>();
+    const notificationIds = new Set<number | string>();
+    const writes: StdioDemuxWrites = {
+      clientWriteResponse: undefined,
+      rpcClientId: 0,
+      serverWriteRequest: undefined,
+    };
+    const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
+
+    const transport = yield* makeStdioTransport(handle, demuxRoute, wireTap).pipe(
+      Effect.provideService(RpcSerialization.RpcSerialization, RpcSerialization.ndJsonRpc()),
+    );
+
+    const clientProtocol = yield* RpcClient.Protocol.make(
+      Effect.fnUntraced(function* (writeResponse) {
+        writes.clientWriteResponse = writeResponse;
+        yield* Effect.logDebug('ACP client protocol ready');
+        yield* Effect.void;
+
+        return {
+          codecFor: transport.codecFor,
+          send: (clientId: number, message: FromClientEncoded) => {
+            writes.rpcClientId = clientId;
+            if (message._tag === 'Request' && message.isNotification !== true) {
+              pendingClientRequestIds.add(message.id);
+            }
+            return transport.send(message).pipe(Effect.mapError(toRpcClientError));
+          },
+          supportsAck: false,
+          supportsTransferables: false,
+        };
+      }),
+    );
+
+    const serverProtocol = yield* RpcServer.Protocol.make(
+      Effect.fnUntraced(function* (writeRequest) {
+        writes.serverWriteRequest = writeRequest;
+        yield* Effect.logDebug('ACP server protocol ready');
+
+        return {
+          clientIds: Effect.succeed(new Set([0])),
+          codecFor: transport.codecFor,
+          disconnects: yield* Queue.make<number>(),
+          end: () => Effect.void,
+          initialMessage: Effect.succeedNone,
+          send: (_clientId: number, response: FromServerEncoded) => {
+            if ('requestId' in response && notificationIds.has(response.requestId)) {
+              return Effect.void;
+            }
+            return transport.send(response).pipe(
+              Effect.tapError(error => Effect.logFatal('ACP server send failed', error.message)),
+              Effect.orDie,
+            );
+          },
+          supportsAck: false,
+          supportsNotifications: true,
+          supportsSpanPropagation: false,
+          supportsTransferables: false,
+        };
+      }),
+    );
+
+    yield* Effect.forkScoped(
+      RpcServer.make(ClientRpcs).pipe(
+        Effect.provideService(RpcServer.Protocol, serverProtocol),
+        Effect.provide(clientHandlers),
+      ),
+    );
+
+    const agent = yield* RpcClient.make(AgentRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+
+    yield* transport.start;
+    yield* Effect.logInfo('ACP agent connection ready', { pid: handle.pid });
+
+    return {
+      agent,
+      handle,
+      notify: transport.notify,
+    } as const satisfies AcpAgentConnection;
   },
-) {
-  const wireTap = options?.wireTap;
-  const handle = yield* command;
-
-  yield* Effect.addFinalizer(() => handle.kill().pipe(Effect.ignore));
-
-  const pendingClientRequestIds = new Set<number | string>();
-  const notificationIds = new Set<number | string>();
-  const writes: StdioDemuxWrites = {
-    clientWriteResponse: undefined,
-    rpcClientId: 0,
-    serverWriteRequest: undefined,
-  };
-  const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
-
-  const transport = yield* makeStdioTransport(handle, demuxRoute, wireTap).pipe(
-    Effect.provideService(RpcSerialization.RpcSerialization, RpcSerialization.ndJsonRpc()),
-  );
-
-  const clientProtocol = yield* RpcClient.Protocol.make(
-    Effect.fnUntraced(function* (writeResponse) {
-      writes.clientWriteResponse = writeResponse;
-      yield* Effect.void;
-
-      return {
-        codecFor: transport.codecFor,
-        send: (clientId: number, message: FromClientEncoded) => {
-          writes.rpcClientId = clientId;
-          if (message._tag === 'Request' && message.isNotification !== true) {
-            pendingClientRequestIds.add(message.id);
-          }
-          return transport.send(message).pipe(Effect.mapError(toRpcClientError));
-        },
-        supportsAck: false,
-        supportsTransferables: false,
-      };
-    }),
-  );
-
-  const serverProtocol = yield* RpcServer.Protocol.make(
-    Effect.fnUntraced(function* (writeRequest) {
-      writes.serverWriteRequest = writeRequest;
-
-      return {
-        clientIds: Effect.succeed(new Set([0])),
-        codecFor: transport.codecFor,
-        disconnects: yield* Queue.make<number>(),
-        end: () => Effect.void,
-        initialMessage: Effect.succeedNone,
-        send: (_clientId: number, response: FromServerEncoded) => {
-          if ('requestId' in response && notificationIds.has(response.requestId)) {
-            return Effect.void;
-          }
-          return transport.send(response).pipe(Effect.orDie);
-        },
-        supportsAck: false,
-        supportsNotifications: true,
-        supportsSpanPropagation: false,
-        supportsTransferables: false,
-      };
-    }),
-  );
-
-  yield* Effect.forkScoped(
-    RpcServer.make(ClientRpcs).pipe(
-      Effect.provideService(RpcServer.Protocol, serverProtocol),
-      Effect.provide(clientHandlers),
-    ),
-  );
-
-  const agent = yield* RpcClient.make(AgentRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
-
-  yield* transport.start;
-
-  return {
-    agent,
-    handle,
-    notify: transport.notify,
-  } as const satisfies AcpAgentConnection;
-});
-
+  Effect.annotateLogs({ module: 'AcpConnection', role: 'client' }),
+  Effect.tapError(error => Effect.logError('connectAcpAgent failed', error)),
+);
 /**
  * Agent-process entry: serve `AgentRpcs` on stdin and call `ClientRpcs` on stdout.
  * `makeHandlers` receives the Client RpcClient so handlers can await `elicitation/create`, etc.
  */
-export const serveAcpAgent = Effect.fn('serveAcpAgent')(function* (
-  makeHandlers: (
-    client: AcpClientConnection,
-    notify: (tag: string, payload: unknown) => Effect.Effect<void, TransportError>,
-  ) => Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>>,
-  options?: {
-    readonly wireTap?: AcpWireTap;
+export const serveAcpAgent = Effect.fn('serveAcpAgent')(
+  function* (
+    makeHandlers: (
+      client: AcpClientConnection,
+      notify: (tag: string, payload: unknown) => Effect.Effect<void, TransportError>,
+    ) => Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>>,
+    options?: {
+      readonly wireTap?: AcpWireTap;
+    },
+  ) {
+    yield* Effect.logInfo('Serving ACP agent on parent stdio');
+    const wireTap = options?.wireTap;
+
+    const pendingClientRequestIds = new Set<number | string>();
+    const notificationIds = new Set<number | string>();
+    const writes: StdioDemuxWrites = {
+      clientWriteResponse: undefined,
+      rpcClientId: 0,
+      serverWriteRequest: undefined,
+    };
+    const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
+
+    const transport = yield* makeParentStdioTransport(demuxRoute, wireTap).pipe(
+      Effect.provideService(RpcSerialization.RpcSerialization, RpcSerialization.ndJsonRpc()),
+    );
+
+    const clientProtocol = yield* RpcClient.Protocol.make(
+      Effect.fnUntraced(function* (writeResponse) {
+        writes.clientWriteResponse = writeResponse;
+        yield* Effect.logDebug('ACP serve client protocol ready');
+        yield* Effect.void;
+
+        return {
+          codecFor: transport.codecFor,
+          send: (clientId: number, message: FromClientEncoded) => {
+            writes.rpcClientId = clientId;
+            if (message._tag === 'Request' && message.isNotification !== true) {
+              pendingClientRequestIds.add(message.id);
+            }
+            return transport.send(message).pipe(Effect.mapError(toRpcClientError));
+          },
+          supportsAck: false,
+          supportsTransferables: false,
+        };
+      }),
+    );
+
+    const serverProtocol = yield* RpcServer.Protocol.make(
+      Effect.fnUntraced(function* (writeRequest) {
+        writes.serverWriteRequest = writeRequest;
+        yield* Effect.logDebug('ACP serve server protocol ready');
+
+        return {
+          clientIds: Effect.succeed(new Set([0])),
+          codecFor: transport.codecFor,
+          disconnects: yield* Queue.make<number>(),
+          end: () => Effect.void,
+          initialMessage: Effect.succeedNone,
+          send: (_clientId: number, response: FromServerEncoded) => {
+            if ('requestId' in response && notificationIds.has(response.requestId)) {
+              return Effect.void;
+            }
+            return transport.send(response).pipe(
+              Effect.tapError(error => Effect.logFatal('ACP serve send failed', error.message)),
+              Effect.orDie,
+            );
+          },
+          supportsAck: false,
+          supportsNotifications: true,
+          supportsSpanPropagation: false,
+          supportsTransferables: false,
+        };
+      }),
+    );
+
+    const client = yield* RpcClient.make(ClientRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+
+    yield* Effect.forkScoped(
+      RpcServer.make(AgentRpcs).pipe(
+        Effect.provideService(RpcServer.Protocol, serverProtocol),
+        Effect.provide(makeHandlers(client, transport.notify)),
+      ),
+    );
+
+    yield* transport.start;
+    yield* Effect.logInfo('ACP agent serve ready');
+
+    return {
+      client,
+      notify: transport.notify,
+    } as const satisfies AcpAgentServe;
   },
-) {
-  const wireTap = options?.wireTap;
-
-  const pendingClientRequestIds = new Set<number | string>();
-  const notificationIds = new Set<number | string>();
-  const writes: StdioDemuxWrites = {
-    clientWriteResponse: undefined,
-    rpcClientId: 0,
-    serverWriteRequest: undefined,
-  };
-  const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
-
-  const transport = yield* makeParentStdioTransport(demuxRoute, wireTap).pipe(
-    Effect.provideService(RpcSerialization.RpcSerialization, RpcSerialization.ndJsonRpc()),
-  );
-
-  const clientProtocol = yield* RpcClient.Protocol.make(
-    Effect.fnUntraced(function* (writeResponse) {
-      writes.clientWriteResponse = writeResponse;
-      yield* Effect.void;
-
-      return {
-        codecFor: transport.codecFor,
-        send: (clientId: number, message: FromClientEncoded) => {
-          writes.rpcClientId = clientId;
-          if (message._tag === 'Request' && message.isNotification !== true) {
-            pendingClientRequestIds.add(message.id);
-          }
-          return transport.send(message).pipe(Effect.mapError(toRpcClientError));
-        },
-        supportsAck: false,
-        supportsTransferables: false,
-      };
-    }),
-  );
-
-  const serverProtocol = yield* RpcServer.Protocol.make(
-    Effect.fnUntraced(function* (writeRequest) {
-      writes.serverWriteRequest = writeRequest;
-
-      return {
-        clientIds: Effect.succeed(new Set([0])),
-        codecFor: transport.codecFor,
-        disconnects: yield* Queue.make<number>(),
-        end: () => Effect.void,
-        initialMessage: Effect.succeedNone,
-        send: (_clientId: number, response: FromServerEncoded) => {
-          if ('requestId' in response && notificationIds.has(response.requestId)) {
-            return Effect.void;
-          }
-          return transport.send(response).pipe(Effect.orDie);
-        },
-        supportsAck: false,
-        supportsNotifications: true,
-        supportsSpanPropagation: false,
-        supportsTransferables: false,
-      };
-    }),
-  );
-
-  const client = yield* RpcClient.make(ClientRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
-
-  yield* Effect.forkScoped(
-    RpcServer.make(AgentRpcs).pipe(
-      Effect.provideService(RpcServer.Protocol, serverProtocol),
-      Effect.provide(makeHandlers(client, transport.notify)),
-    ),
-  );
-
-  yield* transport.start;
-
-  return {
-    client,
-    notify: transport.notify,
-  } as const satisfies AcpAgentServe;
-});
+  Effect.annotateLogs({ module: 'AcpConnection', role: 'agent' }),
+  Effect.tapError(error => Effect.logError('serveAcpAgent failed', error)),
+);

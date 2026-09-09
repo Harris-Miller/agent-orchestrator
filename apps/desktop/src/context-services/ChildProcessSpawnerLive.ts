@@ -62,149 +62,172 @@ const encodeChunk = (chunk: unknown): Uint8Array => {
   throw new TypeError(`Unsupported shell IO chunk: ${Object.prototype.toString.call(chunk)}`);
 };
 
-const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(function* (
-  command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
-  hostEnv: Readonly<Record<string, string>>,
-) {
-  const stdoutQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
-  const stderrQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
-  const exitDeferred = yield* Deferred.make<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>();
-  const runningRef = { current: true };
+const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(
+  function* (
+    command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
+    hostEnv: Readonly<Record<string, string>>,
+  ) {
+    yield* Effect.logInfo('Spawning child process', command.command, command.args.join(' '));
+    const stdoutQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
+    const stderrQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
+    const exitDeferred = yield* Deferred.make<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>();
+    const runningRef = { current: true };
 
-  const envEntries = command.options.env ?? {};
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(envEntries)) {
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  if (command.options.extendEnv === true) {
-    for (const [key, value] of Object.entries(hostEnv)) {
-      if (!(key in env)) {
+    const envEntries = command.options.env ?? {};
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(envEntries)) {
+      if (value !== undefined) {
         env[key] = value;
       }
     }
-  }
-
-  const tauriCommand = Command.create(command.command, [...command.args], {
-    cwd: command.options.cwd,
-    encoding: 'raw',
-    ...(Object.keys(env).length > 0 ? { env } : {}),
-  });
-
-  // Callbacks leave the Effect fiber; reuse surrounding services via runForkWith.
-  // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
-  // active Stream.fromQueue readers. Scope finalizers shut the queues down.
-  const runFork = Effect.runForkWith(yield* Effect.context());
-  const trackedPid = { current: undefined as number | undefined };
-
-  tauriCommand.on('close', payload => {
-    runningRef.current = false;
-    if (trackedPid.current !== undefined) {
-      untrackChildProcess(trackedPid.current);
-      trackedPid.current = undefined;
-    }
-    const code = payload.code ?? (payload.signal !== null ? 1 : 0);
-    runFork(Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code)));
-  });
-
-  tauriCommand.on('error', message => {
-    runningRef.current = false;
-    if (trackedPid.current !== undefined) {
-      untrackChildProcess(trackedPid.current);
-      trackedPid.current = undefined;
-    }
-    runFork(Deferred.fail(exitDeferred, mapSpawnError('spawn', new Error(message))));
-  });
-
-  tauriCommand.stdout.on('data', (data: number[] | Uint8Array) => {
-    try {
-      runFork(Queue.offer(stdoutQueue, encodeChunk(data)));
-    } catch (cause) {
-      runFork(Queue.fail(stdoutQueue, mapSpawnError('stdout', cause)));
-    }
-  });
-
-  tauriCommand.stderr.on('data', (data: number[] | Uint8Array) => {
-    try {
-      runFork(Queue.offer(stderrQueue, encodeChunk(data)));
-    } catch (cause) {
-      runFork(Queue.fail(stderrQueue, mapSpawnError('stderr', cause)));
-    }
-  });
-
-  const child = yield* Effect.tryPromise({
-    catch: cause => mapSpawnError('spawn', cause),
-    try: () => tauriCommand.spawn(),
-  });
-
-  trackedPid.current = child.pid;
-  trackChildProcess(child.pid);
-
-  yield* Effect.addFinalizer(() =>
-    Effect.gen(function* () {
-      if (runningRef.current) {
-        untrackChildProcess(child.pid);
-        trackedPid.current = undefined;
-        yield* Effect.tryPromise({
-          catch: cause => mapSpawnError('kill', cause),
-          try: () => child.kill(),
-        }).pipe(Effect.ignore);
+    if (command.options.extendEnv === true) {
+      for (const [key, value] of Object.entries(hostEnv)) {
+        if (!(key in env)) {
+          env[key] = value;
+        }
       }
-      yield* Queue.shutdown(stdoutQueue);
-      yield* Queue.shutdown(stderrQueue);
-    }),
-  );
+    }
 
-  const stdout = Stream.fromQueue(stdoutQueue);
-  const stderr = Stream.fromQueue(stderrQueue);
+    const tauriCommand = Command.create(command.command, [...command.args], {
+      cwd: command.options.cwd,
+      encoding: 'raw',
+      ...(Object.keys(env).length > 0 ? { env } : {}),
+    });
 
-  return ChildProcessSpawner.makeHandle({
-    all: Stream.merge(stdout, stderr),
-    exitCode: Deferred.await(exitDeferred),
-    getInputFd: () => Sink.drain,
-    getOutputFd: () => Stream.empty,
-    isRunning: Effect.sync(() => runningRef.current),
-    kill: () =>
-      Effect.sync(() => {
-        untrackChildProcess(child.pid);
+    // Callbacks leave the Effect fiber; reuse surrounding services via runForkWith.
+    // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
+    // active Stream.fromQueue readers. Scope finalizers shut the queues down.
+    const runFork = Effect.runForkWith(yield* Effect.context());
+    const trackedPid = { current: undefined as number | undefined };
+
+    tauriCommand.on('close', payload => {
+      runningRef.current = false;
+      if (trackedPid.current !== undefined) {
+        untrackChildProcess(trackedPid.current);
         trackedPid.current = undefined;
-      }).pipe(
-        Effect.andThen(
-          Effect.tryPromise({
+      }
+      const code = payload.code ?? (payload.signal !== null ? 1 : 0);
+      runFork(
+        Effect.logDebug('Child process closed', { code, signal: payload.signal }).pipe(
+          Effect.andThen(Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code))),
+        ),
+      );
+    });
+
+    tauriCommand.on('error', message => {
+      runningRef.current = false;
+      if (trackedPid.current !== undefined) {
+        untrackChildProcess(trackedPid.current);
+        trackedPid.current = undefined;
+      }
+      runFork(
+        Effect.logError('Child process error event', message).pipe(
+          Effect.andThen(Deferred.fail(exitDeferred, mapSpawnError('spawn', new Error(message)))),
+        ),
+      );
+    });
+
+    tauriCommand.stdout.on('data', (data: number[] | Uint8Array) => {
+      try {
+        runFork(Queue.offer(stdoutQueue, encodeChunk(data)));
+      } catch (cause) {
+        runFork(
+          Effect.logWarning('Child stdout chunk encode failed', cause).pipe(
+            Effect.andThen(Queue.fail(stdoutQueue, mapSpawnError('stdout', cause))),
+          ),
+        );
+      }
+    });
+
+    tauriCommand.stderr.on('data', (data: number[] | Uint8Array) => {
+      try {
+        runFork(Queue.offer(stderrQueue, encodeChunk(data)));
+      } catch (cause) {
+        runFork(
+          Effect.logWarning('Child stderr chunk encode failed', cause).pipe(
+            Effect.andThen(Queue.fail(stderrQueue, mapSpawnError('stderr', cause))),
+          ),
+        );
+      }
+    });
+
+    const child = yield* Effect.tryPromise({
+      catch: cause => mapSpawnError('spawn', cause),
+      try: () => tauriCommand.spawn(),
+    }).pipe(Effect.tapError(error => Effect.logError('Child spawn failed', error.message)));
+
+    trackedPid.current = child.pid;
+    trackChildProcess(child.pid);
+    yield* Effect.logInfo('Child process spawned', { command: command.command, pid: child.pid });
+
+    yield* Effect.addFinalizer(() =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug('Child process finalizer', { pid: child.pid, running: runningRef.current });
+        if (runningRef.current) {
+          untrackChildProcess(child.pid);
+          trackedPid.current = undefined;
+          yield* Effect.tryPromise({
             catch: cause => mapSpawnError('kill', cause),
             try: () => child.kill(),
-          }),
-        ),
-        Effect.tap(() =>
-          Effect.sync(() => {
-            runningRef.current = false;
-          }),
-        ),
-      ),
-    pid: ChildProcessSpawner.ProcessId(child.pid),
-    stderr,
-    stdin: Sink.forEach(chunk =>
-      Effect.tryPromise({
-        catch: cause => mapSpawnError('stdin', cause),
-        try: () => child.write(Array.from(chunk)),
+          }).pipe(
+            Effect.tapError(error => Effect.logWarning('Child kill during finalizer failed', error.message)),
+            Effect.ignore,
+          );
+        }
+        yield* Queue.shutdown(stdoutQueue);
+        yield* Queue.shutdown(stderrQueue);
       }),
-    ),
-    stdout,
-    unref: Effect.succeed(Effect.void),
-  });
-});
+    );
+
+    const stdout = Stream.fromQueue(stdoutQueue);
+    const stderr = Stream.fromQueue(stderrQueue);
+
+    return ChildProcessSpawner.makeHandle({
+      all: Stream.merge(stdout, stderr),
+      exitCode: Deferred.await(exitDeferred),
+      getInputFd: () => Sink.drain,
+      getOutputFd: () => Stream.empty,
+      isRunning: Effect.sync(() => runningRef.current),
+      kill: () =>
+        Effect.gen(function* () {
+          yield* Effect.logInfo('Killing child process', { pid: child.pid });
+          untrackChildProcess(child.pid);
+          trackedPid.current = undefined;
+          yield* Effect.tryPromise({
+            catch: cause => mapSpawnError('kill', cause),
+            try: () => child.kill(),
+          }).pipe(Effect.tapError(error => Effect.logError('Child kill failed', error.message)));
+          runningRef.current = false;
+        }),
+      pid: ChildProcessSpawner.ProcessId(child.pid),
+      stderr,
+      stdin: Sink.forEach(chunk =>
+        Effect.tryPromise({
+          catch: cause => mapSpawnError('stdin', cause),
+          try: () => child.write(Array.from(chunk)),
+        }).pipe(Effect.tapError(error => Effect.logWarning('Child stdin write failed', error.message))),
+      ),
+      stdout,
+      unref: Effect.succeed(Effect.void),
+    });
+  },
+  Effect.annotateLogs({ module: 'ChildProcessSpawnerLive' }),
+);
 
 const makeSpawn =
   (hostEnv: Readonly<Record<string, string>>): ChildProcessSpawner.ChildProcessSpawner['Service']['spawn'] =>
   command => {
     if (command._tag === 'PipedCommand') {
-      return Effect.fail(
-        PlatformError.badArgument({
-          description: 'Piped commands are not supported by the Tauri ChildProcessSpawner Live',
-          method: 'spawn',
-          module: 'ChildProcess',
-        }),
+      return Effect.logWarning('Piped commands are not supported by Tauri ChildProcessSpawner').pipe(
+        Effect.andThen(
+          Effect.fail(
+            PlatformError.badArgument({
+              description: 'Piped commands are not supported by the Tauri ChildProcessSpawner Live',
+              method: 'spawn',
+              module: 'ChildProcess',
+            }),
+          ),
+        ),
       );
     }
     return spawnStandard(command, hostEnv);
@@ -214,6 +237,7 @@ const makeSpawn =
 export const ChildProcessSpawnerLive: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner, never, OS> = Layer.effect(
   ChildProcessSpawner.ChildProcessSpawner,
   Effect.gen(function* () {
+    yield* Effect.logDebug('Installing Tauri ChildProcessSpawner');
     const os = yield* OS;
     return ChildProcessSpawner.make(makeSpawn(os.env()));
   }),

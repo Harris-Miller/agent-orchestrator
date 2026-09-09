@@ -246,8 +246,10 @@ export const PathLive = Layer.effect(
   Effect.gen(function* () {
     const os = yield* OS;
     if (os.platform() === 'win32') {
+      yield* Effect.logDebug('Installing win32 Path Live');
       return makeWin32Path();
     }
+    yield* Effect.logDebug('Installing posix Path Live');
     return yield* Effect.provide(Path, posixPathLayer);
   }),
 );

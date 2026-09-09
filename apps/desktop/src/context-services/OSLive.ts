@@ -28,6 +28,7 @@ const HostProcessInfoSchema = Schema.Struct({
 export const OSLive = Layer.effect(
   OS,
   Effect.gen(function* () {
+    yield* Effect.logDebug('Loading host process info');
     const raw = yield* Effect.tryPromise({
       catch: cause =>
         new HostProcessInfoError({
@@ -35,7 +36,10 @@ export const OSLive = Layer.effect(
           message: cause instanceof Error ? cause.message : String(cause),
         }),
       try: () => invoke<unknown>('host_process_info'),
-    }).pipe(Effect.orDie);
+    }).pipe(
+      Effect.tapError(error => Effect.logFatal('host_process_info invoke failed', error.message)),
+      Effect.orDie,
+    );
     const host = yield* Schema.decodeUnknownEffect(HostProcessInfoSchema)(raw).pipe(
       Effect.mapError(
         issue =>
@@ -44,6 +48,7 @@ export const OSLive = Layer.effect(
             message: `Invalid host_process_info: ${String(issue)}`,
           }),
       ),
+      Effect.tapError(error => Effect.logFatal('host_process_info decode failed', error.message)),
       Effect.orDie,
     );
 
@@ -54,9 +59,13 @@ export const OSLive = Layer.effect(
           message: cause instanceof Error ? cause.message : String(cause),
         }),
       try: () => homeDir(),
-    }).pipe(Effect.orDie);
+    }).pipe(
+      Effect.tapError(error => Effect.logFatal('homeDir resolve failed', error.message)),
+      Effect.orDie,
+    );
 
     const nodePlatform = mapTauriPlatformToNode(platform());
+    yield* Effect.logInfo('OS Live ready', { cwd: host.cwd, platform: nodePlatform });
 
     return {
       cwd: () => host.cwd,

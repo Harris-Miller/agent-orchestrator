@@ -154,8 +154,10 @@ const makeClientHandlers = (
         Effect.gen(function* () {
           const sessionId = sessionIdFromElicitationRequest(request);
           if (sessionId === undefined) {
+            yield* Effect.logWarning('elicitation/create missing session id; cancelling');
             return { action: 'cancel' as const };
           }
+          yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
           return yield* Effect.promise(
             () =>
               new Promise<CreateElicitationResponseBody>(resolve => {
@@ -166,12 +168,15 @@ const makeClientHandlers = (
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
       'session/request_permission': (request: RequestPermissionRequest) =>
-        Effect.promise(
-          () =>
-            new Promise<RequestPermissionResponse>(resolve => {
-              onPermissionRequest(request.sessionId, request, resolve);
-            }),
-        ),
+        Effect.gen(function* () {
+          yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
+          return yield* Effect.promise(
+            () =>
+              new Promise<RequestPermissionResponse>(resolve => {
+                onPermissionRequest(request.sessionId, request, resolve);
+              }),
+          );
+        }),
       'session/update': payload =>
         Effect.sync(() => {
           onSessionUpdate(payload.sessionId, payload.update);
@@ -188,6 +193,7 @@ const MAX_CONNECT_ATTEMPTS = 3;
 
 const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('ACP harness connecting', backend);
     handlers.onPhase('connecting');
     chatAccumulators.set(backend, new Map());
 
@@ -221,6 +227,7 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
 
     const { agent } = connection;
     agentHandles.set(backend, agent);
+    yield* Effect.logInfo('ACP harness connected', backend, { pid: connection.handle.pid });
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: { elicitation: { form: {} } },
@@ -228,14 +235,16 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     });
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
+    yield* Effect.logInfo('ACP harness initialized', backend);
 
     const listResult = yield* agent['session/list']({});
     handlers.onSessionRosterResult(listResult);
     handlers.onPhase('ready');
+    yield* Effect.logInfo('ACP harness ready', backend);
     onReady();
 
     return yield* Effect.never;
-  });
+  }).pipe(Effect.annotateLogs({ backend, module: 'agentHarness' }));
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
 export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
@@ -243,6 +252,7 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
     const stoppedRef = getStoppedRef(backend);
     yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
+    yield* Effect.logInfo('ACP harness started', backend);
 
     while (!(yield* Ref.get(stoppedRef))) {
       const exit = yield* Effect.exit(
@@ -251,7 +261,8 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
         }).pipe(
           Effect.scoped,
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
-            Effect.sync(() => {
+            Effect.gen(function* () {
+              yield* Effect.logError('ACP harness missing launch prerequisite', backend, error.message);
               handlers.onPhase('error', error.message);
             }),
           ),
@@ -262,23 +273,34 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
         return;
       }
 
-      handlers.onPhase('error', Exit.isFailure(exit) ? formatError(exit.cause) : 'Unknown error');
+      const errorMessage = Exit.isFailure(exit) ? formatError(exit.cause) : 'Unknown error';
+      yield* Effect.logError('ACP harness bootstrap failed', backend, errorMessage);
+      handlers.onPhase('error', errorMessage);
       if (yield* Ref.get(stoppedRef)) {
+        yield* Effect.logInfo('ACP harness stopped after failure', backend);
         return;
       }
 
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
+        yield* Effect.logFatal('ACP harness exhausted connect retries', backend, {
+          attempts: consecutiveFailures.count,
+        });
         return;
       }
 
+      yield* Effect.logWarning('ACP harness retrying connect', backend, {
+        attempt: consecutiveFailures.count,
+        maxAttempts: MAX_CONNECT_ATTEMPTS,
+      });
       agentHandles.delete(backend);
       yield* Effect.sleep('1 second');
     }
-  }).pipe(Effect.scoped, Effect.provide(TauriServicesLive));
+  }).pipe(Effect.scoped, Effect.provide(TauriServicesLive), Effect.annotateLogs({ backend, module: 'agentHarness' }));
 
 export const stopBackendHarness = (backend: AcpAgentBackend) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Stopping ACP harness', backend);
     yield* Ref.set(getStoppedRef(backend), true);
     agentHandles.delete(backend);
   });
@@ -289,41 +311,74 @@ const sessionCwd = () =>
     return os.cwd();
   }).pipe(Effect.provide(TauriServicesLive));
 
-export const listSessions = (agent: AgentHandle) => agent['session/list']({}).pipe(Effect.provide(TauriServicesLive));
+export const listSessions = (agent: AgentHandle) =>
+  agent['session/list']({}).pipe(
+    Effect.tap(() => Effect.logDebug('session/list ok')),
+    Effect.tapError(error => Effect.logError('session/list failed', error)),
+    Effect.provide(TauriServicesLive),
+  );
 
 export const createSession = (agent: AgentHandle, cwd: string) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Creating ACP session', { cwd });
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
+    yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
     return { cwd, result };
-  });
+  }).pipe(Effect.tapError(error => Effect.logError('session/new failed', error)));
 
 export const loadSession = (agent: AgentHandle, sessionId: string) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Loading ACP session', sessionId);
     const cwd = yield* sessionCwd();
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
-  });
+  }).pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error)));
 
 export const resumeSession = (agent: AgentHandle, sessionId: string) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Resuming ACP session', sessionId);
     const cwd = yield* sessionCwd();
     return yield* agent['session/resume']({ cwd, sessionId });
-  });
+  }).pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error)));
 
 export const closeSession = (agent: AgentHandle, sessionId: string) =>
-  agent['session/close']({ sessionId }).pipe(Effect.provide(TauriServicesLive));
+  Effect.gen(function* () {
+    yield* Effect.logInfo('Closing ACP session', sessionId);
+    yield* agent['session/close']({ sessionId });
+  }).pipe(
+    Effect.tapError(error => Effect.logError('session/close failed', sessionId, error)),
+    Effect.provide(TauriServicesLive),
+  );
 
 export const deleteSession = (agent: AgentHandle, sessionId: string) =>
-  agent['session/delete']({ sessionId }).pipe(Effect.provide(TauriServicesLive));
+  Effect.gen(function* () {
+    yield* Effect.logInfo('Deleting ACP session', sessionId);
+    yield* agent['session/delete']({ sessionId });
+  }).pipe(
+    Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error)),
+    Effect.provide(TauriServicesLive),
+  );
 
 export const sendPrompt = (agent: AgentHandle, sessionId: string, text: string) =>
-  agent['session/prompt']({
-    prompt: [{ text, type: 'text' }],
-    sessionId,
-  }).pipe(Effect.provide(TauriServicesLive));
+  Effect.gen(function* () {
+    yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
+    yield* agent['session/prompt']({
+      prompt: [{ text, type: 'text' }],
+      sessionId,
+    });
+  }).pipe(
+    Effect.tapError(error => Effect.logError('session/prompt failed', sessionId, error)),
+    Effect.provide(TauriServicesLive),
+  );
 
 export const setConfigOption = (agent: AgentHandle, sessionId: string, configId: string, value: string) =>
-  agent['session/set_config_option']({
-    configId,
-    sessionId,
-    value,
-  }).pipe(Effect.provide(TauriServicesLive));
+  Effect.gen(function* () {
+    yield* Effect.logDebug('session/set_config_option', sessionId, configId, value);
+    return yield* agent['session/set_config_option']({
+      configId,
+      sessionId,
+      value,
+    });
+  }).pipe(
+    Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
+    Effect.provide(TauriServicesLive),
+  );

@@ -24,35 +24,44 @@ const executableCandidates = (platform: string, directory: string, name: string,
 };
 
 /** First absolute path for `name` on PATH, if any. */
-export const findExecutableOnPath = Effect.fn('findExecutableOnPath')(function* (name: string) {
-  const os = yield* OS;
-  const path = yield* Path;
-  const fs = yield* FileSystem;
+export const findExecutableOnPath = Effect.fn('findExecutableOnPath')(
+  function* (name: string) {
+    const os = yield* OS;
+    const path = yield* Path;
+    const fs = yield* FileSystem;
 
-  const env: Readonly<Record<string, string | undefined>> = os.env();
-  const pathEnv = env.PATH ?? env.Path ?? '';
-  const platform = os.platform();
-  const directories = pathEnv.split(pathListSeparator(platform)).filter(directory => directory.length > 0);
+    const env: Readonly<Record<string, string | undefined>> = os.env();
+    const pathEnv = env.PATH ?? env.Path ?? '';
+    const platform = os.platform();
+    const directories = pathEnv.split(pathListSeparator(platform)).filter(directory => directory.length > 0);
 
-  for (const directory of directories) {
-    for (const candidate of executableCandidates(platform, directory, name, path)) {
-      if (yield* fs.exists(candidate)) {
-        return Option.some(candidate);
+    for (const directory of directories) {
+      for (const candidate of executableCandidates(platform, directory, name, path)) {
+        if (yield* fs.exists(candidate)) {
+          yield* Effect.logDebug('Found executable on PATH', name, candidate);
+          return Option.some(candidate);
+        }
       }
     }
-  }
 
-  return Option.none<string>();
-});
+    yield* Effect.logDebug('Executable not found on PATH', name);
+    return Option.none<string>();
+  },
+  Effect.annotateLogs({ module: 'findExecutableOnPath' }),
+);
 
 /** Absolute path for `name` on PATH, or {@link MissingLaunchPrerequisite}. */
-export const requireExecutableOnPath = Effect.fn('requireExecutableOnPath')(function* (name: string) {
-  const found = yield* findExecutableOnPath(name);
-  if (Option.isNone(found)) {
-    return yield* new MissingLaunchPrerequisite({
-      executable: name,
-      message: `\`${name}\` not found on PATH`,
-    });
-  }
-  return found.value;
-});
+export const requireExecutableOnPath = Effect.fn('requireExecutableOnPath')(
+  function* (name: string) {
+    const found = yield* findExecutableOnPath(name);
+    if (Option.isNone(found)) {
+      yield* Effect.logWarning('Missing launch prerequisite', name);
+      return yield* new MissingLaunchPrerequisite({
+        executable: name,
+        message: `\`${name}\` not found on PATH`,
+      });
+    }
+    return found.value;
+  },
+  Effect.annotateLogs({ module: 'findExecutableOnPath' }),
+);

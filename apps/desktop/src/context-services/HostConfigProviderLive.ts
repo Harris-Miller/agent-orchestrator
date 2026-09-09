@@ -5,6 +5,7 @@ import { ConfigProvider, Effect } from 'effect';
 export const HostConfigProviderLive = ConfigProvider.layer(
   Effect.gen(function* () {
     const os = yield* OS;
+    yield* Effect.logDebug('Installing host ConfigProvider from OS.env');
     return ConfigProvider.fromEnv({ env: os.env() });
   }),
 );

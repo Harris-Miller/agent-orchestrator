@@ -22,146 +22,168 @@ type DuplexStreams = {
   readonly writeSink: Sink.Sink<void, Uint8Array, never, PlatformError>;
 };
 
-const makeDuplexTransport = Effect.fn('makeDuplexTransport')(function* (
-  streams: DuplexStreams,
-  route: (message: unknown) => Effect.Effect<void>,
-  wireTap?: WireTap,
-) {
-  const serialization = yield* RpcSerialization.RpcSerialization;
-  const parser = serialization.makeUnsafe();
-  const queue = yield* Queue.make<Uint8Array>();
+const makeDuplexTransport = Effect.fn('makeDuplexTransport')(
+  function* (streams: DuplexStreams, route: (message: unknown) => Effect.Effect<void>, wireTap?: WireTap) {
+    const serialization = yield* RpcSerialization.RpcSerialization;
+    const parser = serialization.makeUnsafe();
+    const queue = yield* Queue.make<Uint8Array>();
 
-  yield* Effect.addFinalizer(() => Queue.shutdown(queue).pipe(Effect.ignore));
+    yield* Effect.addFinalizer(() =>
+      Effect.logDebug('ACP duplex transport shutting down').pipe(Effect.andThen(Queue.shutdown(queue)), Effect.ignore),
+    );
 
-  const encodeToBytes = (message: unknown): Effect.Effect<Uint8Array | undefined, TransportError> =>
-    Effect.try({
-      catch: cause => TransportError.make({ message: `Failed to encode message: ${String(cause)}` }),
-      try: () => {
-        const encoded = parser.encode(message);
-        if (encoded === undefined) {
-          return undefined;
-        }
-        return typeof encoded === 'string' ? textEncoder.encode(encoded) : encoded;
-      },
-    });
-
-  const send = (message: unknown): Effect.Effect<void, TransportError> =>
-    Effect.gen(function* () {
-      wireTap?.onMessage('out', message);
-      const bytes = yield* encodeToBytes(message);
-      if (bytes === undefined) {
-        return;
-      }
-      yield* Queue.offer(queue, bytes).pipe(
-        Effect.mapError(cause => TransportError.make({ message: `Failed to write to stdin queue: ${String(cause)}` })),
-      );
-    });
-
-  const notify = (tag: string, payload: unknown): Effect.Effect<void, TransportError> =>
-    send({
-      _tag: 'Request',
-      headers: [],
-      id: '',
-      isNotification: true,
-      payload,
-      tag,
-    });
-
-  const start = Effect.gen(function* () {
-    const lineBuffer = { value: '' };
-
-    yield* streams.read.pipe(
-      Stream.runForEach(data =>
-        Effect.gen(function* () {
-          lineBuffer.value += textDecoder.decode(data, { stream: true });
-          let newlineIndex = lineBuffer.value.indexOf('\n');
-
-          while (newlineIndex !== -1) {
-            const line = lineBuffer.value.slice(0, newlineIndex).trim();
-            lineBuffer.value = lineBuffer.value.slice(newlineIndex + 1);
-
-            if (line.startsWith('{')) {
-              const decoded = yield* Effect.try({
-                catch: (cause: unknown) =>
-                  TransportError.make({ message: `Failed to decode stdout line: ${String(cause)}` }),
-                try: () => parser.decode(textEncoder.encode(`${line}\n`)),
-              }).pipe(
-                Effect.tapError(error => Effect.logError(error.message)),
-                Effect.catch(() => Effect.succeed([] as const)),
-              );
-              yield* Effect.forEach(decoded, route, { discard: true });
-            }
-
-            newlineIndex = lineBuffer.value.indexOf('\n');
+    const encodeToBytes = (message: unknown): Effect.Effect<Uint8Array | undefined, TransportError> =>
+      Effect.try({
+        catch: cause => TransportError.make({ message: `Failed to encode message: ${String(cause)}` }),
+        try: () => {
+          const encoded = parser.encode(message);
+          if (encoded === undefined) {
+            return undefined;
           }
-        }),
-      ),
-      Effect.tapError(Effect.logError),
-      Effect.forkScoped,
-    );
+          return typeof encoded === 'string' ? textEncoder.encode(encoded) : encoded;
+        },
+      }).pipe(Effect.tapError(error => Effect.logError('ACP encode failed', error.message)));
 
-    yield* Stream.fromQueue(queue).pipe(
-      Stream.run(streams.writeSink),
-      Effect.tapError(Effect.logError),
-      Effect.forkScoped,
-    );
+    const send = (message: unknown): Effect.Effect<void, TransportError> =>
+      Effect.gen(function* () {
+        wireTap?.onMessage('out', message);
+        const bytes = yield* encodeToBytes(message);
+        if (bytes === undefined) {
+          yield* Effect.logDebug('ACP encode produced no bytes (batched)');
+          return;
+        }
+        yield* Queue.offer(queue, bytes).pipe(
+          Effect.mapError(cause =>
+            TransportError.make({ message: `Failed to write to stdin queue: ${String(cause)}` }),
+          ),
+          Effect.tapError(error => Effect.logError('ACP write queue failed', error.message)),
+        );
+      });
 
-    if (streams.onReadClosed !== undefined) {
-      yield* Effect.forkScoped(streams.onReadClosed);
-    }
-  });
+    const notify = (tag: string, payload: unknown): Effect.Effect<void, TransportError> =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug('ACP notify', tag);
+        return yield* send({
+          _tag: 'Request',
+          headers: [],
+          id: '',
+          isNotification: true,
+          payload,
+          tag,
+        });
+      });
 
-  return {
-    codecFor: serialization.codecFor,
-    notify,
-    send,
-    start,
-  } as const;
-});
+    const start = Effect.gen(function* () {
+      yield* Effect.logInfo('ACP duplex transport starting');
+      const lineBuffer = { value: '' };
 
-export const makeStdioTransport = Effect.fn('makeStdioTransport')(function* (
-  handle: ChildProcessSpawner.ChildProcessHandle,
-  route: (message: unknown) => Effect.Effect<void>,
-  wireTap?: WireTap,
-) {
-  return yield* makeDuplexTransport(
-    {
-      onReadClosed: handle.exitCode.pipe(
-        Effect.flatMap(exitCode =>
-          route({
-            _tag: 'ClientProtocolError',
-            error: new RpcClientError({
-              reason: new RpcClientDefect({
-                cause: exitCode,
-                message: `Child process exited with code ${String(exitCode)}`,
-              }),
-            }),
+      yield* streams.read.pipe(
+        Stream.runForEach(data =>
+          Effect.gen(function* () {
+            lineBuffer.value += textDecoder.decode(data, { stream: true });
+            let newlineIndex = lineBuffer.value.indexOf('\n');
+
+            while (newlineIndex !== -1) {
+              const line = lineBuffer.value.slice(0, newlineIndex).trim();
+              lineBuffer.value = lineBuffer.value.slice(newlineIndex + 1);
+
+              if (line.startsWith('{')) {
+                const decoded = yield* Effect.try({
+                  catch: (cause: unknown) =>
+                    TransportError.make({ message: `Failed to decode stdout line: ${String(cause)}` }),
+                  try: () => parser.decode(textEncoder.encode(`${line}\n`)),
+                }).pipe(
+                  Effect.tapError(error => Effect.logWarning('ACP decode failed; dropping line', error.message)),
+                  Effect.catch(() => Effect.succeed([] as const)),
+                );
+                yield* Effect.forEach(decoded, route, { discard: true });
+              } else if (line.length > 0) {
+                yield* Effect.logDebug('ACP ignoring non-JSON stdout line');
+              }
+
+              newlineIndex = lineBuffer.value.indexOf('\n');
+            }
           }),
         ),
-        Effect.catch(() => Effect.void),
-      ),
-      read: handle.stdout,
-      writeSink: handle.stdin,
-    },
-    route,
-    wireTap,
-  );
-});
+        Effect.tapError(error => Effect.logError('ACP read stream failed', error)),
+        Effect.forkScoped,
+      );
+
+      yield* Stream.fromQueue(queue).pipe(
+        Stream.run(streams.writeSink),
+        Effect.tapError(error => Effect.logError('ACP write stream failed', error)),
+        Effect.forkScoped,
+      );
+
+      if (streams.onReadClosed !== undefined) {
+        yield* Effect.forkScoped(
+          streams.onReadClosed.pipe(
+            Effect.tap(() => Effect.logInfo('ACP read side closed')),
+            Effect.tapError(error => Effect.logError('ACP onReadClosed failed', error)),
+          ),
+        );
+      }
+    });
+
+    return {
+      codecFor: serialization.codecFor,
+      notify,
+      send,
+      start,
+    } as const;
+  },
+  Effect.annotateLogs({ module: 'AcpTransport' }),
+);
+
+export const makeStdioTransport = Effect.fn('makeStdioTransport')(
+  function* (
+    handle: ChildProcessSpawner.ChildProcessHandle,
+    route: (message: unknown) => Effect.Effect<void>,
+    wireTap?: WireTap,
+  ) {
+    yield* Effect.logInfo('ACP child stdio transport', { pid: handle.pid });
+    return yield* makeDuplexTransport(
+      {
+        onReadClosed: handle.exitCode.pipe(
+          Effect.tap(exitCode => Effect.logWarning('ACP child process exited', { exitCode })),
+          Effect.flatMap(exitCode =>
+            route({
+              _tag: 'ClientProtocolError',
+              error: new RpcClientError({
+                reason: new RpcClientDefect({
+                  cause: exitCode,
+                  message: `Child process exited with code ${String(exitCode)}`,
+                }),
+              }),
+            }),
+          ),
+          Effect.catch(error => Effect.logError('ACP child exit handling failed', error).pipe(Effect.asVoid)),
+        ),
+        read: handle.stdout,
+        writeSink: handle.stdin,
+      },
+      route,
+      wireTap,
+    );
+  },
+  Effect.annotateLogs({ module: 'AcpTransport', transport: 'child-stdio' }),
+);
 
 /** Parent-process stdio duplex for Agent processes (read stdin, write stdout). */
-export const makeParentStdioTransport = Effect.fn('makeParentStdioTransport')(function* (
-  route: (message: unknown) => Effect.Effect<void>,
-  wireTap?: WireTap,
-) {
-  const stdio = yield* Stdio.Stdio;
+export const makeParentStdioTransport = Effect.fn('makeParentStdioTransport')(
+  function* (route: (message: unknown) => Effect.Effect<void>, wireTap?: WireTap) {
+    yield* Effect.logInfo('ACP parent stdio transport');
+    const stdio = yield* Stdio.Stdio;
 
-  return yield* makeDuplexTransport(
-    {
-      read: stdio.stdin,
-      // stdout accepts string | Uint8Array; we only enqueue Uint8Array frames
-      writeSink: stdio.stdout({ endOnDone: false }),
-    },
-    route,
-    wireTap,
-  );
-});
+    return yield* makeDuplexTransport(
+      {
+        read: stdio.stdin,
+        // stdout accepts string | Uint8Array; we only enqueue Uint8Array frames
+        writeSink: stdio.stdout({ endOnDone: false }),
+      },
+      route,
+      wireTap,
+    );
+  },
+  Effect.annotateLogs({ module: 'AcpTransport', transport: 'parent-stdio' }),
+);

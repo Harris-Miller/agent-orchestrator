@@ -23,36 +23,50 @@ const adapterEntryResource = {
 
 export type AcpAdapterBackend = keyof typeof adapterEntryResource;
 
-const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(function* (backend: AcpAdapterBackend) {
-  const resourcePath = adapterEntryResource[backend];
-  return yield* Effect.tryPromise({
-    catch: cause =>
-      new MissingLaunchPrerequisite({
-        executable: resourcePath,
-        message: `ACP adapter resource not found (${resourcePath}): ${
-          cause instanceof Error ? cause.message : String(cause)
-        }`,
-      }),
-    try: () => resolveResource(resourcePath),
-  });
-});
+const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
+  function* (backend: AcpAdapterBackend) {
+    const resourcePath = adapterEntryResource[backend];
+    yield* Effect.logDebug('Resolving ACP adapter resource', backend, resourcePath);
+    return yield* Effect.tryPromise({
+      catch: cause =>
+        new MissingLaunchPrerequisite({
+          executable: resourcePath,
+          message: `ACP adapter resource not found (${resourcePath}): ${
+            cause instanceof Error ? cause.message : String(cause)
+          }`,
+        }),
+      try: () => resolveResource(resourcePath),
+    }).pipe(
+      Effect.tap(entry => Effect.logInfo('Resolved ACP adapter entry', backend, entry)),
+      Effect.tapError(error => Effect.logError('ACP adapter resource missing', backend, error.message)),
+    );
+  },
+  Effect.annotateLogs({ module: 'acpAdapterCommand' }),
+);
 
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
-export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(function* (backend: AcpAdapterBackend) {
-  yield* requireExecutableOnPath('node');
-  const entry = yield* resolveAdapterEntry(backend);
+export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
+  function* (backend: AcpAdapterBackend) {
+    yield* Effect.logInfo('Building ACP adapter command', backend);
+    yield* requireExecutableOnPath('node');
+    const entry = yield* resolveAdapterEntry(backend);
 
-  if (backend === 'codex-acp') {
-    const codexPath = yield* requireExecutableOnPath('codex');
+    if (backend === 'codex-acp') {
+      const codexPath = yield* requireExecutableOnPath('codex');
+      yield* Effect.logDebug('Codex adapter env', { CODEX_PATH: codexPath });
+      return ChildProcess.make('node', [entry], {
+        ...pipedSpawnOptions,
+        env: { CODEX_PATH: codexPath },
+      });
+    }
+
+    const claudePath = yield* requireExecutableOnPath('claude');
+    yield* Effect.logDebug('Claude adapter env', { CLAUDE_CODE_EXECUTABLE: claudePath });
     return ChildProcess.make('node', [entry], {
       ...pipedSpawnOptions,
-      env: { CODEX_PATH: codexPath },
+      env: { CLAUDE_CODE_EXECUTABLE: claudePath },
     });
-  }
-
-  const claudePath = yield* requireExecutableOnPath('claude');
-  return ChildProcess.make('node', [entry], {
-    ...pipedSpawnOptions,
-    env: { CLAUDE_CODE_EXECUTABLE: claudePath },
-  });
-});
+  },
+  Effect.annotateLogs({ module: 'acpAdapterCommand' }),
+  Effect.tapError(error => Effect.logError('makeAcpAdapterCommand failed', error)),
+);

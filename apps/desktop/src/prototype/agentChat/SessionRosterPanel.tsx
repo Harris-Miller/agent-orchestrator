@@ -359,7 +359,7 @@ export const SessionRosterPanel: FC<{
                       <Add fontSize="small" />
                     </IconButton>
                   </AccordionSummary>
-                  <AccordionDetails sx={{ p: 0 }}>
+                  <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
                     {sessions.map(entry => (
                       <SessionRow
                         entry={entry}

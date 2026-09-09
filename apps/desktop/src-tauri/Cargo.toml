@@ -29,4 +29,5 @@ tauri-plugin-os = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-mcp-bridge = "0.13"
+dotenvy = "0.15.7"
 

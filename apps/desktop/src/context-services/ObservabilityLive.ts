@@ -1,4 +1,4 @@
-import { ConfigProvider, Layer } from 'effect';
+import { ConfigProvider, Layer, References } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Otlp, OtlpSerialization } from 'effect/unstable/observability';
 
@@ -16,14 +16,23 @@ const OtelExporterDefaultsLive = ConfigProvider.layerAdd(
 );
 
 /**
+ * Effect defaults {@link References.MinimumLogLevel} to `Info`, which drops
+ * Debug/Trace before any logger (including OTLP) sees them.
+ */
+const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
+
+/**
  * OTLP export for traces, logs, and metrics when host env enables it
  * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`).
  * Requires {@link ConfigProvider} (from {@link HostConfigProviderLive}).
  */
-export const ObservabilityLive = Otlp.layerFromConfig({
-  resource: { serviceName: 'agent-orchestrator-desktop' },
-}).pipe(
-  Layer.provide(OtlpSerialization.layerJson),
-  Layer.provide(FetchHttpClient.layer),
-  Layer.provide(OtelExporterDefaultsLive),
+export const ObservabilityLive = Layer.merge(
+  AllLogLevelsLive,
+  Otlp.layerFromConfig({
+    resource: { serviceName: 'agent-orchestrator-desktop' },
+  }).pipe(
+    Layer.provide(OtlpSerialization.layerJson),
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(OtelExporterDefaultsLive),
+  ),
 );

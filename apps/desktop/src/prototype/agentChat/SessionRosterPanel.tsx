@@ -274,7 +274,7 @@ export const SessionRosterPanel: FC<{
     setCreateCwd(undefined);
   };
 
-  const openAgentMenu = (event: MouseEvent<HTMLButtonElement>, cwd: string) => {
+  const openAgentMenu = (event: MouseEvent<HTMLElement>, cwd: string) => {
     event.stopPropagation();
     setCreateCwd(cwd);
     setAgentMenuAnchor(event.currentTarget);
@@ -392,9 +392,11 @@ export const SessionRosterPanel: FC<{
                     </Tooltip>
                     <IconButton
                       aria-label={`Create session in ${directoryName(cwd)}`}
+                      component="span"
                       disabled={!anyReady || creating}
                       edge="end"
                       onClick={event => {
+                        event.stopPropagation();
                         openAgentMenu(event, cwd);
                       }}
                       size="small"

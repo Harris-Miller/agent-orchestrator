@@ -147,6 +147,7 @@ export const RpcWireLogPanel: FC<{
                     {rpcWireEntryTitle(entry)}
                   </Typography>
                   <Button
+                    component="span"
                     onClick={event => {
                       event.stopPropagation();
                       writeText(rpcWireEntryClipboardText(entry)).catch(onCopyError);

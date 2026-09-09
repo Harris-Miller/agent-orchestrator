@@ -177,7 +177,7 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
             <Stack spacing={1}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <Typography sx={{ flex: 1, fontWeight: 600 }} variant="body2">
-                  Tool: {item.title}
+                  {item.title}
                 </Typography>
                 <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
               </Stack>

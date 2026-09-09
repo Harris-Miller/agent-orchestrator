@@ -43,4 +43,37 @@ describe('reduceSessionUpdate', () => {
       },
     ]);
   });
+
+  it('prefers _meta.claudeCode.toolName over title only when it is Bash', () => {
+    const bash = reduceSessionUpdate(emptyChatAccumulator(), {
+      _meta: { claudeCode: { toolName: 'Bash' } },
+      sessionUpdate: 'tool_call',
+      title: 'Get PR #11 metadata and standards files',
+      toolCallId: 'call_002',
+    });
+
+    assert.deepStrictEqual(chatItemsFromAccumulator(bash), [
+      {
+        command: undefined,
+        id: 'call_002',
+        kind: 'tool_call',
+        resultText: undefined,
+        status: 'pending',
+        title: 'Bash',
+        toolCallId: 'call_002',
+        toolKind: undefined,
+      },
+    ]);
+
+    const other = reduceSessionUpdate(emptyChatAccumulator(), {
+      _meta: { claudeCode: { toolName: 'Read' } },
+      sessionUpdate: 'tool_call',
+      title: 'Reading configuration file',
+      toolCallId: 'call_003',
+    });
+
+    const [otherItem] = chatItemsFromAccumulator(other);
+    assert.strictEqual(otherItem.kind, 'tool_call');
+    assert.strictEqual(otherItem.title, 'Reading configuration file');
+  });
 });

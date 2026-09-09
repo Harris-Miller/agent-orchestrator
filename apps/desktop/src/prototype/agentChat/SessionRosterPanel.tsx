@@ -100,7 +100,7 @@ const SessionRow: FC<{
 
   const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
   const status = session?.status ?? 'inactive';
-  const promptInFlight = session?.pendingClientRequest === true;
+  const pendingClientRequest = session?.pendingClientRequest === true;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
 
@@ -156,8 +156,8 @@ const SessionRow: FC<{
               {displayTitle}
             </Typography>
           </Box>
-          {promptInFlight ? (
-            <CircularProgress aria-label="Prompt in progress" size={14} sx={{ flexShrink: 0 }} />
+          {pendingClientRequest ? (
+            <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}
           <IconButton
             aria-label="Session actions"

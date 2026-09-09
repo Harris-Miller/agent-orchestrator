@@ -112,9 +112,9 @@ export const AgentChatMain: FC<{
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
-  const promptInFlight = selectedSession?.pendingClientRequest === true;
+  const pendingClientRequest = selectedSession?.pendingClientRequest === true;
   const controlsEnabled =
-    selectedSession?.status === 'active' && !promptInFlight && !hasPendingInteraction && !handoffInProgress;
+    selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
   const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
   const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
   const sourceCwd =
@@ -342,12 +342,16 @@ export const AgentChatMain: FC<{
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">
                 <Button
-                  aria-label={promptInFlight ? 'Prompt in progress' : 'Send'}
+                  aria-label={pendingClientRequest ? 'Pending client request' : 'Send'}
                   disabled={!canSend}
                   sx={{ minWidth: 40, px: 1.5 }}
                   type="submit"
                 >
-                  {promptInFlight ? <CircularProgress color="inherit" size={18} /> : <ArrowUpward fontSize="small" />}
+                  {pendingClientRequest ? (
+                    <CircularProgress color="inherit" size={18} />
+                  ) : (
+                    <ArrowUpward fontSize="small" />
+                  )}
                 </Button>
                 <Button
                   aria-controls={splitMenuAnchor !== null ? 'send-split-menu' : undefined}

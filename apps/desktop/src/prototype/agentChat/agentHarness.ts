@@ -150,33 +150,33 @@ const makeClientHandlers = (
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
-      'elicitation/create': (request: CreateElicitationRequestBody) =>
-        Effect.gen(function* () {
-          const sessionId = sessionIdFromElicitationRequest(request);
-          if (sessionId === undefined) {
-            yield* Effect.logWarning('elicitation/create missing session id; cancelling');
-            return { action: 'cancel' as const };
-          }
-          yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
-          return yield* Effect.promise(
-            () =>
-              new Promise<CreateElicitationResponseBody>(resolve => {
-                onElicitationCreate(sessionId, request, resolve);
-              }),
-          );
-        }),
+      'elicitation/create': Effect.fn('elicitation/create')(function* (request: CreateElicitationRequestBody) {
+        const sessionId = sessionIdFromElicitationRequest(request);
+        if (sessionId === undefined) {
+          yield* Effect.logWarning('elicitation/create missing session id; cancelling');
+          return { action: 'cancel' as const };
+        }
+        yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
+        return yield* Effect.promise(
+          () =>
+            new Promise<CreateElicitationResponseBody>(resolve => {
+              onElicitationCreate(sessionId, request, resolve);
+            }),
+        );
+      }),
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
-      'session/request_permission': (request: RequestPermissionRequest) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
-          return yield* Effect.promise(
-            () =>
-              new Promise<RequestPermissionResponse>(resolve => {
-                onPermissionRequest(request.sessionId, request, resolve);
-              }),
-          );
-        }),
+      'session/request_permission': Effect.fn('session/request_permission')(function* (
+        request: RequestPermissionRequest,
+      ) {
+        yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
+        return yield* Effect.promise(
+          () =>
+            new Promise<RequestPermissionResponse>(resolve => {
+              onPermissionRequest(request.sessionId, request, resolve);
+            }),
+        );
+      }),
       'session/update': payload =>
         Effect.sync(() => {
           onSessionUpdate(payload.sessionId, payload.update);
@@ -248,8 +248,8 @@ const bootstrapOnce = Effect.fn('bootstrapOnce')(
 );
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
-export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
-  Effect.gen(function* () {
+export const runBackendHarness = Effect.fn('runBackendHarness')(
+  function* (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) {
     const stoppedRef = getStoppedRef(backend);
     yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
@@ -298,7 +298,11 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
       agentHandles.delete(backend);
       yield* Effect.sleep('1 second');
     }
-  }).pipe(Effect.scoped, Effect.provide(TauriServicesLive), Effect.annotateLogs({ backend, module: 'agentHarness' }));
+  },
+  Effect.scoped,
+  Effect.provide(TauriServicesLive),
+  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'agentHarness' })),
+);
 
 export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (backend: AcpAgentBackend) {
   yield* Effect.logInfo('Stopping ACP harness', backend);

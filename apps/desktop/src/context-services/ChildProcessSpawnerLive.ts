@@ -62,7 +62,7 @@ const encodeChunk = (chunk: unknown): Uint8Array => {
   throw new TypeError(`Unsupported shell IO chunk: ${Object.prototype.toString.call(chunk)}`);
 };
 
-const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(
+const spawnStandard = Effect.fnUntraced(
   function* (
     command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
     hostEnv: Readonly<Record<string, string>>,
@@ -97,6 +97,7 @@ const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(
     // Callbacks leave the Effect fiber; reuse surrounding services via runForkWith.
     // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
     // active Stream.fromQueue readers. Scope finalizers shut the queues down.
+    // ParentSpan comes from withSpanScoped below — stays live until child scope closes.
     const runFork = Effect.runForkWith(yield* Effect.context());
     const trackedPid = { current: undefined as number | undefined };
 
@@ -211,6 +212,7 @@ const spawnStandard = Effect.fn('TauriChildProcessSpawner.spawn')(
       unref: Effect.succeed(Effect.void),
     });
   },
+  Effect.withSpanScoped('TauriChildProcessSpawner.spawn'),
   Effect.annotateLogs({ module: 'ChildProcessSpawnerLive' }),
 );
 

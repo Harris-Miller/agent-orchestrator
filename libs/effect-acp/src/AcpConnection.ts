@@ -1,5 +1,5 @@
 import type { Layer } from 'effect';
-import { Effect, Queue } from 'effect';
+import { Context, Effect, Queue, Tracer } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { RpcClient, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -132,7 +132,13 @@ const toRpcClientError = (error: TransportError): RpcClientErrorValue =>
     }),
   });
 
-export const connectAcpAgent = Effect.fn('connectAcpAgent')(
+/** Drop ParentSpan from fiber context without widening Effect R (Context.omit + updateContext does). */
+const withoutParentSpan = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  effect.pipe(
+    Effect.updateContext((ctx): Context.Context<R> => Context.omit(Tracer.ParentSpan)(ctx) as Context.Context<R>),
+  );
+
+export const connectAcpAgent = Effect.fnUntraced(
   function* (
     command: ChildProcess.Command,
     clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ClientRpcs>>>,
@@ -215,10 +221,13 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(
       }),
     );
 
+    // Strip ParentSpan so demux/handler fibers do not inherit connect (live or ended).
     yield* Effect.forkScoped(
-      RpcServer.make(ClientRpcs).pipe(
-        Effect.provideService(RpcServer.Protocol, serverProtocol),
-        Effect.provide(clientHandlers),
+      withoutParentSpan(
+        RpcServer.make(ClientRpcs, { disableTracing: true }).pipe(
+          Effect.provideService(RpcServer.Protocol, serverProtocol),
+          Effect.provide(clientHandlers),
+        ),
       ),
     );
 
@@ -233,6 +242,8 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(
       notify: transport.notify,
     } as const satisfies AcpAgentConnection;
   },
+  // Short setup span only — lifetime Agent→Client traffic must not parent under connect.
+  Effect.withSpan('connectAcpAgent'),
   Effect.annotateLogs({ module: 'AcpConnection', role: 'client' }),
   Effect.tapError(error => Effect.logError('connectAcpAgent failed', error)),
 );
@@ -240,7 +251,7 @@ export const connectAcpAgent = Effect.fn('connectAcpAgent')(
  * Agent-process entry: serve `AgentRpcs` on stdin and call `ClientRpcs` on stdout.
  * `makeHandlers` receives the Client RpcClient so handlers can await `elicitation/create`, etc.
  */
-export const serveAcpAgent = Effect.fn('serveAcpAgent')(
+export const serveAcpAgent = Effect.fnUntraced(
   function* (
     makeHandlers: (
       client: AcpClientConnection,
@@ -332,6 +343,8 @@ export const serveAcpAgent = Effect.fn('serveAcpAgent')(
       notify: transport.notify,
     } as const satisfies AcpAgentServe;
   },
+  // Span stays open until serve scope closes so demux forks keep a live ParentSpan.
+  Effect.withSpanScoped('serveAcpAgent'),
   Effect.annotateLogs({ module: 'AcpConnection', role: 'agent' }),
   Effect.tapError(error => Effect.logError('serveAcpAgent failed', error)),
 );

@@ -145,3 +145,25 @@ _Avoid_: Session cwd
 **Tauri services**:
 Live Effect layers in `src/context-services/` that implement portable `@lib/context-services` and platform primitives (OS, Path, FileSystem, ChildProcessSpawner) on top of Tauri — analogous to `@effect/platform-node`'s `NodeServices.layer`.
 _Avoid_: Platform layer, context-services (the portable package name), adapters
+
+## Observability
+
+**Action root**:
+A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap, roster refresh). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
+_Avoid_: Request, span (when you mean the product unit), operation
+
+**User action**:
+An action root triggered from the Harness UI.
+_Avoid_: Background job, job, task
+
+**System action**:
+An action root that keeps a backend harness or roster coherent without a direct UI gesture for that work (bootstrap, roster refresh).
+_Avoid_: Background job, job, task
+
+**Turn-correlated work**:
+Agent→Client traffic that belongs to an open ACP **Turn** (see `@libs/effect-acp`): session updates, elicitation, permission requests, and the user’s respond to those. While a turn is in flight for a session, this work combines into that turn’s trace. When no turn is open, the same traffic (including an orphan respond) is its own short root — not attached to bootstrap or connection setup, and not promoted to a standing user-action term.
+_Avoid_: RPC child, notification, demux event, action root (for respond-while-turn-open)
+
+**Connection setup**:
+The short setup slice of bringing a backend harness online (spawn, connect, initialize, first roster list). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
+_Avoid_: Connection span, live connection, session (when you mean setup)

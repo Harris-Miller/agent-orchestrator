@@ -6,6 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -67,17 +68,31 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
   }
 };
 
-const MessageRow: FC<{ label: string; text: string; tone: 'agent' | 'user' }> = ({ label, text, tone }) => (
-  <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-    <Typography
-      sx={{ color: tone === 'user' ? 'primary.main' : 'text.primary', fontWeight: 600, mb: 0.5 }}
-      variant="body2"
-    >
-      {label}
-    </Typography>
-    <ChatMarkdown text={text} />
-  </ListItem>
-);
+const MessageRow: FC<{ text: string; tone: 'agent' | 'user' }> = ({ text, tone }) => {
+  if (tone === 'user') {
+    return (
+      <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
+        <Box
+          sx={{
+            bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
+            borderRadius: 4,
+            maxWidth: 'min(85%, 42rem)',
+            px: 1.75,
+            py: 1.25,
+          }}
+        >
+          <ChatMarkdown text={text} />
+        </Box>
+      </ListItem>
+    );
+  }
+
+  return (
+    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 1 }}>
+      <ChatMarkdown text={text} />
+    </ListItem>
+  );
+};
 
 const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command, resultText }) => {
   const [expanded, setExpanded] = useState(false);
@@ -119,7 +134,7 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
 export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
   switch (item.kind) {
     case 'agent_message':
-      return <MessageRow label="Agent" text={item.text} tone="agent" />;
+      return <MessageRow text={item.text} tone="agent" />;
 
     case 'config_options':
       return (
@@ -190,7 +205,7 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
       );
 
     case 'user_message':
-      return <MessageRow label="You" text={item.text} tone="user" />;
+      return <MessageRow text={item.text} tone="user" />;
 
     default:
       return null;

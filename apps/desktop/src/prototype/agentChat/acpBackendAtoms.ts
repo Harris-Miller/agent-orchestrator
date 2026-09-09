@@ -403,12 +403,10 @@ export const selectSessionFn = acpRuntime
 
 export const refreshSessionRosterFn = acpRuntime
   .fn(
-    Effect.fn('refreshSessionRosterFn')(
+    Effect.fn('refreshSessionRosterFn', { root: true })(
       function* (backend: AcpAgentBackend, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': backend,
-          'ao.action': 'system.refreshSessionRoster',
-          'ao.action.kind': 'system',
         });
         const agent = getAgentHandle(backend);
         if (agent === undefined) {
@@ -433,11 +431,7 @@ export const refreshSessionRosterFn = acpRuntime
 
 export const refreshAllSessionRostersFn = acpRuntime
   .fn(
-    Effect.fn('refreshAllSessionRostersFn')(function* (_arg: undefined, get: AcpAtomGet) {
-      yield* Effect.annotateCurrentSpan({
-        'ao.action': 'system.refreshAllSessionRosters',
-        'ao.action.kind': 'system',
-      });
+    Effect.fn('refreshAllSessionRostersFn', { root: true })(function* (_arg: undefined, get: AcpAtomGet) {
       yield* Effect.forEach(
         ALL_ACP_BACKENDS,
         backend =>
@@ -462,12 +456,10 @@ export const refreshAllSessionRostersFn = acpRuntime
 
 export const createSessionFn = acpRuntime
   .fn(
-    Effect.fn('createSessionFn')(
+    Effect.fn('createSessionFn', { root: true })(
       function* (arg: { backend: AcpAgentBackend; cwd: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
-          'ao.action': 'user.createSession',
-          'ao.action.kind': 'user',
         });
         const agent = getAgentHandle(arg.backend);
         if (agent === undefined) {
@@ -559,7 +551,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
 
 export const handoffSessionFn = acpRuntime
   .fn(
-    Effect.fn('handoffSessionFn')(
+    Effect.fn('handoffSessionFn', { root: true })(
       function* (
         arg: {
           configValues: Readonly<Record<string, string>>;
@@ -573,8 +565,6 @@ export const handoffSessionFn = acpRuntime
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.sourceBackend,
           'acp.sessionId': arg.sourceSessionId,
-          'ao.action': 'user.handoffSession',
-          'ao.action.kind': 'user',
         });
         yield* Effect.logInfo('Handoff started', {
           sourceBackend: arg.sourceBackend,
@@ -688,12 +678,13 @@ export const handoffSessionFn = acpRuntime
 
 export const activateSessionFn = acpRuntime
   .fn(
-    Effect.fn('activateSessionFn')(function* (arg: { backend: AcpAgentBackend; sessionId: string }, get: AcpAtomGet) {
+    Effect.fn('activateSessionFn', { root: true })(function* (
+      arg: { backend: AcpAgentBackend; sessionId: string },
+      get: AcpAtomGet,
+    ) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': arg.backend,
         'acp.sessionId': arg.sessionId,
-        'ao.action': 'user.activateSession',
-        'ao.action.kind': 'user',
       });
       const agent = getAgentHandle(arg.backend);
       if (agent === undefined) {
@@ -751,13 +742,11 @@ export const activateSessionFn = acpRuntime
 
 export const deactivateSessionFn = acpRuntime
   .fn(
-    Effect.fn('deactivateSessionFn')(
+    Effect.fn('deactivateSessionFn', { root: true })(
       function* (arg: { backend: AcpAgentBackend; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
-          'ao.action': 'user.deactivateSession',
-          'ao.action.kind': 'user',
         });
         const agent = getAgentHandle(arg.backend);
         if (agent === undefined) {
@@ -790,13 +779,11 @@ export const deactivateSessionFn = acpRuntime
 
 export const deleteSessionFn = acpRuntime
   .fn(
-    Effect.fn('deleteSessionFn')(
+    Effect.fn('deleteSessionFn', { root: true })(
       function* (arg: { backend: AcpAgentBackend; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
-          'ao.action': 'user.deleteSession',
-          'ao.action.kind': 'user',
         });
         const agent = getAgentHandle(arg.backend);
         if (agent === undefined) {
@@ -836,7 +823,10 @@ export const deleteSessionFn = acpRuntime
 
 export const sendChatItemFn = acpRuntime
   .fn(
-    Effect.fn('sendChatItemFn')(function* (arg: { backend: AcpAgentBackend; text: string }, get: AcpAtomGet) {
+    Effect.fn('sendChatItemFn', { root: true })(function* (
+      arg: { backend: AcpAgentBackend; text: string },
+      get: AcpAtomGet,
+    ) {
       const trimmed = arg.text.trim();
       const sessionId = get(selectedSessionIdAtom);
       const snapshot = get(backendStateAtom(arg.backend));
@@ -849,8 +839,6 @@ export const sendChatItemFn = acpRuntime
       yield* Effect.annotateCurrentSpan({
         'acp.agent': arg.backend,
         'acp.sessionId': session.sessionId,
-        'ao.action': 'user.sendPrompt',
-        'ao.action.kind': 'user',
       });
 
       const chatItems = appendBackendUserChatItem(arg.backend, session.sessionId, trimmed);
@@ -880,21 +868,18 @@ export const sendChatItemFn = acpRuntime
 
 export const respondElicitationFn = acpRuntime
   .fn(
-    (
-      arg: {
-        backend: AcpAgentBackend;
-        response: CreateElicitationResponseBody;
-        sessionId: string;
-      },
-      get,
-    ) => {
-      const parent = getPromptSpan(arg.backend, arg.sessionId);
-      return Effect.gen(function* () {
+    Effect.fnUntraced(
+      function* (
+        arg: {
+          backend: AcpAgentBackend;
+          response: CreateElicitationResponseBody;
+          sessionId: string;
+        },
+        get: AcpAtomGet,
+      ) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
-          'ao.action': 'user.respondElicitation',
-          'ao.action.kind': 'user',
         });
         const snapshot = get(backendStateAtom(arg.backend));
         const pending = snapshot.sessions[arg.sessionId].pendingElicitation;
@@ -909,28 +894,29 @@ export const respondElicitationFn = acpRuntime
             pendingElicitation: undefined,
           })),
         });
-      }).pipe(Effect.withSpan('respondElicitationFn', parent !== undefined ? { parent } : { root: true }));
-    },
+      },
+      Effect.withSpan('respondElicitationFn', arg => {
+        const parent = getPromptSpan(arg.backend, arg.sessionId);
+        return parent !== undefined ? { parent } : { root: true };
+      }),
+    ),
   )
   .pipe(Atom.keepAlive);
 
 export const respondPermissionFn = acpRuntime
   .fn(
-    (
-      arg: {
-        backend: AcpAgentBackend;
-        optionId: string;
-        sessionId: string;
-      },
-      get,
-    ) => {
-      const parent = getPromptSpan(arg.backend, arg.sessionId);
-      return Effect.gen(function* () {
+    Effect.fnUntraced(
+      function* (
+        arg: {
+          backend: AcpAgentBackend;
+          optionId: string;
+          sessionId: string;
+        },
+        get: AcpAtomGet,
+      ) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
-          'ao.action': 'user.respondPermission',
-          'ao.action.kind': 'user',
         });
         const snapshot = get(backendStateAtom(arg.backend));
         const pending = snapshot.sessions[arg.sessionId].pendingPermission;
@@ -945,18 +931,20 @@ export const respondPermissionFn = acpRuntime
             pendingPermission: undefined,
           })),
         });
-      }).pipe(Effect.withSpan('respondPermissionFn', parent !== undefined ? { parent } : { root: true }));
-    },
+      },
+      Effect.withSpan('respondPermissionFn', arg => {
+        const parent = getPromptSpan(arg.backend, arg.sessionId);
+        return parent !== undefined ? { parent } : { root: true };
+      }),
+    ),
   )
   .pipe(Atom.keepAlive);
 
 export const restartBackendFn = acpRuntime
   .fn(
-    Effect.fn('restartBackendFn')(function* (backend: AcpAgentBackend, get: AcpAtomGet) {
+    Effect.fn('restartBackendFn', { root: true })(function* (backend: AcpAgentBackend, get: AcpAtomGet) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': backend,
-        'ao.action': 'user.restartBackend',
-        'ao.action.kind': 'user',
       });
       yield* Effect.logWarning('Restarting ACP backend harness', backend);
       yield* stopBackendHarness(backend);
@@ -970,7 +958,7 @@ export const restartBackendFn = acpRuntime
 
 export const setConfigOptionFn = acpRuntime
   .fn(
-    Effect.fn('setConfigOptionFn')(function* (
+    Effect.fn('setConfigOptionFn', { root: true })(function* (
       arg: { backend: AcpAgentBackend; configId: string; value: string },
       get: AcpAtomGet,
     ) {
@@ -988,8 +976,6 @@ export const setConfigOptionFn = acpRuntime
       yield* Effect.annotateCurrentSpan({
         'acp.agent': arg.backend,
         'acp.sessionId': session.sessionId,
-        'ao.action': 'user.setConfigOption',
-        'ao.action.kind': 'user',
       });
 
       const previousModeId = session.selectedModeId;

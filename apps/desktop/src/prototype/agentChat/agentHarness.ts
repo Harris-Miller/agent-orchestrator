@@ -222,12 +222,10 @@ const makeClientHandlers = (
 const MAX_CONNECT_ATTEMPTS = 3;
 
 /** Connect + initialize + roster list through ready. Does not hold the connection open. */
-const bootstrapOnce = Effect.fn('bootstrapOnce')(
+const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) {
     yield* Effect.annotateCurrentSpan({
       'acp.agent': backend,
-      'ao.action': 'system.bootstrap',
-      'ao.action.kind': 'system',
     });
     yield* Effect.logInfo('ACP harness connecting', backend);
     handlers.onPhase('connecting');
@@ -285,7 +283,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce')(
 );
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
-export const runBackendHarness = Effect.fn('runBackendHarness')(
+export const runBackendHarness = Effect.fnUntraced(
   function* (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) {
     const stoppedRef = getStoppedRef(backend);
     yield* Ref.set(stoppedRef, false);
@@ -419,8 +417,6 @@ export const sendPrompt = Effect.fn('sendPrompt')(
     yield* Effect.annotateCurrentSpan({
       'acp.agent': backend,
       'acp.sessionId': sessionId,
-      'ao.action': 'user.sendPrompt',
-      'ao.action.kind': 'user',
     });
     const span = yield* Effect.currentSpan;
     setPromptSpan(backend, sessionId, span);

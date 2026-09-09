@@ -26,11 +26,11 @@ const baseSx = {
     bgcolor: 'action.hover',
     borderRadius: 0.5,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    fontSize: '0.85em',
+    fontSize: '1em',
     px: 0.5,
     py: 0.125,
   },
-  '& h1': { fontSize: '1.25rem' },
+  '& h1': { fontSize: '1.47rem' },
   '& h1, & h2, & h3, & h4, & h5, & h6': {
     '&:first-of-type': { mt: 0 },
     fontWeight: 600,
@@ -38,8 +38,8 @@ const baseSx = {
     mb: 1,
     mt: 1.5,
   },
-  '& h2': { fontSize: '1.1rem' },
-  '& h3, & h4, & h5, & h6': { fontSize: '1rem' },
+  '& h2': { fontSize: '1.29rem' },
+  '& h3, & h4, & h5, & h6': { fontSize: '1.18rem' },
   '& hr': { borderColor: 'divider', my: 1.5 },
   '& ol, & ul': { m: 0, mb: 1, pl: 2.5 },
   '& p': { '&:last-child': { mb: 0 }, m: 0, mb: 1 },
@@ -48,7 +48,6 @@ const baseSx = {
       bgcolor: 'transparent',
       borderRadius: 0,
       display: 'block',
-      fontSize: '0.8125rem',
       p: 0,
     },
     bgcolor: 'action.hover',
@@ -58,7 +57,7 @@ const baseSx = {
     p: 1.5,
   },
   color: 'text.primary',
-  typography: 'body2',
+  typography: 'body1',
 };
 
 export const ChatMarkdown: FC<{ sx?: SxProps<Theme>; text: string }> = ({ sx, text }) => (

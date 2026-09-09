@@ -1,9 +1,11 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
+import CircularProgress from '@mui/material/CircularProgress';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -110,11 +112,9 @@ export const AgentChatMain: FC<{
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
+  const pendingClientRequest = selectedSession?.pendingClientRequest === true;
   const controlsEnabled =
-    selectedSession?.status === 'active' &&
-    selectedSession.pendingClientRequest !== true &&
-    !hasPendingInteraction &&
-    !handoffInProgress;
+    selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
   const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
   const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
   const sourceCwd =
@@ -341,8 +341,17 @@ export const AgentChatMain: FC<{
               <Box sx={{ flexGrow: 1 }} />
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">
-                <Button disabled={!canSend} type="submit">
-                  Send
+                <Button
+                  aria-label={pendingClientRequest ? 'Pending client request' : 'Send'}
+                  disabled={!canSend}
+                  sx={{ minWidth: 40, px: 1.5 }}
+                  type="submit"
+                >
+                  {pendingClientRequest ? (
+                    <CircularProgress color="inherit" size={18} />
+                  ) : (
+                    <ArrowUpward fontSize="small" />
+                  )}
                 </Button>
                 <Button
                   aria-controls={splitMenuAnchor !== null ? 'send-split-menu' : undefined}

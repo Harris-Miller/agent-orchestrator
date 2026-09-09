@@ -1,13 +1,29 @@
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import type { ChatItem } from './sessionUpdateReducer.ts';
+
+/** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
+const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
+const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
+
+const toolResultMarkdownSx = {
+  '& pre': { bgcolor: 'background.paper' },
+  bgcolor: 'action.hover',
+  borderRadius: 1,
+  color: 'text.secondary',
+  p: 1.5,
+} as const;
 
 const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
   switch (status) {
@@ -36,6 +52,35 @@ const MessageRow: FC<{ label: string; text: string; tone: 'agent' | 'user' }> = 
     <ChatMarkdown text={text} />
   </ListItem>
 );
+
+const ToolCallResult: FC<{ text: string }> = ({ text }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Stack spacing={0.25}>
+      <Box
+        sx={{
+          maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
+          overflow: expanded ? 'auto' : 'hidden',
+        }}
+      >
+        <ChatMarkdown sx={toolResultMarkdownSx} text={text} />
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <IconButton
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
+          onClick={() => {
+            setExpanded(current => !current);
+          }}
+          size="small"
+        >
+          {expanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+        </IconButton>
+      </Box>
+    </Stack>
+  );
+};
 
 export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
   switch (item.kind) {
@@ -107,18 +152,7 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
                   kind: {item.toolKind}
                 </Typography>
               ) : null}
-              {item.resultText !== undefined ? (
-                <ChatMarkdown
-                  sx={{
-                    '& pre': { bgcolor: 'background.paper' },
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    color: 'text.secondary',
-                    p: 1.5,
-                  }}
-                  text={item.resultText}
-                />
-              ) : null}
+              {item.resultText !== undefined ? <ToolCallResult text={item.resultText} /> : null}
             </Stack>
           </Paper>
         </ListItem>

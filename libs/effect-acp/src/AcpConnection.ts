@@ -1,5 +1,5 @@
 import type { Layer } from 'effect';
-import { Effect, Queue } from 'effect';
+import { Context, Effect, Queue, Tracer } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { RpcClient, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -132,6 +132,12 @@ const toRpcClientError = (error: TransportError): RpcClientErrorValue =>
     }),
   });
 
+/** Drop ParentSpan from fiber context without widening Effect R (Context.omit + updateContext does). */
+const withoutParentSpan = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  effect.pipe(
+    Effect.updateContext((ctx): Context.Context<R> => Context.omit(Tracer.ParentSpan)(ctx) as Context.Context<R>),
+  );
+
 export const connectAcpAgent = Effect.fnUntraced(
   function* (
     command: ChildProcess.Command,
@@ -215,10 +221,13 @@ export const connectAcpAgent = Effect.fnUntraced(
       }),
     );
 
+    // Strip ParentSpan so demux/handler fibers do not inherit connect (live or ended).
     yield* Effect.forkScoped(
-      RpcServer.make(ClientRpcs).pipe(
-        Effect.provideService(RpcServer.Protocol, serverProtocol),
-        Effect.provide(clientHandlers),
+      withoutParentSpan(
+        RpcServer.make(ClientRpcs, { disableTracing: true }).pipe(
+          Effect.provideService(RpcServer.Protocol, serverProtocol),
+          Effect.provide(clientHandlers),
+        ),
       ),
     );
 
@@ -233,8 +242,8 @@ export const connectAcpAgent = Effect.fnUntraced(
       notify: transport.notify,
     } as const satisfies AcpAgentConnection;
   },
-  // Span stays open until disconnect scope closes so demux forks keep a live ParentSpan.
-  Effect.withSpanScoped('connectAcpAgent'),
+  // Short setup span only — lifetime Agent→Client traffic must not parent under connect.
+  Effect.withSpan('connectAcpAgent'),
   Effect.annotateLogs({ module: 'AcpConnection', role: 'client' }),
   Effect.tapError(error => Effect.logError('connectAcpAgent failed', error)),
 );

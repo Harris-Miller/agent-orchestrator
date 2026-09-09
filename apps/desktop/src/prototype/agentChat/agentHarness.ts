@@ -12,6 +12,7 @@ import type {
   RequestPermissionResponse,
 } from '@libs/effect-acp';
 import { Effect, Exit, Ref } from 'effect';
+import type { Tracer } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
@@ -21,6 +22,7 @@ import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
+import { clearPromptSpan, clearPromptSpansForBackend, getPromptSpan, setPromptSpan } from './promptSpanRegistry.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
@@ -116,6 +118,7 @@ export const getAgentHandle = (backend: AcpAgentBackend): AgentHandle | undefine
 export const resetBackendHarnessState = (backend: AcpAgentBackend): void => {
   agentHandles.delete(backend);
   chatAccumulators.set(backend, new Map());
+  clearPromptSpansForBackend(backend);
 };
 
 export const appendBackendUserChatItem = (
@@ -142,7 +145,18 @@ const reduceBackendSessionUpdate = (
   return chatItemsFromAccumulator(next);
 };
 
+const withTurnCorrelatedSpan = <A, E, R>(
+  name: string,
+  backend: AcpAgentBackend,
+  sessionId: string | undefined,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> => {
+  const parent: Tracer.AnySpan | undefined = sessionId !== undefined ? getPromptSpan(backend, sessionId) : undefined;
+  return effect.pipe(Effect.withSpan(name, parent !== undefined ? { parent } : { root: true }));
+};
+
 const makeClientHandlers = (
+  backend: AcpAgentBackend,
   onSessionUpdate: (sessionId: string, update: unknown) => void,
   onElicitationCreate: BackendHarnessCallbacks['onElicitationCreate'],
   onPermissionRequest: BackendHarnessCallbacks['onPermissionRequest'],
@@ -150,37 +164,53 @@ const makeClientHandlers = (
   ClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
-      'elicitation/create': Effect.fn('elicitation/create')(function* (request: CreateElicitationRequestBody) {
+      'elicitation/create': (request: CreateElicitationRequestBody) => {
         const sessionId = sessionIdFromElicitationRequest(request);
-        if (sessionId === undefined) {
-          yield* Effect.logWarning('elicitation/create missing session id; cancelling');
-          return { action: 'cancel' as const };
-        }
-        yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
-        return yield* Effect.promise(
-          () =>
-            new Promise<CreateElicitationResponseBody>(resolve => {
-              onElicitationCreate(sessionId, request, resolve);
-            }),
+        return withTurnCorrelatedSpan(
+          'elicitation/create',
+          backend,
+          sessionId,
+          Effect.gen(function* () {
+            if (sessionId === undefined) {
+              yield* Effect.logWarning('elicitation/create missing session id; cancelling');
+              return { action: 'cancel' as const };
+            }
+            yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
+            return yield* Effect.promise(
+              () =>
+                new Promise<CreateElicitationResponseBody>(resolve => {
+                  onElicitationCreate(sessionId, request, resolve);
+                }),
+            );
+          }),
         );
-      }),
+      },
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
-      'session/request_permission': Effect.fn('session/request_permission')(function* (
-        request: RequestPermissionRequest,
-      ) {
-        yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
-        return yield* Effect.promise(
-          () =>
-            new Promise<RequestPermissionResponse>(resolve => {
-              onPermissionRequest(request.sessionId, request, resolve);
-            }),
-        );
-      }),
+      'session/request_permission': (request: RequestPermissionRequest) =>
+        withTurnCorrelatedSpan(
+          'session/request_permission',
+          backend,
+          request.sessionId,
+          Effect.gen(function* () {
+            yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
+            return yield* Effect.promise(
+              () =>
+                new Promise<RequestPermissionResponse>(resolve => {
+                  onPermissionRequest(request.sessionId, request, resolve);
+                }),
+            );
+          }),
+        ),
       'session/update': payload =>
-        Effect.sync(() => {
-          onSessionUpdate(payload.sessionId, payload.update);
-        }),
+        withTurnCorrelatedSpan(
+          'session/update',
+          backend,
+          payload.sessionId,
+          Effect.sync(() => {
+            onSessionUpdate(payload.sessionId, payload.update);
+          }),
+        ),
       'terminal/create': () => Effect.succeed({ terminalId: 'prototype-terminal' }),
       'terminal/kill': () => Effect.succeed({}),
       'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
@@ -194,14 +224,21 @@ const MAX_CONNECT_ATTEMPTS = 3;
 /** Connect + initialize + roster list through ready. Does not hold the connection open. */
 const bootstrapOnce = Effect.fn('bootstrapOnce')(
   function* (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) {
+    yield* Effect.annotateCurrentSpan({
+      'acp.agent': backend,
+      'ao.action': 'system.bootstrap',
+      'ao.action.kind': 'system',
+    });
     yield* Effect.logInfo('ACP harness connecting', backend);
     handlers.onPhase('connecting');
     chatAccumulators.set(backend, new Map());
+    clearPromptSpansForBackend(backend);
 
     const command = yield* makeAgentCommand(backend);
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(
+        backend,
         (sessionId, update) => {
           const chatItems = reduceBackendSessionUpdate(backend, sessionId, update);
           handlers.onSessionUpdate(sessionId, chatItems, update);
@@ -296,6 +333,7 @@ export const runBackendHarness = Effect.fn('runBackendHarness')(
         maxAttempts: MAX_CONNECT_ATTEMPTS,
       });
       agentHandles.delete(backend);
+      clearPromptSpansForBackend(backend);
       yield* Effect.sleep('1 second');
     }
   },
@@ -308,6 +346,7 @@ export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (bac
   yield* Effect.logInfo('Stopping ACP harness', backend);
   yield* Ref.set(getStoppedRef(backend), true);
   agentHandles.delete(backend);
+  clearPromptSpansForBackend(backend);
 });
 
 const sessionCwd = () =>
@@ -376,15 +415,29 @@ export const deleteSession = Effect.fn('deleteSession')(
 );
 
 export const sendPrompt = Effect.fn('sendPrompt')(
-  function* (agent: AgentHandle, sessionId: string, text: string) {
+  function* (backend: AcpAgentBackend, agent: AgentHandle, sessionId: string, text: string) {
+    yield* Effect.annotateCurrentSpan({
+      'acp.agent': backend,
+      'acp.sessionId': sessionId,
+      'ao.action': 'user.sendPrompt',
+      'ao.action.kind': 'user',
+    });
+    const span = yield* Effect.currentSpan;
+    setPromptSpan(backend, sessionId, span);
     yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
     yield* agent['session/prompt']({
       prompt: [{ text, type: 'text' }],
       sessionId,
-    });
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          clearPromptSpan(backend, sessionId);
+        }),
+      ),
+    );
   },
-  (effect, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', sessionId, error))),
+  (effect, backend, _agent, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', backend, sessionId, error))),
   Effect.provide(TauriServicesLive),
 );
 

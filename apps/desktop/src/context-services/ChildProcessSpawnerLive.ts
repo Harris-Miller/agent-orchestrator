@@ -11,7 +11,7 @@
 import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
-import { Deferred, Effect, Layer, Queue, Sink, Stream } from 'effect';
+import { Context, Deferred, Effect, Layer, Queue, Sink, Stream, Tracer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import type { Command as EffectCommand } from 'effect/unstable/process/ChildProcess';
@@ -97,8 +97,8 @@ const spawnStandard = Effect.fnUntraced(
     // Callbacks leave the Effect fiber; reuse surrounding services via runForkWith.
     // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
     // active Stream.fromQueue readers. Scope finalizers shut the queues down.
-    // ParentSpan comes from withSpanScoped below — stays live until child scope closes.
-    const runFork = Effect.runForkWith(yield* Effect.context());
+    // Omit ParentSpan so Tauri callbacks do not inherit spawn/connect as forever parents.
+    const runFork = Effect.runForkWith(Context.omit(Tracer.ParentSpan)(yield* Effect.context()));
     const trackedPid = { current: undefined as number | undefined };
 
     tauriCommand.on('close', payload => {
@@ -212,7 +212,7 @@ const spawnStandard = Effect.fnUntraced(
       unref: Effect.succeed(Effect.void),
     });
   },
-  Effect.withSpanScoped('TauriChildProcessSpawner.spawn'),
+  Effect.withSpan('TauriChildProcessSpawner.spawn'),
   Effect.annotateLogs({ module: 'ChildProcessSpawnerLive' }),
 );
 

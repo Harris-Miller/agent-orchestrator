@@ -9,6 +9,7 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -99,7 +100,8 @@ const SessionRow: FC<{
 
   const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
   const status = session?.status ?? 'inactive';
-  const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
+  const promptInFlight = session?.pendingClientRequest === true;
+  const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
 
   const closeMenu = () => {
@@ -154,6 +156,9 @@ const SessionRow: FC<{
               {displayTitle}
             </Typography>
           </Box>
+          {promptInFlight ? (
+            <CircularProgress aria-label="Prompt in progress" size={14} sx={{ flexShrink: 0 }} />
+          ) : null}
           <IconButton
             aria-label="Session actions"
             onClick={event => {

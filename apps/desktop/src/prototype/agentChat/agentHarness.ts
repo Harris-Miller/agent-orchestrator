@@ -191,8 +191,9 @@ const makeClientHandlers = (
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) =>
-  Effect.gen(function* () {
+/** Connect + initialize + roster list through ready. Does not hold the connection open. */
+const bootstrapOnce = Effect.fn('bootstrapOnce')(
+  function* (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks, onReady: () => void) {
     yield* Effect.logInfo('ACP harness connecting', backend);
     handlers.onPhase('connecting');
     chatAccumulators.set(backend, new Map());
@@ -242,9 +243,9 @@ const bootstrapOnce = (backend: AcpAgentBackend, handlers: BackendHarnessCallbac
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', backend);
     onReady();
-
-    return yield* Effect.never;
-  }).pipe(Effect.annotateLogs({ backend, module: 'agentHarness' }));
+  },
+  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'agentHarness' })),
+);
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
 export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHarnessCallbacks) =>
@@ -259,6 +260,7 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
         bootstrapOnce(backend, handlers, () => {
           consecutiveFailures.count = 0;
         }).pipe(
+          Effect.andThen(Effect.never),
           Effect.scoped,
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
@@ -298,12 +300,11 @@ export const runBackendHarness = (backend: AcpAgentBackend, handlers: BackendHar
     }
   }).pipe(Effect.scoped, Effect.provide(TauriServicesLive), Effect.annotateLogs({ backend, module: 'agentHarness' }));
 
-export const stopBackendHarness = (backend: AcpAgentBackend) =>
-  Effect.gen(function* () {
-    yield* Effect.logInfo('Stopping ACP harness', backend);
-    yield* Ref.set(getStoppedRef(backend), true);
-    agentHandles.delete(backend);
-  });
+export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (backend: AcpAgentBackend) {
+  yield* Effect.logInfo('Stopping ACP harness', backend);
+  yield* Ref.set(getStoppedRef(backend), true);
+  agentHandles.delete(backend);
+});
 
 const sessionCwd = () =>
   Effect.gen(function* () {

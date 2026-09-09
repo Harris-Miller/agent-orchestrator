@@ -10,6 +10,7 @@ import { HostConfigProviderLive } from './HostConfigProviderLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
 import { OSLive } from './OSLive.ts';
 import { PathLive } from './PathLive.ts';
+import { TauriFetchLive } from './TauriFetchLive.ts';
 
 /**
  * Aggregate Tauri platform services analogous to `@effect/platform-node`'s
@@ -32,5 +33,10 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   PathLive,
 ).pipe(
   Layer.provideMerge(OSLive),
-  Layer.provideMerge(ObservabilityLive.pipe(Layer.provide(HostConfigProviderLive.pipe(Layer.provide(OSLive))))),
+  Layer.provideMerge(
+    ObservabilityLive.pipe(
+      Layer.provide(TauriFetchLive),
+      Layer.provide(HostConfigProviderLive.pipe(Layer.provide(OSLive))),
+    ),
+  ),
 );

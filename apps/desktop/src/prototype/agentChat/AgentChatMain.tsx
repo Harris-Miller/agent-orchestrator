@@ -18,6 +18,7 @@ import type { FC, ReactNode, SubmitEvent } from 'react';
 import { isRecord } from '../../utils.ts';
 
 import {
+  activateSessionFn,
   allBackendPhasesAtom,
   draftAtom,
   handoffInProgressAtom,
@@ -79,6 +80,7 @@ export const AgentChatMain: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const backendPhases = useAtomValue(allBackendPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
+  const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
   const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsFn, { mode: 'promise' });
@@ -162,12 +164,27 @@ export const AgentChatMain: FC<{
     if (selectedSession.status === 'inactive') {
       if (selectedSession.defects !== undefined && selectedSession.defects.length > 0) {
         return (
-          <Alert severity="error">
+          <Alert
+            action={
+              <Button
+                color="inherit"
+                onClick={() => {
+                  activateSession({ backend: selectedBackend, sessionId: selectedSession.sessionId }).catch(
+                    () => undefined,
+                  );
+                }}
+                size="small"
+              >
+                Retry
+              </Button>
+            }
+            severity="error"
+          >
             Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
           </Alert>
         );
       }
-      return <Alert severity="info">Session is inactive — activate it to send prompts.</Alert>;
+      return <Alert severity="info">Session is inactive — select it again to activate.</Alert>;
     }
     return <Alert severity="info">{backendLabel(selectedBackend)} is connected — send a prompt</Alert>;
   })();

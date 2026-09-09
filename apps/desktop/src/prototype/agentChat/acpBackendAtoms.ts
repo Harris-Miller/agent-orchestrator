@@ -687,6 +687,10 @@ export const deactivateSessionFn = acpRuntime
           status: 'inactive',
         })),
       });
+
+      if (get(selectedSessionIdAtom) === arg.sessionId) {
+        get.set(selectedSessionIdAtom, undefined);
+      }
     }),
   )
   .pipe(Atom.keepAlive);

@@ -147,11 +147,6 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
                 </Typography>
                 <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
               </Stack>
-              {item.toolKind !== undefined ? (
-                <Typography color="text.secondary" variant="caption">
-                  kind: {item.toolKind}
-                </Typography>
-              ) : null}
               {item.resultText !== undefined ? <ToolCallResult text={item.resultText} /> : null}
             </Stack>
           </Paper>

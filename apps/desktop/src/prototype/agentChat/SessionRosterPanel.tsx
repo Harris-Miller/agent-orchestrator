@@ -67,23 +67,6 @@ const backendIconSrc = (backend: AcpAgentBackend): string => {
   }
 };
 
-const statusButtonColor = (
-  status: SessionSnapshot['status'],
-  hasActivationError: boolean,
-): 'error' | 'inherit' | 'success' | 'warning' => {
-  if (hasActivationError) {
-    return 'error';
-  }
-  switch (status) {
-    case 'activating':
-      return 'warning';
-    case 'active':
-      return 'success';
-    case 'inactive':
-      return 'inherit';
-  }
-};
-
 const rosterEntrySession = (
   sessionId: string,
   sessions: Readonly<Record<string, SessionSnapshot>>,
@@ -113,23 +96,21 @@ const SessionRow: FC<{
   const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
-  const [statusHovered, setStatusHovered] = useState(false);
 
   const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
   const status = session?.status ?? 'inactive';
-  const hasActivationError = status === 'inactive' && session?.defects !== undefined && session.defects.length > 0;
-  const isActivating = status === 'activating';
   const displayTitle = entry.title ?? truncateSessionId(entry.sessionId);
   const menuOpen = menuAnchor !== null;
-  const idleStatusLabel = hasActivationError ? 'error' : status;
-  const statusActionLabel =
-    isActivating || !statusHovered ? idleStatusLabel : status === 'inactive' ? 'Activate' : 'Deactivate';
 
   const closeMenu = () => {
     setMenuAnchor(null);
   };
 
   const selectThisSession = () => {
+    if (status !== 'active' && status !== 'activating') {
+      activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+      return;
+    }
     selectSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
   };
 
@@ -148,7 +129,15 @@ const SessionRow: FC<{
         sx={sessionCardSx(selected)}
         tabIndex={0}
       >
-        <Stack direction="row" sx={{ alignItems: 'flex-start', gap: 0.5, px: 1.5, py: 1.25 }}>
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+          <Tooltip title={backendLabel(entry.backend)}>
+            <Box
+              alt=""
+              component="img"
+              src={backendIconSrc(entry.backend)}
+              sx={{ display: 'block', flexShrink: 0, height: 16, width: 16 }}
+            />
+          </Tooltip>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               sx={{
@@ -164,15 +153,6 @@ const SessionRow: FC<{
             >
               {displayTitle}
             </Typography>
-            {entry.title !== undefined ? (
-              <Typography
-                color="text.secondary"
-                sx={{ display: 'block', fontFamily: 'monospace', fontSize: '0.7rem', mt: 0.5 }}
-                variant="caption"
-              >
-                {truncateSessionId(entry.sessionId)}
-              </Typography>
-            ) : null}
           </Box>
           <IconButton
             aria-label="Session actions"
@@ -181,47 +161,10 @@ const SessionRow: FC<{
               setMenuAnchor(event.currentTarget);
             }}
             size="small"
-            sx={{ flexShrink: 0, mr: -0.5, mt: -0.5 }}
+            sx={{ flexShrink: 0, mr: -0.5 }}
           >
             <MoreHoriz fontSize="small" />
           </IconButton>
-        </Stack>
-        <Divider />
-        <Stack
-          direction="row"
-          spacing={0.75}
-          sx={{ alignItems: 'center', justifyContent: 'space-between', px: 1, py: 0.75 }}
-        >
-          <Button
-            color={statusButtonColor(status, hasActivationError)}
-            disabled={isActivating}
-            onClick={event => {
-              event.stopPropagation();
-              if (status === 'inactive') {
-                activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
-                return;
-              }
-              deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
-            }}
-            onMouseEnter={() => {
-              setStatusHovered(true);
-            }}
-            onMouseLeave={() => {
-              setStatusHovered(false);
-            }}
-            size="small"
-            variant="outlined"
-          >
-            {statusActionLabel}
-          </Button>
-          <Tooltip title={backendLabel(entry.backend)}>
-            <Box
-              alt=""
-              component="img"
-              src={backendIconSrc(entry.backend)}
-              sx={{ display: 'block', height: 16, width: 16 }}
-            />
-          </Tooltip>
         </Stack>
       </Paper>
 
@@ -232,7 +175,18 @@ const SessionRow: FC<{
         open={menuOpen}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
-        <Stack sx={{ p: 1 }}>
+        <Stack spacing={1} sx={{ p: 1 }}>
+          <Button
+            disabled={status !== 'active'}
+            onClick={() => {
+              closeMenu();
+              deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+            }}
+            size="small"
+            variant="outlined"
+          >
+            Deactivate
+          </Button>
           <Button
             color="error"
             disabled={status !== 'inactive'}

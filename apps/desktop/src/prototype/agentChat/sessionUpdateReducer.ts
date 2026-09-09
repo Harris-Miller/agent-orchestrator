@@ -27,10 +27,8 @@ export type ConfigOption = {
 };
 
 export type ChatItem =
-  | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
-  | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
-  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   | {
+      readonly command?: string;
       readonly id: string;
       readonly kind: 'tool_call';
       readonly resultText?: string;
@@ -39,6 +37,9 @@ export type ChatItem =
       readonly toolCallId: string;
       readonly toolKind?: string;
     }
+  | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
+  | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
+  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   | { readonly id: string; readonly kind: 'user_message'; readonly text: string };
 
 type ChatAccumulator = {
@@ -76,6 +77,13 @@ const extractTextFromContent = (content: unknown): string | undefined => {
     .filter((text): text is string => text !== undefined);
 
   return parts.length > 0 ? parts.join('\n') : undefined;
+};
+
+const extractRawInputCommand = (rawInput: unknown): string | undefined => {
+  if (!isRecord(rawInput) || typeof rawInput.command !== 'string') {
+    return undefined;
+  }
+  return rawInput.command;
 };
 
 const appendMessageChunk = (
@@ -245,8 +253,10 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
       const items = [
         ...accumulator.items,
         {
+          command: extractRawInputCommand(update.rawInput),
           id: update.toolCallId,
           kind: 'tool_call' as const,
+          resultText: extractTextFromContent(update.content),
           status,
           title: update.title,
           toolCallId: update.toolCallId,
@@ -264,6 +274,7 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
       }
 
       const existingIndex = accumulator.toolCallIndices.get(update.toolCallId);
+      const command = extractRawInputCommand(update.rawInput);
       const resultText = extractTextFromContent(update.content);
       const status = typeof update.status === 'string' ? update.status : undefined;
 
@@ -273,6 +284,7 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
           const items = [...accumulator.items];
           items[existingIndex] = {
             ...existing,
+            command: command ?? existing.command,
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
           };
@@ -283,6 +295,7 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
       const items = [
         ...accumulator.items,
         {
+          command,
           id: update.toolCallId,
           kind: 'tool_call' as const,
           resultText,

@@ -17,12 +17,38 @@ import type { ChatItem } from './sessionUpdateReducer.ts';
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
 const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
 
-const toolResultMarkdownSx = {
-  '& pre': { bgcolor: 'background.paper' },
+const toolResultShellSx = {
   bgcolor: 'action.hover',
   borderRadius: 1,
   color: 'text.secondary',
   p: 1.5,
+} as const;
+
+const toolCommandMarkdownSx = {
+  '& pre': {
+    bgcolor: 'transparent',
+    borderRadius: 0,
+    mb: 0,
+    overflow: 'hidden',
+    p: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
+  bgcolor: 'transparent',
+  p: 0,
+} as const;
+
+const toolResultMarkdownSx = {
+  '& code': { bgcolor: 'transparent' },
+  '& pre': {
+    bgcolor: 'transparent',
+    borderRadius: 0,
+    mb: 0,
+    overflow: 'auto',
+    p: 0,
+  },
+  bgcolor: 'transparent',
+  p: 0,
 } as const;
 
 const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
@@ -53,18 +79,26 @@ const MessageRow: FC<{ label: string; text: string; tone: 'agent' | 'user' }> = 
   </ListItem>
 );
 
-const ToolCallResult: FC<{ text: string }> = ({ text }) => {
+const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command, resultText }) => {
   const [expanded, setExpanded] = useState(false);
+  const hasCommand = command !== undefined && command.length > 0;
+  const hasResult = resultText !== undefined && resultText.length > 0;
+
+  if (!hasCommand && !hasResult) {
+    return null;
+  }
 
   return (
     <Stack spacing={0.25}>
       <Box
         sx={{
+          ...toolResultShellSx,
           maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
           overflow: expanded ? 'auto' : 'hidden',
         }}
       >
-        <ChatMarkdown sx={toolResultMarkdownSx} text={text} />
+        {hasCommand ? <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} /> : null}
+        {hasResult ? <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} /> : null}
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <IconButton
@@ -147,7 +181,9 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
                 </Typography>
                 <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
               </Stack>
-              {item.resultText !== undefined ? <ToolCallResult text={item.resultText} /> : null}
+              {item.command !== undefined || item.resultText !== undefined ? (
+                <ToolCallResult command={item.command} resultText={item.resultText} />
+              ) : null}
             </Stack>
           </Paper>
         </ListItem>

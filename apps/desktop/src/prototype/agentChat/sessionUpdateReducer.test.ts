@@ -12,4 +12,35 @@ describe('reduceSessionUpdate', () => {
 
     assert.deepStrictEqual(chatItemsFromAccumulator(next), []);
   });
+
+  it('keeps rawInput.command from tool_call and content from tool_call_update', () => {
+    const afterCall = reduceSessionUpdate(emptyChatAccumulator(), {
+      kind: 'execute',
+      rawInput: { command: 'gh pr view 11 --json title' },
+      sessionUpdate: 'tool_call',
+      status: 'pending',
+      title: 'Get PR metadata',
+      toolCallId: 'call_001',
+    });
+
+    const afterUpdate = reduceSessionUpdate(afterCall, {
+      content: [{ content: { text: '{"title":"hello"}', type: 'text' }, type: 'content' }],
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId: 'call_001',
+    });
+
+    assert.deepStrictEqual(chatItemsFromAccumulator(afterUpdate), [
+      {
+        command: 'gh pr view 11 --json title',
+        id: 'call_001',
+        kind: 'tool_call',
+        resultText: '{"title":"hello"}',
+        status: 'completed',
+        title: 'Get PR metadata',
+        toolCallId: 'call_001',
+        toolKind: 'execute',
+      },
+    ]);
+  });
 });

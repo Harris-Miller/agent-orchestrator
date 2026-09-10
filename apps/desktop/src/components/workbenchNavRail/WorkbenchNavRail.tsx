@@ -53,7 +53,7 @@ import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 
-export const SESSION_ROSTER_PANEL_WIDTH = 320;
+export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
 const truncateSessionId = (sessionId: string): string =>
   sessionId.length > 12 ? `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}` : sessionId;
@@ -220,7 +220,7 @@ const SessionRow: FC<{
   );
 };
 
-export const SessionRosterPanel: FC<{
+export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
   const roster = useAtomValue(unifiedSessionRosterAtom);

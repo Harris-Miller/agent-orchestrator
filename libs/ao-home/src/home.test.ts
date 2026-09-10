@@ -32,6 +32,7 @@ const notFound = (method: string, path: string) =>
 const mapFsLayer = (
   store: Map<string, FsEntry>,
   overrides: Partial<{
+    readFileString: (path: string) => Effect.Effect<string, PlatformError.PlatformError>;
     writeFileString: (path: string, data: string) => Effect.Effect<void, PlatformError.PlatformError>;
   }> = {},
 ) =>
@@ -41,13 +42,15 @@ const mapFsLayer = (
       Effect.sync(() => {
         store.set(path, { kind: 'dir' });
       }),
-    readFileString: path => {
-      const entry = store.get(path);
-      if (entry?.kind === 'file') {
-        return Effect.succeed(entry.content);
-      }
-      return Effect.fail(notFound('readFileString', path));
-    },
+    readFileString:
+      overrides.readFileString ??
+      (path => {
+        const entry = store.get(path);
+        if (entry?.kind === 'file') {
+          return Effect.succeed(entry.content);
+        }
+        return Effect.fail(notFound('readFileString', path));
+      }),
     writeFileString:
       overrides.writeFileString ??
       ((path, data) =>
@@ -74,7 +77,7 @@ describe('ao-home', () => {
     }).pipe(Effect.provide(services(new Map()))),
   );
 
-  it.effect('ensureHome creates the home directory', () =>
+  it.effect('ensureHome creates the Agent Orchestrator home', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const home = yield* ensureHome().pipe(Effect.provide(services(store)));
@@ -162,6 +165,29 @@ describe('ao-home', () => {
       const error = yield* writeSettings({}).pipe(Effect.provide(layer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
       assert.isFalse(store.has(SETTINGS));
+    }),
+  );
+
+  it.effect('readSettings fails the Effect on read I/O error', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>([
+        [HOME, { kind: 'dir' }],
+        [SETTINGS, { content: '{"theme":"dark"}\n', kind: 'file' }],
+      ]);
+      const layer = services(store, {
+        readFileString: () =>
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: 'PermissionDenied',
+              description: 'permission denied',
+              method: 'readFileString',
+              module: 'FileSystem',
+              pathOrDescriptor: SETTINGS,
+            }),
+          ),
+      });
+      const error = yield* readSettings().pipe(Effect.provide(layer), Effect.flip);
+      assert.strictEqual(error._tag, 'PlatformError');
     }),
   );
 });

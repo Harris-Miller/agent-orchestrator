@@ -1,7 +1,7 @@
 /**
  * PROTOTYPE — Winning settings UI (Variant A): dense category rail + grouped cards on `/settings`.
  * Verdict: A over B (row list) and C (inspector). Dense left nav per review.
- * Persistence (~/.agent-orchestrator) still open — in-memory stub state only.
+ * Persistence (~/.ao) still open — in-memory stub state only.
  */
 
 import ArrowBack from '@mui/icons-material/ArrowBack';

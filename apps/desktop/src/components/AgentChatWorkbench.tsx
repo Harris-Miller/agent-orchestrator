@@ -21,10 +21,10 @@ import {
 import { ThemeSelect } from '../theme/ThemeChoice.tsx';
 import { isRecord } from '../utils.ts';
 
-import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './leftPanel/SessionRosterPanel.tsx';
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
 import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';
 import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './wireLog/RpcWireLogPanel.tsx';
+import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 
@@ -163,11 +163,11 @@ export const AgentChatWorkbench: FC<{
           >
             <Allotment.Pane
               minSize={200}
-              preferredSize={SESSION_ROSTER_PANEL_WIDTH}
+              preferredSize={WORKBENCH_NAV_RAIL_WIDTH}
               snap
               visible={layout.sessionRosterOpen}
             >
-              <SessionRosterPanel
+              <WorkbenchNavRail
                 onClose={() => {
                   commitLayout({ sessionRosterOpen: false });
                 }}

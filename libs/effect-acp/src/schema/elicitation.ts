@@ -143,12 +143,20 @@ export class ElicitationCapabilities extends Schema.Opaque<ElicitationCapabiliti
   }),
 ) {}
 
+export class FileSystemCapabilities extends Schema.Opaque<FileSystemCapabilities>()(
+  Schema.Struct({
+    _meta: MetaField,
+    readTextFile: optional(Schema.Boolean),
+    writeTextFile: optional(Schema.Boolean),
+  }),
+) {}
+
 export class ClientCapabilities extends Schema.Opaque<ClientCapabilities>()(
   Schema.Struct({
     _meta: MetaField,
     auth: optional(Schema.Unknown),
     elicitation: optional(Schema.NullOr(ElicitationCapabilities)),
-    fs: optional(Schema.Unknown),
+    fs: optional(FileSystemCapabilities),
     sessionCapabilities: optional(Schema.NullOr(Schema.Unknown)),
     terminal: optional(Schema.Boolean),
   }),

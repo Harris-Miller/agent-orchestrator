@@ -54,6 +54,13 @@ describe('elicitation schemas', () => {
     assert.deepStrictEqual(decoded.elicitation, { form: {} });
   });
 
+  it('decodes clientCapabilities.fs', () => {
+    const decoded = Schema.decodeSync(ClientCapabilities)({
+      fs: { readTextFile: true, writeTextFile: false },
+    });
+    assert.deepStrictEqual(decoded.fs, { readTextFile: true, writeTextFile: false });
+  });
+
   it('clientSupportsFormElicitation requires present non-null form', () => {
     assert.strictEqual(clientSupportsFormElicitation({ elicitation: { form: {} } }), true);
     assert.strictEqual(clientSupportsFormElicitation({ elicitation: { form: null } }), false);

@@ -7,7 +7,8 @@ import { isRecord } from '../utils.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
-import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatAccumulator, SessionUsage } from './sessionUpdateReducer.ts';
+import { emptyChatAccumulator } from './sessionUpdateReducer.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
 
@@ -15,7 +16,6 @@ export type SessionStatus = 'activating' | 'active' | 'inactive';
 
 export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
-  readonly chatItems: readonly ChatItem[];
   /** Session cwd when known (create, handoff, or activate resolve). Absent until stamped. */
   readonly cwd?: string;
   /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
@@ -28,6 +28,7 @@ export type SessionSnapshot = {
   readonly sessionConfiguration?: unknown;
   readonly sessionId: string;
   readonly status: SessionStatus;
+  readonly transcript: ChatAccumulator;
   readonly usage?: SessionUsage;
 };
 
@@ -184,9 +185,9 @@ export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
 });
 
 export const initialSessionSnapshot = (sessionId: string, status: SessionStatus = 'inactive'): SessionSnapshot => ({
-  chatItems: [],
   sessionId,
   status,
+  transcript: emptyChatAccumulator(),
 });
 
 export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | undefined => {

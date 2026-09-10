@@ -42,7 +42,7 @@ export type ChatItem =
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   | { readonly id: string; readonly kind: 'user_message'; readonly text: string };
 
-type ChatAccumulator = {
+export type ChatAccumulator = {
   readonly items: readonly ChatItem[];
   readonly messageIndices: ReadonlyMap<string, number>;
   readonly toolCallIndices: ReadonlyMap<string, number>;
@@ -339,5 +339,3 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
       return accumulator;
   }
 };
-
-export const chatItemsFromAccumulator = (accumulator: ChatAccumulator): readonly ChatItem[] => accumulator.items;

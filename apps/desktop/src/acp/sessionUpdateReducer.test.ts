@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { chatItemsFromAccumulator, emptyChatAccumulator, reduceSessionUpdate } from './sessionUpdateReducer.ts';
+import { emptyChatAccumulator, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
@@ -10,7 +10,7 @@ describe('reduceSessionUpdate', () => {
       updatedAt: '2026-09-01T00:00:00Z',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(next), []);
+    assert.deepStrictEqual(next.items, []);
   });
 
   it('keeps rawInput.command from tool_call and content from tool_call_update', () => {
@@ -30,7 +30,7 @@ describe('reduceSessionUpdate', () => {
       toolCallId: 'call_001',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(afterUpdate), [
+    assert.deepStrictEqual(afterUpdate.items, [
       {
         command: 'gh pr view 11 --json title',
         id: 'call_001',
@@ -52,7 +52,7 @@ describe('reduceSessionUpdate', () => {
       toolCallId: 'call_002',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(bash), [
+    assert.deepStrictEqual(bash.items, [
       {
         command: undefined,
         id: 'call_002',
@@ -72,7 +72,7 @@ describe('reduceSessionUpdate', () => {
       toolCallId: 'call_003',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(other), [
+    assert.deepStrictEqual(other.items, [
       {
         command: undefined,
         id: 'call_003',

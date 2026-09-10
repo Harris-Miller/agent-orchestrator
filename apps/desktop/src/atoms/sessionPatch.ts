@@ -5,6 +5,7 @@ import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../ac
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
+import { emptyChatAccumulator } from '../acp/sessionUpdateReducer.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
@@ -19,7 +20,7 @@ export const syncProviderConfigFromSessionConfiguration = (
 };
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
-type SessionActivationCarry = Partial<Pick<SessionSnapshot, 'availableCommands' | 'chatItems' | 'cwd' | 'usage'>>;
+type SessionActivationCarry = Partial<Pick<SessionSnapshot, 'availableCommands' | 'cwd' | 'transcript' | 'usage'>>;
 
 export const applySessionActivationResult = (
   sessionId: string,
@@ -29,7 +30,6 @@ export const applySessionActivationResult = (
   const selection = selectionFromSessionConfiguration(result);
   return {
     availableCommands: existing?.availableCommands,
-    chatItems: existing?.chatItems ?? [],
     cwd: existing?.cwd,
     pendingClientRequest: false,
     selectedModeId: selection.selectedModeId,
@@ -37,6 +37,7 @@ export const applySessionActivationResult = (
     sessionConfiguration: result,
     sessionId,
     status: 'active',
+    transcript: existing?.transcript ?? emptyChatAccumulator(),
     usage: existing?.usage,
   };
 };

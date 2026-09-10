@@ -10,10 +10,10 @@ import {
 } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { appendBackendUserChatItem } from '../acp/backendHarness.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
+import { appendUserChatMessage } from '../acp/sessionUpdateReducer.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -63,12 +63,12 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    const chatItems = appendBackendUserChatItem(launchTarget, sessionId, trimmed);
+    const transcript = appendUserChatMessage(session.transcript, trimmed);
     get.set(backendHarnessStateAtom(launchTarget), {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, current => ({
         ...current,
-        chatItems,
+        transcript,
       })),
     });
 
@@ -113,7 +113,7 @@ export const handoffSessionAtomFn = acpRuntime
         yield* promptPinnedSession(arg.sourceLaunchTarget, get, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
 
         const sourceChatItems = get(backendHarnessStateAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
-          .chatItems;
+          .transcript.items;
         const handoffDocument = extractHandoffDocument(sourceChatItems);
         if (handoffDocument === undefined) {
           return yield* new HandoffError({ message: 'Handoff document missing from source agent response' });

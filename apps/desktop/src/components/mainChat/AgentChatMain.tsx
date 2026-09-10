@@ -109,7 +109,7 @@ export const AgentChatMain: FC<{
   const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
 
-  const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
+  const chatItems = useMemo(() => selectedSession?.transcript.items ?? [], [selectedSession?.transcript.items]);
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionConfiguration);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;

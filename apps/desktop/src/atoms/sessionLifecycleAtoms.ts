@@ -198,7 +198,7 @@ export const activateSessionAtomFn = acpRuntime
         return;
       }
 
-      const hasHistory = existingSession !== undefined && existingSession.chatItems.length > 0;
+      const hasHistory = existingSession !== undefined && existingSession.transcript.items.length > 0;
       yield* Effect.logInfo('Activating session', arg.launchTarget, arg.sessionId, {
         cwd,
         mode: hasHistory ? 'resume' : 'load',

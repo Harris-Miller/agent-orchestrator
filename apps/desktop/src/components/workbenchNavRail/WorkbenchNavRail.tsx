@@ -4,6 +4,7 @@ import Delete from '@mui/icons-material/Delete';
 import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
 import MoreHoriz from '@mui/icons-material/MoreHoriz';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -18,6 +19,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
@@ -25,6 +29,7 @@ import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
@@ -48,7 +53,7 @@ import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 
-export const SESSION_ROSTER_PANEL_WIDTH = 320;
+export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
 const truncateSessionId = (sessionId: string): string =>
   sessionId.length > 12 ? `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}` : sessionId;
@@ -215,7 +220,7 @@ const SessionRow: FC<{
   );
 };
 
-export const SessionRosterPanel: FC<{
+export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
   const roster = useAtomValue(unifiedSessionRosterAtom);
@@ -224,6 +229,7 @@ export const SessionRosterPanel: FC<{
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
+  const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<undefined | UnifiedRosterEntry>(undefined);
   const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
@@ -382,6 +388,20 @@ export const SessionRosterPanel: FC<{
               ))}
             </Box>
           )}
+        </Box>
+        <Divider />
+        <Box sx={{ flexShrink: 0, p: 1 }}>
+          <ListItemButton
+            onClick={() => {
+              navigate({ to: '/settings' }).catch(() => undefined);
+            }}
+            sx={{ borderRadius: 1 }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <SettingsOutlined fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Settings" />
+          </ListItemButton>
         </Box>
       </Box>
 

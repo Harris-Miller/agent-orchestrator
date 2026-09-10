@@ -172,7 +172,8 @@ const SessionStateContent: FC<{
   readonly showSessionDetails: boolean;
 }> = ({ availableCommands, initializeResult, selectedModeId, selectedModelId, session, showSessionDetails }) => {
   const initialize = normalizeInitialize(initializeResult);
-  const sessionState = session?.sessionState !== undefined ? normalizeSession(session.sessionState) : undefined;
+  const sessionConfiguration =
+    session?.sessionConfiguration !== undefined ? normalizeSession(session.sessionConfiguration) : undefined;
   const capabilityGroups = initialize === undefined ? [] : groupCapabilities(initialize.capabilities);
 
   return (
@@ -274,8 +275,8 @@ const SessionStateContent: FC<{
         <>
           <Divider />
 
-          <Section pending={sessionState === undefined} title="Session">
-            {sessionState !== undefined ? (
+          <Section pending={sessionConfiguration === undefined} title="Session">
+            {sessionConfiguration !== undefined ? (
               <Stack spacing={1.5}>
                 {session?.sessionId !== undefined ? (
                   <Chip
@@ -303,8 +304,8 @@ const SessionStateContent: FC<{
                     Models
                   </Typography>
                   <OptionChips
-                    currentId={selectedModelId ?? sessionState.models.currentId}
-                    options={sessionState.models.options}
+                    currentId={selectedModelId ?? sessionConfiguration.models.currentId}
+                    options={sessionConfiguration.models.options}
                   />
                 </Stack>
 
@@ -313,18 +314,18 @@ const SessionStateContent: FC<{
                     Modes
                   </Typography>
                   <OptionChips
-                    currentId={selectedModeId ?? sessionState.modes.currentId}
-                    options={sessionState.modes.options}
+                    currentId={selectedModeId ?? sessionConfiguration.modes.currentId}
+                    options={sessionConfiguration.modes.options}
                   />
                 </Stack>
 
-                {sessionState.configOptions.length > 0 ? (
+                {sessionConfiguration.configOptions.length > 0 ? (
                   <Stack spacing={0.75}>
                     <Typography color="text.secondary" variant="caption">
                       Config options
                     </Typography>
                     <Stack spacing={1}>
-                      {sessionState.configOptions.map(option => (
+                      {sessionConfiguration.configOptions.map(option => (
                         <ConfigOptionCard key={option.id} option={option} />
                       ))}
                     </Stack>

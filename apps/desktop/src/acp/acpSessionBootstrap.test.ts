@@ -78,7 +78,7 @@ describe('normalizeModes', () => {
 
 describe('applySetConfigOptionResult', () => {
   it('merges partial config option updates while preserving choices', () => {
-    const sessionState = {
+    const sessionConfiguration = {
       configOptions: [
         {
           currentValue: 'old-model',
@@ -104,8 +104,8 @@ describe('applySetConfigOptionResult', () => {
       configOptions: [{ currentValue: 'echo-model-verbose', id: 'model', name: 'Model', type: 'select' }],
     };
 
-    const applied = applySetConfigOptionResult(sessionState, result);
-    const state = applied.sessionState as Record<string, unknown>;
+    const applied = applySetConfigOptionResult(sessionConfiguration, result);
+    const state = applied.sessionConfiguration as Record<string, unknown>;
     const configOptions = state.configOptions as readonly Record<string, unknown>[];
 
     assert.strictEqual(configOptions.length, 2);
@@ -171,7 +171,7 @@ describe('normalizeSelectableConfigOptions', () => {
 
 describe('patchConfigOptionValue', () => {
   it('updates currentValue without dropping options', () => {
-    const sessionState = {
+    const sessionConfiguration = {
       configOptions: [
         {
           currentValue: 'old-model',
@@ -185,7 +185,10 @@ describe('patchConfigOptionValue', () => {
       ],
     };
 
-    const patched = patchConfigOptionValue(sessionState, 'model', 'echo-model-verbose') as Record<string, unknown>;
+    const patched = patchConfigOptionValue(sessionConfiguration, 'model', 'echo-model-verbose') as Record<
+      string,
+      unknown
+    >;
     const configOptions = patched.configOptions as readonly Record<string, unknown>[];
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
@@ -231,11 +234,11 @@ describe('normalizeSessionInfoFromNew', () => {
 describe('groupAndSortSessionsByCwd', () => {
   it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { backend: 'gemini-cli', cwd: '/old', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
-      { backend: 'codex-acp', cwd: '/new', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
-      { backend: 'claude-agent-acp', cwd: '/new', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { backend: 'gemini-cli', cwd: '/new', sessionId: 'd' },
-      { backend: 'gemini-cli', cwd: '/mid', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'gemini-cli', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'gemini-cli', sessionId: 'd' },
+      { cwd: '/mid', launchTarget: 'gemini-cli', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);
@@ -251,8 +254,8 @@ describe('groupAndSortSessionsByCwd', () => {
 
   it('tie-breaks equal updatedAt by sessionId', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { backend: 'codex-acp', cwd: '/x', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
-      { backend: 'codex-acp', cwd: '/x', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);

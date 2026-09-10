@@ -4,7 +4,7 @@ import { isRecord } from '../utils.ts';
 
 import type { NormalizedConfigChoice, NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
+import type { AgentLaunchTarget } from './agentHarness.ts';
 
 const PROVIDER_CONFIG_KEY_PREFIX = 'acp-provider-config:';
 
@@ -21,7 +21,7 @@ export type ProviderConfigStored = {
   readonly defaults: Readonly<Record<string, string>>;
 };
 
-const providerConfigKey = (backend: AcpAgentBackend): string => `${PROVIDER_CONFIG_KEY_PREFIX}${backend}`;
+const providerConfigKey = (backend: AgentLaunchTarget): string => `${PROVIDER_CONFIG_KEY_PREFIX}${backend}`;
 
 const parseChoices = (value: unknown): readonly NormalizedConfigChoice[] | undefined => {
   if (!Array.isArray(value)) {
@@ -142,7 +142,7 @@ export const mergeProviderConfigRefresh = (
   return { catalog, defaults };
 };
 
-export const readProviderConfig = (backend: AcpAgentBackend): ProviderConfigStored | undefined => {
+export const readProviderConfig = (backend: AgentLaunchTarget): ProviderConfigStored | undefined => {
   try {
     const raw = localStorage.getItem(providerConfigKey(backend));
     if (raw == null) {
@@ -154,7 +154,7 @@ export const readProviderConfig = (backend: AcpAgentBackend): ProviderConfigStor
   }
 };
 
-export const persistProviderConfig = (backend: AcpAgentBackend, stored: ProviderConfigStored): void => {
+export const persistProviderConfig = (backend: AgentLaunchTarget, stored: ProviderConfigStored): void => {
   localStorage.setItem(providerConfigKey(backend), JSON.stringify(stored));
 };
 
@@ -163,7 +163,7 @@ export const persistProviderConfig = (backend: AcpAgentBackend, stored: Provider
  * Seeds defaults on first write; preserves valid defaults on later refreshes.
  */
 export const refreshCatalogFromSessionConfiguration = (
-  backend: AcpAgentBackend,
+  backend: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ): ProviderConfigStored | undefined => {
   const selectable = normalizeSelectableConfigOptions(sessionConfiguration);
@@ -178,7 +178,7 @@ export const refreshCatalogFromSessionConfiguration = (
 
 /** Replace harness defaults with the given values; keeps existing catalog. */
 export const saveHarnessDefaults = (
-  backend: AcpAgentBackend,
+  backend: AgentLaunchTarget,
   values: Readonly<Record<string, string>>,
 ): ProviderConfigStored => {
   const existing = readProviderConfig(backend) ?? { catalog: [], defaults: {} };

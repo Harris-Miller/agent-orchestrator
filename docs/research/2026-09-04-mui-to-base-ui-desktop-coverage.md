@@ -28,7 +28,7 @@ Primary (Base UI):
 Primary (this repo):
 
 - Deps: `apps/desktop/package.json` (`@mui/material`, `@mui/icons-material`, `@emotion/*`; **no** Tailwind / `@base-ui/react` today)
-- Theme shell: `apps/desktop/src/App.tsx`, `apps/desktop/src/theme.ts`
+- Theme shell: `apps/desktop/src/App.tsx`, `apps/desktop/src/theme/theme.ts`
 - Gap usage sites under `apps/desktop/src/components/` and `apps/desktop/src/routes/` (cited per section)
 
 Method: inventory every `@mui/material` / `@mui/icons-material` import under `apps/desktop/src`, map to the Base UI catalog from `llms.txt`, then re-read gap call sites.

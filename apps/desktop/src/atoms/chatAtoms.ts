@@ -10,25 +10,27 @@ import {
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import { appendBackendUserChatItem, getAgentHandle, sendPrompt, setConfigOption } from '../acp/agentHarness.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { defaultsFromSelectable, saveHarnessDefaults } from '../acp/providerConfigStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendStateAtom, providerConfigAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
+import { backendHarnessStateAtom, providerConfigAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
+
+export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
 export const sendChatItemFn = acpRuntime
   .fn(
     Effect.fn('sendChatItemFn', { root: true })(function* (
-      arg: { backend: AcpAgentBackend; text: string },
+      arg: { backend: AgentLaunchTarget; text: string },
       get: AcpAtomGet,
     ) {
       const trimmed = arg.text.trim();
       const sessionId = get(selectedSessionIdAtom);
-      const snapshot = get(backendStateAtom(arg.backend));
+      const snapshot = get(backendHarnessStateAtom(arg.backend));
       const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
       if (trimmed.length === 0 || session?.status !== 'active') {
@@ -41,7 +43,7 @@ export const sendChatItemFn = acpRuntime
       });
 
       const chatItems = appendBackendUserChatItem(arg.backend, session.sessionId, trimmed);
-      get.set(backendStateAtom(arg.backend), {
+      get.set(backendHarnessStateAtom(arg.backend), {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
           ...current,
@@ -70,7 +72,7 @@ export const respondElicitationFn = acpRuntime
     Effect.fnUntraced(
       function* (
         arg: {
-          backend: AcpAgentBackend;
+          backend: AgentLaunchTarget;
           response: CreateElicitationResponseBody;
           sessionId: string;
         },
@@ -80,13 +82,13 @@ export const respondElicitationFn = acpRuntime
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
         });
-        const snapshot = get(backendStateAtom(arg.backend));
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
         const pending = snapshot.sessions[arg.sessionId].pendingElicitation;
         if (pending === undefined) {
           return;
         }
         pending.resolve(arg.response);
-        get.set(backendStateAtom(arg.backend), {
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...snapshot,
           sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
             ...current,
@@ -107,7 +109,7 @@ export const respondPermissionFn = acpRuntime
     Effect.fnUntraced(
       function* (
         arg: {
-          backend: AcpAgentBackend;
+          backend: AgentLaunchTarget;
           optionId: string;
           sessionId: string;
         },
@@ -117,13 +119,13 @@ export const respondPermissionFn = acpRuntime
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
         });
-        const snapshot = get(backendStateAtom(arg.backend));
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
         const pending = snapshot.sessions[arg.sessionId].pendingPermission;
         if (pending === undefined) {
           return;
         }
         pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
-        get.set(backendStateAtom(arg.backend), {
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...snapshot,
           sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
             ...current,
@@ -142,13 +144,13 @@ export const respondPermissionFn = acpRuntime
 export const setConfigOptionFn = acpRuntime
   .fn(
     Effect.fn('setConfigOptionFn', { root: true })(function* (
-      arg: { backend: AcpAgentBackend; configId: string; value: string },
+      arg: { backend: AgentLaunchTarget; configId: string; value: string },
       get: AcpAtomGet,
     ) {
       const sessionId = get(selectedSessionIdAtom);
-      const snapshot = get(backendStateAtom(arg.backend));
+      const snapshot = get(backendHarnessStateAtom(arg.backend));
       const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
-      const currentValue = normalizeConfigOptions(session?.sessionState).find(
+      const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(
         option => option.id === arg.configId,
       )?.currentValue;
 
@@ -163,17 +165,17 @@ export const setConfigOptionFn = acpRuntime
 
       const previousModeId = session.selectedModeId;
       const previousModelId = session.selectedModelId;
-      const previousSessionState = session.sessionState;
-      const patchedSessionState = patchConfigOptionValue(session.sessionState, arg.configId, arg.value);
+      const previousSessionState = session.sessionConfiguration;
+      const patchedSessionState = patchConfigOptionValue(session.sessionConfiguration, arg.configId, arg.value);
       const selection = selectionFromSessionConfiguration(patchedSessionState);
 
-      get.set(backendStateAtom(arg.backend), {
+      get.set(backendHarnessStateAtom(arg.backend), {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
           ...current,
           selectedModeId: selection.selectedModeId ?? current.selectedModeId,
           selectedModelId: selection.selectedModelId ?? current.selectedModelId,
-          sessionState: patchedSessionState,
+          sessionConfiguration: patchedSessionState,
         })),
       });
 
@@ -184,16 +186,19 @@ export const setConfigOptionFn = acpRuntime
         }
 
         const result = yield* setConfigOption(agent, session.sessionId, arg.configId, arg.value);
-        const currentSnapshot = get(backendStateAtom(arg.backend));
-        const applied = applySetConfigOptionResult(currentSnapshot.sessions[session.sessionId].sessionState, result);
-        syncProviderConfigFromSessionConfiguration(get, arg.backend, applied.sessionState);
-        get.set(backendStateAtom(arg.backend), {
+        const currentSnapshot = get(backendHarnessStateAtom(arg.backend));
+        const applied = applySetConfigOptionResult(
+          currentSnapshot.sessions[session.sessionId].sessionConfiguration,
+          result,
+        );
+        syncProviderConfigFromSessionConfiguration(get, arg.backend, applied.sessionConfiguration);
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...currentSnapshot,
           sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({
             ...current,
             selectedModeId: applied.selectedModeId ?? current.selectedModeId,
             selectedModelId: applied.selectedModelId ?? current.selectedModelId,
-            sessionState: applied.sessionState,
+            sessionConfiguration: applied.sessionConfiguration,
           })),
         });
       });
@@ -202,14 +207,18 @@ export const setConfigOptionFn = acpRuntime
         Effect.tapError(error =>
           Effect.gen(function* () {
             yield* Effect.logError('setConfigOptionFn failed; rolling back', arg.backend, arg.configId, error);
-            get.set(backendStateAtom(arg.backend), {
-              ...get(backendStateAtom(arg.backend)),
-              sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, session.sessionId, current => ({
-                ...current,
-                selectedModeId: previousModeId,
-                selectedModelId: previousModelId,
-                sessionState: previousSessionState,
-              })),
+            get.set(backendHarnessStateAtom(arg.backend), {
+              ...get(backendHarnessStateAtom(arg.backend)),
+              sessions: patchSession(
+                get(backendHarnessStateAtom(arg.backend)).sessions,
+                session.sessionId,
+                current => ({
+                  ...current,
+                  selectedModeId: previousModeId,
+                  selectedModelId: previousModelId,
+                  sessionConfiguration: previousSessionState,
+                }),
+              ),
             });
           }),
         ),
@@ -219,16 +228,16 @@ export const setConfigOptionFn = acpRuntime
   .pipe(Atom.keepAlive);
 
 export const saveHarnessDefaultsFn = acpRuntime
-  .fn((arg: { backend: AcpAgentBackend }, get) =>
+  .fn((arg: { backend: AgentLaunchTarget }, get) =>
     Effect.sync(() => {
       const sessionId = get(selectedSessionIdAtom);
-      const snapshot = get(backendStateAtom(arg.backend));
+      const snapshot = get(backendHarnessStateAtom(arg.backend));
       const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
       if (session?.status !== 'active') {
         return;
       }
 
-      const values = defaultsFromSelectable(normalizeSelectableConfigOptions(session.sessionState));
+      const values = defaultsFromSelectable(normalizeSelectableConfigOptions(session.sessionConfiguration));
       if (Object.keys(values).length === 0) {
         return;
       }

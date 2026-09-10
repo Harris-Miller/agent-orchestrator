@@ -3,16 +3,16 @@ import { Effect } from 'effect';
 
 import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import { getAgentHandle } from '../acp/agentHarness.ts';
 import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
+import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: AcpAtomGet,
-  backend: AcpAgentBackend,
+  backend: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
   const next = refreshCatalogFromSessionConfiguration(backend, sessionConfiguration);
@@ -31,8 +31,8 @@ export const applySessionActivationResult = (
     pendingClientRequest: false,
     selectedModeId: selection.selectedModeId,
     selectedModelId: selection.selectedModelId,
+    sessionConfiguration: result,
     sessionId,
-    sessionState: result,
     status: 'active',
     usage: existing?.usage,
   };
@@ -56,13 +56,13 @@ export const patchSession = (
 };
 
 export const withSessionClientRequest = <A, E, R>(
-  backend: AcpAgentBackend,
+  backend: AgentLaunchTarget,
   get: AcpAtomGet,
   sessionId: string,
   rpc: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
-    const snapshot = get(backendStateAtom(backend));
+    const snapshot = get(backendHarnessStateAtom(backend));
     const session = snapshot.sessions[sessionId];
     const agent = getAgentHandle(backend);
 
@@ -83,7 +83,7 @@ export const withSessionClientRequest = <A, E, R>(
       return undefined as A;
     }
 
-    get.set(backendStateAtom(backend), {
+    get.set(backendHarnessStateAtom(backend), {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, current => ({
         ...current,
@@ -94,8 +94,8 @@ export const withSessionClientRequest = <A, E, R>(
     return yield* rpc.pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          const currentSnapshot = get(backendStateAtom(backend));
-          get.set(backendStateAtom(backend), {
+          const currentSnapshot = get(backendHarnessStateAtom(backend));
+          get.set(backendHarnessStateAtom(backend), {
             ...currentSnapshot,
             sessions: patchSession(currentSnapshot.sessions, sessionId, current => ({
               ...current,

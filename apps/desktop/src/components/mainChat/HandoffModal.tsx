@@ -11,9 +11,9 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { backendLabel } from '../../acp/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel } from '../../acp/acpSessionBootstrap.ts';
 import type { NormalizedConfigOption } from '../../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
@@ -42,19 +42,22 @@ const valuesFromOptions = (options: readonly NormalizedConfigOption[]): Record<s
 };
 
 const initialBackend = (
-  readyBackends: readonly AcpAgentBackend[],
-  sourceBackend: AcpAgentBackend,
-): AcpAgentBackend | undefined => (readyBackends.includes(sourceBackend) ? sourceBackend : readyBackends[0]);
+  readyBackends: readonly AgentLaunchTarget[],
+  sourceBackend: AgentLaunchTarget,
+): AgentLaunchTarget | undefined => (readyBackends.includes(sourceBackend) ? sourceBackend : readyBackends[0]);
 
 export const HandoffModal: FC<{
-  readonly getProviderConfig: (backend: AcpAgentBackend) => ProviderConfigStored | undefined;
+  readonly getProviderConfig: (backend: AgentLaunchTarget) => ProviderConfigStored | undefined;
   readonly onCancel: () => void;
-  readonly onConfirm: (arg: { configValues: Readonly<Record<string, string>>; targetBackend: AcpAgentBackend }) => void;
+  readonly onConfirm: (arg: {
+    configValues: Readonly<Record<string, string>>;
+    targetBackend: AgentLaunchTarget;
+  }) => void;
   readonly open: boolean;
-  readonly readyBackends: readonly AcpAgentBackend[];
-  readonly sourceBackend: AcpAgentBackend;
+  readonly readyBackends: readonly AgentLaunchTarget[];
+  readonly sourceBackend: AgentLaunchTarget;
 }> = ({ getProviderConfig, onCancel, onConfirm, open, readyBackends, sourceBackend }) => {
-  const [targetBackend, setTargetBackend] = useState<AcpAgentBackend | undefined>(() =>
+  const [targetBackend, setTargetBackend] = useState<AgentLaunchTarget | undefined>(() =>
     initialBackend(readyBackends, sourceBackend),
   );
   const [configOptions, setConfigOptions] = useState<readonly NormalizedConfigOption[]>(() => {
@@ -83,7 +86,7 @@ export const HandoffModal: FC<{
             >
               {readyBackends.map(backend => (
                 <MenuItem key={backend} value={backend}>
-                  {backendLabel(backend)}
+                  {agentLaunchTargetLabel(backend)}
                 </MenuItem>
               ))}
             </Select>

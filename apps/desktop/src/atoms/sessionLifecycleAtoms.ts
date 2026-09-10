@@ -3,7 +3,7 @@ import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
-  ALL_ACP_BACKENDS,
+  ALL_AGENT_LAUNCH_TARGETS,
   applySetConfigOptionResult,
   defectsFromActivationFailure,
   normalizeSessionInfoFromNew,
@@ -11,7 +11,7 @@ import {
   patchConfigOptionValue,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import {
   closeSession,
   createSession,
@@ -28,7 +28,7 @@ import { readPersistedSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import {
-  backendStateAtom,
+  backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
   providerConfigAtom,
   selectedSessionIdAtom,
@@ -42,7 +42,7 @@ import {
 } from './sessionPatch.ts';
 
 export const selectSessionFn = acpRuntime
-  .fn((arg: { backend: AcpAgentBackend; sessionId: string }, get) =>
+  .fn((arg: { backend: AgentLaunchTarget; sessionId: string }, get) =>
     Effect.sync(() => {
       selectSession(get, arg.backend, arg.sessionId);
     }),
@@ -52,7 +52,7 @@ export const selectSessionFn = acpRuntime
 export const refreshSessionRosterFn = acpRuntime
   .fn(
     Effect.fn('refreshSessionRosterFn', { root: true })(
-      function* (backend: AcpAgentBackend, get: AcpAtomGet) {
+      function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': backend,
         });
@@ -64,8 +64,8 @@ export const refreshSessionRosterFn = acpRuntime
 
         yield* Effect.logDebug('Refreshing session roster', backend);
         const listResult = yield* listSessions(agent);
-        const snapshot = get(backendStateAtom(backend));
-        get.set(backendStateAtom(backend), {
+        const snapshot = get(backendHarnessStateAtom(backend));
+        get.set(backendHarnessStateAtom(backend), {
           ...snapshot,
           sessionRoster: normalizeSessionRoster(listResult),
         });
@@ -81,7 +81,7 @@ export const refreshAllSessionRostersFn = acpRuntime
   .fn(
     Effect.fn('refreshAllSessionRostersFn', { root: true })(function* (_arg: undefined, get: AcpAtomGet) {
       yield* Effect.forEach(
-        ALL_ACP_BACKENDS,
+        ALL_AGENT_LAUNCH_TARGETS,
         backend =>
           Effect.gen(function* () {
             const agent = getAgentHandle(backend);
@@ -89,8 +89,8 @@ export const refreshAllSessionRostersFn = acpRuntime
               return;
             }
             const listResult = yield* listSessions(agent);
-            const snapshot = get(backendStateAtom(backend));
-            get.set(backendStateAtom(backend), {
+            const snapshot = get(backendHarnessStateAtom(backend));
+            get.set(backendHarnessStateAtom(backend), {
               ...snapshot,
               sessionRoster: normalizeSessionRoster(listResult),
             });
@@ -105,7 +105,7 @@ export const refreshAllSessionRostersFn = acpRuntime
 export const createSessionFn = acpRuntime
   .fn(
     Effect.fn('createSessionFn', { root: true })(
-      function* (arg: { backend: AcpAgentBackend; cwd: string }, get: AcpAtomGet) {
+      function* (arg: { backend: AgentLaunchTarget; cwd: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
         });
@@ -122,26 +122,26 @@ export const createSessionFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.backend, result);
 
-        let sessionState: unknown = result;
+        let sessionConfiguration: unknown = result;
         const { defaults } = get(providerConfigAtom(arg.backend)) ?? { defaults: {} };
-        for (const diff of harnessDefaultDiffs(sessionState, defaults)) {
-          const patched = patchConfigOptionValue(sessionState, diff.configId, diff.value);
+        for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
+          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
           const exit = yield* Effect.exit(setConfigOption(agent, sessionId, diff.configId, diff.value));
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Default config option apply failed during create', arg.backend, diff.configId);
             break;
           }
-          const { sessionState: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionState = nextSessionState;
+          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
+          sessionConfiguration = nextSessionState;
         }
 
-        syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionState);
+        syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionConfiguration);
 
-        const session = applySessionActivationResult(sessionId, sessionState);
+        const session = applySessionActivationResult(sessionId, sessionConfiguration);
         const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
-        const snapshot = get(backendStateAtom(arg.backend));
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
 
-        get.set(backendStateAtom(arg.backend), {
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...snapshot,
           sessionRoster:
             rosterEntry === undefined ? snapshot.sessionRoster : upsertRosterEntry(snapshot.sessionRoster, rosterEntry),
@@ -159,7 +159,7 @@ export const createSessionFn = acpRuntime
 export const activateSessionFn = acpRuntime
   .fn(
     Effect.fn('activateSessionFn', { root: true })(function* (
-      arg: { backend: AcpAgentBackend; sessionId: string },
+      arg: { backend: AgentLaunchTarget; sessionId: string },
       get: AcpAtomGet,
     ) {
       yield* Effect.annotateCurrentSpan({
@@ -172,14 +172,14 @@ export const activateSessionFn = acpRuntime
         return;
       }
 
-      const snapshot = get(backendStateAtom(arg.backend));
+      const snapshot = get(backendHarnessStateAtom(arg.backend));
       const hasHistory = arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].chatItems.length > 0;
       yield* Effect.logInfo('Activating session', arg.backend, arg.sessionId, {
         mode: hasHistory ? 'resume' : 'load',
       });
 
       selectSession(get, arg.backend, arg.sessionId);
-      get.set(backendStateAtom(arg.backend), {
+      get.set(backendHarnessStateAtom(arg.backend), {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
           ...session,
@@ -194,8 +194,8 @@ export const activateSessionFn = acpRuntime
 
       if (Exit.isFailure(exit)) {
         yield* Effect.logError('Session activation failed', arg.backend, arg.sessionId);
-        const current = get(backendStateAtom(arg.backend));
-        get.set(backendStateAtom(arg.backend), {
+        const current = get(backendHarnessStateAtom(arg.backend));
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...current,
           sessions: patchSession(current.sessions, arg.sessionId, session => ({
             ...session,
@@ -208,9 +208,9 @@ export const activateSessionFn = acpRuntime
 
       const persistedUsage = readPersistedSessionUsage(arg.sessionId);
       syncProviderConfigFromSessionConfiguration(get, arg.backend, exit.value);
-      get.set(backendStateAtom(arg.backend), {
-        ...get(backendStateAtom(arg.backend)),
-        sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
+      get.set(backendHarnessStateAtom(arg.backend), {
+        ...get(backendHarnessStateAtom(arg.backend)),
+        sessions: patchSession(get(backendHarnessStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
           ...applySessionActivationResult(arg.sessionId, exit.value, session),
           usage: persistedUsage,
         })),
@@ -223,7 +223,7 @@ export const activateSessionFn = acpRuntime
 export const deactivateSessionFn = acpRuntime
   .fn(
     Effect.fn('deactivateSessionFn', { root: true })(
-      function* (arg: { backend: AcpAgentBackend; sessionId: string }, get: AcpAtomGet) {
+      function* (arg: { backend: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
@@ -237,9 +237,9 @@ export const deactivateSessionFn = acpRuntime
         yield* Effect.logInfo('Deactivating session', arg.backend, arg.sessionId);
         yield* closeSession(agent, arg.sessionId);
 
-        get.set(backendStateAtom(arg.backend), {
-          ...get(backendStateAtom(arg.backend)),
-          sessions: patchSession(get(backendStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
+        get.set(backendHarnessStateAtom(arg.backend), {
+          ...get(backendHarnessStateAtom(arg.backend)),
+          sessions: patchSession(get(backendHarnessStateAtom(arg.backend)).sessions, arg.sessionId, session => ({
             ...session,
             status: 'inactive',
           })),
@@ -260,7 +260,7 @@ export const deactivateSessionFn = acpRuntime
 export const deleteSessionFn = acpRuntime
   .fn(
     Effect.fn('deleteSessionFn', { root: true })(
-      function* (arg: { backend: AcpAgentBackend; sessionId: string }, get: AcpAtomGet) {
+      function* (arg: { backend: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
@@ -271,7 +271,7 @@ export const deleteSessionFn = acpRuntime
           return;
         }
 
-        const snapshot = get(backendStateAtom(arg.backend));
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
         if (arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].status !== 'inactive') {
           yield* Effect.logWarning('deleteSession refused; session not inactive', arg.backend, arg.sessionId);
           return;
@@ -283,7 +283,7 @@ export const deleteSessionFn = acpRuntime
         const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
         const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);
 
-        get.set(backendStateAtom(arg.backend), {
+        get.set(backendHarnessStateAtom(arg.backend), {
           ...snapshot,
           sessionRoster,
           sessions: remainingSessions,

@@ -5,25 +5,25 @@ import { Atom } from 'effect/unstable/reactivity';
 import {
   applySessionInfoTitle,
   applySetConfigOptionResult,
-  initialBackendSnapshot,
+  initialBackendHarnessSnapshot,
   normalizeSessionRoster,
 } from '../acp/acpSessionBootstrap.ts';
-import type { BackendSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/agentHarness.ts';
 import { persistSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { isRecord } from '../utils.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
+import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration } from './sessionPatch.ts';
 
-export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
+export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
   acpRuntime
     .atom(get => {
-      const updateState = (patch: (current: BackendSnapshot) => BackendSnapshot) => {
-        get.registry.update(backendStateAtom(backend), patch);
+      const updateState = (patch: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot) => {
+        get.registry.update(backendHarnessStateAtom(backend), patch);
       };
 
       return runBackendHarness(backend, {
@@ -82,7 +82,7 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
           }));
         },
         onSessionUpdate: (sessionId, chatItems, update) => {
-          const before = get.registry.get(backendStateAtom(backend));
+          const before = get.registry.get(backendHarnessStateAtom(backend));
           const skipConfigSync = sessionId in before.sessions && before.sessions[sessionId].status === 'activating';
           const shouldSyncConfig =
             !skipConfigSync &&
@@ -100,14 +100,14 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
 
             if (shouldSyncConfig) {
               sessions = patchSession(sessions, sessionId, session => {
-                const applied = applySetConfigOptionResult(session.sessionState, {
+                const applied = applySetConfigOptionResult(session.sessionConfiguration, {
                   configOptions: update.configOptions,
                 });
                 return {
                   ...session,
                   selectedModeId: applied.selectedModeId ?? session.selectedModeId,
                   selectedModelId: applied.selectedModelId ?? session.selectedModelId,
-                  sessionState: applied.sessionState,
+                  sessionConfiguration: applied.sessionConfiguration,
                 };
               });
             }
@@ -128,8 +128,8 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
           });
 
           if (shouldSyncConfig) {
-            const session = get.registry.get(backendStateAtom(backend)).sessions[sessionId];
-            syncProviderConfigFromSessionConfiguration(get, backend, session.sessionState);
+            const session = get.registry.get(backendHarnessStateAtom(backend)).sessions[sessionId];
+            syncProviderConfigFromSessionConfiguration(get, backend, session.sessionConfiguration);
           }
         },
         onUsageUpdate: (sessionId, usage) => {
@@ -149,14 +149,14 @@ export const backendHarnessAtom = Atom.family((backend: AcpAgentBackend) =>
 
 export const restartBackendFn = acpRuntime
   .fn(
-    Effect.fn('restartBackendFn', { root: true })(function* (backend: AcpAgentBackend, get: AcpAtomGet) {
+    Effect.fn('restartBackendFn', { root: true })(function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': backend,
       });
       yield* Effect.logWarning('Restarting ACP backend harness', backend);
       yield* stopBackendHarness(backend);
       resetBackendHarnessState(backend);
-      get.set(backendStateAtom(backend), initialBackendSnapshot());
+      get.set(backendHarnessStateAtom(backend), initialBackendHarnessSnapshot());
       clearSelectedSessionIfMissing(get);
       get.refresh(backendHarnessAtom(backend));
     }),

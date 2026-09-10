@@ -28,13 +28,13 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
-import { backendLabel, groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel, groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
 import {
   activateSessionFn,
-  allBackendPhasesAtom,
-  backendStateAtom,
+  allLaunchTargetPhasesAtom,
+  backendHarnessStateAtom,
   createSessionFn,
   deactivateSessionFn,
   deleteSessionFn,
@@ -58,7 +58,7 @@ const directoryName = (cwd: string): string => {
   return segment !== undefined && segment.length > 0 ? segment : cwd;
 };
 
-const backendIconSrc = (backend: AcpAgentBackend): string => {
+const backendIconSrc = (backend: AgentLaunchTarget): string => {
   switch (backend) {
     case 'claude-agent-acp':
       return '/claude_icon.svg';
@@ -93,7 +93,7 @@ const SessionRow: FC<{
   readonly onDeleteRequest: (entry: UnifiedRosterEntry) => void;
   readonly selected: boolean;
 }> = ({ entry, onDeleteRequest, selected }) => {
-  const snapshot = useAtomValue(backendStateAtom(entry.backend));
+  const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const selectSession = useAtomSet(selectSessionFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
@@ -111,10 +111,10 @@ const SessionRow: FC<{
 
   const selectThisSession = () => {
     if (status !== 'active' && status !== 'activating') {
-      activateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+      activateSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
       return;
     }
-    selectSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+    selectSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
   };
 
   return (
@@ -133,11 +133,11 @@ const SessionRow: FC<{
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
-          <Tooltip title={backendLabel(entry.backend)}>
+          <Tooltip title={agentLaunchTargetLabel(entry.launchTarget)}>
             <Box
               alt=""
               component="img"
-              src={backendIconSrc(entry.backend)}
+              src={backendIconSrc(entry.launchTarget)}
               sx={{ display: 'block', flexShrink: 0, height: 16, width: 16 }}
             />
           </Tooltip>
@@ -186,7 +186,7 @@ const SessionRow: FC<{
             disabled={status !== 'active'}
             onClick={() => {
               closeMenu();
-              deactivateSession({ backend: entry.backend, sessionId: entry.sessionId }).catch(() => undefined);
+              deactivateSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
             }}
             size="small"
             variant="outlined"
@@ -217,7 +217,7 @@ export const SessionRosterPanel: FC<{
 }> = ({ onClose }) => {
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
@@ -240,7 +240,7 @@ export const SessionRosterPanel: FC<{
     setAgentMenuAnchor(event.currentTarget);
   };
 
-  const createWithAgent = (backend: AcpAgentBackend) => {
+  const createWithAgent = (backend: AgentLaunchTarget) => {
     if (createCwd === undefined || creating) {
       return;
     }
@@ -369,7 +369,7 @@ export const SessionRosterPanel: FC<{
                     {sessions.map(entry => (
                       <SessionRow
                         entry={entry}
-                        key={`${entry.backend}:${entry.sessionId}`}
+                        key={`${entry.launchTarget}:${entry.sessionId}`}
                         onDeleteRequest={setDeleteTarget}
                         selected={selectedSessionId === entry.sessionId}
                       />
@@ -400,9 +400,9 @@ export const SessionRosterPanel: FC<{
         {backendPhases.map(entry => (
           <MenuItem
             disabled={entry.phase !== 'ready' || creating}
-            key={entry.backend}
+            key={entry.launchTarget}
             onClick={() => {
-              createWithAgent(entry.backend);
+              createWithAgent(entry.launchTarget);
             }}
           >
             {entry.label}
@@ -442,8 +442,8 @@ export const SessionRosterPanel: FC<{
                 return;
               }
 
-              const { backend, sessionId } = deleteTarget;
-              deleteSession({ backend, sessionId })
+              const { launchTarget, sessionId } = deleteTarget;
+              deleteSession({ backend: launchTarget, sessionId })
                 .then(() => {
                   setDeleteTarget(undefined);
                 })

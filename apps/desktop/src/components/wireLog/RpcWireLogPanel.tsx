@@ -11,9 +11,9 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
-import { ALL_ACP_BACKENDS, backendLabel } from '../../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend, RpcWireEntry } from '../../acp/agentHarness.ts';
-import { backendStateAtom, rpcWireLogBackendAtom } from '../../atoms/index.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget, RpcWireEntry } from '../../acp/agentHarness.ts';
+import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
@@ -81,8 +81,8 @@ export const RpcWireLogPanel: FC<{
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
 }> = ({ onClose, onCopyError }) => {
-  const [rpcBackend, setRpcBackend] = useAtom(rpcWireLogBackendAtom);
-  const snapshot = useAtomValue(backendStateAtom(rpcBackend));
+  const [rpcBackend, setRpcBackend] = useAtom(rpcWireLogLaunchTargetAtom);
+  const snapshot = useAtomValue(backendHarnessStateAtom(rpcBackend));
   const entries = snapshot.rpcCalls;
 
   return (
@@ -105,17 +105,17 @@ export const RpcWireLogPanel: FC<{
         title={`RPC wire log (${entries.length})`}
       />
       <Tabs
-        onChange={(_event: SyntheticEvent, value: AcpAgentBackend) => {
+        onChange={(_event: SyntheticEvent, value: AgentLaunchTarget) => {
           setRpcBackend(value);
         }}
         sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
         value={rpcBackend}
         variant="scrollable"
       >
-        {ALL_ACP_BACKENDS.map(backend => (
+        {ALL_AGENT_LAUNCH_TARGETS.map(backend => (
           <Tab
             key={backend}
-            label={backendLabel(backend)}
+            label={agentLaunchTargetLabel(backend)}
             sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
             value={backend}
           />

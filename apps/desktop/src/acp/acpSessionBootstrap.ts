@@ -4,7 +4,7 @@ import type { Cause } from 'effect';
 
 import { isRecord } from '../utils.ts';
 
-import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
+import type { AgentLaunchTarget, RpcWireEntry } from './agentHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 
@@ -22,8 +22,8 @@ export type SessionSnapshot = {
   readonly pendingPermission?: PendingPermission;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
+  readonly sessionConfiguration?: unknown;
   readonly sessionId: string;
-  readonly sessionState?: unknown;
   readonly status: SessionStatus;
   readonly usage?: SessionUsage;
 };
@@ -76,10 +76,10 @@ export type NormalizedSessionInfo = {
 };
 
 export type UnifiedRosterEntry = {
-  readonly backend: AcpAgentBackend;
+  readonly launchTarget: AgentLaunchTarget;
 } & NormalizedSessionInfo;
 
-export type BackendSnapshot = {
+export type BackendHarnessSnapshot = {
   readonly error?: string;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
@@ -157,13 +157,13 @@ export type NormalizedSessionState = {
   readonly sessionId?: string;
 };
 
-export const ALL_ACP_BACKENDS = [
+export const ALL_AGENT_LAUNCH_TARGETS = [
   'codex-acp',
   'claude-agent-acp',
   // 'gemini-cli',
-] as const satisfies readonly AcpAgentBackend[];
+] as const satisfies readonly AgentLaunchTarget[];
 
-export const backendLabel = (backend: AcpAgentBackend): string => {
+export const agentLaunchTargetLabel = (backend: AgentLaunchTarget): string => {
   switch (backend) {
     case 'claude-agent-acp':
       return 'Claude';
@@ -174,7 +174,7 @@ export const backendLabel = (backend: AcpAgentBackend): string => {
   }
 };
 
-export const initialBackendSnapshot = (): BackendSnapshot => ({
+export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
   phase: 'connecting',
   rpcCalls: [],
   sessionRoster: [],
@@ -346,12 +346,12 @@ const parseModeOptions = (value: unknown): readonly NormalizedMode[] => {
   });
 };
 
-const findConfigOption = (sessionState: unknown, id: string): Record<string, unknown> | undefined => {
-  if (!isRecord(sessionState) || !Array.isArray(sessionState.configOptions)) {
+const findConfigOption = (sessionConfiguration: unknown, id: string): Record<string, unknown> | undefined => {
+  if (!isRecord(sessionConfiguration) || !Array.isArray(sessionConfiguration.configOptions)) {
     return undefined;
   }
 
-  return sessionState.configOptions.find(
+  return sessionConfiguration.configOptions.find(
     (option): option is Record<string, unknown> => isRecord(option) && option.id === id,
   );
 };
@@ -443,14 +443,14 @@ export const selectionFromSessionConfiguration = (
 };
 
 export const applySetConfigOptionResult = (
-  sessionState: unknown,
+  sessionConfiguration: unknown,
   result: unknown,
 ): {
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
-  readonly sessionState: unknown;
+  readonly sessionConfiguration: unknown;
 } => {
-  const base: Record<string, unknown> = isRecord(sessionState) ? { ...sessionState } : {};
+  const base: Record<string, unknown> = isRecord(sessionConfiguration) ? { ...sessionConfiguration } : {};
 
   if (isRecord(result) && Array.isArray(result.configOptions)) {
     base.configOptions = mergeConfigOptions(base.configOptions, result.configOptions);
@@ -460,7 +460,7 @@ export const applySetConfigOptionResult = (
   return {
     selectedModeId: selection.selectedModeId,
     selectedModelId: selection.selectedModelId,
-    sessionState: base,
+    sessionConfiguration: base,
   };
 };
 
@@ -627,17 +627,17 @@ export const normalizeConfigOptions = (sessionNew: unknown): readonly Normalized
   });
 };
 
-export const normalizeSelectableConfigOptions = (sessionState: unknown): readonly NormalizedConfigOption[] =>
-  normalizeConfigOptions(sessionState).filter(option => option.type === 'select' && option.choices.length > 0);
+export const normalizeSelectableConfigOptions = (sessionConfiguration: unknown): readonly NormalizedConfigOption[] =>
+  normalizeConfigOptions(sessionConfiguration).filter(option => option.type === 'select' && option.choices.length > 0);
 
-export const patchConfigOptionValue = (sessionState: unknown, configId: string, value: string): unknown => {
-  if (!isRecord(sessionState) || !Array.isArray(sessionState.configOptions)) {
-    return sessionState;
+export const patchConfigOptionValue = (sessionConfiguration: unknown, configId: string, value: string): unknown => {
+  if (!isRecord(sessionConfiguration) || !Array.isArray(sessionConfiguration.configOptions)) {
+    return sessionConfiguration;
   }
 
-  const configOptions: readonly unknown[] = sessionState.configOptions;
+  const configOptions: readonly unknown[] = sessionConfiguration.configOptions;
   return {
-    ...sessionState,
+    ...sessionConfiguration,
     configOptions: configOptions.map(option =>
       isRecord(option) && option.id === configId ? { ...option, currentValue: value } : option,
     ),

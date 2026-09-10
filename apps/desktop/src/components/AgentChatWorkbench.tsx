@@ -13,10 +13,10 @@ import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import {
-  allBackendPhasesAtom,
+  allLaunchTargetPhasesAtom,
   restartBackendFn,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
-  selectedSessionSnapshotAtom,
 } from '../atoms/index.ts';
 import { ThemeSelect } from '../theme/ThemeChoice.tsx';
 import { isRecord } from '../utils.ts';
@@ -100,8 +100,8 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const selectedSnapshot = useAtomValue(selectedSessionSnapshotAtom);
-  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
@@ -197,12 +197,12 @@ export const AgentChatWorkbench: FC<{
                       {backendPhases.map(entry => (
                         <Chip
                           color={phaseColor(entry.phase)}
-                          key={entry.backend}
+                          key={entry.launchTarget}
                           label={`${entry.label}: ${entry.phase}`}
                           onClick={
                             entry.phase === 'error'
                               ? () => {
-                                  restartBackend(entry.backend).catch(() => undefined);
+                                  restartBackend(entry.launchTarget).catch(() => undefined);
                                 }
                               : undefined
                           }

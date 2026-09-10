@@ -2,20 +2,19 @@
 export { acpRuntime } from './acpRuntime.ts';
 export type { AcpAtomGet } from './acpRuntime.ts';
 export {
-  allBackendPhasesAtom,
-  backendStateAtom,
-  draftAtom,
-  handoffInProgressAtom,
+  allLaunchTargetPhasesAtom,
+  backendHarnessStateAtom,
   providerConfigAtom,
-  rpcWireLogBackendAtom,
+  rpcWireLogLaunchTargetAtom,
   rpcWireLogSnapshotAtom,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
-  selectedSessionBackendAtom,
   selectedSessionIdAtom,
-  selectedSessionSnapshotAtom,
+  selectedSessionLaunchTargetAtom,
   unifiedSessionRosterAtom,
 } from './backendStateAtoms.ts';
 export {
+  draftAtom,
   respondElicitationFn,
   respondPermissionFn,
   saveHarnessDefaultsFn,
@@ -23,7 +22,7 @@ export {
   setConfigOptionFn,
 } from './chatAtoms.ts';
 export { joinDirectoryFn, listChildDirectoriesFn, parentDirectoryFn, resolveHomeDirFn } from './directoryAtoms.ts';
-export { HandoffError, handoffSessionFn } from './handoffAtoms.ts';
+export { HandoffError, handoffInProgressAtom, handoffSessionFn } from './handoffAtoms.ts';
 export { backendHarnessAtom, restartBackendFn } from './harnessAtom.ts';
 export {
   activateSessionFn,

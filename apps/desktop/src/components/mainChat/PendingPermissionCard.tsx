@@ -18,7 +18,7 @@ const toolCallTitle = (request: RequestPermissionRequest): string => {
   return 'Tool call';
 };
 
-export const PermissionRequestCard: FC<{
+export const PendingPermissionCard: FC<{
   readonly agentTitle: string;
   readonly onSelect: (optionId: string) => void;
   readonly request: RequestPermissionRequest;

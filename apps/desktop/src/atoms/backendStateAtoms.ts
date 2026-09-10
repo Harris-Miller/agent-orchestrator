@@ -1,15 +1,19 @@
 /** Core ACP backend / session selection Atom state. */
 import { Atom } from 'effect/unstable/reactivity';
 
-import { ALL_ACP_BACKENDS, backendLabel, initialBackendSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { BackendSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import {
+  agentLaunchTargetLabel,
+  ALL_AGENT_LAUNCH_TARGETS,
+  initialBackendHarnessSnapshot,
+} from '../acp/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import { readProviderConfig } from '../acp/providerConfigStorage.ts';
 import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 
-export const providerConfigAtom = Atom.family((backend: AcpAgentBackend) =>
+export const providerConfigAtom = Atom.family((backend: AgentLaunchTarget) =>
   Atom.make<ProviderConfigStored | undefined>(readProviderConfig(backend)).pipe(
     Atom.withLabel(`providerConfig:${backend}`),
     Atom.keepAlive,
@@ -18,32 +22,27 @@ export const providerConfigAtom = Atom.family((backend: AcpAgentBackend) =>
 
 export const selectedSessionIdAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
-/** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */
-export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
+export const rpcWireLogLaunchTargetAtom = Atom.make<AgentLaunchTarget>('codex-acp').pipe(Atom.keepAlive);
 
-export const rpcWireLogBackendAtom = Atom.make<AcpAgentBackend>('codex-acp').pipe(Atom.keepAlive);
-
-export const backendStateAtom = Atom.family((backend: AcpAgentBackend) =>
-  Atom.make(initialBackendSnapshot()).pipe(Atom.withLabel(`backendState:${backend}`), Atom.keepAlive),
+export const backendHarnessStateAtom = Atom.family((backend: AgentLaunchTarget) =>
+  Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${backend}`), Atom.keepAlive),
 );
-
-export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
 export const unifiedSessionRosterAtom = Atom.make(get => {
   const entries: UnifiedRosterEntry[] = [];
-  for (const backend of ALL_ACP_BACKENDS) {
-    for (const entry of get(backendStateAtom(backend)).sessionRoster) {
-      entries.push({ ...entry, backend });
+  for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
+    for (const entry of get(backendHarnessStateAtom(launchTarget)).sessionRoster) {
+      entries.push({ ...entry, launchTarget });
     }
   }
   return entries;
 }).pipe(Atom.keepAlive);
 
-export const findBackendForSessionId = (
-  getSnapshot: (backend: AcpAgentBackend) => BackendSnapshot,
+export const findLaunchTargetForSessionId = (
+  getSnapshot: (backend: AgentLaunchTarget) => BackendHarnessSnapshot,
   sessionId: string,
-): AcpAgentBackend | undefined => {
-  for (const backend of ALL_ACP_BACKENDS) {
+): AgentLaunchTarget | undefined => {
+  for (const backend of ALL_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(backend);
     if (sessionId in snapshot.sessions || snapshot.sessionRoster.some(entry => entry.sessionId === sessionId)) {
       return backend;
@@ -52,41 +51,41 @@ export const findBackendForSessionId = (
   return undefined;
 };
 
-export const selectedSessionBackendAtom = Atom.make(get => {
+export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);
   if (sessionId === undefined) {
     return undefined;
   }
-  return findBackendForSessionId(backend => get(backendStateAtom(backend)), sessionId);
+  return findLaunchTargetForSessionId(backend => get(backendHarnessStateAtom(backend)), sessionId);
 }).pipe(Atom.keepAlive);
 
 export const selectedSessionAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);
-  const backend = get(selectedSessionBackendAtom);
+  const backend = get(selectedSessionLaunchTargetAtom);
   if (sessionId === undefined || backend === undefined) {
     return undefined;
   }
-  return get(backendStateAtom(backend)).sessions[sessionId];
+  return get(backendHarnessStateAtom(backend)).sessions[sessionId];
 }).pipe(Atom.keepAlive);
 
-export const selectedSessionSnapshotAtom = Atom.make(get => {
-  const backend = get(selectedSessionBackendAtom);
+export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
+  const backend = get(selectedSessionLaunchTargetAtom);
   if (backend === undefined) {
     return undefined;
   }
-  return get(backendStateAtom(backend));
+  return get(backendHarnessStateAtom(backend));
 }).pipe(Atom.keepAlive);
 
-export const rpcWireLogSnapshotAtom = Atom.make(get => get(backendStateAtom(get(rpcWireLogBackendAtom)))).pipe(
-  Atom.keepAlive,
-);
+export const rpcWireLogSnapshotAtom = Atom.make(get =>
+  get(backendHarnessStateAtom(get(rpcWireLogLaunchTargetAtom))),
+).pipe(Atom.keepAlive);
 
-export const allBackendPhasesAtom = Atom.make(get =>
-  ALL_ACP_BACKENDS.map(backend => ({
-    backend,
-    error: get(backendStateAtom(backend)).error,
-    label: backendLabel(backend),
-    phase: get(backendStateAtom(backend)).phase,
+export const allLaunchTargetPhasesAtom = Atom.make(get =>
+  ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+    error: get(backendHarnessStateAtom(launchTarget)).error,
+    label: agentLaunchTargetLabel(launchTarget),
+    launchTarget,
+    phase: get(backendHarnessStateAtom(launchTarget)).phase,
   })),
 ).pipe(Atom.keepAlive);
 
@@ -95,12 +94,12 @@ export const clearSelectedSessionIfMissing = (get: AcpAtomGet) => {
   if (sessionId === undefined) {
     return;
   }
-  if (findBackendForSessionId(backend => get(backendStateAtom(backend)), sessionId) === undefined) {
+  if (findLaunchTargetForSessionId(backend => get(backendHarnessStateAtom(backend)), sessionId) === undefined) {
     get.set(selectedSessionIdAtom, undefined);
   }
 };
 
-export const selectSession = (get: AcpAtomGet, backend: AcpAgentBackend, sessionId: string) => {
+export const selectSession = (get: AcpAtomGet, backend: AgentLaunchTarget, sessionId: string) => {
   get.set(selectedSessionIdAtom, sessionId);
-  get.set(rpcWireLogBackendAtom, backend);
+  get.set(rpcWireLogLaunchTargetAtom, backend);
 };

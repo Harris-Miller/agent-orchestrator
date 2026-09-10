@@ -3,13 +3,13 @@ import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
+  agentLaunchTargetLabel,
   applySetConfigOptionResult,
-  backendLabel,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
 import {
   appendBackendUserChatItem,
   createSession,
@@ -23,8 +23,7 @@ import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import {
-  backendStateAtom,
-  handoffInProgressAtom,
+  backendHarnessStateAtom,
   providerConfigAtom,
   selectSession,
   unifiedSessionRosterAtom,
@@ -37,12 +36,15 @@ import {
   withSessionClientRequest,
 } from './sessionPatch.ts';
 
+/** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */
+export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
+
 export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffError', {
   message: Schema.String,
 }) {}
 
 const promptPinnedSession = Effect.fn('promptPinnedSession')(
-  function* (backend: AcpAgentBackend, get: AcpAtomGet, sessionId: string, text: string) {
+  function* (backend: AgentLaunchTarget, get: AcpAtomGet, sessionId: string, text: string) {
     const trimmed = text.trim();
     if (trimmed.length === 0) {
       return yield* new HandoffError({ message: 'Handoff prompt text is empty' });
@@ -50,10 +52,10 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
 
     const agent = getAgentHandle(backend);
     if (agent === undefined) {
-      return yield* new HandoffError({ message: `Agent handle missing for ${backendLabel(backend)}` });
+      return yield* new HandoffError({ message: `Agent handle missing for ${agentLaunchTargetLabel(backend)}` });
     }
 
-    const snapshot = get(backendStateAtom(backend));
+    const snapshot = get(backendHarnessStateAtom(backend));
     const session = snapshot.sessions[sessionId];
     if (session.status !== 'active') {
       return yield* new HandoffError({ message: `Session ${sessionId} is not active` });
@@ -68,7 +70,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
 
     yield* Effect.logInfo('Pinned session prompt', backend, sessionId, { chars: trimmed.length });
     const chatItems = appendBackendUserChatItem(backend, sessionId, trimmed);
-    get.set(backendStateAtom(backend), {
+    get.set(backendHarnessStateAtom(backend), {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, current => ({
         ...current,
@@ -88,9 +90,9 @@ export const handoffSessionFn = acpRuntime
       function* (
         arg: {
           configValues: Readonly<Record<string, string>>;
-          sourceBackend: AcpAgentBackend;
+          sourceBackend: AgentLaunchTarget;
           sourceSessionId: string;
-          targetBackend: AcpAgentBackend;
+          targetBackend: AgentLaunchTarget;
         },
         get: AcpAtomGet,
       ) {
@@ -105,7 +107,7 @@ export const handoffSessionFn = acpRuntime
           targetBackend: arg.targetBackend,
         });
         const sourceEntry = get(unifiedSessionRosterAtom).find(
-          entry => entry.backend === arg.sourceBackend && entry.sessionId === arg.sourceSessionId,
+          entry => entry.launchTarget === arg.sourceBackend && entry.sessionId === arg.sourceSessionId,
         );
         if (sourceEntry === undefined) {
           return yield* new HandoffError({ message: 'Source session cwd not found on roster' });
@@ -114,7 +116,7 @@ export const handoffSessionFn = acpRuntime
         // Source handoff prompt is the only hard gate: failure means no target session.
         yield* promptPinnedSession(arg.sourceBackend, get, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
 
-        const sourceChatItems = get(backendStateAtom(arg.sourceBackend)).sessions[arg.sourceSessionId].chatItems;
+        const sourceChatItems = get(backendHarnessStateAtom(arg.sourceBackend)).sessions[arg.sourceSessionId].chatItems;
         const handoffDocument = extractHandoffDocument(sourceChatItems);
         if (handoffDocument === undefined) {
           return yield* new HandoffError({ message: 'Handoff document missing from source agent response' });
@@ -138,8 +140,8 @@ export const handoffSessionFn = acpRuntime
         syncProviderConfigFromSessionConfiguration(get, arg.targetBackend, result);
 
         const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
-        const createdSnapshot = get(backendStateAtom(arg.targetBackend));
-        get.set(backendStateAtom(arg.targetBackend), {
+        const createdSnapshot = get(backendHarnessStateAtom(arg.targetBackend));
+        get.set(backendHarnessStateAtom(arg.targetBackend), {
           ...createdSnapshot,
           sessionRoster:
             rosterEntry === undefined
@@ -149,38 +151,38 @@ export const handoffSessionFn = acpRuntime
         });
         selectSession(get, arg.targetBackend, targetSessionId);
 
-        let sessionState: unknown = result;
+        let sessionConfiguration: unknown = result;
         const { defaults } = get(providerConfigAtom(arg.targetBackend)) ?? { defaults: {} };
-        for (const diff of harnessDefaultDiffs(sessionState, defaults)) {
-          const patched = patchConfigOptionValue(sessionState, diff.configId, diff.value);
+        for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
+          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
           const exit = yield* Effect.exit(setConfigOption(targetAgent, targetSessionId, diff.configId, diff.value));
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Handoff default config apply failed', arg.targetBackend, diff.configId);
             break;
           }
-          const { sessionState: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionState = nextSessionState;
+          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
+          sessionConfiguration = nextSessionState;
         }
 
-        for (const diff of harnessDefaultDiffs(sessionState, arg.configValues)) {
-          const patched = patchConfigOptionValue(sessionState, diff.configId, diff.value);
+        for (const diff of harnessDefaultDiffs(sessionConfiguration, arg.configValues)) {
+          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
           const exit = yield* Effect.exit(setConfigOption(targetAgent, targetSessionId, diff.configId, diff.value));
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Handoff config value apply failed', arg.targetBackend, diff.configId);
             break;
           }
-          const { sessionState: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionState = nextSessionState;
+          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
+          sessionConfiguration = nextSessionState;
         }
 
-        syncProviderConfigFromSessionConfiguration(get, arg.targetBackend, sessionState);
+        syncProviderConfigFromSessionConfiguration(get, arg.targetBackend, sessionConfiguration);
 
-        const configuredSnapshot = get(backendStateAtom(arg.targetBackend));
-        get.set(backendStateAtom(arg.targetBackend), {
+        const configuredSnapshot = get(backendHarnessStateAtom(arg.targetBackend));
+        get.set(backendHarnessStateAtom(arg.targetBackend), {
           ...configuredSnapshot,
           sessions: upsertSession(
             configuredSnapshot.sessions,
-            applySessionActivationResult(targetSessionId, sessionState),
+            applySessionActivationResult(targetSessionId, sessionConfiguration),
           ),
         });
 

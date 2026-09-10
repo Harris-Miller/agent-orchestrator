@@ -1,8 +1,8 @@
 /** Pure fold of a session/update into session snapshot transcript + side-effect flags. */
 
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { ChatAccumulator } from '../acp/sessionUpdateReducer.ts';
-import { emptyChatAccumulator, reduceSessionUpdate } from '../acp/sessionUpdateReducer.ts';
+import type { SessionTranscript } from '../acp/sessionUpdateReducer.ts';
+import { emptySessionTranscript, reduceSessionUpdate } from '../acp/sessionUpdateReducer.ts';
 import { isRecord } from '../utils.ts';
 
 export type SessionUpdateFoldResult =
@@ -11,7 +11,7 @@ export type SessionUpdateFoldResult =
       readonly kind: 'patch';
       readonly sessionInfoTitle?: string;
       readonly shouldSyncConfig: boolean;
-      readonly transcript: ChatAccumulator;
+      readonly transcript: SessionTranscript;
       readonly transcriptChanged: boolean;
     };
 
@@ -20,7 +20,7 @@ export type SessionUpdateFoldResult =
  * Returns `noop` when the transcript is unchanged and no config/title side effects apply.
  */
 export const foldSessionUpdate = (session: SessionSnapshot | undefined, update: unknown): SessionUpdateFoldResult => {
-  const prev = session?.transcript ?? emptyChatAccumulator();
+  const prev = session?.transcript ?? emptySessionTranscript();
   const next = reduceSessionUpdate(prev, update);
   const transcriptChanged = next !== prev;
 

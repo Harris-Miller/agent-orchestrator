@@ -1,10 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { emptyChatAccumulator, reduceSessionUpdate } from './sessionUpdateReducer.ts';
+import { emptySessionTranscript, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
-    const next = reduceSessionUpdate(emptyChatAccumulator(), {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
       sessionUpdate: 'session_info_update',
       title: 'Implement auth',
       updatedAt: '2026-09-01T00:00:00Z',
@@ -14,7 +14,7 @@ describe('reduceSessionUpdate', () => {
   });
 
   it('keeps rawInput.command from tool_call and content from tool_call_update', () => {
-    const afterCall = reduceSessionUpdate(emptyChatAccumulator(), {
+    const afterCall = reduceSessionUpdate(emptySessionTranscript(), {
       kind: 'execute',
       rawInput: { command: 'gh pr view 11 --json title' },
       sessionUpdate: 'tool_call',
@@ -45,7 +45,7 @@ describe('reduceSessionUpdate', () => {
   });
 
   it('prefers _meta.claudeCode.toolName over title only when it is Bash', () => {
-    const bash = reduceSessionUpdate(emptyChatAccumulator(), {
+    const bash = reduceSessionUpdate(emptySessionTranscript(), {
       _meta: { claudeCode: { toolName: 'Bash' } },
       sessionUpdate: 'tool_call',
       title: 'Get PR #11 metadata and standards files',
@@ -65,7 +65,7 @@ describe('reduceSessionUpdate', () => {
       },
     ]);
 
-    const other = reduceSessionUpdate(emptyChatAccumulator(), {
+    const other = reduceSessionUpdate(emptySessionTranscript(), {
       _meta: { claudeCode: { toolName: 'Read' } },
       sessionUpdate: 'tool_call',
       title: 'Reading configuration file',

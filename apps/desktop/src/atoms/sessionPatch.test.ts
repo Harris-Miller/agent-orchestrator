@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { emptyChatAccumulator } from '../acp/sessionUpdateReducer.ts';
+import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
 import { applySessionActivationResult } from './sessionPatch.ts';
 
@@ -10,7 +10,7 @@ describe('applySessionActivationResult cwd continuity', () => {
       cwd: '/proj',
       sessionId: 's1',
       status: 'activating' as const,
-      transcript: emptyChatAccumulator(),
+      transcript: emptySessionTranscript(),
     };
     const next = applySessionActivationResult('s1', { configOptions: [] }, existing);
     assert.strictEqual(next.cwd, '/proj');

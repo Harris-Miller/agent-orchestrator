@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import { emptyChatAccumulator } from '../acp/sessionUpdateReducer.ts';
+import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
 import { foldSessionUpdate } from './foldSessionUpdate.ts';
 
@@ -81,7 +81,7 @@ describe('foldSessionUpdate', () => {
         kind: 'user_message',
         text: 'hi',
       });
-      assert.notStrictEqual(result.transcript, emptyChatAccumulator());
+      assert.notStrictEqual(result.transcript, emptySessionTranscript());
     }
   });
 });

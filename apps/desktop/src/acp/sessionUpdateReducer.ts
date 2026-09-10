@@ -42,7 +42,7 @@ export type ChatItem =
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   | { readonly id: string; readonly kind: 'user_message'; readonly text: string };
 
-export type ChatAccumulator = {
+export type SessionTranscript = {
   readonly items: readonly ChatItem[];
   readonly messageIndices: ReadonlyMap<string, number>;
   readonly toolCallIndices: ReadonlyMap<string, number>;
@@ -98,31 +98,31 @@ const extractClaudeCodeToolName = (meta: unknown): string | undefined => {
 };
 
 const appendMessageChunk = (
-  accumulator: ChatAccumulator,
+  transcript: SessionTranscript,
   kind: 'agent_message' | 'user_message',
   messageId: string | undefined,
   text: string,
-): ChatAccumulator => {
+): SessionTranscript => {
   if (messageId !== undefined) {
-    const existingIndex = accumulator.messageIndices.get(messageId);
+    const existingIndex = transcript.messageIndices.get(messageId);
     if (existingIndex !== undefined) {
-      const existing = accumulator.items[existingIndex];
+      const existing = transcript.items[existingIndex];
       if (existing.kind === kind) {
-        const items = [...accumulator.items];
+        const items = [...transcript.items];
         items[existingIndex] = { ...existing, text: `${existing.text}${text}` };
-        return { ...accumulator, items };
+        return { ...transcript, items };
       }
     }
   }
 
   const id = messageId ?? crypto.randomUUID();
-  const items = [...accumulator.items, { id, kind, text }];
+  const items = [...transcript.items, { id, kind, text }];
   const messageIndices =
     messageId === undefined
-      ? accumulator.messageIndices
-      : new Map(accumulator.messageIndices).set(messageId, items.length - 1);
+      ? transcript.messageIndices
+      : new Map(transcript.messageIndices).set(messageId, items.length - 1);
 
-  return { ...accumulator, items, messageIndices };
+  return { ...transcript, items, messageIndices };
 };
 
 const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
@@ -203,27 +203,27 @@ const parseConfigOptions = (value: unknown): readonly ConfigOption[] => {
   });
 };
 
-export const emptyChatAccumulator = (): ChatAccumulator => ({
+export const emptySessionTranscript = (): SessionTranscript => ({
   items: [],
   messageIndices: new Map(),
   toolCallIndices: new Map(),
 });
 
-export const appendUserChatMessage = (accumulator: ChatAccumulator, text: string): ChatAccumulator =>
-  appendMessageChunk(accumulator, 'user_message', undefined, text);
+export const appendUserChatMessage = (transcript: SessionTranscript, text: string): SessionTranscript =>
+  appendMessageChunk(transcript, 'user_message', undefined, text);
 
-export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknown): ChatAccumulator => {
+export const reduceSessionUpdate = (transcript: SessionTranscript, update: unknown): SessionTranscript => {
   if (!isRecord(update) || typeof update.sessionUpdate !== 'string') {
-    return accumulator;
+    return transcript;
   }
 
   switch (update.sessionUpdate) {
     case 'agent_message_chunk': {
       const text = extractTextFromContent(update.content);
       return text === undefined
-        ? accumulator
+        ? transcript
         : appendMessageChunk(
-            accumulator,
+            transcript,
             'agent_message',
             typeof update.messageId === 'string' ? update.messageId : undefined,
             text,
@@ -233,36 +233,36 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
     case 'available_commands_update':
     case 'session_info_update':
     case 'usage_update':
-      return accumulator;
+      return transcript;
 
     case 'config_option_update': {
       const options = parseConfigOptions(update.configOptions);
       return options.length === 0
-        ? accumulator
+        ? transcript
         : {
-            ...accumulator,
-            items: [...accumulator.items, { id: crypto.randomUUID(), kind: 'config_options', options }],
+            ...transcript,
+            items: [...transcript.items, { id: crypto.randomUUID(), kind: 'config_options', options }],
           };
     }
 
     case 'plan': {
       const entries = parsePlanEntries(update.entries);
       return entries.length === 0
-        ? accumulator
+        ? transcript
         : {
-            ...accumulator,
-            items: [...accumulator.items, { entries, id: crypto.randomUUID(), kind: 'plan' }],
+            ...transcript,
+            items: [...transcript.items, { entries, id: crypto.randomUUID(), kind: 'plan' }],
           };
     }
 
     case 'tool_call': {
       if (typeof update.toolCallId !== 'string' || typeof update.title !== 'string') {
-        return accumulator;
+        return transcript;
       }
 
       const status = typeof update.status === 'string' ? update.status : 'pending';
       const items = [
-        ...accumulator.items,
+        ...transcript.items,
         {
           command: extractRawInputCommand(update.rawInput),
           id: update.toolCallId,
@@ -274,17 +274,17 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
           toolKind: typeof update.kind === 'string' ? update.kind : undefined,
         },
       ];
-      const toolCallIndices = new Map(accumulator.toolCallIndices).set(update.toolCallId, items.length - 1);
+      const toolCallIndices = new Map(transcript.toolCallIndices).set(update.toolCallId, items.length - 1);
 
-      return { ...accumulator, items, toolCallIndices };
+      return { ...transcript, items, toolCallIndices };
     }
 
     case 'tool_call_update': {
       if (typeof update.toolCallId !== 'string') {
-        return accumulator;
+        return transcript;
       }
 
-      const existingIndex = accumulator.toolCallIndices.get(update.toolCallId);
+      const existingIndex = transcript.toolCallIndices.get(update.toolCallId);
       const command = extractRawInputCommand(update.rawInput);
       const resultText = extractTextFromContent(update.content);
       const status = typeof update.status === 'string' ? update.status : undefined;
@@ -292,9 +292,9 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
         extractClaudeCodeToolName(update._meta) ?? (typeof update.title === 'string' ? update.title : undefined);
 
       if (existingIndex !== undefined) {
-        const existing = accumulator.items[existingIndex];
+        const existing = transcript.items[existingIndex];
         if (existing.kind === 'tool_call') {
-          const items = [...accumulator.items];
+          const items = [...transcript.items];
           items[existingIndex] = {
             ...existing,
             command: command ?? existing.command,
@@ -302,12 +302,12 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
             status: status ?? existing.status,
             title: title ?? existing.title,
           };
-          return { ...accumulator, items };
+          return { ...transcript, items };
         }
       }
 
       const items = [
-        ...accumulator.items,
+        ...transcript.items,
         {
           command,
           id: update.toolCallId,
@@ -318,17 +318,17 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
           toolCallId: update.toolCallId,
         },
       ];
-      const toolCallIndices = new Map(accumulator.toolCallIndices).set(update.toolCallId, items.length - 1);
+      const toolCallIndices = new Map(transcript.toolCallIndices).set(update.toolCallId, items.length - 1);
 
-      return { ...accumulator, items, toolCallIndices };
+      return { ...transcript, items, toolCallIndices };
     }
 
     case 'user_message_chunk': {
       const text = extractTextFromContent(update.content);
       return text === undefined
-        ? accumulator
+        ? transcript
         : appendMessageChunk(
-            accumulator,
+            transcript,
             'user_message',
             typeof update.messageId === 'string' ? update.messageId : undefined,
             text,
@@ -336,6 +336,6 @@ export const reduceSessionUpdate = (accumulator: ChatAccumulator, update: unknow
     }
 
     default:
-      return accumulator;
+      return transcript;
   }
 };

@@ -7,8 +7,8 @@ import { isRecord } from '../utils.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
-import type { AvailableCommand, ChatAccumulator, SessionUsage } from './sessionUpdateReducer.ts';
-import { emptyChatAccumulator } from './sessionUpdateReducer.ts';
+import type { AvailableCommand, SessionTranscript, SessionUsage } from './sessionUpdateReducer.ts';
+import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
 
@@ -28,7 +28,7 @@ export type SessionSnapshot = {
   readonly sessionConfiguration?: unknown;
   readonly sessionId: string;
   readonly status: SessionStatus;
-  readonly transcript: ChatAccumulator;
+  readonly transcript: SessionTranscript;
   readonly usage?: SessionUsage;
 };
 
@@ -187,7 +187,7 @@ export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
 export const initialSessionSnapshot = (sessionId: string, status: SessionStatus = 'inactive'): SessionSnapshot => ({
   sessionId,
   status,
-  transcript: emptyChatAccumulator(),
+  transcript: emptySessionTranscript(),
 });
 
 export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | undefined => {

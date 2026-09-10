@@ -5,7 +5,7 @@ import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../ac
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
-import { emptyChatAccumulator } from '../acp/sessionUpdateReducer.ts';
+import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
@@ -37,7 +37,7 @@ export const applySessionActivationResult = (
     sessionConfiguration: result,
     sessionId,
     status: 'active',
-    transcript: existing?.transcript ?? emptyChatAccumulator(),
+    transcript: existing?.transcript ?? emptySessionTranscript(),
     usage: existing?.usage,
   };
 };

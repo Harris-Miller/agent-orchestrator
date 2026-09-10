@@ -3,7 +3,24 @@ import { assert, describe, it } from '@effect/vitest';
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
-import { foldSessionUpdate } from './foldSessionUpdate.ts';
+import { foldSessionUpdate, withUserChatMessage } from './foldSessionUpdate.ts';
+
+describe('withUserChatMessage', () => {
+  it('appends a user_message and preserves other session fields', () => {
+    const session = { ...initialSessionSnapshot('s1', 'active'), cwd: '/proj' };
+    const next = withUserChatMessage(session, 'hello');
+    assert.strictEqual(next.cwd, '/proj');
+    assert.strictEqual(next.sessionId, 's1');
+    assert.strictEqual(next.status, 'active');
+    assert.strictEqual(next.transcript.items.length, 1);
+    assert.deepStrictEqual(next.transcript.items[0], {
+      id: next.transcript.items[0]?.id,
+      kind: 'user_message',
+      text: 'hello',
+    });
+    assert.notStrictEqual(next.transcript, session.transcript);
+  });
+});
 
 describe('foldSessionUpdate', () => {
   it('returns noop for non-chat updates with no side effects', () => {

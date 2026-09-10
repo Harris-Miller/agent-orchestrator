@@ -1,8 +1,8 @@
-/** Pure fold of a session/update into session snapshot transcript + side-effect flags. */
+/** Pure session-transcript writers: reduce session/update + append local user prompts. */
 
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { SessionTranscript } from '../acp/sessionUpdateReducer.ts';
-import { emptySessionTranscript, reduceSessionUpdate } from '../acp/sessionUpdateReducer.ts';
+import { appendUserChatMessage, emptySessionTranscript, reduceSessionUpdate } from '../acp/sessionUpdateReducer.ts';
 import { isRecord } from '../utils.ts';
 
 export type SessionUpdateFoldResult =
@@ -14,6 +14,12 @@ export type SessionUpdateFoldResult =
       readonly transcript: SessionTranscript;
       readonly transcriptChanged: boolean;
     };
+
+/** Append a local user prompt to the session transcript; other snapshot fields unchanged. */
+export const withUserChatMessage = (session: SessionSnapshot, text: string): SessionSnapshot => ({
+  ...session,
+  transcript: appendUserChatMessage(session.transcript, text),
+});
 
 /**
  * Fold a raw session/update against the current session transcript.

@@ -13,7 +13,6 @@ import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
-import { appendUserChatMessage } from '../acp/sessionUpdateReducer.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -23,6 +22,7 @@ import {
   selectSession,
   unifiedSessionRosterAtom,
 } from './backendStateAtoms.ts';
+import { withUserChatMessage } from './foldSessionUpdate.ts';
 import {
   applySessionActivationResult,
   patchSession,
@@ -63,13 +63,9 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    const transcript = appendUserChatMessage(session.transcript, trimmed);
     get.set(backendHarnessStateAtom(launchTarget), {
       ...snapshot,
-      sessions: patchSession(snapshot.sessions, sessionId, current => ({
-        ...current,
-        transcript,
-      })),
+      sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
     });
 
     yield* withSessionClientRequest(launchTarget, get, sessionId, sendPrompt(launchTarget, sessionId, trimmed));

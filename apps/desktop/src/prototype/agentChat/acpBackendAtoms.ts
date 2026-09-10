@@ -1,9 +1,9 @@
 /** Effect Atom state for parallel ACP backend harnesses. */
+import { TauriServicesLive } from '@lib/context-services-tauri';
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
 import { isRecord } from '../../utils.ts';
 
 import {

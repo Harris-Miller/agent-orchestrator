@@ -3,6 +3,7 @@
  * Backends: Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
  */
 import { OS } from '@lib/context-services';
+import { TauriServicesLive } from '@lib/context-services-tauri';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
 import type {
   AcpAgentConnection,
@@ -15,7 +16,6 @@ import { Effect, Exit, Ref } from 'effect';
 import type { Tracer } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
-import { layer as TauriServicesLive } from '../../context-services/TauriServices.ts';
 import { isRecord } from '../../utils.ts';
 
 import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';

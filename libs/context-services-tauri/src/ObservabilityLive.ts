@@ -24,7 +24,7 @@ const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 /**
  * OTLP export for traces, logs, and metrics when host env enables it
  * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`).
- * Requires {@link ConfigProvider} (from {@link HostConfigProviderLive}).
+ * Requires {@link ConfigProvider} (from {@link ConfigProviderLive}).
  */
 export const ObservabilityLive = Layer.merge(
   AllLogLevelsLive,

@@ -1,12 +1,11 @@
 import { assert, describe, it } from '@effect/vitest';
 import { OS } from '@lib/context-services';
+import { PathLive } from '@lib/context-services-tauri';
 import { resolveResource } from '@tauri-apps/api/path';
 import { Effect, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import { beforeEach, vi } from 'vitest';
-
-import { PathLive } from '../../context-services/PathLive.ts';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';

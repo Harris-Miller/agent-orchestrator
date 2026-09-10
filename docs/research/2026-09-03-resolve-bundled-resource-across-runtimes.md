@@ -151,10 +151,10 @@ export const OS = Context.Service<OS>('OS');
 Live layers:
 
 - Node: `Layer.succeed(OS, { … })` — `libs/context-services-node/src/OSLive.ts`  
-- Tauri: `Layer.effect(OS, Effect.gen(…))` wrapping invokes — `apps/desktop/src/context-services/OSLive.ts`  
-- Aggregate: `apps/desktop/src/context-services/TauriServices.ts` merges OS / Path / FileSystem / ChildProcessSpawner (documented as analogous to `@effect/platform-node`’s `NodeServices.layer`)
+- Tauri: `Layer.effect(OS, Effect.gen(…))` wrapping invokes — `libs/context-services-tauri/src/OSLive.ts`  
+- Aggregate: `libs/context-services-tauri/src/TauriServices.ts` merges OS / Path / FileSystem / ChildProcessSpawner (documented as analogous to `@effect/platform-node`’s `NodeServices.layer`)
 
-Context map: portable service in `libs/context-services`; Node live in `libs/context-services-node`; Tauri live under `apps/desktop/src/context-services/` (`CONTEXT-MAP.md`).
+Context map: portable service in `libs/context-services`; Node live in `libs/context-services-node`; Tauri live in `libs/context-services-tauri` (`CONTEXT-MAP.md`).
 
 ### How tests mock `resolveResource` today
 
@@ -189,7 +189,7 @@ export const BundledResource = Context.Service<BundledResource>('BundledResource
 | Layer | Location (convention) |
 | --- | --- |
 | Tag + error types | `libs/context-services` |
-| Tauri Live (`resolveResource`) | `apps/desktop/src/context-services/BundledResourceLive.ts`; merge into `TauriServices` |
+| Tauri Live (`resolveResource`) | `libs/context-services-tauri` (e.g. `BundledResourceLive`); merge into `TauriServices` |
 | VS Code Live (`asAbsolutePath` / `extensionUri`) | future extension package or `libs/context-services-vscode` (mirror `context-services-node`) |
 | Test | `Layer.succeed(BundledResource, …)` in vitest |
 

@@ -158,6 +158,9 @@ importers:
       '@lib/context-services':
         specifier: workspace:^
         version: link:../../libs/context-services
+      '@lib/context-services-tauri':
+        specifier: workspace:^
+        version: link:../../libs/context-services-tauri
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../../libs/effect-acp
@@ -182,21 +185,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: 'catalog:'
         version: 2.4.2
-      '@tauri-apps/plugin-fs':
-        specifier: 'catalog:'
-        version: 2.5.1
-      '@tauri-apps/plugin-http':
-        specifier: 'catalog:'
-        version: 2.6.0
       '@tauri-apps/plugin-opener':
         specifier: 'catalog:'
         version: 2.5.4
-      '@tauri-apps/plugin-os':
-        specifier: 'catalog:'
-        version: 2.3.2
-      '@tauri-apps/plugin-shell':
-        specifier: 'catalog:'
-        version: 2.3.5
       allotment:
         specifier: 'catalog:'
         version: 1.20.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -304,6 +295,58 @@ importers:
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
+      '@tooling/eslint':
+        specifier: workspace:^
+        version: link:../../tooling/eslint-config
+      '@tooling/tsconfig':
+        specifier: workspace:^
+        version: link:../../tooling/tsconfig
+      '@tooling/vitest':
+        specifier: workspace:^
+        version: link:../../tooling/vitest-config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(vitest@4.1.11)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
+
+  libs/context-services-tauri:
+    dependencies:
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
+      '@tauri-apps/api':
+        specifier: ^2
+        version: 2.11.1
+      '@tauri-apps/plugin-fs':
+        specifier: 'catalog:'
+        version: 2.5.1
+      '@tauri-apps/plugin-http':
+        specifier: 'catalog:'
+        version: 2.6.0
+      '@tauri-apps/plugin-os':
+        specifier: 'catalog:'
+        version: 2.3.2
+      '@tauri-apps/plugin-shell':
+        specifier: 'catalog:'
+        version: 2.3.5
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112

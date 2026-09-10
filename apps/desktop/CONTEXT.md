@@ -143,7 +143,7 @@ The Tauri host process current working directory from the OS service. Used for p
 _Avoid_: Session cwd
 
 **Tauri services**:
-Live Effect layers in `src/context-services/` that implement portable `@lib/context-services` and platform primitives (OS, Path, FileSystem, ChildProcessSpawner) on top of Tauri — analogous to `@effect/platform-node`'s `NodeServices.layer`.
+Live Effect layers in `@lib/context-services-tauri` that implement portable `@lib/context-services` and platform primitives (OS, Path, FileSystem, ChildProcessSpawner) on top of Tauri — analogous to `@effect/platform-node`'s `NodeServices.layer`.
 _Avoid_: Platform layer, context-services (the portable package name), adapters
 
 ## Observability

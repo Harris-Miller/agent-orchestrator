@@ -9,16 +9,11 @@ import {
   normalizeSelectableConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
-} from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
-import {
-  appendBackendUserChatItem,
-  getAgentHandle,
-  sendPrompt,
-  setConfigOption,
-} from '../prototype/agentChat/agentHarness.ts';
-import { getPromptSpan } from '../prototype/agentChat/promptSpanRegistry.ts';
-import { defaultsFromSelectable, saveHarnessDefaults } from '../prototype/agentChat/providerConfigStorage.ts';
+} from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import { appendBackendUserChatItem, getAgentHandle, sendPrompt, setConfigOption } from '../acp/agentHarness.ts';
+import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
+import { defaultsFromSelectable, saveHarnessDefaults } from '../acp/providerConfigStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';

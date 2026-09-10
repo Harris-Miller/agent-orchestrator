@@ -5,7 +5,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { AgentChatWorkbench } from '../prototype/agentChat/AgentChatWorkbench.tsx';
+import { AgentChatWorkbench } from '../components/AgentChatWorkbench.tsx';
 
 const formatClientError = (error: unknown): string => {
   if (error instanceof Error) {

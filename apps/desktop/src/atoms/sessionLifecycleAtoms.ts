@@ -10,8 +10,8 @@ import {
   normalizeSessionRoster,
   patchConfigOptionValue,
   upsertRosterEntry,
-} from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
+} from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
 import {
   closeSession,
   createSession,
@@ -21,9 +21,9 @@ import {
   loadSession,
   resumeSession,
   setConfigOption,
-} from '../prototype/agentChat/agentHarness.ts';
-import { harnessDefaultDiffs } from '../prototype/agentChat/providerConfigStorage.ts';
-import { readPersistedSessionUsage } from '../prototype/agentChat/sessionUsageStorage.ts';
+} from '../acp/agentHarness.ts';
+import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
+import { readPersistedSessionUsage } from '../acp/sessionUsageStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';

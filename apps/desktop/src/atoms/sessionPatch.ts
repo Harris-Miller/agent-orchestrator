@@ -1,14 +1,11 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
 import { Effect } from 'effect';
 
-import {
-  initialSessionSnapshot,
-  selectionFromSessionConfiguration,
-} from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { SessionSnapshot } from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
-import { getAgentHandle } from '../prototype/agentChat/agentHarness.ts';
-import { refreshCatalogFromSessionConfiguration } from '../prototype/agentChat/providerConfigStorage.ts';
+import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
+import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import { getAgentHandle } from '../acp/agentHarness.ts';
+import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendStateAtom, providerConfigAtom } from './backendStateAtoms.ts';

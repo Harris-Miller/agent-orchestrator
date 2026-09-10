@@ -11,12 +11,11 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
+import { ALL_ACP_BACKENDS, backendLabel } from '../../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend, RpcWireEntry } from '../../acp/agentHarness.ts';
 import { backendStateAtom, rpcWireLogBackendAtom } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
-
-import { ALL_ACP_BACKENDS, backendLabel } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
-import { PanelHeader } from './PanelHeader.tsx';
+import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 export const RPC_WIRE_LOG_PANEL_HEIGHT = 320;
 

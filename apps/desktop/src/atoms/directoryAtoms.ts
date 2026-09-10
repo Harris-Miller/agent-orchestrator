@@ -6,7 +6,7 @@ import {
   listChildDirectories,
   parentDirectory,
   resolveHomeDir,
-} from '../prototype/agentChat/sessionDirectoryBrowser.ts';
+} from '../acp/sessionDirectoryBrowser.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 

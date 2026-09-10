@@ -28,6 +28,9 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
+import { backendLabel, groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
+import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
 import {
   activateSessionFn,
   allBackendPhasesAtom,
@@ -40,12 +43,9 @@ import {
   selectSessionFn,
   unifiedSessionRosterAtom,
 } from '../../atoms/index.ts';
+import { PanelHeader } from '../shared/PanelHeader.tsx';
 
-import { backendLabel, groupAndSortSessionsByCwd } from './acpSessionBootstrap.ts';
-import type { SessionSnapshot, UnifiedRosterEntry } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
-import { PanelHeader } from './PanelHeader.tsx';
 
 export const SESSION_ROSTER_PANEL_WIDTH = 320;
 

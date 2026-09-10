@@ -1,6 +1,6 @@
 /** Persist session usage in localStorage so load/resume can restore what agents omit. */
 
-import { isRecord } from '../../utils.ts';
+import { isRecord } from '../utils.ts';
 
 import type { SessionUsage } from './sessionUpdateReducer.ts';
 

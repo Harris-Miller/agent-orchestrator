@@ -11,11 +11,11 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { backendLabel } from './acpSessionBootstrap.ts';
-import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
-import type { ProviderConfigStored } from './providerConfigStorage.ts';
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
+import { backendLabel } from '../../acp/acpSessionBootstrap.ts';
+import type { NormalizedConfigOption } from '../../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
+import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
+import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogOptions = (stored: ProviderConfigStored | undefined): readonly NormalizedConfigOption[] => {
   if (stored === undefined) {

@@ -1,6 +1,6 @@
 /** Pure reducer turning ACP `session/update` payloads into ordered chat items. */
 
-import { isRecord } from '../../utils.ts';
+import { isRecord } from '../utils.ts';
 
 export type PlanEntry = {
   readonly content: string;

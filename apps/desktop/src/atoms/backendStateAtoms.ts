@@ -1,11 +1,11 @@
 /** Core ACP backend / session selection Atom state. */
 import { Atom } from 'effect/unstable/reactivity';
 
-import { ALL_ACP_BACKENDS, backendLabel, initialBackendSnapshot } from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { BackendSnapshot, UnifiedRosterEntry } from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
-import { readProviderConfig } from '../prototype/agentChat/providerConfigStorage.ts';
-import type { ProviderConfigStored } from '../prototype/agentChat/providerConfigStorage.ts';
+import { ALL_ACP_BACKENDS, backendLabel, initialBackendSnapshot } from '../acp/acpSessionBootstrap.ts';
+import type { BackendSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import { readProviderConfig } from '../acp/providerConfigStorage.ts';
+import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 

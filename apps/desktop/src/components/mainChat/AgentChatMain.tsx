@@ -17,6 +17,9 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
+import { ALL_ACP_BACKENDS, backendLabel, normalizeSelectableConfigOptions } from '../../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
+import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
   activateSessionFn,
   allBackendPhasesAtom,
@@ -37,17 +40,14 @@ import {
   unifiedSessionRosterAtom,
 } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
+import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
+import { UsagePopover } from '../shared/UsageCard.tsx';
 
-import { ALL_ACP_BACKENDS, backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { ElicitationFormCard } from './ElicitationFormCard.tsx';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PermissionRequestCard } from './PermissionRequestCard.tsx';
-import type { ProviderConfigStored } from './providerConfigStorage.ts';
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
-import { UsagePopover } from './UsageCard.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 

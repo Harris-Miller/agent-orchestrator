@@ -22,6 +22,8 @@ import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
+import type { AcpAgentBackend } from '../../acp/agentHarness.ts';
+import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
 import {
   allBackendPhasesAtom,
   createSessionFn,
@@ -30,9 +32,6 @@ import {
   parentDirectoryFn,
   resolveHomeDirFn,
 } from '../../atoms/index.ts';
-
-import type { AcpAgentBackend } from './agentHarness.ts';
-import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from './sessionDirectoryBrowser.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box

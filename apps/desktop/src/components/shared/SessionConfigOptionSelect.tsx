@@ -4,7 +4,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
-import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
+import type { NormalizedConfigOption } from '../../acp/acpSessionBootstrap.ts';
 
 export const SessionConfigOptionSelect: FC<{
   readonly disabled: boolean;

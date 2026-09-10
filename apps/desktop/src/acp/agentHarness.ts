@@ -16,7 +16,7 @@ import { Effect, Exit, Ref } from 'effect';
 import type { Tracer } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
-import { isRecord } from '../../utils.ts';
+import { isRecord } from '../utils.ts';
 
 import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';

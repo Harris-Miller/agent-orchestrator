@@ -17,14 +17,14 @@ import {
   restartBackendFn,
   selectedSessionAtom,
   selectedSessionSnapshotAtom,
-} from '../../atoms/index.ts';
-import { ThemeSelect } from '../../ThemeChoice.tsx';
-import { isRecord } from '../../utils.ts';
+} from '../atoms/index.ts';
+import { ThemeSelect } from '../ThemeChoice.tsx';
+import { isRecord } from '../utils.ts';
 
-import { AgentChatMain } from './AgentChatMain.tsx';
-import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './BootstrapStatePanel.tsx';
-import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './RpcWireLogPanel.tsx';
-import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './SessionRosterPanel.tsx';
+import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './leftPanel/SessionRosterPanel.tsx';
+import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
+import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';
+import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './wireLog/RpcWireLogPanel.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 

@@ -2,7 +2,7 @@
 
 import type { Cause } from 'effect';
 
-import { isRecord } from '../../utils.ts';
+import { isRecord } from '../utils.ts';
 
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';

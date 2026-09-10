@@ -11,8 +11,9 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import type { ChatItem } from '../../acp/sessionUpdateReducer.ts';
+
 import { ChatMarkdown } from './ChatMarkdown.tsx';
-import type { ChatItem } from './sessionUpdateReducer.ts';
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped

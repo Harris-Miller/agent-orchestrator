@@ -1,6 +1,6 @@
 /** Persist provider config catalog + harness defaults per agent launch target. */
 
-import { isRecord } from '../../utils.ts';
+import { isRecord } from '../utils.ts';
 
 import type { NormalizedConfigChoice, NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';

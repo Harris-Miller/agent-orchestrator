@@ -7,15 +7,11 @@ import {
   applySetConfigOptionResult,
   initialBackendSnapshot,
   normalizeSessionRoster,
-} from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { BackendSnapshot } from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
-import {
-  resetBackendHarnessState,
-  runBackendHarness,
-  stopBackendHarness,
-} from '../prototype/agentChat/agentHarness.ts';
-import { persistSessionUsage } from '../prototype/agentChat/sessionUsageStorage.ts';
+} from '../acp/acpSessionBootstrap.ts';
+import type { BackendSnapshot } from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
+import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/agentHarness.ts';
+import { persistSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { isRecord } from '../utils.ts';
 
 import { acpRuntime } from './acpRuntime.ts';

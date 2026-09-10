@@ -1,9 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Cause } from 'effect';
 
-import claudeSessionNewFixture from '../../../fixtures/claude_session_new_response.json';
-import codexSessionNewFixture from '../../../fixtures/codex_session_new_response.json';
-import { isRecord } from '../../utils.ts';
+import claudeSessionNewFixture from '../../fixtures/claude_session_new_response.json';
+import codexSessionNewFixture from '../../fixtures/codex_session_new_response.json';
+import { isRecord } from '../utils.ts';
 
 import {
   applySessionInfoTitle,

@@ -8,21 +8,17 @@ import {
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   upsertRosterEntry,
-} from '../prototype/agentChat/acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from '../prototype/agentChat/agentHarness.ts';
+} from '../acp/acpSessionBootstrap.ts';
+import type { AcpAgentBackend } from '../acp/agentHarness.ts';
 import {
   appendBackendUserChatItem,
   createSession,
   getAgentHandle,
   sendPrompt,
   setConfigOption,
-} from '../prototype/agentChat/agentHarness.ts';
-import {
-  buildTargetHandoffSeedPrompt,
-  extractHandoffDocument,
-  SOURCE_HANDOFF_PROMPT,
-} from '../prototype/agentChat/handoffDocument.ts';
-import { harnessDefaultDiffs } from '../prototype/agentChat/providerConfigStorage.ts';
+} from '../acp/agentHarness.ts';
+import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
+import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';

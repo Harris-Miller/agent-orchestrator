@@ -156,11 +156,6 @@
             "input": null
           },
           {
-            "name": "wizard",
-            "description": "Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don't invoke this for steps the agent can perform itself. (project)",
-            "input": null
-          },
-          {
             "name": "writing-for-agents",
             "description": "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md. (project)",
             "input": null

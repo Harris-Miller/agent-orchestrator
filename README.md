@@ -31,4 +31,6 @@ docker compose up -d
 
 This exposes OTLP on `4317` (gRPC) / `4318` (HTTP) and Grafana at http://localhost:3000. The desktop app’s `.env.development` already points `OTEL_EXPORTER_OTLP_ENDPOINT` at `http://127.0.0.1:4318`, so a `tauri:dev` session will export once the collector is up.
 
+View grafana's UI at http://localhost:3000
+
 Stop with `docker compose down`.

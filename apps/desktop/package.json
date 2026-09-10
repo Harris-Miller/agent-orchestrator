@@ -9,6 +9,7 @@
     "lint": "eslint . --max-warnings 0",
     "materialize-acp-adapters": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
     "preview": "vite preview",
+    "prototype:settings": "vite --open /settings",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

@@ -22,7 +22,7 @@ import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
 import {
   allLaunchTargetPhasesAtom,

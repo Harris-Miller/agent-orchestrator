@@ -11,9 +11,9 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { agentLaunchTargetLabel } from '../../acp/acpSessionBootstrap.ts';
 import type { NormalizedConfigOption } from '../../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 

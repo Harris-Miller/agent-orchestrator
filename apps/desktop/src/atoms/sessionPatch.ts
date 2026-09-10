@@ -3,8 +3,7 @@ import { Effect } from 'effect';
 
 import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import { getAgentHandle } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -68,20 +67,19 @@ export const withSessionClientRequest = <A, E, R>(
   Effect.gen(function* () {
     const snapshot = get(backendHarnessStateAtom(backend));
     const session = snapshot.sessions[sessionId];
-    const agent = getAgentHandle(backend);
 
     if (
+      snapshot.phase !== 'ready' ||
       session.status !== 'active' ||
       session.pendingClientRequest === true ||
       session.pendingElicitation !== undefined ||
-      session.pendingPermission !== undefined ||
-      agent === undefined
+      session.pendingPermission !== undefined
     ) {
       yield* Effect.logDebug('Skipping session client request', backend, sessionId, {
-        hasAgent: agent !== undefined,
         pendingClientRequest: session.pendingClientRequest === true,
         pendingElicitation: session.pendingElicitation !== undefined,
         pendingPermission: session.pendingPermission !== undefined,
+        phase: snapshot.phase,
         status: session.status,
       });
       return undefined as A;

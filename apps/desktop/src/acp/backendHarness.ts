@@ -1,9 +1,9 @@
 /**
- * ACP agent harness: spawn agent launch targets via connectAcpAgent and drive session RPC.
- * Targets: Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
+ * Backend harness lifecycle: spawn, connect, bootstrap retry, chat accumulators.
+ * `requireConnectedAgent` is for sessionRpc only — atoms must not import it.
  */
 import { TauriServicesLive } from '@lib/context-services-tauri';
-import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
+import { connectAcpAgent } from '@libs/effect-acp';
 import type {
   AcpAgentConnection,
   CreateElicitationRequestBody,
@@ -11,8 +11,7 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect, Exit, Ref } from 'effect';
-import type { Tracer } from 'effect';
+import { Effect, Exit, Ref, Schema } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { isRecord } from '../utils.ts';
@@ -20,13 +19,9 @@ import { isRecord } from '../utils.ts';
 import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
-import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
-import {
-  clearPromptSpan,
-  clearPromptSpansForLaunchTarget,
-  getPromptSpan,
-  setPromptSpan,
-} from './promptSpanRegistry.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { makeClientHandlers } from './clientHandlers.ts';
+import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
@@ -36,8 +31,6 @@ import {
   parseUsageUpdate,
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
-
-export type AgentLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'gemini-cli';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -69,7 +62,7 @@ export type RpcWireEntry = {
   readonly message: unknown;
 };
 
-export type AgentHandle = AcpAgentConnection['agent'];
+type AgentHandle = AcpAgentConnection['agent'];
 
 export type BackendHarnessCallbacks = {
   readonly onCommandsReady: (sessionId: string, commands: readonly AvailableCommand[]) => void;
@@ -90,6 +83,10 @@ export type BackendHarnessCallbacks = {
   readonly onSessionUpdate: (sessionId: string, chatItems: readonly ChatItem[], update: unknown) => void;
   readonly onUsageUpdate: (sessionId: string, usage: SessionUsage) => void;
 };
+
+export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>()('BackendNotConnected', {
+  backend: Schema.String,
+}) {}
 
 const agentHandles = new Map<AgentLaunchTarget, AgentHandle>();
 const chatAccumulators = new Map<AgentLaunchTarget, Map<string, ReturnType<typeof emptyChatAccumulator>>>();
@@ -117,7 +114,14 @@ const getSessionAccumulators = (backend: AgentLaunchTarget): Map<string, ReturnT
   return created;
 };
 
-export const getAgentHandle = (backend: AgentLaunchTarget): AgentHandle | undefined => agentHandles.get(backend);
+/** For sessionRpc only — atoms must not import this. */
+export const requireConnectedAgent = (backend: AgentLaunchTarget): Effect.Effect<AgentHandle, BackendNotConnected> => {
+  const agent = agentHandles.get(backend);
+  if (agent === undefined) {
+    return Effect.fail(new BackendNotConnected({ backend }));
+  }
+  return Effect.succeed(agent);
+};
 
 export const resetBackendHarnessState = (backend: AgentLaunchTarget): void => {
   agentHandles.delete(backend);
@@ -148,80 +152,6 @@ const reduceBackendSessionUpdate = (
   sessionAccumulators.set(sessionId, next);
   return chatItemsFromAccumulator(next);
 };
-
-const withTurnCorrelatedSpan = <A, E, R>(
-  name: string,
-  backend: AgentLaunchTarget,
-  sessionId: string | undefined,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R> => {
-  const parent: Tracer.AnySpan | undefined = sessionId !== undefined ? getPromptSpan(backend, sessionId) : undefined;
-  return effect.pipe(Effect.withSpan(name, parent !== undefined ? { parent } : { root: true }));
-};
-
-const makeClientHandlers = (
-  backend: AgentLaunchTarget,
-  onSessionUpdate: (sessionId: string, update: unknown) => void,
-  onElicitationCreate: BackendHarnessCallbacks['onElicitationCreate'],
-  onPermissionRequest: BackendHarnessCallbacks['onPermissionRequest'],
-) =>
-  ClientRpcs.toLayer(
-    Effect.succeed({
-      'elicitation/complete': () => Effect.void,
-      'elicitation/create': (request: CreateElicitationRequestBody) => {
-        const sessionId = sessionIdFromElicitationRequest(request);
-        return withTurnCorrelatedSpan(
-          'elicitation/create',
-          backend,
-          sessionId,
-          Effect.gen(function* () {
-            if (sessionId === undefined) {
-              yield* Effect.logWarning('elicitation/create missing session id; cancelling');
-              return { action: 'cancel' as const };
-            }
-            yield* Effect.logInfo('elicitation/create awaiting UI', sessionId);
-            return yield* Effect.promise(
-              () =>
-                new Promise<CreateElicitationResponseBody>(resolve => {
-                  onElicitationCreate(sessionId, request, resolve);
-                }),
-            );
-          }),
-        );
-      },
-      'fs/read_text_file': () => Effect.succeed({ content: '' }),
-      'fs/write_text_file': () => Effect.succeed({}),
-      'session/request_permission': (request: RequestPermissionRequest) =>
-        withTurnCorrelatedSpan(
-          'session/request_permission',
-          backend,
-          request.sessionId,
-          Effect.gen(function* () {
-            yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
-            return yield* Effect.promise(
-              () =>
-                new Promise<RequestPermissionResponse>(resolve => {
-                  onPermissionRequest(request.sessionId, request, resolve);
-                }),
-            );
-          }),
-        ),
-      'session/update': payload =>
-        withTurnCorrelatedSpan(
-          'session/update',
-          backend,
-          payload.sessionId,
-          Effect.sync(() => {
-            onSessionUpdate(payload.sessionId, payload.update);
-          }),
-        ),
-      'terminal/create': () => Effect.succeed({ terminalId: 'stub-terminal' }),
-      'terminal/kill': () => Effect.succeed({}),
-      'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
-      'terminal/release': () => Effect.succeed({}),
-      'terminal/wait_for_exit': () => Effect.succeed({ exitCode: 0, signal: null }),
-    }),
-  );
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
@@ -283,7 +213,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.logInfo('ACP harness ready', backend);
     onReady();
   },
-  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'agentHarness' })),
+  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'backendHarness' })),
 );
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
@@ -341,7 +271,7 @@ export const runBackendHarness = Effect.fnUntraced(
   },
   Effect.scoped,
   Effect.provide(TauriServicesLive),
-  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'agentHarness' })),
+  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'backendHarness' })),
 );
 
 export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (backend: AgentLaunchTarget) {
@@ -350,101 +280,3 @@ export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (bac
   agentHandles.delete(backend);
   clearPromptSpansForLaunchTarget(backend);
 });
-
-export const listSessions = Effect.fn('listSessions')(
-  function* (agent: AgentHandle) {
-    return yield* agent['session/list']({});
-  },
-  Effect.tap(() => Effect.logDebug('session/list ok')),
-  Effect.tapError(error => Effect.logError('session/list failed', error)),
-  Effect.provide(TauriServicesLive),
-);
-
-export const createSession = Effect.fn('createSession')(
-  function* (agent: AgentHandle, cwd: string) {
-    yield* Effect.logInfo('Creating ACP session', { cwd });
-    const result = yield* agent['session/new']({ cwd, mcpServers: [] });
-    yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
-    return { cwd, result };
-  },
-  Effect.tapError(error => Effect.logError('session/new failed', error)),
-);
-
-export const loadSession = Effect.fn('loadSession')(
-  function* (agent: AgentHandle, sessionId: string, cwd: string) {
-    yield* Effect.logInfo('Loading ACP session', sessionId, { cwd });
-    return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
-  },
-  (effect, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error))),
-);
-
-export const resumeSession = Effect.fn('resumeSession')(
-  function* (agent: AgentHandle, sessionId: string, cwd: string) {
-    yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd });
-    return yield* agent['session/resume']({ cwd, sessionId });
-  },
-  (effect, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error))),
-);
-
-export const closeSession = Effect.fn('closeSession')(
-  function* (agent: AgentHandle, sessionId: string) {
-    yield* Effect.logInfo('Closing ACP session', sessionId);
-    yield* agent['session/close']({ sessionId });
-  },
-  (effect, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
-  Effect.provide(TauriServicesLive),
-);
-
-export const deleteSession = Effect.fn('deleteSession')(
-  function* (agent: AgentHandle, sessionId: string) {
-    yield* Effect.logInfo('Deleting ACP session', sessionId);
-    yield* agent['session/delete']({ sessionId });
-  },
-  (effect, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error))),
-  Effect.provide(TauriServicesLive),
-);
-
-export const sendPrompt = Effect.fn('sendPrompt')(
-  function* (backend: AgentLaunchTarget, agent: AgentHandle, sessionId: string, text: string) {
-    yield* Effect.annotateCurrentSpan({
-      'acp.agent': backend,
-      'acp.sessionId': sessionId,
-    });
-    const span = yield* Effect.currentSpan;
-    setPromptSpan(backend, sessionId, span);
-    yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
-    yield* agent['session/prompt']({
-      prompt: [{ text, type: 'text' }],
-      sessionId,
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          clearPromptSpan(backend, sessionId);
-        }),
-      ),
-    );
-  },
-  (effect, backend, _agent, sessionId) =>
-    effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', backend, sessionId, error))),
-  Effect.provide(TauriServicesLive),
-);
-
-export const setConfigOption = Effect.fn('setConfigOption')(
-  function* (agent: AgentHandle, sessionId: string, configId: string, value: string) {
-    yield* Effect.logDebug('session/set_config_option', sessionId, configId, value);
-    return yield* agent['session/set_config_option']({
-      configId,
-      sessionId,
-      value,
-    });
-  },
-  (effect, _agent, sessionId, configId) =>
-    effect.pipe(
-      Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
-    ),
-  Effect.provide(TauriServicesLive),
-);

@@ -3,22 +3,17 @@ import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
-  agentLaunchTargetLabel,
   applySetConfigOptionResult,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import {
-  appendBackendUserChatItem,
-  createSession,
-  getAgentHandle,
-  sendPrompt,
-  setConfigOption,
-} from '../acp/agentHarness.ts';
+import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { appendBackendUserChatItem } from '../acp/backendHarness.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
+import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -50,12 +45,11 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       return yield* new HandoffError({ message: 'Handoff prompt text is empty' });
     }
 
-    const agent = getAgentHandle(backend);
-    if (agent === undefined) {
-      return yield* new HandoffError({ message: `Agent handle missing for ${agentLaunchTargetLabel(backend)}` });
+    const snapshot = get(backendHarnessStateAtom(backend));
+    if (snapshot.phase !== 'ready') {
+      return yield* new HandoffError({ message: `Backend not ready for ${agentLaunchTargetLabel(backend)}` });
     }
 
-    const snapshot = get(backendHarnessStateAtom(backend));
     const session = snapshot.sessions[sessionId];
     if (session.status !== 'active') {
       return yield* new HandoffError({ message: `Session ${sessionId} is not active` });
@@ -78,7 +72,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       })),
     });
 
-    yield* withSessionClientRequest(backend, get, sessionId, sendPrompt(backend, agent, sessionId, trimmed));
+    yield* withSessionClientRequest(backend, get, sessionId, sendPrompt(backend, sessionId, trimmed));
   },
   (effect, backend, _get, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('promptPinnedSession failed', backend, sessionId, error))),
@@ -123,13 +117,12 @@ export const handoffSessionAtomFn = acpRuntime
         }
 
         // After a successful source response, target create / config / seed failures are soft.
-        const targetAgent = getAgentHandle(arg.targetBackend);
-        if (targetAgent === undefined) {
-          yield* Effect.logWarning('Handoff soft-abort; target agent missing', arg.targetBackend);
+        if (get(backendHarnessStateAtom(arg.targetBackend)).phase !== 'ready') {
+          yield* Effect.logWarning('Handoff soft-abort; target backend not ready', arg.targetBackend);
           return;
         }
 
-        const createExit = yield* Effect.exit(createSession(targetAgent, sourceEntry.cwd));
+        const createExit = yield* Effect.exit(createSession(arg.targetBackend, sourceEntry.cwd));
         if (Exit.isFailure(createExit)) {
           yield* Effect.logWarning('Handoff soft-abort; target session create failed', arg.targetBackend);
           return;
@@ -158,7 +151,9 @@ export const handoffSessionAtomFn = acpRuntime
         const { defaults } = get(providerConfigAtom(arg.targetBackend)) ?? { defaults: {} };
         for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
           const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(setConfigOption(targetAgent, targetSessionId, diff.configId, diff.value));
+          const exit = yield* Effect.exit(
+            setConfigOption(arg.targetBackend, targetSessionId, diff.configId, diff.value),
+          );
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Handoff default config apply failed', arg.targetBackend, diff.configId);
             break;
@@ -169,7 +164,9 @@ export const handoffSessionAtomFn = acpRuntime
 
         for (const diff of harnessDefaultDiffs(sessionConfiguration, arg.configValues)) {
           const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(setConfigOption(targetAgent, targetSessionId, diff.configId, diff.value));
+          const exit = yield* Effect.exit(
+            setConfigOption(arg.targetBackend, targetSessionId, diff.configId, diff.value),
+          );
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Handoff config value apply failed', arg.targetBackend, diff.configId);
             break;

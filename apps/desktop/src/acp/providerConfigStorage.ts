@@ -4,7 +4,7 @@ import { isRecord } from '../utils.ts';
 
 import type { NormalizedConfigChoice, NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from './agentHarness.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
 const PROVIDER_CONFIG_KEY_PREFIX = 'acp-provider-config:';
 

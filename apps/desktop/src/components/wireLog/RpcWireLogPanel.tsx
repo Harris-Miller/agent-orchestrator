@@ -11,8 +11,9 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget, RpcWireEntry } from '../../acp/agentHarness.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
+import type { RpcWireEntry } from '../../acp/backendHarness.ts';
 import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';

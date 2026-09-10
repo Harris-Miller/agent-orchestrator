@@ -3,7 +3,6 @@ import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
-  ALL_AGENT_LAUNCH_TARGETS,
   applySetConfigOptionResult,
   defectsFromActivationFailure,
   normalizeSessionInfoFromNew,
@@ -12,18 +11,18 @@ import {
   resolveSessionCwd,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
+import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 import {
   closeSession,
   createSession,
   deleteSession,
-  getAgentHandle,
   listSessions,
   loadSession,
   resumeSession,
   setConfigOption,
-} from '../acp/agentHarness.ts';
-import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
+} from '../acp/sessionRpc.ts';
 import { readPersistedSessionUsage } from '../acp/sessionUsageStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
@@ -57,17 +56,17 @@ export const refreshSessionRosterAtomFn = acpRuntime
         yield* Effect.annotateCurrentSpan({
           'acp.agent': backend,
         });
-        const agent = getAgentHandle(backend);
-        if (agent === undefined) {
-          yield* Effect.logDebug('refreshSessionRoster skipped; no agent', backend);
+        const snapshot = get(backendHarnessStateAtom(backend));
+        if (snapshot.phase !== 'ready') {
+          yield* Effect.logDebug('refreshSessionRoster skipped; backend not ready', backend);
           return;
         }
 
         yield* Effect.logDebug('Refreshing session roster', backend);
-        const listResult = yield* listSessions(agent);
-        const snapshot = get(backendHarnessStateAtom(backend));
+        const listResult = yield* listSessions(backend);
+        const current = get(backendHarnessStateAtom(backend));
         get.set(backendHarnessStateAtom(backend), {
-          ...snapshot,
+          ...current,
           sessionRoster: normalizeSessionRoster(listResult),
         });
         clearSelectedSessionIfMissing(get);
@@ -85,14 +84,14 @@ export const refreshAllSessionRostersAtomFn = acpRuntime
         ALL_AGENT_LAUNCH_TARGETS,
         backend =>
           Effect.gen(function* () {
-            const agent = getAgentHandle(backend);
-            if (agent === undefined) {
+            const snapshot = get(backendHarnessStateAtom(backend));
+            if (snapshot.phase !== 'ready') {
               return;
             }
-            const listResult = yield* listSessions(agent);
-            const snapshot = get(backendHarnessStateAtom(backend));
+            const listResult = yield* listSessions(backend);
+            const current = get(backendHarnessStateAtom(backend));
             get.set(backendHarnessStateAtom(backend), {
-              ...snapshot,
+              ...current,
               sessionRoster: normalizeSessionRoster(listResult),
             });
           }),
@@ -110,14 +109,14 @@ export const createSessionAtomFn = acpRuntime
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
         });
-        const agent = getAgentHandle(arg.backend);
-        if (agent === undefined) {
-          yield* Effect.logWarning('createSession skipped; no agent', arg.backend);
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
+        if (snapshot.phase !== 'ready') {
+          yield* Effect.logWarning('createSession skipped; backend not ready', arg.backend);
           return;
         }
 
         yield* Effect.logInfo('UI createSession', arg.backend, { cwd: arg.cwd });
-        const { cwd, result } = yield* createSession(agent, arg.cwd);
+        const { cwd, result } = yield* createSession(arg.backend, arg.cwd);
         const { sessionId } = result;
         yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
 
@@ -127,7 +126,7 @@ export const createSessionAtomFn = acpRuntime
         const { defaults } = get(providerConfigAtom(arg.backend)) ?? { defaults: {} };
         for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
           const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(setConfigOption(agent, sessionId, diff.configId, diff.value));
+          const exit = yield* Effect.exit(setConfigOption(arg.backend, sessionId, diff.configId, diff.value));
           if (Exit.isFailure(exit)) {
             yield* Effect.logWarning('Default config option apply failed during create', arg.backend, diff.configId);
             break;
@@ -140,13 +139,15 @@ export const createSessionAtomFn = acpRuntime
 
         const session = applySessionActivationResult(sessionId, sessionConfiguration, { cwd });
         const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
-        const snapshot = get(backendHarnessStateAtom(arg.backend));
+        const nextSnapshot = get(backendHarnessStateAtom(arg.backend));
 
         get.set(backendHarnessStateAtom(arg.backend), {
-          ...snapshot,
+          ...nextSnapshot,
           sessionRoster:
-            rosterEntry === undefined ? snapshot.sessionRoster : upsertRosterEntry(snapshot.sessionRoster, rosterEntry),
-          sessions: upsertSession(snapshot.sessions, session),
+            rosterEntry === undefined
+              ? nextSnapshot.sessionRoster
+              : upsertRosterEntry(nextSnapshot.sessionRoster, rosterEntry),
+          sessions: upsertSession(nextSnapshot.sessions, session),
         });
         selectSession(get, arg.backend, sessionId);
         yield* Effect.logInfo('UI createSession complete', arg.backend, sessionId);
@@ -167,13 +168,12 @@ export const activateSessionAtomFn = acpRuntime
         'acp.agent': arg.backend,
         'acp.sessionId': arg.sessionId,
       });
-      const agent = getAgentHandle(arg.backend);
-      if (agent === undefined) {
-        yield* Effect.logWarning('activateSession skipped; no agent', arg.backend);
+      const snapshot = get(backendHarnessStateAtom(arg.backend));
+      if (snapshot.phase !== 'ready') {
+        yield* Effect.logWarning('activateSession skipped; backend not ready', arg.backend);
         return;
       }
 
-      const snapshot = get(backendHarnessStateAtom(arg.backend));
       const hasLocalSnapshot = arg.sessionId in snapshot.sessions;
       const existingSession = hasLocalSnapshot ? snapshot.sessions[arg.sessionId] : undefined;
       const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
@@ -211,7 +211,7 @@ export const activateSessionAtomFn = acpRuntime
       });
 
       const exit = yield* Effect.exit(
-        hasHistory ? resumeSession(agent, arg.sessionId, cwd) : loadSession(agent, arg.sessionId, cwd),
+        hasHistory ? resumeSession(arg.backend, arg.sessionId, cwd) : loadSession(arg.backend, arg.sessionId, cwd),
       );
 
       if (Exit.isFailure(exit)) {
@@ -250,14 +250,14 @@ export const deactivateSessionAtomFn = acpRuntime
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
         });
-        const agent = getAgentHandle(arg.backend);
-        if (agent === undefined) {
-          yield* Effect.logWarning('deactivateSession skipped; no agent', arg.backend);
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
+        if (snapshot.phase !== 'ready') {
+          yield* Effect.logWarning('deactivateSession skipped; backend not ready', arg.backend);
           return;
         }
 
         yield* Effect.logInfo('Deactivating session', arg.backend, arg.sessionId);
-        yield* closeSession(agent, arg.sessionId);
+        yield* closeSession(arg.backend, arg.sessionId);
 
         get.set(backendHarnessStateAtom(arg.backend), {
           ...get(backendHarnessStateAtom(arg.backend)),
@@ -287,20 +287,19 @@ export const deleteSessionAtomFn = acpRuntime
           'acp.agent': arg.backend,
           'acp.sessionId': arg.sessionId,
         });
-        const agent = getAgentHandle(arg.backend);
-        if (agent === undefined) {
-          yield* Effect.logWarning('deleteSession skipped; no agent', arg.backend);
+        const snapshot = get(backendHarnessStateAtom(arg.backend));
+        if (snapshot.phase !== 'ready') {
+          yield* Effect.logWarning('deleteSession skipped; backend not ready', arg.backend);
           return;
         }
 
-        const snapshot = get(backendHarnessStateAtom(arg.backend));
         if (arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].status !== 'inactive') {
           yield* Effect.logWarning('deleteSession refused; session not inactive', arg.backend, arg.sessionId);
           return;
         }
 
         yield* Effect.logInfo('Deleting session', arg.backend, arg.sessionId);
-        yield* deleteSession(agent, arg.sessionId);
+        yield* deleteSession(arg.backend, arg.sessionId);
 
         const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
         const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);

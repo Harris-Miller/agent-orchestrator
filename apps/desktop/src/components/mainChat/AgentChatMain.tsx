@@ -17,12 +17,9 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import {
-  agentLaunchTargetLabel,
-  ALL_AGENT_LAUNCH_TARGETS,
-  normalizeSelectableConfigOptions,
-} from '../../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import { normalizeSelectableConfigOptions } from '../../acp/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
   activateSessionAtomFn,

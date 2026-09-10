@@ -1,13 +1,10 @@
 /** Core ACP backend / session selection Atom state. */
 import { Atom } from 'effect/unstable/reactivity';
 
-import {
-  agentLaunchTargetLabel,
-  ALL_AGENT_LAUNCH_TARGETS,
-  initialBackendHarnessSnapshot,
-} from '../acp/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { readProviderConfig } from '../acp/providerConfigStorage.ts';
 import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
 

@@ -9,8 +9,8 @@ import {
   normalizeSessionRoster,
 } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 import { persistSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { isRecord } from '../utils.ts';
 

@@ -28,9 +28,10 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
-import { agentLaunchTargetLabel, groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
+import { groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import {
   activateSessionAtomFn,
   allLaunchTargetPhasesAtom,

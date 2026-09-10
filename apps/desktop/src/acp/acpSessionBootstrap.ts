@@ -4,7 +4,8 @@ import type { Cause } from 'effect';
 
 import { isRecord } from '../utils.ts';
 
-import type { AgentLaunchTarget, RpcWireEntry } from './agentHarness.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 
@@ -173,23 +174,6 @@ export type NormalizedSessionState = {
   readonly models: NormalizedModels;
   readonly modes: NormalizedModes;
   readonly sessionId?: string;
-};
-
-export const ALL_AGENT_LAUNCH_TARGETS = [
-  'codex-acp',
-  'claude-agent-acp',
-  // 'gemini-cli',
-] as const satisfies readonly AgentLaunchTarget[];
-
-export const agentLaunchTargetLabel = (backend: AgentLaunchTarget): string => {
-  switch (backend) {
-    case 'claude-agent-acp':
-      return 'Claude';
-    case 'codex-acp':
-      return 'Codex';
-    case 'gemini-cli':
-      return 'Gemini';
-  }
 };
 
 export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({

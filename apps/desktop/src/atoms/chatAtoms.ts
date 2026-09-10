@@ -10,10 +10,11 @@ import {
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import { appendBackendUserChatItem, getAgentHandle, sendPrompt, setConfigOption } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { appendBackendUserChatItem } from '../acp/backendHarness.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { defaultsFromSelectable, saveHarnessDefaults } from '../acp/providerConfigStorage.ts';
+import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -55,13 +56,7 @@ export const sendChatItemAtomFn = acpRuntime
         arg.backend,
         get,
         session.sessionId,
-        Effect.gen(function* () {
-          const agent = getAgentHandle(arg.backend);
-          if (agent === undefined) {
-            return;
-          }
-          yield* sendPrompt(arg.backend, agent, session.sessionId, trimmed);
-        }),
+        sendPrompt(arg.backend, session.sessionId, trimmed),
       );
     }),
   )
@@ -180,12 +175,7 @@ export const setConfigOptionAtomFn = acpRuntime
       });
 
       const rpc = Effect.gen(function* () {
-        const agent = getAgentHandle(arg.backend);
-        if (agent === undefined) {
-          return;
-        }
-
-        const result = yield* setConfigOption(agent, session.sessionId, arg.configId, arg.value);
+        const result = yield* setConfigOption(arg.backend, session.sessionId, arg.configId, arg.value);
         const currentSnapshot = get(backendHarnessStateAtom(arg.backend));
         const applied = applySetConfigOptionResult(
           currentSnapshot.sessions[session.sessionId].sessionConfiguration,

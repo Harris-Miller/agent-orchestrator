@@ -147,10 +147,10 @@ export const handoffSessionAtomFn = acpRuntime
             rosterEntry === undefined
               ? createdSnapshot.sessionRoster
               : upsertRosterEntry(createdSnapshot.sessionRoster, rosterEntry),
-          sessions: upsertSession(createdSnapshot.sessions, {
-            ...applySessionActivationResult(targetSessionId, result),
-            cwd,
-          }),
+          sessions: upsertSession(
+            createdSnapshot.sessions,
+            applySessionActivationResult(targetSessionId, result, { cwd }),
+          ),
         });
         selectSession(get, arg.targetBackend, targetSessionId);
 

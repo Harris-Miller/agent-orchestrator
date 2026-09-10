@@ -138,7 +138,7 @@ export const createSessionAtomFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionConfiguration);
 
-        const session = { ...applySessionActivationResult(sessionId, sessionConfiguration), cwd };
+        const session = applySessionActivationResult(sessionId, sessionConfiguration, { cwd });
         const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
         const snapshot = get(backendHarnessStateAtom(arg.backend));
 

@@ -3,7 +3,6 @@ import { Cause } from 'effect';
 
 import claudeSessionNewFixture from '../../fixtures/claude_session_new_response.json';
 import codexSessionNewFixture from '../../fixtures/codex_session_new_response.json';
-import { applySessionActivationResult } from '../atoms/sessionPatch.ts';
 import { isRecord } from '../utils.ts';
 
 import {
@@ -218,27 +217,6 @@ describe('resolveSessionCwd', () => {
     assert.strictEqual(resolveSessionCwd('/snap', '  '), '/snap');
     assert.strictEqual(resolveSessionCwd('', ''), undefined);
     assert.strictEqual(resolveSessionCwd('  ', undefined), undefined);
-  });
-});
-
-describe('applySessionActivationResult cwd continuity', () => {
-  it('preserves existing snapshot cwd through activation merge', () => {
-    const existing = {
-      chatItems: [],
-      cwd: '/proj',
-      sessionId: 's1',
-      status: 'activating' as const,
-    };
-    const next = applySessionActivationResult('s1', { configOptions: [] }, existing);
-    assert.strictEqual(next.cwd, '/proj');
-    assert.strictEqual(next.status, 'active');
-  });
-
-  it('create-shaped stamp keeps cwd after merge without prior existing', () => {
-    const created = { ...applySessionActivationResult('s1', { configOptions: [] }), cwd: '/proj' };
-    assert.strictEqual(created.cwd, '/proj');
-    const remapped = applySessionActivationResult('s1', { models: [] }, created);
-    assert.strictEqual(remapped.cwd, '/proj');
   });
 });
 

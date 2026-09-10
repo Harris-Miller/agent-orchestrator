@@ -3,7 +3,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 
 import { routeTree } from './routeTree.gen';
-import { AppThemeProvider } from './ThemeChoice.tsx';
+import { AppThemeProvider } from './theme/ThemeChoice.tsx';
 
 // Set up a Router instance
 const router = createRouter({

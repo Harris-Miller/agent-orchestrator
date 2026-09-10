@@ -18,7 +18,7 @@ import {
   selectedSessionAtom,
   selectedSessionSnapshotAtom,
 } from '../atoms/index.ts';
-import { ThemeSelect } from '../ThemeChoice.tsx';
+import { ThemeSelect } from '../theme/ThemeChoice.tsx';
 import { isRecord } from '../utils.ts';
 
 import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './leftPanel/SessionRosterPanel.tsx';

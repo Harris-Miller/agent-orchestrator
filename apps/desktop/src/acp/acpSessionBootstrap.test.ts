@@ -17,6 +17,7 @@ import {
   normalizeSelectableConfigOptions,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
+  resolveSessionCwd,
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
@@ -193,6 +194,29 @@ describe('patchConfigOptionValue', () => {
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
+  });
+});
+
+describe('resolveSessionCwd', () => {
+  it('prefers non-empty snapshot cwd over roster', () => {
+    assert.strictEqual(resolveSessionCwd('/snap', '/roster'), '/snap');
+  });
+
+  it('falls back to roster cwd when snapshot missing', () => {
+    assert.strictEqual(resolveSessionCwd(undefined, '/roster'), '/roster');
+  });
+
+  it('returns undefined when both missing', () => {
+    assert.strictEqual(resolveSessionCwd(undefined, undefined), undefined);
+  });
+
+  it('treats empty and whitespace cwd as missing', () => {
+    assert.strictEqual(resolveSessionCwd('', '/roster'), '/roster');
+    assert.strictEqual(resolveSessionCwd('   ', '/roster'), '/roster');
+    assert.strictEqual(resolveSessionCwd('/snap', ''), '/snap');
+    assert.strictEqual(resolveSessionCwd('/snap', '  '), '/snap');
+    assert.strictEqual(resolveSessionCwd('', ''), undefined);
+    assert.strictEqual(resolveSessionCwd('  ', undefined), undefined);
   });
 });
 

@@ -39,7 +39,7 @@ One row in the session roster: agent-reported identity and metadata (`sessionId`
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
-The Harness working copy for one session: transcript, status, session configuration, usage, and pending client request state. One per `sessionId` per backend harness.
+The Harness working copy for one session: transcript, status, session configuration, usage, pending client request state, and session cwd when known (stamped on create, handoff, or activate). One per `sessionId` per backend harness. Roster remains the agent-reported list source for cwd when a snapshot has none yet.
 _Avoid_: Session record, session object
 
 **Session status**:

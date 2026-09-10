@@ -15,6 +15,8 @@ export type SessionStatus = 'activating' | 'active' | 'inactive';
 export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
   readonly chatItems: readonly ChatItem[];
+  /** Session cwd when known (create, handoff, or activate resolve). Absent until stamped. */
+  readonly cwd?: string;
   /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
   readonly defects?: readonly unknown[];
   readonly pendingClientRequest?: boolean;
@@ -27,6 +29,22 @@ export type SessionSnapshot = {
   readonly status: SessionStatus;
   readonly usage?: SessionUsage;
 };
+
+/** Non-empty trimmed cwd, else undefined. */
+const nonEmptyCwd = (cwd: string | undefined): string | undefined => {
+  if (cwd === undefined) {
+    return undefined;
+  }
+  const trimmed = cwd.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+/**
+ * ADR 0005 activate resolve: prefer snapshot cwd, else roster cwd.
+ * Absent entry / empty / whitespace count as missing.
+ */
+export const resolveSessionCwd = (snapshotCwd: string | undefined, rosterCwd: string | undefined): string | undefined =>
+  nonEmptyCwd(snapshotCwd) ?? nonEmptyCwd(rosterCwd);
 
 /** Collects `cause.reasons[].defect` values from Die reasons. */
 export const defectsFromCause = <E>(cause: Cause.Cause<E>): readonly unknown[] =>

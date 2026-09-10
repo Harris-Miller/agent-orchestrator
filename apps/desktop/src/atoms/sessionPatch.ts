@@ -19,15 +19,19 @@ export const syncProviderConfigFromSessionConfiguration = (
   get.set(providerConfigAtom(backend), next);
 };
 
+/** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
+type SessionActivationCarry = Partial<Pick<SessionSnapshot, 'availableCommands' | 'chatItems' | 'cwd' | 'usage'>>;
+
 export const applySessionActivationResult = (
   sessionId: string,
   result: unknown,
-  existing?: SessionSnapshot,
+  existing?: SessionActivationCarry,
 ): SessionSnapshot => {
   const selection = selectionFromSessionConfiguration(result);
   return {
     availableCommands: existing?.availableCommands,
     chatItems: existing?.chatItems ?? [],
+    cwd: existing?.cwd,
     pendingClientRequest: false,
     selectedModeId: selection.selectedModeId,
     selectedModelId: selection.selectedModelId,

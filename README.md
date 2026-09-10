@@ -20,3 +20,15 @@ For **Gemini**, install and authenticate the Gemini CLI. It already speaks ACP, 
 `pnpm run local-ci` is the core quality gate, everything should pass
 
 `pnpm run tauri:dev` launches the desktop app as a dev build (materializes ACP adapter resources, then starts Vite)
+
+### Optional: local OTEL collector
+
+For local telemetry (traces, metrics, logs) while debugging, run the Grafana LGTM stack from `compose.yml`:
+
+```bash
+docker compose up -d
+```
+
+This exposes OTLP on `4317` (gRPC) / `4318` (HTTP) and Grafana at http://localhost:3000. The desktop app’s `.env.development` already points `OTEL_EXPORTER_OTLP_ENDPOINT` at `http://127.0.0.1:4318`, so a `tauri:dev` session will export once the collector is up.
+
+Stop with `docker compose down`.

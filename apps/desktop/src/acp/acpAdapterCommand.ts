@@ -21,12 +21,12 @@ const adapterEntryResource = {
   'codex-acp': 'acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
 } as const;
 
-export type AcpAdapterBackend = keyof typeof adapterEntryResource;
+export type AcpAdapterLaunchTarget = keyof typeof adapterEntryResource;
 
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
-  function* (backend: AcpAdapterBackend) {
-    const resourcePath = adapterEntryResource[backend];
-    yield* Effect.logDebug('Resolving ACP adapter resource', backend, resourcePath);
+  function* (launchTarget: AcpAdapterLaunchTarget) {
+    const resourcePath = adapterEntryResource[launchTarget];
+    yield* Effect.logDebug('Resolving ACP adapter resource', launchTarget, resourcePath);
     return yield* Effect.tryPromise({
       catch: cause =>
         new MissingLaunchPrerequisite({
@@ -37,8 +37,8 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
         }),
       try: () => resolveResource(resourcePath),
     }).pipe(
-      Effect.tap(entry => Effect.logInfo('Resolved ACP adapter entry', backend, entry)),
-      Effect.tapError(error => Effect.logError('ACP adapter resource missing', backend, error.message)),
+      Effect.tap(entry => Effect.logInfo('Resolved ACP adapter entry', launchTarget, entry)),
+      Effect.tapError(error => Effect.logError('ACP adapter resource missing', launchTarget, error.message)),
     );
   },
   Effect.annotateLogs({ module: 'acpAdapterCommand' }),
@@ -46,12 +46,12 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
 
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
 export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
-  function* (backend: AcpAdapterBackend) {
-    yield* Effect.logInfo('Building ACP adapter command', backend);
+  function* (launchTarget: AcpAdapterLaunchTarget) {
+    yield* Effect.logInfo('Building ACP adapter command', launchTarget);
     yield* requireExecutableOnPath('node');
-    const entry = yield* resolveAdapterEntry(backend);
+    const entry = yield* resolveAdapterEntry(launchTarget);
 
-    if (backend === 'codex-acp') {
+    if (launchTarget === 'codex-acp') {
       const codexPath = yield* requireExecutableOnPath('codex');
       yield* Effect.logDebug('Codex adapter env', { CODEX_PATH: codexPath });
       return ChildProcess.make('node', [entry], {

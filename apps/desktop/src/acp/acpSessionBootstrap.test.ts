@@ -21,7 +21,7 @@ import {
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
-import type { RpcWireEntry } from './agentHarness.ts';
+import type { RpcWireEntry } from './backendHarness.ts';
 
 const fixtureSessionValue = (fixture: unknown): unknown => {
   if (!isRecord(fixture) || !isRecord(fixture.message) || !isRecord(fixture.message.exit)) {

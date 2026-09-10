@@ -3,8 +3,7 @@ import { Effect } from 'effect';
 
 import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import { getAgentHandle } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -12,11 +11,11 @@ import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: AcpAtomGet,
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
-  const next = refreshCatalogFromSessionConfiguration(backend, sessionConfiguration);
-  get.set(providerConfigAtom(backend), next);
+  const next = refreshCatalogFromSessionConfiguration(launchTarget, sessionConfiguration);
+  get.set(providerConfigAtom(launchTarget), next);
 };
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
@@ -60,34 +59,33 @@ export const patchSession = (
 };
 
 export const withSessionClientRequest = <A, E, R>(
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   get: AcpAtomGet,
   sessionId: string,
   rpc: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
   Effect.gen(function* () {
-    const snapshot = get(backendHarnessStateAtom(backend));
+    const snapshot = get(backendHarnessStateAtom(launchTarget));
     const session = snapshot.sessions[sessionId];
-    const agent = getAgentHandle(backend);
 
     if (
+      snapshot.phase !== 'ready' ||
       session.status !== 'active' ||
       session.pendingClientRequest === true ||
       session.pendingElicitation !== undefined ||
-      session.pendingPermission !== undefined ||
-      agent === undefined
+      session.pendingPermission !== undefined
     ) {
-      yield* Effect.logDebug('Skipping session client request', backend, sessionId, {
-        hasAgent: agent !== undefined,
+      yield* Effect.logDebug('Skipping session client request', launchTarget, sessionId, {
         pendingClientRequest: session.pendingClientRequest === true,
         pendingElicitation: session.pendingElicitation !== undefined,
         pendingPermission: session.pendingPermission !== undefined,
+        phase: snapshot.phase,
         status: session.status,
       });
       return undefined as A;
     }
 
-    get.set(backendHarnessStateAtom(backend), {
+    get.set(backendHarnessStateAtom(launchTarget), {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, current => ({
         ...current,
@@ -98,8 +96,8 @@ export const withSessionClientRequest = <A, E, R>(
     return yield* rpc.pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          const currentSnapshot = get(backendHarnessStateAtom(backend));
-          get.set(backendHarnessStateAtom(backend), {
+          const currentSnapshot = get(backendHarnessStateAtom(launchTarget));
+          get.set(backendHarnessStateAtom(launchTarget), {
             ...currentSnapshot,
             sessions: patchSession(currentSnapshot.sessions, sessionId, current => ({
               ...current,

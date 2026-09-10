@@ -9,8 +9,8 @@ import {
   normalizeSessionRoster,
 } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
-import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 import { persistSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { isRecord } from '../utils.ts';
 
@@ -19,14 +19,14 @@ import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration } from './sessionPatch.ts';
 
-export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
+export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   acpRuntime
     .atom(get => {
       const updateState = (patch: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot) => {
-        get.registry.update(backendHarnessStateAtom(backend), patch);
+        get.registry.update(backendHarnessStateAtom(launchTarget), patch);
       };
 
-      return runBackendHarness(backend, {
+      return runBackendHarness(launchTarget, {
         onCommandsReady: (sessionId, availableCommands) => {
           updateState(current => ({
             ...current,
@@ -82,7 +82,7 @@ export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
           }));
         },
         onSessionUpdate: (sessionId, chatItems, update) => {
-          const before = get.registry.get(backendHarnessStateAtom(backend));
+          const before = get.registry.get(backendHarnessStateAtom(launchTarget));
           const skipConfigSync = sessionId in before.sessions && before.sessions[sessionId].status === 'activating';
           const shouldSyncConfig =
             !skipConfigSync &&
@@ -128,8 +128,8 @@ export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
           });
 
           if (shouldSyncConfig) {
-            const session = get.registry.get(backendHarnessStateAtom(backend)).sessions[sessionId];
-            syncProviderConfigFromSessionConfiguration(get, backend, session.sessionConfiguration);
+            const session = get.registry.get(backendHarnessStateAtom(launchTarget)).sessions[sessionId];
+            syncProviderConfigFromSessionConfiguration(get, launchTarget, session.sessionConfiguration);
           }
         },
         onUsageUpdate: (sessionId, usage) => {
@@ -149,16 +149,16 @@ export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
 
 export const restartBackendAtomFn = acpRuntime
   .fn(
-    Effect.fn('restartBackendAtomFn', { root: true })(function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
+    Effect.fn('restartBackendAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: AcpAtomGet) {
       yield* Effect.annotateCurrentSpan({
-        'acp.agent': backend,
+        'acp.agent': launchTarget,
       });
-      yield* Effect.logWarning('Restarting ACP backend harness', backend);
-      yield* stopBackendHarness(backend);
-      resetBackendHarnessState(backend);
-      get.set(backendHarnessStateAtom(backend), initialBackendHarnessSnapshot());
+      yield* Effect.logWarning('Restarting ACP backend harness', launchTarget);
+      yield* stopBackendHarness(launchTarget);
+      resetBackendHarnessState(launchTarget);
+      get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
       clearSelectedSessionIfMissing(get);
-      get.refresh(backendHarnessAtom(backend));
+      get.refresh(backendHarnessAtom(launchTarget));
     }),
   )
   .pipe(Atom.keepAlive);

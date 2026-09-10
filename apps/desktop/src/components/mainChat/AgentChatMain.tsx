@@ -17,12 +17,9 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import {
-  agentLaunchTargetLabel,
-  ALL_AGENT_LAUNCH_TARGETS,
-  normalizeSelectableConfigOptions,
-} from '../../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import { normalizeSelectableConfigOptions } from '../../acp/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
   activateSessionAtomFn,
@@ -75,7 +72,7 @@ export const AgentChatMain: FC<{
   readonly onOpenRpcWireLog: () => void;
   readonly rpcWireLogOpen: boolean;
 }> = ({ onClientError, onOpenRpcWireLog, rpcWireLogOpen }) => {
-  const selectedBackend = useAtomValue(selectedSessionLaunchTargetAtom);
+  const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
   const [draft, setDraft] = useAtom(draftAtom(draftSessionId));
@@ -96,8 +93,8 @@ export const AgentChatMain: FC<{
   const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
   const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));
 
-  const getProviderConfig = (backend: AgentLaunchTarget): ProviderConfigStored | undefined => {
-    switch (backend) {
+  const getProviderConfig = (launchTarget: AgentLaunchTarget): ProviderConfigStored | undefined => {
+    switch (launchTarget) {
       case 'claude-agent-acp':
         return claudeProviderConfig;
       case 'codex-acp':
@@ -119,32 +116,32 @@ export const AgentChatMain: FC<{
   const pendingClientRequest = selectedSession?.pendingClientRequest === true;
   const controlsEnabled =
     selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
-  const canSend = controlsEnabled && selectedBackend !== undefined && draft.trim().length > 0;
+  const canSend = controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
   const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
   const sourceCwd =
-    selectedBackend === undefined || selectedSessionId === undefined
+    selectedLaunchTarget === undefined || selectedSessionId === undefined
       ? undefined
-      : roster.find(entry => entry.launchTarget === selectedBackend && entry.sessionId === selectedSessionId)?.cwd;
+      : roster.find(entry => entry.launchTarget === selectedLaunchTarget && entry.sessionId === selectedSessionId)?.cwd;
   const canHandoff =
     controlsEnabled &&
-    selectedBackend !== undefined &&
+    selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sourceCwd !== undefined;
   const canSaveDefaults = controlsEnabled && configOptions.length > 0;
-  const agentTitle = selectedBackend === undefined ? 'Agent' : agentLaunchTargetLabel(selectedBackend);
-  const readyBackends = ALL_AGENT_LAUNCH_TARGETS.filter(backend =>
-    backendPhases.some(entry => entry.launchTarget === backend && entry.phase === 'ready'),
+  const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
+  const readyLaunchTargets = ALL_AGENT_LAUNCH_TARGETS.filter(launchTarget =>
+    backendPhases.some(entry => entry.launchTarget === launchTarget && entry.phase === 'ready'),
   );
 
   const sendDraft = () => {
-    if (selectedBackend === undefined || !controlsEnabled || draft.trim().length === 0) {
+    if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
       return;
     }
 
     const text = draft;
     setDraft('');
-    sendChatItem({ backend: selectedBackend, text }).catch(onClientError);
+    sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -153,11 +150,11 @@ export const AgentChatMain: FC<{
   };
 
   const emptyStateSecondary: ReactNode = (() => {
-    if (selectedBackend === undefined) {
+    if (selectedLaunchTarget === undefined) {
       return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
     }
     if (backendSnapshot?.phase !== 'ready') {
-      return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedBackend)} over ACP…</Alert>;
+      return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {
       return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
@@ -173,7 +170,7 @@ export const AgentChatMain: FC<{
               <Button
                 color="inherit"
                 onClick={() => {
-                  activateSession({ backend: selectedBackend, sessionId: selectedSession.sessionId }).catch(
+                  activateSession({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId }).catch(
                     () => undefined,
                   );
                 }}
@@ -190,12 +187,12 @@ export const AgentChatMain: FC<{
       }
       return <Alert severity="info">Session is inactive — select it again to activate.</Alert>;
     }
-    return <Alert severity="info">{agentLaunchTargetLabel(selectedBackend)} is connected — send a prompt</Alert>;
+    return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
   useEffect(() => {
     pinnedToBottomRef.current = true;
-  }, [selectedBackend, selectedSession?.sessionId]);
+  }, [selectedLaunchTarget, selectedSession?.sessionId]);
 
   useLayoutEffect(() => {
     const chatScroll = chatScrollRef.current;
@@ -243,27 +240,27 @@ export const AgentChatMain: FC<{
           ) : (
             chatItems.map(item => <ChatItemView item={item} key={item.id} />)
           )}
-          {selectedSession?.pendingElicitation !== undefined && selectedBackend !== undefined ? (
+          {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
               <PendingElicitationCard
                 agentTitle={agentTitle}
                 onAccept={content => {
                   respondElicitation({
-                    backend: selectedBackend,
+                    launchTarget: selectedLaunchTarget,
                     response: { action: 'accept', content },
                     sessionId: selectedSession.sessionId,
                   }).catch(onClientError);
                 }}
                 onCancel={() => {
                   respondElicitation({
-                    backend: selectedBackend,
+                    launchTarget: selectedLaunchTarget,
                     response: { action: 'cancel' },
                     sessionId: selectedSession.sessionId,
                   }).catch(onClientError);
                 }}
                 onDecline={() => {
                   respondElicitation({
-                    backend: selectedBackend,
+                    launchTarget: selectedLaunchTarget,
                     response: { action: 'decline' },
                     sessionId: selectedSession.sessionId,
                   }).catch(onClientError);
@@ -272,13 +269,13 @@ export const AgentChatMain: FC<{
               />
             </ListItem>
           ) : null}
-          {selectedSession?.pendingPermission !== undefined && selectedBackend !== undefined ? (
+          {selectedSession?.pendingPermission !== undefined && selectedLaunchTarget !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
               <PendingPermissionCard
                 agentTitle={agentTitle}
                 onSelect={optionId => {
                   respondPermission({
-                    backend: selectedBackend,
+                    launchTarget: selectedLaunchTarget,
                     optionId,
                     sessionId: selectedSession.sessionId,
                   }).catch(onClientError);
@@ -293,7 +290,7 @@ export const AgentChatMain: FC<{
       <Paper sx={{ flexShrink: 0, p: 2 }}>
         <Stack spacing={1}>
           <Typography color="text.secondary" variant="caption">
-            agent: {selectedBackend === undefined ? '—' : agentLaunchTargetLabel(selectedBackend)} · session:{' '}
+            agent: {selectedLaunchTarget === undefined ? '—' : agentLaunchTargetLabel(selectedLaunchTarget)} · session:{' '}
             {selectedSession?.sessionId ?? '—'}
           </Typography>
           {backendSnapshot?.error !== undefined ? (
@@ -308,35 +305,35 @@ export const AgentChatMain: FC<{
               onChange={setDraft}
               onSubmit={sendDraft}
               placeholder={
-                selectedBackend === undefined
+                selectedLaunchTarget === undefined
                   ? 'Select a session…'
-                  : `Message ${agentLaunchTargetLabel(selectedBackend)}…`
+                  : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
               }
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {configOptions.map(option => (
                 <SessionConfigOptionSelect
-                  disabled={!controlsEnabled || selectedBackend === undefined}
+                  disabled={!controlsEnabled || selectedLaunchTarget === undefined}
                   key={option.id}
                   onChange={(configId, value) => {
-                    if (selectedBackend === undefined) {
+                    if (selectedLaunchTarget === undefined) {
                       return;
                     }
-                    setConfigOption({ backend: selectedBackend, configId, value }).catch(onClientError);
+                    setConfigOption({ configId, launchTarget: selectedLaunchTarget, value }).catch(onClientError);
                   }}
                   option={option}
                 />
               ))}
-              {selectedBackend !== undefined && canSaveDefaults ? (
+              {selectedLaunchTarget !== undefined && canSaveDefaults ? (
                 <Button
                   onClick={() => {
-                    saveHarnessDefaults({ backend: selectedBackend }).catch(onClientError);
+                    saveHarnessDefaults({ launchTarget: selectedLaunchTarget }).catch(onClientError);
                   }}
                   size="small"
                   variant="outlined"
                 >
-                  Save as defaults for {agentLaunchTargetLabel(selectedBackend)}
+                  Save as defaults for {agentLaunchTargetLabel(selectedLaunchTarget)}
                 </Button>
               ) : null}
               {rpcWireLogOpen ? null : (
@@ -364,7 +361,7 @@ export const AgentChatMain: FC<{
                   aria-expanded={splitMenuAnchor !== null ? 'true' : undefined}
                   aria-haspopup="menu"
                   aria-label="Open send options"
-                  disabled={handoffInProgress || selectedBackend === undefined}
+                  disabled={handoffInProgress || selectedLaunchTarget === undefined}
                   onClick={event => {
                     setSplitMenuAnchor(event.currentTarget);
                   }}
@@ -396,28 +393,28 @@ export const AgentChatMain: FC<{
         </Stack>
       </Paper>
 
-      {selectedBackend !== undefined && handoffModalOpen ? (
+      {selectedLaunchTarget !== undefined && handoffModalOpen ? (
         <HandoffModal
           getProviderConfig={getProviderConfig}
-          key={`${selectedBackend}:${selectedSessionId ?? ''}`}
+          key={`${selectedLaunchTarget}:${selectedSessionId ?? ''}`}
           onCancel={() => {
             setHandoffModalOpen(false);
           }}
-          onConfirm={({ configValues, targetBackend }) => {
+          onConfirm={({ configValues, targetLaunchTarget }) => {
             if (selectedSessionId === undefined) {
               return;
             }
             setHandoffModalOpen(false);
             handoffSession({
               configValues,
-              sourceBackend: selectedBackend,
+              sourceLaunchTarget: selectedLaunchTarget,
               sourceSessionId: selectedSessionId,
-              targetBackend,
+              targetLaunchTarget,
             }).catch(onClientError);
           }}
           open
-          readyBackends={readyBackends}
-          sourceBackend={selectedBackend}
+          readyLaunchTargets={readyLaunchTargets}
+          sourceLaunchTarget={selectedLaunchTarget}
         />
       ) : null}
     </Box>

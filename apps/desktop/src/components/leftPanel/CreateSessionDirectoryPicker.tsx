@@ -22,7 +22,7 @@ import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
-import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
 import {
   allLaunchTargetPhasesAtom,
@@ -181,14 +181,14 @@ export const CreateSessionDirectoryPicker: FC<{
     setCreateCwd(undefined);
   };
 
-  const createWithAgent = (backend: AgentLaunchTarget) => {
+  const createWithAgent = (launchTarget: AgentLaunchTarget) => {
     if (createCwd === undefined || creating) {
       return;
     }
     const cwd = createCwd;
     setCreating(true);
     closeAgentMenu();
-    createSession({ backend, cwd })
+    createSession({ cwd, launchTarget })
       .then(() => {
         onClose();
       })

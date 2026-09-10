@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Config, Effect, Layer } from 'effect';
 import { vi } from 'vitest';
 
-import { HostConfigProviderLive } from '../HostConfigProviderLive.ts';
+import { ConfigProviderLive } from '../ConfigProviderLive.ts';
 import { OSLive } from '../OSLive.ts';
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -26,8 +26,8 @@ mockedInvoke.mockResolvedValue({
   env: { CURSOR_API_KEY: 'host-key', PATH: '/usr/bin' },
 });
 
-describe('OSLive + HostConfigProviderLive', () => {
-  layer(HostConfigProviderLive.pipe(Layer.provideMerge(OSLive)))(it => {
+describe('OSLive + ConfigProviderLive', () => {
+  layer(ConfigProviderLive.pipe(Layer.provideMerge(OSLive)))(it => {
     it.effect('exposes cwd/env from host_process_info and Config CURSOR_API_KEY', () =>
       Effect.gen(function* () {
         const key = yield* Config.nonEmptyString('CURSOR_API_KEY');

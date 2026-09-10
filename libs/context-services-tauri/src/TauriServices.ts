@@ -5,8 +5,8 @@ import type { Path } from 'effect/Path';
 import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner';
 
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
+import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
-import { HostConfigProviderLive } from './HostConfigProviderLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
 import { OSLive } from './OSLive.ts';
 import { PathLive } from './PathLive.ts';
@@ -17,7 +17,7 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
  * `NodeServices.layer`, without Crypto / Stdio / Terminal.
  *
  * Also installs a host {@link ConfigProvider} (Reference — not listed in the
- * Layer ROut type) via {@link HostConfigProviderLive}, and OTLP export via
+ * Layer ROut type) via {@link ConfigProviderLive}, and OTLP export via
  * {@link ObservabilityLive} when host `OTEL_*` config enables it.
  */
 export type TauriServices = ChildProcessSpawner | FileSystem | OS | Path;
@@ -27,7 +27,7 @@ export type TauriServices = ChildProcessSpawner | FileSystem | OS | Path;
  * backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
-  HostConfigProviderLive,
+  ConfigProviderLive,
   ChildProcessSpawnerLive,
   FileSystemLive,
   PathLive,
@@ -36,7 +36,7 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   Layer.provideMerge(
     ObservabilityLive.pipe(
       Layer.provide(TauriFetchLive),
-      Layer.provide(HostConfigProviderLive.pipe(Layer.provide(OSLive))),
+      Layer.provide(ConfigProviderLive.pipe(Layer.provide(OSLive))),
     ),
   ),
 );

@@ -12,15 +12,15 @@ import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import { ThemeSelect } from '../../ThemeChoice.tsx';
-import { isRecord } from '../../utils.ts';
-
 import {
   allBackendPhasesAtom,
   restartBackendFn,
   selectedSessionAtom,
   selectedSessionSnapshotAtom,
-} from './acpBackendAtoms.ts';
+} from '../../atoms/index.ts';
+import { ThemeSelect } from '../../ThemeChoice.tsx';
+import { isRecord } from '../../utils.ts';
+
 import { AgentChatMain } from './AgentChatMain.tsx';
 import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './BootstrapStatePanel.tsx';
 import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './RpcWireLogPanel.tsx';

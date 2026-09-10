@@ -11,9 +11,9 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
+import { backendStateAtom, rpcWireLogBackendAtom } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
 
-import { backendStateAtom, rpcWireLogBackendAtom } from './acpBackendAtoms.ts';
 import { ALL_ACP_BACKENDS, backendLabel } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend, RpcWireEntry } from './agentHarness.ts';
 import { PanelHeader } from './PanelHeader.tsx';

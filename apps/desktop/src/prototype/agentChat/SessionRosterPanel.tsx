@@ -39,7 +39,8 @@ import {
   selectedSessionIdAtom,
   selectSessionFn,
   unifiedSessionRosterAtom,
-} from './acpBackendAtoms.ts';
+} from '../../atoms/index.ts';
+
 import { backendLabel, groupAndSortSessionsByCwd } from './acpSessionBootstrap.ts';
 import type { SessionSnapshot, UnifiedRosterEntry } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';

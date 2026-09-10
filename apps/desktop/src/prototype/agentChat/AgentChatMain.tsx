@@ -17,8 +17,6 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { isRecord } from '../../utils.ts';
-
 import {
   activateSessionFn,
   allBackendPhasesAtom,
@@ -37,7 +35,9 @@ import {
   sendChatItemFn,
   setConfigOptionFn,
   unifiedSessionRosterAtom,
-} from './acpBackendAtoms.ts';
+} from '../../atoms/index.ts';
+import { isRecord } from '../../utils.ts';
+
 import { ALL_ACP_BACKENDS, backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import type { AcpAgentBackend } from './agentHarness.ts';
 import { ChatItemView } from './ChatItemView.tsx';

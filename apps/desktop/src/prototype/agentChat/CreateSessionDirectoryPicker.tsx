@@ -29,7 +29,8 @@ import {
   listChildDirectoriesFn,
   parentDirectoryFn,
   resolveHomeDirFn,
-} from './acpBackendAtoms.ts';
+} from '../../atoms/index.ts';
+
 import type { AcpAgentBackend } from './agentHarness.ts';
 import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from './sessionDirectoryBrowser.ts';
 

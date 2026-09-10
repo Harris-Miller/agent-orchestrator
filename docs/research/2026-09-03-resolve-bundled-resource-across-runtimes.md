@@ -59,7 +59,7 @@ Official guide: https://tauri.app/develop/resources
 
 `beforeDevCommand` / `beforeBuildCommand` run `materialize-acp-adapters` then Vite.
 
-**Launch** — `apps/desktop/src/prototype/agentChat/acpAdapterCommand.ts`:
+**Launch** — `apps/desktop/src/acp/acpAdapterCommand.ts`:
 
 - Relative resource keys:
 
@@ -158,7 +158,7 @@ Context map: portable service in `libs/context-services`; Node live in `libs/con
 
 ### How tests mock `resolveResource` today
 
-`apps/desktop/src/prototype/agentChat/findExecutableOnPath.test.ts`:
+`apps/desktop/src/acp/findExecutableOnPath.test.ts`:
 
 - `vi.mock('@tauri-apps/api/path', () => ({ resolveResource: vi.fn() }))`  
 - `makeAcpAdapterCommand` tests stub resolved absolute paths  

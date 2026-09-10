@@ -32,7 +32,7 @@ Sources live under the Cursor assets folder as attached research screenshots (fi
 
 ### Concrete observations from “before” (`apps/desktop`)
 
-- Chrome: title **Agent Chat**, status row `Echo` / `Codex` / `Claude: ready`, footer `PROTOTYPE · agent: Codex`, config selects, **RPC wire log (436)** (`…10.33.30…`, `…10.33.35…`, `…10.33.48…`).
+- Chrome: title **Agent Chat**, status row `Echo` / `Codex` / `Claude: ready`, footer `agent: Codex · session: …`, config selects, **RPC wire log (436)** (`…10.33.30…`, `…10.33.35…`, `…10.33.48…`).
 - Sequence is a linear list: user / agent text / many tool cards / later agent answer (`…10.33.30…` shows agent plan text **then** a wall of tools; `…10.33.35…` shows tools **then** “Agent” answer).
 - No top-level work summary, no collapse affordance, no grouping — matches current `ChatItemView` tool rendering (cited below).
 
@@ -76,7 +76,7 @@ Notes:
 
 ### Flat `ChatItem` model
 
-```29:48:apps/desktop/src/prototype/agentChat/sessionUpdateReducer.ts
+```29:48:apps/desktop/src/acp/sessionUpdateReducer.ts
 export type ChatItem =
   | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
@@ -219,12 +219,12 @@ MUI primitives: `Accordion` `defaultExpanded` / controlled `expanded` + `onChang
 
 ### Repo
 
-- `apps/desktop/src/prototype/agentChat/sessionUpdateReducer.ts`
-- `apps/desktop/src/prototype/agentChat/ChatItemView.tsx`
-- `apps/desktop/src/prototype/agentChat/AgentChatMain.tsx`
-- `apps/desktop/src/prototype/agentChat/agentHarness.ts`
-- `apps/desktop/src/prototype/agentChat/RpcWireLogPanel.tsx`
-- `apps/desktop/src/prototype/agentChat/SessionRosterPanel.tsx`
+- `apps/desktop/src/acp/sessionUpdateReducer.ts`
+- `apps/desktop/src/components/mainChat/ChatItemView.tsx`
+- `apps/desktop/src/components/mainChat/AgentChatMain.tsx`
+- `apps/desktop/src/acp/agentHarness.ts`
+- `apps/desktop/src/components/wireLog/RpcWireLogPanel.tsx`
+- `apps/desktop/src/components/leftPanel/SessionRosterPanel.tsx`
 - `libs/effect-acp/CONTEXT.md` (session update vocabulary)
 
 ### MUI

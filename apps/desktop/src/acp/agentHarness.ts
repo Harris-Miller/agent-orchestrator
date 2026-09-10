@@ -1,5 +1,5 @@
 /**
- * PROTOTYPE — throwaway harness wiring ACP agents through connectAcpAgent.
+ * ACP agent harness: spawn backends via connectAcpAgent and drive session RPC.
  * Backends: Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
  */
 import { OS } from '@lib/context-services';
@@ -211,7 +211,7 @@ const makeClientHandlers = (
             onSessionUpdate(payload.sessionId, payload.update);
           }),
         ),
-      'terminal/create': () => Effect.succeed({ terminalId: 'prototype-terminal' }),
+      'terminal/create': () => Effect.succeed({ terminalId: 'stub-terminal' }),
       'terminal/kill': () => Effect.succeed({}),
       'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
       'terminal/release': () => Effect.succeed({}),

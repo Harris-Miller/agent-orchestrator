@@ -19,7 +19,7 @@ No `_meta` appeared on `session/list` / `session/load` responses or on outbound 
 
 ## Method
 
-Source: in-app RPC wire log (`BackendSnapshot.rpcCalls` in `apps/desktop/src/prototype/agentChat/acpBackendAtoms.ts`), read via Tauri MCP (`webview_execute_js` over React fiber / Effect Atom state) while `pnpm run tauri:dev` was running and existing chats were activated.
+Source: in-app RPC wire log (`BackendSnapshot.rpcCalls` in `apps/desktop/src/atoms/harnessAtom.ts` / `backendStateAtoms.ts`), read via Tauri MCP (`webview_execute_js` over React fiber / Effect Atom state) while `pnpm run tauri:dev` was running and existing chats were activated.
 
 Message shape in the log is Effect RPC wire (outbound tagged requests with `tag`/`payload`; inbound responses as `{ _tag, exit, requestId }`; notifications as tagged messages with `isNotification`).
 
@@ -142,6 +142,6 @@ Observed `claudeCode.toolName` counts: `Bash`×18, `Skill`×6, `Read`×1.
 
 ## Related code
 
-- Wire log UI / entry type: `apps/desktop/src/prototype/agentChat/RpcWireLogPanel.tsx`, `apps/desktop/src/prototype/agentChat/agentHarness.ts` (`RpcWireEntry`)
-- Per-backend accumulation: `apps/desktop/src/prototype/agentChat/acpBackendAtoms.ts` (`rpcCalls`)
+- Wire log UI / entry type: `apps/desktop/src/components/wireLog/RpcWireLogPanel.tsx`, `apps/desktop/src/acp/agentHarness.ts` (`RpcWireEntry`)
+- Per-backend accumulation: `apps/desktop/src/atoms/harnessAtom.ts` (`rpcCalls` on `backendStateAtom`)
 - ACP schema `_meta` fields: `libs/effect-acp/src/schema/`

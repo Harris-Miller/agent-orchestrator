@@ -29,7 +29,7 @@ Primary (this repo):
 
 - Deps: `apps/desktop/package.json` (`@mui/material`, `@mui/icons-material`, `@emotion/*`; **no** Tailwind / `@base-ui/react` today)
 - Theme shell: `apps/desktop/src/App.tsx`, `apps/desktop/src/theme.ts`
-- Gap usage sites under `apps/desktop/src/prototype/agentChat/` (cited per section)
+- Gap usage sites under `apps/desktop/src/components/` and `apps/desktop/src/routes/` (cited per section)
 
 Method: inventory every `@mui/material` / `@mui/icons-material` import under `apps/desktop/src`, map to the Base UI catalog from `llms.txt`, then re-read gap call sites.
 
@@ -52,7 +52,7 @@ Unique import paths (source files only; excludes fixtures):
 | Import | Files (representative) |
 | --- | --- |
 | Accordion, AccordionDetails, AccordionSummary | `RpcWireLogPanel.tsx` |
-| Alert, Snackbar | `AgentChatPrototype.tsx` |
+| Alert, Snackbar | `apps/desktop/src/routes/index.tsx` |
 | AppBar, Toolbar | `AgentChatWorkbench.tsx` |
 | Box | many |
 | Button | many |
@@ -148,7 +148,7 @@ Do **not** invent Base UI components outside the catalog above.
 
 **How this app uses Alert:**
 
-Only in `AgentChatPrototype.tsx`: `Snackbar` (`autoHideDuration={6000}`, bottom-center) wrapping `Alert` (`severity="error"`, `variant="filled"`, dismiss `onClose`) for `clientError` strings.
+Only in `apps/desktop/src/routes/index.tsx`: `Snackbar` (`autoHideDuration={6000}`, bottom-center) wrapping `Alert` (`severity="error"`, `variant="filled"`, dismiss `onClose`) for `clientError` strings.
 
 **Verdict:** No separate inline Alert component is required for current product behavior. Use Base UI Toast (title/description or description-only, `timeout: 6000`, close control). An in-repo “Alert” strip would only be needed if a future screen shows persistent non-toast banners — none today.
 

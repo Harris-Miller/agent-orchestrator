@@ -289,7 +289,7 @@ export const AgentChatMain: FC<{
       <Paper sx={{ flexShrink: 0, p: 2 }}>
         <Stack spacing={1}>
           <Typography color="text.secondary" variant="caption">
-            PROTOTYPE · agent: {selectedBackend === undefined ? '—' : backendLabel(selectedBackend)} · session:{' '}
+            agent: {selectedBackend === undefined ? '—' : backendLabel(selectedBackend)} · session:{' '}
             {selectedSession?.sessionId ?? '—'}
           </Typography>
           {backendSnapshot?.error !== undefined ? (

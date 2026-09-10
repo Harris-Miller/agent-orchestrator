@@ -1,12 +1,12 @@
 # desktop
 
-Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex, Claude, Gemini) without embedding vendor LLM SDKs.
+Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex and Claude mounted; Gemini typed as a launch target but not mounted until the effect-acp shim) without embedding vendor LLM SDKs.
 
 ## Application
 
 **Agent Harness**:
 The desktop app's core responsibility: spawn ACP Agent subprocesses, negotiate capabilities, run sessions, and fulfill Client-side ACP requests (filesystem, terminal, permissions) on behalf of the user.
-_Avoid_: Orchestrator (repo-wide product name — use in cross-package docs), client app, IDE
+_Avoid_: Orchestrator (product/repo name only today — never a Harness domain synonym; expect this word to be redefined when Orchestrator becomes a Harness feature), client app, IDE
 
 **Harness UI**:
 The React surface that presents sessions, agent output, and permission prompts to the user. Consumes Harness domain state; does not speak ACP or spawn processes directly.
@@ -101,11 +101,11 @@ _Avoid_: Open session, live session
 ## Agent backends
 
 **Agent provider**:
-A supported external coding-agent backend the Harness can connect to: **Codex**, **Claude**, or **Gemini**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
+An external coding-agent backend the Harness can connect to: **Codex** and **Claude** are mounted; **Gemini** is typed but not mounted until the effect-acp shim. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), or a native ACP agent CLI. Distinct from the agent provider name (Codex, Claude, Gemini).
+The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), or a native ACP agent CLI (`gemini-cli`, typed but not mounted). Distinct from the agent provider name (Codex, Claude, Gemini).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **ACP adapter**:
@@ -121,7 +121,7 @@ User-installed agent CLI on PATH (`codex`, `claude`, `gemini`) that an ACP adapt
 _Avoid_: Agent binary, provider CLI, global install
 
 **Native ACP agent**:
-A vendor CLI that implements ACP directly — no separate adapter package. Gemini is the initial native provider (ACP built into the Gemini CLI).
+A vendor CLI that implements ACP directly — no separate adapter package. Gemini is the planned initial native provider (ACP built into the Gemini CLI); its launch target is typed but not mounted until the effect-acp shim.
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:

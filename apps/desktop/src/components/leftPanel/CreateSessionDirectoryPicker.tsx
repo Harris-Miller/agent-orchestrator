@@ -181,14 +181,14 @@ export const CreateSessionDirectoryPicker: FC<{
     setCreateCwd(undefined);
   };
 
-  const createWithAgent = (backend: AgentLaunchTarget) => {
+  const createWithAgent = (launchTarget: AgentLaunchTarget) => {
     if (createCwd === undefined || creating) {
       return;
     }
     const cwd = createCwd;
     setCreating(true);
     closeAgentMenu();
-    createSession({ backend, cwd })
+    createSession({ cwd, launchTarget })
       .then(() => {
         onClose();
       })

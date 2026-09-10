@@ -59,8 +59,8 @@ const directoryName = (cwd: string): string => {
   return segment !== undefined && segment.length > 0 ? segment : cwd;
 };
 
-const backendIconSrc = (backend: AgentLaunchTarget): string => {
-  switch (backend) {
+const launchTargetIconSrc = (launchTarget: AgentLaunchTarget): string => {
+  switch (launchTarget) {
     case 'claude-agent-acp':
       return '/claude_icon.svg';
     case 'codex-acp':
@@ -112,10 +112,10 @@ const SessionRow: FC<{
 
   const selectThisSession = () => {
     if (status !== 'active' && status !== 'activating') {
-      activateSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
+      activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
       return;
     }
-    selectSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
+    selectSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
   };
 
   return (
@@ -138,7 +138,7 @@ const SessionRow: FC<{
             <Box
               alt=""
               component="img"
-              src={backendIconSrc(entry.launchTarget)}
+              src={launchTargetIconSrc(entry.launchTarget)}
               sx={{ display: 'block', flexShrink: 0, height: 16, width: 16 }}
             />
           </Tooltip>
@@ -187,7 +187,9 @@ const SessionRow: FC<{
             disabled={status !== 'active'}
             onClick={() => {
               closeMenu();
-              deactivateSession({ backend: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
+              deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
+                () => undefined,
+              );
             }}
             size="small"
             variant="outlined"
@@ -241,14 +243,14 @@ export const SessionRosterPanel: FC<{
     setAgentMenuAnchor(event.currentTarget);
   };
 
-  const createWithAgent = (backend: AgentLaunchTarget) => {
+  const createWithAgent = (launchTarget: AgentLaunchTarget) => {
     if (createCwd === undefined || creating) {
       return;
     }
     const cwd = createCwd;
     setCreating(true);
     closeAgentMenu();
-    createSession({ backend, cwd })
+    createSession({ cwd, launchTarget })
       .catch(() => undefined)
       .finally(() => {
         setCreating(false);
@@ -444,7 +446,7 @@ export const SessionRosterPanel: FC<{
               }
 
               const { launchTarget, sessionId } = deleteTarget;
-              deleteSession({ backend: launchTarget, sessionId })
+              deleteSession({ launchTarget, sessionId })
                 .then(() => {
                   setDeleteTarget(undefined);
                 })

@@ -8,8 +8,8 @@ export const ALL_AGENT_LAUNCH_TARGETS = [
   // 'gemini-cli',
 ] as const satisfies readonly AgentLaunchTarget[];
 
-export const agentLaunchTargetLabel = (backend: AgentLaunchTarget): string => {
-  switch (backend) {
+export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string => {
+  switch (launchTarget) {
     case 'claude-agent-acp':
       return 'Claude';
     case 'codex-acp':

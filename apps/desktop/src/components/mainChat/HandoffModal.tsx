@@ -41,31 +41,32 @@ const valuesFromOptions = (options: readonly NormalizedConfigOption[]): Record<s
   return values;
 };
 
-const initialBackend = (
-  readyBackends: readonly AgentLaunchTarget[],
-  sourceBackend: AgentLaunchTarget,
-): AgentLaunchTarget | undefined => (readyBackends.includes(sourceBackend) ? sourceBackend : readyBackends[0]);
+const initialLaunchTarget = (
+  readyLaunchTargets: readonly AgentLaunchTarget[],
+  sourceLaunchTarget: AgentLaunchTarget,
+): AgentLaunchTarget | undefined =>
+  readyLaunchTargets.includes(sourceLaunchTarget) ? sourceLaunchTarget : readyLaunchTargets[0];
 
 export const HandoffModal: FC<{
-  readonly getProviderConfig: (backend: AgentLaunchTarget) => ProviderConfigStored | undefined;
+  readonly getProviderConfig: (launchTarget: AgentLaunchTarget) => ProviderConfigStored | undefined;
   readonly onCancel: () => void;
   readonly onConfirm: (arg: {
     configValues: Readonly<Record<string, string>>;
-    targetBackend: AgentLaunchTarget;
+    targetLaunchTarget: AgentLaunchTarget;
   }) => void;
   readonly open: boolean;
-  readonly readyBackends: readonly AgentLaunchTarget[];
-  readonly sourceBackend: AgentLaunchTarget;
-}> = ({ getProviderConfig, onCancel, onConfirm, open, readyBackends, sourceBackend }) => {
-  const [targetBackend, setTargetBackend] = useState<AgentLaunchTarget | undefined>(() =>
-    initialBackend(readyBackends, sourceBackend),
+  readonly readyLaunchTargets: readonly AgentLaunchTarget[];
+  readonly sourceLaunchTarget: AgentLaunchTarget;
+}> = ({ getProviderConfig, onCancel, onConfirm, open, readyLaunchTargets, sourceLaunchTarget }) => {
+  const [targetLaunchTarget, setTargetLaunchTarget] = useState<AgentLaunchTarget | undefined>(() =>
+    initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget),
   );
   const [configOptions, setConfigOptions] = useState<readonly NormalizedConfigOption[]>(() => {
-    const backend = initialBackend(readyBackends, sourceBackend);
-    return catalogOptions(backend === undefined ? undefined : getProviderConfig(backend));
+    const launchTarget = initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget);
+    return catalogOptions(launchTarget === undefined ? undefined : getProviderConfig(launchTarget));
   });
 
-  const canConfirm = targetBackend !== undefined && readyBackends.includes(targetBackend);
+  const canConfirm = targetLaunchTarget !== undefined && readyLaunchTargets.includes(targetLaunchTarget);
 
   return (
     <Dialog fullWidth maxWidth="sm" onClose={onCancel} open={open}>
@@ -73,20 +74,20 @@ export const HandoffModal: FC<{
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth size="small">
-            <InputLabel id="handoff-target-backend-label">Agent</InputLabel>
+            <InputLabel id="handoff-target-launch-target-label">Agent</InputLabel>
             <Select
               label="Agent"
-              labelId="handoff-target-backend-label"
+              labelId="handoff-target-launch-target-label"
               onChange={event => {
                 const next = event.target.value;
-                setTargetBackend(next);
+                setTargetLaunchTarget(next);
                 setConfigOptions(catalogOptions(getProviderConfig(next)));
               }}
-              value={targetBackend ?? ''}
+              value={targetLaunchTarget ?? ''}
             >
-              {readyBackends.map(backend => (
-                <MenuItem key={backend} value={backend}>
-                  {agentLaunchTargetLabel(backend)}
+              {readyLaunchTargets.map(launchTarget => (
+                <MenuItem key={launchTarget} value={launchTarget}>
+                  {agentLaunchTargetLabel(launchTarget)}
                 </MenuItem>
               ))}
             </Select>
@@ -110,10 +111,10 @@ export const HandoffModal: FC<{
         <Button
           disabled={!canConfirm}
           onClick={() => {
-            if (targetBackend === undefined) {
+            if (targetLaunchTarget === undefined) {
               return;
             }
-            onConfirm({ configValues: valuesFromOptions(configOptions), targetBackend });
+            onConfirm({ configValues: valuesFromOptions(configOptions), targetLaunchTarget });
           }}
           variant="contained"
         >

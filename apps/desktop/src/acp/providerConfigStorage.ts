@@ -21,7 +21,7 @@ export type ProviderConfigStored = {
   readonly defaults: Readonly<Record<string, string>>;
 };
 
-const providerConfigKey = (backend: AgentLaunchTarget): string => `${PROVIDER_CONFIG_KEY_PREFIX}${backend}`;
+const providerConfigKey = (launchTarget: AgentLaunchTarget): string => `${PROVIDER_CONFIG_KEY_PREFIX}${launchTarget}`;
 
 const parseChoices = (value: unknown): readonly NormalizedConfigChoice[] | undefined => {
   if (!Array.isArray(value)) {
@@ -142,9 +142,9 @@ export const mergeProviderConfigRefresh = (
   return { catalog, defaults };
 };
 
-export const readProviderConfig = (backend: AgentLaunchTarget): ProviderConfigStored | undefined => {
+export const readProviderConfig = (launchTarget: AgentLaunchTarget): ProviderConfigStored | undefined => {
   try {
-    const raw = localStorage.getItem(providerConfigKey(backend));
+    const raw = localStorage.getItem(providerConfigKey(launchTarget));
     if (raw == null) {
       return undefined;
     }
@@ -154,8 +154,8 @@ export const readProviderConfig = (backend: AgentLaunchTarget): ProviderConfigSt
   }
 };
 
-export const persistProviderConfig = (backend: AgentLaunchTarget, stored: ProviderConfigStored): void => {
-  localStorage.setItem(providerConfigKey(backend), JSON.stringify(stored));
+export const persistProviderConfig = (launchTarget: AgentLaunchTarget, stored: ProviderConfigStored): void => {
+  localStorage.setItem(providerConfigKey(launchTarget), JSON.stringify(stored));
 };
 
 /**
@@ -163,30 +163,30 @@ export const persistProviderConfig = (backend: AgentLaunchTarget, stored: Provid
  * Seeds defaults on first write; preserves valid defaults on later refreshes.
  */
 export const refreshCatalogFromSessionConfiguration = (
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ): ProviderConfigStored | undefined => {
   const selectable = normalizeSelectableConfigOptions(sessionConfiguration);
   if (selectable.length === 0) {
-    return readProviderConfig(backend);
+    return readProviderConfig(launchTarget);
   }
 
-  const next = mergeProviderConfigRefresh(readProviderConfig(backend), selectable);
-  persistProviderConfig(backend, next);
+  const next = mergeProviderConfigRefresh(readProviderConfig(launchTarget), selectable);
+  persistProviderConfig(launchTarget, next);
   return next;
 };
 
 /** Replace harness defaults with the given values; keeps existing catalog. */
 export const saveHarnessDefaults = (
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   values: Readonly<Record<string, string>>,
 ): ProviderConfigStored => {
-  const existing = readProviderConfig(backend) ?? { catalog: [], defaults: {} };
+  const existing = readProviderConfig(launchTarget) ?? { catalog: [], defaults: {} };
   const next: ProviderConfigStored = {
     catalog: existing.catalog,
     defaults: { ...values },
   };
-  persistProviderConfig(backend, next);
+  persistProviderConfig(launchTarget, next);
   return next;
 };
 

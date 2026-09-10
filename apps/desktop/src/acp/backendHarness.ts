@@ -1,17 +1,16 @@
 /**
  * Backend harness lifecycle: spawn, connect, bootstrap retry, chat accumulators.
- * `requireConnectedAgent` is for sessionRpc only — atoms must not import it.
+ * Live agent handles are registered with sessionRpc; atoms never see them.
  */
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
-  AcpAgentConnection,
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect, Exit, Ref, Schema } from 'effect';
+import { Effect, Exit, Ref } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { isRecord } from '../utils.ts';
@@ -22,6 +21,7 @@ import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
+import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
@@ -46,11 +46,11 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
-const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (backend: AgentLaunchTarget) {
-  switch (backend) {
+const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (launchTarget: AgentLaunchTarget) {
+  switch (launchTarget) {
     case 'claude-agent-acp':
     case 'codex-acp':
-      return yield* makeAcpAdapterCommand(backend);
+      return yield* makeAcpAdapterCommand(launchTarget);
     case 'gemini-cli':
       return ChildProcess.make('gemini', ['--acp'], pipedSpawnOptions);
   }
@@ -61,8 +61,6 @@ export type RpcWireEntry = {
   readonly id: string;
   readonly message: unknown;
 };
-
-type AgentHandle = AcpAgentConnection['agent'];
 
 export type BackendHarnessCallbacks = {
   readonly onCommandsReady: (sessionId: string, commands: readonly AvailableCommand[]) => void;
@@ -84,57 +82,45 @@ export type BackendHarnessCallbacks = {
   readonly onUsageUpdate: (sessionId: string, usage: SessionUsage) => void;
 };
 
-export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>()('BackendNotConnected', {
-  backend: Schema.String,
-}) {}
-
-const agentHandles = new Map<AgentLaunchTarget, AgentHandle>();
 const chatAccumulators = new Map<AgentLaunchTarget, Map<string, ReturnType<typeof emptyChatAccumulator>>>();
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 
-const getStoppedRef = (backend: AgentLaunchTarget): Ref.Ref<boolean> => {
-  const existing = stoppedRefs.get(backend);
+const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
+  const existing = stoppedRefs.get(launchTarget);
   if (existing !== undefined) {
     return existing;
   }
 
   const created = Ref.makeUnsafe(false);
-  stoppedRefs.set(backend, created);
+  stoppedRefs.set(launchTarget, created);
   return created;
 };
 
-const getSessionAccumulators = (backend: AgentLaunchTarget): Map<string, ReturnType<typeof emptyChatAccumulator>> => {
-  const existing = chatAccumulators.get(backend);
+const getSessionAccumulators = (
+  launchTarget: AgentLaunchTarget,
+): Map<string, ReturnType<typeof emptyChatAccumulator>> => {
+  const existing = chatAccumulators.get(launchTarget);
   if (existing !== undefined) {
     return existing;
   }
 
   const created = new Map<string, ReturnType<typeof emptyChatAccumulator>>();
-  chatAccumulators.set(backend, created);
+  chatAccumulators.set(launchTarget, created);
   return created;
 };
 
-/** For sessionRpc only — atoms must not import this. */
-export const requireConnectedAgent = (backend: AgentLaunchTarget): Effect.Effect<AgentHandle, BackendNotConnected> => {
-  const agent = agentHandles.get(backend);
-  if (agent === undefined) {
-    return Effect.fail(new BackendNotConnected({ backend }));
-  }
-  return Effect.succeed(agent);
-};
-
-export const resetBackendHarnessState = (backend: AgentLaunchTarget): void => {
-  agentHandles.delete(backend);
-  chatAccumulators.set(backend, new Map());
-  clearPromptSpansForLaunchTarget(backend);
+export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
+  clearConnectedAgent(launchTarget);
+  chatAccumulators.set(launchTarget, new Map());
+  clearPromptSpansForLaunchTarget(launchTarget);
 };
 
 export const appendBackendUserChatItem = (
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   sessionId: string,
   text: string,
 ): readonly ChatItem[] => {
-  const sessionAccumulators = getSessionAccumulators(backend);
+  const sessionAccumulators = getSessionAccumulators(launchTarget);
   const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
   const next = appendUserChatMessage(accumulator, text);
   sessionAccumulators.set(sessionId, next);
@@ -142,11 +128,11 @@ export const appendBackendUserChatItem = (
 };
 
 const reduceBackendSessionUpdate = (
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   sessionId: string,
   update: unknown,
 ): readonly ChatItem[] => {
-  const sessionAccumulators = getSessionAccumulators(backend);
+  const sessionAccumulators = getSessionAccumulators(launchTarget);
   const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
   const next = reduceSessionUpdate(accumulator, update);
   sessionAccumulators.set(sessionId, next);
@@ -157,22 +143,22 @@ const MAX_CONNECT_ATTEMPTS = 3;
 
 /** Connect + initialize + roster list through ready. Does not hold the connection open. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
-  function* (backend: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
+  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
     yield* Effect.annotateCurrentSpan({
-      'acp.agent': backend,
+      'acp.agent': launchTarget,
     });
-    yield* Effect.logInfo('ACP harness connecting', backend);
+    yield* Effect.logInfo('ACP harness connecting', launchTarget);
     handlers.onPhase('connecting');
-    chatAccumulators.set(backend, new Map());
-    clearPromptSpansForLaunchTarget(backend);
+    chatAccumulators.set(launchTarget, new Map());
+    clearPromptSpansForLaunchTarget(launchTarget);
 
-    const command = yield* makeAgentCommand(backend);
+    const command = yield* makeAgentCommand(launchTarget);
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(
-        backend,
+        launchTarget,
         (sessionId, update) => {
-          const chatItems = reduceBackendSessionUpdate(backend, sessionId, update);
+          const chatItems = reduceBackendSessionUpdate(launchTarget, sessionId, update);
           handlers.onSessionUpdate(sessionId, chatItems, update);
 
           if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
@@ -196,8 +182,8 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     );
 
     const { agent } = connection;
-    agentHandles.set(backend, agent);
-    yield* Effect.logInfo('ACP harness connected', backend, { pid: connection.handle.pid });
+    setConnectedAgent(launchTarget, agent);
+    yield* Effect.logInfo('ACP harness connected', launchTarget, { pid: connection.handle.pid });
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: { elicitation: { form: {} } },
@@ -205,35 +191,35 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     });
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
-    yield* Effect.logInfo('ACP harness initialized', backend);
+    yield* Effect.logInfo('ACP harness initialized', launchTarget);
 
     const listResult = yield* agent['session/list']({});
     handlers.onSessionRosterResult(listResult);
     handlers.onPhase('ready');
-    yield* Effect.logInfo('ACP harness ready', backend);
+    yield* Effect.logInfo('ACP harness ready', launchTarget);
     onReady();
   },
-  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'backendHarness' })),
+  (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
 export const runBackendHarness = Effect.fnUntraced(
-  function* (backend: AgentLaunchTarget, handlers: BackendHarnessCallbacks) {
-    const stoppedRef = getStoppedRef(backend);
+  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks) {
+    const stoppedRef = getStoppedRef(launchTarget);
     yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
-    yield* Effect.logInfo('ACP harness started', backend);
+    yield* Effect.logInfo('ACP harness started', launchTarget);
 
     while (!(yield* Ref.get(stoppedRef))) {
       const exit = yield* Effect.exit(
-        bootstrapOnce(backend, handlers, () => {
+        bootstrapOnce(launchTarget, handlers, () => {
           consecutiveFailures.count = 0;
         }).pipe(
           Effect.andThen(Effect.never),
           Effect.scoped,
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
-              yield* Effect.logError('ACP harness missing launch prerequisite', backend, error.message);
+              yield* Effect.logError('ACP harness missing launch prerequisite', launchTarget, error.message);
               handlers.onPhase('error', error.message);
             }),
           ),
@@ -245,38 +231,38 @@ export const runBackendHarness = Effect.fnUntraced(
       }
 
       const errorMessage = Exit.isFailure(exit) ? formatError(exit.cause) : 'Unknown error';
-      yield* Effect.logError('ACP harness bootstrap failed', backend, errorMessage);
+      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, errorMessage);
       handlers.onPhase('error', errorMessage);
       if (yield* Ref.get(stoppedRef)) {
-        yield* Effect.logInfo('ACP harness stopped after failure', backend);
+        yield* Effect.logInfo('ACP harness stopped after failure', launchTarget);
         return;
       }
 
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
-        yield* Effect.logFatal('ACP harness exhausted connect retries', backend, {
+        yield* Effect.logFatal('ACP harness exhausted connect retries', launchTarget, {
           attempts: consecutiveFailures.count,
         });
         return;
       }
 
-      yield* Effect.logWarning('ACP harness retrying connect', backend, {
+      yield* Effect.logWarning('ACP harness retrying connect', launchTarget, {
         attempt: consecutiveFailures.count,
         maxAttempts: MAX_CONNECT_ATTEMPTS,
       });
-      agentHandles.delete(backend);
-      clearPromptSpansForLaunchTarget(backend);
+      clearConnectedAgent(launchTarget);
+      clearPromptSpansForLaunchTarget(launchTarget);
       yield* Effect.sleep('1 second');
     }
   },
   Effect.scoped,
   Effect.provide(TauriServicesLive),
-  (effect, backend) => effect.pipe(Effect.annotateLogs({ backend, module: 'backendHarness' })),
+  (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );
 
-export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (backend: AgentLaunchTarget) {
-  yield* Effect.logInfo('Stopping ACP harness', backend);
-  yield* Ref.set(getStoppedRef(backend), true);
-  agentHandles.delete(backend);
-  clearPromptSpansForLaunchTarget(backend);
+export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (launchTarget: AgentLaunchTarget) {
+  yield* Effect.logInfo('Stopping ACP harness', launchTarget);
+  yield* Ref.set(getStoppedRef(launchTarget), true);
+  clearConnectedAgent(launchTarget);
+  clearPromptSpansForLaunchTarget(launchTarget);
 });

@@ -31,16 +31,17 @@ export type ClientHandlerCallbacks = {
 
 const withTurnCorrelatedSpan = <A, E, R>(
   name: string,
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   sessionId: string | undefined,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> => {
-  const parent: Tracer.AnySpan | undefined = sessionId !== undefined ? getPromptSpan(backend, sessionId) : undefined;
+  const parent: Tracer.AnySpan | undefined =
+    sessionId !== undefined ? getPromptSpan(launchTarget, sessionId) : undefined;
   return effect.pipe(Effect.withSpan(name, parent !== undefined ? { parent } : { root: true }));
 };
 
 export const makeClientHandlers = (
-  backend: AgentLaunchTarget,
+  launchTarget: AgentLaunchTarget,
   onSessionUpdate: (sessionId: string, update: unknown) => void,
   onElicitationCreate: ClientHandlerCallbacks['onElicitationCreate'],
   onPermissionRequest: ClientHandlerCallbacks['onPermissionRequest'],
@@ -52,7 +53,7 @@ export const makeClientHandlers = (
         const sessionId = sessionIdFromElicitationRequest(request);
         return withTurnCorrelatedSpan(
           'elicitation/create',
-          backend,
+          launchTarget,
           sessionId,
           Effect.gen(function* () {
             if (sessionId === undefined) {
@@ -74,7 +75,7 @@ export const makeClientHandlers = (
       'session/request_permission': (request: RequestPermissionRequest) =>
         withTurnCorrelatedSpan(
           'session/request_permission',
-          backend,
+          launchTarget,
           request.sessionId,
           Effect.gen(function* () {
             yield* Effect.logInfo('session/request_permission awaiting UI', request.sessionId);
@@ -89,7 +90,7 @@ export const makeClientHandlers = (
       'session/update': payload =>
         withTurnCorrelatedSpan(
           'session/update',
-          backend,
+          launchTarget,
           payload.sessionId,
           Effect.sync(() => {
             onSessionUpdate(payload.sessionId, payload.update);

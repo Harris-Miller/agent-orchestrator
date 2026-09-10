@@ -82,8 +82,8 @@ export const RpcWireLogPanel: FC<{
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
 }> = ({ onClose, onCopyError }) => {
-  const [rpcBackend, setRpcBackend] = useAtom(rpcWireLogLaunchTargetAtom);
-  const snapshot = useAtomValue(backendHarnessStateAtom(rpcBackend));
+  const [rpcLaunchTarget, setRpcLaunchTarget] = useAtom(rpcWireLogLaunchTargetAtom);
+  const snapshot = useAtomValue(backendHarnessStateAtom(rpcLaunchTarget));
   const entries = snapshot.rpcCalls;
 
   return (
@@ -107,18 +107,18 @@ export const RpcWireLogPanel: FC<{
       />
       <Tabs
         onChange={(_event: SyntheticEvent, value: AgentLaunchTarget) => {
-          setRpcBackend(value);
+          setRpcLaunchTarget(value);
         }}
         sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
-        value={rpcBackend}
+        value={rpcLaunchTarget}
         variant="scrollable"
       >
-        {ALL_AGENT_LAUNCH_TARGETS.map(backend => (
+        {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
           <Tab
-            key={backend}
-            label={agentLaunchTargetLabel(backend)}
+            key={launchTarget}
+            label={agentLaunchTargetLabel(launchTarget)}
             sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-            value={backend}
+            value={launchTarget}
           />
         ))}
       </Tabs>

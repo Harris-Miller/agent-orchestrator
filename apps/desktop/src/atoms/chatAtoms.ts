@@ -22,9 +22,9 @@ import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionCl
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
-export const sendChatItemFn = acpRuntime
+export const sendChatItemAtomFn = acpRuntime
   .fn(
-    Effect.fn('sendChatItemFn', { root: true })(function* (
+    Effect.fn('sendChatItemAtomFn', { root: true })(function* (
       arg: { backend: AgentLaunchTarget; text: string },
       get: AcpAtomGet,
     ) {
@@ -67,7 +67,7 @@ export const sendChatItemFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const respondElicitationFn = acpRuntime
+export const respondElicitationAtomFn = acpRuntime
   .fn(
     Effect.fnUntraced(
       function* (
@@ -96,7 +96,7 @@ export const respondElicitationFn = acpRuntime
           })),
         });
       },
-      Effect.withSpan('respondElicitationFn', arg => {
+      Effect.withSpan('respondElicitationAtomFn', arg => {
         const parent = getPromptSpan(arg.backend, arg.sessionId);
         return parent !== undefined ? { parent } : { root: true };
       }),
@@ -104,7 +104,7 @@ export const respondElicitationFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const respondPermissionFn = acpRuntime
+export const respondPermissionAtomFn = acpRuntime
   .fn(
     Effect.fnUntraced(
       function* (
@@ -133,7 +133,7 @@ export const respondPermissionFn = acpRuntime
           })),
         });
       },
-      Effect.withSpan('respondPermissionFn', arg => {
+      Effect.withSpan('respondPermissionAtomFn', arg => {
         const parent = getPromptSpan(arg.backend, arg.sessionId);
         return parent !== undefined ? { parent } : { root: true };
       }),
@@ -141,9 +141,9 @@ export const respondPermissionFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const setConfigOptionFn = acpRuntime
+export const setConfigOptionAtomFn = acpRuntime
   .fn(
-    Effect.fn('setConfigOptionFn', { root: true })(function* (
+    Effect.fn('setConfigOptionAtomFn', { root: true })(function* (
       arg: { backend: AgentLaunchTarget; configId: string; value: string },
       get: AcpAtomGet,
     ) {
@@ -206,7 +206,7 @@ export const setConfigOptionFn = acpRuntime
       yield* withSessionClientRequest(arg.backend, get, session.sessionId, rpc).pipe(
         Effect.tapError(error =>
           Effect.gen(function* () {
-            yield* Effect.logError('setConfigOptionFn failed; rolling back', arg.backend, arg.configId, error);
+            yield* Effect.logError('setConfigOptionAtomFn failed; rolling back', arg.backend, arg.configId, error);
             get.set(backendHarnessStateAtom(arg.backend), {
               ...get(backendHarnessStateAtom(arg.backend)),
               sessions: patchSession(
@@ -227,7 +227,7 @@ export const setConfigOptionFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const saveHarnessDefaultsFn = acpRuntime
+export const saveHarnessDefaultsAtomFn = acpRuntime
   .fn((arg: { backend: AgentLaunchTarget }, get) =>
     Effect.sync(() => {
       const sessionId = get(selectedSessionIdAtom);

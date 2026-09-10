@@ -32,15 +32,15 @@ import { agentLaunchTargetLabel, groupAndSortSessionsByCwd } from '../../acp/acp
 import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
 import {
-  activateSessionFn,
+  activateSessionAtomFn,
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
-  createSessionFn,
-  deactivateSessionFn,
-  deleteSessionFn,
-  refreshAllSessionRostersFn,
+  createSessionAtomFn,
+  deactivateSessionAtomFn,
+  deleteSessionAtomFn,
+  refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
-  selectSessionFn,
+  selectSessionAtomFn,
   unifiedSessionRosterAtom,
 } from '../../atoms/index.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
@@ -94,9 +94,9 @@ const SessionRow: FC<{
   readonly selected: boolean;
 }> = ({ entry, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
-  const selectSession = useAtomSet(selectSessionFn, { mode: 'promise' });
-  const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
-  const deactivateSession = useAtomSet(deactivateSessionFn, { mode: 'promise' });
+  const selectSession = useAtomSet(selectSessionAtomFn, { mode: 'promise' });
+  const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
+  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
@@ -218,9 +218,9 @@ export const SessionRosterPanel: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersFn, { mode: 'promise' });
-  const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
-  const deleteSession = useAtomSet(deleteSessionFn, { mode: 'promise' });
+  const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
+  const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
+  const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<undefined | UnifiedRosterEntry>(undefined);
   const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);

@@ -15,21 +15,26 @@ export {
 } from './backendStateAtoms.ts';
 export {
   draftAtom,
-  respondElicitationFn,
-  respondPermissionFn,
-  saveHarnessDefaultsFn,
-  sendChatItemFn,
-  setConfigOptionFn,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
+  saveHarnessDefaultsAtomFn,
+  sendChatItemAtomFn,
+  setConfigOptionAtomFn,
 } from './chatAtoms.ts';
-export { joinDirectoryFn, listChildDirectoriesFn, parentDirectoryFn, resolveHomeDirFn } from './directoryAtoms.ts';
-export { HandoffError, handoffInProgressAtom, handoffSessionFn } from './handoffAtoms.ts';
-export { backendHarnessAtom, restartBackendFn } from './harnessAtom.ts';
 export {
-  activateSessionFn,
-  createSessionFn,
-  deactivateSessionFn,
-  deleteSessionFn,
-  refreshAllSessionRostersFn,
-  refreshSessionRosterFn,
-  selectSessionFn,
+  joinDirectoryAtomFn,
+  listChildDirectoriesAtomFn,
+  parentDirectoryAtomFn,
+  resolveHomeDirAtomFn,
+} from './directoryAtoms.ts';
+export { HandoffError, handoffInProgressAtom, handoffSessionAtomFn } from './handoffAtoms.ts';
+export { backendHarnessAtom, restartBackendAtomFn } from './harnessAtom.ts';
+export {
+  activateSessionAtomFn,
+  createSessionAtomFn,
+  deactivateSessionAtomFn,
+  deleteSessionAtomFn,
+  refreshAllSessionRostersAtomFn,
+  refreshSessionRosterAtomFn,
+  selectSessionAtomFn,
 } from './sessionLifecycleAtoms.ts';

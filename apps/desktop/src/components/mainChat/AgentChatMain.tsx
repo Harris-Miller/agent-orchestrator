@@ -25,22 +25,22 @@ import {
 import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
-  activateSessionFn,
+  activateSessionAtomFn,
   allLaunchTargetPhasesAtom,
   draftAtom,
   handoffInProgressAtom,
-  handoffSessionFn,
+  handoffSessionAtomFn,
   providerConfigAtom,
-  respondElicitationFn,
-  respondPermissionFn,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
   rpcWireLogSnapshotAtom,
-  saveHarnessDefaultsFn,
+  saveHarnessDefaultsAtomFn,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
-  sendChatItemFn,
-  setConfigOptionFn,
+  sendChatItemAtomFn,
+  setConfigOptionAtomFn,
   unifiedSessionRosterAtom,
 } from '../../atoms/index.ts';
 import { isRecord } from '../../utils.ts';
@@ -85,13 +85,13 @@ export const AgentChatMain: FC<{
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
-  const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
-  const handoffSession = useAtomSet(handoffSessionFn, { mode: 'promise' });
-  const setConfigOption = useAtomSet(setConfigOptionFn, { mode: 'promise' });
-  const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsFn, { mode: 'promise' });
-  const respondElicitation = useAtomSet(respondElicitationFn, { mode: 'promise' });
-  const respondPermission = useAtomSet(respondPermissionFn, { mode: 'promise' });
+  const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
+  const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
+  const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
+  const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
+  const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsAtomFn, { mode: 'promise' });
+  const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
+  const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const claudeProviderConfig = useAtomValue(providerConfigAtom('claude-agent-acp'));
   const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
   const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));

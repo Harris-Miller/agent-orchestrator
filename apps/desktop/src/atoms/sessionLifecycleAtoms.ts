@@ -41,7 +41,7 @@ import {
   upsertSession,
 } from './sessionPatch.ts';
 
-export const selectSessionFn = acpRuntime
+export const selectSessionAtomFn = acpRuntime
   .fn((arg: { backend: AgentLaunchTarget; sessionId: string }, get) =>
     Effect.sync(() => {
       selectSession(get, arg.backend, arg.sessionId);
@@ -49,9 +49,9 @@ export const selectSessionFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const refreshSessionRosterFn = acpRuntime
+export const refreshSessionRosterAtomFn = acpRuntime
   .fn(
-    Effect.fn('refreshSessionRosterFn', { root: true })(
+    Effect.fn('refreshSessionRosterAtomFn', { root: true })(
       function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': backend,
@@ -77,9 +77,9 @@ export const refreshSessionRosterFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const refreshAllSessionRostersFn = acpRuntime
+export const refreshAllSessionRostersAtomFn = acpRuntime
   .fn(
-    Effect.fn('refreshAllSessionRostersFn', { root: true })(function* (_arg: undefined, get: AcpAtomGet) {
+    Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: AcpAtomGet) {
       yield* Effect.forEach(
         ALL_AGENT_LAUNCH_TARGETS,
         backend =>
@@ -102,9 +102,9 @@ export const refreshAllSessionRostersFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const createSessionFn = acpRuntime
+export const createSessionAtomFn = acpRuntime
   .fn(
-    Effect.fn('createSessionFn', { root: true })(
+    Effect.fn('createSessionAtomFn', { root: true })(
       function* (arg: { backend: AgentLaunchTarget; cwd: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
@@ -151,14 +151,14 @@ export const createSessionFn = acpRuntime
         yield* Effect.logInfo('UI createSession complete', arg.backend, sessionId);
       },
       (effect, arg) =>
-        effect.pipe(Effect.tapError(error => Effect.logError('createSessionFn failed', arg.backend, error))),
+        effect.pipe(Effect.tapError(error => Effect.logError('createSessionAtomFn failed', arg.backend, error))),
     ),
   )
   .pipe(Atom.keepAlive);
 
-export const activateSessionFn = acpRuntime
+export const activateSessionAtomFn = acpRuntime
   .fn(
-    Effect.fn('activateSessionFn', { root: true })(function* (
+    Effect.fn('activateSessionAtomFn', { root: true })(function* (
       arg: { backend: AgentLaunchTarget; sessionId: string },
       get: AcpAtomGet,
     ) {
@@ -220,9 +220,9 @@ export const activateSessionFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const deactivateSessionFn = acpRuntime
+export const deactivateSessionAtomFn = acpRuntime
   .fn(
-    Effect.fn('deactivateSessionFn', { root: true })(
+    Effect.fn('deactivateSessionAtomFn', { root: true })(
       function* (arg: { backend: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
@@ -257,9 +257,9 @@ export const deactivateSessionFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const deleteSessionFn = acpRuntime
+export const deleteSessionAtomFn = acpRuntime
   .fn(
-    Effect.fn('deleteSessionFn', { root: true })(
+    Effect.fn('deleteSessionAtomFn', { root: true })(
       function* (arg: { backend: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.backend,
@@ -295,7 +295,7 @@ export const deleteSessionFn = acpRuntime
       },
       (effect, arg) =>
         effect.pipe(
-          Effect.tapError(error => Effect.logError('deleteSessionFn failed', arg.backend, arg.sessionId, error)),
+          Effect.tapError(error => Effect.logError('deleteSessionAtomFn failed', arg.backend, arg.sessionId, error)),
         ),
     ),
   )

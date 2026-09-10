@@ -26,11 +26,11 @@ import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
 import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
 import {
   allLaunchTargetPhasesAtom,
-  createSessionFn,
-  joinDirectoryFn,
-  listChildDirectoriesFn,
-  parentDirectoryFn,
-  resolveHomeDirFn,
+  createSessionAtomFn,
+  joinDirectoryAtomFn,
+  listChildDirectoriesAtomFn,
+  parentDirectoryAtomFn,
+  resolveHomeDirAtomFn,
 } from '../../atoms/index.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
@@ -56,11 +56,11 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
 export const CreateSessionDirectoryPicker: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
-  const createSession = useAtomSet(createSessionFn, { mode: 'promise' });
-  const resolveHomeDir = useAtomSet(resolveHomeDirFn, { mode: 'promise' });
-  const listChildDirectories = useAtomSet(listChildDirectoriesFn, { mode: 'promise' });
-  const parentDirectory = useAtomSet(parentDirectoryFn, { mode: 'promise' });
-  const joinDirectory = useAtomSet(joinDirectoryFn, { mode: 'promise' });
+  const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
+  const resolveHomeDir = useAtomSet(resolveHomeDirAtomFn, { mode: 'promise' });
+  const listChildDirectories = useAtomSet(listChildDirectoriesAtomFn, { mode: 'promise' });
+  const parentDirectory = useAtomSet(parentDirectoryAtomFn, { mode: 'promise' });
+  const joinDirectory = useAtomSet(joinDirectoryAtomFn, { mode: 'promise' });
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
 
   const inputRef = useRef<HTMLInputElement | null>(null);

@@ -14,7 +14,7 @@ import type { FC } from 'react';
 
 import {
   allLaunchTargetPhasesAtom,
-  restartBackendFn,
+  restartBackendAtomFn,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
 } from '../atoms/index.ts';
@@ -102,7 +102,7 @@ export const AgentChatWorkbench: FC<{
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
+  const restartBackend = useAtomSet(restartBackendAtomFn, { mode: 'promise' });
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };

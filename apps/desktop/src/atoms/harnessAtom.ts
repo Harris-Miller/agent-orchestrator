@@ -147,9 +147,9 @@ export const backendHarnessAtom = Atom.family((backend: AgentLaunchTarget) =>
     .pipe(Atom.keepAlive),
 );
 
-export const restartBackendFn = acpRuntime
+export const restartBackendAtomFn = acpRuntime
   .fn(
-    Effect.fn('restartBackendFn', { root: true })(function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
+    Effect.fn('restartBackendAtomFn', { root: true })(function* (backend: AgentLaunchTarget, get: AcpAtomGet) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': backend,
       });

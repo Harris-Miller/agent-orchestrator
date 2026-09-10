@@ -84,9 +84,9 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     effect.pipe(Effect.tapError(error => Effect.logError('promptPinnedSession failed', backend, sessionId, error))),
 );
 
-export const handoffSessionFn = acpRuntime
+export const handoffSessionAtomFn = acpRuntime
   .fn(
-    Effect.fn('handoffSessionFn', { root: true })(
+    Effect.fn('handoffSessionAtomFn', { root: true })(
       function* (
         arg: {
           configValues: Readonly<Record<string, string>>;

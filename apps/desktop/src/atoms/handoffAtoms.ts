@@ -147,7 +147,10 @@ export const handoffSessionAtomFn = acpRuntime
             rosterEntry === undefined
               ? createdSnapshot.sessionRoster
               : upsertRosterEntry(createdSnapshot.sessionRoster, rosterEntry),
-          sessions: upsertSession(createdSnapshot.sessions, applySessionActivationResult(targetSessionId, result)),
+          sessions: upsertSession(createdSnapshot.sessions, {
+            ...applySessionActivationResult(targetSessionId, result),
+            cwd,
+          }),
         });
         selectSession(get, arg.targetBackend, targetSessionId);
 
@@ -178,11 +181,12 @@ export const handoffSessionAtomFn = acpRuntime
         syncProviderConfigFromSessionConfiguration(get, arg.targetBackend, sessionConfiguration);
 
         const configuredSnapshot = get(backendHarnessStateAtom(arg.targetBackend));
+        const priorTarget = configuredSnapshot.sessions[targetSessionId];
         get.set(backendHarnessStateAtom(arg.targetBackend), {
           ...configuredSnapshot,
           sessions: upsertSession(
             configuredSnapshot.sessions,
-            applySessionActivationResult(targetSessionId, sessionConfiguration),
+            applySessionActivationResult(targetSessionId, sessionConfiguration, priorTarget),
           ),
         });
 

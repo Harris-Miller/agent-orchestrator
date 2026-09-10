@@ -2,7 +2,6 @@
  * ACP agent harness: spawn agent launch targets via connectAcpAgent and drive session RPC.
  * Targets: Codex/Claude via Tauri adapter resources, gemini-cli (PATH).
  */
-import { OS } from '@lib/context-services';
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { ClientRpcs, connectAcpAgent } from '@libs/effect-acp';
 import type {
@@ -352,12 +351,6 @@ export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (bac
   clearPromptSpansForLaunchTarget(backend);
 });
 
-const sessionCwd = () =>
-  Effect.gen(function* () {
-    const os = yield* OS;
-    return os.cwd();
-  }).pipe(Effect.provide(TauriServicesLive));
-
 export const listSessions = Effect.fn('listSessions')(
   function* (agent: AgentHandle) {
     return yield* agent['session/list']({});
@@ -378,9 +371,8 @@ export const createSession = Effect.fn('createSession')(
 );
 
 export const loadSession = Effect.fn('loadSession')(
-  function* (agent: AgentHandle, sessionId: string) {
-    yield* Effect.logInfo('Loading ACP session', sessionId);
-    const cwd = yield* sessionCwd();
+  function* (agent: AgentHandle, sessionId: string, cwd: string) {
+    yield* Effect.logInfo('Loading ACP session', sessionId, { cwd });
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
   },
   (effect, _agent, sessionId) =>
@@ -388,9 +380,8 @@ export const loadSession = Effect.fn('loadSession')(
 );
 
 export const resumeSession = Effect.fn('resumeSession')(
-  function* (agent: AgentHandle, sessionId: string) {
-    yield* Effect.logInfo('Resuming ACP session', sessionId);
-    const cwd = yield* sessionCwd();
+  function* (agent: AgentHandle, sessionId: string, cwd: string) {
+    yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd });
     return yield* agent['session/resume']({ cwd, sessionId });
   },
   (effect, _agent, sessionId) =>

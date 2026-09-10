@@ -9,6 +9,7 @@ import {
   normalizeSessionInfoFromNew,
   normalizeSessionRoster,
   patchConfigOptionValue,
+  resolveSessionCwd,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentHarness.ts';
@@ -137,7 +138,7 @@ export const createSessionAtomFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.backend, sessionConfiguration);
 
-        const session = applySessionActivationResult(sessionId, sessionConfiguration);
+        const session = { ...applySessionActivationResult(sessionId, sessionConfiguration), cwd };
         const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
         const snapshot = get(backendHarnessStateAtom(arg.backend));
 
@@ -173,23 +174,44 @@ export const activateSessionAtomFn = acpRuntime
       }
 
       const snapshot = get(backendHarnessStateAtom(arg.backend));
-      const hasHistory = arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].chatItems.length > 0;
+      const hasLocalSnapshot = arg.sessionId in snapshot.sessions;
+      const existingSession = hasLocalSnapshot ? snapshot.sessions[arg.sessionId] : undefined;
+      const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
+      const cwd = resolveSessionCwd(existingSession?.cwd, rosterEntry?.cwd);
+
+      selectSession(get, arg.backend, arg.sessionId);
+
+      if (cwd === undefined) {
+        yield* Effect.logError('Session activation failed; session cwd missing', arg.backend, arg.sessionId);
+        get.set(backendHarnessStateAtom(arg.backend), {
+          ...snapshot,
+          sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
+            ...session,
+            defects: [{ message: 'Session cwd missing from snapshot and roster' }],
+            status: 'inactive',
+          })),
+        });
+        return;
+      }
+
+      const hasHistory = existingSession !== undefined && existingSession.chatItems.length > 0;
       yield* Effect.logInfo('Activating session', arg.backend, arg.sessionId, {
+        cwd,
         mode: hasHistory ? 'resume' : 'load',
       });
 
-      selectSession(get, arg.backend, arg.sessionId);
       get.set(backendHarnessStateAtom(arg.backend), {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
           ...session,
+          cwd,
           defects: undefined,
           status: 'activating',
         })),
       });
 
       const exit = yield* Effect.exit(
-        hasHistory ? resumeSession(agent, arg.sessionId) : loadSession(agent, arg.sessionId),
+        hasHistory ? resumeSession(agent, arg.sessionId, cwd) : loadSession(agent, arg.sessionId, cwd),
       );
 
       if (Exit.isFailure(exit)) {

@@ -3,6 +3,7 @@ import { Cause } from 'effect';
 
 import claudeSessionNewFixture from '../../fixtures/claude_session_new_response.json';
 import codexSessionNewFixture from '../../fixtures/codex_session_new_response.json';
+import { applySessionActivationResult } from '../atoms/sessionPatch.ts';
 import { isRecord } from '../utils.ts';
 
 import {
@@ -17,6 +18,7 @@ import {
   normalizeSelectableConfigOptions,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
+  resolveSessionCwd,
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
@@ -193,6 +195,50 @@ describe('patchConfigOptionValue', () => {
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
+  });
+});
+
+describe('resolveSessionCwd', () => {
+  it('prefers non-empty snapshot cwd over roster', () => {
+    assert.strictEqual(resolveSessionCwd('/snap', '/roster'), '/snap');
+  });
+
+  it('falls back to roster cwd when snapshot missing', () => {
+    assert.strictEqual(resolveSessionCwd(undefined, '/roster'), '/roster');
+  });
+
+  it('returns undefined when both missing', () => {
+    assert.strictEqual(resolveSessionCwd(undefined, undefined), undefined);
+  });
+
+  it('treats empty and whitespace cwd as missing', () => {
+    assert.strictEqual(resolveSessionCwd('', '/roster'), '/roster');
+    assert.strictEqual(resolveSessionCwd('   ', '/roster'), '/roster');
+    assert.strictEqual(resolveSessionCwd('/snap', ''), '/snap');
+    assert.strictEqual(resolveSessionCwd('/snap', '  '), '/snap');
+    assert.strictEqual(resolveSessionCwd('', ''), undefined);
+    assert.strictEqual(resolveSessionCwd('  ', undefined), undefined);
+  });
+});
+
+describe('applySessionActivationResult cwd continuity', () => {
+  it('preserves existing snapshot cwd through activation merge', () => {
+    const existing = {
+      chatItems: [],
+      cwd: '/proj',
+      sessionId: 's1',
+      status: 'activating' as const,
+    };
+    const next = applySessionActivationResult('s1', { configOptions: [] }, existing);
+    assert.strictEqual(next.cwd, '/proj');
+    assert.strictEqual(next.status, 'active');
+  });
+
+  it('create-shaped stamp keeps cwd after merge without prior existing', () => {
+    const created = { ...applySessionActivationResult('s1', { configOptions: [] }), cwd: '/proj' };
+    assert.strictEqual(created.cwd, '/proj');
+    const remapped = applySessionActivationResult('s1', { models: [] }, created);
+    assert.strictEqual(remapped.cwd, '/proj');
   });
 });
 

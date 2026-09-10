@@ -28,6 +28,7 @@ export const applySessionActivationResult = (
   return {
     availableCommands: existing?.availableCommands,
     chatItems: existing?.chatItems ?? [],
+    cwd: existing?.cwd,
     pendingClientRequest: false,
     selectedModeId: selection.selectedModeId,
     selectedModelId: selection.selectedModelId,

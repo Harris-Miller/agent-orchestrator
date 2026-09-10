@@ -11,7 +11,6 @@ import {
   selectionFromSessionConfiguration,
 } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { appendBackendUserChatItem } from '../acp/backendHarness.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { defaultsFromSelectable, saveHarnessDefaults } from '../acp/providerConfigStorage.ts';
 import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
@@ -19,6 +18,7 @@ import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
+import { withUserChatMessage } from './foldSessionUpdate.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
@@ -43,13 +43,9 @@ export const sendChatItemAtomFn = acpRuntime
         'acp.sessionId': session.sessionId,
       });
 
-      const chatItems = appendBackendUserChatItem(arg.launchTarget, session.sessionId, trimmed);
       get.set(backendHarnessStateAtom(arg.launchTarget), {
         ...snapshot,
-        sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
-          ...current,
-          chatItems,
-        })),
+        sessions: patchSession(snapshot.sessions, session.sessionId, current => withUserChatMessage(current, trimmed)),
       });
 
       yield* withSessionClientRequest(

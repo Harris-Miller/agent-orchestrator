@@ -1,6 +1,7 @@
 /**
- * Backend harness lifecycle: spawn, connect, bootstrap retry, chat accumulators.
+ * Backend harness lifecycle: spawn, connect, bootstrap retry.
  * Live agent handles are registered with sessionRpc; atoms never see them.
+ * Session transcript is owned by SessionSnapshot (atoms fold session/update).
  */
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { connectAcpAgent } from '@libs/effect-acp';
@@ -22,15 +23,8 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
-import type { AvailableCommand, ChatItem, SessionUsage } from './sessionUpdateReducer.ts';
-import {
-  appendUserChatMessage,
-  chatItemsFromAccumulator,
-  emptyChatAccumulator,
-  parseAvailableCommands,
-  parseUsageUpdate,
-  reduceSessionUpdate,
-} from './sessionUpdateReducer.ts';
+import type { AvailableCommand, SessionUsage } from './sessionUpdateReducer.ts';
+import { parseAvailableCommands, parseUsageUpdate } from './sessionUpdateReducer.ts';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -78,11 +72,10 @@ export type BackendHarnessCallbacks = {
   readonly onPhase: (phase: AcpBootstrapPhase, error?: string) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionRosterResult: (result: unknown) => void;
-  readonly onSessionUpdate: (sessionId: string, chatItems: readonly ChatItem[], update: unknown) => void;
+  readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
   readonly onUsageUpdate: (sessionId: string, usage: SessionUsage) => void;
 };
 
-const chatAccumulators = new Map<AgentLaunchTarget, Map<string, ReturnType<typeof emptyChatAccumulator>>>();
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 
 const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
@@ -96,47 +89,9 @@ const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
   return created;
 };
 
-const getSessionAccumulators = (
-  launchTarget: AgentLaunchTarget,
-): Map<string, ReturnType<typeof emptyChatAccumulator>> => {
-  const existing = chatAccumulators.get(launchTarget);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const created = new Map<string, ReturnType<typeof emptyChatAccumulator>>();
-  chatAccumulators.set(launchTarget, created);
-  return created;
-};
-
 export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
   clearConnectedAgent(launchTarget);
-  chatAccumulators.set(launchTarget, new Map());
   clearPromptSpansForLaunchTarget(launchTarget);
-};
-
-export const appendBackendUserChatItem = (
-  launchTarget: AgentLaunchTarget,
-  sessionId: string,
-  text: string,
-): readonly ChatItem[] => {
-  const sessionAccumulators = getSessionAccumulators(launchTarget);
-  const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
-  const next = appendUserChatMessage(accumulator, text);
-  sessionAccumulators.set(sessionId, next);
-  return chatItemsFromAccumulator(next);
-};
-
-const reduceBackendSessionUpdate = (
-  launchTarget: AgentLaunchTarget,
-  sessionId: string,
-  update: unknown,
-): readonly ChatItem[] => {
-  const sessionAccumulators = getSessionAccumulators(launchTarget);
-  const accumulator = sessionAccumulators.get(sessionId) ?? emptyChatAccumulator();
-  const next = reduceSessionUpdate(accumulator, update);
-  sessionAccumulators.set(sessionId, next);
-  return chatItemsFromAccumulator(next);
 };
 
 const MAX_CONNECT_ATTEMPTS = 3;
@@ -149,7 +104,6 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     });
     yield* Effect.logInfo('ACP harness connecting', launchTarget);
     handlers.onPhase('connecting');
-    chatAccumulators.set(launchTarget, new Map());
     clearPromptSpansForLaunchTarget(launchTarget);
 
     const command = yield* makeAgentCommand(launchTarget);
@@ -158,8 +112,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       makeClientHandlers(
         launchTarget,
         (sessionId, update) => {
-          const chatItems = reduceBackendSessionUpdate(launchTarget, sessionId, update);
-          handlers.onSessionUpdate(sessionId, chatItems, update);
+          handlers.onSessionUpdate(sessionId, update);
 
           if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
             const commands = parseAvailableCommands(update.availableCommands);

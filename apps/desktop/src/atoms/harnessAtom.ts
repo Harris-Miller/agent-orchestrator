@@ -17,6 +17,7 @@ import { isRecord } from '../utils.ts';
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
+import { foldSessionUpdate } from './foldSessionUpdate.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration } from './sessionPatch.ts';
 
 export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
@@ -81,24 +82,24 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
             sessionRoster: normalizeSessionRoster(listResult),
           }));
         },
-        onSessionUpdate: (sessionId, chatItems, update) => {
+        onSessionUpdate: (sessionId, update) => {
           const before = get.registry.get(backendHarnessStateAtom(launchTarget));
-          const skipConfigSync = sessionId in before.sessions && before.sessions[sessionId].status === 'activating';
-          const shouldSyncConfig =
-            !skipConfigSync &&
-            isRecord(update) &&
-            update.sessionUpdate === 'config_option_update' &&
-            Array.isArray(update.configOptions);
+          const fold = foldSessionUpdate(before.sessions[sessionId], update);
+          if (fold.kind === 'noop') {
+            return;
+          }
 
           updateState(current => {
-            let sessions = patchSession(current.sessions, sessionId, session => ({
-              ...session,
-              chatItems,
-            }));
+            let sessions = fold.transcriptChanged
+              ? patchSession(current.sessions, sessionId, session => ({
+                  ...session,
+                  transcript: fold.transcript,
+                }))
+              : current.sessions;
 
             let { sessionRoster } = current;
 
-            if (shouldSyncConfig) {
+            if (fold.shouldSyncConfig && isRecord(update) && Array.isArray(update.configOptions)) {
               sessions = patchSession(sessions, sessionId, session => {
                 const applied = applySetConfigOptionResult(session.sessionConfiguration, {
                   configOptions: update.configOptions,
@@ -112,12 +113,8 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
               });
             }
 
-            if (
-              isRecord(update) &&
-              update.sessionUpdate === 'session_info_update' &&
-              typeof update.title === 'string'
-            ) {
-              sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, update.title);
+            if (fold.sessionInfoTitle !== undefined) {
+              sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, fold.sessionInfoTitle);
             }
 
             return {
@@ -127,7 +124,7 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
             };
           });
 
-          if (shouldSyncConfig) {
+          if (fold.shouldSyncConfig) {
             const session = get.registry.get(backendHarnessStateAtom(launchTarget)).sessions[sessionId];
             syncProviderConfigFromSessionConfiguration(get, launchTarget, session.sessionConfiguration);
           }

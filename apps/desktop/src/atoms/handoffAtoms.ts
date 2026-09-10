@@ -10,7 +10,6 @@ import {
 } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { appendBackendUserChatItem } from '../acp/backendHarness.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
 import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
@@ -23,6 +22,7 @@ import {
   selectSession,
   unifiedSessionRosterAtom,
 } from './backendStateAtoms.ts';
+import { withUserChatMessage } from './foldSessionUpdate.ts';
 import {
   applySessionActivationResult,
   patchSession,
@@ -63,13 +63,9 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    const chatItems = appendBackendUserChatItem(launchTarget, sessionId, trimmed);
     get.set(backendHarnessStateAtom(launchTarget), {
       ...snapshot,
-      sessions: patchSession(snapshot.sessions, sessionId, current => ({
-        ...current,
-        chatItems,
-      })),
+      sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
     });
 
     yield* withSessionClientRequest(launchTarget, get, sessionId, sendPrompt(launchTarget, sessionId, trimmed));
@@ -113,7 +109,7 @@ export const handoffSessionAtomFn = acpRuntime
         yield* promptPinnedSession(arg.sourceLaunchTarget, get, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
 
         const sourceChatItems = get(backendHarnessStateAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
-          .chatItems;
+          .transcript.items;
         const handoffDocument = extractHandoffDocument(sourceChatItems);
         if (handoffDocument === undefined) {
           return yield* new HandoffError({ message: 'Handoff document missing from source agent response' });

@@ -13,7 +13,7 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Chat item**:
-A single ordered unit in the Harness UI transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
+A single ordered unit in a session transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
@@ -21,7 +21,7 @@ Harness-reported lifecycle while bringing a backend harness online: `connecting`
 _Avoid_: Status, connection state
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/list`, accumulates chat items from session updates, and retries on failure. One per mounted target; runs in parallel with siblings.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/list`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker
 
 ## Sessions
@@ -39,8 +39,12 @@ One row in the session roster: agent-reported identity and metadata (`sessionId`
 _Avoid_: Session (when you mean the full working copy)
 
 **Session snapshot**:
-The Harness working copy for one session: transcript, status, session configuration, usage, pending client request state, and session cwd when known (stamped on create, handoff, or activate). One per `sessionId` per backend harness. Roster remains the agent-reported list source for cwd when a snapshot has none yet.
+The Harness working copy for one session: session transcript, status, session configuration, usage, pending client request state, and session cwd when known (stamped on create, handoff, or activate). One per `sessionId` per backend harness. Roster remains the agent-reported list source for cwd when a snapshot has none yet.
 _Avoid_: Session record, session object
+
+**Session transcript**:
+The ordered chat items for one session snapshot, derived from session updates and locally appended user prompts. Sole owner of that session’s chat items; survives backend harness reconnect.
+_Avoid_: Chat log, message list, accumulator
 
 **Session status**:
 Harness-reported lifecycle for a session snapshot: `activating` (load or resume in flight), `active` (loaded on the agent; prompts allowed), or `inactive` (not loaded, or closed via Deactivate). Not an ACP protocol concept.

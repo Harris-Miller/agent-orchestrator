@@ -1,14 +1,16 @@
 import { assert, describe, it } from '@effect/vitest';
 
+import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
+
 import { applySessionActivationResult } from './sessionPatch.ts';
 
 describe('applySessionActivationResult cwd continuity', () => {
   it('preserves existing snapshot cwd through activation merge', () => {
     const existing = {
-      chatItems: [],
       cwd: '/proj',
       sessionId: 's1',
       status: 'activating' as const,
+      transcript: emptySessionTranscript(),
     };
     const next = applySessionActivationResult('s1', { configOptions: [] }, existing);
     assert.strictEqual(next.cwd, '/proj');

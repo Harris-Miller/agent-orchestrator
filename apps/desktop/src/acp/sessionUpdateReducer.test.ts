@@ -1,20 +1,20 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { chatItemsFromAccumulator, emptyChatAccumulator, reduceSessionUpdate } from './sessionUpdateReducer.ts';
+import { emptySessionTranscript, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
-    const next = reduceSessionUpdate(emptyChatAccumulator(), {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
       sessionUpdate: 'session_info_update',
       title: 'Implement auth',
       updatedAt: '2026-09-01T00:00:00Z',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(next), []);
+    assert.deepStrictEqual(next.items, []);
   });
 
   it('keeps rawInput.command from tool_call and content from tool_call_update', () => {
-    const afterCall = reduceSessionUpdate(emptyChatAccumulator(), {
+    const afterCall = reduceSessionUpdate(emptySessionTranscript(), {
       kind: 'execute',
       rawInput: { command: 'gh pr view 11 --json title' },
       sessionUpdate: 'tool_call',
@@ -30,7 +30,7 @@ describe('reduceSessionUpdate', () => {
       toolCallId: 'call_001',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(afterUpdate), [
+    assert.deepStrictEqual(afterUpdate.items, [
       {
         command: 'gh pr view 11 --json title',
         id: 'call_001',
@@ -45,14 +45,14 @@ describe('reduceSessionUpdate', () => {
   });
 
   it('prefers _meta.claudeCode.toolName over title only when it is Bash', () => {
-    const bash = reduceSessionUpdate(emptyChatAccumulator(), {
+    const bash = reduceSessionUpdate(emptySessionTranscript(), {
       _meta: { claudeCode: { toolName: 'Bash' } },
       sessionUpdate: 'tool_call',
       title: 'Get PR #11 metadata and standards files',
       toolCallId: 'call_002',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(bash), [
+    assert.deepStrictEqual(bash.items, [
       {
         command: undefined,
         id: 'call_002',
@@ -65,14 +65,14 @@ describe('reduceSessionUpdate', () => {
       },
     ]);
 
-    const other = reduceSessionUpdate(emptyChatAccumulator(), {
+    const other = reduceSessionUpdate(emptySessionTranscript(), {
       _meta: { claudeCode: { toolName: 'Read' } },
       sessionUpdate: 'tool_call',
       title: 'Reading configuration file',
       toolCallId: 'call_003',
     });
 
-    assert.deepStrictEqual(chatItemsFromAccumulator(other), [
+    assert.deepStrictEqual(other.items, [
       {
         command: undefined,
         id: 'call_003',

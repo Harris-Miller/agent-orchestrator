@@ -1,36 +1,24 @@
-# Agent Orchestrator
+# agent-orchestrator
 
-Current in Proof-of-Concept stage
+Tauri + React desktop app that hosts the **Agent Harness** — an [ACP](https://agentclientprotocol.com/) Client for driving external coding agents (Codex, Claude, Gemini) as subprocesses, without embedding any vendor LLM SDK.
 
-## Running locally
+## Layout
 
-### Prerequisites
+- [`apps/desktop`](./apps/desktop) — the desktop app (Agent Harness + UI)
+- [`libs/effect-acp`](./libs/effect-acp) — Effect library implementing the ACP wire protocol
+- [`libs/context-services`](./libs/context-services) — portable host-environment abstractions (Effect services)
+- [`libs/context-services-node`](./libs/context-services-node) — Node/Bun live layers for `context-services`
+- [`libs/context-services-tauri`](./libs/context-services-tauri) — Tauri live layers for `context-services`
+- [`tooling/`](./tooling) — shared ESLint, tsconfig, and Vitest config packages
 
-* Rust: https://rust-lang.org/tools/install/
-* Node@24: https://nodejs.org/en/download
-* BunJS: https://bun.sh/docs/installation
-* pnpm: https://pnpm.io/installation
+See [`CONTEXT-MAP.md`](./CONTEXT-MAP.md) for per-package glossaries and how the packages relate.
 
-For **Codex** and **Claude**, install and authenticate their vendor CLIs (`codex`, `claude`) on your PATH. The desktop app detects those CLIs and runs the ACP adapters from a Tauri resource tree shipped with the app (no global `@agentclientprotocol/*` install).
+## Getting started
 
-For **Gemini**, install and authenticate the Gemini CLI. It already speaks ACP, so no adapter package is needed.
-
-### Developing
-
-`pnpm run local-ci` is the core quality gate, everything should pass
-
-`pnpm run tauri:dev` launches the desktop app as a dev build (materializes ACP adapter resources, then starts Vite)
-
-### Optional: local OTEL collector
-
-For local telemetry (traces, metrics, logs) while debugging, run the Grafana LGTM stack from `compose.yml`:
-
-```bash
-docker compose up -d
+```sh
+pnpm install
+pnpm run local-ci   # typecheck, lint, test — must pass before work is done
+pnpm run tauri:dev  # run the desktop app
 ```
 
-This exposes OTLP on `4317` (gRPC) / `4318` (HTTP) and Grafana at http://localhost:3000. The desktop app’s `.env.development` already points `OTEL_EXPORTER_OTLP_ENDPOINT` at `http://127.0.0.1:4318`, so a `tauri:dev` session will export once the collector is up.
-
-View grafana's UI at http://localhost:3000
-
-Stop with `docker compose down`.
+This is a [Turborepo](https://turborepo.com/) + pnpm workspaces monorepo. See [`AGENTS.md`](./AGENTS.md) for repo-specific agent conventions.

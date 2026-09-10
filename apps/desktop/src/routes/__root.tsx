@@ -2,7 +2,7 @@ import { RegistryProvider } from '@effect/atom-react';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import type { FC } from 'react';
 
-import { AcpBackendsMount } from '../prototype/agentChat/AcpBackendsMount.tsx';
+import { AcpBackendsMount } from '../components/AcpBackendsMount.tsx';
 
 const RootComponent: FC = () => {
   return (

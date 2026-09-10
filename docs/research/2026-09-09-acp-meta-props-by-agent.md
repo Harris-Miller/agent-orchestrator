@@ -5,7 +5,7 @@ Question: What properties appear in `"_meta"` objects on ACP RPC traffic (especi
 
 ## Summary
 
-Live RPC wire logs from the desktop prototype (both backends activated, chats loaded) show `_meta` on:
+Live RPC wire logs from the desktop Harness UI (both agent launch targets activated, chats loaded) show `_meta` on:
 
 1. **`initialize` responses** — shared top-level keys `goal`, `jetbrains`, `steering`, plus agent-specific nested `_meta`
 2. **`session/update` notifications** — agent-private namespaces on `payload.update` (and sometimes nested on child objects)
@@ -19,7 +19,7 @@ No `_meta` appeared on `session/list` / `session/load` responses or on outbound 
 
 ## Method
 
-Source: in-app RPC wire log (`BackendSnapshot.rpcCalls` in `apps/desktop/src/prototype/agentChat/acpBackendAtoms.ts`), read via Tauri MCP (`webview_execute_js` over React fiber / Effect Atom state) while `pnpm run tauri:dev` was running and existing chats were activated.
+Source: in-app RPC wire log (`BackendHarnessSnapshot.rpcCalls` in `apps/desktop/src/atoms/harnessAtom.ts` / `backendStateAtoms.ts`), read via Tauri MCP (`webview_execute_js` over React fiber / Effect Atom state) while `pnpm run tauri:dev` was running and existing chats were activated.
 
 Message shape in the log is Effect RPC wire (outbound tagged requests with `tag`/`payload`; inbound responses as `{ _tag, exit, requestId }`; notifications as tagged messages with `isNotification`).
 
@@ -142,6 +142,6 @@ Observed `claudeCode.toolName` counts: `Bash`×18, `Skill`×6, `Read`×1.
 
 ## Related code
 
-- Wire log UI / entry type: `apps/desktop/src/prototype/agentChat/RpcWireLogPanel.tsx`, `apps/desktop/src/prototype/agentChat/agentHarness.ts` (`RpcWireEntry`)
-- Per-backend accumulation: `apps/desktop/src/prototype/agentChat/acpBackendAtoms.ts` (`rpcCalls`)
+- Wire log UI / entry type: `apps/desktop/src/components/wireLog/RpcWireLogPanel.tsx`, `apps/desktop/src/acp/agentHarness.ts` (`RpcWireEntry`)
+- Per-launch-target accumulation: `apps/desktop/src/atoms/harnessAtom.ts` (`rpcCalls` on `backendHarnessStateAtom`)
 - ACP schema `_meta` fields: `libs/effect-acp/src/schema/`

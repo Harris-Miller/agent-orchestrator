@@ -1,4 +1,4 @@
-/** In-flight `sendPrompt` spans for turn-correlated Agent→Client work. */
+/** Active `sendPrompt` spans for turn-correlated Agent→Client work. */
 import type { Tracer } from 'effect';
 
 const promptSpans = new Map<string, Tracer.AnySpan>();
@@ -16,7 +16,7 @@ export const clearPromptSpan = (backend: string, sessionId: string): void => {
   promptSpans.delete(key(backend, sessionId));
 };
 
-export const clearPromptSpansForBackend = (backend: string): void => {
+export const clearPromptSpansForLaunchTarget = (backend: string): void => {
   const prefix = `${backend}:`;
   for (const k of promptSpans.keys()) {
     if (k.startsWith(prefix)) {

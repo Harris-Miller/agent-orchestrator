@@ -14,7 +14,7 @@ Question: How can an ACP client customize the initial system prompt for both [`c
 
 **Recommended default (ponytail) for this repo’s desktop harness:** for Claude, pass `_meta.systemPrompt: { append: "…" }` on `session/new`. For Codex, put shared project instructions in `AGENTS.md` at the session cwd (already how Codex works). Do not invent a fake shared ACP field until codex-acp exposes `baseInstructions` / `developerInstructions`.
 
-This repo’s prototype currently creates sessions with only `{ cwd, mcpServers: [] }` — no `_meta` (`apps/desktop/src/prototype/agentChat/agentHarness.ts`).
+This repo currently creates sessions with only `{ cwd, mcpServers: [] }` — no `_meta` (`apps/desktop/src/acp/agentHarness.ts`).
 
 ## ACP v1 surface
 
@@ -173,4 +173,4 @@ Avoid inventing a single shared ACP field in the client unless both adapters agr
 | Codex `newSession` omits instruction fields | `codex-acp` `src/CodexAcpClient.ts` |
 | Codex App Server instruction fields exist | `codex-acp` `src/app-server/v2/ThreadStartParams.ts`; openai/codex app-server protocol |
 | Codex AGENTS.md injection | openai/codex protocol / agents_md_manager behavior |
-| This repo’s session create | `apps/desktop/src/prototype/agentChat/agentHarness.ts` |
+| This repo’s session create | `apps/desktop/src/acp/agentHarness.ts` |

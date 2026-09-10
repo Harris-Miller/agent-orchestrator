@@ -227,13 +227,13 @@ importers:
         version: 2.11.4
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../../tooling/eslint-config
+        version: link:../../tooling/eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
       '@tooling/vitest':
         specifier: workspace:^
-        version: link:../../tooling/vitest-config
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -270,13 +270,13 @@ importers:
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../../tooling/eslint-config
+        version: link:../../tooling/eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
       '@tooling/vitest':
         specifier: workspace:^
-        version: link:../../tooling/vitest-config
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -304,13 +304,13 @@ importers:
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../../tooling/eslint-config
+        version: link:../../tooling/eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
       '@tooling/vitest':
         specifier: workspace:^
-        version: link:../../tooling/vitest-config
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -356,13 +356,13 @@ importers:
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../../tooling/eslint-config
+        version: link:../../tooling/eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
       '@tooling/vitest':
         specifier: workspace:^
-        version: link:../../tooling/vitest-config
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -396,13 +396,13 @@ importers:
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../../tooling/eslint-config
+        version: link:../../tooling/eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../../tooling/tsconfig
       '@tooling/vitest':
         specifier: workspace:^
-        version: link:../../tooling/vitest-config
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -416,7 +416,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
 
-  tooling/eslint-config:
+  tooling/eslint:
     dependencies:
       eslint:
         specifier: 'catalog:'
@@ -434,7 +434,7 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
-  tooling/vitest-config:
+  tooling/vitest:
     dependencies:
       vitest:
         specifier: 'catalog:'
@@ -442,7 +442,7 @@ importers:
     devDependencies:
       '@tooling/eslint':
         specifier: workspace:^
-        version: link:../eslint-config
+        version: link:../eslint
       '@tooling/tsconfig':
         specifier: workspace:^
         version: link:../tsconfig

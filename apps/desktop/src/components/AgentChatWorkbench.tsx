@@ -12,19 +12,19 @@ import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import { ThemeSelect } from '../../ThemeChoice.tsx';
-import { isRecord } from '../../utils.ts';
-
 import {
-  allBackendPhasesAtom,
+  allLaunchTargetPhasesAtom,
   restartBackendFn,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
-  selectedSessionSnapshotAtom,
-} from './acpBackendAtoms.ts';
-import { AgentChatMain } from './AgentChatMain.tsx';
-import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './BootstrapStatePanel.tsx';
-import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './RpcWireLogPanel.tsx';
-import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './SessionRosterPanel.tsx';
+} from '../atoms/index.ts';
+import { ThemeSelect } from '../theme/ThemeChoice.tsx';
+import { isRecord } from '../utils.ts';
+
+import { SESSION_ROSTER_PANEL_WIDTH, SessionRosterPanel } from './leftPanel/SessionRosterPanel.tsx';
+import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
+import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';
+import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './wireLog/RpcWireLogPanel.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 
@@ -100,8 +100,8 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const selectedSnapshot = useAtomValue(selectedSessionSnapshotAtom);
-  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const restartBackend = useAtomSet(restartBackendFn, { mode: 'promise' });
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
@@ -197,12 +197,12 @@ export const AgentChatWorkbench: FC<{
                       {backendPhases.map(entry => (
                         <Chip
                           color={phaseColor(entry.phase)}
-                          key={entry.backend}
+                          key={entry.launchTarget}
                           label={`${entry.label}: ${entry.phase}`}
                           onClick={
                             entry.phase === 'error'
                               ? () => {
-                                  restartBackend(entry.backend).catch(() => undefined);
+                                  restartBackend(entry.launchTarget).catch(() => undefined);
                                 }
                               : undefined
                           }

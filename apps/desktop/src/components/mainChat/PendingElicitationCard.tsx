@@ -61,7 +61,7 @@ const unsupportedTypeLabel = (property: ElicitationPropertySchema): string => {
   return 'unknown';
 };
 
-export const ElicitationFormCard: FC<{
+export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
   readonly onAccept: (content: ElicitationContent) => void;
   readonly onCancel: () => void;

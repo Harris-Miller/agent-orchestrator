@@ -16,7 +16,7 @@ Question: When an ACP client passes `mcpServers` on `session/new` (non-empty), d
 
 **Verdict for this app:** Passing non-empty `mcpServers` does **not** wipe Claude/Codex agent-local MCP. It **adds** (with name-collision rules that differ by adapter). Passing `[]` (current harness) adds nothing; agents still load their own configs — matching observed behavior.
 
-This repo’s prototype currently creates/loads sessions with `{ cwd, mcpServers: [] }` (`apps/desktop/src/prototype/agentChat/agentHarness.ts`). Adapters are `@agentclientprotocol/claude-agent-acp` / `@agentclientprotocol/codex-acp` from `apps/desktop/acp-adapter-resources`.
+This repo currently creates/loads sessions with `{ cwd, mcpServers: [] }` (`apps/desktop/src/acp/agentHarness.ts`). Adapters are `@agentclientprotocol/claude-agent-acp` / `@agentclientprotocol/codex-acp` from `apps/desktop/acp-adapter-resources`.
 
 ## ACP v1 protocol
 
@@ -162,4 +162,4 @@ Consequences:
 | `strictMcpConfig` ignores filesystem MCP; default is not strict | `@anthropic-ai/claude-agent-sdk` `sdk.d.ts`; https://code.claude.com/docs/en/agent-sdk/mcp |
 | Codex Rust clone + `insert` | `zed-industries/codex-acp` `src/codex_agent.rs` `build_session_config` |
 | Codex TS empty short-circuit + collision filtering | `agentclientprotocol/codex-acp` `src/CodexAcpClient.ts` `createSessionConfig` / `shouldDeduplicateMcpConflicts` |
-| This repo passes `mcpServers: []`; adapter package pins | `apps/desktop/src/prototype/agentChat/agentHarness.ts`; `apps/desktop/acp-adapter-resources/package.json` |
+| This repo passes `mcpServers: []`; adapter package pins | `apps/desktop/src/acp/agentHarness.ts`; `apps/desktop/acp-adapter-resources/package.json` |

@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import type { SessionUsage } from './sessionUpdateReducer.ts';
+import type { SessionUsage } from '../../acp/sessionUpdateReducer.ts';
 
 const usageCardSx = {
   bgcolor: 'background.default',

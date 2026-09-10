@@ -17,11 +17,16 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { isRecord } from '../../utils.ts';
-
+import {
+  agentLaunchTargetLabel,
+  ALL_AGENT_LAUNCH_TARGETS,
+  normalizeSelectableConfigOptions,
+} from '../../acp/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
   activateSessionFn,
-  allBackendPhasesAtom,
+  allLaunchTargetPhasesAtom,
   draftAtom,
   handoffInProgressAtom,
   handoffSessionFn,
@@ -30,24 +35,23 @@ import {
   respondPermissionFn,
   rpcWireLogSnapshotAtom,
   saveHarnessDefaultsFn,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
-  selectedSessionBackendAtom,
   selectedSessionIdAtom,
-  selectedSessionSnapshotAtom,
+  selectedSessionLaunchTargetAtom,
   sendChatItemFn,
   setConfigOptionFn,
   unifiedSessionRosterAtom,
-} from './acpBackendAtoms.ts';
-import { ALL_ACP_BACKENDS, backendLabel, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
+} from '../../atoms/index.ts';
+import { isRecord } from '../../utils.ts';
+import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
+import { UsagePopover } from '../shared/UsageCard.tsx';
+
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
-import { ElicitationFormCard } from './ElicitationFormCard.tsx';
 import { HandoffModal } from './HandoffModal.tsx';
-import { PermissionRequestCard } from './PermissionRequestCard.tsx';
-import type { ProviderConfigStored } from './providerConfigStorage.ts';
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
-import { UsagePopover } from './UsageCard.tsx';
+import { PendingElicitationCard } from './PendingElicitationCard.tsx';
+import { PendingPermissionCard } from './PendingPermissionCard.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
@@ -71,16 +75,16 @@ export const AgentChatMain: FC<{
   readonly onOpenRpcWireLog: () => void;
   readonly rpcWireLogOpen: boolean;
 }> = ({ onClientError, onOpenRpcWireLog, rpcWireLogOpen }) => {
-  const selectedBackend = useAtomValue(selectedSessionBackendAtom);
+  const selectedBackend = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
   const [draft, setDraft] = useAtom(draftAtom(draftSessionId));
-  const backendSnapshot = useAtomValue(selectedSessionSnapshotAtom);
+  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const rpcSnapshot = useAtomValue(rpcWireLogSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
-  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionFn, { mode: 'promise' });
@@ -92,7 +96,7 @@ export const AgentChatMain: FC<{
   const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
   const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));
 
-  const getProviderConfig = (backend: AcpAgentBackend): ProviderConfigStored | undefined => {
+  const getProviderConfig = (backend: AgentLaunchTarget): ProviderConfigStored | undefined => {
     switch (backend) {
       case 'claude-agent-acp':
         return claudeProviderConfig;
@@ -109,7 +113,7 @@ export const AgentChatMain: FC<{
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
 
   const chatItems = useMemo(() => selectedSession?.chatItems ?? [], [selectedSession?.chatItems]);
-  const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionState);
+  const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionConfiguration);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
   const pendingClientRequest = selectedSession?.pendingClientRequest === true;
@@ -120,7 +124,7 @@ export const AgentChatMain: FC<{
   const sourceCwd =
     selectedBackend === undefined || selectedSessionId === undefined
       ? undefined
-      : roster.find(entry => entry.backend === selectedBackend && entry.sessionId === selectedSessionId)?.cwd;
+      : roster.find(entry => entry.launchTarget === selectedBackend && entry.sessionId === selectedSessionId)?.cwd;
   const canHandoff =
     controlsEnabled &&
     selectedBackend !== undefined &&
@@ -128,9 +132,9 @@ export const AgentChatMain: FC<{
     hasTranscriptMessage &&
     sourceCwd !== undefined;
   const canSaveDefaults = controlsEnabled && configOptions.length > 0;
-  const agentTitle = selectedBackend === undefined ? 'Agent' : backendLabel(selectedBackend);
-  const readyBackends = ALL_ACP_BACKENDS.filter(backend =>
-    backendPhases.some(entry => entry.backend === backend && entry.phase === 'ready'),
+  const agentTitle = selectedBackend === undefined ? 'Agent' : agentLaunchTargetLabel(selectedBackend);
+  const readyBackends = ALL_AGENT_LAUNCH_TARGETS.filter(backend =>
+    backendPhases.some(entry => entry.launchTarget === backend && entry.phase === 'ready'),
   );
 
   const sendDraft = () => {
@@ -153,7 +157,7 @@ export const AgentChatMain: FC<{
       return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
     }
     if (backendSnapshot?.phase !== 'ready') {
-      return <Alert severity="info">Starting {backendLabel(selectedBackend)} over ACP…</Alert>;
+      return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedBackend)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {
       return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
@@ -186,7 +190,7 @@ export const AgentChatMain: FC<{
       }
       return <Alert severity="info">Session is inactive — select it again to activate.</Alert>;
     }
-    return <Alert severity="info">{backendLabel(selectedBackend)} is connected — send a prompt</Alert>;
+    return <Alert severity="info">{agentLaunchTargetLabel(selectedBackend)} is connected — send a prompt</Alert>;
   })();
 
   useEffect(() => {
@@ -241,7 +245,7 @@ export const AgentChatMain: FC<{
           )}
           {selectedSession?.pendingElicitation !== undefined && selectedBackend !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
-              <ElicitationFormCard
+              <PendingElicitationCard
                 agentTitle={agentTitle}
                 onAccept={content => {
                   respondElicitation({
@@ -270,7 +274,7 @@ export const AgentChatMain: FC<{
           ) : null}
           {selectedSession?.pendingPermission !== undefined && selectedBackend !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
-              <PermissionRequestCard
+              <PendingPermissionCard
                 agentTitle={agentTitle}
                 onSelect={optionId => {
                   respondPermission({
@@ -289,7 +293,7 @@ export const AgentChatMain: FC<{
       <Paper sx={{ flexShrink: 0, p: 2 }}>
         <Stack spacing={1}>
           <Typography color="text.secondary" variant="caption">
-            PROTOTYPE · agent: {selectedBackend === undefined ? '—' : backendLabel(selectedBackend)} · session:{' '}
+            agent: {selectedBackend === undefined ? '—' : agentLaunchTargetLabel(selectedBackend)} · session:{' '}
             {selectedSession?.sessionId ?? '—'}
           </Typography>
           {backendSnapshot?.error !== undefined ? (
@@ -304,7 +308,9 @@ export const AgentChatMain: FC<{
               onChange={setDraft}
               onSubmit={sendDraft}
               placeholder={
-                selectedBackend === undefined ? 'Select a session…' : `Message ${backendLabel(selectedBackend)}…`
+                selectedBackend === undefined
+                  ? 'Select a session…'
+                  : `Message ${agentLaunchTargetLabel(selectedBackend)}…`
               }
               value={draft}
             />
@@ -330,7 +336,7 @@ export const AgentChatMain: FC<{
                   size="small"
                   variant="outlined"
                 >
-                  Save as defaults for {backendLabel(selectedBackend)}
+                  Save as defaults for {agentLaunchTargetLabel(selectedBackend)}
                 </Button>
               ) : null}
               {rpcWireLogOpen ? null : (

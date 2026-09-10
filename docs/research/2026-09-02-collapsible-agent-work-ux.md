@@ -1,15 +1,15 @@
 # Collapsible agent work UX for apps/desktop
 
 Date: 2026-09-02
-Question: How should `apps/desktop` Agent Chat emulate Cursor / ChatGPT-Codex / T3-style collapsible “work” chunks (thoughts, tool calls, exploration summaries) given ACP V1 session updates and the current flat `ChatItem` prototype?
+Question: How should `apps/desktop` Agent Chat emulate Cursor / ChatGPT-Codex / T3-style collapsible “work” chunks (thoughts, tool calls, exploration summaries) given ACP V1 session updates and the current flat `ChatItem` model?
 
 ## Summary
 
 Harness screenshots converge on one product pattern: **hide process behind a top-level “Worked for Ns” control, keep the answer fully visible**. Nested thoughts, per-tool expand, and “Explored N files” / “Loaded tools…” labels are polish layers on top of that.
 
-ACP V1 already streams the raw materials (`agent_thought_chunk`, `tool_call` / `tool_call_update`, `plan`, `agent_message_chunk`) but **does not send wall-clock duration or exploration summaries** — those are client UX inventions. The desktop prototype flattens handled updates into ordered `ChatItem`s and renders every `tool_call` fully expanded with no collapse.
+ACP V1 already streams the raw materials (`agent_thought_chunk`, `tool_call` / `tool_call_update`, `plan`, `agent_message_chunk`) but **does not send wall-clock duration or exploration summaries** — those are client UX inventions. The desktop Harness UI flattens handled updates into ordered `ChatItem`s and renders every `tool_call` fully expanded with no collapse.
 
-**Recommended default (ponytail):** option **A** — pure view-layer grouping of consecutive work items under one MUI `Accordion` (already used in the same prototype’s RPC wire log), default collapsed when the turn is idle. Leave the reducer/`ChatItem` model alone for the first cut; add thoughts + client-side timing only if needed.
+**Recommended default (ponytail):** option **A** — pure view-layer grouping of consecutive work items under one MUI `Accordion` (already used in the RPC wire log), default collapsed when the turn is idle. Leave the reducer/`ChatItem` model alone for the first cut; add thoughts + client-side timing only if needed.
 
 ## Screenshot pattern inventory
 
@@ -32,7 +32,7 @@ Sources live under the Cursor assets folder as attached research screenshots (fi
 
 ### Concrete observations from “before” (`apps/desktop`)
 
-- Chrome: title **Agent Chat**, status row `Echo` / `Codex` / `Claude: ready`, footer `PROTOTYPE · agent: Codex`, config selects, **RPC wire log (436)** (`…10.33.30…`, `…10.33.35…`, `…10.33.48…`).
+- Chrome: title **Agent Chat**, status row `Echo` / `Codex` / `Claude: ready`, footer `agent: Codex · session: …`, config selects, **RPC wire log (436)** (`…10.33.30…`, `…10.33.35…`, `…10.33.48…`).
 - Sequence is a linear list: user / agent text / many tool cards / later agent answer (`…10.33.30…` shows agent plan text **then** a wall of tools; `…10.33.35…` shows tools **then** “Agent” answer).
 - No top-level work summary, no collapse affordance, no grouping — matches current `ChatItemView` tool rendering (cited below).
 
@@ -76,7 +76,7 @@ Notes:
 
 ### Flat `ChatItem` model
 
-```29:48:apps/desktop/src/prototype/agentChat/sessionUpdateReducer.ts
+```29:48:apps/desktop/src/acp/sessionUpdateReducer.ts
 export type ChatItem =
   | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
@@ -109,14 +109,14 @@ There is **no** `thought` / `work_group` kind. Unknown `sessionUpdate` values (i
 
 ### Tests
 
-- Prototype tests cover bootstrap/config normalization (`acpSessionBootstrap.test.ts`), **not** `sessionUpdateReducer` / chat rendering.
+- Unit tests cover bootstrap/config normalization (`acpSessionBootstrap.test.ts`), **not** `sessionUpdateReducer` / chat rendering.
 - Integration coverage of update kinds lives in `libs/effect-acp` + `jsonrpc-echo` fixtures (plan / tool_call / agent_message_chunk), still without thoughts UI.
 
-### MUI already in prototype
+### MUI already in the Harness UI
 
 - `Accordion` + `AccordionSummary` + `AccordionDetails` with `disableGutters` / `elevation={0}`: `RpcWireLogPanel.tsx` 1–3, 94–135.
 - `ListItemButton`: `SessionRosterPanel.tsx` (roster selection, not chat collapse).
-- Theme has `MuiListItemButton` overrides (`apps/desktop/src/theme.ts` ~351).
+- Theme has `MuiListItemButton` overrides (`apps/desktop/src/theme/theme.ts` ~351).
 - Chat list itself uses `List` / `ListItem` / `Paper` / `Chip` only (`ChatItemView.tsx`, `AgentChatMain.tsx`).
 
 ## Emulation options
@@ -136,7 +136,7 @@ Wrap each work run in one `Accordion` summary like `N tool calls` (or `Work` whi
 | Reuses existing Accordion pattern in same package | “Worked for Ns” needs a client timer (not ACP) |
 | Directly achieves “hide the work, show the answer” | Naive consecutive grouping mishandles interleaved agent_message-in-the-middle-of-tools (common in real turns — see `…10.33.30…`) |
 
-**Mitigation for interleaving:** treat `agent_message` as “answer” only when it is the **last** item of a turn *or* when followed only by non-work kinds; alternatively group **all** `tool_call`/`plan` between two user messages into one work accordion and leave mid-turn agent text outside (still visible). Good enough for prototype.
+**Mitigation for interleaving:** treat `agent_message` as “answer” only when it is the **last** item of a turn *or* when followed only by non-work kinds; alternatively group **all** `tool_call`/`plan` between two user messages into one work accordion and leave mid-turn agent text outside (still visible). Good enough for v1.
 
 ### B. Reducer / view-model `work_group` turn segment
 
@@ -219,12 +219,12 @@ MUI primitives: `Accordion` `defaultExpanded` / controlled `expanded` + `onChang
 
 ### Repo
 
-- `apps/desktop/src/prototype/agentChat/sessionUpdateReducer.ts`
-- `apps/desktop/src/prototype/agentChat/ChatItemView.tsx`
-- `apps/desktop/src/prototype/agentChat/AgentChatMain.tsx`
-- `apps/desktop/src/prototype/agentChat/agentHarness.ts`
-- `apps/desktop/src/prototype/agentChat/RpcWireLogPanel.tsx`
-- `apps/desktop/src/prototype/agentChat/SessionRosterPanel.tsx`
+- `apps/desktop/src/acp/sessionUpdateReducer.ts`
+- `apps/desktop/src/components/mainChat/ChatItemView.tsx`
+- `apps/desktop/src/components/mainChat/AgentChatMain.tsx`
+- `apps/desktop/src/acp/agentHarness.ts`
+- `apps/desktop/src/components/wireLog/RpcWireLogPanel.tsx`
+- `apps/desktop/src/components/leftPanel/SessionRosterPanel.tsx`
 - `libs/effect-acp/CONTEXT.md` (session update vocabulary)
 
 ### MUI

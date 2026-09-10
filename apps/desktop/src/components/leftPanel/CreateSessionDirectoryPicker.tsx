@@ -22,16 +22,16 @@ import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
+import type { AgentLaunchTarget } from '../../acp/agentHarness.ts';
+import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
 import {
-  allBackendPhasesAtom,
+  allLaunchTargetPhasesAtom,
   createSessionFn,
   joinDirectoryFn,
   listChildDirectoriesFn,
   parentDirectoryFn,
   resolveHomeDirFn,
-} from './acpBackendAtoms.ts';
-import type { AcpAgentBackend } from './agentHarness.ts';
-import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from './sessionDirectoryBrowser.ts';
+} from '../../atoms/index.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box
@@ -61,7 +61,7 @@ export const CreateSessionDirectoryPicker: FC<{
   const listChildDirectories = useAtomSet(listChildDirectoriesFn, { mode: 'promise' });
   const parentDirectory = useAtomSet(parentDirectoryFn, { mode: 'promise' });
   const joinDirectory = useAtomSet(joinDirectoryFn, { mode: 'promise' });
-  const backendPhases = useAtomValue(allBackendPhasesAtom);
+  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
@@ -181,7 +181,7 @@ export const CreateSessionDirectoryPicker: FC<{
     setCreateCwd(undefined);
   };
 
-  const createWithAgent = (backend: AcpAgentBackend) => {
+  const createWithAgent = (backend: AgentLaunchTarget) => {
     if (createCwd === undefined || creating) {
       return;
     }
@@ -340,9 +340,9 @@ export const CreateSessionDirectoryPicker: FC<{
         {backendPhases.map(entry => (
           <MenuItem
             disabled={entry.phase !== 'ready' || creating}
-            key={entry.backend}
+            key={entry.launchTarget}
             onClick={() => {
-              createWithAgent(entry.backend);
+              createWithAgent(entry.launchTarget);
             }}
           >
             {entry.label}

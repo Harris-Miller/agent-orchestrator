@@ -12,6 +12,14 @@ _Avoid_: home directory, OS home, `$HOME` (when meaning this product dir)
 The user-mutable preferences file `settings.json` inside the Agent Orchestrator home.
 _Avoid_: config, configuration, session configuration, config option
 
+**Adapter roster document**:
+Per agent launch target durable session list under `adapters/<launchTarget>/roster.json` inside the Agent Orchestrator home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness in-memory session roster cache.
+_Avoid_: session roster (Harness term), settings document, session snapshot
+
+**Adapter roster lock**:
+Cross-process lock guarding read-modify-write of an adapter roster document so multiple adapter processes (e.g. desktop and a future host) do not corrupt shared durable state.
+_Avoid_: file lock (generic), mutex
+
 ## Package law
 
 Every filesystem read or write under the Agent Orchestrator home goes through `@lib/ao-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.

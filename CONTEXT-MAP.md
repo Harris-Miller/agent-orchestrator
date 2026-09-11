@@ -10,8 +10,9 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 | **context-services** | [`libs/context-services/CONTEXT.md`](./libs/context-services/CONTEXT.md) | — | Portable host abstractions (e.g. OS paths, env) exposed as Effect `Context` services |
 | **context-services-node** | [`libs/context-services-node/CONTEXT.md`](./libs/context-services-node/CONTEXT.md) | — | Node.js live layers for `@lib/context-services` |
 | **context-services-tauri** | [`libs/context-services-tauri/CONTEXT.md`](./libs/context-services-tauri/CONTEXT.md) | — | Tauri live layers for `@lib/context-services` and Effect platform primitives |
-| **ao-home** | [`libs/ao-home/CONTEXT.md`](./libs/ao-home/CONTEXT.md) | [`libs/ao-home/docs/adr/`](./libs/ao-home/docs/adr/) | Agent Orchestrator home (`~/.ao`) seam: settings document (and later session usage) filesystem I/O |
-| **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex and Claude (Gemini typed, not mounted) via external ACP Agents |
+| **ao-home** | [`libs/ao-home/CONTEXT.md`](./libs/ao-home/CONTEXT.md) | [`libs/ao-home/docs/adr/`](./libs/ao-home/docs/adr/) | Agent Orchestrator home (`~/.ao`) seam: settings document, adapter roster documents, and later session usage filesystem I/O |
+| **gemini-acp** | planned [`libs/gemini-acp/CONTEXT.md`](./libs/gemini-acp/CONTEXT.md) | — | ACP adapter in front of Gemini CLI: completes session lifecycle (`list` / `close` / `delete` / hot-cold `resume`); Issue #42 |
+| **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex, Claude, and (planned) Gemini via ACP adapters |
 
 ## Relationships
 
@@ -20,9 +21,12 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **desktop → context-services-tauri**: Tauri live layers (`TauriServicesLive`) for host OS / Path / FileSystem / ChildProcessSpawner
 - **desktop → ao-home** (planned): desktop will consume the home seam for settings and session usage; not wired yet
 - **ao-home → context-services**: uses the portable `OS` service (`homedir`) plus Effect `Path` / `FileSystem`
+- **gemini-acp → effect-acp**: adapter is an ACP Agent (`serveAcpAgent`) and an ACP Client toward Gemini CLI (`connectAcpAgent`)
+- **gemini-acp → ao-home**: durable adapter roster document + lock under `~/.ao/adapters/gemini-acp/`
+- **desktop → gemini-acp** (planned): Harness spawns `gemini-acp` from the adapter resource tree like other ACP adapters
 - **context-services → context-services-node**: context-services-node provides the Node/Bun live layer for the OS service defined in context-services
 - **context-services → context-services-tauri**: context-services-tauri provides the Tauri live layers for the OS service and Effect platform primitives
-- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`) — and connects over stdio. Gemini CLI (`gemini-cli`) is typed as a launch target but not mounted until the effect-acp shim lands
+- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`, planned `gemini-acp`) — and connects over stdio. Gemini CLI remains the vendor CLI behind `gemini-acp` (native ACP; missing session lifecycle capabilities filled by the adapter)
 
 ## Which context to read
 

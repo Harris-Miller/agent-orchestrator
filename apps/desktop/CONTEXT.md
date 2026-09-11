@@ -1,6 +1,6 @@
 # desktop
 
-Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex and Claude mounted; Gemini typed as a launch target but not mounted until the effect-acp shim) without embedding vendor LLM SDKs.
+Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex and Claude mounted; Gemini planned via `gemini-acp`) without embedding vendor LLM SDKs.
 
 ## Application
 
@@ -101,15 +101,15 @@ _Avoid_: Open session, live session
 ## Agent backends
 
 **Agent provider**:
-An external coding-agent backend the Harness can connect to: **Codex** and **Claude** are mounted; **Gemini** is typed but not mounted until the effect-acp shim. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
+An external coding-agent backend the Harness can connect to: **Codex** and **Claude** are mounted; **Gemini** is planned via the `gemini-acp` adapter. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), or a native ACP agent CLI (`gemini-cli`, typed but not mounted). Distinct from the agent provider name (Codex, Claude, Gemini).
+The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`, and planned `gemini-acp`). Distinct from the agent provider name (Codex, Claude, Gemini).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **ACP adapter**:
-A published stdio process that wraps a vendor CLI or SDK and speaks ACP on stdin/stdout. Used for Codex ([`codex-acp`](https://github.com/agentclientprotocol/codex-acp)) and Claude ([`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).
+A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vendor CLI or SDK that is not ACP-native (Codex via [`codex-acp`](https://github.com/agentclientprotocol/codex-acp), Claude via [`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)), or sits in front of a native ACP agent to complete session lifecycle capabilities the vendor omits (planned `gemini-acp` in front of Gemini CLI).
 _Avoid_: Bridge, wrapper, proxy, shim
 
 **Adapter resource tree**:
@@ -121,7 +121,7 @@ User-installed agent CLI on PATH (`codex`, `claude`, `gemini`) that an ACP adapt
 _Avoid_: Agent binary, provider CLI, global install
 
 **Native ACP agent**:
-A vendor CLI that implements ACP directly — no separate adapter package. Gemini is the planned initial native provider (ACP built into the Gemini CLI); its launch target is typed but not mounted until the effect-acp shim.
+A vendor CLI that implements ACP directly. The Harness may still reach it through an ACP adapter when the native agent omits required session lifecycle capabilities (Gemini CLI via planned `gemini-acp`).
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:

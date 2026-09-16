@@ -1,3 +1,4 @@
+import type { SessionUsageDocument } from '@lib/ao-home';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
@@ -9,8 +10,6 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import type { SessionUsage } from '../../acp/sessionUpdateReducer.ts';
-
 const usageCardSx = {
   bgcolor: 'background.default',
   borderColor: 'divider',
@@ -19,7 +18,7 @@ const usageCardSx = {
 
 const USAGE_POPOVER_ID = 'session-usage-popover';
 
-const usagePercent = (usage: SessionUsage): number => (usage.size > 0 ? (usage.used / usage.size) * 100 : 0);
+const usagePercent = (usage: SessionUsageDocument): number => (usage.size > 0 ? (usage.used / usage.size) * 100 : 0);
 
 const usageBarColor = (percent: number): 'error' | 'success' | 'warning' => {
   if (percent >= 90) {
@@ -39,7 +38,7 @@ const formatCost = (cost: { readonly amount: number; readonly currency: string }
   }
 };
 
-export const UsageCard: FC<{ readonly usage: SessionUsage }> = ({ usage }) => {
+export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage }) => {
   const percent = usagePercent(usage);
   const remaining = Math.max(0, usage.size - usage.used);
 
@@ -74,7 +73,7 @@ export const UsageCard: FC<{ readonly usage: SessionUsage }> = ({ usage }) => {
   );
 };
 
-export const UsagePopover: FC<{ readonly usage?: SessionUsage }> = ({ usage }) => {
+export const UsagePopover: FC<{ readonly usage?: SessionUsageDocument }> = ({ usage }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const open = Boolean(anchorEl);
 

@@ -1,5 +1,7 @@
 /** Pure reducer turning ACP `session/update` payloads into ordered chat items. */
 
+import type { SessionUsageDocument } from '@lib/ao-home';
+
 import { isRecord } from '../utils.ts';
 
 export type PlanEntry = {
@@ -11,12 +13,6 @@ export type PlanEntry = {
 export type AvailableCommand = {
   readonly description?: string;
   readonly name: string;
-};
-
-export type SessionUsage = {
-  readonly cost?: { readonly amount: number; readonly currency: string };
-  readonly size: number;
-  readonly used: number;
 };
 
 export type ConfigOption = {
@@ -144,7 +140,7 @@ const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
   });
 };
 
-export const parseUsageUpdate = (update: unknown): SessionUsage | undefined => {
+export const parseUsageUpdate = (update: unknown): SessionUsageDocument | undefined => {
   if (!isRecord(update) || update.sessionUpdate !== 'usage_update') {
     return undefined;
   }

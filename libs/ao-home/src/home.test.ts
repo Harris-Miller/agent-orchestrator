@@ -380,9 +380,10 @@ describe('ao-home', () => {
       if (written?.kind === 'file') {
         const parsed: unknown = JSON.parse(written.content);
         assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
-        assert.isFalse(Object.hasOwn(parsed, 'cost'));
-        assert.strictEqual((parsed as { size: unknown }).size, 258_400);
-        assert.strictEqual((parsed as { used: unknown }).used, 25_094);
+        const record = parsed as Record<string, unknown>;
+        assert.isFalse(Object.hasOwn(record, 'cost'));
+        assert.strictEqual(record.size, 258_400);
+        assert.strictEqual(record.used, 25_094);
       }
     }),
   );

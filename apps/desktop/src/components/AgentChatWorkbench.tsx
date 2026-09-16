@@ -18,7 +18,6 @@ import {
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
 } from '../atoms/index.ts';
-import { ThemeSelect } from '../theme/ThemeChoice.tsx';
 import { isRecord } from '../utils.ts';
 
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
@@ -192,7 +191,6 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
-                    <ThemeSelect />
                     <Stack direction="row" spacing={1}>
                       {backendPhases.map(entry => (
                         <Chip

@@ -1,41 +1,44 @@
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import { ThemeProvider } from '@mui/material/styles';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { DEFAULT_THEME_ID, THEME_IDS, THEME_LABELS, themes } from './theme.ts';
+import { settingsDocumentAtom, settingsHydratedAtom, writeSettingsDocumentAtomFn } from '../atoms/index.ts';
+
+import { THEME_IDS, THEME_LABELS, themes } from './theme.ts';
 import type { ThemeId } from './theme.ts';
 import { ThemeChoiceContext, useThemeChoice } from './themeChoiceContext.ts';
+import { clampThemeId, isThemeId, readPaintThemeId, writePaintThemeId } from './themePaintCache.ts';
 
-const STORAGE_KEY = 'ao-desktop-theme';
-
-const isThemeId = (value: unknown): value is ThemeId =>
-  typeof value === 'string' && (THEME_IDS as readonly string[]).includes(value);
-
-const loadThemeId = (): ThemeId => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return isThemeId(raw) ? raw : DEFAULT_THEME_ID;
-  } catch {
-    return DEFAULT_THEME_ID;
-  }
-};
+/** First-paint cache read once at module load (before Settings hydrate). */
+const initialPaintThemeId = readPaintThemeId();
 
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
-  const [themeId, setThemeId] = useState(loadThemeId);
+  const settings = useAtomValue(settingsDocumentAtom);
+  const hydrated = useAtomValue(settingsHydratedAtom);
+  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const themeId = hydrated ? clampThemeId(settings.theme) : initialPaintThemeId;
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+    writePaintThemeId(clampThemeId(settings.theme));
+  }, [hydrated, settings.theme]);
 
   const value = useMemo(
     () => ({
       setThemeId: (id: ThemeId) => {
-        localStorage.setItem(STORAGE_KEY, id);
-        setThemeId(id);
+        writePaintThemeId(id);
+        writeSettingsDocument({ ...settings, theme: id }).catch(() => undefined);
       },
       themeId,
     }),
-    [themeId],
+    [settings, themeId, writeSettingsDocument],
   );
 
   return (
@@ -47,6 +50,7 @@ export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ childre
   );
 };
 
+/** Theme preference control for the Settings Appearance pane. */
 export const ThemeSelect: FC = () => {
   const { setThemeId, themeId } = useThemeChoice();
   const labelId = 'ao-theme-select-label';

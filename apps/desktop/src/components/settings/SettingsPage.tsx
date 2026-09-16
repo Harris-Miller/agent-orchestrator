@@ -21,6 +21,7 @@ import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { restoreSettingsDefaultsAtomFn, settingsIoErrorAtom } from '../../atoms/index.ts';
+import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 const CATEGORIES = [
   { group: 'Personal', id: 'general', label: 'General' },
@@ -161,10 +162,22 @@ export const SettingsPage: FC = () => {
             </Alert>
           ) : null}
           <Paper sx={{ borderRadius: 2, p: 3 }} variant="outlined">
-            <Typography variant="h6">Coming soon</Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-              Placeholder category <code>{category}</code> — reserved for growth.
-            </Typography>
+            {category === 'appearance' ? (
+              <>
+                <Typography variant="h6">Appearance</Typography>
+                <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
+                  Theme preference is stored in the Settings document.
+                </Typography>
+                <ThemeSelect />
+              </>
+            ) : (
+              <>
+                <Typography variant="h6">Coming soon</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
+                  Placeholder category <code>{category}</code> — reserved for growth.
+                </Typography>
+              </>
+            )}
           </Paper>
         </Box>
       </Box>

@@ -38,7 +38,7 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
           Open a session once to populate selectable options for this agent.
         </Typography>
       ) : (
-        <Stack direction="row" flexWrap="wrap" spacing={1} useFlexGap>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
           {catalog.map(entry => (
             <SessionConfigOptionSelect
               disabled={false}

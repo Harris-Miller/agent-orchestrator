@@ -38,3 +38,11 @@ export {
   refreshSessionRosterAtomFn,
   selectSessionAtomFn,
 } from './sessionLifecycleAtoms.ts';
+export {
+  hydrateSettingsAtomFn,
+  readSettingsAtomFn,
+  restoreSettingsDefaultsAtomFn,
+  settingsDocumentAtom,
+  settingsIoErrorAtom,
+  writeSettingsAtomFn,
+} from './settingsAtoms.ts';

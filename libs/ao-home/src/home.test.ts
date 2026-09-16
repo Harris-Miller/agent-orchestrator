@@ -5,7 +5,15 @@ import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 
-import { defaultSettings, ensureHome, readSettings, resolveHome, settingsPath, writeSettings } from './index.ts';
+import {
+  defaultSettings,
+  ensureHome,
+  readSettings,
+  resolveHome,
+  restoreSettingsDefaults,
+  settingsPath,
+  writeSettings,
+} from './index.ts';
 
 const HOMEDIR = '/home/operator';
 const HOME = `${HOMEDIR}/.ao`;
@@ -112,6 +120,18 @@ describe('ao-home', () => {
         assert.strictEqual((parsed as { theme: unknown }).theme, 'dark');
       }
       assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
+    }),
+  );
+
+  it.effect('restoreSettingsDefaults writes product defaults and drops unknown keys', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const layer = services(store);
+      yield* writeSettings({ experimental: true, theme: 'dark' }).pipe(Effect.provide(layer));
+      const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
+      assert.deepStrictEqual(doc, defaultSettings);
+      const reread = yield* readSettings().pipe(Effect.provide(layer));
+      assert.deepStrictEqual(reread, defaultSettings);
     }),
   );
 

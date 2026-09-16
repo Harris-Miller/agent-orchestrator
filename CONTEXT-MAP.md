@@ -19,7 +19,7 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **desktop → effect-acp**: the Agent Harness (this repo's Orchestrator) is the ACP Client; effect-acp is its wire library (`connectAcpAgent`, schemas, transport)
 - **desktop → context-services**: portable host abstractions (`OS` and related tags)
 - **desktop → context-services-tauri**: Tauri live layers (`TauriServicesLive`) for host OS / Path / FileSystem / ChildProcessSpawner
-- **desktop → ao-home** (planned): desktop will consume the home seam for settings and session usage; not wired yet
+- **desktop → ao-home**: desktop hydrates the Settings document into Effect Atoms and the Settings page reads/writes via `@lib/ao-home`; session usage wiring still planned
 - **ao-home → context-services**: uses the portable `OS` service (`homedir`) plus Effect `Path` / `FileSystem`
 - **gemini-acp → effect-acp**: adapter is an ACP Agent (`serveAcpAgent`) and an ACP Client toward Gemini CLI (`connectAcpAgent`)
 - **gemini-acp → ao-home**: durable adapter roster document + lock under `~/.ao/adapters/gemini-acp/`

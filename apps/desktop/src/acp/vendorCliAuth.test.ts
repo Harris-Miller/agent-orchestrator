@@ -8,10 +8,11 @@ import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 const mockSpawnerLayer = (opts: { readonly exitCode: number; readonly stdout: string }) =>
   Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
-    ChildProcessSpawner.make(() =>
-      Effect.succeed(
+    ChildProcessSpawner.make(() => {
+      const bytes = new TextEncoder().encode(opts.stdout);
+      return Effect.succeed(
         ChildProcessSpawner.makeHandle({
-          all: Stream.make(new TextEncoder().encode(opts.stdout)),
+          all: Stream.make(bytes),
           exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(opts.exitCode)),
           getInputFd: () => Sink.drain,
           getOutputFd: () => Stream.empty,
@@ -20,11 +21,12 @@ const mockSpawnerLayer = (opts: { readonly exitCode: number; readonly stdout: st
           pid: ChildProcessSpawner.ProcessId(1),
           stderr: Stream.empty,
           stdin: Sink.drain,
-          stdout: Stream.make(new TextEncoder().encode(opts.stdout)),
+          // Never-ending stdout mirrors Tauri queues that do not close on process exit.
+          stdout: Stream.concat(Stream.make(bytes), Stream.never),
           unref: Effect.succeed(Effect.void),
         }),
-      ),
-    ),
+      );
+    }),
   );
 
 const failingSpawnLayer = Layer.succeed(

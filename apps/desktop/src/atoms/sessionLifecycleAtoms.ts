@@ -1,5 +1,6 @@
 /** Session roster / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
-import { Effect, Exit } from 'effect';
+import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
+import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
@@ -23,7 +24,6 @@ import {
   resumeSession,
   setConfigOption,
 } from '../acp/sessionRpc.ts';
-import { readPersistedSessionUsage } from '../acp/sessionUsageStorage.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -234,7 +234,7 @@ export const activateSessionAtomFn = acpRuntime
         return;
       }
 
-      const persistedUsage = readPersistedSessionUsage(arg.sessionId);
+      const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
       syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, exit.value);
       get.set(backendHarnessStateAtom(arg.launchTarget), {
         ...get(backendHarnessStateAtom(arg.launchTarget)),
@@ -306,6 +306,11 @@ export const deleteSessionAtomFn = acpRuntime
 
         yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
         yield* deleteSession(arg.launchTarget, arg.sessionId);
+        yield* deleteSessionDir(arg.sessionId).pipe(
+          Effect.catchCause(cause =>
+            Effect.logWarning('session dir cleanup failed', arg.launchTarget, arg.sessionId, cause),
+          ),
+        );
 
         const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
         const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);

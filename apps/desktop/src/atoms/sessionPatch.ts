@@ -118,14 +118,14 @@ export const withSessionClientRequest = <A, E, R>(
     return yield* rpc.pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          const currentSnapshot = get(backendHarnessStateAtom(launchTarget));
-          get.set(backendHarnessStateAtom(launchTarget), {
-            ...currentSnapshot,
-            sessions: patchSession(currentSnapshot.sessions, sessionId, current => ({
-              ...current,
+          // Atom.fn dispose marks get disposed before interrupt finalizers; disposed get.set no-ops.
+          get.registry.update(backendHarnessStateAtom(launchTarget), current => ({
+            ...current,
+            sessions: patchSession(current.sessions, sessionId, entry => ({
+              ...entry,
               pendingClientRequest: false,
             })),
-          });
+          }));
         }),
       ),
     );

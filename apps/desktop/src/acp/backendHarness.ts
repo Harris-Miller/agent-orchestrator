@@ -3,6 +3,7 @@
  * Live agent handles are registered with sessionRpc; atoms never see them.
  * Session transcript is owned by SessionSnapshot (atoms fold session/update).
  */
+import type { SessionUsageDocument } from '@lib/ao-home';
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
@@ -23,7 +24,7 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
-import type { AvailableCommand, SessionUsage } from './sessionUpdateReducer.ts';
+import type { AvailableCommand } from './sessionUpdateReducer.ts';
 import { parseAvailableCommands, parseUsageUpdate } from './sessionUpdateReducer.ts';
 
 const pipedSpawnOptions = {
@@ -73,7 +74,7 @@ export type BackendHarnessCallbacks = {
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionRosterResult: (result: unknown) => void;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
-  readonly onUsageUpdate: (sessionId: string, usage: SessionUsage) => void;
+  readonly onUsageUpdate: (sessionId: string, usage: SessionUsageDocument) => void;
 };
 
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();

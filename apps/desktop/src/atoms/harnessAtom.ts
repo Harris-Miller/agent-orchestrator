@@ -1,4 +1,6 @@
 /** ACP backend harness lifecycle Atom (mount + restart). */
+import { writeSessionUsage } from '@lib/ao-home';
+import { TauriServicesLive } from '@lib/context-services-tauri';
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
@@ -11,7 +13,6 @@ import {
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
-import { persistSessionUsage } from '../acp/sessionUsageStorage.ts';
 import { isRecord } from '../utils.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
@@ -130,7 +131,12 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
           }
         },
         onUsageUpdate: (sessionId, usage) => {
-          persistSessionUsage(sessionId, usage);
+          Effect.runFork(
+            writeSessionUsage(sessionId, usage).pipe(
+              Effect.provide(TauriServicesLive),
+              Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
+            ),
+          );
           updateState(current => ({
             ...current,
             sessions: patchSession(current.sessions, sessionId, session => ({

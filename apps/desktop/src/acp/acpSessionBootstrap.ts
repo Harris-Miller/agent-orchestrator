@@ -1,5 +1,6 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
+import type { SessionUsageDocument } from '@lib/ao-home';
 import type { Cause } from 'effect';
 
 import { isRecord } from '../utils.ts';
@@ -7,7 +8,7 @@ import { isRecord } from '../utils.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
-import type { AvailableCommand, SessionTranscript, SessionUsage } from './sessionUpdateReducer.ts';
+import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
@@ -29,7 +30,7 @@ export type SessionSnapshot = {
   readonly sessionId: string;
   readonly status: SessionStatus;
   readonly transcript: SessionTranscript;
-  readonly usage?: SessionUsage;
+  readonly usage?: SessionUsageDocument;
 };
 
 /** Non-empty trimmed cwd, else undefined. */
@@ -559,9 +560,9 @@ const parseConfigChoices = (value: unknown): readonly NormalizedConfigChoice[] =
 
     return [
       {
-        description: typeof entry.description === 'string' ? entry.description : undefined,
         id,
         name,
+        ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
       },
     ];
   });

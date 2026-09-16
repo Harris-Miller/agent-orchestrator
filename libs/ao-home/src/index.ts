@@ -6,6 +6,12 @@ export {
   ProviderConfigCatalogDocumentSchema,
   type ProviderConfigCatalogEntry,
 } from './ProviderConfigCatalogDocument.ts';
+export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
+export {
+  type SessionUsageDocument,
+  SessionUsageDocumentJsonString,
+  SessionUsageDocumentSchema,
+} from './SessionUsageDocument.ts';
 export {
   defaultSettings,
   type SettingsDocument,

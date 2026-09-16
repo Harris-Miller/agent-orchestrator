@@ -559,9 +559,9 @@ const parseConfigChoices = (value: unknown): readonly NormalizedConfigChoice[] =
 
     return [
       {
-        description: typeof entry.description === 'string' ? entry.description : undefined,
         id,
         name,
+        ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
       },
     ];
   });

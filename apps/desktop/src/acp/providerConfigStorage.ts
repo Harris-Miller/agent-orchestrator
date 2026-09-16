@@ -39,7 +39,11 @@ const catalogEntriesFromSelectable = (
 ): readonly ProviderConfigCatalogEntry[] =>
   selectable.map(option => ({
     ...(option.category !== undefined ? { category: option.category } : {}),
-    choices: option.choices,
+    choices: option.choices.map(choice => ({
+      id: choice.id,
+      name: choice.name,
+      ...(choice.description !== undefined ? { description: choice.description } : {}),
+    })),
     ...(option.description !== undefined ? { description: option.description } : {}),
     id: option.id,
     name: option.name,

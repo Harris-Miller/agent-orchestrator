@@ -1,6 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
+import { ProviderConfigCatalogDocumentJsonString } from '@lib/ao-home';
+import { Effect, Schema } from 'effect';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
+import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import {
   defaultsEqual,
   harnessDefaultDiffs,
@@ -26,6 +29,31 @@ const modeOption = (currentValue: string, choiceIds: readonly string[]): Normali
 });
 
 describe('mergeProviderConfigRefresh', () => {
+  it.effect('catalog encode succeeds when choice descriptions are absent', () =>
+    Effect.gen(function* () {
+      const selectable = normalizeSelectableConfigOptions({
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { description: 'Opus model', name: 'Opus', value: 'opus' },
+            ],
+            type: 'select',
+          },
+        ],
+      });
+      const merged = mergeProviderConfigRefresh(undefined, selectable);
+      const encoded = yield* Schema.encodeEffect(ProviderConfigCatalogDocumentJsonString)({
+        catalog: [...merged.catalog],
+      });
+      assert.isTrue(encoded.includes('"id": "model"'));
+      assert.isFalse(encoded.includes('"description": null'));
+    }),
+  );
+
   it('seeds defaults from currentValue on first write', () => {
     const merged = mergeProviderConfigRefresh(undefined, [
       modelOption('sonnet', ['sonnet', 'opus']),

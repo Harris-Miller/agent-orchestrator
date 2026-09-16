@@ -1,37 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
-import { beforeEach } from 'vitest';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import {
+  defaultsEqual,
   harnessDefaultDiffs,
   mergeProviderConfigRefresh,
-  persistProviderConfig,
-  readProviderConfig,
-  refreshCatalogFromSessionConfiguration,
-  saveHarnessDefaults,
+  refreshProviderConfigInMemory,
 } from './providerConfigStorage.ts';
 import type { ProviderConfigStored } from './providerConfigStorage.ts';
-
-const memoryStore = new Map<string, string>();
-
-const memoryLocalStorage = {
-  clear: () => {
-    memoryStore.clear();
-  },
-  getItem: (key: string) => memoryStore.get(key) ?? null,
-  removeItem: (key: string) => {
-    memoryStore.delete(key);
-  },
-  setItem: (key: string, value: string) => {
-    memoryStore.set(key, value);
-  },
-};
-
-Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: memoryLocalStorage });
-
-beforeEach(() => {
-  memoryStore.clear();
-});
 
 const modelOption = (currentValue: string, choiceIds: readonly string[]): NormalizedConfigOption => ({
   choices: choiceIds.map(id => ({ id, name: id })),
@@ -109,86 +85,71 @@ describe('mergeProviderConfigRefresh', () => {
   });
 });
 
-describe('providerConfigStorage persistence', () => {
-  it('returns undefined when no key exists', () => {
-    assert.strictEqual(readProviderConfig('codex-acp'), undefined);
-  });
-
-  it('round-trips stored config', () => {
-    const stored: ProviderConfigStored = {
-      catalog: [{ choices: [{ id: 'a', name: 'A' }], id: 'model', name: 'Model' }],
-      defaults: { model: 'a' },
-    };
-    persistProviderConfig('codex-acp', stored);
-    assert.deepStrictEqual(readProviderConfig('codex-acp'), stored);
-  });
-
-  it('returns undefined for corrupt JSON', () => {
-    localStorage.setItem('acp-provider-config:codex-acp', '{not-json');
-    assert.strictEqual(readProviderConfig('codex-acp'), undefined);
-  });
-
-  it('returns undefined for invalid shape', () => {
-    localStorage.setItem('acp-provider-config:codex-acp', JSON.stringify({ catalog: 'nope' }));
-    assert.strictEqual(readProviderConfig('codex-acp'), undefined);
-  });
-
-  it('refreshCatalogFromSessionConfiguration seeds then preserves across second activation', () => {
-    const first = refreshCatalogFromSessionConfiguration('claude-agent-acp', {
-      configOptions: [
-        {
-          currentValue: 'sonnet',
-          id: 'model',
-          name: 'Model',
-          options: [
-            { name: 'Sonnet', value: 'sonnet' },
-            { name: 'Opus', value: 'opus' },
-          ],
-          type: 'select',
-        },
-      ],
-    });
+describe('refreshProviderConfigInMemory', () => {
+  it('seeds then preserves across second activation with settings defaults', () => {
+    const first = refreshProviderConfigInMemory(
+      undefined,
+      {},
+      {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+    );
     assert.deepStrictEqual(first?.defaults, { model: 'sonnet' });
 
-    saveHarnessDefaults('claude-agent-acp', { model: 'opus' });
-
-    const second = refreshCatalogFromSessionConfiguration('claude-agent-acp', {
-      configOptions: [
-        {
-          currentValue: 'sonnet',
-          id: 'model',
-          name: 'Model',
-          options: [
-            { name: 'Sonnet', value: 'sonnet' },
-            { name: 'Opus', value: 'opus' },
-            { name: 'Haiku', value: 'haiku' },
-          ],
-          type: 'select',
-        },
-      ],
-    });
+    const afterEdit: ProviderConfigStored = {
+      catalog: first?.catalog ?? [],
+      defaults: { model: 'opus' },
+    };
+    const second = refreshProviderConfigInMemory(
+      afterEdit,
+      { model: 'opus' },
+      {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+              { name: 'Haiku', value: 'haiku' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+    );
     assert.deepStrictEqual(second?.defaults, { model: 'opus' });
     const hasHaiku = second?.catalog[0]?.choices.some(choice => choice.id === 'haiku') ?? false;
     assert.isTrue(hasHaiku);
   });
 
-  it('refreshCatalogFromSessionConfiguration skips empty selectable without wiping storage', () => {
-    persistProviderConfig('codex-acp', {
+  it('skips empty selectable without wiping previous', () => {
+    const previous: ProviderConfigStored = {
       catalog: [{ choices: [{ id: 'x', name: 'X' }], id: 'model', name: 'Model' }],
       defaults: { model: 'x' },
-    });
-    const result = refreshCatalogFromSessionConfiguration('codex-acp', { configOptions: [] });
-    assert.deepStrictEqual(result?.defaults, { model: 'x' });
+    };
+    const result = refreshProviderConfigInMemory(previous, { model: 'x' }, { configOptions: [] });
+    assert.deepStrictEqual(result, previous);
   });
+});
 
-  it('saveHarnessDefaults overwrites defaults without changing catalog', () => {
-    persistProviderConfig('codex-acp', {
-      catalog: [{ choices: [{ id: 'a', name: 'A' }], id: 'model', name: 'Model' }],
-      defaults: { model: 'a' },
-    });
-    const saved = saveHarnessDefaults('codex-acp', { model: 'b' });
-    assert.deepStrictEqual(saved.defaults, { model: 'b' });
-    assert.strictEqual(saved.catalog[0]?.id, 'model');
+describe('defaultsEqual', () => {
+  it('compares key/value maps', () => {
+    assert.isTrue(defaultsEqual({ a: '1' }, { a: '1' }));
+    assert.isFalse(defaultsEqual({ a: '1' }, { a: '2' }));
+    assert.isFalse(defaultsEqual({ a: '1' }, { a: '1', b: '2' }));
   });
 });
 

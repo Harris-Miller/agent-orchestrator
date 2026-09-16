@@ -31,6 +31,8 @@ import {
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
+import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
+
 const CATEGORIES = [
   { group: 'Personal', id: 'general', label: 'General' },
   { group: 'Personal', id: 'appearance', label: 'Appearance' },
@@ -198,6 +200,8 @@ export const SettingsPage: FC = () => {
                   label="Confirm before deleting a session"
                 />
               </>
+            ) : category === 'defaults' ? (
+              <HarnessDefaultsSettingsPane />
             ) : (
               <>
                 <Typography variant="h6">Coming soon</Typography>

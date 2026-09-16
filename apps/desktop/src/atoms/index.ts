@@ -17,7 +17,6 @@ export {
   draftAtom,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
-  saveHarnessDefaultsAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
 } from './chatAtoms.ts';

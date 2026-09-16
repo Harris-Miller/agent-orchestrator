@@ -1,9 +1,10 @@
-import { assert, describe, it } from '@effect/vitest';
+import { assert, describe, it, layer } from '@effect/vitest';
 import { OS } from '@lib/context-services';
 import { Effect, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
+import { beforeEach } from 'vitest';
 
 import {
   defaultSettings,
@@ -135,15 +136,15 @@ describe('ao-home', () => {
   it.effect('writeSettings then readSettings round-trips known fields and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const layer = services(store);
+      const testLayer = services(store);
       const writtenDoc = {
         confirmSessionDelete: false,
         experimental: true,
         harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
         theme: 'dark',
       };
-      yield* writeSettings(writtenDoc).pipe(Effect.provide(layer));
-      const doc = yield* readSettings().pipe(Effect.provide(layer));
+      yield* writeSettings(writtenDoc).pipe(Effect.provide(testLayer));
+      const doc = yield* readSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(doc, writtenDoc);
       const written = store.get(SETTINGS);
       assert.isTrue(written?.kind === 'file');
@@ -161,16 +162,16 @@ describe('ao-home', () => {
   it.effect('restoreSettingsDefaults writes product defaults and drops known and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const layer = services(store);
+      const testLayer = services(store);
       yield* writeSettings({
         confirmSessionDelete: false,
         experimental: true,
         harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
         theme: 'dark',
-      }).pipe(Effect.provide(layer));
-      const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
+      }).pipe(Effect.provide(testLayer));
+      const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(doc, defaultSettings);
-      const reread = yield* readSettings().pipe(Effect.provide(layer));
+      const reread = yield* readSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(reread, defaultSettings);
     }),
   );
@@ -210,7 +211,7 @@ describe('ao-home', () => {
   it.effect('writeSettings fails the Effect on I/O error', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const layer = services(store, {
+      const testLayer = services(store, {
         writeFileString: () =>
           Effect.fail(
             PlatformError.systemError({
@@ -222,7 +223,7 @@ describe('ao-home', () => {
             }),
           ),
       });
-      const error = yield* writeSettings({}).pipe(Effect.provide(layer), Effect.flip);
+      const error = yield* writeSettings({}).pipe(Effect.provide(testLayer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
       assert.isFalse(store.has(SETTINGS));
     }),
@@ -234,7 +235,7 @@ describe('ao-home', () => {
         [HOME, { kind: 'dir' }],
         [SETTINGS, { content: '{"theme":"dark"}\n', kind: 'file' }],
       ]);
-      const layer = services(store, {
+      const testLayer = services(store, {
         readFileString: () =>
           Effect.fail(
             PlatformError.systemError({
@@ -246,7 +247,7 @@ describe('ao-home', () => {
             }),
           ),
       });
-      const error = yield* readSettings().pipe(Effect.provide(layer), Effect.flip);
+      const error = yield* readSettings().pipe(Effect.provide(testLayer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
     }),
   );
@@ -269,7 +270,7 @@ describe('ao-home', () => {
   it.effect('writeProviderConfigCatalog then readProviderConfigCatalog round-trips', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const layer = services(store);
+      const testLayer = services(store);
       const catalogDoc = {
         catalog: [
           {
@@ -280,8 +281,8 @@ describe('ao-home', () => {
           },
         ],
       };
-      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(layer));
-      const doc = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(layer));
+      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(testLayer));
+      const doc = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(Option.getOrThrow(doc), catalogDoc);
       assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
       assert.deepStrictEqual(store.get(CODEX_HARNESS_DIR), { kind: 'dir' });
@@ -313,129 +314,126 @@ describe('ao-home', () => {
   it.effect('restoreSettingsDefaults does not delete provider config catalog documents', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const layer = services(store);
+      const testLayer = services(store);
       const catalogDoc = {
         catalog: [{ choices: [{ id: 'a', name: 'A' }], id: 'model', name: 'Model' }],
       };
-      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(layer));
-      yield* writeSettings({ theme: 'dark' }).pipe(Effect.provide(layer));
-      yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
-      const catalog = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(layer));
+      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(testLayer));
+      yield* writeSettings({ theme: 'dark' }).pipe(Effect.provide(testLayer));
+      yield* restoreSettingsDefaults().pipe(Effect.provide(testLayer));
+      const catalog = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(Option.getOrThrow(catalog), catalogDoc);
-      const settings = yield* readSettings().pipe(Effect.provide(layer));
+      const settings = yield* readSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(settings, defaultSettings);
     }),
   );
 
-  it.effect('sessionDirPath and sessionUsagePath nest under sessions/id', () =>
-    Effect.gen(function* () {
-      const dir = yield* sessionDirPath(SESSION_ID);
-      const usage = yield* sessionUsagePath(SESSION_ID);
-      assert.strictEqual(dir, SESSION_DIR);
-      assert.strictEqual(usage, SESSION_USAGE);
-    }).pipe(Effect.provide(services(new Map()))),
-  );
+  describe('session usage documents', () => {
+    const store = new Map<string, FsEntry>();
 
-  it.effect('readSessionUsage returns none when missing', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>();
-      const doc = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(services(store)));
-      assert.isTrue(Option.isNone(doc));
-    }),
-  );
+    beforeEach(() => {
+      store.clear();
+    });
 
-  it.effect('writeSessionUsage then readSessionUsage round-trips', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>();
-      const layer = services(store);
-      const usageDoc = {
-        cost: { amount: 0.045, currency: 'USD' },
-        size: 200_000,
-        used: 53_000,
-      };
-      yield* writeSessionUsage(SESSION_ID, usageDoc).pipe(Effect.provide(layer));
-      const doc = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(layer));
-      assert.deepStrictEqual(Option.getOrThrow(doc), usageDoc);
-      assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
-      assert.deepStrictEqual(store.get(SESSION_DIR), { kind: 'dir' });
-      const written = store.get(SESSION_USAGE);
-      assert.isTrue(written?.kind === 'file');
-      if (written?.kind === 'file') {
-        assert.isTrue(written.content.endsWith('\n'));
-      }
-    }),
-  );
-
-  it.effect('writeSessionUsage accepts explicit undefined cost and omits it on disk', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>();
-      const layer = services(store);
-      yield* writeSessionUsage(SESSION_ID, { cost: undefined, size: 258_400, used: 25_094 }).pipe(
-        Effect.provide(layer),
+    layer(services(store))(layeredIt => {
+      layeredIt.effect('sessionDirPath and sessionUsagePath nest under sessions/id', () =>
+        Effect.gen(function* () {
+          const dir = yield* sessionDirPath(SESSION_ID);
+          const usage = yield* sessionUsagePath(SESSION_ID);
+          assert.strictEqual(dir, SESSION_DIR);
+          assert.strictEqual(usage, SESSION_USAGE);
+        }),
       );
-      const doc = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(layer));
-      assert.deepStrictEqual(Option.getOrThrow(doc), { size: 258_400, used: 25_094 });
-      const written = store.get(SESSION_USAGE);
-      assert.isTrue(written?.kind === 'file');
-      if (written?.kind === 'file') {
-        const parsed: unknown = JSON.parse(written.content);
-        assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
-        const record = parsed as Record<string, unknown>;
-        assert.isFalse(Object.hasOwn(record, 'cost'));
-        assert.strictEqual(record.size, 258_400);
-        assert.strictEqual(record.used, 25_094);
-      }
-    }),
-  );
 
-  it.effect('readSessionUsage returns none for corrupt JSON without rewriting', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>([
-        [HOME, { kind: 'dir' }],
-        [SESSION_DIR, { kind: 'dir' }],
-        [SESSION_USAGE, { content: '{not-json', kind: 'file' }],
-      ]);
-      const doc = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(services(store)));
-      assert.isTrue(Option.isNone(doc));
-      const entry = store.get(SESSION_USAGE);
-      assert.isTrue(entry?.kind === 'file');
-      if (entry?.kind === 'file') {
-        assert.strictEqual(entry.content, '{not-json');
-      }
-    }),
-  );
+      layeredIt.effect('readSessionUsage returns none when missing', () =>
+        Effect.gen(function* () {
+          const doc = yield* readSessionUsage(SESSION_ID);
+          assert.isTrue(Option.isNone(doc));
+        }),
+      );
 
-  it.effect('deleteSessionDir is a no-op when the session directory is missing', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>([[HOME, { kind: 'dir' }]]);
-      yield* deleteSessionDir(SESSION_ID).pipe(Effect.provide(services(store)));
-      assert.isFalse(store.has(SESSION_DIR));
-      assert.isFalse(store.has(SESSION_USAGE));
-    }),
-  );
+      layeredIt.effect('writeSessionUsage then readSessionUsage round-trips', () =>
+        Effect.gen(function* () {
+          const usageDoc = {
+            cost: { amount: 0.045, currency: 'USD' },
+            size: 200_000,
+            used: 53_000,
+          };
+          yield* writeSessionUsage(SESSION_ID, usageDoc);
+          const doc = yield* readSessionUsage(SESSION_ID);
+          assert.deepStrictEqual(Option.getOrThrow(doc), usageDoc);
+          assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
+          assert.deepStrictEqual(store.get(SESSION_DIR), { kind: 'dir' });
+          const written = store.get(SESSION_USAGE);
+          assert.isTrue(written?.kind === 'file');
+          if (written?.kind === 'file') {
+            assert.isTrue(written.content.endsWith('\n'));
+          }
+        }),
+      );
 
-  it.effect('deleteSessionDir removes the session directory and usage file', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>();
-      const layer = services(store);
-      yield* writeSessionUsage(SESSION_ID, { size: 100, used: 10 }).pipe(Effect.provide(layer));
-      yield* deleteSessionDir(SESSION_ID).pipe(Effect.provide(layer));
-      assert.isFalse(store.has(SESSION_DIR));
-      assert.isFalse(store.has(SESSION_USAGE));
-      assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
-    }),
-  );
+      layeredIt.effect('writeSessionUsage accepts explicit undefined cost and omits it on disk', () =>
+        Effect.gen(function* () {
+          yield* writeSessionUsage(SESSION_ID, { cost: undefined, size: 258_400, used: 25_094 });
+          const doc = yield* readSessionUsage(SESSION_ID);
+          assert.deepStrictEqual(Option.getOrThrow(doc), { size: 258_400, used: 25_094 });
+          const written = store.get(SESSION_USAGE);
+          assert.isTrue(written?.kind === 'file');
+          if (written?.kind === 'file') {
+            const parsed: unknown = JSON.parse(written.content);
+            assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
+            const record = parsed as Record<string, unknown>;
+            assert.isFalse(Object.hasOwn(record, 'cost'));
+            assert.strictEqual(record.size, 258_400);
+            assert.strictEqual(record.used, 25_094);
+          }
+        }),
+      );
 
-  it.effect('restoreSettingsDefaults does not delete session usage documents', () =>
-    Effect.gen(function* () {
-      const store = new Map<string, FsEntry>();
-      const layer = services(store);
-      const usageDoc = { size: 100, used: 10 };
-      yield* writeSessionUsage(SESSION_ID, usageDoc).pipe(Effect.provide(layer));
-      yield* writeSettings({ theme: 'dark' }).pipe(Effect.provide(layer));
-      yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
-      const usage = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(layer));
-      assert.deepStrictEqual(Option.getOrThrow(usage), usageDoc);
-    }),
-  );
+      layeredIt.effect('readSessionUsage returns none for corrupt JSON without rewriting', () =>
+        Effect.gen(function* () {
+          store.set(HOME, { kind: 'dir' });
+          store.set(SESSION_DIR, { kind: 'dir' });
+          store.set(SESSION_USAGE, { content: '{not-json', kind: 'file' });
+          const doc = yield* readSessionUsage(SESSION_ID);
+          assert.isTrue(Option.isNone(doc));
+          const entry = store.get(SESSION_USAGE);
+          assert.isTrue(entry?.kind === 'file');
+          if (entry?.kind === 'file') {
+            assert.strictEqual(entry.content, '{not-json');
+          }
+        }),
+      );
+
+      layeredIt.effect('deleteSessionDir is a no-op when the session directory is missing', () =>
+        Effect.gen(function* () {
+          store.set(HOME, { kind: 'dir' });
+          yield* deleteSessionDir(SESSION_ID);
+          assert.isFalse(store.has(SESSION_DIR));
+          assert.isFalse(store.has(SESSION_USAGE));
+        }),
+      );
+
+      layeredIt.effect('deleteSessionDir removes the session directory and usage file', () =>
+        Effect.gen(function* () {
+          yield* writeSessionUsage(SESSION_ID, { size: 100, used: 10 });
+          yield* deleteSessionDir(SESSION_ID);
+          assert.isFalse(store.has(SESSION_DIR));
+          assert.isFalse(store.has(SESSION_USAGE));
+          assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
+        }),
+      );
+
+      layeredIt.effect('restoreSettingsDefaults does not delete session usage documents', () =>
+        Effect.gen(function* () {
+          const usageDoc = { size: 100, used: 10 };
+          yield* writeSessionUsage(SESSION_ID, usageDoc);
+          yield* writeSettings({ theme: 'dark' });
+          yield* restoreSettingsDefaults();
+          const usage = yield* readSessionUsage(SESSION_ID);
+          assert.deepStrictEqual(Option.getOrThrow(usage), usageDoc);
+        }),
+      );
+    });
+  });
 });

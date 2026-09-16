@@ -1,3 +1,4 @@
+import { RegistryProvider } from '@effect/atom-react';
 import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
@@ -19,17 +20,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+/** Registry must wrap AppThemeProvider so theme reads the same atoms Settings hydrate/write. */
 const App = () => (
-  <AppThemeProvider>
-    <CssBaseline />
-    <Container
-      disableGutters
-      maxWidth={false}
-      sx={muiTheme => ({ minHeight: '100vh', minWidth: muiTheme.breakpoints.values.md })}
-    >
-      <RouterProvider router={router} />
-    </Container>
-  </AppThemeProvider>
+  <RegistryProvider>
+    <AppThemeProvider>
+      <CssBaseline />
+      <Container
+        disableGutters
+        maxWidth={false}
+        sx={muiTheme => ({ minHeight: '100vh', minWidth: muiTheme.breakpoints.values.md })}
+      >
+        <RouterProvider router={router} />
+      </Container>
+    </AppThemeProvider>
+  </RegistryProvider>
 );
 
 export default App;

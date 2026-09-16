@@ -6,6 +6,7 @@ import { Effect } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
+import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
 export { MissingLaunchPrerequisite };
 
@@ -53,6 +54,7 @@ export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
 
     if (launchTarget === 'codex-acp') {
       const codexPath = yield* requireExecutableOnPath('codex');
+      yield* requireVendorCliAuthenticated('codex-acp', codexPath);
       yield* Effect.logDebug('Codex adapter env', { CODEX_PATH: codexPath });
       return ChildProcess.make('node', [entry], {
         ...pipedSpawnOptions,
@@ -61,6 +63,7 @@ export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
     }
 
     const claudePath = yield* requireExecutableOnPath('claude');
+    yield* requireVendorCliAuthenticated('claude-agent-acp', claudePath);
     yield* Effect.logDebug('Claude adapter env', { CLAUDE_CODE_EXECUTABLE: claudePath });
     return ChildProcess.make('node', [entry], {
       ...pipedSpawnOptions,

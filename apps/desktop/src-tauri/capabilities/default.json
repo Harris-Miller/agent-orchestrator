@@ -46,13 +46,23 @@
         },
         {
           "args": true,
-          "cmd": "node",
-          "name": "node"
+          "cmd": "claude",
+          "name": "claude"
+        },
+        {
+          "args": true,
+          "cmd": "codex",
+          "name": "codex"
         },
         {
           "args": true,
           "cmd": "gemini",
           "name": "gemini"
+        },
+        {
+          "args": true,
+          "cmd": "node",
+          "name": "node"
         }
       ]
     },
@@ -66,13 +76,23 @@
         },
         {
           "args": true,
-          "cmd": "node",
-          "name": "node"
+          "cmd": "claude",
+          "name": "claude"
+        },
+        {
+          "args": true,
+          "cmd": "codex",
+          "name": "codex"
         },
         {
           "args": true,
           "cmd": "gemini",
           "name": "gemini"
+        },
+        {
+          "args": true,
+          "cmd": "node",
+          "name": "node"
         }
       ]
     }

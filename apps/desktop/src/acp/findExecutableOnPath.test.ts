@@ -2,9 +2,10 @@ import { assert, describe, it } from '@effect/vitest';
 import { OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
 import { resolveResource } from '@tauri-apps/api/path';
-import { Effect, Layer, Option } from 'effect';
+import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
+import { ChildProcessSpawner } from 'effect/unstable/process';
 import { beforeEach, vi } from 'vitest';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
@@ -33,10 +34,62 @@ const fsLayer = (existing: ReadonlySet<string>) =>
     exists: path => Effect.succeed(existing.has(path)),
   });
 
+const authOkSpawnerLayer = Layer.succeed(
+  ChildProcessSpawner.ChildProcessSpawner,
+  ChildProcessSpawner.make(command => {
+    const isClaude = command._tag === 'StandardCommand' && command.args.includes('auth');
+    const stdout = isClaude
+      ? new TextEncoder().encode(JSON.stringify({ loggedIn: true }))
+      : new TextEncoder().encode('Logged in\n');
+    return Effect.succeed(
+      ChildProcessSpawner.makeHandle({
+        all: Stream.make(stdout),
+        exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+        getInputFd: () => Sink.drain,
+        getOutputFd: () => Stream.empty,
+        isRunning: Effect.succeed(false),
+        kill: () => Effect.void,
+        pid: ChildProcessSpawner.ProcessId(1),
+        stderr: Stream.empty,
+        stdin: Sink.drain,
+        stdout: Stream.make(stdout),
+        unref: Effect.succeed(Effect.void),
+      }),
+    );
+  }),
+);
+
+const authFailSpawnerLayer = Layer.succeed(
+  ChildProcessSpawner.ChildProcessSpawner,
+  ChildProcessSpawner.make(() =>
+    Effect.succeed(
+      ChildProcessSpawner.makeHandle({
+        all: Stream.make(new TextEncoder().encode('Not logged in\n')),
+        exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(1)),
+        getInputFd: () => Sink.drain,
+        getOutputFd: () => Stream.empty,
+        isRunning: Effect.succeed(false),
+        kill: () => Effect.void,
+        pid: ChildProcessSpawner.ProcessId(1),
+        stderr: Stream.empty,
+        stdin: Sink.drain,
+        stdout: Stream.make(new TextEncoder().encode('Not logged in\n')),
+        unref: Effect.succeed(Effect.void),
+      }),
+    ),
+  ),
+);
+
 const pathServices = (env: Readonly<Record<string, string>>, existing: ReadonlySet<string>, platform = 'linux') => {
   const pathLayer = platform === 'win32' ? PathLive.pipe(Layer.provide(osLayer(env, platform))) : posixPathLayer;
   return Layer.mergeAll(pathLayer, fsLayer(existing)).pipe(Layer.provideMerge(osLayer(env, platform)));
 };
+
+const adapterServices = (
+  env: Readonly<Record<string, string>>,
+  existing: ReadonlySet<string>,
+  authLayer: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner> = authOkSpawnerLayer,
+) => Layer.mergeAll(pathServices(env, existing), authLayer);
 
 describe('findExecutableOnPath', () => {
   it.effect('returns the first matching PATH entry', () =>
@@ -96,7 +149,7 @@ describe('makeAcpAdapterCommand', () => {
       assert.strictEqual(command.options.env?.CODEX_PATH, '/usr/local/bin/codex');
     }).pipe(
       Effect.provide(
-        pathServices(
+        adapterServices(
           { PATH: '/usr/local/bin:/usr/bin' },
           new Set(['/usr/bin/node', '/usr/local/bin/codex', '/usr/local/bin/node']),
         ),
@@ -115,7 +168,7 @@ describe('makeAcpAdapterCommand', () => {
       assert.strictEqual(command.options.env?.CLAUDE_CODE_EXECUTABLE, '/usr/local/bin/claude');
     }).pipe(
       Effect.provide(
-        pathServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/claude', '/usr/local/bin/node'])),
+        adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/claude', '/usr/local/bin/node'])),
       ),
     ),
   );
@@ -132,7 +185,7 @@ describe('makeAcpAdapterCommand', () => {
       }
       assert.strictEqual(error.executable, 'codex');
       assert.strictEqual(mockedResolveResource.mock.calls.length, 1);
-    }).pipe(Effect.provide(pathServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
+    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
 
   it.effect('fails when node is missing', () =>
@@ -144,6 +197,29 @@ describe('makeAcpAdapterCommand', () => {
       }
       assert.strictEqual(error.executable, 'node');
       assert.strictEqual(mockedResolveResource.mock.calls.length, 0);
-    }).pipe(Effect.provide(pathServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/codex'])))),
+    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/codex'])))),
+  );
+
+  it.effect('fails when vendor CLI is present but unauthenticated', () =>
+    Effect.gen(function* () {
+      mockedResolveResource.mockResolvedValue(
+        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
+      );
+      const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      if (error._tag !== 'MissingLaunchPrerequisite') {
+        return;
+      }
+      assert.strictEqual(error.executable, 'codex');
+      assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/bin/node', '/usr/local/bin/codex', '/usr/local/bin/node']),
+          authFailSpawnerLayer,
+        ),
+      ),
+    ),
   );
 });

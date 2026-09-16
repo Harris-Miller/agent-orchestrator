@@ -47,8 +47,10 @@ import {
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   selectSessionAtomFn,
+  settingsDocumentAtom,
   unifiedSessionRosterAtom,
 } from '../../atoms/index.ts';
+import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
@@ -226,6 +228,7 @@ export const WorkbenchNavRail: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
+  const settings = useAtomValue(settingsDocumentAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
@@ -237,6 +240,14 @@ export const WorkbenchNavRail: FC<{
   const [creating, setCreating] = useState(false);
 
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
+
+  const requestDelete = (entry: UnifiedRosterEntry) => {
+    if (confirmSessionDeleteEnabled(settings)) {
+      setDeleteTarget(entry);
+      return;
+    }
+    deleteSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(() => undefined);
+  };
 
   const closeAgentMenu = () => {
     setAgentMenuAnchor(null);
@@ -379,7 +390,7 @@ export const WorkbenchNavRail: FC<{
                       <SessionRow
                         entry={entry}
                         key={`${entry.launchTarget}:${entry.sessionId}`}
-                        onDeleteRequest={setDeleteTarget}
+                        onDeleteRequest={requestDelete}
                         selected={selectedSessionId === entry.sessionId}
                       />
                     ))}

@@ -10,17 +10,25 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import InputAdornment from '@mui/material/InputAdornment';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { restoreSettingsDefaultsAtomFn, settingsIoErrorAtom } from '../../atoms/index.ts';
+import {
+  restoreSettingsDefaultsAtomFn,
+  settingsDocumentAtom,
+  settingsIoErrorAtom,
+  writeSettingsDocumentAtomFn,
+} from '../../atoms/index.ts';
+import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 const CATEGORIES = [
@@ -55,7 +63,9 @@ const BackToApp: FC = () => {
 /** Settings page: category rail + placeholder panes. */
 export const SettingsPage: FC = () => {
   const ioError = useAtomValue(settingsIoErrorAtom);
+  const settings = useAtomValue(settingsDocumentAtom);
   const restoreDefaults = useAtomSet(restoreSettingsDefaultsAtomFn, { mode: 'promise' });
+  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
@@ -169,6 +179,24 @@ export const SettingsPage: FC = () => {
                   Theme preference is stored in the Settings document.
                 </Typography>
                 <ThemeSelect />
+              </>
+            ) : category === 'general' ? (
+              <>
+                <Typography variant="h6">General</Typography>
+                <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
+                  Session delete confirmation lives in the Settings document.
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={confirmSessionDeleteEnabled(settings)}
+                      onChange={(_event, checked) => {
+                        writeSettingsDocument({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
+                      }}
+                    />
+                  }
+                  label="Confirm before deleting a session"
+                />
               </>
             ) : (
               <>

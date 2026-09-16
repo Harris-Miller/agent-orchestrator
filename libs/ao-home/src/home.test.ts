@@ -366,6 +366,27 @@ describe('ao-home', () => {
     }),
   );
 
+  it.effect('writeSessionUsage accepts explicit undefined cost and omits it on disk', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const layer = services(store);
+      yield* writeSessionUsage(SESSION_ID, { cost: undefined, size: 258_400, used: 25_094 }).pipe(
+        Effect.provide(layer),
+      );
+      const doc = yield* readSessionUsage(SESSION_ID).pipe(Effect.provide(layer));
+      assert.deepStrictEqual(Option.getOrThrow(doc), { size: 258_400, used: 25_094 });
+      const written = store.get(SESSION_USAGE);
+      assert.isTrue(written?.kind === 'file');
+      if (written?.kind === 'file') {
+        const parsed: unknown = JSON.parse(written.content);
+        assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
+        assert.isFalse(Object.hasOwn(parsed, 'cost'));
+        assert.strictEqual((parsed as { size: unknown }).size, 258_400);
+        assert.strictEqual((parsed as { used: unknown }).used, 25_094);
+      }
+    }),
+  );
+
   it.effect('readSessionUsage returns none for corrupt JSON without rewriting', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>([

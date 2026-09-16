@@ -1,7 +1,7 @@
 /**
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
-import { Effect, Stream } from 'effect';
+import { Effect, Ref, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 import { isRecord } from '../utils.ts';
@@ -9,6 +9,8 @@ import { isRecord } from '../utils.ts';
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 
 const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
+/** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
+const POST_EXIT_STDOUT_DRAIN_MS = 100;
 
 type AuthProbeLaunchTarget = 'claude-agent-acp' | 'codex-acp';
 
@@ -44,6 +46,26 @@ const parseClaudeLoggedIn = (stdout: string): boolean | undefined => {
   }
 };
 
+const mergeChunks = (chunks: readonly Uint8Array[]): string => {
+  const totalLength = chunks.reduce((n, chunk) => n + chunk.length, 0);
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(merged);
+};
+
+/** Wall clock — `@effect/vitest` TestClock freezes `Effect.sleep`. */
+const wallSleep = (ms: number): Effect.Effect<void> =>
+  Effect.promise(
+    () =>
+      new Promise<void>(resolve => {
+        setTimeout(resolve, ms);
+      }),
+  );
+
 const runCodexAuthProbe = Effect.fn('runCodexAuthProbe')(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   // Spawn by shell-scope name (not absolute PATH path) — Tauri only allows configured cmds.
@@ -63,29 +85,17 @@ const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
   const command = ChildProcess.make('claude', ['auth', 'status'], { extendEnv: true });
 
   // Tauri ChildProcessSpawnerLive never ends stdout Queue on process close, so
-  // spawner.string() hangs until scope finalizers. Collect until exitCode instead.
+  // spawner.string() hangs. Fork a collector, await exit, then drain briefly.
   const stdout = yield* Effect.scoped(
     Effect.gen(function* () {
       const handle = yield* spawner.spawn(command);
-      const chunks: Uint8Array[] = [];
-      yield* Effect.race(
-        handle.stdout.pipe(
-          Stream.runForEach(chunk =>
-            Effect.sync(() => {
-              chunks.push(chunk);
-            }),
-          ),
-        ),
-        handle.exitCode,
+      const chunksRef = yield* Ref.make<readonly Uint8Array[]>([]);
+      yield* Effect.forkScoped(
+        handle.stdout.pipe(Stream.runForEach(chunk => Ref.update(chunksRef, chunks => [...chunks, chunk]))),
       );
-      const totalLength = chunks.reduce((n, chunk) => n + chunk.length, 0);
-      const merged = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-      return new TextDecoder().decode(merged);
+      yield* handle.exitCode;
+      yield* wallSleep(POST_EXIT_STDOUT_DRAIN_MS);
+      return mergeChunks(yield* Ref.get(chunksRef));
     }),
   );
 

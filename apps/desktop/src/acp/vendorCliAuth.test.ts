@@ -73,6 +73,45 @@ describe('requireVendorCliAuthenticated', () => {
     ),
   );
 
+  it.effect('claude: succeeds when stdout arrives after exitCode', () => {
+    const bytes = new TextEncoder().encode(JSON.stringify({ loggedIn: true }));
+    const delayedStdoutLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.succeed(
+          ChildProcessSpawner.makeHandle({
+            all: Stream.empty,
+            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+            getInputFd: () => Sink.drain,
+            getOutputFd: () => Stream.empty,
+            isRunning: Effect.succeed(false),
+            kill: () => Effect.void,
+            pid: ChildProcessSpawner.ProcessId(1),
+            stderr: Stream.empty,
+            stdin: Sink.drain,
+            stdout: Stream.concat(
+              Stream.fromEffect(
+                Effect.promise(
+                  () =>
+                    new Promise<Uint8Array>(resolve => {
+                      setTimeout(() => {
+                        resolve(bytes);
+                      }, 20);
+                    }),
+                ),
+              ),
+              Stream.never,
+            ),
+            unref: Effect.succeed(Effect.void),
+          }),
+        ),
+      ),
+    );
+    return requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(
+      Effect.provide(delayedStdoutLayer),
+    );
+  });
+
   it.effect('claude: loggedIn false → MissingLaunchPrerequisite auth message', () =>
     Effect.gen(function* () {
       const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);

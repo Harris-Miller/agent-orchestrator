@@ -1,0 +1,98 @@
+import { assert, describe, it } from '@effect/vitest';
+import { Effect, Layer, Sink, Stream } from 'effect';
+import * as PlatformError from 'effect/PlatformError';
+import { ChildProcessSpawner } from 'effect/unstable/process';
+
+import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
+
+const mockSpawnerLayer = (opts: { readonly exitCode: number; readonly stdout: string }) =>
+  Layer.succeed(
+    ChildProcessSpawner.ChildProcessSpawner,
+    ChildProcessSpawner.make(() =>
+      Effect.succeed(
+        ChildProcessSpawner.makeHandle({
+          all: Stream.make(new TextEncoder().encode(opts.stdout)),
+          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(opts.exitCode)),
+          getInputFd: () => Sink.drain,
+          getOutputFd: () => Stream.empty,
+          isRunning: Effect.succeed(false),
+          kill: () => Effect.void,
+          pid: ChildProcessSpawner.ProcessId(1),
+          stderr: Stream.empty,
+          stdin: Sink.drain,
+          stdout: Stream.make(new TextEncoder().encode(opts.stdout)),
+          unref: Effect.succeed(Effect.void),
+        }),
+      ),
+    ),
+  );
+
+const failingSpawnLayer = Layer.succeed(
+  ChildProcessSpawner.ChildProcessSpawner,
+  ChildProcessSpawner.make(() =>
+    Effect.fail(
+      PlatformError.systemError({
+        _tag: 'Unknown',
+        description: 'spawn failed',
+        method: 'spawn',
+        module: 'ChildProcess',
+      }),
+    ),
+  ),
+);
+
+describe('requireVendorCliAuthenticated', () => {
+  it.effect('codex: exit 0 succeeds', () =>
+    requireVendorCliAuthenticated('codex-acp', '/usr/local/bin/codex').pipe(
+      Effect.provide(mockSpawnerLayer({ exitCode: 0, stdout: 'Logged in\n' })),
+    ),
+  );
+
+  it.effect('codex: exit 1 → MissingLaunchPrerequisite auth message', () =>
+    Effect.gen(function* () {
+      const error = yield* requireVendorCliAuthenticated('codex-acp', '/usr/local/bin/codex').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.executable, 'codex');
+      assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
+    }).pipe(Effect.provide(mockSpawnerLayer({ exitCode: 1, stdout: 'Not logged in\n' }))),
+  );
+
+  it.effect('codex: spawn failure → could not verify', () =>
+    Effect.gen(function* () {
+      const error = yield* requireVendorCliAuthenticated('codex-acp', '/usr/local/bin/codex').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.message, 'Could not verify authentication for `codex`');
+    }).pipe(Effect.provide(failingSpawnLayer)),
+  );
+
+  it.effect('claude: loggedIn true succeeds', () =>
+    requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(
+      Effect.provide(mockSpawnerLayer({ exitCode: 0, stdout: JSON.stringify({ loggedIn: true }) })),
+    ),
+  );
+
+  it.effect('claude: loggedIn false → MissingLaunchPrerequisite auth message', () =>
+    Effect.gen(function* () {
+      const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.executable, 'claude');
+      assert.strictEqual(error.message, '`claude` is not authenticated — run `claude auth login`');
+    }).pipe(Effect.provide(mockSpawnerLayer({ exitCode: 0, stdout: JSON.stringify({ loggedIn: false }) }))),
+  );
+
+  it.effect('claude: invalid JSON → could not verify', () =>
+    Effect.gen(function* () {
+      const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.message, 'Could not verify authentication for `claude`');
+    }).pipe(Effect.provide(mockSpawnerLayer({ exitCode: 0, stdout: 'not-json' }))),
+  );
+
+  it.effect('claude: spawn failure → could not verify', () =>
+    Effect.gen(function* () {
+      const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.message, 'Could not verify authentication for `claude`');
+    }).pipe(Effect.provide(failingSpawnLayer)),
+  );
+});

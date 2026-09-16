@@ -1,23 +1,16 @@
 import 'allotment/dist/style.css';
 
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  allLaunchTargetPhasesAtom,
-  restartBackendAtomFn,
-  selectedBackendHarnessSnapshotAtom,
-  selectedSessionAtom,
-} from '../atoms/index.ts';
+import { selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '../atoms/index.ts';
 import { isRecord } from '../utils.ts';
 
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
@@ -79,20 +72,6 @@ const saveWorkbenchLayout = (layout: WorkbenchLayout): void => {
   localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
 };
 
-const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
-  switch (phase) {
-    case 'connecting':
-    case 'initialized':
-      return 'warning';
-    case 'error':
-      return 'error';
-    case 'ready':
-      return 'success';
-    default:
-      return 'default';
-  }
-};
-
 export const AgentChatWorkbench: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ onClientError }) => {
@@ -100,8 +79,6 @@ export const AgentChatWorkbench: FC<{
   const layoutRef = useRef(layout);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const restartBackend = useAtomSet(restartBackendAtomFn, { mode: 'promise' });
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -191,25 +168,6 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
-                    <Stack direction="row" spacing={1}>
-                      {backendPhases.map(entry => (
-                        <Chip
-                          color={phaseColor(entry.phase)}
-                          key={entry.launchTarget}
-                          label={`${entry.label}: ${entry.phase}`}
-                          onClick={
-                            entry.phase === 'error'
-                              ? () => {
-                                  restartBackend(entry.launchTarget).catch(() => undefined);
-                                }
-                              : undefined
-                          }
-                          size="small"
-                          sx={{ cursor: entry.phase === 'error' ? 'pointer' : 'default' }}
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
                     {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {

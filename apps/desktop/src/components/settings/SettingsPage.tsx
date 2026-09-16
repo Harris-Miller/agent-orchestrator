@@ -32,6 +32,7 @@ import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
+import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';
 
 const CATEGORIES = [
   { group: 'Personal', id: 'general', label: 'General' },
@@ -202,6 +203,8 @@ export const SettingsPage: FC = () => {
               </>
             ) : category === 'defaults' ? (
               <HarnessDefaultsSettingsPane />
+            ) : category === 'providers' ? (
+              <ProvidersSettingsPane />
             ) : (
               <>
                 <Typography variant="h6">Coming soon</Typography>

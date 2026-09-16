@@ -31,7 +31,7 @@ export const ProvidersSettingsPane: FC = () => {
     <>
       <Typography variant="h6">Providers</Typography>
       <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-        Backend harness status for each agent provider. Click an error chip to retry that provider.
+        Bootstrap phase per provider. Click an error chip to retry that provider.
       </Typography>
       <Stack spacing={2}>
         {backendPhases.map(entry => (

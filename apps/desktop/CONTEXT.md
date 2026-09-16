@@ -12,6 +12,10 @@ _Avoid_: Orchestrator (product/repo name only today — never a Harness domain s
 The React surface that presents sessions, agent output, and permission prompts to the user. Consumes Harness domain state; does not speak ACP or spawn processes directly.
 _Avoid_: Frontend, view layer, shell
 
+**Settings page**:
+Full-page Harness UI route (`/settings`) for browsing preferences; reads and writes the Settings document through `@lib/ao-home`.
+_Avoid_: Settings modal, settings dialog, config screen
+
 **Chat item**:
 A single ordered unit in a session transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event

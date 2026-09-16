@@ -104,13 +104,19 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('writeSettings then readSettings round-trips including unknown keys', () =>
+  it.effect('writeSettings then readSettings round-trips known fields and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const layer = services(store);
-      yield* writeSettings({ experimental: true, theme: 'dark' }).pipe(Effect.provide(layer));
+      const writtenDoc = {
+        confirmSessionDelete: false,
+        experimental: true,
+        harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
+        theme: 'dark',
+      };
+      yield* writeSettings(writtenDoc).pipe(Effect.provide(layer));
       const doc = yield* readSettings().pipe(Effect.provide(layer));
-      assert.deepStrictEqual(doc, { experimental: true, theme: 'dark' });
+      assert.deepStrictEqual(doc, writtenDoc);
       const written = store.get(SETTINGS);
       assert.isTrue(written?.kind === 'file');
       if (written?.kind === 'file') {
@@ -118,16 +124,22 @@ describe('ao-home', () => {
         const parsed: unknown = JSON.parse(written.content);
         assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
         assert.strictEqual((parsed as { theme: unknown }).theme, 'dark');
+        assert.strictEqual((parsed as { confirmSessionDelete: unknown }).confirmSessionDelete, false);
       }
       assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
     }),
   );
 
-  it.effect('restoreSettingsDefaults writes product defaults and drops unknown keys', () =>
+  it.effect('restoreSettingsDefaults writes product defaults and drops known and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const layer = services(store);
-      yield* writeSettings({ experimental: true, theme: 'dark' }).pipe(Effect.provide(layer));
+      yield* writeSettings({
+        confirmSessionDelete: false,
+        experimental: true,
+        harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
+        theme: 'dark',
+      }).pipe(Effect.provide(layer));
       const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
       assert.deepStrictEqual(doc, defaultSettings);
       const reread = yield* readSettings().pipe(Effect.provide(layer));

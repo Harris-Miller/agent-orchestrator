@@ -24,6 +24,14 @@ _Avoid_: file lock (generic), mutex
 Per agent launch target agent-reported selectable config options under `harness/<launchTarget>/provider-config-catalog.json` inside the Agent Orchestrator home. System-regenerated cache for create/handoff pickers — not the Settings document.
 _Avoid_: harness config defaults, settings document, session configuration
 
+**Session usage document**:
+System-created context-window fill and cost under `sessions/<id>/usage.json` inside the Agent Orchestrator home. Not user-editable Settings; missing or corrupt file means no usage yet.
+_Avoid_: settings document, usage readout, telemetry
+
+**Session directory**:
+Per-session folder `sessions/<id>/` inside the Agent Orchestrator home. Removed wholesale on Harness `session/delete`. Abandoned dirs (never deleted via Harness) remain until that explicit delete — no GC in this package.
+_Avoid_: session snapshot, session roster, adapter roster document
+
 ## Package law
 
 Every filesystem read or write under the Agent Orchestrator home goes through `@lib/ao-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.

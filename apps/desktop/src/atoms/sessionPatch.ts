@@ -4,19 +4,40 @@ import { Effect } from 'effect';
 import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { refreshCatalogFromSessionConfiguration } from '../acp/providerConfigStorage.ts';
+import {
+  defaultsEqual,
+  patchHarnessConfigDefaults,
+  persistProviderConfigDocuments,
+  refreshProviderConfigInMemory,
+} from '../acp/providerConfigStorage.ts';
 import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
+import { settingsDocumentAtom } from './settingsAtoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: AcpAtomGet,
   launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
-  const next = refreshCatalogFromSessionConfiguration(launchTarget, sessionConfiguration);
+  const settings = get(settingsDocumentAtom);
+  const settingsDefaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
+  const previous = get(providerConfigAtom(launchTarget));
+  const next = refreshProviderConfigInMemory(previous, settingsDefaults, sessionConfiguration);
+  if (next === undefined) {
+    return;
+  }
+
   get.set(providerConfigAtom(launchTarget), next);
+
+  const defaultsChanged = !defaultsEqual(settingsDefaults, next.defaults);
+  const nextSettings = defaultsChanged ? patchHarnessConfigDefaults(settings, launchTarget, next.defaults) : settings;
+  if (defaultsChanged) {
+    get.set(settingsDocumentAtom, nextSettings);
+  }
+
+  persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged);
 };
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */

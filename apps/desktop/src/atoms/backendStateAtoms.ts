@@ -5,13 +5,12 @@ import { initialBackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { readProviderConfig } from '../acp/providerConfigStorage.ts';
 import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 
 export const providerConfigAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make<ProviderConfigStored | undefined>(readProviderConfig(launchTarget)).pipe(
+  Atom.make<ProviderConfigStored | undefined>(undefined).pipe(
     Atom.withLabel(`providerConfig:${launchTarget}`),
     Atom.keepAlive,
   ),

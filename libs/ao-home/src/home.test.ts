@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { OS } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
@@ -8,16 +8,21 @@ import * as PlatformError from 'effect/PlatformError';
 import {
   defaultSettings,
   ensureHome,
+  providerConfigCatalogPath,
+  readProviderConfigCatalog,
   readSettings,
   resolveHome,
   restoreSettingsDefaults,
   settingsPath,
+  writeProviderConfigCatalog,
   writeSettings,
 } from './index.ts';
 
 const HOMEDIR = '/home/operator';
 const HOME = `${HOMEDIR}/.ao`;
 const SETTINGS = `${HOME}/settings.json`;
+const CODEX_CATALOG = `${HOME}/harness/codex-acp/provider-config-catalog.json`;
+const CODEX_HARNESS_DIR = `${HOME}/harness/codex-acp`;
 
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
 
@@ -104,13 +109,19 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('writeSettings then readSettings round-trips including unknown keys', () =>
+  it.effect('writeSettings then readSettings round-trips known fields and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const layer = services(store);
-      yield* writeSettings({ experimental: true, theme: 'dark' }).pipe(Effect.provide(layer));
+      const writtenDoc = {
+        confirmSessionDelete: false,
+        experimental: true,
+        harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
+        theme: 'dark',
+      };
+      yield* writeSettings(writtenDoc).pipe(Effect.provide(layer));
       const doc = yield* readSettings().pipe(Effect.provide(layer));
-      assert.deepStrictEqual(doc, { experimental: true, theme: 'dark' });
+      assert.deepStrictEqual(doc, writtenDoc);
       const written = store.get(SETTINGS);
       assert.isTrue(written?.kind === 'file');
       if (written?.kind === 'file') {
@@ -118,16 +129,22 @@ describe('ao-home', () => {
         const parsed: unknown = JSON.parse(written.content);
         assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
         assert.strictEqual((parsed as { theme: unknown }).theme, 'dark');
+        assert.strictEqual((parsed as { confirmSessionDelete: unknown }).confirmSessionDelete, false);
       }
       assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
     }),
   );
 
-  it.effect('restoreSettingsDefaults writes product defaults and drops unknown keys', () =>
+  it.effect('restoreSettingsDefaults writes product defaults and drops known and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const layer = services(store);
-      yield* writeSettings({ experimental: true, theme: 'dark' }).pipe(Effect.provide(layer));
+      yield* writeSettings({
+        confirmSessionDelete: false,
+        experimental: true,
+        harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
+        theme: 'dark',
+      }).pipe(Effect.provide(layer));
       const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
       assert.deepStrictEqual(doc, defaultSettings);
       const reread = yield* readSettings().pipe(Effect.provide(layer));
@@ -208,6 +225,82 @@ describe('ao-home', () => {
       });
       const error = yield* readSettings().pipe(Effect.provide(layer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
+    }),
+  );
+
+  it.effect('providerConfigCatalogPath nests under harness/launchTarget', () =>
+    Effect.gen(function* () {
+      const path = yield* providerConfigCatalogPath('codex-acp');
+      assert.strictEqual(path, CODEX_CATALOG);
+    }).pipe(Effect.provide(services(new Map()))),
+  );
+
+  it.effect('readProviderConfigCatalog returns none when missing', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const doc = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(services(store)));
+      assert.isTrue(Option.isNone(doc));
+    }),
+  );
+
+  it.effect('writeProviderConfigCatalog then readProviderConfigCatalog round-trips', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const layer = services(store);
+      const catalogDoc = {
+        catalog: [
+          {
+            category: 'models',
+            choices: [{ id: 'a', name: 'A' }],
+            id: 'model',
+            name: 'Model',
+          },
+        ],
+      };
+      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(layer));
+      const doc = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(layer));
+      assert.deepStrictEqual(Option.getOrThrow(doc), catalogDoc);
+      assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
+      assert.deepStrictEqual(store.get(CODEX_HARNESS_DIR), { kind: 'dir' });
+      const written = store.get(CODEX_CATALOG);
+      assert.isTrue(written?.kind === 'file');
+      if (written?.kind === 'file') {
+        assert.isTrue(written.content.endsWith('\n'));
+      }
+    }),
+  );
+
+  it.effect('readProviderConfigCatalog returns none for corrupt JSON without rewriting', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>([
+        [CODEX_CATALOG, { content: '{not-json', kind: 'file' }],
+        [CODEX_HARNESS_DIR, { kind: 'dir' }],
+        [HOME, { kind: 'dir' }],
+      ]);
+      const doc = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(services(store)));
+      assert.isTrue(Option.isNone(doc));
+      const entry = store.get(CODEX_CATALOG);
+      assert.isTrue(entry?.kind === 'file');
+      if (entry?.kind === 'file') {
+        assert.strictEqual(entry.content, '{not-json');
+      }
+    }),
+  );
+
+  it.effect('restoreSettingsDefaults does not delete provider config catalog documents', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const layer = services(store);
+      const catalogDoc = {
+        catalog: [{ choices: [{ id: 'a', name: 'A' }], id: 'model', name: 'Model' }],
+      };
+      yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(layer));
+      yield* writeSettings({ theme: 'dark' }).pipe(Effect.provide(layer));
+      yield* restoreSettingsDefaults().pipe(Effect.provide(layer));
+      const catalog = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(layer));
+      assert.deepStrictEqual(Option.getOrThrow(catalog), catalogDoc);
+      const settings = yield* readSettings().pipe(Effect.provide(layer));
+      assert.deepStrictEqual(settings, defaultSettings);
     }),
   );
 });

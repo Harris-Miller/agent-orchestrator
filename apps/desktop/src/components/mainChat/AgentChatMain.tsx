@@ -31,7 +31,6 @@ import {
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   rpcWireLogSnapshotAtom,
-  saveHarnessDefaultsAtomFn,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
@@ -86,7 +85,6 @@ export const AgentChatMain: FC<{
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
-  const saveHarnessDefaults = useAtomSet(saveHarnessDefaultsAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const claudeProviderConfig = useAtomValue(providerConfigAtom('claude-agent-acp'));
@@ -128,7 +126,6 @@ export const AgentChatMain: FC<{
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sourceCwd !== undefined;
-  const canSaveDefaults = controlsEnabled && configOptions.length > 0;
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
   const readyLaunchTargets = ALL_AGENT_LAUNCH_TARGETS.filter(launchTarget =>
     backendPhases.some(entry => entry.launchTarget === launchTarget && entry.phase === 'ready'),
@@ -325,17 +322,6 @@ export const AgentChatMain: FC<{
                   option={option}
                 />
               ))}
-              {selectedLaunchTarget !== undefined && canSaveDefaults ? (
-                <Button
-                  onClick={() => {
-                    saveHarnessDefaults({ launchTarget: selectedLaunchTarget }).catch(onClientError);
-                  }}
-                  size="small"
-                  variant="outlined"
-                >
-                  Save as defaults for {agentLaunchTargetLabel(selectedLaunchTarget)}
-                </Button>
-              ) : null}
               {rpcWireLogOpen ? null : (
                 <Button onClick={onOpenRpcWireLog} size="small" variant="outlined">
                   RPC wire log ({rpcSnapshot.rpcCalls.length})

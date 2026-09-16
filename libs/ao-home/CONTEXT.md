@@ -20,6 +20,10 @@ _Avoid_: session roster (Harness term), settings document, session snapshot
 Cross-process lock guarding read-modify-write of an adapter roster document so multiple adapter processes (e.g. desktop and a future host) do not corrupt shared durable state.
 _Avoid_: file lock (generic), mutex
 
+**Provider config catalog document**:
+Per agent launch target agent-reported selectable config options under `harness/<launchTarget>/provider-config-catalog.json` inside the Agent Orchestrator home. System-regenerated cache for create/handoff pickers — not the Settings document.
+_Avoid_: harness config defaults, settings document, session configuration
+
 ## Package law
 
 Every filesystem read or write under the Agent Orchestrator home goes through `@lib/ao-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.

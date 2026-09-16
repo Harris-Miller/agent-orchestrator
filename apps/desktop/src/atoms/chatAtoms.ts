@@ -6,18 +6,16 @@ import { Atom } from 'effect/unstable/reactivity';
 import {
   applySetConfigOptionResult,
   normalizeConfigOptions,
-  normalizeSelectableConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
-import { defaultsFromSelectable, saveHarnessDefaults } from '../acp/providerConfigStorage.ts';
 import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendHarnessStateAtom, providerConfigAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
+import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
 import { withUserChatMessage } from './foldSessionUpdate.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
 
@@ -209,27 +207,6 @@ export const setConfigOptionAtomFn = acpRuntime
           }),
         ),
       );
-    }),
-  )
-  .pipe(Atom.keepAlive);
-
-export const saveHarnessDefaultsAtomFn = acpRuntime
-  .fn((arg: { launchTarget: AgentLaunchTarget }, get) =>
-    Effect.sync(() => {
-      const sessionId = get(selectedSessionIdAtom);
-      const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-      const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
-      if (session?.status !== 'active') {
-        return;
-      }
-
-      const values = defaultsFromSelectable(normalizeSelectableConfigOptions(session.sessionConfiguration));
-      if (Object.keys(values).length === 0) {
-        return;
-      }
-
-      const next = saveHarnessDefaults(arg.launchTarget, values);
-      get.set(providerConfigAtom(arg.launchTarget), next);
     }),
   )
   .pipe(Atom.keepAlive);

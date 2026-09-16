@@ -1,12 +1,13 @@
-/** Persist provider config catalog + harness defaults per agent launch target. */
+/** Provider config catalog merge + harness defaults helpers (persistence via ao-home / Settings). */
 
-import { isRecord } from '../utils.ts';
+import { readProviderConfigCatalog, writeProviderConfigCatalog, writeSettings } from '@lib/ao-home';
+import type { SettingsDocument } from '@lib/ao-home';
+import { TauriServicesLive } from '@lib/context-services-tauri';
+import { Effect, Option } from 'effect';
 
 import type { NormalizedConfigChoice, NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-
-const PROVIDER_CONFIG_KEY_PREFIX = 'acp-provider-config:';
 
 export type ProviderConfigCatalogEntry = {
   readonly category?: string;
@@ -19,79 +20,6 @@ export type ProviderConfigCatalogEntry = {
 export type ProviderConfigStored = {
   readonly catalog: readonly ProviderConfigCatalogEntry[];
   readonly defaults: Readonly<Record<string, string>>;
-};
-
-const providerConfigKey = (launchTarget: AgentLaunchTarget): string => `${PROVIDER_CONFIG_KEY_PREFIX}${launchTarget}`;
-
-const parseChoices = (value: unknown): readonly NormalizedConfigChoice[] | undefined => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const choices: NormalizedConfigChoice[] = [];
-  for (const entry of value) {
-    if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
-      return undefined;
-    }
-    choices.push({
-      ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
-      id: entry.id,
-      name: entry.name,
-    });
-  }
-  return choices;
-};
-
-const parseCatalog = (value: unknown): readonly ProviderConfigCatalogEntry[] | undefined => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const catalog: ProviderConfigCatalogEntry[] = [];
-  for (const entry of value) {
-    if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
-      return undefined;
-    }
-    const choices = parseChoices(entry.choices);
-    if (choices === undefined) {
-      return undefined;
-    }
-    catalog.push({
-      ...(typeof entry.category === 'string' ? { category: entry.category } : {}),
-      choices,
-      ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
-      id: entry.id,
-      name: entry.name,
-    });
-  }
-  return catalog;
-};
-
-const parseDefaults = (value: unknown): Readonly<Record<string, string>> | undefined => {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-
-  const defaults: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry !== 'string') {
-      return undefined;
-    }
-    defaults[key] = entry;
-  }
-  return defaults;
-};
-
-const parseStored = (value: unknown): ProviderConfigStored | undefined => {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  const catalog = parseCatalog(value.catalog);
-  const defaults = parseDefaults(value.defaults);
-  if (catalog === undefined || defaults === undefined) {
-    return undefined;
-  }
-  return { catalog, defaults };
 };
 
 export const defaultsFromSelectable = (
@@ -116,6 +44,18 @@ const catalogEntriesFromSelectable = (
     id: option.id,
     name: option.name,
   }));
+
+export const defaultsEqual = (
+  left: Readonly<Record<string, string>>,
+  right: Readonly<Record<string, string>>,
+): boolean => {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  return leftKeys.every(key => left[key] === right[key]);
+};
 
 /** Pure merge: replace catalog; seed or preserve defaults per refresh rules. */
 export const mergeProviderConfigRefresh = (
@@ -142,53 +82,67 @@ export const mergeProviderConfigRefresh = (
   return { catalog, defaults };
 };
 
-export const readProviderConfig = (launchTarget: AgentLaunchTarget): ProviderConfigStored | undefined => {
-  try {
-    const raw = localStorage.getItem(providerConfigKey(launchTarget));
-    if (raw == null) {
-      return undefined;
-    }
-    return parseStored(JSON.parse(raw) as unknown);
-  } catch {
-    return undefined;
-  }
-};
-
-export const persistProviderConfig = (launchTarget: AgentLaunchTarget, stored: ProviderConfigStored): void => {
-  localStorage.setItem(providerConfigKey(launchTarget), JSON.stringify(stored));
-};
-
-/**
- * Refresh catalog from session configuration. Skips when there are no selectable options.
- * Seeds defaults on first write; preserves valid defaults on later refreshes.
- */
-export const refreshCatalogFromSessionConfiguration = (
-  launchTarget: AgentLaunchTarget,
+/** Apply session configuration into an in-memory provider config + Settings defaults patch. */
+export const refreshProviderConfigInMemory = (
+  previous: ProviderConfigStored | undefined,
+  settingsDefaults: Readonly<Record<string, string>>,
   sessionConfiguration: unknown,
 ): ProviderConfigStored | undefined => {
   const selectable = normalizeSelectableConfigOptions(sessionConfiguration);
   if (selectable.length === 0) {
-    return readProviderConfig(launchTarget);
+    return previous;
   }
 
-  const next = mergeProviderConfigRefresh(readProviderConfig(launchTarget), selectable);
-  persistProviderConfig(launchTarget, next);
-  return next;
+  const baseline =
+    previous ??
+    (Object.keys(settingsDefaults).length > 0 ? { catalog: [] as const, defaults: settingsDefaults } : undefined);
+
+  return mergeProviderConfigRefresh(baseline, selectable);
 };
 
-/** Replace harness defaults with the given values; keeps existing catalog. */
-export const saveHarnessDefaults = (
+export const patchHarnessConfigDefaults = (
+  settings: SettingsDocument,
   launchTarget: AgentLaunchTarget,
-  values: Readonly<Record<string, string>>,
-): ProviderConfigStored => {
-  const existing = readProviderConfig(launchTarget) ?? { catalog: [], defaults: {} };
-  const next: ProviderConfigStored = {
-    catalog: existing.catalog,
-    defaults: { ...values },
-  };
-  persistProviderConfig(launchTarget, next);
-  return next;
+  defaults: Readonly<Record<string, string>>,
+): SettingsDocument => ({
+  ...settings,
+  harnessConfigDefaults: {
+    ...settings.harnessConfigDefaults,
+    [launchTarget]: { ...defaults },
+  },
+});
+
+/** Fire-and-forget disk persist for catalog (+ optional Settings write). */
+export const persistProviderConfigDocuments = (
+  launchTarget: AgentLaunchTarget,
+  next: ProviderConfigStored,
+  settings: SettingsDocument,
+  writeSettingsDocument: boolean,
+): void => {
+  const effect = Effect.gen(function* () {
+    yield* writeProviderConfigCatalog(launchTarget, { catalog: [...next.catalog] });
+    if (writeSettingsDocument) {
+      yield* writeSettings(settings);
+    }
+  }).pipe(
+    Effect.provide(TauriServicesLive),
+    Effect.catchCause(cause => Effect.logWarning('provider config persist failed', launchTarget, cause)),
+  );
+  Effect.runFork(effect);
 };
+
+/** Load catalog from disk and pair with Settings defaults for one launch target. */
+export const loadProviderConfig = Effect.fn('loadProviderConfig')(function* (
+  launchTarget: AgentLaunchTarget,
+  settingsDefaults: Readonly<Record<string, string>>,
+) {
+  const catalogDoc = yield* readProviderConfigCatalog(launchTarget);
+  const catalog = Option.isSome(catalogDoc) ? catalogDoc.value.catalog : [];
+  if (catalog.length === 0 && Object.keys(settingsDefaults).length === 0) {
+    return undefined;
+  }
+  return { catalog, defaults: settingsDefaults } satisfies ProviderConfigStored;
+});
 
 export type HarnessDefaultDiff = {
   readonly configId: string;

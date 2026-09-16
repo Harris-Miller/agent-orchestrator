@@ -16,6 +16,14 @@ _Avoid_: Frontend, view layer, shell
 Full-page Harness UI route (`/settings`) for browsing preferences; reads and writes the Settings document through `@lib/ao-home`.
 _Avoid_: Settings modal, settings dialog, config screen
 
+**Theme preference**:
+User-chosen Harness UI theme id stored in the Settings document.
+_Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
+
+**Session delete confirmation**:
+Whether deleting a session shows the confirm dialog; stored in the Settings document; on when unset.
+_Avoid_: delete confirm, confirm before delete, destructive confirm
+
 **Chat item**:
 A single ordered unit in a session transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event

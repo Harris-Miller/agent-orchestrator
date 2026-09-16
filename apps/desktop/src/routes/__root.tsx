@@ -1,4 +1,3 @@
-import { RegistryProvider } from '@effect/atom-react';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import type { FC } from 'react';
 
@@ -7,12 +6,12 @@ import { SettingsDocumentMount } from '../components/SettingsDocumentMount.tsx';
 
 const RootComponent: FC = () => {
   return (
-    <RegistryProvider>
+    <>
       <AcpBackendsMount />
       <SettingsDocumentMount />
       <Outlet />
       {/* <TanStackRouterDevtools /> */}
-    </RegistryProvider>
+    </>
   );
 };
 

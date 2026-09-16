@@ -17,7 +17,6 @@ export {
   draftAtom,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
-  saveHarnessDefaultsAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
 } from './chatAtoms.ts';
@@ -43,6 +42,8 @@ export {
   readSettingsAtomFn,
   restoreSettingsDefaultsAtomFn,
   settingsDocumentAtom,
+  settingsHydratedAtom,
   settingsIoErrorAtom,
   writeSettingsAtomFn,
+  writeSettingsDocumentAtomFn,
 } from './settingsAtoms.ts';

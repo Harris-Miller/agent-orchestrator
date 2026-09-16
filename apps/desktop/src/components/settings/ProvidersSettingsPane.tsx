@@ -5,9 +5,10 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
+import type { AcpBootstrapPhase } from '../../acp/acpSessionBootstrap.ts';
 import { allLaunchTargetPhasesAtom, restartBackendAtomFn } from '../../atoms/index.ts';
 
-const phaseColor = (phase: string): 'default' | 'error' | 'success' | 'warning' => {
+const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
     case 'connecting':
     case 'initialized':

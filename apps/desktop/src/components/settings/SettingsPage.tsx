@@ -51,7 +51,7 @@ const BackToApp: FC = () => {
   );
 };
 
-/** Dense Variant A Settings page: category rail + placeholder panes, backed by the Settings document. */
+/** Settings page: category rail + placeholder panes. */
 export const SettingsPage: FC = () => {
   const ioError = useAtomValue(settingsIoErrorAtom);
   const restoreDefaults = useAtomSet(restoreSettingsDefaultsAtomFn, { mode: 'promise' });

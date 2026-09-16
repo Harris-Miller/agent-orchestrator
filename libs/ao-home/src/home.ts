@@ -47,3 +47,9 @@ export const writeSettings = Effect.fn('writeSettings')(function* (document: Set
   const withNewline = encoded.endsWith('\n') ? encoded : `${encoded}\n`;
   yield* fs.writeFileString(filePath, withNewline);
 });
+
+/** Reset the Settings document to product defaults. */
+export const restoreSettingsDefaults = Effect.fn('restoreSettingsDefaults')(function* () {
+  yield* writeSettings(defaultSettings);
+  return defaultSettings;
+});

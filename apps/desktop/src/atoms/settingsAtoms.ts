@@ -1,5 +1,5 @@
 /** Settings document Atom surface backed by `@lib/ao-home`. */
-import { defaultSettings, readSettings, writeSettings } from '@lib/ao-home';
+import { defaultSettings, readSettings, restoreSettingsDefaults, writeSettings } from '@lib/ao-home';
 import type { SettingsDocument } from '@lib/ao-home';
 import { Cause, Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
@@ -17,16 +17,21 @@ export const writeSettingsAtomFn = acpRuntime
   .fn((document: SettingsDocument) => writeSettings(document))
   .pipe(Atom.keepAlive);
 
+const commitSettingsDocument = <E, R>(get: AcpAtomGet, effect: Effect.Effect<SettingsDocument, E, R>) =>
+  Effect.gen(function* () {
+    const exit = yield* Effect.exit(effect);
+    if (Exit.isFailure(exit)) {
+      get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
+      return;
+    }
+    get.set(settingsDocumentAtom, exit.value);
+    get.set(settingsIoErrorAtom, undefined);
+  });
+
 export const hydrateSettingsAtomFn = acpRuntime
   .fn(
     Effect.fn('hydrateSettingsAtomFn')(function* (_arg: undefined, get: AcpAtomGet) {
-      const exit = yield* Effect.exit(readSettings());
-      if (Exit.isFailure(exit)) {
-        get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
-        return;
-      }
-      get.set(settingsDocumentAtom, exit.value);
-      get.set(settingsIoErrorAtom, undefined);
+      yield* commitSettingsDocument(get, readSettings());
     }),
   )
   .pipe(Atom.keepAlive);
@@ -34,13 +39,7 @@ export const hydrateSettingsAtomFn = acpRuntime
 export const restoreSettingsDefaultsAtomFn = acpRuntime
   .fn(
     Effect.fn('restoreSettingsDefaultsAtomFn')(function* (_arg: undefined, get: AcpAtomGet) {
-      const exit = yield* Effect.exit(writeSettings(defaultSettings));
-      if (Exit.isFailure(exit)) {
-        get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
-        return;
-      }
-      get.set(settingsDocumentAtom, defaultSettings);
-      get.set(settingsIoErrorAtom, undefined);
+      yield* commitSettingsDocument(get, restoreSettingsDefaults());
     }),
   )
   .pipe(Atom.keepAlive);

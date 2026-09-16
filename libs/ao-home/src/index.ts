@@ -1,4 +1,4 @@
-export { ensureHome, readSettings, resolveHome, settingsPath, writeSettings } from './home.ts';
+export { ensureHome, readSettings, resolveHome, restoreSettingsDefaults, settingsPath, writeSettings } from './home.ts';
 export {
   defaultSettings,
   type SettingsDocument,

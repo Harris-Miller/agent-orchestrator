@@ -1,0 +1,39 @@
+{
+  "name": "agent-orchestrator-vscode",
+  "displayName": "Agent Orchestrator",
+  "description": "Agent Orchestrator VS Code extension (local development scaffold).",
+  "version": "0.0.1",
+  "publisher": "harris-miller",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentOrchestrator.helloWorld",
+        "title": "Agent Orchestrator: Hello World"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "pnpm run compile",
+    "package": "pnpm run compile && vsce package --no-dependencies --allow-missing-repository",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p ./ --noEmit"
+  },
+  "devDependencies": {
+    "@tooling/eslint": "workspace:^",
+    "@types/node": "catalog:",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -49,6 +49,8 @@ catalog:
   fzf: ^0.5.2
 
 allowBuilds:
+  '@vscode/vsce-sign': false # optional; only needed to sign Marketplace VSIX
   esbuild: true # vite
+  keytar: false # optional; vsce credential helper
   msgpackr-extract: true # effect-ts dependency
   unrs-resolver: true # eslint-plugin-import-x

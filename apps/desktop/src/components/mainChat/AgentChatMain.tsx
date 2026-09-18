@@ -1,6 +1,7 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
+import Stop from '@mui/icons-material/Stop';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,6 +25,7 @@ import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
   activateSessionAtomFn,
   allLaunchTargetPhasesAtom,
+  cancelPromptAtomFn,
   draftAtom,
   handoffInProgressAtom,
   handoffSessionAtomFn,
@@ -82,6 +84,7 @@ export const AgentChatMain: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
+  const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
@@ -111,7 +114,8 @@ export const AgentChatMain: FC<{
   const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionConfiguration);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
-  const pendingClientRequest = selectedSession?.pendingClientRequest === true;
+  const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
+  const canCancelPromptTurn = selectedSession?.pendingClientRequest === 'prompt';
   const controlsEnabled =
     selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
   const canSend = controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
@@ -141,8 +145,19 @@ export const AgentChatMain: FC<{
     sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
+  const onCancelPrompt = () => {
+    if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancelPromptTurn) {
+      return;
+    }
+    cancelPrompt({ launchTarget: selectedLaunchTarget, sessionId: selectedSessionId }).catch(onClientError);
+  };
+
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (canCancelPromptTurn) {
+      onCancelPrompt();
+      return;
+    }
     sendDraft();
   };
 
@@ -331,12 +346,28 @@ export const AgentChatMain: FC<{
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">
                 <Button
-                  aria-label={pendingClientRequest ? 'Pending client request' : 'Send'}
-                  disabled={!canSend}
+                  aria-label={
+                    canCancelPromptTurn
+                      ? 'Prompt turn cancel'
+                      : pendingClientRequest
+                        ? 'Pending client request'
+                        : 'Send'
+                  }
+                  disabled={canCancelPromptTurn ? false : !canSend}
+                  onClick={
+                    canCancelPromptTurn
+                      ? event => {
+                          event.preventDefault();
+                          onCancelPrompt();
+                        }
+                      : undefined
+                  }
                   sx={{ minWidth: 40, px: 1.5 }}
-                  type="submit"
+                  type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
-                  {pendingClientRequest ? (
+                  {canCancelPromptTurn ? (
+                    <Stop fontSize="small" />
+                  ) : pendingClientRequest ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <ArrowUpward fontSize="small" />

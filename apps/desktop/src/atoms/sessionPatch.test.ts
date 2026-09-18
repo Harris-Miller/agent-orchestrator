@@ -8,7 +8,7 @@ import type { AcpAtomGet } from './acpRuntime.ts';
 import { withSessionClientRequest } from './sessionPatch.ts';
 
 describe('withSessionClientRequest', () => {
-  it.effect('clears pendingClientRequest on interrupt when get.set no-ops (disposed Atom lifetime)', () =>
+  it.effect('sets prompt kind and clears pendingClientRequest on interrupt when get.set no-ops', () =>
     Effect.gen(function* () {
       const launchTarget = 'claude-agent-acp' as const;
       const sessionId = 's1';
@@ -16,10 +16,7 @@ describe('withSessionClientRequest', () => {
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
-          [sessionId]: {
-            ...initialSessionSnapshot(sessionId, 'active'),
-            pendingClientRequest: false,
-          },
+          [sessionId]: initialSessionSnapshot(sessionId, 'active'),
         },
       };
       let setNoOp = false;
@@ -44,15 +41,54 @@ describe('withSessionClientRequest', () => {
         },
       }) as AcpAtomGet;
 
-      const fiber = yield* Effect.forkChild(withSessionClientRequest(launchTarget, get, sessionId, Effect.never));
+      const fiber = yield* Effect.forkChild(
+        withSessionClientRequest(launchTarget, get, sessionId, 'prompt', Effect.never),
+      );
       yield* Effect.yieldNow;
-      assert.strictEqual(snapshot.sessions[sessionId].pendingClientRequest, true);
+      assert.strictEqual(snapshot.sessions[sessionId].pendingClientRequest, 'prompt');
 
       // Mimic AtomRegistry Lifetime.dispose: disposed before interrupt finalizers.
       setNoOp = true;
       yield* Fiber.interrupt(fiber);
 
-      assert.strictEqual(snapshot.sessions[sessionId].pendingClientRequest, false);
+      assert.strictEqual(snapshot.sessions[sessionId].pendingClientRequest, undefined);
+      assert.strictEqual(snapshot.sessions[sessionId].promptCancelRequested, undefined);
+    }),
+  );
+
+  it.effect('sets config kind while RPC runs', () =>
+    Effect.gen(function* () {
+      const launchTarget = 'codex-acp' as const;
+      const sessionId = 's2';
+      let snapshot: BackendHarnessSnapshot = {
+        ...initialBackendHarnessSnapshot(),
+        phase: 'ready',
+        sessions: {
+          [sessionId]: initialSessionSnapshot(sessionId, 'active'),
+        },
+      };
+
+      const get = Object.assign(((_atom: unknown) => snapshot) as AcpAtomGet, {
+        registry: {
+          get: () => snapshot,
+          set: (_atom: unknown, next: BackendHarnessSnapshot) => {
+            snapshot = next;
+          },
+          update: (_atom: unknown, f: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot) => {
+            snapshot = f(snapshot);
+          },
+        },
+        set: (_atom: unknown, next: BackendHarnessSnapshot) => {
+          snapshot = next;
+        },
+      }) as AcpAtomGet;
+
+      const fiber = yield* Effect.forkChild(
+        withSessionClientRequest(launchTarget, get, sessionId, 'config', Effect.never),
+      );
+      yield* Effect.yieldNow;
+      assert.strictEqual(snapshot.sessions[sessionId].pendingClientRequest, 'config');
+      yield* Fiber.interrupt(fiber);
     }),
   );
 });

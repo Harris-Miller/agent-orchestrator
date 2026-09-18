@@ -117,7 +117,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     );
 
     const { agent } = connection;
-    setConnectedAgent(launchTarget, agent);
+    setConnectedAgent(launchTarget, connection);
     yield* Effect.logInfo('ACP harness connected', launchTarget, { pid: connection.handle.pid });
 
     const initializeResult = yield* agent.initialize({

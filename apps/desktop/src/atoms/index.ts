@@ -14,6 +14,7 @@ export {
   unifiedSessionRosterAtom,
 } from './backendStateAtoms.ts';
 export {
+  cancelPromptAtomFn,
   draftAtom,
   respondElicitationAtomFn,
   respondPermissionAtomFn,

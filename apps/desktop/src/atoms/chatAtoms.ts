@@ -12,12 +12,18 @@ import {
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
-import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
+import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
+import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
+import {
+  patchSession,
+  sendPromptSoftCancel,
+  syncProviderConfigFromSessionConfiguration,
+  withSessionClientRequest,
+} from './sessionPatch.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -50,9 +56,56 @@ export const sendChatItemAtomFn = acpRuntime
         arg.launchTarget,
         get,
         session.sessionId,
-        sendPrompt(arg.launchTarget, session.sessionId, trimmed),
+        'prompt',
+        sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed),
       );
     }),
+  )
+  .pipe(Atom.keepAlive);
+
+export const cancelPromptAtomFn = acpRuntime
+  .fn(
+    Effect.fnUntraced(
+      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
+        yield* Effect.annotateCurrentSpan({
+          'acp.agent': arg.launchTarget,
+          'acp.sessionId': arg.sessionId,
+        });
+
+        const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+        const session = snapshot.sessions[arg.sessionId];
+        if (session.pendingClientRequest !== 'prompt') {
+          return;
+        }
+
+        const { pendingPermission } = session;
+        const { pendingElicitation } = session;
+
+        if (pendingPermission !== undefined) {
+          pendingPermission.resolve({ outcome: { outcome: 'cancelled' } });
+        }
+        if (pendingElicitation !== undefined) {
+          pendingElicitation.resolve({ action: 'cancel' });
+        }
+
+        get.set(backendHarnessStateAtom(arg.launchTarget), {
+          ...snapshot,
+          sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
+            ...current,
+            pendingElicitation: undefined,
+            pendingPermission: undefined,
+            promptCancelRequested: true,
+            transcript: markNonFinishedToolCallsCancelled(current.transcript),
+          })),
+        });
+
+        yield* cancelSession(arg.launchTarget, arg.sessionId);
+      },
+      Effect.withSpan('cancelPromptAtomFn', arg => {
+        const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
+        return parent !== undefined ? { parent } : { root: true };
+      }),
+    ),
   )
   .pipe(Atom.keepAlive);
 
@@ -187,7 +240,7 @@ export const setConfigOptionAtomFn = acpRuntime
         });
       });
 
-      yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, rpc).pipe(
+      yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, 'config', rpc).pipe(
         Effect.tapError(error =>
           Effect.gen(function* () {
             yield* Effect.logError('setConfigOptionAtomFn failed; rolling back', arg.launchTarget, arg.configId, error);

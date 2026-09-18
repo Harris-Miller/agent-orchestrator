@@ -8,7 +8,7 @@ import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
-import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
+import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
@@ -20,6 +20,7 @@ import {
 } from './backendStateAtoms.ts';
 import {
   patchSession,
+  sendPromptSoftCancel,
   syncProviderConfigFromSessionConfiguration,
   upsertSession,
   withSessionClientRequest,
@@ -49,7 +50,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       return yield* new HandoffError({ message: `Session ${sessionId} is not active` });
     }
     if (
-      session.pendingClientRequest === true ||
+      session.pendingClientRequest !== undefined ||
       session.pendingElicitation !== undefined ||
       session.pendingPermission !== undefined
     ) {
@@ -62,7 +63,19 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
     });
 
-    yield* withSessionClientRequest(launchTarget, get, sessionId, sendPrompt(launchTarget, sessionId, trimmed));
+    const response = yield* withSessionClientRequest(
+      launchTarget,
+      get,
+      sessionId,
+      'prompt',
+      sendPromptSoftCancel(launchTarget, get, sessionId, trimmed),
+    );
+    if (response === undefined) {
+      return yield* new HandoffError({ message: `Session ${sessionId} skipped prompt` });
+    }
+    if (response.stopReason === 'cancelled') {
+      return yield* new HandoffError({ message: `Session ${sessionId} prompt was cancelled` });
+    }
   },
   (effect, launchTarget, _get, sessionId) =>
     effect.pipe(

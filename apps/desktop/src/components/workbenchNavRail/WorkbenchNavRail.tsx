@@ -109,7 +109,7 @@ const SessionRow: FC<{
 
   const session = rosterEntrySession(entry.sessionId, snapshot.sessions);
   const status = session?.status ?? 'inactive';
-  const pendingClientRequest = session?.pendingClientRequest === true;
+  const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
 

@@ -15,15 +15,20 @@ export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready'
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';
 
+export type PendingClientRequestKind = 'config' | 'prompt';
+
 export type SessionSnapshot = {
   readonly availableCommands?: readonly AvailableCommand[];
   /** Session cwd when known (create, handoff, or activate resolve). Absent until stamped. */
   readonly cwd?: string;
   /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
   readonly defects?: readonly unknown[];
-  readonly pendingClientRequest?: boolean;
+  /** Outstanding client→agent RPC kind; absent/undefined when none. */
+  readonly pendingClientRequest?: PendingClientRequestKind | undefined;
   readonly pendingElicitation?: PendingElicitation;
   readonly pendingPermission?: PendingPermission;
+  /** Set when the user requested Prompt turn cancel; cleared with pending client request. */
+  readonly promptCancelRequested?: boolean;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
   readonly sessionConfiguration?: unknown;

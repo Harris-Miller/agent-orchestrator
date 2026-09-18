@@ -35,14 +35,14 @@ import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
 import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';
 
 const CATEGORIES = [
-  { group: 'Personal', id: 'general', label: 'General' },
-  { group: 'Personal', id: 'appearance', label: 'Appearance' },
-  { group: 'Personal', id: 'keyboard', label: 'Keyboard shortcuts' },
-  { group: 'Agents', id: 'providers', label: 'Providers' },
-  { group: 'Agents', id: 'defaults', label: 'Harness defaults' },
-  { group: 'Coding', id: 'git', label: 'Git' },
-  { group: 'Coding', id: 'connections', label: 'Connections' },
-  { group: 'Other', id: 'about', label: 'About' },
+  { id: 'general', label: 'General' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'keyboard', label: 'Keyboard shortcuts' },
+  { id: 'providers', label: 'Providers' },
+  { id: 'defaults', label: 'Harness defaults' },
+  { id: 'git', label: 'Git' },
+  { id: 'connections', label: 'Connections' },
+  { id: 'about', label: 'About' },
 ] as const;
 
 type CategoryId = (typeof CATEGORIES)[number]['id'];
@@ -63,7 +63,7 @@ const BackToApp: FC = () => {
   );
 };
 
-/** Settings page: category rail + placeholder panes. */
+/** Settings page: flat nav rail + placeholder panes. */
 export const SettingsPage: FC = () => {
   const ioError = useAtomValue(settingsIoErrorAtom);
   const settings = useAtomValue(settingsDocumentAtom);
@@ -73,20 +73,12 @@ export const SettingsPage: FC = () => {
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
-  const filteredGroups = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const map = new Map<string, (typeof CATEGORIES)[number][]>();
-    for (const entry of CATEGORIES) {
-      if (q.length === 0 || entry.label.toLowerCase().includes(q)) {
-        const bucket = map.get(entry.group);
-        if (bucket === undefined) {
-          map.set(entry.group, [entry]);
-        } else {
-          bucket.push(entry);
-        }
-      }
+    if (q.length === 0) {
+      return CATEGORIES;
     }
-    return [...map.entries()];
+    return CATEGORIES.filter(entry => entry.label.toLowerCase().includes(q));
   }, [query]);
 
   return (
@@ -124,29 +116,22 @@ export const SettingsPage: FC = () => {
           />
         </Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', pb: 2, px: 1 }}>
-          {filteredGroups.map(([group, items]) => (
-            <Box key={group} sx={{ mb: 0.75 }}>
-              <Typography color="text.secondary" sx={{ px: 1.5, py: 0.25 }} variant="caption">
-                {group}
-              </Typography>
-              {items.map(item => (
-                <ListItemButton
-                  dense
-                  key={item.id}
-                  onClick={() => {
-                    setCategory(item.id);
-                  }}
-                  selected={category === item.id}
-                  sx={{
-                    borderRadius: 1,
-                    minHeight: 28,
-                    py: 0.25,
-                  }}
-                >
-                  <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
-                </ListItemButton>
-              ))}
-            </Box>
+          {filteredItems.map(item => (
+            <ListItemButton
+              dense
+              key={item.id}
+              onClick={() => {
+                setCategory(item.id);
+              }}
+              selected={category === item.id}
+              sx={{
+                borderRadius: 1,
+                minHeight: 28,
+                py: 0.25,
+              }}
+            >
+              <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
+            </ListItemButton>
           ))}
         </Box>
       </Box>

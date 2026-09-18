@@ -115,7 +115,7 @@ export const AgentChatMain: FC<{
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
   const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
-  const canCancel = selectedSession?.pendingClientRequest === 'prompt';
+  const canCancelPromptTurn = selectedSession?.pendingClientRequest === 'prompt';
   const controlsEnabled =
     selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
   const canSend = controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
@@ -146,7 +146,7 @@ export const AgentChatMain: FC<{
   };
 
   const onCancelPrompt = () => {
-    if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancel) {
+    if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancelPromptTurn) {
       return;
     }
     cancelPrompt({ launchTarget: selectedLaunchTarget, sessionId: selectedSessionId }).catch(onClientError);
@@ -154,7 +154,7 @@ export const AgentChatMain: FC<{
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (canCancel) {
+    if (canCancelPromptTurn) {
       onCancelPrompt();
       return;
     }
@@ -346,10 +346,16 @@ export const AgentChatMain: FC<{
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">
                 <Button
-                  aria-label={canCancel ? 'Stop' : pendingClientRequest ? 'Pending client request' : 'Send'}
-                  disabled={canCancel ? false : !canSend}
+                  aria-label={
+                    canCancelPromptTurn
+                      ? 'Prompt turn cancel'
+                      : pendingClientRequest
+                        ? 'Pending client request'
+                        : 'Send'
+                  }
+                  disabled={canCancelPromptTurn ? false : !canSend}
                   onClick={
-                    canCancel
+                    canCancelPromptTurn
                       ? event => {
                           event.preventDefault();
                           onCancelPrompt();
@@ -357,9 +363,9 @@ export const AgentChatMain: FC<{
                       : undefined
                   }
                   sx={{ minWidth: 40, px: 1.5 }}
-                  type={canCancel ? 'button' : 'submit'}
+                  type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
-                  {canCancel ? (
+                  {canCancelPromptTurn ? (
                     <Stop fontSize="small" />
                   ) : pendingClientRequest ? (
                     <CircularProgress color="inherit" size={18} />

@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Effect, Exit } from 'effect';
+import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
@@ -12,13 +12,18 @@ import {
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
-import { cancelSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
+import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
+import {
+  patchSession,
+  sendPromptSoftCancel,
+  syncProviderConfigFromSessionConfiguration,
+  withSessionClientRequest,
+} from './sessionPatch.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -47,26 +52,13 @@ export const sendChatItemAtomFn = acpRuntime
         sessions: patchSession(snapshot.sessions, session.sessionId, current => withUserChatMessage(current, trimmed)),
       });
 
-      const prompt = Effect.gen(function* () {
-        const exit = yield* Effect.exit(sendPrompt(arg.launchTarget, session.sessionId, trimmed));
-        if (Exit.isSuccess(exit)) {
-          return exit.value;
-        }
-        const cancelled =
-          get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId].promptCancelRequested === true;
-        if (cancelled) {
-          yield* Effect.logDebug(
-            'session/prompt error after Prompt turn cancel',
-            arg.launchTarget,
-            session.sessionId,
-            exit.cause,
-          );
-          return { stopReason: 'cancelled' as const };
-        }
-        return yield* Effect.failCause(exit.cause);
-      });
-
-      yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, 'prompt', prompt);
+      yield* withSessionClientRequest(
+        arg.launchTarget,
+        get,
+        session.sessionId,
+        'prompt',
+        sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed),
+      );
     }),
   )
   .pipe(Atom.keepAlive);

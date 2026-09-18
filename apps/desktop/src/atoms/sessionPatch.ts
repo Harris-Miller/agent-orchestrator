@@ -1,8 +1,8 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
-import { Effect } from 'effect';
+import { Effect, Exit } from 'effect';
 
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
+import type { PendingClientRequestKind, SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import {
   defaultsEqual,
@@ -10,6 +10,7 @@ import {
   persistProviderConfigDocuments,
   refreshProviderConfigInMemory,
 } from '../acp/providerConfigStorage.ts';
+import { sendPrompt } from '../acp/sessionRpc.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
@@ -56,7 +57,23 @@ export const patchSession = (
   return upsertSession(sessions, patch(current));
 };
 
-export type PendingClientRequestKind = 'config' | 'prompt';
+/** session/prompt; soft-succeed with cancelled if Prompt turn cancel was requested. */
+export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* (
+  launchTarget: AgentLaunchTarget,
+  get: AcpAtomGet,
+  sessionId: string,
+  text: string,
+) {
+  const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, text));
+  if (Exit.isSuccess(exit)) {
+    return exit.value;
+  }
+  if (get(backendHarnessStateAtom(launchTarget)).sessions[sessionId].promptCancelRequested === true) {
+    yield* Effect.logDebug('session/prompt error after Prompt turn cancel', launchTarget, sessionId, exit.cause);
+    return { stopReason: 'cancelled' as const };
+  }
+  return yield* Effect.failCause(exit.cause);
+});
 
 export const withSessionClientRequest = <A, E, R>(
   launchTarget: AgentLaunchTarget,

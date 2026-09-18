@@ -21,9 +21,12 @@ export type SessionSnapshot = {
   readonly cwd?: string;
   /** Die defects from a failed `session/load` or `session/resume` Exit cause. Cleared on re-activate. */
   readonly defects?: readonly unknown[];
-  readonly pendingClientRequest?: boolean;
+  /** Outstanding client→agent RPC kind; absent/undefined when none. */
+  readonly pendingClientRequest?: 'config' | 'prompt' | undefined;
   readonly pendingElicitation?: PendingElicitation;
   readonly pendingPermission?: PendingPermission;
+  /** Set when the user requested Prompt turn cancel; cleared with pending client request. */
+  readonly promptCancelRequested?: boolean;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
   readonly sessionConfiguration?: unknown;

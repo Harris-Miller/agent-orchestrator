@@ -64,7 +64,6 @@ export const buildActivatedSession = (
   return {
     availableCommands: existing?.availableCommands,
     cwd: existing?.cwd,
-    pendingClientRequest: false,
     selectedModeId: selection.selectedModeId,
     selectedModelId: selection.selectedModelId,
     sessionConfiguration: result,

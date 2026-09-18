@@ -105,7 +105,7 @@ export const sendPrompt = Effect.fn('sendPrompt')(
     const span = yield* Effect.currentSpan;
     setPromptSpan(launchTarget, sessionId, span);
     yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
-    yield* agent['session/prompt']({
+    return yield* agent['session/prompt']({
       prompt: [{ text, type: 'text' }],
       sessionId,
     }).pipe(
@@ -118,6 +118,21 @@ export const sendPrompt = Effect.fn('sendPrompt')(
   },
   (effect, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', launchTarget, sessionId, error))),
+  Effect.provide(TauriServicesLive),
+);
+
+export const cancelSession = Effect.fn('cancelSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string) {
+    const agent = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.annotateCurrentSpan({
+      'acp.agent': launchTarget,
+      'acp.sessionId': sessionId,
+    });
+    yield* Effect.logDebug('session/cancel', sessionId);
+    yield* agent['session/cancel']({ sessionId });
+  },
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/cancel failed', launchTarget, sessionId, error))),
   Effect.provide(TauriServicesLive),
 );
 

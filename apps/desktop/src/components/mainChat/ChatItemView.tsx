@@ -55,6 +55,8 @@ const toolResultMarkdownSx = {
 
 const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
   switch (status) {
+    case 'cancelled':
+      return 'default';
     case 'completed':
       return 'success';
     case 'failed':

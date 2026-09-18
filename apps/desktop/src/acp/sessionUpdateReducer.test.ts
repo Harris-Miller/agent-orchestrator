@@ -1,6 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { emptySessionTranscript, reduceSessionUpdate } from './sessionUpdateReducer.ts';
+import {
+  emptySessionTranscript,
+  markNonFinishedToolCallsCancelled,
+  reduceSessionUpdate,
+} from './sessionUpdateReducer.ts';
 
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
@@ -84,5 +88,44 @@ describe('reduceSessionUpdate', () => {
         toolKind: undefined,
       },
     ]);
+  });
+});
+
+describe('markNonFinishedToolCallsCancelled', () => {
+  it('marks pending and in_progress tool calls cancelled; leaves completed and failed', () => {
+    let transcript = emptySessionTranscript();
+    transcript = reduceSessionUpdate(transcript, {
+      sessionUpdate: 'tool_call',
+      status: 'pending',
+      title: 'A',
+      toolCallId: 'a',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      sessionUpdate: 'tool_call',
+      status: 'in_progress',
+      title: 'B',
+      toolCallId: 'b',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      sessionUpdate: 'tool_call',
+      status: 'completed',
+      title: 'C',
+      toolCallId: 'c',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      sessionUpdate: 'tool_call',
+      status: 'failed',
+      title: 'D',
+      toolCallId: 'd',
+    });
+
+    const next = markNonFinishedToolCallsCancelled(transcript);
+    assert.strictEqual(
+      next.items
+        .filter(item => item.kind === 'tool_call')
+        .map(item => item.status)
+        .join(','),
+      'cancelled,cancelled,completed,failed',
+    );
   });
 });

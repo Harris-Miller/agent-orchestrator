@@ -49,7 +49,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       return yield* new HandoffError({ message: `Session ${sessionId} is not active` });
     }
     if (
-      session.pendingClientRequest === true ||
+      session.pendingClientRequest !== undefined ||
       session.pendingElicitation !== undefined ||
       session.pendingPermission !== undefined
     ) {
@@ -62,7 +62,26 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
     });
 
-    yield* withSessionClientRequest(launchTarget, get, sessionId, sendPrompt(launchTarget, sessionId, trimmed));
+    const prompt = Effect.gen(function* () {
+      const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, trimmed));
+      if (Exit.isSuccess(exit)) {
+        return exit.value;
+      }
+      const cancelled = get(backendHarnessStateAtom(launchTarget)).sessions[sessionId].promptCancelRequested === true;
+      if (cancelled) {
+        yield* Effect.logDebug('session/prompt error after Prompt turn cancel', launchTarget, sessionId, exit.cause);
+        return { stopReason: 'cancelled' as const };
+      }
+      return yield* Effect.failCause(exit.cause);
+    });
+
+    const response = yield* withSessionClientRequest(launchTarget, get, sessionId, 'prompt', prompt);
+    if (response === undefined) {
+      return yield* new HandoffError({ message: `Session ${sessionId} skipped prompt` });
+    }
+    if (response.stopReason === 'cancelled') {
+      return yield* new HandoffError({ message: `Session ${sessionId} prompt was cancelled` });
+    }
   },
   (effect, launchTarget, _get, sessionId) =>
     effect.pipe(

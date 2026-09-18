@@ -95,8 +95,12 @@ Harness action that asks the source active session for a tagged handoff document
 _Avoid_: Transfer, migrate session, export chat
 
 **Pending client request**:
-Harness flag on a session snapshot while a client→agent RPC is outstanding for that session (`session/prompt` or a config-option change). Blocks overlapping outbound RPCs until the response arrives. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).
+Harness flag on a session snapshot while a client→agent RPC is outstanding for that session, discriminated as a prompt turn or a config-option change. Blocks overlapping outbound RPCs until the response arrives. Prompt-kind pending enables Prompt turn cancel in the Harness UI; config-kind pending does not. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).
 _Avoid_: In flight, loading, busy flag
+
+**Prompt turn cancel**:
+Harness action that sends ACP `session/cancel` for an in-flight prompt turn on a session. The session stays active. Distinct from Deactivate (`session/close`), elicitation cancel, and `$/cancel_request`.
+_Avoid_: Stop generation (vendor-specific), abort session, session close
 
 **Pending elicitation**:
 Outstanding Agent `elicitation/create` held on a session snapshot until the user accepts, declines, or cancels. Ephemeral snapshot state — not a chat item.

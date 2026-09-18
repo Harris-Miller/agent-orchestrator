@@ -56,12 +56,15 @@ export const patchSession = (
   return upsertSession(sessions, patch(current));
 };
 
+export type PendingClientRequestKind = 'config' | 'prompt';
+
 export const withSessionClientRequest = <A, E, R>(
   launchTarget: AgentLaunchTarget,
   get: AcpAtomGet,
   sessionId: string,
+  kind: PendingClientRequestKind,
   rpc: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R> =>
+): Effect.Effect<A | undefined, E, R> =>
   Effect.gen(function* () {
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     const session = snapshot.sessions[sessionId];
@@ -69,25 +72,25 @@ export const withSessionClientRequest = <A, E, R>(
     if (
       snapshot.phase !== 'ready' ||
       session.status !== 'active' ||
-      session.pendingClientRequest === true ||
+      session.pendingClientRequest !== undefined ||
       session.pendingElicitation !== undefined ||
       session.pendingPermission !== undefined
     ) {
       yield* Effect.logDebug('Skipping session client request', launchTarget, sessionId, {
-        pendingClientRequest: session.pendingClientRequest === true,
+        pendingClientRequest: session.pendingClientRequest,
         pendingElicitation: session.pendingElicitation !== undefined,
         pendingPermission: session.pendingPermission !== undefined,
         phase: snapshot.phase,
         status: session.status,
       });
-      return undefined as A;
+      return undefined;
     }
 
     get.set(backendHarnessStateAtom(launchTarget), {
       ...snapshot,
       sessions: patchSession(snapshot.sessions, sessionId, current => ({
         ...current,
-        pendingClientRequest: true,
+        pendingClientRequest: kind,
       })),
     });
 
@@ -99,7 +102,8 @@ export const withSessionClientRequest = <A, E, R>(
             ...current,
             sessions: patchSession(current.sessions, sessionId, entry => ({
               ...entry,
-              pendingClientRequest: false,
+              pendingClientRequest: undefined,
+              promptCancelRequested: undefined,
             })),
           }));
         }),

@@ -205,6 +205,19 @@ export const emptySessionTranscript = (): SessionTranscript => ({
   toolCallIndices: new Map(),
 });
 
+const FINISHED_TOOL_STATUSES = new Set(['cancelled', 'completed', 'failed']);
+
+/** Preemptive Prompt turn cancel: mark non-finished tool calls cancelled. */
+export const markNonFinishedToolCallsCancelled = (transcript: SessionTranscript): SessionTranscript => ({
+  ...transcript,
+  items: transcript.items.map(item => {
+    if (item.kind !== 'tool_call' || FINISHED_TOOL_STATUSES.has(item.status)) {
+      return item;
+    }
+    return { ...item, status: 'cancelled' };
+  }),
+});
+
 export const appendUserChatMessage = (transcript: SessionTranscript, text: string): SessionTranscript =>
   appendMessageChunk(transcript, 'user_message', undefined, text);
 

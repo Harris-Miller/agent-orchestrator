@@ -5,6 +5,7 @@ import { Atom } from 'effect/unstable/reactivity';
 import { upsertRosterEntry } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
@@ -17,7 +18,6 @@ import {
   selectSession,
   unifiedSessionRosterAtom,
 } from './backendStateAtoms.ts';
-import { withUserChatMessage } from './foldSessionUpdate.ts';
 import {
   patchSession,
   syncProviderConfigFromSessionConfiguration,

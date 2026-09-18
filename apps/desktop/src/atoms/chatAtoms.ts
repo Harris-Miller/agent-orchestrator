@@ -10,13 +10,13 @@ import {
   selectionFromSessionConfiguration,
 } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
-import { withUserChatMessage } from './foldSessionUpdate.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, withSessionClientRequest } from './sessionPatch.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));

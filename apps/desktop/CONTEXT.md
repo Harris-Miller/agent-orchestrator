@@ -58,6 +58,10 @@ _Avoid_: Session record, session object
 The ordered chat items for one session snapshot, derived from session updates and locally appended user prompts. Sole owner of that session’s chat items; survives backend harness reconnect.
 _Avoid_: Chat log, message list, accumulator
 
+**Session update apply**:
+Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and roster title when needed). Owns transcript reduction, available commands, usage, config-option merge, and the activating-session catalog-sync skip. Does not persist usage or provider config — those stay at the atom seam.
+_Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
+
 **Session status**:
 Harness-reported lifecycle for a session snapshot: `activating` (load or resume in flight), `active` (loaded on the agent; prompts allowed), or `inactive` (not loaded, or closed via Deactivate). Not an ACP protocol concept.
 _Avoid_: Session state (ambiguous with session configuration)

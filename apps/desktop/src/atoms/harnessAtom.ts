@@ -4,22 +4,16 @@ import { TauriServicesLive } from '@lib/context-services-tauri';
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import {
-  applySessionInfoTitle,
-  applySetConfigOptionResult,
-  initialBackendHarnessSnapshot,
-  normalizeSessionRoster,
-} from '../acp/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
-import { isRecord } from '../utils.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
-import { foldSessionUpdate } from './foldSessionUpdate.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration } from './sessionPatch.ts';
+import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.ts';
 
 export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   acpRuntime
@@ -29,15 +23,6 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
       };
 
       return runBackendHarness(launchTarget, {
-        onCommandsReady: (sessionId, availableCommands) => {
-          updateState(current => ({
-            ...current,
-            sessions: patchSession(current.sessions, sessionId, session => ({
-              ...session,
-              availableCommands,
-            })),
-          }));
-        },
         onElicitationCreate: (sessionId, request, resolve) => {
           updateState(current => ({
             ...current,
@@ -85,65 +70,29 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
         },
         onSessionUpdate: (sessionId, update) => {
           const before = get.registry.get(backendHarnessStateAtom(launchTarget));
-          const fold = foldSessionUpdate(before.sessions[sessionId], update);
-          if (fold.kind === 'noop') {
+          const result = applySessionUpdate(before.sessions[sessionId], sessionId, before.sessionRoster, update);
+          if (result.kind === 'noop') {
             return;
           }
 
-          updateState(current => {
-            let sessions = fold.transcriptChanged
-              ? patchSession(current.sessions, sessionId, session => ({
-                  ...session,
-                  transcript: fold.transcript,
-                }))
-              : current.sessions;
-
-            let { sessionRoster } = current;
-
-            if (fold.shouldSyncConfig && isRecord(update) && Array.isArray(update.configOptions)) {
-              sessions = patchSession(sessions, sessionId, session => {
-                const applied = applySetConfigOptionResult(session.sessionConfiguration, {
-                  configOptions: update.configOptions,
-                });
-                return {
-                  ...session,
-                  selectedModeId: applied.selectedModeId ?? session.selectedModeId,
-                  selectedModelId: applied.selectedModelId ?? session.selectedModelId,
-                  sessionConfiguration: applied.sessionConfiguration,
-                };
-              });
-            }
-
-            if (fold.sessionInfoTitle !== undefined) {
-              sessionRoster = applySessionInfoTitle(current.sessionRoster, sessionId, fold.sessionInfoTitle);
-            }
-
-            return {
-              ...current,
-              sessionRoster,
-              sessions,
-            };
-          });
-
-          if (fold.shouldSyncConfig) {
-            const session = get.registry.get(backendHarnessStateAtom(launchTarget)).sessions[sessionId];
-            syncProviderConfigFromSessionConfiguration(get, launchTarget, session.sessionConfiguration);
-          }
-        },
-        onUsageUpdate: (sessionId, usage) => {
-          Effect.runFork(
-            writeSessionUsage(sessionId, usage).pipe(
-              Effect.provide(TauriServicesLive),
-              Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
-            ),
-          );
           updateState(current => ({
             ...current,
-            sessions: patchSession(current.sessions, sessionId, session => ({
-              ...session,
-              usage,
-            })),
+            sessionRoster: result.sessionRoster ?? current.sessionRoster,
+            sessions: upsertSession(current.sessions, result.session),
           }));
+
+          if (result.shouldSyncConfig) {
+            syncProviderConfigFromSessionConfiguration(get, launchTarget, result.session.sessionConfiguration);
+          }
+
+          if (result.usageChanged && result.session.usage !== undefined) {
+            Effect.runFork(
+              writeSessionUsage(sessionId, result.session.usage).pipe(
+                Effect.provide(TauriServicesLive),
+                Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
+              ),
+            );
+          }
         },
       });
     })

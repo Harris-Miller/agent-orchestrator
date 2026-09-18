@@ -1,9 +1,8 @@
 /**
  * Backend harness lifecycle: spawn, connect, bootstrap retry.
  * Live agent handles are registered with sessionRpc; atoms never see them.
- * Session transcript is owned by SessionSnapshot (atoms fold session/update).
+ * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
-import type { SessionUsageDocument } from '@lib/ao-home';
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
@@ -15,8 +14,6 @@ import type {
 import { Effect, Exit, Ref } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
-import { isRecord } from '../utils.ts';
-
 import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -24,8 +21,6 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
-import type { AvailableCommand } from './sessionUpdateReducer.ts';
-import { parseAvailableCommands, parseUsageUpdate } from './sessionUpdateReducer.ts';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -58,7 +53,6 @@ export type RpcWireEntry = {
 };
 
 export type BackendHarnessCallbacks = {
-  readonly onCommandsReady: (sessionId: string, commands: readonly AvailableCommand[]) => void;
   readonly onElicitationCreate: (
     sessionId: string,
     request: CreateElicitationRequestBody,
@@ -74,7 +68,6 @@ export type BackendHarnessCallbacks = {
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionRosterResult: (result: unknown) => void;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
-  readonly onUsageUpdate: (sessionId: string, usage: SessionUsageDocument) => void;
 };
 
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
@@ -112,19 +105,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       command,
       makeClientHandlers(
         launchTarget,
-        (sessionId, update) => {
-          handlers.onSessionUpdate(sessionId, update);
-
-          if (isRecord(update) && update.sessionUpdate === 'available_commands_update') {
-            const commands = parseAvailableCommands(update.availableCommands);
-            handlers.onCommandsReady(sessionId, commands);
-          }
-
-          const usage = parseUsageUpdate(update);
-          if (usage !== undefined) {
-            handlers.onUsageUpdate(sessionId, usage);
-          }
-        },
+        handlers.onSessionUpdate,
         handlers.onElicitationCreate,
         handlers.onPermissionRequest,
       ),

@@ -70,6 +70,10 @@ _Avoid_: Setting, preference, parameter
 Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
 _Avoid_: Session state, session/new result
 
+**Materialize**:
+Harness step that turns a successful session activation RPC result (and any follow-on config-option applies) into a session snapshot and, when needed, a roster entry. Not the RPC itself (`session/new`, `session/load`, `session/resume`) and not catalog/Settings persistence.
+_Avoid_: Provision, hydrate, commit activation, apply session activation
+
 **Provider config catalog**:
 Agent-reported selectable config options (ids, labels, choices) for one agent launch target, shared across that target's sessions. Not tied to a session snapshot.
 _Avoid_: Session configuration, agent defaults

@@ -4,17 +4,14 @@ import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import {
-  applySetConfigOptionResult,
   defectsFromActivationFailure,
-  normalizeSessionInfoFromNew,
   normalizeSessionRoster,
-  patchConfigOptionValue,
   resolveSessionCwd,
   upsertRosterEntry,
 } from '../acp/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import {
   closeSession,
   createSession,
@@ -34,12 +31,7 @@ import {
   selectedSessionIdAtom,
   selectSession,
 } from './backendStateAtoms.ts';
-import {
-  applySessionActivationResult,
-  patchSession,
-  syncProviderConfigFromSessionConfiguration,
-  upsertSession,
-} from './sessionPatch.ts';
+import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.ts';
 
 export const selectSessionAtomFn = acpRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
@@ -122,27 +114,15 @@ export const createSessionAtomFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, result);
 
-        let sessionConfiguration: unknown = result;
         const { defaults } = get(providerConfigAtom(arg.launchTarget)) ?? { defaults: {} };
-        for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
-          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(setConfigOption(arg.launchTarget, sessionId, diff.configId, diff.value));
-          if (Exit.isFailure(exit)) {
-            yield* Effect.logWarning(
-              'Default config option apply failed during create',
-              arg.launchTarget,
-              diff.configId,
-            );
-            break;
-          }
-          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionConfiguration = nextSessionState;
-        }
+        const { sessionConfiguration } = yield* applyConfigDiffs(result, defaults, (configId, value) =>
+          setConfigOption(arg.launchTarget, sessionId, configId, value),
+        );
 
         syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, sessionConfiguration);
 
-        const session = applySessionActivationResult(sessionId, sessionConfiguration, { cwd });
-        const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
+        const session = buildActivatedSession(sessionId, sessionConfiguration, { cwd });
+        const rosterEntry = rosterEntryFromNew(result, cwd);
         const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
 
         get.set(backendHarnessStateAtom(arg.launchTarget), {
@@ -239,7 +219,7 @@ export const activateSessionAtomFn = acpRuntime
       get.set(backendHarnessStateAtom(arg.launchTarget), {
         ...get(backendHarnessStateAtom(arg.launchTarget)),
         sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({
-          ...applySessionActivationResult(arg.sessionId, exit.value, session),
+          ...buildActivatedSession(arg.sessionId, exit.value, session),
           usage: persistedUsage,
         })),
       });

@@ -1,7 +1,7 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
 import { Effect } from 'effect';
 
-import { initialSessionSnapshot, selectionFromSessionConfiguration } from '../acp/acpSessionBootstrap.ts';
+import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import {
@@ -10,7 +10,6 @@ import {
   persistProviderConfigDocuments,
   refreshProviderConfigInMemory,
 } from '../acp/providerConfigStorage.ts';
-import { emptySessionTranscript } from '../acp/sessionUpdateReducer.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
@@ -38,29 +37,6 @@ export const syncProviderConfigFromSessionConfiguration = (
   }
 
   persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged);
-};
-
-/** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
-type SessionActivationCarry = Partial<Pick<SessionSnapshot, 'availableCommands' | 'cwd' | 'transcript' | 'usage'>>;
-
-export const applySessionActivationResult = (
-  sessionId: string,
-  result: unknown,
-  existing?: SessionActivationCarry,
-): SessionSnapshot => {
-  const selection = selectionFromSessionConfiguration(result);
-  return {
-    availableCommands: existing?.availableCommands,
-    cwd: existing?.cwd,
-    pendingClientRequest: false,
-    selectedModeId: selection.selectedModeId,
-    selectedModelId: selection.selectedModelId,
-    sessionConfiguration: result,
-    sessionId,
-    status: 'active',
-    transcript: existing?.transcript ?? emptySessionTranscript(),
-    usage: existing?.usage,
-  };
 };
 
 export const upsertSession = (

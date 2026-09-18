@@ -2,16 +2,11 @@
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import {
-  applySetConfigOptionResult,
-  normalizeSessionInfoFromNew,
-  patchConfigOptionValue,
-  upsertRosterEntry,
-} from '../acp/acpSessionBootstrap.ts';
+import { upsertRosterEntry } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
-import { harnessDefaultDiffs } from '../acp/providerConfigStorage.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import { createSession, sendPrompt, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
@@ -24,7 +19,6 @@ import {
 } from './backendStateAtoms.ts';
 import { withUserChatMessage } from './foldSessionUpdate.ts';
 import {
-  applySessionActivationResult,
   patchSession,
   syncProviderConfigFromSessionConfiguration,
   upsertSession,
@@ -131,7 +125,7 @@ export const handoffSessionAtomFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.targetLaunchTarget, result);
 
-        const rosterEntry = normalizeSessionInfoFromNew(result, cwd);
+        const rosterEntry = rosterEntryFromNew(result, cwd);
         const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
         get.set(backendHarnessStateAtom(arg.targetLaunchTarget), {
           ...createdSnapshot,
@@ -139,50 +133,24 @@ export const handoffSessionAtomFn = acpRuntime
             rosterEntry === undefined
               ? createdSnapshot.sessionRoster
               : upsertRosterEntry(createdSnapshot.sessionRoster, rosterEntry),
-          sessions: upsertSession(
-            createdSnapshot.sessions,
-            applySessionActivationResult(targetSessionId, result, { cwd }),
-          ),
         });
         selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
-        let sessionConfiguration: unknown = result;
         const { defaults } = get(providerConfigAtom(arg.targetLaunchTarget)) ?? { defaults: {} };
-        for (const diff of harnessDefaultDiffs(sessionConfiguration, defaults)) {
-          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(
-            setConfigOption(arg.targetLaunchTarget, targetSessionId, diff.configId, diff.value),
-          );
-          if (Exit.isFailure(exit)) {
-            yield* Effect.logWarning('Handoff default config apply failed', arg.targetLaunchTarget, diff.configId);
-            break;
-          }
-          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionConfiguration = nextSessionState;
-        }
+        const setOption = (configId: string, value: string) =>
+          setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, value);
 
-        for (const diff of harnessDefaultDiffs(sessionConfiguration, arg.configValues)) {
-          const patched = patchConfigOptionValue(sessionConfiguration, diff.configId, diff.value);
-          const exit = yield* Effect.exit(
-            setConfigOption(arg.targetLaunchTarget, targetSessionId, diff.configId, diff.value),
-          );
-          if (Exit.isFailure(exit)) {
-            yield* Effect.logWarning('Handoff config value apply failed', arg.targetLaunchTarget, diff.configId);
-            break;
-          }
-          const { sessionConfiguration: nextSessionState } = applySetConfigOptionResult(patched, exit.value);
-          sessionConfiguration = nextSessionState;
-        }
+        const afterDefaults = yield* applyConfigDiffs(result, defaults, setOption);
+        const afterOverrides = yield* applyConfigDiffs(afterDefaults.sessionConfiguration, arg.configValues, setOption);
 
-        syncProviderConfigFromSessionConfiguration(get, arg.targetLaunchTarget, sessionConfiguration);
+        syncProviderConfigFromSessionConfiguration(get, arg.targetLaunchTarget, afterOverrides.sessionConfiguration);
 
         const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-        const priorTarget = configuredSnapshot.sessions[targetSessionId];
         get.set(backendHarnessStateAtom(arg.targetLaunchTarget), {
           ...configuredSnapshot,
           sessions: upsertSession(
             configuredSnapshot.sessions,
-            applySessionActivationResult(targetSessionId, sessionConfiguration, priorTarget),
+            buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
           ),
         });
 

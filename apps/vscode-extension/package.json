@@ -27,16 +27,16 @@
   },
   "dependencies": {
     "effect": "catalog:",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@tooling/eslint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/node": "catalog:",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@types/vscode": "^1.100.0",
     "@vitejs/plugin-react": "catalog:",
     "@vscode/vsce": "^3.7.1",

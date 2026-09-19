@@ -5,13 +5,32 @@
   "version": "0.0.1",
   "publisher": "harris-miller",
   "private": true,
+  "type": "module",
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": ["Other"],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./out/extension.cjs",
   "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "agentOrchestrator",
+          "title": "Agent Orchestrator",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentOrchestrator": [
+        {
+          "type": "webview",
+          "id": "agentOrchestrator.sidebar",
+          "name": "Agent Orchestrator"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "agentOrchestrator.helloWorld",
@@ -21,19 +40,27 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "vite build && vite build -c vite.webview.config.ts",
+    "watch": "vite build --watch & vite build --watch -c vite.webview.config.ts & wait",
     "build": "pnpm run compile",
     "package": "pnpm run compile && vsce package --no-dependencies --allow-missing-repository",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc -p ./ --noEmit"
+    "typecheck": "tsc -p ./ --noEmit && tsc -p tsconfig.webview.json --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@tooling/eslint": "workspace:^",
     "@types/node": "catalog:",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "@types/vscode": "^1.100.0",
+    "@vitejs/plugin-react": "catalog:",
     "@vscode/vsce": "^3.7.1",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }

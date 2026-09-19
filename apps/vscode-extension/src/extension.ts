@@ -1,9 +1,14 @@
 import * as vscode from 'vscode';
 
-export const activate = function (context: vscode.ExtensionContext): void {
-  const disposable = vscode.commands.registerCommand('agentOrchestrator.helloWorld', () =>
-    vscode.window.showInformationMessage('Hello from Agent Orchestrator'),
-  );
+import { SidebarViewProvider } from './sidebarViewProvider';
 
-  context.subscriptions.push(disposable);
+export const activate = function (context: vscode.ExtensionContext): void {
+  const provider = new SidebarViewProvider(context.extensionUri);
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, provider),
+    vscode.commands.registerCommand('agentOrchestrator.helloWorld', () =>
+      vscode.commands.executeCommand('agentOrchestrator.sidebar.focus'),
+    ),
+  );
 };

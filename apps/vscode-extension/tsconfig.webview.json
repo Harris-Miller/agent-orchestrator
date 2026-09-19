@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src/webview/**/*.ts", "src/webview/**/*.tsx"]
+}

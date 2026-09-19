@@ -7,7 +7,17 @@
       "script": "watch",
       "path": "apps/vscode-extension/",
       "isBackground": true,
-      "problemMatcher": "$tsc-watch",
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "build started\\.\\.\\.",
+          "endsPattern": "built in \\d+ms\\."
+        }
+      },
       "presentation": {
         "reveal": "silent"
       },

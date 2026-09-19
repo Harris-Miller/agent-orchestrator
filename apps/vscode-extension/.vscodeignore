@@ -1,10 +1,15 @@
 .vscode/**
 .vscode-test/**
 src/**
+scripts/**
 .gitignore
-eslint.config.mjs
+eslint.config.js
 tsconfig.json
+tsconfig.webview.json
+vite.config.ts
+vite.webview.config.ts
 **/*.ts
+**/*.tsx
 **/*.map
 **/*.vsix
 node_modules/**

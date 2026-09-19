@@ -2,6 +2,8 @@
 
 Local-development scaffold for the Agent Orchestrator VS Code extension.
 
+Renders a React webview in the **Secondary Side Bar** (`viewsContainers.secondarySidebar`).
+
 ## Load locally (no Marketplace)
 
 ### 1. Extension Development Host (day-to-day)
@@ -19,6 +21,8 @@ Or from a terminal:
 pnpm --filter agent-orchestrator-vscode run compile
 code --extensionDevelopmentPath="$PWD/apps/vscode-extension"
 ```
+
+Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.
 
 ### 2. Install a packaged `.vsix` (persistent install)
 

@@ -10,7 +10,7 @@ Renders a React webview in the **Secondary Side Bar** (`viewsContainers.secondar
 
 From the monorepo root in Cursor/VS Code:
 
-1. `pnpm --filter agent-orchestrator-vscode run build` (or `turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode`)
+1. `pnpm vscode:build` (or `pnpm watch:vscode`)
 2. Run and Debug → **Run Extension** (F5)
 
 That launches a new window with `--extensionDevelopmentPath=apps/vscode-extension`.
@@ -18,8 +18,8 @@ That launches a new window with `--extensionDevelopmentPath=apps/vscode-extensio
 Or from a terminal:
 
 ```bash
-pnpm --filter agent-orchestrator-vscode run build
-code --extensionDevelopmentPath="$PWD/apps/vscode-extension"
+pnpm vscode:build
+pnpm vscode:dev
 ```
 
 Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.

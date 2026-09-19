@@ -78,6 +78,9 @@ catalogs:
     '@types/react-dom':
       specifier: ^19.1.6
       version: 19.2.5
+    '@types/vscode-webview':
+      specifier: ^1.57.5
+      version: 1.57.5
     '@vitejs/plugin-react':
       specifier: ^6.1.1
       version: 6.1.1
@@ -310,6 +313,9 @@ importers:
       '@types/vscode':
         specifier: ^1.100.0
         version: 1.138.0
+      '@types/vscode-webview':
+        specifier: 'catalog:'
+        version: 1.57.5
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.1.1(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
@@ -1874,6 +1880,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/vscode-webview@1.57.5':
+    resolution: {integrity: sha512-iBAUYNYkz+uk1kdsq05fEcoh8gJmwT3lqqFPN7MGyjQ3HVloViMdo7ZJ8DFIP8WOK74PjOEilosqAyxV2iUFUw==}
 
   '@types/vscode@1.138.0':
     resolution: {integrity: sha512-DhlvrucJa8n6EHst7qQcXOcjLKs/VRTQy55plLO+RN74jonYsr/t9dd66zBnAyz1tpDig0okQAxuoPHpVNje2g==}
@@ -6374,6 +6383,8 @@ snapshots:
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/vscode-webview@1.57.5': {}
 
   '@types/vscode@1.138.0': {}
 

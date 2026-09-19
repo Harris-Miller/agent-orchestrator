@@ -38,6 +38,7 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.browser,
+        acquireVsCodeApi: 'readonly',
       },
     },
     name: 'vscode-extension-webview',

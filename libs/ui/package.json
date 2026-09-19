@@ -1,0 +1,22 @@
+{
+  "name": "@lib/ui",
+  "private": true,
+  "type": "module",
+  "license": "ISC",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tooling/eslint": "workspace:^",
+    "@tooling/tsconfig": "workspace:^",
+    "@tooling/vitest": "workspace:^",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

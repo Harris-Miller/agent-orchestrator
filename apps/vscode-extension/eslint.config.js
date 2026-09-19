@@ -6,14 +6,17 @@ export default defineConfig([
   ...reactConfig,
   globalIgnores(['dist']),
   {
-    // this is only files at the project root, _not_ in src/
-    files: ['*.ts'],
+    // project root + build scripts (not under src/)
+    files: ['*.ts', 'scripts/**/*.js'],
     languageOptions: {
       globals: {
         ...globals.nodeBuiltin,
       },
     },
     name: 'vscode-extension-root',
+    rules: {
+      'no-console': 'off',
+    },
   },
   {
     files: ['**/*.ts', '**/*.tsx'],

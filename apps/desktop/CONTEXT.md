@@ -137,7 +137,7 @@ A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vend
 _Avoid_: Bridge, wrapper, proxy, shim
 
 **Adapter resource tree**:
-Isolated ACP adapter install under `apps/desktop/acp-adapter-resources` (own lockfile, hoisted `node_modules`) copied into the Tauri application package for provider launch. Shared by `tauri:dev` and packaged builds.
+Isolated ACP adapter install at repo-root `acp-adapter-resources/` (own lockfile, hoisted `node_modules`; shared with the VS Code extension) copied into the Tauri application package for provider launch. Shared by `tauri:dev` and packaged builds.
 _Avoid_: node_modules, Vite assets, sidecar, bundled adapters (ambiguous with Vite)
 
 **Vendor CLI**:

@@ -7,5 +7,6 @@ coverage/
 .env
 *.log
 .DS_Store
-apps/desktop/acp-adapter-resources/node_modules/
+acp-adapter-resources/node_modules/
+apps/vscode-extension/acp-adapter-resources
 

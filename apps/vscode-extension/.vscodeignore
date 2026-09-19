@@ -6,11 +6,16 @@ eslint.config.js
 tsconfig.json
 tsconfig.vscode.json
 tsconfig.webview.json
+tsconfig.node.json
 tsdown.config.ts
 vite.webview.config.ts
+scripts/**
+.turbo/**
 **/*.ts
 **/*.tsx
 **/*.map
 **/*.vsix
-node_modules/**
+/node_modules/**
+!acp-adapter-resources/
+!acp-adapter-resources/**
 dist/**/*.map

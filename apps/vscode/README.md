@@ -27,7 +27,7 @@ From the monorepo root in Cursor/VS Code:
 1. `pnpm vscode:build` (or `pnpm vscode:watch`)
 2. Run and Debug → **Run Extension**
 
-That launches a new window with `--extensionDevelopmentPath=apps/vscode-extension`.
+That launches a new window with `--extensionDevelopmentPath=apps/vscode`.
 
 Or from a terminal:
 
@@ -42,7 +42,7 @@ Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchest
 
 ```bash
 pnpm --filter agent-orchestrator-vscode run package
-code --install-extension apps/vscode-extension/agent-orchestrator-vscode-0.0.1.vsix
+code --install-extension apps/vscode/agent-orchestrator-vscode-0.0.1.vsix
 ```
 
 Also available via Extensions view → `...` → **Install from VSIX...**

@@ -1,7 +1,7 @@
 # VS Code extension scaffolding for local development (pnpm/turborepo)
 
 Date: 2026-09-17  
-Question: How do we scaffold and **load locally** a TypeScript VS Code extension under `apps/vscode-extension` in this pnpm/turborepo monorepo — without Marketplace publishing?
+Question: How do we scaffold and **load locally** a TypeScript VS Code extension under `apps/vscode` in this pnpm/turborepo monorepo — without Marketplace publishing?
 
 Scope: local Extension Development Host, CLI `--extensionDevelopmentPath`, and installing a packaged `.vsix`. Not covered: Marketplace auth/publish.
 
@@ -15,7 +15,7 @@ Scope: local Extension Development Host, CLI `--extensionDevelopmentPath`, and i
 | CLI load without install | `code --extensionDevelopmentPath=<extension-root>` |
 | Shareable local binary | `vsce package` → `.vsix`, then `code --install-extension path.vsix` (no Marketplace) |
 
-**Verdict for this repo:** Put the extension at `apps/vscode-extension` with its own manifest/`main`. Prefer **esbuild bundle** for monorepo packaging (`--no-dependencies` / ignore `node_modules`), or plain **tsc** like the official Hello World sample for the smallest start. Marketplace is optional; packaging alone is enough for local install.
+**Verdict for this repo:** Put the extension at `apps/vscode` with its own manifest/`main`. Prefer **esbuild bundle** for monorepo packaging (`--no-dependencies` / ignore `node_modules`), or plain **tsc** like the official Hello World sample for the smallest start. Marketplace is optional; packaging alone is enough for local install.
 
 ## 1. Minimal project layout
 
@@ -132,7 +132,7 @@ Official sample `launch.json` ([helloworld-sample/.vscode/launch.json](https://r
 
 After edits: **Developer: Reload Window** in the host window ([Your First Extension](https://code.visualstudio.com/api/get-started/your-first-extension)).
 
-**Monorepo note:** `${workspaceFolder}` must be the **extension package root** (where `package.json` + `main` live), not the turborepo root — use a multi-root workspace or a launch config with an absolute/`${workspaceFolder:apps/vscode-extension}`-style folder name if the IDE workspace root is the monorepo.
+**Monorepo note:** `${workspaceFolder}` must be the **extension package root** (where `package.json` + `main` live), not the turborepo root — use a multi-root workspace or a launch config with an absolute/`${workspaceFolder:apps/vscode}`-style folder name if the IDE workspace root is the monorepo.
 
 ### B. CLI: `--extensionDevelopmentPath`
 
@@ -193,12 +193,12 @@ Sources: [Extension Anatomy](https://code.visualstudio.com/api/get-started/exten
 
 Optional integration tests: `@vscode/test-cli` + `@vscode/test-electron`, `vscode-test` script ([Testing Extensions](https://code.visualstudio.com/api/working-with-extensions/testing-extension)) — not required for local load.
 
-## 6. Monorepo gotchas (`apps/vscode-extension`)
+## 6. Monorepo gotchas (`apps/vscode`)
 
 Claims below are from first-party docs / `@vscode/vsce` behavior — not Marketplace-specific.
 
 1. **Package from the extension root**  
-   `vsce package` must run in the folder that contains the extension `package.json` ([Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)). In a turborepo, that is `apps/vscode-extension`, not the repo root.
+   `vsce package` must run in the folder that contains the extension `package.json` ([Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)). In a turborepo, that is `apps/vscode`, not the repo root.
 
 2. **`.vscodeignore` vs `package.json` `files`**  
    - `.vscodeignore`: glob denylist; ignore non-runtime files (e.g. `**/*.ts`) ([Publishing Extensions — Using .vscodeignore](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)).  
@@ -225,20 +225,20 @@ Claims below are from first-party docs / `@vscode/vsce` behavior — not Marketp
    Manifest lists `publisher` as required ([Extension Manifest](https://code.visualstudio.com/api/references/extension-manifest)). Needed for packaging/identity even when you never publish.
 
 6. **F5 workspace root**  
-   Launch `args` use `--extensionDevelopmentPath=${workspaceFolder}` ([helloworld sample](https://raw.githubusercontent.com/microsoft/vscode-extension-samples/main/helloworld-sample/.vscode/launch.json)). If Cursor/VS Code opens the monorepo root, point that arg at `apps/vscode-extension` explicitly.
+   Launch `args` use `--extensionDevelopmentPath=${workspaceFolder}` ([helloworld sample](https://raw.githubusercontent.com/microsoft/vscode-extension-samples/main/helloworld-sample/.vscode/launch.json)). If Cursor/VS Code opens the monorepo root, point that arg at `apps/vscode` explicitly.
 
 ## Local load cookbook
 
-Assume package at `apps/vscode-extension`.
+Assume package at `apps/vscode`.
 
 ```bash
 # 0) One-time scaffold (or hand-roll Anatomy layout)
 cd apps
 npx --package yo --package generator-code -- yo code
-# → choose TypeScript; prefer esbuild if monorepo deps; move/rename to vscode-extension
+# → choose TypeScript; prefer esbuild if monorepo deps; move/rename to vscode
 
 # 1) Install + build (from extension package)
-cd apps/vscode-extension
+cd apps/vscode
 pnpm install          # via workspace as usual
 pnpm run build        # or: watch:main / watch:renderer
 

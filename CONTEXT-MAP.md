@@ -29,7 +29,7 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **context-services → context-services-tauri**: context-services-tauri provides the Tauri live layers for the OS service and Effect platform primitives
 - **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`, planned `gemini-acp`) — and connects over stdio. Gemini CLI remains the vendor CLI behind `gemini-acp` (native ACP; missing session lifecycle capabilities filled by the adapter)
 - **desktop → ui**: desktop renders shared Chat / session UI from `@lib/ui`
-- **vscode-extension → ui**: VS Code webview renders the same shared UI from `@lib/ui`
+- **vscode → ui**: VS Code webview renders the same shared UI from `@lib/ui`
 
 ## Which context to read
 

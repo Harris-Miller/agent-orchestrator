@@ -1,6 +1,6 @@
 # @lib/ui
 
-Shared React UI for Agent Orchestrator hosts (`apps/desktop`, `apps/vscode-extension`).
+Shared React UI for Agent Orchestrator hosts (`apps/desktop`, `apps/vscode`).
 
 Move components here only when a second consumer needs them.
 

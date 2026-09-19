@@ -10,4 +10,4 @@ Install/refresh from the repo root:
 pnpm materialize-acp-adapters
 ```
 
-App scripts (`pnpm --filter=@apps/desktop materialize-acp-adapters`, vscode-extension alias) call the same root install.
+App scripts (`pnpm --filter=@apps/desktop materialize-acp-adapters`, vscode alias) call the same root install.

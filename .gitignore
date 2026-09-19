@@ -8,5 +8,5 @@ coverage/
 *.log
 .DS_Store
 acp-adapter-resources/node_modules/
-apps/vscode-extension/acp-adapter-resources
+apps/vscode/acp-adapter-resources
 

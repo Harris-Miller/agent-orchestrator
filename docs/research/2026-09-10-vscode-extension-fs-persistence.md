@@ -1,7 +1,7 @@
 # VS Code extension persistence for an ACP session roster
 
 Date: 2026-09-10  
-Question: Do VS Code extensions have filesystem (or equivalent) access suitable for persisting an ACP session roster (e.g. for a future `apps/vscode-extension`), comparable to what `apps/desktop` can do easily? Cover `ExtensionContext` storage APIs, Node `fs` in the extension host, remote considerations, and web-extension limits.
+Question: Do VS Code extensions have filesystem (or equivalent) access suitable for persisting an ACP session roster (e.g. for a future `apps/vscode`), comparable to what `apps/desktop` can do easily? Cover `ExtensionContext` storage APIs, Node `fs` in the extension host, remote considerations, and web-extension limits.
 
 ## Summary
 

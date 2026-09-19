@@ -13,7 +13,7 @@ export default defineConfig([
         ...globals.nodeBuiltin,
       },
     },
-    name: 'vscode-extension-root',
+    name: 'vscode-root',
     rules: {
       'no-console': 'off',
     },
@@ -25,7 +25,7 @@ export default defineConfig([
         project: ['tsconfig.vscode.json', 'tsconfig.webview.json', 'tsconfig.node.json'],
       },
     },
-    name: 'vscode-extension-typescript',
+    name: 'vscode-typescript',
   },
   {
     files: ['src/**/*.ts', '!src/webview/**/*.{ts,tsx}'],
@@ -34,7 +34,7 @@ export default defineConfig([
         ...globals.nodeBuiltin,
       },
     },
-    name: 'vscode-extension-node',
+    name: 'vscode-node',
   },
   {
     files: ['src/webview/**/*.{ts,tsx}'],
@@ -44,7 +44,7 @@ export default defineConfig([
         acquireVsCodeApi: 'readonly',
       },
     },
-    name: 'vscode-extension-webview',
+    name: 'vscode-webview',
     rules: {
       'no-restricted-imports': [
         'error',

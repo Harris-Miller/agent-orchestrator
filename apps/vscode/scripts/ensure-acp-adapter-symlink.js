@@ -1,5 +1,5 @@
 /**
- * Dev layout: symlink apps/vscode-extension/acp-adapter-resources → repo-root acp-adapter-resources.
+ * Dev layout: symlink apps/vscode/acp-adapter-resources → repo-root acp-adapter-resources.
  * Darwin symlink; Windows needs Developer Mode (no junction fallback).
  */
 import fs from 'node:fs';

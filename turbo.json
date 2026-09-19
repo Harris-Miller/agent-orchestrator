@@ -11,6 +11,7 @@
       ]
     },
     "lint": {},
+    "materialize-acp-adapters": {},
     "test": {},
     "typecheck": {},
     "dev": {

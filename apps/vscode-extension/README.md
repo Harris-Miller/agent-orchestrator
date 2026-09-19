@@ -24,7 +24,7 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 
 From the monorepo root in Cursor/VS Code:
 
-1. `pnpm vscode:build` (or `pnpm watch:vscode`)
+1. `pnpm vscode:build` (or `pnpm vscode:watch`)
 2. Run and Debug → **Run Extension**
 
 That launches a new window with `--extensionDevelopmentPath=apps/vscode-extension`.

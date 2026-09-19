@@ -11,20 +11,13 @@ const destPath = path.join(extensionRoot, 'acp-adapter-resources');
 const sourcePath = path.resolve(extensionRoot, '../../acp-adapter-resources');
 
 if (!fs.existsSync(sourcePath)) {
-  console.error(
-    `acp-adapter-resources missing at ${sourcePath}. Run: pnpm materialize-acp-adapters`,
-  );
+  console.error(`acp-adapter-resources missing at ${sourcePath}. Run: pnpm materialize-acp-adapters`);
   process.exit(1);
 }
 
-const entry = path.join(
-  sourcePath,
-  'node_modules/@agentclientprotocol/codex-acp/dist/index.js',
-);
+const entry = path.join(sourcePath, 'node_modules/@agentclientprotocol/codex-acp/dist/index.js');
 if (!fs.existsSync(entry)) {
-  console.error(
-    `Adapter entry missing at ${entry}. Run: pnpm materialize-acp-adapters`,
-  );
+  console.error(`Adapter entry missing at ${entry}. Run: pnpm materialize-acp-adapters`);
   process.exit(1);
 }
 

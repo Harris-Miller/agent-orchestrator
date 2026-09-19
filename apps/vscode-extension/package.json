@@ -24,9 +24,9 @@
     "build:main": "tsdown",
     "build:renderer": "vite build -c vite.webview.config.ts",
     "lint": "eslint . --max-warnings 0",
-    "materialize-acp-adapters": "pnpm --dir ../.. run materialize-acp-adapters && node ./scripts/ensure-acp-adapter-symlink.mjs",
+    "materialize-acp-adapters": "pnpm --dir ../.. run materialize-acp-adapters && node ./scripts/ensure-acp-adapter-symlink.js",
     "package": "pnpm run vscode:prepublish && vsce package --no-dependencies --allow-missing-repository",
-    "prepare-acp-adapters-for-package": "pnpm --dir ../.. run materialize-acp-adapters && node ./scripts/sync-acp-adapter-resources.mjs",
+    "prepare-acp-adapters-for-package": "pnpm --dir ../.. run materialize-acp-adapters && node ./scripts/sync-acp-adapter-resources.js",
     "typecheck": "tsc -b tsconfig.json --noEmit",
     "watch:main": "tsdown --watch",
     "watch:renderer": "vite build --watch -c vite.webview.config.ts"

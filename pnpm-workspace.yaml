@@ -47,8 +47,16 @@ catalog:
   '@lexical/react': ^0.49.0
   '@mui/icons-material': ^9.4.0
   fzf: ^0.5.2
+  tsdown: ^0.23.0
+  react: ^19.1.0
+  react-dom: ^19.1.0
+  '@types/react': ^19.1.8
+  '@types/react-dom': ^19.1.6
+  '@types/vscode-webview': ^1.57.5
 
 allowBuilds:
+  '@vscode/vsce-sign': false # optional; only needed to sign Marketplace VSIX
   esbuild: true # vite
+  keytar: false # optional; vsce credential helper
   msgpackr-extract: true # effect-ts dependency
   unrs-resolver: true # eslint-plugin-import-x

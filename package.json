@@ -16,7 +16,10 @@
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "watch:vscode": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
+    "vscode:build": "turbo run build --filter=agent-orchestrator-vscode",
+    "vscode:dev": "code --extensionDevelopmentPath=\"$PWD/apps/vscode-extension\""
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

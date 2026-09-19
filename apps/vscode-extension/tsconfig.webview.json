@@ -1,0 +1,25 @@
+{
+  "extends": "@tooling/tsconfig/tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.webview.tsbuildinfo",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
+    "types": [
+      "vite/client",
+      "vscode-webview"
+    ]
+  },
+  "include": [
+    "src/webview"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage"
+  ]
+}

@@ -1,0 +1,17 @@
+.vscode/**
+.vscode-test/**
+src/**
+scripts/**
+.gitignore
+eslint.config.js
+tsconfig.json
+tsconfig.vscode.json
+tsconfig.webview.json
+tsdown.config.ts
+vite.webview.config.ts
+**/*.ts
+**/*.tsx
+**/*.map
+**/*.vsix
+node_modules/**
+dist/**/*.map

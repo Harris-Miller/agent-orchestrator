@@ -11,7 +11,7 @@ Renders a React webview in the **Secondary Side Bar** (`viewsContainers.secondar
 From the monorepo root in Cursor/VS Code:
 
 1. `pnpm vscode:build` (or `pnpm watch:vscode`)
-2. Run and Debug → **Run Extension** (F5)
+2. Run and Debug → **Run Extension**
 
 That launches a new window with `--extensionDevelopmentPath=apps/vscode-extension`.
 

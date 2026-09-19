@@ -41,5 +41,18 @@ export default defineConfig([
       },
     },
     name: 'vscode-extension-webview',
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              message: 'The vscode module is Extension Host only. Use acquireVsCodeApi() + postMessage in the webview.',
+              name: 'vscode',
+            },
+          ],
+        },
+      ],
+    },
   },
 ]);

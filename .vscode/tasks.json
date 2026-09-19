@@ -3,8 +3,41 @@
   "tasks": [
     {
       "label": "vscode-extension: watch",
+      "dependsOn": ["vscode-extension: watch:main", "vscode-extension: watch:renderer"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "vscode-extension: watch:main",
       "type": "npm",
-      "script": "watch",
+      "script": "watch:main",
+      "path": "apps/vscode-extension/",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "tsdown",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "(Build complete|Rebuilt in)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "vscode-extension-watch"
+      }
+    },
+    {
+      "label": "vscode-extension: watch:renderer",
+      "type": "npm",
+      "script": "watch:renderer",
       "path": "apps/vscode-extension/",
       "isBackground": true,
       "problemMatcher": {
@@ -19,11 +52,9 @@
         }
       },
       "presentation": {
-        "reveal": "silent"
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": true
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "vscode-extension-watch"
       }
     }
   ]

@@ -1,9 +1,10 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
-const rootDir = path.dirname(fileURLToPath(import.meta.url))
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => ({
   build: {
@@ -15,11 +16,11 @@ export default defineConfig(({ mode }) => ({
       name: 'AgentOrchestratorWebview',
     },
     minify: mode === 'production',
-    outDir: 'out/webview',
+    outDir: 'dist/webview',
     sourcemap: true,
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(mode),
   },
   plugins: [react()],
-}))
+}));

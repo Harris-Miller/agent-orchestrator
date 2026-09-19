@@ -9,9 +9,42 @@
   "engines": {
     "vscode": "^1.100.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
-  "main": "./out/extension.cjs",
+  "main": "./dist/extension.cjs",
+  "scripts": {
+    "vscode:prepublish": "pnpm run build",
+    "build": "pnpm run build:main && pnpm run build:renderer",
+    "build:main": "tsdown",
+    "build:renderer": "vite build -c vite.webview.config.ts",
+    "lint": "eslint . --max-warnings 0",
+    "package": "pnpm run build && vsce package --no-dependencies --allow-missing-repository",
+    "typecheck": "tsc -b tsconfig.json --noEmit",
+    "watch:main": "tsdown --watch",
+    "watch:renderer": "vite build --watch -c vite.webview.config.ts"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tooling/eslint": "workspace:^",
+    "@tooling/tsconfig": "workspace:^",
+    "@tooling/vitest": "workspace:^",
+    "@types/node": "catalog:",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/vscode": "^1.100.0",
+    "@vitejs/plugin-react": "catalog:",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
   "contributes": {
     "viewsContainers": {
       "secondarySidebar": [
@@ -37,30 +70,5 @@
         "title": "Agent Orchestrator: Hello World"
       }
     ]
-  },
-  "scripts": {
-    "vscode:prepublish": "pnpm run compile",
-    "compile": "vite build && vite build -c vite.webview.config.ts",
-    "watch": "vite build --watch & vite build --watch -c vite.webview.config.ts & wait",
-    "build": "pnpm run compile",
-    "package": "pnpm run compile && vsce package --no-dependencies --allow-missing-repository",
-    "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc -p ./ --noEmit && tsc -p tsconfig.webview.json --noEmit"
-  },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "devDependencies": {
-    "@tooling/eslint": "workspace:^",
-    "@types/node": "catalog:",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@types/vscode": "^1.100.0",
-    "@vitejs/plugin-react": "catalog:",
-    "@vscode/vsce": "^3.7.1",
-    "eslint": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:"
   }
 }

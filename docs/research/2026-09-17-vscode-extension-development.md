@@ -237,10 +237,10 @@ cd apps
 npx --package yo --package generator-code -- yo code
 # → choose TypeScript; prefer esbuild if monorepo deps; move/rename to vscode-extension
 
-# 1) Install + compile (from extension package)
+# 1) Install + build (from extension package)
 cd apps/vscode-extension
 pnpm install          # via workspace as usual
-pnpm run compile      # or: pnpm run watch
+pnpm run build        # or: watch:main / watch:renderer
 
 # 2a) Debug: open extension folder (or multi-root), press F5
 #     launch.json args include --extensionDevelopmentPath=<this folder>

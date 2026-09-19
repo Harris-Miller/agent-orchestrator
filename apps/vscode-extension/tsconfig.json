@@ -1,17 +1,14 @@
 {
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "target": "ES2024",
-    "lib": ["ES2024"],
-    "noEmit": true,
-    "rootDir": "src",
-    "strict": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["node", "vscode"]
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "out", "src/webview"]
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.vscode.json"
+    },
+    {
+      "path": "./tsconfig.webview.json"
+    },
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

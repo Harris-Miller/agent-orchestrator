@@ -16,7 +16,8 @@
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "watch:vscode": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode"
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

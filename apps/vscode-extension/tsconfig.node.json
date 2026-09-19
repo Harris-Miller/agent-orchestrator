@@ -1,0 +1,14 @@
+{
+  "extends": "@tooling/tsconfig/tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+  },
+  "include": [
+    "*.ts",
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage"
+  ]
+}

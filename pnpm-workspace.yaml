@@ -47,6 +47,7 @@ catalog:
   '@lexical/react': ^0.49.0
   '@mui/icons-material': ^9.4.0
   fzf: ^0.5.2
+  tsdown: ^0.23.0
 
 allowBuilds:
   '@vscode/vsce-sign': false # optional; only needed to sign Marketplace VSIX

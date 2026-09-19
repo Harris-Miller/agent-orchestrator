@@ -1,23 +1,43 @@
+import globals from '@tooling/eslint/globals';
 import reactConfig from '@tooling/eslint/react';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
   ...reactConfig,
-  globalIgnores(['out', 'scripts', 'vite.config.ts', 'vite.webview.config.ts']),
+  globalIgnores(['dist']),
   {
-    files: ['src/**/*.ts'],
+    // this is only files at the project root, _not_ in src/
+    files: ['*.ts'],
     languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.json'],
+      globals: {
+        ...globals.nodeBuiltin,
       },
     },
-    name: 'vscode-extension-host',
+    name: 'vscode-extension-root',
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parserOptions: {
+        project: ['tsconfig.vscode.json', 'tsconfig.webview.json', 'tsconfig.node.json'],
+      },
+    },
+    name: 'vscode-extension-typescript',
+  },
+  {
+    files: ['src/**/*.ts', '!src/webview/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.nodeBuiltin,
+      },
+    },
+    name: 'vscode-extension-node',
   },
   {
     files: ['src/webview/**/*.{ts,tsx}'],
     languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.webview.json'],
+      globals: {
+        ...globals.browser,
       },
     },
     name: 'vscode-extension-webview',

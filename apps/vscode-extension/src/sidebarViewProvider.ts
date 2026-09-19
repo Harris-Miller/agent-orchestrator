@@ -12,19 +12,23 @@ const getNonce = function (): string {
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'agentOrchestrator.sidebar';
 
-  public constructor(private readonly extensionUri: vscode.Uri) {}
+  private readonly extensionUri: vscode.Uri;
+
+  public constructor(extensionUri: vscode.Uri) {
+    this.extensionUri = extensionUri;
+  }
 
   public resolveWebviewView(webviewView: vscode.WebviewView): void {
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'out', 'webview')],
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview')],
     };
 
     webviewView.webview.html = this.getHtml(webviewView.webview);
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'out', 'webview', 'main.js'));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'main.js'));
     const nonce = getNonce();
 
     return `<!DOCTYPE html>

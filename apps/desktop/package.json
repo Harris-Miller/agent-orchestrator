@@ -7,7 +7,7 @@
     "build": "tsc && vite build",
     "dev": "vite",
     "lint": "eslint . --max-warnings 0",
-    "materialize-acp-adapters": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
+    "materialize-acp-adapters": "pnpm --dir ../../acp-adapter-resources install --frozen-lockfile --prod",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

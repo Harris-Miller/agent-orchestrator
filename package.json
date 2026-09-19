@@ -12,6 +12,7 @@
     "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist'",
     "lint": "turbo run lint",
     "local-ci": "turbo run typecheck lint test",
+    "materialize-acp-adapters": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
     "prepare": "effect-language-service patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",

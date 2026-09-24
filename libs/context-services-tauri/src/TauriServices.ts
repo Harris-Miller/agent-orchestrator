@@ -1,8 +1,5 @@
-import type { OS } from '@lib/context-services';
+import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
-import type { FileSystem } from 'effect/FileSystem';
-import type { Path } from 'effect/Path';
-import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner';
 
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
@@ -20,7 +17,7 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
  * Layer ROut type) via {@link ConfigProviderLive}, and OTLP export via
  * {@link ObservabilityLive} when host `OTEL_*` config enables it.
  */
-export type TauriServices = ChildProcessSpawner | FileSystem | OS | Path;
+export type TauriServices = HostServices;
 
 /**
  * Provides OS, Path, FileSystem, ChildProcessSpawner, and ConfigProvider

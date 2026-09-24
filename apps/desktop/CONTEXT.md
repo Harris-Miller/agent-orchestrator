@@ -170,8 +170,12 @@ _Avoid_: Backend, native layer, shell
 The Tauri host process current working directory from the OS service. Used for provider launch and fixture resolution — not a session's project context.
 _Avoid_: Session cwd
 
+**Host services**:
+Portable aggregate of ChildProcessSpawner, FileSystem, OS, and Path — see [`libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md). Injected into the ACP Atom runtime; desktop fulfills it with Tauri services.
+_Avoid_: Platform services, Tauri services (when you mean the portable aggregate)
+
 **Tauri services**:
-Live Effect layers in `@lib/context-services-tauri` that implement portable `@lib/context-services` and platform primitives (OS, Path, FileSystem, ChildProcessSpawner) on top of Tauri — analogous to `@effect/platform-node`'s `NodeServices.layer`.
+Desktop Live Adapter of Host services in `@lib/context-services-tauri` (`TauriServicesLive`) — analogous to `@effect/platform-node`'s `NodeServices.layer`. Composed once into the ACP Atom runtime factory.
 _Avoid_: Platform layer, context-services (the portable package name), adapters
 
 ## Observability

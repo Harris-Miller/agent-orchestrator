@@ -3,7 +3,6 @@
  * Live agent handles are registered with sessionRpc; atoms never see them.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
-import { TauriServicesLive } from '@lib/context-services-tauri';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
   CreateElicitationRequestBody,
@@ -191,7 +190,6 @@ export const runBackendHarness = Effect.fnUntraced(
     }
   },
   Effect.scoped,
-  Effect.provide(TauriServicesLive),
   (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );
 

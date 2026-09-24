@@ -1,5 +1,4 @@
 /** Launch-target-keyed ACP session RPC. Agent handles stay private to this module. */
-import { TauriServicesLive } from '@lib/context-services-tauri';
 import type { AcpAgentConnection } from '@libs/effect-acp';
 import { Effect, Schema } from 'effect';
 
@@ -46,7 +45,6 @@ export const listSessions = Effect.fn('listSessions')(
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),
-  Effect.provide(TauriServicesLive),
 );
 
 export const createSession = Effect.fn('createSession')(
@@ -88,7 +86,6 @@ export const closeSession = Effect.fn('closeSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
-  Effect.provide(TauriServicesLive),
 );
 
 export const deleteSession = Effect.fn('deleteSession')(
@@ -99,7 +96,6 @@ export const deleteSession = Effect.fn('deleteSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error))),
-  Effect.provide(TauriServicesLive),
 );
 
 export const sendPrompt = Effect.fn('sendPrompt')(
@@ -125,7 +121,6 @@ export const sendPrompt = Effect.fn('sendPrompt')(
   },
   (effect, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', launchTarget, sessionId, error))),
-  Effect.provide(TauriServicesLive),
 );
 
 /** ACP Client→Agent notification (no JSON-RPC id). Must use transport.notify, not RpcClient. */
@@ -157,5 +152,4 @@ export const setConfigOption = Effect.fn('setConfigOption')(
     effect.pipe(
       Effect.tapError(error => Effect.logError('session/set_config_option failed', sessionId, configId, error)),
     ),
-  Effect.provide(TauriServicesLive),
 );

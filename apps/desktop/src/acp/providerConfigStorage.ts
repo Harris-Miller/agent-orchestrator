@@ -2,8 +2,9 @@
 
 import { readProviderConfigCatalog, writeProviderConfigCatalog, writeSettings } from '@lib/ao-home';
 import type { SettingsDocument } from '@lib/ao-home';
-import { TauriServicesLive } from '@lib/context-services-tauri';
+import type { HostServices } from '@lib/context-services';
 import { Effect, Option } from 'effect';
+import type { Layer } from 'effect';
 
 import type { NormalizedConfigChoice, NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
@@ -122,6 +123,7 @@ export const persistProviderConfigDocuments = (
   next: ProviderConfigStored,
   settings: SettingsDocument,
   writeSettingsDocument: boolean,
+  hostLayer: Layer.Layer<HostServices>,
 ): void => {
   const effect = Effect.gen(function* () {
     yield* writeProviderConfigCatalog(launchTarget, { catalog: [...next.catalog] });
@@ -129,7 +131,7 @@ export const persistProviderConfigDocuments = (
       yield* writeSettings(settings);
     }
   }).pipe(
-    Effect.provide(TauriServicesLive),
+    Effect.provide(hostLayer),
     Effect.catchCause(cause => Effect.logWarning('provider config persist failed', launchTarget, cause)),
   );
   Effect.runFork(effect);

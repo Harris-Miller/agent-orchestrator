@@ -13,6 +13,7 @@ import {
 import { sendPrompt } from '../acp/sessionRpc.ts';
 
 import type { AcpAtomGet } from './acpRuntime.ts';
+import { hostServicesLayer } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
 import { settingsDocumentAtom } from './settingsAtoms.ts';
 
@@ -37,7 +38,7 @@ export const syncProviderConfigFromSessionConfiguration = (
     get.set(settingsDocumentAtom, nextSettings);
   }
 
-  persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged);
+  persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged, hostServicesLayer);
 };
 
 export const upsertSession = (

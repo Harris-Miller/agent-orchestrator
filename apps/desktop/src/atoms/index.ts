@@ -1,5 +1,5 @@
 /** Public ACP Effect Atom surface for the desktop app. */
-export { acpRuntime } from './acpRuntime.ts';
+export { acpRuntime, createAcpRuntime, hostServicesLayer } from './acpRuntime.ts';
 export type { AcpAtomGet } from './acpRuntime.ts';
 export {
   allLaunchTargetPhasesAtom,

@@ -9,7 +9,7 @@ The Tauri implementation of the OS service (`OSLive`), backed by Tauri plugins a
 _Avoid_: Tauri OS, process service
 
 **Tauri services**:
-The aggregate live layer (`TauriServicesLive`) that provides OS, Path, FileSystem, ChildProcessSpawner, host ConfigProvider, and optional OTLP observability on top of Tauri.
-_Avoid_: Platform layer, adapters
+The desktop Live Adapter of portable **Host services** (`TauriServicesLive`) — ChildProcessSpawner, FileSystem, OS, and Path on top of Tauri. Desktop composition may also install host ConfigProvider and optional OTLP observability; those extras are not part of the Host services type.
+_Avoid_: Platform layer, adapters, Host services (when you mean the desktop Adapter specifically)
 
-For host vocabulary (`OS`, `Host`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).
+For host vocabulary (`OS`, `Host`, `Host services`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).

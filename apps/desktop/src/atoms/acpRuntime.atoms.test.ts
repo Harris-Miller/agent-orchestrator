@@ -6,7 +6,7 @@ import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
 
-import { createAcpRuntime } from './acpRuntime.ts';
+import { createAcpRuntime } from './acpRuntime.atoms.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
   cwd: () => '/home/operator',

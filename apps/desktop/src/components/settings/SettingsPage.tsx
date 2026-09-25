@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { defaultSettings } from '@lib/ao-home';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -23,11 +24,10 @@ import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import {
-  restoreSettingsDefaultsAtomFn,
-  settingsDocumentAtom,
-  settingsIoErrorAtom,
-  writeSettingsDocumentAtomFn,
-} from '../../atoms/index.ts';
+  userSettingsAtom,
+  userSettingsIoErrorAtom,
+  writeUserSettingsAtomFn,
+} from '../../atoms/userSettings/userSettings.atoms.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
@@ -65,10 +65,9 @@ const BackToApp: FC = () => {
 
 /** Settings page: flat nav rail + placeholder panes. */
 export const SettingsPage: FC = () => {
-  const ioError = useAtomValue(settingsIoErrorAtom);
-  const settings = useAtomValue(settingsDocumentAtom);
-  const restoreDefaults = useAtomSet(restoreSettingsDefaultsAtomFn, { mode: 'promise' });
-  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const ioError = useAtomValue(userSettingsIoErrorAtom);
+  const settings = useAtomValue(userSettingsAtom);
+  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
@@ -164,7 +163,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">Appearance</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Theme preference is stored in the Settings document.
+                  Theme preference is stored in User settings.
                 </Typography>
                 <ThemeSelect />
               </>
@@ -172,14 +171,14 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">General</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Session delete confirmation lives in the Settings document.
+                  Session delete confirmation lives in User settings.
                 </Typography>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={confirmSessionDeleteEnabled(settings)}
                       onChange={(_event, checked) => {
-                        writeSettingsDocument({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
+                        writeUserSettings({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
                       }}
                     />
                   }
@@ -211,7 +210,7 @@ export const SettingsPage: FC = () => {
         <DialogTitle>Reset all preferences to defaults?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This restores user preferences in the Settings document to product defaults. Session usage is not affected.
+            This restores User settings to product defaults. Session usage is not affected.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -225,7 +224,7 @@ export const SettingsPage: FC = () => {
           <Button
             color="error"
             onClick={() => {
-              restoreDefaults(undefined)
+              writeUserSettings(defaultSettings)
                 .then(() => {
                   setConfirmRestoreOpen(false);
                 })

@@ -1,7 +1,7 @@
 /** Provider config catalog merge + harness defaults helpers (persistence via ao-home / Settings). */
 
-import { readProviderConfigCatalog, writeProviderConfigCatalog, writeSettings } from '@lib/ao-home';
-import type { SettingsDocument } from '@lib/ao-home';
+import { readProviderConfigCatalog, writeProviderConfigCatalog, writeUserSettings } from '@lib/ao-home';
+import type { UserSettings } from '@lib/ao-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect, Option } from 'effect';
 import type { Layer } from 'effect';
@@ -106,10 +106,10 @@ export const refreshProviderConfigInMemory = (
 };
 
 export const patchHarnessConfigDefaults = (
-  settings: SettingsDocument,
+  settings: UserSettings,
   launchTarget: AgentLaunchTarget,
   defaults: Readonly<Record<string, string>>,
-): SettingsDocument => ({
+): UserSettings => ({
   ...settings,
   harnessConfigDefaults: {
     ...settings.harnessConfigDefaults,
@@ -117,18 +117,18 @@ export const patchHarnessConfigDefaults = (
   },
 });
 
-/** Fire-and-forget disk persist for catalog (+ optional Settings write). */
+/** Fire-and-forget disk persist for catalog (+ optional User settings write). */
 export const persistProviderConfigDocuments = (
   launchTarget: AgentLaunchTarget,
   next: ProviderConfigStored,
-  settings: SettingsDocument,
-  writeSettingsDocument: boolean,
+  settings: UserSettings,
+  persistSettings: boolean,
   hostLayer: Layer.Layer<HostServices>,
 ): void => {
   const effect = Effect.gen(function* () {
     yield* writeProviderConfigCatalog(launchTarget, { catalog: [...next.catalog] });
-    if (writeSettingsDocument) {
-      yield* writeSettings(settings);
+    if (persistSettings) {
+      yield* writeUserSettings(settings);
     }
   }).pipe(
     Effect.provide(hostLayer),

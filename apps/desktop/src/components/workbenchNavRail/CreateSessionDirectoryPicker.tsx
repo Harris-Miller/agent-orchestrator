@@ -24,14 +24,14 @@ import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
+import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import {
-  allLaunchTargetPhasesAtom,
-  createSessionAtomFn,
   joinDirectoryAtomFn,
   listChildDirectoriesAtomFn,
   parentDirectoryAtomFn,
   resolveHomeDirAtomFn,
-} from '../../atoms/index.ts';
+} from '../../atoms/directory.atoms.ts';
+import { createSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box

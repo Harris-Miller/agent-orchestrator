@@ -23,24 +23,25 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agen
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
-  activateSessionAtomFn,
   allLaunchTargetPhasesAtom,
-  cancelPromptAtomFn,
-  draftAtom,
-  handoffInProgressAtom,
-  handoffSessionAtomFn,
   providerConfigAtom,
-  respondElicitationAtomFn,
-  respondPermissionAtomFn,
   rpcWireLogSnapshotAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  unifiedSessionRosterAtom,
+} from '../../atoms/backendState.atoms.ts';
+import {
+  cancelPromptAtomFn,
+  draftAtom,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
-  unifiedSessionRosterAtom,
-} from '../../atoms/index.ts';
+} from '../../atoms/chat.atoms.ts';
+import { handoffInProgressAtom, handoffSessionAtomFn } from '../../atoms/handoff.atoms.ts';
+import { activateSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
 import { isRecord } from '../../utils.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 import { UsagePopover } from '../shared/UsageCard.tsx';

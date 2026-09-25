@@ -9,10 +9,9 @@ import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 
-import { acpRuntime, hostServicesLayer } from './acpRuntime.ts';
-import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendStateAtoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.ts';
+import { acpRuntime, hostServicesLayer } from './acpRuntime.atoms.ts';
+import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendState.atoms.ts';
+import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.atoms.ts';
 
 export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   acpRuntime
@@ -100,7 +99,7 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
 
 export const restartBackendAtomFn = acpRuntime
   .fn(
-    Effect.fn('restartBackendAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: AcpAtomGet) {
+    Effect.fn('restartBackendAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': launchTarget,
       });

@@ -10,7 +10,7 @@ import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import { selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '../atoms/index.ts';
+import { selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '../atoms/backendState.atoms.ts';
 import { isRecord } from '../utils.ts';
 
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';

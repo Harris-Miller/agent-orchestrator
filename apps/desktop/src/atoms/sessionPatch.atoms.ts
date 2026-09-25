@@ -1,5 +1,6 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
 import { Effect, Exit } from 'effect';
+import type { Atom } from 'effect/unstable/reactivity';
 
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { PendingClientRequestKind, SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
@@ -12,17 +13,16 @@ import {
 } from '../acp/providerConfigStorage.ts';
 import { sendPrompt } from '../acp/sessionRpc.ts';
 
-import type { AcpAtomGet } from './acpRuntime.ts';
-import { hostServicesLayer } from './acpRuntime.ts';
-import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
-import { settingsDocumentAtom } from './settingsAtoms.ts';
+import { hostServicesLayer } from './acpRuntime.atoms.ts';
+import { backendHarnessStateAtom, providerConfigAtom } from './backendState.atoms.ts';
+import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
-  get: AcpAtomGet,
+  get: Atom.FnContext,
   launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
-  const settings = get(settingsDocumentAtom);
+  const settings = get(userSettingsAtom);
   const settingsDefaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const previous = get(providerConfigAtom(launchTarget));
   const next = refreshProviderConfigInMemory(previous, settingsDefaults, sessionConfiguration);
@@ -35,7 +35,7 @@ export const syncProviderConfigFromSessionConfiguration = (
   const defaultsChanged = !defaultsEqual(settingsDefaults, next.defaults);
   const nextSettings = defaultsChanged ? patchHarnessConfigDefaults(settings, launchTarget, next.defaults) : settings;
   if (defaultsChanged) {
-    get.set(settingsDocumentAtom, nextSettings);
+    get.set(userSettingsAtom, nextSettings);
   }
 
   persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged, hostServicesLayer);
@@ -61,7 +61,7 @@ export const patchSession = (
 /** session/prompt; soft-succeed with cancelled if Prompt turn cancel was requested. */
 export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* (
   launchTarget: AgentLaunchTarget,
-  get: AcpAtomGet,
+  get: Atom.FnContext,
   sessionId: string,
   text: string,
 ) {
@@ -78,7 +78,7 @@ export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* 
 
 export const withSessionClientRequest = <A, E, R>(
   launchTarget: AgentLaunchTarget,
-  get: AcpAtomGet,
+  get: Atom.FnContext,
   sessionId: string,
   kind: PendingClientRequestKind,
   rpc: Effect.Effect<A, E, R>,

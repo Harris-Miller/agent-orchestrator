@@ -6,9 +6,10 @@ import type { FC } from 'react';
 
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
-import { providerConfigAtom, settingsDocumentAtom, writeSettingsDocumentAtomFn } from '../../atoms/index.ts';
+import { providerConfigAtom } from '../../atoms/backendState.atoms.ts';
+import { setHarnessConfigDefaultsAtomFn } from '../../atoms/userSettings/provider.atoms.ts';
+import { userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Readonly<Record<string, string>>) => ({
@@ -22,9 +23,9 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 });
 
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
-  const settings = useAtomValue(settingsDocumentAtom);
+  const settings = useAtomValue(userSettingsAtom);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
-  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const setHarnessConfigDefaults = useAtomSet(setHarnessConfigDefaultsAtomFn);
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const catalog = providerConfig?.catalog ?? [];
 
@@ -44,10 +45,7 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
               disabled={false}
               key={entry.id}
               onChange={(configId, value) => {
-                const nextDefaults = { ...defaults, [configId]: value };
-                writeSettingsDocument(patchHarnessConfigDefaults(settings, launchTarget, nextDefaults)).catch(
-                  () => undefined,
-                );
+                setHarnessConfigDefaults({ configId, launchTarget, value });
               }}
               option={catalogEntryToOption(entry, defaults)}
             />
@@ -63,8 +61,8 @@ export const HarnessDefaultsSettingsPane: FC = () => (
   <>
     <Typography variant="h6">Harness defaults</Typography>
     <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-      Preferred config option values applied when creating or handing off sessions. Changes save immediately to the
-      Settings document.
+      Preferred config option values applied when creating or handing off sessions. Changes save immediately to User
+      settings.
     </Typography>
     {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
       <LaunchTargetDefaults key={launchTarget} launchTarget={launchTarget} />

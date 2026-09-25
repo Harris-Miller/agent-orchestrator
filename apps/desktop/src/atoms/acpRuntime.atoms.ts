@@ -10,5 +10,3 @@ export const createAcpRuntime = (hostLayer: Layer.Layer<HostServices>) => {
 };
 
 export const { acpRuntime, hostServicesLayer } = createAcpRuntime(TauriServicesLive);
-
-export type AcpAtomGet = Parameters<Parameters<typeof acpRuntime.fn>[0]>[1];

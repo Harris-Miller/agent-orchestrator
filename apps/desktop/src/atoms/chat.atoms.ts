@@ -15,15 +15,14 @@ import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
 
-import { acpRuntime } from './acpRuntime.ts';
-import type { AcpAtomGet } from './acpRuntime.ts';
-import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
+import { acpRuntime } from './acpRuntime.atoms.ts';
+import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import {
   patchSession,
   sendPromptSoftCancel,
   syncProviderConfigFromSessionConfiguration,
   withSessionClientRequest,
-} from './sessionPatch.ts';
+} from './sessionPatch.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -31,7 +30,7 @@ export const sendChatItemAtomFn = acpRuntime
   .fn(
     Effect.fn('sendChatItemAtomFn', { root: true })(function* (
       arg: { launchTarget: AgentLaunchTarget; text: string },
-      get: AcpAtomGet,
+      get: Atom.FnContext,
     ) {
       const trimmed = arg.text.trim();
       const sessionId = get(selectedSessionIdAtom);
@@ -66,7 +65,7 @@ export const sendChatItemAtomFn = acpRuntime
 export const cancelPromptAtomFn = acpRuntime
   .fn(
     Effect.fnUntraced(
-      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
+      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
           'acp.sessionId': arg.sessionId,
@@ -118,7 +117,7 @@ export const respondElicitationAtomFn = acpRuntime
           response: CreateElicitationResponseBody;
           sessionId: string;
         },
-        get: AcpAtomGet,
+        get: Atom.FnContext,
       ) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
@@ -155,7 +154,7 @@ export const respondPermissionAtomFn = acpRuntime
           optionId: string;
           sessionId: string;
         },
-        get: AcpAtomGet,
+        get: Atom.FnContext,
       ) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
@@ -187,7 +186,7 @@ export const setConfigOptionAtomFn = acpRuntime
   .fn(
     Effect.fn('setConfigOptionAtomFn', { root: true })(function* (
       arg: { configId: string; launchTarget: AgentLaunchTarget; value: string },
-      get: AcpAtomGet,
+      get: Atom.FnContext,
     ) {
       const sessionId = get(selectedSessionIdAtom);
       const snapshot = get(backendHarnessStateAtom(arg.launchTarget));

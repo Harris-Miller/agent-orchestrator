@@ -1,7 +1,7 @@
 import { DEFAULT_THEME_ID, THEME_IDS } from './theme.ts';
 import type { ThemeId } from './theme.ts';
 
-/** localStorage paint-cache key for last-applied theme (not Settings document source of truth). */
+/** localStorage paint-cache key for last-applied theme (not User settings source of truth). */
 export const THEME_PAINT_STORAGE_KEY = 'ao-desktop-theme';
 
 export const isThemeId = (value: unknown): value is ThemeId =>

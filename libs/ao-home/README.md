@@ -1,6 +1,6 @@
 # @lib/ao-home
 
-Agent Orchestrator home seam: resolve/ensure `~/.ao` and read/write the settings document (`settings.json`).
+Agent Orchestrator home seam: resolve/ensure `~/.ao` and read/write User settings (`settings.json`).
 
 All filesystem I/O under the Agent Orchestrator home goes through this package. Live `OS` / `Path` / `FileSystem` come from the host (e.g. `@lib/context-services-tauri`).
 

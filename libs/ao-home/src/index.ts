@@ -1,5 +1,5 @@
 export { providerConfigCatalogPath, readProviderConfigCatalog, writeProviderConfigCatalog } from './catalog.ts';
-export { ensureHome, readSettings, resolveHome, restoreSettingsDefaults, settingsPath, writeSettings } from './home.ts';
+export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
 export {
   type ProviderConfigCatalogDocument,
   ProviderConfigCatalogDocumentJsonString,

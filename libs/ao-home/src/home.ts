@@ -25,7 +25,7 @@ export const settingsPath = Effect.fn('settingsPath')(function* () {
   return path.join(home, 'settings.json');
 });
 
-export const readSettings = Effect.fn('readSettings')(function* () {
+export const readUserSettings = Effect.fn('readUserSettings')(function* () {
   const fs = yield* FileSystem;
   const filePath = yield* settingsPath();
   const present = yield* fs.exists(filePath);
@@ -39,17 +39,11 @@ export const readSettings = Effect.fn('readSettings')(function* () {
   );
 });
 
-export const writeSettings = Effect.fn('writeSettings')(function* (document: UserSettings) {
+export const writeUserSettings = Effect.fn('writeUserSettings')(function* (userSettings: UserSettings) {
   const fs = yield* FileSystem;
   yield* ensureHome();
   const filePath = yield* settingsPath();
-  const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(document);
+  const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(userSettings);
   const withNewline = encoded.endsWith('\n') ? encoded : `${encoded}\n`;
   yield* fs.writeFileString(filePath, withNewline);
-});
-
-/** Reset the Settings document to product defaults. */
-export const restoreSettingsDefaults = Effect.fn('restoreSettingsDefaults')(function* () {
-  yield* writeSettings(defaultSettings);
-  return defaultSettings;
 });

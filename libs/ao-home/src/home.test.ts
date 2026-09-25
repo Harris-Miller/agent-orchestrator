@@ -13,15 +13,14 @@ import {
   providerConfigCatalogPath,
   readProviderConfigCatalog,
   readSessionUsage,
-  readSettings,
+  readUserSettings,
   resolveHome,
-  restoreSettingsDefaults,
   sessionDirPath,
   sessionUsagePath,
   settingsPath,
   writeProviderConfigCatalog,
   writeSessionUsage,
-  writeSettings,
+  writeUserSettings,
 } from './index.ts';
 
 const HOMEDIR = '/home/operator';
@@ -123,17 +122,17 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('readSettings returns defaults when file is missing', () =>
+  it.effect('readUserSettings returns defaults when file is missing', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const doc = yield* readSettings().pipe(Effect.provide(services(store)));
+      const doc = yield* readUserSettings().pipe(Effect.provide(services(store)));
       assert.deepStrictEqual(doc, defaultSettings);
       assert.isFalse(store.has(SETTINGS));
       assert.isFalse(store.has(HOME));
     }),
   );
 
-  it.effect('writeSettings then readSettings round-trips known fields and unknown keys', () =>
+  it.effect('writeUserSettings then readUserSettings round-trips known fields and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const testLayer = services(store);
@@ -143,8 +142,8 @@ describe('ao-home', () => {
         harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
         theme: 'dark',
       };
-      yield* writeSettings(writtenDoc).pipe(Effect.provide(testLayer));
-      const doc = yield* readSettings().pipe(Effect.provide(testLayer));
+      yield* writeUserSettings(writtenDoc).pipe(Effect.provide(testLayer));
+      const doc = yield* readUserSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(doc, writtenDoc);
       const written = store.get(SETTINGS);
       assert.isTrue(written?.kind === 'file');
@@ -159,30 +158,29 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('restoreSettingsDefaults writes product defaults and drops known and unknown keys', () =>
+  it.effect('writeUserSettings(defaultSettings) writes product defaults and drops known and unknown keys', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const testLayer = services(store);
-      yield* writeSettings({
+      yield* writeUserSettings({
         confirmSessionDelete: false,
         experimental: true,
         harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
         theme: 'dark',
       }).pipe(Effect.provide(testLayer));
-      const doc = yield* restoreSettingsDefaults().pipe(Effect.provide(testLayer));
-      assert.deepStrictEqual(doc, defaultSettings);
-      const reread = yield* readSettings().pipe(Effect.provide(testLayer));
+      yield* writeUserSettings(defaultSettings).pipe(Effect.provide(testLayer));
+      const reread = yield* readUserSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(reread, defaultSettings);
     }),
   );
 
-  it.effect('readSettings returns defaults for corrupt JSON without rewriting', () =>
+  it.effect('readUserSettings returns defaults for corrupt JSON without rewriting', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>([
         [HOME, { kind: 'dir' }],
         [SETTINGS, { content: '{not-json', kind: 'file' }],
       ]);
-      const doc = yield* readSettings().pipe(Effect.provide(services(store)));
+      const doc = yield* readUserSettings().pipe(Effect.provide(services(store)));
       assert.deepStrictEqual(doc, defaultSettings);
       const entry = store.get(SETTINGS);
       assert.isTrue(entry?.kind === 'file');
@@ -192,13 +190,13 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('readSettings returns defaults for non-object JSON without rewriting', () =>
+  it.effect('readUserSettings returns defaults for non-object JSON without rewriting', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>([
         [HOME, { kind: 'dir' }],
         [SETTINGS, { content: '[]\n', kind: 'file' }],
       ]);
-      const doc = yield* readSettings().pipe(Effect.provide(services(store)));
+      const doc = yield* readUserSettings().pipe(Effect.provide(services(store)));
       assert.deepStrictEqual(doc, defaultSettings);
       const entry = store.get(SETTINGS);
       assert.isTrue(entry?.kind === 'file');
@@ -208,7 +206,7 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('writeSettings fails the Effect on I/O error', () =>
+  it.effect('writeUserSettings fails the Effect on I/O error', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const testLayer = services(store, {
@@ -223,13 +221,13 @@ describe('ao-home', () => {
             }),
           ),
       });
-      const error = yield* writeSettings({}).pipe(Effect.provide(testLayer), Effect.flip);
+      const error = yield* writeUserSettings({}).pipe(Effect.provide(testLayer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
       assert.isFalse(store.has(SETTINGS));
     }),
   );
 
-  it.effect('readSettings fails the Effect on read I/O error', () =>
+  it.effect('readUserSettings fails the Effect on read I/O error', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>([
         [HOME, { kind: 'dir' }],
@@ -247,7 +245,7 @@ describe('ao-home', () => {
             }),
           ),
       });
-      const error = yield* readSettings().pipe(Effect.provide(testLayer), Effect.flip);
+      const error = yield* readUserSettings().pipe(Effect.provide(testLayer), Effect.flip);
       assert.strictEqual(error._tag, 'PlatformError');
     }),
   );
@@ -311,7 +309,7 @@ describe('ao-home', () => {
     }),
   );
 
-  it.effect('restoreSettingsDefaults does not delete provider config catalog documents', () =>
+  it.effect('writeUserSettings(defaultSettings) does not delete provider config catalog documents', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const testLayer = services(store);
@@ -319,11 +317,11 @@ describe('ao-home', () => {
         catalog: [{ choices: [{ id: 'a', name: 'A' }], id: 'model', name: 'Model' }],
       };
       yield* writeProviderConfigCatalog('codex-acp', catalogDoc).pipe(Effect.provide(testLayer));
-      yield* writeSettings({ theme: 'dark' }).pipe(Effect.provide(testLayer));
-      yield* restoreSettingsDefaults().pipe(Effect.provide(testLayer));
+      yield* writeUserSettings({ theme: 'dark' }).pipe(Effect.provide(testLayer));
+      yield* writeUserSettings(defaultSettings).pipe(Effect.provide(testLayer));
       const catalog = yield* readProviderConfigCatalog('codex-acp').pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(Option.getOrThrow(catalog), catalogDoc);
-      const settings = yield* readSettings().pipe(Effect.provide(testLayer));
+      const settings = yield* readUserSettings().pipe(Effect.provide(testLayer));
       assert.deepStrictEqual(settings, defaultSettings);
     }),
   );
@@ -424,12 +422,12 @@ describe('ao-home', () => {
         }),
       );
 
-      layeredIt.effect('restoreSettingsDefaults does not delete session usage documents', () =>
+      layeredIt.effect('writeUserSettings(defaultSettings) does not delete session usage documents', () =>
         Effect.gen(function* () {
           const usageDoc = { size: 100, used: 10 };
           yield* writeSessionUsage(SESSION_ID, usageDoc);
-          yield* writeSettings({ theme: 'dark' });
-          yield* restoreSettingsDefaults();
+          yield* writeUserSettings({ theme: 'dark' });
+          yield* writeUserSettings(defaultSettings);
           const usage = yield* readSessionUsage(SESSION_ID);
           assert.deepStrictEqual(Option.getOrThrow(usage), usageDoc);
         }),

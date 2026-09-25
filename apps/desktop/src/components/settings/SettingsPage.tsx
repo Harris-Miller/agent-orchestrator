@@ -159,7 +159,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">Appearance</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Theme preference is stored in the Settings document.
+                  Theme preference is stored in User settings.
                 </Typography>
                 <ThemeSelect />
               </>
@@ -167,7 +167,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">General</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Session delete confirmation lives in the Settings document.
+                  Session delete confirmation lives in User settings.
                 </Typography>
                 <FormControlLabel
                   control={
@@ -206,7 +206,7 @@ export const SettingsPage: FC = () => {
         <DialogTitle>Reset all preferences to defaults?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This restores user preferences in the Settings document to product defaults. Session usage is not affected.
+            This restores User settings to product defaults. Session usage is not affected.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

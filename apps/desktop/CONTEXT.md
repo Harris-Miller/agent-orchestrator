@@ -13,15 +13,15 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Settings page**:
-Full-page Harness UI route (`/settings`) for browsing preferences; reads and writes the Settings document through `@lib/ao-home`.
+Full-page Harness UI route (`/settings`) for browsing preferences; reads and writes User settings through `@lib/ao-home`.
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:
-User-chosen Harness UI theme id stored in the Settings document.
+User-chosen Harness UI theme id stored in User settings.
 _Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
 
 **Session delete confirmation**:
-Whether deleting a session shows the confirm dialog; stored in the Settings document; on when unset.
+Whether deleting a session shows the confirm dialog; stored in User settings; on when unset.
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
 **Chat item**:

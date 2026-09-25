@@ -1,5 +1,5 @@
 /** User settings Atom surface backed by `@lib/ao-home`. */
-import { defaultSettings, readSettings, writeSettings } from '@lib/ao-home';
+import { defaultSettings, readUserSettings, writeUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
 import { Cause, Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
@@ -16,7 +16,7 @@ export const userSettingsIoErrorAtom = Atom.make<string | undefined>(undefined).
 /** True after the first hydrate attempt finishes (success or IO error path that still seeded atoms). */
 export const userSettingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
 
-export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readSettings()).pipe(Atom.keepAlive);
+export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readUserSettings()).pipe(Atom.keepAlive);
 
 const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSettings: UserSettings) => {
   for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
@@ -33,7 +33,7 @@ const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSetting
 export const writeUserSettingsAtomFn = acpRuntime
   .fn((userSettings: UserSettings, get) =>
     Effect.gen(function* () {
-      const exit = yield* Effect.exit(writeSettings(userSettings));
+      const exit = yield* Effect.exit(writeUserSettings(userSettings));
       if (Exit.isFailure(exit)) {
         get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
         return;
@@ -48,7 +48,7 @@ export const writeUserSettingsAtomFn = acpRuntime
 export const hydrateUserSettingsAtomFn = acpRuntime
   .fn((_arg, get) =>
     Effect.gen(function* () {
-      const exit = yield* Effect.exit(readSettings());
+      const exit = yield* Effect.exit(readUserSettings());
       if (Exit.isFailure(exit)) {
         get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
         get.set(userSettingsHydratedAtom, true);

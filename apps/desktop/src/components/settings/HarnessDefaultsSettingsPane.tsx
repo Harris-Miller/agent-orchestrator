@@ -59,8 +59,8 @@ export const HarnessDefaultsSettingsPane: FC = () => (
   <>
     <Typography variant="h6">Harness defaults</Typography>
     <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-      Preferred config option values applied when creating or handing off sessions. Changes save immediately to the
-      Settings document.
+      Preferred config option values applied when creating or handing off sessions. Changes save immediately to User
+      settings.
     </Typography>
     {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
       <LaunchTargetDefaults key={launchTarget} launchTarget={launchTarget} />

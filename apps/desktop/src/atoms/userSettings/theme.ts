@@ -8,7 +8,7 @@ import { acpRuntime } from '../acpRuntime.ts';
 
 import { userSettingsAtom, userSettingsHydratedAtom, writeUserSettingsAtomFn } from './userSettings.ts';
 
-/** Effective theme: paint cache before hydrate, settings document after. */
+/** Effective theme: paint cache before hydrate, User settings after. */
 export const themeAtom = Atom.make(get => {
   if (!get(userSettingsHydratedAtom)) {
     return readPaintThemeId();

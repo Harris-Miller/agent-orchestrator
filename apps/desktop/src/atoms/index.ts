@@ -1,6 +1,5 @@
 /** Public ACP Effect Atom surface for the desktop app. */
 export { acpRuntime, createAcpRuntime, hostServicesLayer } from './acpRuntime.ts';
-export type { AcpAtomGet } from './acpRuntime.ts';
 export {
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
@@ -42,9 +41,11 @@ export {
   hydrateSettingsAtomFn,
   readSettingsAtomFn,
   restoreSettingsDefaultsAtomFn,
+  setThemeAtomFn,
   settingsHydratedAtom,
   settingsIoErrorAtom,
+  themeAtom,
   userSettingsAtom,
   writeSettingsAtomFn,
   writeUserSettingsAtomFn,
-} from './userSettingsAtoms.ts';
+} from './userSettings/index.ts';

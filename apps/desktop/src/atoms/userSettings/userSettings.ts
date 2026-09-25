@@ -4,14 +4,12 @@ import type { UserSettings } from '@lib/ao-home';
 import { Cause, Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
-import { loadProviderConfig } from '../acp/providerConfigStorage.ts';
-import { DEFAULT_THEME_ID } from '../theme/theme.ts';
-import { isThemeId, readPaintThemeRaw, writePaintThemeId } from '../theme/themePaintCache.ts';
-
-import { acpRuntime } from './acpRuntime.ts';
-import type { AcpAtomGet } from './acpRuntime.ts';
-import { providerConfigAtom } from './backendStateAtoms.ts';
+import { ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
+import { loadProviderConfig } from '../../acp/providerConfigStorage.ts';
+import { DEFAULT_THEME_ID } from '../../theme/theme.ts';
+import { isThemeId, readPaintThemeRaw, writePaintThemeId } from '../../theme/themePaintCache.ts';
+import { acpRuntime } from '../acpRuntime.ts';
+import { providerConfigAtom } from '../backendStateAtoms.ts';
 
 export const userSettingsAtom = Atom.make<UserSettings>(defaultSettings).pipe(Atom.keepAlive);
 
@@ -26,7 +24,7 @@ export const writeSettingsAtomFn = acpRuntime
   .fn((document: UserSettings) => writeSettings(document))
   .pipe(Atom.keepAlive);
 
-const syncProviderConfigDefaultsFromSettings = (get: AcpAtomGet, document: UserSettings) => {
+const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, document: UserSettings) => {
   for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
     const defaults = document.harnessConfigDefaults?.[launchTarget] ?? {};
     const existing = get(providerConfigAtom(launchTarget));
@@ -38,7 +36,7 @@ const syncProviderConfigDefaultsFromSettings = (get: AcpAtomGet, document: UserS
   }
 };
 
-const commitUserSettings = <E, R>(get: AcpAtomGet, effect: Effect.Effect<UserSettings, E, R>) =>
+const commitUserSettings = <E, R>(get: Atom.FnContext, effect: Effect.Effect<UserSettings, E, R>) =>
   Effect.gen(function* () {
     const exit = yield* Effect.exit(effect);
     if (Exit.isFailure(exit)) {
@@ -53,7 +51,7 @@ const commitUserSettings = <E, R>(get: AcpAtomGet, effect: Effect.Effect<UserSet
 
 export const writeUserSettingsAtomFn = acpRuntime
   .fn(
-    Effect.fn('writeUserSettingsAtomFn')(function* (document: UserSettings, get: AcpAtomGet) {
+    Effect.fn('writeUserSettingsAtomFn')(function* (document: UserSettings, get: Atom.FnContext) {
       yield* commitUserSettings(get, writeSettings(document).pipe(Effect.map(() => document)));
     }),
   )
@@ -61,7 +59,7 @@ export const writeUserSettingsAtomFn = acpRuntime
 
 export const hydrateSettingsAtomFn = acpRuntime
   .fn(
-    Effect.fn('hydrateSettingsAtomFn')(function* (_arg: undefined, get: AcpAtomGet) {
+    Effect.fn('hydrateSettingsAtomFn')(function* (_arg: undefined, get: Atom.FnContext) {
       const exit = yield* Effect.exit(readSettings());
       if (Exit.isFailure(exit)) {
         get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
@@ -104,7 +102,7 @@ export const hydrateSettingsAtomFn = acpRuntime
 
 export const restoreSettingsDefaultsAtomFn = acpRuntime
   .fn(
-    Effect.fn('restoreSettingsDefaultsAtomFn')(function* (_arg: undefined, get: AcpAtomGet) {
+    Effect.fn('restoreSettingsDefaultsAtomFn')(function* (_arg: undefined, get: Atom.FnContext) {
       const ok = yield* commitUserSettings(get, restoreSettingsDefaults());
       if (ok) {
         writePaintThemeId(DEFAULT_THEME_ID);

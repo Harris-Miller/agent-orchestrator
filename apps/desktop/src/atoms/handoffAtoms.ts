@@ -11,7 +11,6 @@ import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../
 import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
-import type { AcpAtomGet } from './acpRuntime.ts';
 import {
   backendHarnessStateAtom,
   providerConfigAtom,
@@ -34,7 +33,7 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
 }) {}
 
 const promptPinnedSession = Effect.fn('promptPinnedSession')(
-  function* (launchTarget: AgentLaunchTarget, get: AcpAtomGet, sessionId: string, text: string) {
+  function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext, sessionId: string, text: string) {
     const trimmed = text.trim();
     if (trimmed.length === 0) {
       return yield* new HandoffError({ message: 'Handoff prompt text is empty' });
@@ -93,7 +92,7 @@ export const handoffSessionAtomFn = acpRuntime
           sourceSessionId: string;
           targetLaunchTarget: AgentLaunchTarget;
         },
-        get: AcpAtomGet,
+        get: Atom.FnContext,
       ) {
         get.set(handoffInProgressAtom, true);
         yield* Effect.annotateCurrentSpan({
@@ -184,7 +183,7 @@ export const handoffSessionAtomFn = acpRuntime
           });
         }
       },
-      (effect, _arg, get: AcpAtomGet) =>
+      (effect, _arg, get: Atom.FnContext) =>
         effect.pipe(
           Effect.tapError(error => Effect.logError('Handoff failed', error)),
           Effect.ensuring(

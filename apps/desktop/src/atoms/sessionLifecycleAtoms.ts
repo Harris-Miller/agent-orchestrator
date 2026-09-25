@@ -23,7 +23,6 @@ import {
 } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
-import type { AcpAtomGet } from './acpRuntime.ts';
 import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
@@ -44,7 +43,7 @@ export const selectSessionAtomFn = acpRuntime
 export const refreshSessionRosterAtomFn = acpRuntime
   .fn(
     Effect.fn('refreshSessionRosterAtomFn', { root: true })(
-      function* (launchTarget: AgentLaunchTarget, get: AcpAtomGet) {
+      function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': launchTarget,
         });
@@ -71,7 +70,7 @@ export const refreshSessionRosterAtomFn = acpRuntime
 
 export const refreshAllSessionRostersAtomFn = acpRuntime
   .fn(
-    Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: AcpAtomGet) {
+    Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
       yield* Effect.forEach(
         ALL_AGENT_LAUNCH_TARGETS,
         launchTarget =>
@@ -97,7 +96,7 @@ export const refreshAllSessionRostersAtomFn = acpRuntime
 export const createSessionAtomFn = acpRuntime
   .fn(
     Effect.fn('createSessionAtomFn', { root: true })(
-      function* (arg: { cwd: string; launchTarget: AgentLaunchTarget }, get: AcpAtomGet) {
+      function* (arg: { cwd: string; launchTarget: AgentLaunchTarget }, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
         });
@@ -146,7 +145,7 @@ export const activateSessionAtomFn = acpRuntime
   .fn(
     Effect.fn('activateSessionAtomFn', { root: true })(function* (
       arg: { launchTarget: AgentLaunchTarget; sessionId: string },
-      get: AcpAtomGet,
+      get: Atom.FnContext,
     ) {
       yield* Effect.annotateCurrentSpan({
         'acp.agent': arg.launchTarget,
@@ -231,7 +230,7 @@ export const activateSessionAtomFn = acpRuntime
 export const deactivateSessionAtomFn = acpRuntime
   .fn(
     Effect.fn('deactivateSessionAtomFn', { root: true })(
-      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
+      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
           'acp.sessionId': arg.sessionId,
@@ -268,7 +267,7 @@ export const deactivateSessionAtomFn = acpRuntime
 export const deleteSessionAtomFn = acpRuntime
   .fn(
     Effect.fn('deleteSessionAtomFn', { root: true })(
-      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: AcpAtomGet) {
+      function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
           'acp.sessionId': arg.sessionId,

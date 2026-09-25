@@ -4,55 +4,27 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import { ThemeProvider } from '@mui/material/styles';
-import { useEffect, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { settingsHydratedAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../atoms/index.ts';
+import { setThemeAtomFn, themeAtom } from '../atoms/index.ts';
 
 import { THEME_IDS, THEME_LABELS, themes } from './theme.ts';
-import type { ThemeId } from './theme.ts';
-import { ThemeChoiceContext, useThemeChoice } from './themeChoiceContext.ts';
-import { clampThemeId, isThemeId, readPaintThemeId, writePaintThemeId } from './themePaintCache.ts';
-
-/** First-paint cache read once at module load (before Settings hydrate). */
-const initialPaintThemeId = readPaintThemeId();
+import { isThemeId } from './themePaintCache.ts';
 
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
-  const settings = useAtomValue(userSettingsAtom);
-  const hydrated = useAtomValue(settingsHydratedAtom);
-  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
-  const themeId = hydrated ? clampThemeId(settings.theme) : initialPaintThemeId;
-
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-    writePaintThemeId(clampThemeId(settings.theme));
-  }, [hydrated, settings.theme]);
-
-  const value = useMemo(
-    () => ({
-      setThemeId: (id: ThemeId) => {
-        writePaintThemeId(id);
-        writeUserSettings({ ...settings, theme: id }).catch(() => undefined);
-      },
-      themeId,
-    }),
-    [settings, themeId, writeUserSettings],
-  );
+  const themeId = useAtomValue(themeAtom);
 
   return (
-    <ThemeChoiceContext.Provider value={value}>
-      <ThemeProvider noSsr theme={themes[themeId]}>
-        {children}
-      </ThemeProvider>
-    </ThemeChoiceContext.Provider>
+    <ThemeProvider noSsr theme={themes[themeId]}>
+      {children}
+    </ThemeProvider>
   );
 };
 
 /** Theme preference control for the Settings Appearance pane. */
 export const ThemeSelect: FC = () => {
-  const { setThemeId, themeId } = useThemeChoice();
+  const themeId = useAtomValue(themeAtom);
+  const setTheme = useAtomSet(setThemeAtomFn, { mode: 'promise' });
   const labelId = 'ao-theme-select-label';
 
   return (
@@ -63,7 +35,7 @@ export const ThemeSelect: FC = () => {
         labelId={labelId}
         onChange={event => {
           if (isThemeId(event.target.value)) {
-            setThemeId(event.target.value);
+            setTheme(event.target.value).catch(() => undefined);
           }
         }}
         value={themeId}

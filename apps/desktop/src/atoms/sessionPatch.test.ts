@@ -1,10 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Fiber } from 'effect';
+import type { Atom } from 'effect/unstable/reactivity';
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 
-import type { AcpAtomGet } from './acpRuntime.ts';
 import { withSessionClientRequest } from './sessionPatch.ts';
 
 describe('withSessionClientRequest', () => {
@@ -31,7 +31,7 @@ describe('withSessionClientRequest', () => {
         },
       };
 
-      const get = Object.assign(((_atom: unknown) => snapshot) as AcpAtomGet, {
+      const get = Object.assign(((_atom: unknown) => snapshot) as Atom.FnContext, {
         registry,
         set: (_atom: unknown, next: BackendHarnessSnapshot) => {
           if (setNoOp) {
@@ -39,7 +39,7 @@ describe('withSessionClientRequest', () => {
           }
           snapshot = next;
         },
-      }) as AcpAtomGet;
+      }) as Atom.FnContext;
 
       const fiber = yield* Effect.forkChild(
         withSessionClientRequest(launchTarget, get, sessionId, 'prompt', Effect.never),
@@ -68,7 +68,7 @@ describe('withSessionClientRequest', () => {
         },
       };
 
-      const get = Object.assign(((_atom: unknown) => snapshot) as AcpAtomGet, {
+      const get = Object.assign(((_atom: unknown) => snapshot) as Atom.FnContext, {
         registry: {
           get: () => snapshot,
           set: (_atom: unknown, next: BackendHarnessSnapshot) => {
@@ -81,7 +81,7 @@ describe('withSessionClientRequest', () => {
         set: (_atom: unknown, next: BackendHarnessSnapshot) => {
           snapshot = next;
         },
-      }) as AcpAtomGet;
+      }) as Atom.FnContext;
 
       const fiber = yield* Effect.forkChild(
         withSessionClientRequest(launchTarget, get, sessionId, 'config', Effect.never),

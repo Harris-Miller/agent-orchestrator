@@ -7,8 +7,6 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLa
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
 
-import type { AcpAtomGet } from './acpRuntime.ts';
-
 export const providerConfigAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<ProviderConfigStored | undefined>(undefined).pipe(
     Atom.withLabel(`providerConfig:${launchTarget}`),
@@ -85,7 +83,7 @@ export const allLaunchTargetPhasesAtom = Atom.make(get =>
   })),
 ).pipe(Atom.keepAlive);
 
-export const clearSelectedSessionIfMissing = (get: AcpAtomGet) => {
+export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {
   const sessionId = get(selectedSessionIdAtom);
   if (sessionId === undefined) {
     return;
@@ -97,7 +95,7 @@ export const clearSelectedSessionIfMissing = (get: AcpAtomGet) => {
   }
 };
 
-export const selectSession = (get: AcpAtomGet, launchTarget: AgentLaunchTarget, sessionId: string) => {
+export const selectSession = (get: Atom.FnContext, launchTarget: AgentLaunchTarget, sessionId: string) => {
   get.set(selectedSessionIdAtom, sessionId);
   get.set(rpcWireLogLaunchTargetAtom, launchTarget);
 };

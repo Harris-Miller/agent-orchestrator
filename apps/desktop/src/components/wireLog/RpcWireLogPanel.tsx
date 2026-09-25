@@ -14,7 +14,7 @@ import type { FC, SyntheticEvent } from 'react';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { RpcWireEntry } from '../../acp/backendHarness.ts';
-import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/index.ts';
+import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
 import { isRecord } from '../../utils.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 

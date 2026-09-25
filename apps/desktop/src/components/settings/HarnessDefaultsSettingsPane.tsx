@@ -7,7 +7,9 @@ import type { FC } from 'react';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
-import { providerConfigAtom, setHarnessConfigDefaultsAtomFn, userSettingsAtom } from '../../atoms/index.ts';
+import { providerConfigAtom } from '../../atoms/backendState.atoms.ts';
+import { setHarnessConfigDefaultsAtomFn } from '../../atoms/userSettings/provider.atoms.ts';
+import { userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Readonly<Record<string, string>>) => ({

@@ -15,7 +15,7 @@ import { sendPrompt } from '../acp/sessionRpc.ts';
 
 import { hostServicesLayer } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendState.atoms.ts';
-import { userSettingsAtom } from './userSettings/index.ts';
+import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: Atom.FnContext,

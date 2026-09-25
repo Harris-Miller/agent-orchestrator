@@ -23,7 +23,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { userSettingsAtom, userSettingsIoErrorAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
+import {
+  userSettingsAtom,
+  userSettingsIoErrorAtom,
+  writeUserSettingsAtomFn,
+} from '../../atoms/userSettings/userSettings.atoms.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 

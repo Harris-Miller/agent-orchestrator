@@ -6,7 +6,8 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { AcpBootstrapPhase } from '../../acp/acpSessionBootstrap.ts';
-import { allLaunchTargetPhasesAtom, restartBackendAtomFn } from '../../atoms/index.ts';
+import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
+import { restartBackendAtomFn } from '../../atoms/harness.atoms.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {

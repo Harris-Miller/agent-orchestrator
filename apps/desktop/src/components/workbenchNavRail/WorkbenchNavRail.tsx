@@ -38,18 +38,20 @@ import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBo
 import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import {
-  activateSessionAtomFn,
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
+  selectedSessionIdAtom,
+  unifiedSessionRosterAtom,
+} from '../../atoms/backendState.atoms.ts';
+import {
+  activateSessionAtomFn,
   createSessionAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   refreshAllSessionRostersAtomFn,
-  selectedSessionIdAtom,
   selectSessionAtomFn,
-  unifiedSessionRosterAtom,
-  userSettingsAtom,
-} from '../../atoms/index.ts';
+} from '../../atoms/sessionLifecycle.atoms.ts';
+import { userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 

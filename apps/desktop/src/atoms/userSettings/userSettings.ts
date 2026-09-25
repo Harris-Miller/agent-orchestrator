@@ -6,8 +6,6 @@ import { Atom } from 'effect/unstable/reactivity';
 
 import { ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import { loadProviderConfig } from '../../acp/providerConfigStorage.ts';
-import { DEFAULT_THEME_ID } from '../../theme/theme.ts';
-import { isThemeId, readPaintThemeRaw, writePaintThemeId } from '../../theme/themePaintCache.ts';
 import { acpRuntime } from '../acpRuntime.ts';
 import { providerConfigAtom } from '../backendStateAtoms.ts';
 
@@ -51,9 +49,7 @@ const commitUserSettings = <E, R>(get: Atom.FnContext, effect: Effect.Effect<Use
 
 export const writeUserSettingsAtomFn = acpRuntime
   .fn((userSettings: UserSettings, get) =>
-    Effect.gen(function* () {
-      yield* commitUserSettings(get, writeSettings(userSettings).pipe(Effect.map(() => userSettings)));
-    }),
+    commitUserSettings(get, writeSettings(userSettings).pipe(Effect.map(() => userSettings))),
   )
   .pipe(Atom.keepAlive);
 
@@ -67,23 +63,7 @@ export const hydrateSettingsAtomFn = acpRuntime
         return;
       }
 
-      let next = exit.value;
-      const paintRaw = readPaintThemeRaw();
-
-      if (!isThemeId(next.theme) && isThemeId(paintRaw)) {
-        next = { ...next, theme: paintRaw };
-        const writeExit = yield* Effect.exit(writeSettings(next));
-        if (Exit.isFailure(writeExit)) {
-          get.set(settingsIoErrorAtom, Cause.pretty(writeExit.cause));
-          get.set(userSettingsAtom, exit.value);
-          writePaintThemeId(paintRaw);
-          get.set(settingsHydratedAtom, true);
-          return;
-        }
-      }
-
-      const effective = isThemeId(next.theme) ? next.theme : DEFAULT_THEME_ID;
-      writePaintThemeId(effective);
+      const next = exit.value;
       get.set(userSettingsAtom, next);
       get.set(settingsIoErrorAtom, undefined);
 

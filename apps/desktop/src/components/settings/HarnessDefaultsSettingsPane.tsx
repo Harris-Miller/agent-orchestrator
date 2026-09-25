@@ -23,7 +23,7 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
   const settings = useAtomValue(userSettingsAtom);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
-  const setHarnessConfigDefaults = useAtomSet(setHarnessConfigDefaultsAtomFn, { mode: 'promise' });
+  const setHarnessConfigDefaults = useAtomSet(setHarnessConfigDefaultsAtomFn);
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const catalog = providerConfig?.catalog ?? [];
 
@@ -43,7 +43,7 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
               disabled={false}
               key={entry.id}
               onChange={(configId, value) => {
-                setHarnessConfigDefaults({ configId, launchTarget, value }).catch(() => undefined);
+                setHarnessConfigDefaults({ configId, launchTarget, value });
               }}
               option={catalogEntryToOption(entry, defaults)}
             />

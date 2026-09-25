@@ -24,7 +24,7 @@ export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ childre
 /** Theme preference control for the Settings Appearance pane. */
 export const ThemeSelect: FC = () => {
   const themeId = useAtomValue(themeAtom);
-  const setTheme = useAtomSet(setThemeAtomFn, { mode: 'promise' });
+  const setTheme = useAtomSet(setThemeAtomFn);
   const labelId = 'ao-theme-select-label';
 
   return (
@@ -35,7 +35,7 @@ export const ThemeSelect: FC = () => {
         labelId={labelId}
         onChange={event => {
           if (isThemeId(event.target.value)) {
-            setTheme(event.target.value).catch(() => undefined);
+            setTheme(event.target.value);
           }
         }}
         value={themeId}

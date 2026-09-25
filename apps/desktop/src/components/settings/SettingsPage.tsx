@@ -24,9 +24,9 @@ import type { FC } from 'react';
 
 import {
   restoreSettingsDefaultsAtomFn,
-  settingsDocumentAtom,
   settingsIoErrorAtom,
-  writeSettingsDocumentAtomFn,
+  userSettingsAtom,
+  writeUserSettingsAtomFn,
 } from '../../atoms/index.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
@@ -66,9 +66,9 @@ const BackToApp: FC = () => {
 /** Settings page: flat nav rail + placeholder panes. */
 export const SettingsPage: FC = () => {
   const ioError = useAtomValue(settingsIoErrorAtom);
-  const settings = useAtomValue(settingsDocumentAtom);
+  const settings = useAtomValue(userSettingsAtom);
   const restoreDefaults = useAtomSet(restoreSettingsDefaultsAtomFn, { mode: 'promise' });
-  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
@@ -179,7 +179,7 @@ export const SettingsPage: FC = () => {
                     <Switch
                       checked={confirmSessionDeleteEnabled(settings)}
                       onChange={(_event, checked) => {
-                        writeSettingsDocument({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
+                        writeUserSettings({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
                       }}
                     />
                   }

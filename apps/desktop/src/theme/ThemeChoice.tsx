@@ -7,7 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { useEffect, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { settingsDocumentAtom, settingsHydratedAtom, writeSettingsDocumentAtomFn } from '../atoms/index.ts';
+import { settingsHydratedAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../atoms/index.ts';
 
 import { THEME_IDS, THEME_LABELS, themes } from './theme.ts';
 import type { ThemeId } from './theme.ts';
@@ -18,9 +18,9 @@ import { clampThemeId, isThemeId, readPaintThemeId, writePaintThemeId } from './
 const initialPaintThemeId = readPaintThemeId();
 
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
-  const settings = useAtomValue(settingsDocumentAtom);
+  const settings = useAtomValue(userSettingsAtom);
   const hydrated = useAtomValue(settingsHydratedAtom);
-  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const themeId = hydrated ? clampThemeId(settings.theme) : initialPaintThemeId;
 
   useEffect(() => {
@@ -34,11 +34,11 @@ export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ childre
     () => ({
       setThemeId: (id: ThemeId) => {
         writePaintThemeId(id);
-        writeSettingsDocument({ ...settings, theme: id }).catch(() => undefined);
+        writeUserSettings({ ...settings, theme: id }).catch(() => undefined);
       },
       themeId,
     }),
-    [settings, themeId, writeSettingsDocument],
+    [settings, themeId, writeUserSettings],
   );
 
   return (

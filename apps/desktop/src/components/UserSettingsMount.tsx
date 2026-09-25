@@ -4,8 +4,8 @@ import type { FC } from 'react';
 
 import { hydrateSettingsAtomFn } from '../atoms/index.ts';
 
-/** Eagerly loads the Settings document into `settingsDocumentAtom` on app start. */
-export const SettingsDocumentMount: FC = () => {
+/** Eagerly loads user settings into `userSettingsAtom` on app start. */
+export const UserSettingsMount: FC = () => {
   const hydrateSettings = useAtomSet(hydrateSettingsAtomFn, { mode: 'promise' });
 
   useEffect(() => {

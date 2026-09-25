@@ -2,13 +2,13 @@ import { createRootRoute, Outlet } from '@tanstack/react-router';
 import type { FC } from 'react';
 
 import { AcpBackendsMount } from '../components/AcpBackendsMount.tsx';
-import { SettingsDocumentMount } from '../components/SettingsDocumentMount.tsx';
+import { UserSettingsMount } from '../components/UserSettingsMount.tsx';
 
 const RootComponent: FC = () => {
   return (
     <>
       <AcpBackendsMount />
-      <SettingsDocumentMount />
+      <UserSettingsMount />
       <Outlet />
       {/* <TanStackRouterDevtools /> */}
     </>

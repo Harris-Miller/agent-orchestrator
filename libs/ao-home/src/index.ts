@@ -12,9 +12,4 @@ export {
   SessionUsageDocumentJsonString,
   SessionUsageDocumentSchema,
 } from './SessionUsageDocument.ts';
-export {
-  defaultSettings,
-  type SettingsDocument,
-  SettingsDocumentJsonString,
-  SettingsDocumentSchema,
-} from './SettingsDocument.ts';
+export { defaultSettings, type UserSettings, UserSettingsJsonString, UserSettingsSchema } from './UserSettings.ts';

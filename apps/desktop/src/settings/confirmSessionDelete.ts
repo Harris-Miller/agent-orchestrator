@@ -1,5 +1,4 @@
-import type { SettingsDocument } from '@lib/ao-home';
+import type { UserSettings } from '@lib/ao-home';
 
 /** Prefer confirming session delete when the Settings field is unset. */
-export const confirmSessionDeleteEnabled = (settings: SettingsDocument): boolean =>
-  settings.confirmSessionDelete !== false;
+export const confirmSessionDeleteEnabled = (settings: UserSettings): boolean => settings.confirmSessionDelete !== false;

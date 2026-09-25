@@ -3,8 +3,8 @@ import { Effect, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { defaultSettings, SettingsDocumentJsonString } from './SettingsDocument.ts';
-import type { SettingsDocument } from './SettingsDocument.ts';
+import { defaultSettings, UserSettingsJsonString } from './UserSettings.ts';
+import type { UserSettings } from './UserSettings.ts';
 
 export const resolveHome = Effect.fn('resolveHome')(function* () {
   const os = yield* OS;
@@ -34,16 +34,16 @@ export const readSettings = Effect.fn('readSettings')(function* () {
   }
 
   const content = yield* fs.readFileString(filePath);
-  return yield* Schema.decodeEffect(SettingsDocumentJsonString)(content).pipe(
+  return yield* Schema.decodeEffect(UserSettingsJsonString)(content).pipe(
     Effect.catchTag('SchemaError', () => Effect.succeed(defaultSettings)),
   );
 });
 
-export const writeSettings = Effect.fn('writeSettings')(function* (document: SettingsDocument) {
+export const writeSettings = Effect.fn('writeSettings')(function* (document: UserSettings) {
   const fs = yield* FileSystem;
   yield* ensureHome();
   const filePath = yield* settingsPath();
-  const encoded = yield* Schema.encodeEffect(SettingsDocumentJsonString)(document);
+  const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(document);
   const withNewline = encoded.endsWith('\n') ? encoded : `${encoded}\n`;
   yield* fs.writeFileString(filePath, withNewline);
 });

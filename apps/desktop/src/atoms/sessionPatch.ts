@@ -15,14 +15,14 @@ import { sendPrompt } from '../acp/sessionRpc.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { hostServicesLayer } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
-import { settingsDocumentAtom } from './settingsAtoms.ts';
+import { userSettingsAtom } from './settingsAtoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: AcpAtomGet,
   launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
-  const settings = get(settingsDocumentAtom);
+  const settings = get(userSettingsAtom);
   const settingsDefaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const previous = get(providerConfigAtom(launchTarget));
   const next = refreshProviderConfigInMemory(previous, settingsDefaults, sessionConfiguration);
@@ -35,7 +35,7 @@ export const syncProviderConfigFromSessionConfiguration = (
   const defaultsChanged = !defaultsEqual(settingsDefaults, next.defaults);
   const nextSettings = defaultsChanged ? patchHarnessConfigDefaults(settings, launchTarget, next.defaults) : settings;
   if (defaultsChanged) {
-    get.set(settingsDocumentAtom, nextSettings);
+    get.set(userSettingsAtom, nextSettings);
   }
 
   persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged, hostServicesLayer);

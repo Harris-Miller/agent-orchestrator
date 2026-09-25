@@ -8,7 +8,7 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agen
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
-import { providerConfigAtom, settingsDocumentAtom, writeSettingsDocumentAtomFn } from '../../atoms/index.ts';
+import { providerConfigAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Readonly<Record<string, string>>) => ({
@@ -22,9 +22,9 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 });
 
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
-  const settings = useAtomValue(settingsDocumentAtom);
+  const settings = useAtomValue(userSettingsAtom);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
-  const writeSettingsDocument = useAtomSet(writeSettingsDocumentAtomFn, { mode: 'promise' });
+  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const catalog = providerConfig?.catalog ?? [];
 
@@ -45,7 +45,7 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
               key={entry.id}
               onChange={(configId, value) => {
                 const nextDefaults = { ...defaults, [configId]: value };
-                writeSettingsDocument(patchHarnessConfigDefaults(settings, launchTarget, nextDefaults)).catch(
+                writeUserSettings(patchHarnessConfigDefaults(settings, launchTarget, nextDefaults)).catch(
                   () => undefined,
                 );
               }}

@@ -42,9 +42,9 @@ export {
   hydrateSettingsAtomFn,
   readSettingsAtomFn,
   restoreSettingsDefaultsAtomFn,
-  settingsDocumentAtom,
   settingsHydratedAtom,
   settingsIoErrorAtom,
+  userSettingsAtom,
   writeSettingsAtomFn,
-  writeSettingsDocumentAtomFn,
+  writeUserSettingsAtomFn,
 } from './settingsAtoms.ts';

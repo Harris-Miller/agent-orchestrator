@@ -1,6 +1,6 @@
-/** Settings document Atom surface backed by `@lib/ao-home`. */
+/** User settings Atom surface backed by `@lib/ao-home`. */
 import { defaultSettings, readSettings, restoreSettingsDefaults, writeSettings } from '@lib/ao-home';
-import type { SettingsDocument } from '@lib/ao-home';
+import type { UserSettings } from '@lib/ao-home';
 import { Cause, Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
@@ -13,7 +13,7 @@ import { acpRuntime } from './acpRuntime.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { providerConfigAtom } from './backendStateAtoms.ts';
 
-export const settingsDocumentAtom = Atom.make<SettingsDocument>(defaultSettings).pipe(Atom.keepAlive);
+export const userSettingsAtom = Atom.make<UserSettings>(defaultSettings).pipe(Atom.keepAlive);
 
 export const settingsIoErrorAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
@@ -23,10 +23,10 @@ export const settingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
 export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readSettings()).pipe(Atom.keepAlive);
 
 export const writeSettingsAtomFn = acpRuntime
-  .fn((document: SettingsDocument) => writeSettings(document))
+  .fn((document: UserSettings) => writeSettings(document))
   .pipe(Atom.keepAlive);
 
-const syncProviderConfigDefaultsFromSettings = (get: AcpAtomGet, document: SettingsDocument) => {
+const syncProviderConfigDefaultsFromSettings = (get: AcpAtomGet, document: UserSettings) => {
   for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
     const defaults = document.harnessConfigDefaults?.[launchTarget] ?? {};
     const existing = get(providerConfigAtom(launchTarget));
@@ -38,23 +38,23 @@ const syncProviderConfigDefaultsFromSettings = (get: AcpAtomGet, document: Setti
   }
 };
 
-const commitSettingsDocument = <E, R>(get: AcpAtomGet, effect: Effect.Effect<SettingsDocument, E, R>) =>
+const commitUserSettings = <E, R>(get: AcpAtomGet, effect: Effect.Effect<UserSettings, E, R>) =>
   Effect.gen(function* () {
     const exit = yield* Effect.exit(effect);
     if (Exit.isFailure(exit)) {
       get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
       return false;
     }
-    get.set(settingsDocumentAtom, exit.value);
+    get.set(userSettingsAtom, exit.value);
     get.set(settingsIoErrorAtom, undefined);
     syncProviderConfigDefaultsFromSettings(get, exit.value);
     return true;
   });
 
-export const writeSettingsDocumentAtomFn = acpRuntime
+export const writeUserSettingsAtomFn = acpRuntime
   .fn(
-    Effect.fn('writeSettingsDocumentAtomFn')(function* (document: SettingsDocument, get: AcpAtomGet) {
-      yield* commitSettingsDocument(get, writeSettings(document).pipe(Effect.map(() => document)));
+    Effect.fn('writeUserSettingsAtomFn')(function* (document: UserSettings, get: AcpAtomGet) {
+      yield* commitUserSettings(get, writeSettings(document).pipe(Effect.map(() => document)));
     }),
   )
   .pipe(Atom.keepAlive);
@@ -77,7 +77,7 @@ export const hydrateSettingsAtomFn = acpRuntime
         const writeExit = yield* Effect.exit(writeSettings(next));
         if (Exit.isFailure(writeExit)) {
           get.set(settingsIoErrorAtom, Cause.pretty(writeExit.cause));
-          get.set(settingsDocumentAtom, exit.value);
+          get.set(userSettingsAtom, exit.value);
           writePaintThemeId(paintRaw);
           get.set(settingsHydratedAtom, true);
           return;
@@ -86,7 +86,7 @@ export const hydrateSettingsAtomFn = acpRuntime
 
       const effective = isThemeId(next.theme) ? next.theme : DEFAULT_THEME_ID;
       writePaintThemeId(effective);
-      get.set(settingsDocumentAtom, next);
+      get.set(userSettingsAtom, next);
       get.set(settingsIoErrorAtom, undefined);
 
       for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
@@ -105,7 +105,7 @@ export const hydrateSettingsAtomFn = acpRuntime
 export const restoreSettingsDefaultsAtomFn = acpRuntime
   .fn(
     Effect.fn('restoreSettingsDefaultsAtomFn')(function* (_arg: undefined, get: AcpAtomGet) {
-      const ok = yield* commitSettingsDocument(get, restoreSettingsDefaults());
+      const ok = yield* commitUserSettings(get, restoreSettingsDefaults());
       if (ok) {
         writePaintThemeId(DEFAULT_THEME_ID);
       }

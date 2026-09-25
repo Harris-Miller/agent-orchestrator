@@ -21,12 +21,12 @@ export const settingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
 export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readSettings()).pipe(Atom.keepAlive);
 
 export const writeSettingsAtomFn = acpRuntime
-  .fn((document: UserSettings) => writeSettings(document))
+  .fn((userSettings: UserSettings) => writeSettings(userSettings))
   .pipe(Atom.keepAlive);
 
-const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, document: UserSettings) => {
+const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSettings: UserSettings) => {
   for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
-    const defaults = document.harnessConfigDefaults?.[launchTarget] ?? {};
+    const defaults = userSettings.harnessConfigDefaults?.[launchTarget] ?? {};
     const existing = get(providerConfigAtom(launchTarget));
     if (existing !== undefined) {
       get.set(providerConfigAtom(launchTarget), { catalog: existing.catalog, defaults });
@@ -51,8 +51,8 @@ const commitUserSettings = <E, R>(get: Atom.FnContext, effect: Effect.Effect<Use
 
 export const writeUserSettingsAtomFn = acpRuntime
   .fn(
-    Effect.fn('writeUserSettingsAtomFn')(function* (document: UserSettings, get: Atom.FnContext) {
-      yield* commitUserSettings(get, writeSettings(document).pipe(Effect.map(() => document)));
+    Effect.fn('writeUserSettingsAtomFn')(function* (userSettings: UserSettings, get: Atom.FnContext) {
+      yield* commitUserSettings(get, writeSettings(userSettings).pipe(Effect.map(() => userSettings)));
     }),
   )
   .pipe(Atom.keepAlive);

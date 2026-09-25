@@ -1,6 +1,6 @@
 /** Portable directory-browser helpers for create-session cwd picking. */
 import { OS } from '@lib/context-services';
-import { Effect, Option } from 'effect';
+import { Effect, Option, Stream } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
@@ -24,14 +24,18 @@ export const listChildDirectories = Effect.fn('listChildDirectories')(function* 
   const fs = yield* FileSystem;
   const pathApi = yield* Path;
   const names = yield* fs.readDirectory(dirPath);
-  const dirs: string[] = [];
 
-  for (const name of names) {
-    const info = yield* fs.stat(pathApi.join(dirPath, name)).pipe(Effect.option);
-    if (Option.isSome(info) && info.value.type === 'Directory') {
-      dirs.push(name);
-    }
-  }
+  const dirs = yield* Stream.fromIterable(names).pipe(
+    Stream.mapEffect(name =>
+      fs.stat(pathApi.join(dirPath, name)).pipe(
+        Effect.option,
+        Effect.map(info => ({ info, name })),
+      ),
+    ),
+    Stream.filter(({ info }) => Option.isSome(info) && info.value.type === 'Directory'),
+    Stream.map(({ name }) => name),
+    Stream.runCollect,
+  );
 
   return dirs.sort((a, b) => a.localeCompare(b));
 });

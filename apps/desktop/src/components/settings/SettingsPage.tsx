@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { defaultSettings } from '@lib/ao-home';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -22,12 +23,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  restoreSettingsDefaultsAtomFn,
-  settingsIoErrorAtom,
-  userSettingsAtom,
-  writeUserSettingsAtomFn,
-} from '../../atoms/index.ts';
+import { settingsIoErrorAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
@@ -67,7 +63,6 @@ const BackToApp: FC = () => {
 export const SettingsPage: FC = () => {
   const ioError = useAtomValue(settingsIoErrorAtom);
   const settings = useAtomValue(userSettingsAtom);
-  const restoreDefaults = useAtomSet(restoreSettingsDefaultsAtomFn, { mode: 'promise' });
   const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
@@ -225,7 +220,7 @@ export const SettingsPage: FC = () => {
           <Button
             color="error"
             onClick={() => {
-              restoreDefaults(undefined)
+              writeUserSettings(defaultSettings)
                 .then(() => {
                   setConfirmRestoreOpen(false);
                 })

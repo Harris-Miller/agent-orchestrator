@@ -19,8 +19,8 @@ export const themeAtom = Atom.make(get => {
 }).pipe(Atom.keepAlive);
 
 export const setThemeAtomFn = acpRuntime
-  .fn(
-    Effect.fn('setThemeAtomFn')(function* (id: ThemeId, get: Atom.FnContext) {
+  .fn((id: ThemeId, get) =>
+    Effect.gen(function* () {
       writePaintThemeId(id);
       const settings = get(userSettingsAtom);
       yield* get.setResult(writeUserSettingsAtomFn, { ...settings, theme: id });

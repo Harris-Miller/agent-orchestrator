@@ -1,5 +1,5 @@
 /** User settings Atom surface backed by `@lib/ao-home`. */
-import { defaultSettings, readSettings, restoreSettingsDefaults, writeSettings } from '@lib/ao-home';
+import { defaultSettings, readSettings, writeSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
 import { Cause, Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
@@ -50,16 +50,16 @@ const commitUserSettings = <E, R>(get: Atom.FnContext, effect: Effect.Effect<Use
   });
 
 export const writeUserSettingsAtomFn = acpRuntime
-  .fn(
-    Effect.fn('writeUserSettingsAtomFn')(function* (userSettings: UserSettings, get: Atom.FnContext) {
+  .fn((userSettings: UserSettings, get) =>
+    Effect.gen(function* () {
       yield* commitUserSettings(get, writeSettings(userSettings).pipe(Effect.map(() => userSettings)));
     }),
   )
   .pipe(Atom.keepAlive);
 
 export const hydrateSettingsAtomFn = acpRuntime
-  .fn(
-    Effect.fn('hydrateSettingsAtomFn')(function* (_arg: undefined, get: Atom.FnContext) {
+  .fn((_arg, get) =>
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(readSettings());
       if (Exit.isFailure(exit)) {
         get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
@@ -96,17 +96,6 @@ export const hydrateSettingsAtomFn = acpRuntime
       }
 
       get.set(settingsHydratedAtom, true);
-    }),
-  )
-  .pipe(Atom.keepAlive);
-
-export const restoreSettingsDefaultsAtomFn = acpRuntime
-  .fn(
-    Effect.fn('restoreSettingsDefaultsAtomFn')(function* (_arg: undefined, get: Atom.FnContext) {
-      const ok = yield* commitUserSettings(get, restoreSettingsDefaults());
-      if (ok) {
-        writePaintThemeId(DEFAULT_THEME_ID);
-      }
     }),
   )
   .pipe(Atom.keepAlive);

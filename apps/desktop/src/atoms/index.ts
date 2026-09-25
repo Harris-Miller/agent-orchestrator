@@ -40,7 +40,6 @@ export {
 export {
   hydrateSettingsAtomFn,
   readSettingsAtomFn,
-  restoreSettingsDefaultsAtomFn,
   setThemeAtomFn,
   settingsHydratedAtom,
   settingsIoErrorAtom,

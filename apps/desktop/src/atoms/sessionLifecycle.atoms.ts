@@ -22,15 +22,15 @@ import {
   setConfigOption,
 } from '../acp/sessionRpc.ts';
 
-import { acpRuntime } from './acpRuntime.ts';
+import { acpRuntime } from './acpRuntime.atoms.ts';
 import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
   providerConfigAtom,
   selectedSessionIdAtom,
   selectSession,
-} from './backendStateAtoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.ts';
+} from './backendState.atoms.ts';
+import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.atoms.ts';
 
 export const selectSessionAtomFn = acpRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>

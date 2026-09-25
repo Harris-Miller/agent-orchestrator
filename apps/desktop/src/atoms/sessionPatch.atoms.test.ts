@@ -5,7 +5,7 @@ import type { Atom } from 'effect/unstable/reactivity';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 
-import { withSessionClientRequest } from './sessionPatch.ts';
+import { withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 describe('withSessionClientRequest', () => {
   it.effect('sets prompt kind and clears pendingClientRequest on interrupt when get.set no-ops', () =>

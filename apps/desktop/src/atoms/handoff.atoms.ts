@@ -10,20 +10,20 @@ import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PR
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 
-import { acpRuntime } from './acpRuntime.ts';
+import { acpRuntime } from './acpRuntime.atoms.ts';
 import {
   backendHarnessStateAtom,
   providerConfigAtom,
   selectSession,
   unifiedSessionRosterAtom,
-} from './backendStateAtoms.ts';
+} from './backendState.atoms.ts';
 import {
   patchSession,
   sendPromptSoftCancel,
   syncProviderConfigFromSessionConfiguration,
   upsertSession,
   withSessionClientRequest,
-} from './sessionPatch.ts';
+} from './sessionPatch.atoms.ts';
 
 /** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);

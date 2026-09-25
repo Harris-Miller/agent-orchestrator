@@ -1,5 +1,5 @@
-export { setHarnessConfigDefaultsAtomFn } from './provider.ts';
-export { setThemeAtomFn, themeAtom } from './theme.ts';
+export { setHarnessConfigDefaultsAtomFn } from './provider.atoms.ts';
+export { setThemeAtomFn, themeAtom } from './theme.atoms.ts';
 export {
   hydrateUserSettingsAtomFn,
   readSettingsAtomFn,
@@ -7,4 +7,4 @@ export {
   userSettingsHydratedAtom,
   userSettingsIoErrorAtom,
   writeUserSettingsAtomFn,
-} from './userSettings.ts';
+} from './userSettings.atoms.ts';

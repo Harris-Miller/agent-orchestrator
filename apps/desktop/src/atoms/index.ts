@@ -1,5 +1,5 @@
 /** Public ACP Effect Atom surface for the desktop app. */
-export { acpRuntime, createAcpRuntime, hostServicesLayer } from './acpRuntime.ts';
+export { acpRuntime, createAcpRuntime, hostServicesLayer } from './acpRuntime.atoms.ts';
 export {
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
@@ -11,7 +11,7 @@ export {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   unifiedSessionRosterAtom,
-} from './backendStateAtoms.ts';
+} from './backendState.atoms.ts';
 export {
   cancelPromptAtomFn,
   draftAtom,
@@ -19,15 +19,15 @@ export {
   respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
-} from './chatAtoms.ts';
+} from './chat.atoms.ts';
 export {
   joinDirectoryAtomFn,
   listChildDirectoriesAtomFn,
   parentDirectoryAtomFn,
   resolveHomeDirAtomFn,
-} from './directoryAtoms.ts';
-export { HandoffError, handoffInProgressAtom, handoffSessionAtomFn } from './handoffAtoms.ts';
-export { backendHarnessAtom, restartBackendAtomFn } from './harnessAtom.ts';
+} from './directory.atoms.ts';
+export { HandoffError, handoffInProgressAtom, handoffSessionAtomFn } from './handoff.atoms.ts';
+export { backendHarnessAtom, restartBackendAtomFn } from './harness.atoms.ts';
 export {
   activateSessionAtomFn,
   createSessionAtomFn,
@@ -36,7 +36,7 @@ export {
   refreshAllSessionRostersAtomFn,
   refreshSessionRosterAtomFn,
   selectSessionAtomFn,
-} from './sessionLifecycleAtoms.ts';
+} from './sessionLifecycle.atoms.ts';
 export {
   hydrateUserSettingsAtomFn,
   readSettingsAtomFn,

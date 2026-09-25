@@ -15,14 +15,14 @@ import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
 
-import { acpRuntime } from './acpRuntime.ts';
-import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendStateAtoms.ts';
+import { acpRuntime } from './acpRuntime.atoms.ts';
+import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import {
   patchSession,
   sendPromptSoftCancel,
   syncProviderConfigFromSessionConfiguration,
   withSessionClientRequest,
-} from './sessionPatch.ts';
+} from './sessionPatch.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 

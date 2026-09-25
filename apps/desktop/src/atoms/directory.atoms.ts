@@ -8,7 +8,7 @@ import {
   resolveHomeDir,
 } from '../acp/sessionDirectoryBrowser.ts';
 
-import { acpRuntime } from './acpRuntime.ts';
+import { acpRuntime } from './acpRuntime.atoms.ts';
 
 export const resolveHomeDirAtomFn = acpRuntime.fn((_arg: undefined) => resolveHomeDir()).pipe(Atom.keepAlive);
 

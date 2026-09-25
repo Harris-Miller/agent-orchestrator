@@ -4,9 +4,9 @@ import { Atom } from 'effect/unstable/reactivity';
 
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
-import { acpRuntime } from '../acpRuntime.ts';
+import { acpRuntime } from '../acpRuntime.atoms.ts';
 
-import { userSettingsAtom, writeUserSettingsAtomFn } from './userSettings.ts';
+import { userSettingsAtom, writeUserSettingsAtomFn } from './userSettings.atoms.ts';
 
 export const setHarnessConfigDefaultsAtomFn = acpRuntime
   .fn(

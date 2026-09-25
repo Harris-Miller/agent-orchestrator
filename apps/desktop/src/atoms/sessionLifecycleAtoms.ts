@@ -26,11 +26,11 @@ import { acpRuntime } from './acpRuntime.ts';
 import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
+  providerConfigAtom,
   selectedSessionIdAtom,
   selectSession,
 } from './backendStateAtoms.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.ts';
-import { providerConfigAtom } from './userSettings/provider.ts';
 
 export const selectSessionAtomFn = acpRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>

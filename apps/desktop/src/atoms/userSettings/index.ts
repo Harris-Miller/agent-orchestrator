@@ -1,4 +1,4 @@
-export { providerConfigAtom } from './provider.ts';
+export { setHarnessConfigDefaultsAtomFn } from './provider.ts';
 export { setThemeAtomFn, themeAtom } from './theme.ts';
 export {
   hydrateSettingsAtomFn,

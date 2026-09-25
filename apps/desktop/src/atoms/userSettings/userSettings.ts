@@ -7,8 +7,7 @@ import { Atom } from 'effect/unstable/reactivity';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import { loadProviderConfig } from '../../acp/providerConfigStorage.ts';
 import { acpRuntime } from '../acpRuntime.ts';
-
-import { providerConfigAtom } from './provider.ts';
+import { providerConfigAtom } from '../backendStateAtoms.ts';
 
 export const userSettingsAtom = Atom.make<UserSettings>(defaultSettings).pipe(Atom.keepAlive);
 

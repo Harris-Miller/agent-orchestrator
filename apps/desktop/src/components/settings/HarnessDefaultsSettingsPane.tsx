@@ -6,9 +6,8 @@ import type { FC } from 'react';
 
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
-import { providerConfigAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
+import { providerConfigAtom, setHarnessConfigDefaultsAtomFn, userSettingsAtom } from '../../atoms/index.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Readonly<Record<string, string>>) => ({
@@ -24,7 +23,7 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
   const settings = useAtomValue(userSettingsAtom);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
-  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
+  const setHarnessConfigDefaults = useAtomSet(setHarnessConfigDefaultsAtomFn, { mode: 'promise' });
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const catalog = providerConfig?.catalog ?? [];
 
@@ -44,10 +43,7 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
               disabled={false}
               key={entry.id}
               onChange={(configId, value) => {
-                const nextDefaults = { ...defaults, [configId]: value };
-                writeUserSettings(patchHarnessConfigDefaults(settings, launchTarget, nextDefaults)).catch(
-                  () => undefined,
-                );
+                setHarnessConfigDefaults({ configId, launchTarget, value }).catch(() => undefined);
               }}
               option={catalogEntryToOption(entry, defaults)}
             />

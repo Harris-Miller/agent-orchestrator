@@ -3,6 +3,7 @@ export { acpRuntime, createAcpRuntime, hostServicesLayer } from './acpRuntime.ts
 export {
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
+  providerConfigAtom,
   rpcWireLogLaunchTargetAtom,
   rpcWireLogSnapshotAtom,
   selectedBackendHarnessSnapshotAtom,
@@ -38,8 +39,8 @@ export {
 } from './sessionLifecycleAtoms.ts';
 export {
   hydrateSettingsAtomFn,
-  providerConfigAtom,
   readSettingsAtomFn,
+  setHarnessConfigDefaultsAtomFn,
   setThemeAtomFn,
   settingsHydratedAtom,
   settingsIoErrorAtom,

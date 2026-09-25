@@ -47,4 +47,4 @@ export {
   userSettingsAtom,
   writeSettingsAtomFn,
   writeUserSettingsAtomFn,
-} from './settingsAtoms.ts';
+} from './userSettingsAtoms.ts';

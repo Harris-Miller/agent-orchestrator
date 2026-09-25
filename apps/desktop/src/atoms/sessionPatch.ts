@@ -15,7 +15,7 @@ import { sendPrompt } from '../acp/sessionRpc.ts';
 import type { AcpAtomGet } from './acpRuntime.ts';
 import { hostServicesLayer } from './acpRuntime.ts';
 import { backendHarnessStateAtom, providerConfigAtom } from './backendStateAtoms.ts';
-import { userSettingsAtom } from './settingsAtoms.ts';
+import { userSettingsAtom } from './userSettingsAtoms.ts';
 
 export const syncProviderConfigFromSessionConfiguration = (
   get: AcpAtomGet,

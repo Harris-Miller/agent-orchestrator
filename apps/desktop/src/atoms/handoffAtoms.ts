@@ -11,12 +11,7 @@ import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../
 import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.ts';
-import {
-  backendHarnessStateAtom,
-  providerConfigAtom,
-  selectSession,
-  unifiedSessionRosterAtom,
-} from './backendStateAtoms.ts';
+import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendStateAtoms.ts';
 import {
   patchSession,
   sendPromptSoftCancel,
@@ -24,6 +19,7 @@ import {
   upsertSession,
   withSessionClientRequest,
 } from './sessionPatch.ts';
+import { providerConfigAtom } from './userSettings/provider.ts';
 
 /** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);

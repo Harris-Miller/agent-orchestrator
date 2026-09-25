@@ -38,13 +38,13 @@ export {
   selectSessionAtomFn,
 } from './sessionLifecycleAtoms.ts';
 export {
-  hydrateSettingsAtomFn,
+  hydrateUserSettingsAtomFn,
   readSettingsAtomFn,
   setHarnessConfigDefaultsAtomFn,
   setThemeAtomFn,
-  settingsHydratedAtom,
-  settingsIoErrorAtom,
   themeAtom,
   userSettingsAtom,
+  userSettingsHydratedAtom,
+  userSettingsIoErrorAtom,
   writeUserSettingsAtomFn,
 } from './userSettings/index.ts';

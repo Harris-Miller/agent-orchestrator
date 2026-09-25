@@ -23,7 +23,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { settingsIoErrorAtom, userSettingsAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
+import { userSettingsAtom, userSettingsIoErrorAtom, writeUserSettingsAtomFn } from '../../atoms/index.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
@@ -61,7 +61,7 @@ const BackToApp: FC = () => {
 
 /** Settings page: flat nav rail + placeholder panes. */
 export const SettingsPage: FC = () => {
-  const ioError = useAtomValue(settingsIoErrorAtom);
+  const ioError = useAtomValue(userSettingsIoErrorAtom);
   const settings = useAtomValue(userSettingsAtom);
   const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
   const [category, setCategory] = useState<CategoryId>('general');

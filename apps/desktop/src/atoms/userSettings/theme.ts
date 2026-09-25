@@ -6,11 +6,11 @@ import type { ThemeId } from '../../theme/theme.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 import { acpRuntime } from '../acpRuntime.ts';
 
-import { settingsHydratedAtom, userSettingsAtom, writeUserSettingsAtomFn } from './userSettings.ts';
+import { userSettingsAtom, userSettingsHydratedAtom, writeUserSettingsAtomFn } from './userSettings.ts';
 
 /** Effective theme: paint cache before hydrate, settings document after. */
 export const themeAtom = Atom.make(get => {
-  if (!get(settingsHydratedAtom)) {
+  if (!get(userSettingsHydratedAtom)) {
     return readPaintThemeId();
   }
   const themeId = clampThemeId(get(userSettingsAtom).theme);

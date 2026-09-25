@@ -11,10 +11,10 @@ import { providerConfigAtom } from '../backendStateAtoms.ts';
 
 export const userSettingsAtom = Atom.make<UserSettings>(defaultSettings).pipe(Atom.keepAlive);
 
-export const settingsIoErrorAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
+export const userSettingsIoErrorAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
 /** True after the first hydrate attempt finishes (success or IO error path that still seeded atoms). */
-export const settingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
+export const userSettingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readSettings()).pipe(Atom.keepAlive);
 
@@ -35,29 +35,29 @@ export const writeUserSettingsAtomFn = acpRuntime
     Effect.gen(function* () {
       const exit = yield* Effect.exit(writeSettings(userSettings));
       if (Exit.isFailure(exit)) {
-        get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
+        get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
         return;
       }
       get.set(userSettingsAtom, userSettings);
-      get.set(settingsIoErrorAtom, undefined);
+      get.set(userSettingsIoErrorAtom, undefined);
       syncProviderConfigDefaultsFromSettings(get, userSettings);
     }),
   )
   .pipe(Atom.keepAlive);
 
-export const hydrateSettingsAtomFn = acpRuntime
+export const hydrateUserSettingsAtomFn = acpRuntime
   .fn((_arg, get) =>
     Effect.gen(function* () {
       const exit = yield* Effect.exit(readSettings());
       if (Exit.isFailure(exit)) {
-        get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
-        get.set(settingsHydratedAtom, true);
+        get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
+        get.set(userSettingsHydratedAtom, true);
         return;
       }
 
       const next = exit.value;
       get.set(userSettingsAtom, next);
-      get.set(settingsIoErrorAtom, undefined);
+      get.set(userSettingsIoErrorAtom, undefined);
 
       for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
         const defaults = next.harnessConfigDefaults?.[launchTarget] ?? {};
@@ -67,7 +67,7 @@ export const hydrateSettingsAtomFn = acpRuntime
         }
       }
 
-      get.set(settingsHydratedAtom, true);
+      get.set(userSettingsHydratedAtom, true);
     }),
   )
   .pipe(Atom.keepAlive);

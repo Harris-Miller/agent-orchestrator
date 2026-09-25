@@ -19,10 +19,6 @@ export const settingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readSettings()).pipe(Atom.keepAlive);
 
-export const writeSettingsAtomFn = acpRuntime
-  .fn((userSettings: UserSettings) => writeSettings(userSettings))
-  .pipe(Atom.keepAlive);
-
 const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSettings: UserSettings) => {
   for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
     const defaults = userSettings.harnessConfigDefaults?.[launchTarget] ?? {};
@@ -35,22 +31,18 @@ const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSetting
   }
 };
 
-const commitUserSettings = <E, R>(get: Atom.FnContext, effect: Effect.Effect<UserSettings, E, R>) =>
-  Effect.gen(function* () {
-    const exit = yield* Effect.exit(effect);
-    if (Exit.isFailure(exit)) {
-      get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
-      return false;
-    }
-    get.set(userSettingsAtom, exit.value);
-    get.set(settingsIoErrorAtom, undefined);
-    syncProviderConfigDefaultsFromSettings(get, exit.value);
-    return true;
-  });
-
 export const writeUserSettingsAtomFn = acpRuntime
   .fn((userSettings: UserSettings, get) =>
-    commitUserSettings(get, writeSettings(userSettings).pipe(Effect.map(() => userSettings))),
+    Effect.gen(function* () {
+      const exit = yield* Effect.exit(writeSettings(userSettings));
+      if (Exit.isFailure(exit)) {
+        get.set(settingsIoErrorAtom, Cause.pretty(exit.cause));
+        return;
+      }
+      get.set(userSettingsAtom, userSettings);
+      get.set(settingsIoErrorAtom, undefined);
+      syncProviderConfigDefaultsFromSettings(get, userSettings);
+    }),
   )
   .pipe(Atom.keepAlive);
 

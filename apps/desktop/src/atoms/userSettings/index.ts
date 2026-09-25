@@ -6,6 +6,5 @@ export {
   settingsHydratedAtom,
   settingsIoErrorAtom,
   userSettingsAtom,
-  writeSettingsAtomFn,
   writeUserSettingsAtomFn,
 } from './userSettings.ts';

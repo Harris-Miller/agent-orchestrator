@@ -45,6 +45,5 @@ export {
   settingsIoErrorAtom,
   themeAtom,
   userSettingsAtom,
-  writeSettingsAtomFn,
   writeUserSettingsAtomFn,
 } from './userSettings/index.ts';

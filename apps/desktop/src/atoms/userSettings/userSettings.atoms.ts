@@ -4,11 +4,8 @@ import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import { ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
-import { loadProviderConfig } from '../../acp/providerConfigStorage.ts';
 import type { createAcpRuntime } from '../acpRuntime.atoms.ts';
 import { acpRuntime } from '../acpRuntime.atoms.ts';
-import { providerConfigAtom } from '../backendState.atoms.ts';
 
 type AcpRuntime = ReturnType<typeof createAcpRuntime>['acpRuntime'];
 
@@ -21,21 +18,7 @@ export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<Use
   AsyncResult.isInitial(result) || result.waiting;
 
 export const createUserSettingsAtoms = (runtime: AcpRuntime) => {
-  const loadUserSettingsAtom = runtime
-    .atom((get: Atom.AtomContext) =>
-      Effect.gen(function* () {
-        const next = yield* readUserSettings();
-        for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
-          const defaults = next.harnessConfigDefaults?.[launchTarget] ?? {};
-          const loaded = yield* Effect.exit(loadProviderConfig(launchTarget, defaults));
-          if (Exit.isSuccess(loaded) && loaded.value !== undefined) {
-            get.set(providerConfigAtom(launchTarget), loaded.value);
-          }
-        }
-        return next;
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
   /** Subscribe for persist Failure (toast / tests). Not the app write API. */
   const persistUserSettingsAtomFn = runtime

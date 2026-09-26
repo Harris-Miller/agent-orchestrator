@@ -6,9 +6,6 @@ import { Schema } from 'effect';
 export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
-    harnessConfigDefaults: Schema.optionalKey(
-      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)),
-    ),
     theme: Schema.optionalKey(Schema.String),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)],

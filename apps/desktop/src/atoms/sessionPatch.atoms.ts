@@ -1,49 +1,13 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
-import { defaultSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { PendingClientRequestKind, SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import {
-  defaultsEqual,
-  patchHarnessConfigDefaults,
-  persistProviderConfigDocuments,
-  refreshProviderConfigInMemory,
-} from '../acp/providerConfigStorage.ts';
 import { sendPrompt } from '../acp/sessionRpc.ts';
 
-import { hostServicesLayer } from './acpRuntime.atoms.ts';
-import { backendHarnessStateAtom, providerConfigAtom } from './backendState.atoms.ts';
-import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
-
-export const syncProviderConfigFromSessionConfiguration = (
-  get: Atom.FnContext,
-  launchTarget: AgentLaunchTarget,
-  sessionConfiguration: unknown,
-) => {
-  const settingsResult = get(userSettingsAtom);
-  const settings = AsyncResult.isSuccess(settingsResult) ? settingsResult.value : defaultSettings;
-  const settingsDefaults = AsyncResult.isSuccess(settingsResult)
-    ? (settingsResult.value.harnessConfigDefaults?.[launchTarget] ?? {})
-    : {};
-  const previous = get(providerConfigAtom(launchTarget));
-  const next = refreshProviderConfigInMemory(previous, settingsDefaults, sessionConfiguration);
-  if (next === undefined) {
-    return;
-  }
-
-  get.set(providerConfigAtom(launchTarget), next);
-
-  const defaultsChanged = !defaultsEqual(settingsDefaults, next.defaults);
-  if (defaultsChanged) {
-    get.set(userSettingsAtom, patchHarnessConfigDefaults(settings, launchTarget, next.defaults));
-  }
-
-  persistProviderConfigDocuments(launchTarget, next, settings, false, hostServicesLayer);
-};
+import { backendHarnessStateAtom } from './backendState.atoms.ts';
 
 export const upsertSession = (
   sessions: Readonly<Record<string, SessionSnapshot>>,

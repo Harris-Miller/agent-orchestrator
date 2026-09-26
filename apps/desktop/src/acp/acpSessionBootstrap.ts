@@ -11,7 +11,7 @@ import type { PendingElicitation, PendingPermission } from './pendingInteraction
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
-export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready';
+export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probing' | 'ready';
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';
 
@@ -365,7 +365,10 @@ const findConfigOption = (sessionConfiguration: unknown, id: string): Record<str
   );
 };
 
-/** Partial set_config_option responses often omit `options`; keep prior choices by id. */
+/**
+ * Response `configOptions` is the full id set for the current model — drop ids not in the
+ * response; for present ids, fill `options` from previous when incoming omits `options`.
+ */
 const mergeConfigOptions = (existing: unknown, incoming: readonly unknown[]): readonly unknown[] => {
   if (!Array.isArray(existing) || existing.length === 0) {
     return incoming;
@@ -376,14 +379,11 @@ const mergeConfigOptions = (existing: unknown, incoming: readonly unknown[]): re
     existingOptions.flatMap(option => (typeof option.id === 'string' ? [[option.id, option] as const] : [])),
   );
 
-  const mergedIds = new Set<string>();
-
-  const merged = incoming.flatMap(incomingOption => {
+  return incoming.flatMap(incomingOption => {
     if (!isRecord(incomingOption) || typeof incomingOption.id !== 'string') {
       return [incomingOption];
     }
 
-    mergedIds.add(incomingOption.id);
     const previous = existingById.get(incomingOption.id);
     if (previous === undefined) {
       return [incomingOption];
@@ -397,10 +397,6 @@ const mergeConfigOptions = (existing: unknown, incoming: readonly unknown[]): re
       },
     ];
   });
-
-  const untouched = existingOptions.filter(option => typeof option.id === 'string' && !mergedIds.has(option.id));
-
-  return [...merged, ...untouched];
 };
 
 /** Reads model selection from session config options. */

@@ -18,6 +18,8 @@ import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
+import type { ConfigOptionIndex } from './configProbe.ts';
+import { runConfigProbe } from './configProbe.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
@@ -52,6 +54,8 @@ export type RpcWireEntry = {
 };
 
 export type BackendHarnessCallbacks = {
+  readonly onConfigOptionIndexClear: () => void;
+  readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
   readonly onElicitationCreate: (
     sessionId: string,
     request: CreateElicitationRequestBody,
@@ -89,7 +93,7 @@ export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void 
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + roster list through ready. Does not hold the connection open. */
+/** Connect + initialize + Config probe + buffered roster list through ready. Does not hold the connection open. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
     yield* Effect.annotateCurrentSpan({
@@ -127,7 +131,13 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('initialized');
     yield* Effect.logInfo('ACP harness initialized', launchTarget);
 
+    handlers.onPhase('probing');
+    handlers.onConfigOptionIndexClear();
+    yield* Effect.logInfo('ACP harness probing', launchTarget);
+
     const listResult = yield* agent['session/list']({});
+    const index = yield* runConfigProbe(agent);
+    handlers.onConfigOptionIndexPublish(index);
     handlers.onSessionRosterResult(listResult);
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);

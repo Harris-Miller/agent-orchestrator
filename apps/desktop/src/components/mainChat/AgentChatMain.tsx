@@ -19,12 +19,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import { normalizeSelectableConfigOptions } from '../../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
 import {
-  allLaunchTargetPhasesAtom,
-  providerConfigAtom,
+  configOptionIndexAtom,
+  readyLaunchTargetsAtom,
   rpcWireLogSnapshotAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -83,7 +82,10 @@ export const AgentChatMain: FC<{
   const selectedSession = useAtomValue(selectedSessionAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
+  const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
+  const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
+  const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
+  const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-cli'));
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -91,18 +93,15 @@ export const AgentChatMain: FC<{
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
-  const claudeProviderConfig = useAtomValue(providerConfigAtom('claude-agent-acp'));
-  const codexProviderConfig = useAtomValue(providerConfigAtom('codex-acp'));
-  const geminiProviderConfig = useAtomValue(providerConfigAtom('gemini-cli'));
 
-  const getProviderConfig = (launchTarget: AgentLaunchTarget): ProviderConfigStored | undefined => {
+  const getConfigOptionIndex = (launchTarget: AgentLaunchTarget) => {
     switch (launchTarget) {
       case 'claude-agent-acp':
-        return claudeProviderConfig;
+        return claudeConfigIndex;
       case 'codex-acp':
-        return codexProviderConfig;
+        return codexConfigIndex;
       case 'gemini-cli':
-        return geminiProviderConfig;
+        return geminiConfigIndex;
     }
   };
 
@@ -132,9 +131,6 @@ export const AgentChatMain: FC<{
     hasTranscriptMessage &&
     sourceCwd !== undefined;
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
-  const readyLaunchTargets = ALL_AGENT_LAUNCH_TARGETS.filter(launchTarget =>
-    backendPhases.some(entry => entry.launchTarget === launchTarget && entry.phase === 'ready'),
-  );
 
   const sendDraft = () => {
     if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
@@ -413,7 +409,7 @@ export const AgentChatMain: FC<{
 
       {selectedLaunchTarget !== undefined && handoffModalOpen ? (
         <HandoffModal
-          getProviderConfig={getProviderConfig}
+          getConfigOptionIndex={getConfigOptionIndex}
           key={`${selectedLaunchTarget}:${selectedSessionId ?? ''}`}
           onCancel={() => {
             setHandoffModalOpen(false);

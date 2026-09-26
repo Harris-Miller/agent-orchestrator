@@ -14,31 +14,40 @@ import type { FC } from 'react';
 import type { NormalizedConfigOption } from '../../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import type { ProviderConfigStored } from '../../acp/providerConfigStorage.ts';
+import type { ConfigOptionIndex } from '../../acp/configProbe.ts';
+import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../acp/configProbe.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
-const catalogOptions = (stored: ProviderConfigStored | undefined): readonly NormalizedConfigOption[] => {
-  if (stored === undefined) {
+const optionsWithValues = (
+  options: readonly NormalizedConfigOption[],
+  values: Readonly<Record<string, string>>,
+): readonly NormalizedConfigOption[] =>
+  options.map(option => ({
+    ...option,
+    currentValue: values[option.id] ?? option.currentValue,
+  }));
+
+const rowForModel = (
+  index: ConfigOptionIndex | undefined,
+  modelId: string | undefined,
+): readonly NormalizedConfigOption[] => {
+  if (index === undefined || modelId === undefined) {
     return [];
   }
-  return stored.catalog.map(entry => ({
-    category: entry.category,
-    choices: entry.choices,
-    currentValue: stored.defaults[entry.id] ?? entry.choices[0]?.id,
-    description: entry.description,
-    id: entry.id,
-    name: entry.name,
-  }));
+  return index.byModel[modelId] ?? [];
 };
 
-const valuesFromOptions = (options: readonly NormalizedConfigOption[]): Record<string, string> => {
-  const values: Record<string, string> = {};
-  for (const option of options) {
-    if (option.currentValue !== undefined) {
-      values[option.id] = option.currentValue;
-    }
+const hardResetForAgent = (
+  index: ConfigOptionIndex | undefined,
+): {
+  readonly options: readonly NormalizedConfigOption[];
+  readonly values: Readonly<Record<string, string>>;
+} => {
+  if (index === undefined) {
+    return { options: [], values: {} };
   }
-  return values;
+  const options = rowForModel(index, index.defaultModelId);
+  return { options, values: configValuesFromOptions(options) };
 };
 
 const initialLaunchTarget = (
@@ -48,7 +57,7 @@ const initialLaunchTarget = (
   readyLaunchTargets.includes(sourceLaunchTarget) ? sourceLaunchTarget : readyLaunchTargets[0];
 
 export const HandoffModal: FC<{
-  readonly getProviderConfig: (launchTarget: AgentLaunchTarget) => ProviderConfigStored | undefined;
+  readonly getConfigOptionIndex: (launchTarget: AgentLaunchTarget) => ConfigOptionIndex | undefined;
   readonly onCancel: () => void;
   readonly onConfirm: (arg: {
     configValues: Readonly<Record<string, string>>;
@@ -57,14 +66,18 @@ export const HandoffModal: FC<{
   readonly open: boolean;
   readonly readyLaunchTargets: readonly AgentLaunchTarget[];
   readonly sourceLaunchTarget: AgentLaunchTarget;
-}> = ({ getProviderConfig, onCancel, onConfirm, open, readyLaunchTargets, sourceLaunchTarget }) => {
+}> = ({ getConfigOptionIndex, onCancel, onConfirm, open, readyLaunchTargets, sourceLaunchTarget }) => {
   const [targetLaunchTarget, setTargetLaunchTarget] = useState<AgentLaunchTarget | undefined>(() =>
     initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget),
   );
-  const [configOptions, setConfigOptions] = useState<readonly NormalizedConfigOption[]>(() => {
+  const [configValues, setConfigValues] = useState<Readonly<Record<string, string>>>(() => {
     const launchTarget = initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget);
-    return catalogOptions(launchTarget === undefined ? undefined : getProviderConfig(launchTarget));
+    return hardResetForAgent(launchTarget === undefined ? undefined : getConfigOptionIndex(launchTarget)).values;
   });
+
+  const index = targetLaunchTarget === undefined ? undefined : getConfigOptionIndex(targetLaunchTarget);
+  const selectedModelId = Object.hasOwn(configValues, 'model') ? configValues.model : index?.defaultModelId;
+  const configOptions = optionsWithValues(rowForModel(index, selectedModelId), configValues);
 
   const canConfirm = targetLaunchTarget !== undefined && readyLaunchTargets.includes(targetLaunchTarget);
 
@@ -81,7 +94,7 @@ export const HandoffModal: FC<{
               onChange={event => {
                 const next = event.target.value;
                 setTargetLaunchTarget(next);
-                setConfigOptions(catalogOptions(getProviderConfig(next)));
+                setConfigValues(hardResetForAgent(getConfigOptionIndex(next)).values);
               }}
               value={targetLaunchTarget ?? ''}
             >
@@ -97,9 +110,13 @@ export const HandoffModal: FC<{
               disabled={false}
               key={option.id}
               onChange={(configId, value) => {
-                setConfigOptions(current =>
-                  current.map(entry => (entry.id === configId ? { ...entry, currentValue: value } : entry)),
-                );
+                setConfigValues(current => {
+                  if (configId !== 'model') {
+                    return { ...current, [configId]: value };
+                  }
+                  const nextRow = rowForModel(index, value);
+                  return preserveConfigValuesOnModelChange({ ...current, model: value }, nextRow);
+                });
               }}
               option={option}
             />
@@ -114,7 +131,7 @@ export const HandoffModal: FC<{
             if (targetLaunchTarget === undefined) {
               return;
             }
-            onConfirm({ configValues: valuesFromOptions(configOptions), targetLaunchTarget });
+            onConfirm({ configValues, targetLaunchTarget });
           }}
           variant="contained"
         >

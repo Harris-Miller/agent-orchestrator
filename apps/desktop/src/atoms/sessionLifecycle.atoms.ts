@@ -1,7 +1,7 @@
 /** Session roster / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
-import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/unstable/reactivity';
 
 import {
   defectsFromActivationFailure,
@@ -11,7 +11,7 @@ import {
 } from '../acp/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
+import { buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import {
   closeSession,
   createSession,
@@ -19,7 +19,6 @@ import {
   listSessions,
   loadSession,
   resumeSession,
-  setConfigOption,
 } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.atoms.ts';
@@ -29,8 +28,7 @@ import {
   selectedSessionIdAtom,
   selectSession,
 } from './backendState.atoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.atoms.ts';
-import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
+import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
 export const selectSessionAtomFn = acpRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
@@ -111,19 +109,7 @@ export const createSessionAtomFn = acpRuntime
         const { sessionId } = result;
         yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
 
-        syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, result);
-
-        const settingsResult = get(userSettingsAtom);
-        const defaults = AsyncResult.isSuccess(settingsResult)
-          ? (settingsResult.value.harnessConfigDefaults?.[arg.launchTarget] ?? {})
-          : {};
-        const { sessionConfiguration } = yield* applyConfigDiffs(result, defaults, (configId, value) =>
-          setConfigOption(arg.launchTarget, sessionId, configId, value),
-        );
-
-        syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, sessionConfiguration);
-
-        const session = buildActivatedSession(sessionId, sessionConfiguration, { cwd });
+        const session = buildActivatedSession(sessionId, result, { cwd });
         const rosterEntry = rosterEntryFromNew(result, cwd);
         const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
 
@@ -217,7 +203,6 @@ export const activateSessionAtomFn = acpRuntime
       }
 
       const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
-      syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, exit.value);
       get.set(backendHarnessStateAtom(arg.launchTarget), {
         ...get(backendHarnessStateAtom(arg.launchTarget)),
         sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({

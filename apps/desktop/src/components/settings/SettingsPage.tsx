@@ -29,7 +29,6 @@ import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessio
 import { userSettingsAtom, userSettingsEditsDisabled } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
-import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
 import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';
 
 const CATEGORIES = [
@@ -37,7 +36,6 @@ const CATEGORIES = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'keyboard', label: 'Keyboard shortcuts' },
   { id: 'providers', label: 'Providers' },
-  { id: 'defaults', label: 'Harness defaults' },
   { id: 'git', label: 'Git' },
   { id: 'connections', label: 'Connections' },
   { id: 'about', label: 'About' },
@@ -187,8 +185,6 @@ export const SettingsPage: FC = () => {
                   label="Confirm before deleting a session"
                 />
               </>
-            ) : category === 'defaults' ? (
-              <HarnessDefaultsSettingsPane />
             ) : category === 'providers' ? (
               <ProvidersSettingsPane />
             ) : (

@@ -39,7 +39,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.shouldSyncConfig, false);
       assert.strictEqual(result.usageChanged, false);
       assert.strictEqual(result.sessionRoster, undefined);
       assert.strictEqual(result.session.transcript.items.length, 1);
@@ -57,7 +56,6 @@ describe('applySessionUpdate', () => {
     if (result.kind === 'patch') {
       assert.deepStrictEqual(result.session.availableCommands, [{ description: 'Run tests', name: 'test' }]);
       assert.strictEqual(result.usageChanged, false);
-      assert.strictEqual(result.shouldSyncConfig, false);
     }
   });
 
@@ -89,7 +87,7 @@ describe('applySessionUpdate', () => {
     assert.strictEqual(result.kind, 'noop');
   });
 
-  it('flags config sync for config_option_update when active', () => {
+  it('applies config_option_update onto session configuration', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyRoster, {
       configOptions: [{ id: 'mode', name: 'Mode' }],
@@ -97,13 +95,12 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.shouldSyncConfig, true);
       assert.strictEqual(result.usageChanged, false);
       assert.ok(result.session.sessionConfiguration !== undefined);
     }
   });
 
-  it('applies config while activating but skips catalog sync', () => {
+  it('applies config while activating', () => {
     const session = initialSessionSnapshot('s1', 'activating');
     const result = applySessionUpdate(session, 's1', emptyRoster, {
       configOptions: [{ currentValue: 'ask', id: 'mode', name: 'Mode' }],
@@ -111,7 +108,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.shouldSyncConfig, false);
       assert.ok(result.session.sessionConfiguration !== undefined);
     }
   });
@@ -125,7 +121,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.shouldSyncConfig, false);
       assert.strictEqual(result.usageChanged, false);
       assert.deepStrictEqual(result.sessionRoster, [{ cwd: '/proj', sessionId: 's1', title: 'New title' }]);
       assert.strictEqual(result.session.transcript, session.transcript);

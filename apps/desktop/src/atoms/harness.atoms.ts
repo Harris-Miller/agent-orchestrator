@@ -10,8 +10,8 @@ import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 
 import { acpRuntime, hostServicesLayer } from './acpRuntime.atoms.ts';
-import { backendHarnessStateAtom, clearSelectedSessionIfMissing } from './backendState.atoms.ts';
-import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.atoms.ts';
+import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
+import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
 export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   acpRuntime
@@ -21,6 +21,12 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
       };
 
       return runBackendHarness(launchTarget, {
+        onConfigOptionIndexClear: () => {
+          get.registry.set(configOptionIndexAtom(launchTarget), undefined);
+        },
+        onConfigOptionIndexPublish: index => {
+          get.registry.set(configOptionIndexAtom(launchTarget), index);
+        },
         onElicitationCreate: (sessionId, request, resolve) => {
           updateState(current => ({
             ...current,
@@ -62,7 +68,6 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
         onSessionRosterResult: listResult => {
           updateState(current => ({
             ...current,
-            phase: 'ready',
             sessionRoster: normalizeSessionRoster(listResult),
           }));
         },
@@ -78,10 +83,6 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
             sessionRoster: result.sessionRoster ?? current.sessionRoster,
             sessions: upsertSession(current.sessions, result.session),
           }));
-
-          if (result.shouldSyncConfig) {
-            syncProviderConfigFromSessionConfiguration(get, launchTarget, result.session.sessionConfiguration);
-          }
 
           if (result.usageChanged && result.session.usage !== undefined) {
             Effect.runFork(
@@ -107,6 +108,7 @@ export const restartBackendAtomFn = acpRuntime
       yield* stopBackendHarness(launchTarget);
       resetBackendHarnessState(launchTarget);
       get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
+      get.set(configOptionIndexAtom(launchTarget), undefined);
       clearSelectedSessionIfMissing(get);
       get.refresh(backendHarnessAtom(launchTarget));
     }),

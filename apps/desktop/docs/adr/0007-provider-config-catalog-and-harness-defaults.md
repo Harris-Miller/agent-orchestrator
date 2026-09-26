@@ -1,14 +1,15 @@
-# Provider config catalog and Harness config defaults persist per agent launch target
+# Config option index via Config probe (supersedes provider catalog + harness defaults)
 
-Session configuration is session-scoped and ephemeral across app restarts. Create and handoff flows need the agent's selectable options (and the user's preferred values) before a target session exists. The Harness therefore stores a **Provider config catalog** under `harness/<launchTarget>/provider-config-catalog.json` via `@lib/ao-home`, and **Harness config defaults** in User settings (`harnessConfigDefaults`), keyed by agent launch target.
+Selectable config options for create/handoff are no longer persisted to disk. During Bootstrap **`probing`**, a disposable-cwd **Config probe** builds an ephemeral **Config option index** (State Atom per agent launch target: `defaultModelId` + `byModel` selectable rows with probe `currentValue`s). Handoff reads that index; Create uses `session/new` `currentValue`s only.
 
-The catalog is overwritten whenever a session activation or config update returns selectable `configOptions`. Defaults are seeded once from agent `currentValue` on first catalog write, then changed only via live edits on the Settings Harness defaults pane — not by mid-session `set_config_option`, create pickers, or handoff overrides. If a stored default disappears from the refreshed choice list, it falls back to the agent's new `currentValue`.
+Each model’s `set_config_option` response is stored **as-is** under that model id (authoritative full option-id set for that model — no probe-local merge across models). Chat live Session configuration still merges `options` fill-in for present ids but **drops** ids absent from the response (#53 absorbed).
 
-On **Create new session**, after `session/new` the Harness applies harness defaults that differ from the agent-returned values via `session/set_config_option` (ACP has no config fields on `session/new`). That apply does not rewrite stored defaults.
+Probe failure (no `model`, mid-loop RPC fail) → Bootstrap `error`; index cleared at `probing` start and on restart; no partial publish. `session/close` failure is **not** probe failure — warn and still Ready with published index. Roster `session/list` is buffered during probing and published only after index publish, immediately before `ready`; the roster callback never sets phase.
+
+Deleted: Provider config catalog document, Harness config defaults (`harnessConfigDefaults`), Settings defaults pane, `sessionStorage` catalog.
 
 ## Considered options
 
-- **Session-only configuration (previous):** accurate while a session is active, but cannot drive create/handoff pickers or survive restart without re-opening a session.
-- **Overwrite defaults on every config change:** simpler last-used behavior, but fights LLM prompt-cache stability and would treat ephemeral handoff overrides as global preferences.
-- **Persist only after explicit Save (+ first seed):** keeps user intent separate from transient session edits; catalog still stays fresh for pickers. Replaced chat “Save as defaults” with Settings live-write editors; first seed on catalog refresh remains automatic.
-- **localStorage blob (previous):** both catalog and defaults in `acp-provider-config:*`. Abandoned for Agent Orchestrator home + User settings so prefs survive across hosts and match other durable state.
+- **Provider config catalog + Harness config defaults on disk (previous ADR):** survived restart for pickers, but duplicated Session configuration, fought “agent is source of truth,” and required Settings sync paths.
+- **Session-only configuration:** accurate while a session is active, but cannot drive handoff pickers before a target session exists.
+- **Overwrite durable defaults on every config change:** simpler last-used behavior, but fights LLM prompt-cache stability and treats ephemeral handoff overrides as global preferences.

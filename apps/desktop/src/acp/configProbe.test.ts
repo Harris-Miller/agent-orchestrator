@@ -1,8 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { OS } from '@lib/context-services';
-import { Effect, Exit, Layer } from 'effect';
+import { Effect, Exit } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
-import { layer as posixPathLayer } from 'effect/Path';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import {
@@ -21,18 +19,9 @@ const selectOption = (id: string, currentValue: string, choices: readonly string
   type: 'select',
 });
 
-const probeServices = Layer.mergeAll(
-  layerNoop({
-    makeDirectory: () => Effect.void,
-  }),
-  posixPathLayer,
-  Layer.succeed(OS, {
-    cwd: () => '/',
-    env: () => ({ TMPDIR: '/tmp' }),
-    homedir: () => '/home',
-    platform: () => 'linux',
-  }),
-);
+const probeServices = layerNoop({
+  makeTempDirectory: () => Effect.succeed('/tmp/ao-config-probe-test'),
+});
 
 describe('configOptionIndexFromProbeResponses', () => {
   it('stores each model response as-is without cross-model merge', () => {

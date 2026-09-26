@@ -1,8 +1,6 @@
 /** Config probe: disposable-cwd session → Config option index (per-model selectable options). */
-import { OS } from '@lib/context-services';
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
-import { Path } from 'effect/Path';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeModels, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
@@ -77,29 +75,13 @@ type ProbeAgent<E = never> = {
   }) => Effect.Effect<unknown, E>;
 };
 
-const makeProbeCwd = Effect.fn('makeProbeCwd')(function* () {
-  const fs = yield* FileSystem;
-  const path = yield* Path;
-  const os = yield* OS;
-  const env = os.env();
-  const tmpRoot = Object.hasOwn(env, 'TMPDIR')
-    ? env.TMPDIR
-    : Object.hasOwn(env, 'TEMP')
-      ? env.TEMP
-      : Object.hasOwn(env, 'TMP')
-        ? env.TMP
-        : '/tmp';
-  const probeCwd = path.join(tmpRoot, `ao-config-probe-${crypto.randomUUID()}`);
-  yield* fs.makeDirectory(probeCwd, { recursive: true });
-  return probeCwd;
-});
-
 /**
  * Disposable-cwd Config probe. Publishes nothing itself — caller clears/publishes the index Atom.
  * `session/close` failure is not probe failure (warn + still return index).
  */
 export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: ProbeAgent<E>) {
-  const probeCwd = yield* makeProbeCwd();
+  const fs = yield* FileSystem;
+  const probeCwd = yield* fs.makeTempDirectory({ prefix: 'ao-config-probe-' });
   const sessionNew = yield* agent['session/new']({ cwd: probeCwd, mcpServers: [] });
   const models = normalizeModels(sessionNew);
   if (models.currentId === undefined) {

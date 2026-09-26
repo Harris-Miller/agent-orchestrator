@@ -2,11 +2,12 @@
  * Tauri-backed Effect `FileSystem` Live via `@tauri-apps/plugin-fs`.
  *
  * Supported (production paths): access/exists, readFile/readFileString, writeFile/writeFileString,
- * makeDirectory, remove, rename, copyFile, readDirectory, stat, truncate.
+ * makeDirectory, makeTempDirectory (via `$TEMP`), remove, rename, copyFile, readDirectory, stat, truncate.
  *
  * Unsupported for now (return PlatformError): open+seek handles, watch, chmod/chown, link/symlink,
- * glob, temp file helpers, realPath, readLink, utimes, copy (recursive directory).
+ * glob, other temp helpers, realPath, readLink, utimes, copy (recursive directory).
  */
+import { join as tauriJoin, tempDir as tauriTempDir } from '@tauri-apps/api/path';
 import {
   copyFile as tauriCopyFile,
   exists as tauriExists,
@@ -94,7 +95,13 @@ const makeTauriFileSystem = (): FileSystem.FileSystem =>
     link: _path => Effect.fail(notSupported('link')),
     makeDirectory: (path, options) =>
       tryFs('makeDirectory', path, () => tauriMkdir(path, { recursive: options?.recursive })),
-    makeTempDirectory: () => Effect.fail(notSupported('makeTempDirectory')),
+    makeTempDirectory: options =>
+      tryFs('makeTempDirectory', options?.directory ?? 'temp', async () => {
+        const base = options?.directory ?? (await tauriTempDir());
+        const full = await tauriJoin(base, `${options?.prefix ?? 'tmp-'}${crypto.randomUUID()}`);
+        await tauriMkdir(full, { recursive: true });
+        return full;
+      }),
     makeTempDirectoryScoped: () => Effect.fail(notSupported('makeTempDirectoryScoped')),
     makeTempFile: () => Effect.fail(notSupported('makeTempFile')),
     makeTempFileScoped: () => Effect.fail(notSupported('makeTempFileScoped')),

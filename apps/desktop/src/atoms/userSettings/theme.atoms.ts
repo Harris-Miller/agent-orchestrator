@@ -9,6 +9,7 @@ import { userSettingsAtom, userSettingsDocument } from './userSettings.atoms.ts'
 /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
 export const themeAtom = Atom.writable(
   get => {
+    // by using `get` against `userSettingsAtom`, we register it as a dependency of this atom, so reactivity automatically applies
     const settings = get(userSettingsAtom);
     if (!AsyncResult.isSuccess(settings)) {
       return readPaintThemeId();

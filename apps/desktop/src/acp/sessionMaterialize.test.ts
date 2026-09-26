@@ -75,17 +75,35 @@ describe('applyConfigDiffs', () => {
   it.effect('applies all succeeding diffs and folds configuration', () =>
     Effect.gen(function* () {
       const calls: { configId: string; value: string }[] = [];
+      let model = 'sonnet';
+      let mode = 'default';
       const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, (configId, value) => {
         calls.push({ configId, value });
+        if (configId === 'model') {
+          model = value;
+        }
+        if (configId === 'mode') {
+          mode = value;
+        }
         return Effect.succeed({
           configOptions: [
             {
-              currentValue: value,
-              id: configId,
-              name: configId,
+              currentValue: model,
+              id: 'model',
+              name: 'Model',
               options: [
-                { name: value, value },
-                { name: 'other', value: 'other' },
+                { name: 'Sonnet', value: 'sonnet' },
+                { name: 'Opus', value: 'opus' },
+              ],
+              type: 'select',
+            },
+            {
+              currentValue: mode,
+              id: 'mode',
+              name: 'Mode',
+              options: [
+                { name: 'Default', value: 'default' },
+                { name: 'Plan', value: 'plan' },
               ],
               type: 'select',
             },

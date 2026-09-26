@@ -17,12 +17,7 @@ import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.t
 
 import { acpRuntime } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
-import {
-  patchSession,
-  sendPromptSoftCancel,
-  syncProviderConfigFromSessionConfiguration,
-  withSessionClientRequest,
-} from './sessionPatch.atoms.ts';
+import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -227,7 +222,6 @@ export const setConfigOptionAtomFn = acpRuntime
           currentSnapshot.sessions[session.sessionId].sessionConfiguration,
           result,
         );
-        syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, applied.sessionConfiguration);
         get.set(backendHarnessStateAtom(arg.launchTarget), {
           ...currentSnapshot,
           sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({

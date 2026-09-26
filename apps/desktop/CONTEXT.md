@@ -37,11 +37,11 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
 _Avoid_: Status, connection state
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize` and `session/list`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize`, Config probe, and buffered `session/list`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker
 
 ## Sessions
@@ -67,7 +67,7 @@ The ordered chat items for one session snapshot, derived from session updates an
 _Avoid_: Chat log, message list, accumulator
 
 **Session update apply**:
-Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and roster title when needed). Owns transcript reduction, available commands, usage, config-option merge, and the activating-session catalog-sync skip. Does not persist usage or provider config — those stay at the atom seam.
+Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and roster title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — that stays at the atom seam.
 _Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
 
 **Session status**:
@@ -83,16 +83,16 @@ Normalized config options from a `session/new`, `session/load`, or `session/resu
 _Avoid_: Session state, session/new result
 
 **Materialize**:
-Harness step that turns a successful session activation RPC result (and any follow-on config-option applies) into a session snapshot and, when needed, a roster entry. Not the RPC itself (`session/new`, `session/load`, `session/resume`) and not catalog/Settings persistence.
+Harness step that turns a successful session activation RPC result (and any follow-on config-option applies) into a session snapshot and, when needed, a roster entry. Not the RPC itself (`session/new`, `session/load`, `session/resume`).
 _Avoid_: Provision, hydrate, commit activation, apply session activation
 
-**Provider config catalog**:
-Agent-reported selectable config options (ids, labels, choices) for one agent launch target, shared across that target's sessions. Not tied to a session snapshot.
-_Avoid_: Session configuration, agent defaults
+**Config option index**:
+Ephemeral State Atom per agent launch target: `defaultModelId` plus selectable Config options keyed by model id (with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
+_Avoid_: Provider config catalog, harness defaults, session configuration
 
-**Harness config defaults**:
-User-preferred values per config option id for one agent launch target.
-_Avoid_: Agent defaults, session configuration, currentValue
+**Config probe**:
+Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close`. Not an Active session; never Materialize; never a Roster entry.
+_Avoid_: Session create, materialize, activate
 
 **Usage**:
 Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.

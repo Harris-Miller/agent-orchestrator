@@ -16,7 +16,6 @@ export type ApplySessionUpdateResult =
       readonly kind: 'patch';
       readonly session: SessionSnapshot;
       readonly sessionRoster?: readonly NormalizedSessionInfo[];
-      readonly shouldSyncConfig: boolean;
       readonly usageChanged: boolean;
     };
 
@@ -43,7 +42,6 @@ export const applySessionUpdate = (
   let next: SessionSnapshot = transcriptChanged ? { ...base, transcript: nextTranscript } : base;
   let sessionChanged = transcriptChanged;
   let usageChanged = false;
-  let shouldSyncConfig = false;
   let sessionRoster: readonly NormalizedSessionInfo[] | undefined;
 
   if (isRecord(update) && typeof update.sessionUpdate === 'string') {
@@ -66,7 +64,6 @@ export const applySessionUpdate = (
             sessionConfiguration: applied.sessionConfiguration,
           };
           sessionChanged = true;
-          shouldSyncConfig = next.status !== 'activating';
         }
         break;
       }
@@ -91,7 +88,7 @@ export const applySessionUpdate = (
     }
   }
 
-  if (!sessionChanged && sessionRoster === undefined && !shouldSyncConfig && !usageChanged) {
+  if (!sessionChanged && sessionRoster === undefined && !usageChanged) {
     return { kind: 'noop' };
   }
 
@@ -99,7 +96,6 @@ export const applySessionUpdate = (
     kind: 'patch',
     session: next,
     sessionRoster,
-    shouldSyncConfig,
     usageChanged,
   };
 };

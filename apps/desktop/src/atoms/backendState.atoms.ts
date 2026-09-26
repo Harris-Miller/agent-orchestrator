@@ -5,11 +5,12 @@ import { initialBackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import type { ProviderConfigStored } from '../acp/providerConfigStorage.ts';
+import type { ConfigOptionIndex } from '../acp/configProbe.ts';
+import { configOptionIndexIsNonempty } from '../acp/configProbe.ts';
 
-export const providerConfigAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make<ProviderConfigStored | undefined>(undefined).pipe(
-    Atom.withLabel(`providerConfig:${launchTarget}`),
+export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
+  Atom.make<ConfigOptionIndex | undefined>(undefined).pipe(
+    Atom.withLabel(`configOptionIndex:${launchTarget}`),
     Atom.keepAlive,
   ),
 );
@@ -81,6 +82,15 @@ export const allLaunchTargetPhasesAtom = Atom.make(get =>
     launchTarget,
     phase: get(backendHarnessStateAtom(launchTarget)).phase,
   })),
+).pipe(Atom.keepAlive);
+
+/** Launch targets that completed Config probe with a nonempty index. */
+export const readyLaunchTargetsAtom = Atom.make(get =>
+  ALL_AGENT_LAUNCH_TARGETS.filter(
+    launchTarget =>
+      get(backendHarnessStateAtom(launchTarget)).phase === 'ready' &&
+      configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
+  ),
 ).pipe(Atom.keepAlive);
 
 export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {

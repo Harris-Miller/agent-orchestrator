@@ -11,7 +11,6 @@ import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 
 import { createAcpRuntime } from '../acpRuntime.atoms.ts';
-import { providerConfigAtom } from '../backendState.atoms.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -223,7 +222,7 @@ describe('userSettingsAtom', () => {
     }),
   );
 
-  it.effect('post-write harness defaults visible via settings Success without fan-out', () =>
+  it.effect('post-write settings Success reflects next value', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const { acpRuntime } = createAcpRuntime(hostLayer(store));
@@ -233,15 +232,14 @@ describe('userSettingsAtom', () => {
       yield* awaitSettled(registry, userSettingsAtom);
 
       const next: UserSettings = {
-        harnessConfigDefaults: { 'codex-acp': { model: 'gpt-5' } },
+        theme: 'dark',
       };
       registry.set(userSettingsAtom, next);
       registry.mount(persistUserSettingsAtomFn);
       yield* awaitSettled(registry, persistUserSettingsAtomFn);
 
       const settings = AsyncResult.getOrThrow(registry.get(userSettingsAtom));
-      assert.deepStrictEqual(settings.harnessConfigDefaults?.['codex-acp'], { model: 'gpt-5' });
-      assert.strictEqual(registry.get(providerConfigAtom('codex-acp')), undefined);
+      assert.strictEqual(settings.theme, 'dark');
       registry.dispose();
     }),
   );

@@ -13,6 +13,7 @@ const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' |
   switch (phase) {
     case 'connecting':
     case 'initialized':
+    case 'probing':
       return 'warning';
     case 'error':
       return 'error';

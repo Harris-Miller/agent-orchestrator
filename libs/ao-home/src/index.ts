@@ -1,11 +1,4 @@
-export { providerConfigCatalogPath, readProviderConfigCatalog, writeProviderConfigCatalog } from './catalog.ts';
 export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
-export {
-  type ProviderConfigCatalogDocument,
-  ProviderConfigCatalogDocumentJsonString,
-  ProviderConfigCatalogDocumentSchema,
-  type ProviderConfigCatalogEntry,
-} from './ProviderConfigCatalogDocument.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {
   type SessionUsageDocument,

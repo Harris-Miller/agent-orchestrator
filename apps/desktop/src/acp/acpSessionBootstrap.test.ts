@@ -109,14 +109,47 @@ describe('applySetConfigOptionResult', () => {
     const state = applied.sessionConfiguration as Record<string, unknown>;
     const configOptions = state.configOptions as readonly Record<string, unknown>[];
 
-    assert.strictEqual(configOptions.length, 2);
+    assert.strictEqual(configOptions.length, 1);
     assert.strictEqual(configOptions[0].id, 'model');
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
-    assert.strictEqual(configOptions[1].id, 'mode');
-    assert.strictEqual(configOptions[1].currentValue, 'old-mode');
     assert.strictEqual(applied.selectedModelId, 'echo-model-verbose');
-    assert.strictEqual(applied.selectedModeId, 'old-mode');
+    assert.strictEqual(applied.selectedModeId, undefined);
+  });
+
+  it('surfaces new option ids from the response with their currentValue', () => {
+    const sessionConfiguration = {
+      configOptions: [
+        {
+          currentValue: 'sonnet',
+          id: 'model',
+          name: 'Model',
+          options: [{ name: 'Sonnet', value: 'sonnet' }],
+        },
+      ],
+    };
+    const result = {
+      configOptions: [
+        {
+          currentValue: 'high',
+          id: 'effort',
+          name: 'Effort',
+          options: [
+            { name: 'Low', value: 'low' },
+            { name: 'High', value: 'high' },
+          ],
+          type: 'select',
+        },
+      ],
+    };
+
+    const applied = applySetConfigOptionResult(sessionConfiguration, result);
+    const state = applied.sessionConfiguration as Record<string, unknown>;
+    const configOptions = state.configOptions as readonly Record<string, unknown>[];
+
+    assert.strictEqual(configOptions.length, 1);
+    assert.strictEqual(configOptions[0].id, 'effort');
+    assert.strictEqual(configOptions[0].currentValue, 'high');
   });
 });
 

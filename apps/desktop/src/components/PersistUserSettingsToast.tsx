@@ -15,27 +15,20 @@ export const PersistUserSettingsToast: FC = () => {
   const [dismissedFailure, setDismissedFailure] = useState<unknown>(undefined);
   const open = AsyncResult.isFailure(persistResult) && persistResult.cause !== dismissedFailure;
 
+  const handleClose = () => {
+    if (AsyncResult.isFailure(persistResult)) {
+      setDismissedFailure(persistResult.cause);
+    }
+  };
+
   return (
     <Snackbar
       anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
       autoHideDuration={6000}
-      onClose={() => {
-        if (AsyncResult.isFailure(persistResult)) {
-          setDismissedFailure(persistResult.cause);
-        }
-      }}
+      onClose={handleClose}
       open={open}
     >
-      <Alert
-        onClose={() => {
-          if (AsyncResult.isFailure(persistResult)) {
-            setDismissedFailure(persistResult.cause);
-          }
-        }}
-        severity="error"
-        sx={{ width: '100%' }}
-        variant="filled"
-      >
+      <Alert onClose={handleClose} severity="error" sx={{ width: '100%' }} variant="filled">
         {PERSIST_FAILURE_MESSAGE}
       </Alert>
     </Snackbar>

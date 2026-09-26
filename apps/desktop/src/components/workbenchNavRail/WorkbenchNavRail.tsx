@@ -51,8 +51,7 @@ import {
   refreshAllSessionRostersAtomFn,
   selectSessionAtomFn,
 } from '../../atoms/sessionLifecycle.atoms.ts';
-import { unwrapUserSettings, userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
-import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
+import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
@@ -230,7 +229,7 @@ export const WorkbenchNavRail: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const settings = unwrapUserSettings(useAtomValue(userSettingsAtom));
+  const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
@@ -244,7 +243,7 @@ export const WorkbenchNavRail: FC<{
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
 
   const requestDelete = (entry: UnifiedRosterEntry) => {
-    if (confirmSessionDeleteEnabled(settings)) {
+    if (confirmSessionDelete) {
       setDeleteTarget(entry);
       return;
     }

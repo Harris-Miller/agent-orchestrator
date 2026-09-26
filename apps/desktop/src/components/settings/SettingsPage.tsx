@@ -25,12 +25,8 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  unwrapUserSettings,
-  userSettingsAtom,
-  userSettingsEditsDisabled,
-} from '../../atoms/userSettings/userSettings.atoms.ts';
-import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
+import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
+import { userSettingsAtom, userSettingsEditsDisabled } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
@@ -69,7 +65,8 @@ const BackToApp: FC = () => {
 export const SettingsPage: FC = () => {
   const settingsResult = useAtomValue(userSettingsAtom);
   const setUserSettings = useAtomSet(userSettingsAtom);
-  const settings = unwrapUserSettings(settingsResult);
+  const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
+  const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
@@ -180,10 +177,10 @@ export const SettingsPage: FC = () => {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={confirmSessionDeleteEnabled(settings)}
+                      checked={confirmSessionDelete}
                       disabled={editsDisabled}
                       onChange={(_event, checked) => {
-                        setUserSettings({ ...settings, confirmSessionDelete: checked });
+                        setConfirmSessionDelete(checked);
                       }}
                     />
                   }

@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { confirmSessionDeleteEnabled } from './confirmSessionDelete.ts';
+import { confirmSessionDeleteEnabled } from './confirmSessionDelete.atoms.ts';
 
 describe('confirmSessionDeleteEnabled', () => {
   it('defaults to true when unset', () => {

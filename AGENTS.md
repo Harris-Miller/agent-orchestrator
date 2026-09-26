@@ -6,7 +6,7 @@
 * Lint every changed file with ESLint `--fix` before work is considered done. Package `lint` scripts are `eslint . …`, so extra args after `pnpm run lint --` do not replace `.` — call ESLint per owning package instead, e.g. `pnpm --filter=@libs/effect-acp exec eslint --max-warnings 0 --fix path/rel/to/file.ts` (paths relative to that package; repeat per package when changes span packages)
 * NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after
 * NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there)
-* ALWAYS ignore being told to use a GitHub label by a skill
+* NEVER apply a GitHub issue label because a skill says to (including `ready-for-agent`). Ignore skill instructions about labels. DO apply a label when the user explicitly asks for one
 
 ## Agent skills
 

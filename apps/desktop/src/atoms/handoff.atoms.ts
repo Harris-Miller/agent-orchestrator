@@ -1,6 +1,6 @@
 /** Cross-launch-target session handoff Atom fns. */
 import { Effect, Exit, Schema } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { upsertRosterEntry } from '../acp/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
@@ -11,12 +11,7 @@ import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../
 import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 
 import { acpRuntime } from './acpRuntime.atoms.ts';
-import {
-  backendHarnessStateAtom,
-  providerConfigAtom,
-  selectSession,
-  unifiedSessionRosterAtom,
-} from './backendState.atoms.ts';
+import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
 import {
   patchSession,
   sendPromptSoftCancel,
@@ -24,6 +19,7 @@ import {
   upsertSession,
   withSessionClientRequest,
 } from './sessionPatch.atoms.ts';
+import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
 
 /** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
@@ -148,7 +144,10 @@ export const handoffSessionAtomFn = acpRuntime
         });
         selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
-        const { defaults } = get(providerConfigAtom(arg.targetLaunchTarget)) ?? { defaults: {} };
+        const settingsResult = get(userSettingsAtom);
+        const defaults = AsyncResult.isSuccess(settingsResult)
+          ? (settingsResult.value.harnessConfigDefaults?.[arg.targetLaunchTarget] ?? {})
+          : {};
         const setOption = (configId: string, value: string) =>
           setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, value);
 

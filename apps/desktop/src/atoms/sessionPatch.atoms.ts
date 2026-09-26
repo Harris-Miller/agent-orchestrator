@@ -1,5 +1,7 @@
 /** Session snapshot patch helpers shared by ACP atom actions. */
+import { defaultSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
+import { AsyncResult } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 
 import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
@@ -22,8 +24,11 @@ export const syncProviderConfigFromSessionConfiguration = (
   launchTarget: AgentLaunchTarget,
   sessionConfiguration: unknown,
 ) => {
-  const settings = get(userSettingsAtom);
-  const settingsDefaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
+  const settingsResult = get(userSettingsAtom);
+  const settings = AsyncResult.isSuccess(settingsResult) ? settingsResult.value : defaultSettings;
+  const settingsDefaults = AsyncResult.isSuccess(settingsResult)
+    ? (settingsResult.value.harnessConfigDefaults?.[launchTarget] ?? {})
+    : {};
   const previous = get(providerConfigAtom(launchTarget));
   const next = refreshProviderConfigInMemory(previous, settingsDefaults, sessionConfiguration);
   if (next === undefined) {
@@ -33,12 +38,11 @@ export const syncProviderConfigFromSessionConfiguration = (
   get.set(providerConfigAtom(launchTarget), next);
 
   const defaultsChanged = !defaultsEqual(settingsDefaults, next.defaults);
-  const nextSettings = defaultsChanged ? patchHarnessConfigDefaults(settings, launchTarget, next.defaults) : settings;
   if (defaultsChanged) {
-    get.set(userSettingsAtom, nextSettings);
+    get.set(userSettingsAtom, patchHarnessConfigDefaults(settings, launchTarget, next.defaults));
   }
 
-  persistProviderConfigDocuments(launchTarget, next, nextSettings, defaultsChanged, hostServicesLayer);
+  persistProviderConfigDocuments(launchTarget, next, settings, false, hostServicesLayer);
 };
 
 export const upsertSession = (

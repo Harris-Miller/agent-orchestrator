@@ -1,7 +1,7 @@
 /** Session roster / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import {
   defectsFromActivationFailure,
@@ -26,11 +26,11 @@ import { acpRuntime } from './acpRuntime.atoms.ts';
 import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
-  providerConfigAtom,
   selectedSessionIdAtom,
   selectSession,
 } from './backendState.atoms.ts';
 import { patchSession, syncProviderConfigFromSessionConfiguration, upsertSession } from './sessionPatch.atoms.ts';
+import { userSettingsAtom } from './userSettings/userSettings.atoms.ts';
 
 export const selectSessionAtomFn = acpRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
@@ -113,7 +113,10 @@ export const createSessionAtomFn = acpRuntime
 
         syncProviderConfigFromSessionConfiguration(get, arg.launchTarget, result);
 
-        const { defaults } = get(providerConfigAtom(arg.launchTarget)) ?? { defaults: {} };
+        const settingsResult = get(userSettingsAtom);
+        const defaults = AsyncResult.isSuccess(settingsResult)
+          ? (settingsResult.value.harnessConfigDefaults?.[arg.launchTarget] ?? {})
+          : {};
         const { sessionConfiguration } = yield* applyConfigDiffs(result, defaults, (configId, value) =>
           setConfigOption(arg.launchTarget, sessionId, configId, value),
         );

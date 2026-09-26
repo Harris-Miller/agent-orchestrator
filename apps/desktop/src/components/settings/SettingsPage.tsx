@@ -20,15 +20,13 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { Cause } from 'effect';
+import { AsyncResult } from 'effect/unstable/reactivity';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  userSettingsAtom,
-  userSettingsIoErrorAtom,
-  writeUserSettingsAtomFn,
-} from '../../atoms/userSettings/userSettings.atoms.ts';
-import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
+import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
+import { userSettingsAtom, userSettingsEditsDisabled } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 import { HarnessDefaultsSettingsPane } from './HarnessDefaultsSettingsPane.tsx';
@@ -65,9 +63,11 @@ const BackToApp: FC = () => {
 
 /** Settings page: flat nav rail + placeholder panes. */
 export const SettingsPage: FC = () => {
-  const ioError = useAtomValue(userSettingsIoErrorAtom);
-  const settings = useAtomValue(userSettingsAtom);
-  const writeUserSettings = useAtomSet(writeUserSettingsAtomFn, { mode: 'promise' });
+  const settingsResult = useAtomValue(userSettingsAtom);
+  const setUserSettings = useAtomSet(userSettingsAtom);
+  const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
+  const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
+  const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
@@ -142,6 +142,7 @@ export const SettingsPage: FC = () => {
               {CATEGORIES.find(c => c.id === category)?.label ?? 'Settings'}
             </Typography>
             <Button
+              disabled={editsDisabled}
               onClick={() => {
                 setConfirmRestoreOpen(true);
               }}
@@ -153,9 +154,9 @@ export const SettingsPage: FC = () => {
           </Box>
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
-          {ioError !== undefined ? (
+          {AsyncResult.isFailure(settingsResult) ? (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {ioError}
+              {Cause.pretty(settingsResult.cause)}
             </Alert>
           ) : null}
           <Paper sx={{ borderRadius: 2, p: 3 }} variant="outlined">
@@ -176,9 +177,10 @@ export const SettingsPage: FC = () => {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={confirmSessionDeleteEnabled(settings)}
+                      checked={confirmSessionDelete}
+                      disabled={editsDisabled}
                       onChange={(_event, checked) => {
-                        writeUserSettings({ ...settings, confirmSessionDelete: checked }).catch(() => undefined);
+                        setConfirmSessionDelete(checked);
                       }}
                     />
                   }
@@ -224,13 +226,8 @@ export const SettingsPage: FC = () => {
           <Button
             color="error"
             onClick={() => {
-              writeUserSettings(defaultSettings)
-                .then(() => {
-                  setConfirmRestoreOpen(false);
-                })
-                .catch(() => {
-                  setConfirmRestoreOpen(false);
-                });
+              setUserSettings(defaultSettings);
+              setConfirmRestoreOpen(false);
             }}
             variant="contained"
           >

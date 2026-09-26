@@ -1,73 +1,73 @@
-/** User settings Atom surface backed by `@lib/ao-home`. */
+/** User settings write-through Atom backed by `@lib/ao-home`. */
 import { defaultSettings, readUserSettings, writeUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { Cause, Effect, Exit } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Effect, Exit } from 'effect';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import { ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import { loadProviderConfig } from '../../acp/providerConfigStorage.ts';
+import type { createAcpRuntime } from '../acpRuntime.atoms.ts';
 import { acpRuntime } from '../acpRuntime.atoms.ts';
 import { providerConfigAtom } from '../backendState.atoms.ts';
 
-export const userSettingsAtom = Atom.make<UserSettings>(defaultSettings).pipe(Atom.keepAlive);
+type AcpRuntime = ReturnType<typeof createAcpRuntime>['acpRuntime'];
 
-export const userSettingsIoErrorAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
+/** Unwrap AsyncResult to UserSettings: Success value, else previousSuccess, else product defaults. */
+export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
+  AsyncResult.getOrElse(result, () => defaultSettings);
 
-/** True after the first hydrate attempt finishes (success or IO error path that still seeded atoms). */
-export const userSettingsHydratedAtom = Atom.make(false).pipe(Atom.keepAlive);
+/** Disable Settings edits only while load is Initial or waiting. */
+export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): boolean =>
+  AsyncResult.isInitial(result) || result.waiting;
 
-export const readSettingsAtomFn = acpRuntime.fn((_arg: undefined) => readUserSettings()).pipe(Atom.keepAlive);
+export const createUserSettingsAtoms = (runtime: AcpRuntime) => {
+  const loadUserSettingsAtom = runtime
+    .atom((get: Atom.AtomContext) =>
+      Effect.gen(function* () {
+        const next = yield* readUserSettings();
+        for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
+          const defaults = next.harnessConfigDefaults?.[launchTarget] ?? {};
+          const loaded = yield* Effect.exit(loadProviderConfig(launchTarget, defaults));
+          if (Exit.isSuccess(loaded) && loaded.value !== undefined) {
+            get.set(providerConfigAtom(launchTarget), loaded.value);
+          }
+        }
+        return next;
+      }),
+    )
+    .pipe(Atom.keepAlive);
 
-const syncProviderConfigDefaultsFromSettings = (get: Atom.FnContext, userSettings: UserSettings) => {
-  for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
-    const defaults = userSettings.harnessConfigDefaults?.[launchTarget] ?? {};
-    const existing = get(providerConfigAtom(launchTarget));
-    if (existing !== undefined) {
-      get.set(providerConfigAtom(launchTarget), { catalog: existing.catalog, defaults });
-    } else if (Object.keys(defaults).length > 0) {
-      get.set(providerConfigAtom(launchTarget), { catalog: [], defaults });
-    }
-  }
+  /** Subscribe for persist Failure (toast / tests). Not the app write API. */
+  const persistUserSettingsAtomFn = runtime
+    .fn((userSettings: UserSettings) =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.exit(writeUserSettings(userSettings));
+        if (Exit.isFailure(exit)) {
+          yield* Effect.logError('Failed to persist User settings', exit.cause);
+          return yield* Effect.failCause(exit.cause);
+        }
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  const userSettingsAtom = Atom.writable(
+    get => {
+      get.mount(persistUserSettingsAtomFn);
+      get.subscribe(loadUserSettingsAtom, result => {
+        get.setSelf(result);
+      });
+      return get.once(loadUserSettingsAtom);
+    },
+    (ctx, next: UserSettings) => {
+      ctx.setSelf(AsyncResult.success(next));
+      ctx.set(persistUserSettingsAtomFn, next);
+    },
+  ).pipe(Atom.keepAlive);
+
+  return { persistUserSettingsAtomFn, userSettingsAtom };
 };
 
-export const writeUserSettingsAtomFn = acpRuntime
-  .fn((userSettings: UserSettings, get) =>
-    Effect.gen(function* () {
-      const exit = yield* Effect.exit(writeUserSettings(userSettings));
-      if (Exit.isFailure(exit)) {
-        get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
-        return;
-      }
-      get.set(userSettingsAtom, userSettings);
-      get.set(userSettingsIoErrorAtom, undefined);
-      syncProviderConfigDefaultsFromSettings(get, userSettings);
-    }),
-  )
-  .pipe(Atom.keepAlive);
+const settingsAtoms = createUserSettingsAtoms(acpRuntime);
 
-export const hydrateUserSettingsAtomFn = acpRuntime
-  .fn((_arg, get) =>
-    Effect.gen(function* () {
-      const exit = yield* Effect.exit(readUserSettings());
-      if (Exit.isFailure(exit)) {
-        get.set(userSettingsIoErrorAtom, Cause.pretty(exit.cause));
-        get.set(userSettingsHydratedAtom, true);
-        return;
-      }
-
-      const next = exit.value;
-      get.set(userSettingsAtom, next);
-      get.set(userSettingsIoErrorAtom, undefined);
-
-      for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
-        const defaults = next.harnessConfigDefaults?.[launchTarget] ?? {};
-        const loaded = yield* Effect.exit(loadProviderConfig(launchTarget, defaults));
-        if (Exit.isSuccess(loaded)) {
-          get.set(providerConfigAtom(launchTarget), loaded.value);
-        }
-      }
-
-      get.set(userSettingsHydratedAtom, true);
-    }),
-  )
-  .pipe(Atom.keepAlive);
+export const { userSettingsAtom } = settingsAtoms;
+export const { persistUserSettingsAtomFn } = settingsAtoms;

@@ -1,29 +1,24 @@
 /** Theme preference projection over user settings + paint cache. */
-import { Effect } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
 import type { ThemeId } from '../../theme/theme.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
-import { acpRuntime } from '../acpRuntime.atoms.ts';
 
-import { userSettingsAtom, userSettingsHydratedAtom, writeUserSettingsAtomFn } from './userSettings.atoms.ts';
+import { userSettingsAtom, userSettingsDocument } from './userSettings.atoms.ts';
 
-/** Effective theme: paint cache before hydrate, User settings after. */
-export const themeAtom = Atom.make(get => {
-  if (!get(userSettingsHydratedAtom)) {
-    return readPaintThemeId();
-  }
-  const themeId = clampThemeId(get(userSettingsAtom).theme);
-  writePaintThemeId(themeId);
-  return themeId;
-}).pipe(Atom.keepAlive);
-
-export const setThemeAtomFn = acpRuntime
-  .fn((id: ThemeId, get) =>
-    Effect.gen(function* () {
-      writePaintThemeId(id);
-      const settings = get(userSettingsAtom);
-      yield* get.setResult(writeUserSettingsAtomFn, { ...settings, theme: id });
-    }),
-  )
-  .pipe(Atom.keepAlive);
+/** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
+export const themeAtom = Atom.writable(
+  get => {
+    const settings = get(userSettingsAtom);
+    if (!AsyncResult.isSuccess(settings)) {
+      return readPaintThemeId();
+    }
+    const themeId = clampThemeId(settings.value.theme);
+    writePaintThemeId(themeId);
+    return themeId;
+  },
+  (ctx, id: ThemeId) => {
+    writePaintThemeId(id);
+    ctx.set(userSettingsAtom, { ...userSettingsDocument(ctx.get(userSettingsAtom)), theme: id });
+  },
+).pipe(Atom.keepAlive);

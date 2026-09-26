@@ -51,7 +51,7 @@ import {
   refreshAllSessionRostersAtomFn,
   selectSessionAtomFn,
 } from '../../atoms/sessionLifecycle.atoms.ts';
-import { userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
+import { userSettingsAtom, userSettingsDocument } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
@@ -230,7 +230,7 @@ export const WorkbenchNavRail: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
-  const settings = useAtomValue(userSettingsAtom);
+  const settings = userSettingsDocument(useAtomValue(userSettingsAtom));
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });

@@ -2,6 +2,7 @@ import { createRootRoute, Outlet } from '@tanstack/react-router';
 import type { FC } from 'react';
 
 import { AcpBackendsMount } from '../components/AcpBackendsMount.tsx';
+import { PersistUserSettingsToast } from '../components/PersistUserSettingsToast.tsx';
 import { UserSettingsMount } from '../components/UserSettingsMount.tsx';
 
 const RootComponent: FC = () => {
@@ -9,6 +10,7 @@ const RootComponent: FC = () => {
     <>
       <AcpBackendsMount />
       <UserSettingsMount />
+      <PersistUserSettingsToast />
       <Outlet />
       {/* <TanStackRouterDevtools /> */}
     </>

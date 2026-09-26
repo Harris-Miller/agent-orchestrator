@@ -6,10 +6,14 @@ import type { FC } from 'react';
 
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
+import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
 import { providerConfigAtom } from '../../atoms/backendState.atoms.ts';
-import { setHarnessConfigDefaultsAtomFn } from '../../atoms/userSettings/provider.atoms.ts';
-import { userSettingsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
+import {
+  userSettingsAtom,
+  userSettingsDocument,
+  userSettingsEditsDisabled,
+} from '../../atoms/userSettings/userSettings.atoms.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 
 const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Readonly<Record<string, string>>) => ({
@@ -23,9 +27,11 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 });
 
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
-  const settings = useAtomValue(userSettingsAtom);
+  const settingsResult = useAtomValue(userSettingsAtom);
+  const setUserSettings = useAtomSet(userSettingsAtom);
+  const settings = userSettingsDocument(settingsResult);
+  const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
-  const setHarnessConfigDefaults = useAtomSet(setHarnessConfigDefaultsAtomFn);
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};
   const catalog = providerConfig?.catalog ?? [];
 
@@ -42,10 +48,14 @@ const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = (
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
           {catalog.map(entry => (
             <SessionConfigOptionSelect
-              disabled={false}
+              disabled={editsDisabled}
               key={entry.id}
               onChange={(configId, value) => {
-                setHarnessConfigDefaults({ configId, launchTarget, value });
+                const nextDefaults = {
+                  ...(settings.harnessConfigDefaults?.[launchTarget] ?? {}),
+                  [configId]: value,
+                };
+                setUserSettings(patchHarnessConfigDefaults(settings, launchTarget, nextDefaults));
               }}
               option={catalogEntryToOption(entry, defaults)}
             />

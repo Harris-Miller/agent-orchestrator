@@ -24,6 +24,14 @@ _Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
 Whether deleting a session shows the confirm dialog; stored in User settings; on when unset.
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
+**State Atom**:
+Effect Atom that owns produce/update for one reactive piece of Harness UI state. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
+_Avoid_: store, reducer, settings service
+
+**Mount Atom**:
+One-shot `Atom.fn` used elsewhere to seed or load on app mount. Not used for User settings after the write-through state Atom (contrast term).
+_Avoid_: hydrate Atom, bootstrap Atom (when meaning a mount-only procedure)
+
 **Chat item**:
 A single ordered unit in a session transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event

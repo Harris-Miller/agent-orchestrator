@@ -10,8 +10,8 @@ import { patchHarnessConfigDefaults } from '../../acp/providerConfigStorage.ts';
 import type { ProviderConfigCatalogEntry } from '../../acp/providerConfigStorage.ts';
 import { providerConfigAtom } from '../../atoms/backendState.atoms.ts';
 import {
+  unwrapUserSettings,
   userSettingsAtom,
-  userSettingsDocument,
   userSettingsEditsDisabled,
 } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
@@ -29,7 +29,7 @@ const catalogEntryToOption = (entry: ProviderConfigCatalogEntry, defaults: Reado
 const LaunchTargetDefaults: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
   const settingsResult = useAtomValue(userSettingsAtom);
   const setUserSettings = useAtomSet(userSettingsAtom);
-  const settings = userSettingsDocument(settingsResult);
+  const settings = unwrapUserSettings(settingsResult);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const providerConfig = useAtomValue(providerConfigAtom(launchTarget));
   const defaults = settings.harnessConfigDefaults?.[launchTarget] ?? {};

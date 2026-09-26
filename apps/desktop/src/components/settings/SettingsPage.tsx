@@ -26,8 +26,8 @@ import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import {
+  unwrapUserSettings,
   userSettingsAtom,
-  userSettingsDocument,
   userSettingsEditsDisabled,
 } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { confirmSessionDeleteEnabled } from '../../settings/confirmSessionDelete.ts';
@@ -69,7 +69,7 @@ const BackToApp: FC = () => {
 export const SettingsPage: FC = () => {
   const settingsResult = useAtomValue(userSettingsAtom);
   const setUserSettings = useAtomSet(userSettingsAtom);
-  const settings = userSettingsDocument(settingsResult);
+  const settings = unwrapUserSettings(settingsResult);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');

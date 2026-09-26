@@ -12,8 +12,8 @@ import { providerConfigAtom } from '../backendState.atoms.ts';
 
 type AcpRuntime = ReturnType<typeof createAcpRuntime>['acpRuntime'];
 
-/** Form / projection base: Success value, else previousSuccess, else product defaults. */
-export const userSettingsDocument = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
+/** Unwrap AsyncResult to UserSettings: Success value, else previousSuccess, else product defaults. */
+export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
   AsyncResult.getOrElse(result, () => defaultSettings);
 
 /** Disable Settings edits only while load is Initial or waiting. */

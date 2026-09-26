@@ -4,7 +4,7 @@ import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 import type { ThemeId } from '../../theme/theme.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
-import { userSettingsAtom, userSettingsDocument } from './userSettings.atoms.ts';
+import { unwrapUserSettings, userSettingsAtom } from './userSettings.atoms.ts';
 
 /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
 export const themeAtom = Atom.writable(
@@ -20,6 +20,6 @@ export const themeAtom = Atom.writable(
   },
   (ctx, id: ThemeId) => {
     writePaintThemeId(id);
-    ctx.set(userSettingsAtom, { ...userSettingsDocument(ctx.get(userSettingsAtom)), theme: id });
+    ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), theme: id });
   },
 ).pipe(Atom.keepAlive);

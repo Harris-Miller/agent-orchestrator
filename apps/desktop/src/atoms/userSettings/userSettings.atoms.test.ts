@@ -13,7 +13,7 @@ import type { Atom } from 'effect/unstable/reactivity';
 import { createAcpRuntime } from '../acpRuntime.atoms.ts';
 import { providerConfigAtom } from '../backendState.atoms.ts';
 
-import { createUserSettingsAtoms, userSettingsDocument } from './userSettings.atoms.ts';
+import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
 const HOMEDIR = '/home/operator';
 const HOME = `${HOMEDIR}/.ao`;
@@ -182,7 +182,7 @@ describe('userSettingsAtom', () => {
 
       const result = yield* awaitSettled(registry, userSettingsAtom);
       assert.ok(AsyncResult.isFailure(result));
-      assert.deepStrictEqual(userSettingsDocument(result), defaultSettings);
+      assert.deepStrictEqual(unwrapUserSettings(result), defaultSettings);
       registry.dispose();
     }),
   );

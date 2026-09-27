@@ -9,13 +9,13 @@ The host environment abstraction — current working directory, allowlisted envi
 _Avoid_: Operating system, platform service, process
 
 **BundledResource** (service):
-Resolve a path relative to the host’s packaged resource root to an absolute filesystem path (desktop Tauri: `resolveResource`; VS Code: extension `asAbsolutePath` / URI).
-_Avoid_: resolveResource, resource path API (when you mean the portable Seam)
+The host capability that turns a path relative to the packaged resource root into an absolute filesystem path.
+_Avoid_: resolveResource, asAbsolutePath, resource path API
 
 **Host**:
-The runtime environment that supplies a live implementation of Host services (Node/Bun today; other hosts later).
+The runtime environment that supplies a live implementation of Host services (desktop Tauri; VS Code later; Node/Bun for non-webview tools).
 _Avoid_: Node, machine, runtime
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, FileSystem, OS, and Path — the Seam injected into host application runtimes (desktop: Host + Atom runtime composition). Desktop fulfills it with Tauri services; other hosts supply their own Live Adapter. Live Layers are composed only in `apps/*`, not by shared UI packages.
+Portable aggregate of BundledResource, ChildProcessSpawner, FileSystem, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

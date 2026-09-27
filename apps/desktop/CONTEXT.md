@@ -25,7 +25,7 @@ Whether deleting a session shows the confirm dialog; stored in User settings; on
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
 **State Atom**:
-Effect Atom that owns produce/update for one reactive piece of Harness UI state. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
+Effect Atom that owns produce/update for one reactive piece of Harness application state. Shared state Atoms live in the ui context; desktop mounts and renders them. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
 _Avoid_: store, reducer, settings service
 
 **Mount Atom**:

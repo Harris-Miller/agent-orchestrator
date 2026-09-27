@@ -1,21 +1,19 @@
 # ui
 
-Shared webview application state (Effect Atoms) and Backend Harness stack for the desktop Agent Harness and the VS Code extension webview. React components stay in host apps until a second consumer mounts them.
+Shared Agent Harness webview context: Backend Harness behavior and Harness application state consumed by the desktop app and (planned) VS Code webview. Host apps still own React surfaces until a second consumer mounts them here.
 
 ## Language
 
-**Backend Harness**:
-The Effect program that spawns an ACP adapter, runs initialize / Config probe / session list, and streams session updates into Atom state.
-_Avoid_: ACP client runtime (when you mean this host-owned program)
+**Harness application state**:
+The reactive Harness state shared across host webviews — backend harness phase and selection, sessions, chat, handoff, and User settings projections.
+_Avoid_: App atoms, store, desktop atoms, Redux
 
-**App atoms**:
-Host-bound Effect Atoms for harness, chat, session lifecycle, handoff, and User settings. Apps call `bindHostRuntime(createHostRuntime(liveLayer))` before importing Atoms (desktop: `createHostRuntime.ts` side-effect, then App). Shared React can import Atoms directly from `@lib/ui`.
-_Avoid_: jotai atoms, Redux store, createAppAtoms host re-export barrel
+**Backend harness**:
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, Config probe, and buffered session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+_Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
-**Phase atoms**:
-Atom projection of per-launch-target bootstrap phase and session selection (`backendState` / `allLaunchTargetPhasesAtom`).
-_Avoid_: Providers state (Providers UI may stay desktop-local)
+**Bootstrap phase**:
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
+_Avoid_: Status, connection state, phase atoms
 
-**Host runtime factory**:
-`createHostRuntime(hostLayer)` builds Atom + ManagedRuntime from portable Host services. `bindHostRuntime` installs the app Live bag into a module slot (`@lib/ui/host-runtime` has no Atom imports — safe to load first). Shared code never imports `*Live` or Tauri.
-_Avoid_: atomRuntime singleton without bind
+For Host services and BundledResource vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session, chat, and Settings terms used by this state still live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md) until VS Code adopts them as a second consumer.

@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { isThemeId, THEME_IDS, themeAtom, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
@@ -6,11 +7,7 @@ import Select from '@mui/material/Select';
 import { ThemeProvider } from '@mui/material/styles';
 import type { FC, ReactNode } from 'react';
 
-import { themeAtom } from '../atoms/userSettings/theme.atoms.ts';
-import { userSettingsAtom, userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
-
-import { THEME_IDS, THEME_LABELS, themes } from './theme.ts';
-import { isThemeId } from './themePaintCache.ts';
+import { THEME_LABELS, themes } from './theme.ts';
 
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
   const themeId = useAtomValue(themeAtom);

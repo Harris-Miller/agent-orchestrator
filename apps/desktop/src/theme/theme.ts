@@ -1,10 +1,6 @@
+import type { ThemeId } from '@lib/ui';
 import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
-
-export const THEME_IDS = ['original', 'latte', 'frappe', 'macchiato', 'mocha'] as const;
-export type ThemeId = (typeof THEME_IDS)[number];
-
-export const DEFAULT_THEME_ID: ThemeId = 'original';
 
 export const THEME_LABELS: Record<ThemeId, string> = {
   frappe: 'Catppuccin Frappé',

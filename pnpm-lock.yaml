@@ -182,6 +182,9 @@ importers:
       '@lib/context-services-tauri':
         specifier: workspace:^
         version: link:../../libs/context-services-tauri
+      '@lib/ui':
+        specifier: workspace:^
+        version: link:../../libs/ui
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../../libs/effect-acp
@@ -527,7 +530,26 @@ importers:
         version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
 
   libs/ui:
+    dependencies:
+      '@lib/ao-home':
+        specifier: workspace:^
+        version: link:../ao-home
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
+      '@libs/effect-acp':
+        specifier: workspace:^
+        version: link:../effect-acp
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
+      '@lib/context-services-tauri':
+        specifier: workspace:^
+        version: link:../context-services-tauri
       '@tooling/eslint':
         specifier: workspace:^
         version: link:../../tooling/eslint

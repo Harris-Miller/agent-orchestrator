@@ -1,4 +1,20 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import type { AgentLaunchTarget, SessionSnapshot, UnifiedRosterEntry } from '@lib/ui';
+import {
+  activateSessionAtomFn,
+  agentLaunchTargetLabel,
+  allLaunchTargetPhasesAtom,
+  backendHarnessStateAtom,
+  confirmSessionDeleteAtom,
+  createSessionAtomFn,
+  deactivateSessionAtomFn,
+  deleteSessionAtomFn,
+  groupAndSortSessionsByCwd,
+  refreshAllSessionRostersAtomFn,
+  selectedSessionIdAtom,
+  selectSessionAtomFn,
+  unifiedSessionRosterAtom,
+} from '@lib/ui';
 import Add from '@mui/icons-material/Add';
 import Delete from '@mui/icons-material/Delete';
 import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
@@ -33,25 +49,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
-import { groupAndSortSessionsByCwd } from '../../acp/acpSessionBootstrap.ts';
-import type { SessionSnapshot, UnifiedRosterEntry } from '../../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import {
-  allLaunchTargetPhasesAtom,
-  backendHarnessStateAtom,
-  selectedSessionIdAtom,
-  unifiedSessionRosterAtom,
-} from '../../atoms/backendState.atoms.ts';
-import {
-  activateSessionAtomFn,
-  createSessionAtomFn,
-  deactivateSessionAtomFn,
-  deleteSessionAtomFn,
-  refreshAllSessionRostersAtomFn,
-  selectSessionAtomFn,
-} from '../../atoms/sessionLifecycle.atoms.ts';
-import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';

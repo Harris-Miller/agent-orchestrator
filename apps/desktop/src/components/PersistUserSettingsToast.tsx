@@ -1,11 +1,10 @@
 import { useAtomValue } from '@effect/atom-react';
+import { persistUserSettingsAtomFn } from '@lib/ui';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import { persistUserSettingsAtomFn } from '../atoms/userSettings/userSettings.atoms.ts';
 
 const PERSIST_FAILURE_MESSAGE = 'Failed to save User Settings to disk.';
 

@@ -1,3 +1,4 @@
+import type { ChatItem } from '@lib/ui';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import Box from '@mui/material/Box';
@@ -10,8 +11,6 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import type { ChatItem } from '../../acp/sessionUpdateReducer.ts';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 

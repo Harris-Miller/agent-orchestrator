@@ -24,6 +24,7 @@
     "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@lib/context-services-tauri": "workspace:^",
+    "@lib/ui": "workspace:^",
     "@libs/effect-acp": "workspace:^",
     "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",

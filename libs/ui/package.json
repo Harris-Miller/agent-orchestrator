@@ -4,14 +4,23 @@
   "type": "module",
   "license": "ISC",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./host-runtime": "./src/hostRuntimeEntry.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@lib/ao-home": "workspace:^",
+    "@lib/context-services": "workspace:^",
+    "@libs/effect-acp": "workspace:^",
+    "effect": "catalog:"
+  },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@lib/context-services-tauri": "workspace:^",
     "@tooling/eslint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",

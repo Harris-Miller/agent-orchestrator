@@ -1,4 +1,12 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
+import type { AgentLaunchTarget, RpcWireEntry } from '@lib/ui';
+import {
+  agentLaunchTargetLabel,
+  ALL_AGENT_LAUNCH_TARGETS,
+  backendHarnessStateAtom,
+  isRecord,
+  rpcWireLogLaunchTargetAtom,
+} from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -11,11 +19,6 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import type { RpcWireEntry } from '../../acp/backendHarness.ts';
-import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
-import { isRecord } from '../../utils.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 export const RPC_WIRE_LOG_PANEL_HEIGHT = 320;

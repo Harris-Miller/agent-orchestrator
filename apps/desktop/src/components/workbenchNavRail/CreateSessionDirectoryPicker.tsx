@@ -1,4 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import type { AgentLaunchTarget } from '@lib/ui';
+import { allLaunchTargetPhasesAtom, createSessionAtomFn } from '@lib/ui';
+import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
@@ -22,7 +25,6 @@ import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
-import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
 import {
   joinDirectory,
   listChildDirectories,
@@ -32,9 +34,6 @@ import {
   resolveHomeDir,
   toTildeBrowsePrefix,
 } from '../../acp/sessionDirectoryBrowser.ts';
-import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
-import { createSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
-import { hostRunPromise } from '../../createHostRuntime.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box

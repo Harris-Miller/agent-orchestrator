@@ -1,3 +1,4 @@
+export { BundledResourceLive } from './BundledResourceLive.ts';
 export { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 export { ConfigProviderLive } from './ConfigProviderLive.ts';
 export { FileSystemLive } from './FileSystemLive.ts';

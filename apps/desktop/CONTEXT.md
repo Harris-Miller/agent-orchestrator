@@ -25,7 +25,7 @@ Whether deleting a session shows the confirm dialog; stored in User settings; on
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
 **State Atom**:
-Effect Atom that owns produce/update for one reactive piece of Harness UI state. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
+Effect Atom that owns produce/update for one reactive piece of Harness application state. Shared state Atoms live in the ui context; desktop mounts and renders them. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
 _Avoid_: store, reducer, settings service
 
 **Mount Atom**:
@@ -179,7 +179,7 @@ The Tauri host process current working directory from the OS service. Used for p
 _Avoid_: Session cwd
 
 **Host services**:
-Portable aggregate of ChildProcessSpawner, FileSystem, OS, and Path — see [`libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md). Injected once at desktop Host + Atom runtime composition; desktop fulfills it with Tauri services.
+Portable aggregate of BundledResource, ChildProcessSpawner, FileSystem, OS, and Path — see [`libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md). Injected once at desktop Host + Atom runtime composition; desktop fulfills it with Tauri services.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)
 
 **Tauri services**:

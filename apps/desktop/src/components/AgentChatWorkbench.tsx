@@ -1,6 +1,7 @@
 import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
+import { isRecord, selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -9,9 +10,6 @@ import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
-
-import { selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '../atoms/backendState.atoms.ts';
-import { isRecord } from '../utils.ts';
 
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
 import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';

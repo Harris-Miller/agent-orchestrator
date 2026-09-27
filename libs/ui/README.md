@@ -1,8 +1,6 @@
 # @lib/ui
 
-Shared React UI for Agent Orchestrator hosts (`apps/desktop`, `apps/vscode`).
-
-Move components here only when a second consumer needs them.
+Shared webview harness stack (Backend Harness Effects, Bootstrap phase and Harness application state, session bootstrap) for Agent Orchestrator hosts (`apps/desktop`, `apps/vscode`). Hosts compose Live Host Layers; this package does not import Tauri or `*Live` adapters.
 
 ## Scripts
 

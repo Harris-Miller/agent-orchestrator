@@ -111,7 +111,7 @@ describe('userSettingsAtom', () => {
   it.effect('set updates memory Success, persists, and read-back matches', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime, hostServicesLayer } = createAcpRuntime(hostLayer(store));
+      const { acpRuntime } = createAcpRuntime(hostLayer(store));
       const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
@@ -127,7 +127,7 @@ describe('userSettingsAtom', () => {
       const persisted = yield* awaitSettled(registry, persistUserSettingsAtomFn);
       assert.ok(AsyncResult.isSuccess(persisted));
 
-      const disk = yield* readUserSettings().pipe(Effect.provide(hostServicesLayer));
+      const disk = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
       assert.deepStrictEqual(disk, next);
       registry.dispose();
     }),
@@ -136,7 +136,7 @@ describe('userSettingsAtom', () => {
   it.effect('restore via set(defaultSettings) clears prefs on disk', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime, hostServicesLayer } = createAcpRuntime(hostLayer(store));
+      const { acpRuntime } = createAcpRuntime(hostLayer(store));
       const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
@@ -149,7 +149,7 @@ describe('userSettingsAtom', () => {
       registry.set(userSettingsAtom, defaultSettings);
       yield* awaitSettled(registry, persistUserSettingsAtomFn);
 
-      const disk = yield* readUserSettings().pipe(Effect.provide(hostServicesLayer));
+      const disk = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
       assert.deepStrictEqual(disk, defaultSettings);
       assert.deepStrictEqual(AsyncResult.getOrThrow(registry.get(userSettingsAtom)), defaultSettings);
       registry.dispose();

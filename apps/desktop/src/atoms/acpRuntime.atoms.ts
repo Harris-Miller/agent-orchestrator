@@ -8,10 +8,10 @@ import { Atom } from 'effect/unstable/reactivity';
 export const createAcpRuntime = (hostLayer: Layer.Layer<HostServices>) => {
   const acpRuntime = Atom.runtime(() => hostLayer);
   const hostRuntime = ManagedRuntime.make(hostLayer);
-  return { acpRuntime, hostRuntime, hostServicesLayer: hostLayer };
+  return { acpRuntime, hostRuntime };
 };
 
-export const { acpRuntime, hostRuntime, hostServicesLayer } = createAcpRuntime(TauriServicesLive);
+export const { acpRuntime, hostRuntime } = createAcpRuntime(TauriServicesLive);
 
 export const runHost = hostRuntime.runPromise;
 export const runHostExit = hostRuntime.runPromiseExit;

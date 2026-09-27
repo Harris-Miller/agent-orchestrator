@@ -25,9 +25,9 @@ const mockHostLayer = Layer.mergeAll(mockOsLayer, layerNoop({}), posixPathLayer,
 describe('createAcpRuntime', () => {
   it.effect('provides Host services to acpRuntime.fn without Tauri', () =>
     Effect.gen(function* () {
-      const { acpRuntime, hostServicesLayer } = createAcpRuntime(mockHostLayer);
+      const { acpRuntime } = createAcpRuntime(mockHostLayer);
 
-      const viaLayer = yield* OS.pipe(Effect.provide(hostServicesLayer));
+      const viaLayer = yield* OS.pipe(Effect.provide(mockHostLayer));
       assert.strictEqual(viaLayer.homedir(), '/home/operator');
 
       const readHomedirAtom = acpRuntime.fn(() =>

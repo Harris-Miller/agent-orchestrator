@@ -9,7 +9,7 @@ import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 
-import { acpRuntime, hostServicesLayer } from './acpRuntime.atoms.ts';
+import { acpRuntime, hostRuntime } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
@@ -85,9 +85,8 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
           }));
 
           if (result.usageChanged && result.session.usage !== undefined) {
-            Effect.runFork(
+            hostRuntime.runFork(
               writeSessionUsage(sessionId, result.session.usage).pipe(
-                Effect.provide(hostServicesLayer),
                 Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
               ),
             );

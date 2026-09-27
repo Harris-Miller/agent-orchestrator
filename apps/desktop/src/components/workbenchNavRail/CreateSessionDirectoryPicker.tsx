@@ -34,7 +34,7 @@ import {
 } from '../../acp/sessionDirectoryBrowser.ts';
 import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import { createSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
-import { runHost } from '../../createHostRuntime.ts';
+import { hostRunPromise } from '../../createHostRuntime.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box
@@ -90,10 +90,10 @@ export const CreateSessionDirectoryPicker: FC<{
   useEffect(() => {
     const abort = new AbortController();
 
-    runHost(resolveHomeDir())
+    hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await runHost(listChildDirectories(normalizedHome));
+        const dirs = await hostRunPromise(listChildDirectories(normalizedHome));
         if (abort.signal.aborted) {
           return;
         }
@@ -125,7 +125,7 @@ export const CreateSessionDirectoryPicker: FC<{
     setLoading(true);
     setError(undefined);
     setFilter('');
-    runHost(listChildDirectories(nextPath))
+    hostRunPromise(listChildDirectories(nextPath))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);
@@ -144,7 +144,7 @@ export const CreateSessionDirectoryPicker: FC<{
     if (browsePath === undefined || homePath === undefined || browsePath === homePath) {
       return;
     }
-    runHost(parentDirectory(browsePath))
+    hostRunPromise(parentDirectory(browsePath))
       .then(parent => {
         loadDirectory(parent);
       })
@@ -161,7 +161,7 @@ export const CreateSessionDirectoryPicker: FC<{
       navigateParent();
       return;
     }
-    runHost(joinDirectory(browsePath, name))
+    hostRunPromise(joinDirectory(browsePath, name))
       .then(next => {
         loadDirectory(next);
       })

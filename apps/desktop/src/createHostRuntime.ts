@@ -13,5 +13,7 @@ export const createHostRuntime = (hostLayer: Layer.Layer<HostServices>) => {
 
 export const { atomRuntime, hostRuntime } = createHostRuntime(TauriServicesLive);
 
-export const runHost = hostRuntime.runPromise;
-export const runHostExit = hostRuntime.runPromiseExit;
+export const hostRun = hostRuntime.runSync;
+export const hostRunFork = hostRuntime.runFork;
+export const hostRunPromise = hostRuntime.runPromise;
+export const hostRunPromiseExit = hostRuntime.runPromiseExit;

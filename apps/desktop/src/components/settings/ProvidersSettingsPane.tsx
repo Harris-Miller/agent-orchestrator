@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC } from 'react';
 
-import { restartBackendAtomFn } from '../../atoms/harness.atoms.ts';
+import { restartBackendAtomFn } from '../../createHostRuntime.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {

@@ -1,8 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
-import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '@lib/ui';
-import type { BackendHarnessSnapshot } from '@lib/ui';
 import { Effect, Fiber } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
+
+import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
 
 import { withSessionClientRequest } from './sessionPatch.atoms.ts';
 

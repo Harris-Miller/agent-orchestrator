@@ -44,13 +44,13 @@ import type { FC, MouseEvent } from 'react';
 
 import {
   activateSessionAtomFn,
+  confirmSessionDeleteAtom,
   createSessionAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   refreshAllSessionRostersAtomFn,
   selectSessionAtomFn,
-} from '../../atoms/sessionLifecycle.atoms.ts';
-import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
+} from '../../createHostRuntime.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';

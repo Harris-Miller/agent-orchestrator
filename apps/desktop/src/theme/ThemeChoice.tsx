@@ -6,8 +6,7 @@ import Select from '@mui/material/Select';
 import { ThemeProvider } from '@mui/material/styles';
 import type { FC, ReactNode } from 'react';
 
-import { themeAtom } from '../atoms/userSettings/theme.atoms.ts';
-import { userSettingsAtom, userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+import { themeAtom, userSettingsAtom, userSettingsEditsDisabled } from '../createHostRuntime.ts';
 
 import { THEME_IDS, THEME_LABELS, themes } from './theme.ts';
 import { isThemeId } from './themePaintCache.ts';

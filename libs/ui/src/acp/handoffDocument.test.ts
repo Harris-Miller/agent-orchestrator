@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
-import type { ChatItem } from '@lib/ui';
 
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from './handoffDocument.ts';
+import type { ChatItem } from './sessionUpdateReducer.ts';
 
 const agentMessage = (id: string, text: string): ChatItem => ({
   id,

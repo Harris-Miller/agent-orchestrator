@@ -1,7 +1,7 @@
 import { useAtomMount } from '@effect/atom-react';
 import type { FC } from 'react';
 
-import { backendHarnessAtom } from '../atoms/harness.atoms.ts';
+import { backendHarnessAtom } from '../createHostRuntime.ts';
 
 export const AcpBackendsMount: FC = () => {
   useAtomMount(backendHarnessAtom('codex-acp'));

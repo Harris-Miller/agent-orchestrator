@@ -5,7 +5,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { persistUserSettingsAtomFn } from '../atoms/userSettings/userSettings.atoms.ts';
+import { persistUserSettingsAtomFn } from '../createHostRuntime.ts';
 
 const PERSIST_FAILURE_MESSAGE = 'Failed to save User Settings to disk.';
 

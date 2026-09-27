@@ -25,8 +25,7 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { confirmSessionDeleteAtom } from '../../atoms/userSettings/confirmSessionDelete.atoms.ts';
-import { userSettingsAtom, userSettingsEditsDisabled } from '../../atoms/userSettings/userSettings.atoms.ts';
+import { confirmSessionDeleteAtom, userSettingsAtom, userSettingsEditsDisabled } from '../../createHostRuntime.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';

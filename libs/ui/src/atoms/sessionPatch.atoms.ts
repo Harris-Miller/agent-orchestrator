@@ -1,10 +1,15 @@
-/** Session snapshot patch helpers + desktop-only session client request orchestration. */
-import type { AgentLaunchTarget, PendingClientRequestKind } from '@lib/ui';
-import { backendHarnessStateAtom, patchSession, sendPrompt } from '@lib/ui';
+/** Session snapshot patch helpers + session client request orchestration. */
 import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 
-export { patchSession, upsertSession } from '@lib/ui';
+import type { PendingClientRequestKind } from '../acp/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
+import { sendPrompt } from '../acp/sessionRpc.ts';
+
+import { backendHarnessStateAtom } from './backendState.atoms.ts';
+import { patchSession, upsertSession } from './sessionSnapshot.ts';
+
+export { patchSession, upsertSession };
 
 /** session/prompt; soft-succeed with cancelled if Prompt turn cancel was requested. */
 export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* (

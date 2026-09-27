@@ -4,10 +4,11 @@ import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import type { createHostRuntime } from '../../createHostRuntime.ts';
-import { atomRuntime } from '../../createHostRuntime.ts';
+import type { HostRuntimeBag } from '../../createHostRuntime.ts';
+import type { ThemeId } from '../../theme/themeId.ts';
+import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
-type AtomRuntime = ReturnType<typeof createHostRuntime>['atomRuntime'];
+type AtomRuntime = HostRuntimeBag['atomRuntime'];
 
 /** Unwrap AsyncResult to UserSettings: Success value, else previousSuccess, else product defaults. */
 export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
@@ -16,6 +17,9 @@ export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettin
 /** Disable Settings edits only while load is Initial or waiting. */
 export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): boolean =>
   AsyncResult.isInitial(result) || result.waiting;
+
+/** Prefer confirming session delete when the Settings field is unset. */
+export const confirmSessionDeleteEnabled = (settings: UserSettings): boolean => settings.confirmSessionDelete !== false;
 
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
@@ -47,10 +51,30 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
-  return { persistUserSettingsAtomFn, userSettingsAtom };
+  /** Effective confirm-before-delete preference (on when unset). Write patches User settings. */
+  const confirmSessionDeleteAtom = Atom.writable(
+    get => confirmSessionDeleteEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), confirmSessionDelete: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
+  const themeAtom = Atom.writable(
+    get => {
+      const settings = get(userSettingsAtom);
+      if (!AsyncResult.isSuccess(settings)) {
+        return readPaintThemeId();
+      }
+      const themeId = clampThemeId(settings.value.theme);
+      writePaintThemeId(themeId);
+      return themeId;
+    },
+    (ctx, id: ThemeId) => {
+      writePaintThemeId(id);
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), theme: id });
+    },
+  ).pipe(Atom.keepAlive);
+
+  return { confirmSessionDeleteAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom };
 };
-
-const settingsAtoms = createUserSettingsAtoms(atomRuntime);
-
-export const { userSettingsAtom } = settingsAtoms;
-export const { persistUserSettingsAtomFn } = settingsAtoms;

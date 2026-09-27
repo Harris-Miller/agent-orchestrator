@@ -32,15 +32,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import {
+  activateSessionAtomFn,
   cancelPromptAtomFn,
   draftAtom,
+  handoffInProgressAtom,
+  handoffSessionAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
-} from '../../atoms/chat.atoms.ts';
-import { handoffInProgressAtom, handoffSessionAtomFn } from '../../atoms/handoff.atoms.ts';
-import { activateSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
+} from '../../createHostRuntime.ts';
 import { isRecord } from '../../utils.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 import { UsagePopover } from '../shared/UsageCard.tsx';

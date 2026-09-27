@@ -1,15 +1,24 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget } from '@lib/ui';
 import {
+  activateSessionAtomFn,
   agentLaunchTargetLabel,
+  cancelPromptAtomFn,
   configOptionIndexAtom,
+  draftAtom,
+  handoffInProgressAtom,
+  handoffSessionAtomFn,
   normalizeSelectableConfigOptions,
   readyLaunchTargetsAtom,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
   rpcWireLogSnapshotAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  sendChatItemAtomFn,
+  setConfigOptionAtomFn,
   unifiedSessionRosterAtom,
 } from '@lib/ui';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
@@ -31,17 +40,6 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import {
-  activateSessionAtomFn,
-  cancelPromptAtomFn,
-  draftAtom,
-  handoffInProgressAtom,
-  handoffSessionAtomFn,
-  respondElicitationAtomFn,
-  respondPermissionAtomFn,
-  sendChatItemAtomFn,
-  setConfigOptionAtomFn,
-} from '../../createHostRuntime.ts';
 import { isRecord } from '../../utils.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 import { UsagePopover } from '../shared/UsageCard.tsx';

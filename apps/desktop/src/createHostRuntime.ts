@@ -1,48 +1,16 @@
-/** Desktop Host runtime + bound app Atoms (Tauri Live). */
+/** Desktop Host runtime bind (Tauri Live). Import this module before any @lib/ui Atoms. */
 import { TauriServicesLive } from '@lib/context-services-tauri';
-import { createAppAtoms, createHostRuntime } from '@lib/ui';
+import { bindHostRuntime, createHostRuntime } from '@lib/ui/host-runtime';
 
-export { createHostRuntime } from '@lib/ui';
-
-export const hostRuntimeBag = createHostRuntime(TauriServicesLive);
-
-export const { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, hostRuntime } = hostRuntimeBag;
-
-export const {
-  activateSessionAtomFn,
-  backendHarnessAtom,
-  cancelPromptAtomFn,
-  confirmSessionDeleteAtom,
-  createSessionAtomFn,
-  deactivateSessionAtomFn,
-  deleteSessionAtomFn,
-  handoffSessionAtomFn,
-  persistUserSettingsAtomFn,
-  refreshAllSessionRostersAtomFn,
-  refreshSessionRosterAtomFn,
-  respondElicitationAtomFn,
-  respondPermissionAtomFn,
-  restartBackendAtomFn,
-  selectSessionAtomFn,
-  sendChatItemAtomFn,
-  setConfigOptionAtomFn,
-  themeAtom,
-  userSettingsAtom,
-} = createAppAtoms(hostRuntimeBag);
+bindHostRuntime(createHostRuntime(TauriServicesLive));
 
 export {
-  allLaunchTargetPhasesAtom,
-  backendHarnessStateAtom,
-  draftAtom,
-  handoffInProgressAtom,
-  readyLaunchTargetsAtom,
-  rpcWireLogLaunchTargetAtom,
-  rpcWireLogSnapshotAtom,
-  selectedBackendHarnessSnapshotAtom,
-  selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-  unifiedSessionRosterAtom,
-  unwrapUserSettings,
-  userSettingsEditsDisabled,
-} from '@lib/ui';
+  atomRuntime,
+  bindHostRuntime,
+  createHostRuntime,
+  hostRun,
+  hostRunFork,
+  hostRunPromise,
+  hostRunPromiseExit,
+  hostRuntime,
+} from '@lib/ui/host-runtime';

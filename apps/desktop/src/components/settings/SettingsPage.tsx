@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { defaultSettings } from '@lib/ao-home';
+import { confirmSessionDeleteAtom, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -25,7 +26,6 @@ import { AsyncResult } from 'effect/unstable/reactivity';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { confirmSessionDeleteAtom, userSettingsAtom, userSettingsEditsDisabled } from '../../createHostRuntime.ts';
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
 
 import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';

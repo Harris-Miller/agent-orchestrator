@@ -1,11 +1,18 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget, SessionSnapshot, UnifiedRosterEntry } from '@lib/ui';
 import {
+  activateSessionAtomFn,
   agentLaunchTargetLabel,
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
+  confirmSessionDeleteAtom,
+  createSessionAtomFn,
+  deactivateSessionAtomFn,
+  deleteSessionAtomFn,
   groupAndSortSessionsByCwd,
+  refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
+  selectSessionAtomFn,
   unifiedSessionRosterAtom,
 } from '@lib/ui';
 import Add from '@mui/icons-material/Add';
@@ -42,15 +49,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
-import {
-  activateSessionAtomFn,
-  confirmSessionDeleteAtom,
-  createSessionAtomFn,
-  deactivateSessionAtomFn,
-  deleteSessionAtomFn,
-  refreshAllSessionRostersAtomFn,
-  selectSessionAtomFn,
-} from '../../createHostRuntime.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';

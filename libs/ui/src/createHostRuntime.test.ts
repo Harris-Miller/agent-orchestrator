@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { OS } from '@lib/context-services';
+import { BundledResource, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -15,12 +15,22 @@ const mockOsLayer = Layer.succeed(OS, {
   platform: () => 'linux',
 });
 
+const mockBundledResourceLayer = Layer.succeed(BundledResource, {
+  resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
+});
+
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in createHostRuntime smoke test'))),
 );
 
-const mockHostLayer = Layer.mergeAll(mockOsLayer, layerNoop({}), posixPathLayer, mockSpawnerLayer);
+const mockHostLayer = Layer.mergeAll(
+  mockBundledResourceLayer,
+  mockOsLayer,
+  layerNoop({}),
+  posixPathLayer,
+  mockSpawnerLayer,
+);
 
 describe('createHostRuntime', () => {
   it.effect('provides Host services to atomRuntime.fn without Tauri', () =>

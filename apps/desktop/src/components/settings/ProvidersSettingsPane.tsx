@@ -1,4 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import type { AcpBootstrapPhase } from '@lib/ui';
+import { allLaunchTargetPhasesAtom } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -10,8 +12,6 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC } from 'react';
 
-import type { AcpBootstrapPhase } from '../../acp/acpSessionBootstrap.ts';
-import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import { restartBackendAtomFn } from '../../atoms/harness.atoms.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {

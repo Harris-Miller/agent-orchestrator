@@ -1,3 +1,12 @@
+import { normalizeInitialize, normalizeSession } from '@lib/ui';
+import type {
+  AvailableCommand,
+  NormalizedCapability,
+  NormalizedConfigOption,
+  NormalizedMode,
+  NormalizedModel,
+  SessionSnapshot,
+} from '@lib/ui';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
@@ -9,15 +18,6 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
-import { normalizeInitialize, normalizeSession } from '../../acp/acpSessionBootstrap.ts';
-import type {
-  NormalizedCapability,
-  NormalizedConfigOption,
-  NormalizedMode,
-  NormalizedModel,
-  SessionSnapshot,
-} from '../../acp/acpSessionBootstrap.ts';
-import type { AvailableCommand } from '../../acp/sessionUpdateReducer.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 import { UsageCard } from '../shared/UsageCard.tsx';
 

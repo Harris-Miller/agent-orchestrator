@@ -1,17 +1,22 @@
 /** Cross-launch-target session handoff Atom fns. */
+import type { AgentLaunchTarget } from '@lib/ui';
+import {
+  agentLaunchTargetLabel,
+  backendHarnessStateAtom,
+  createSession,
+  selectSession,
+  setConfigOption,
+  unifiedSessionRosterAtom,
+  upsertRosterEntry,
+  withUserChatMessage,
+} from '@lib/ui';
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { upsertRosterEntry } from '../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
-import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 import { atomRuntime } from '../createHostRuntime.ts';
 
-import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, upsertSession, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 /** True while a multi-step Handoff pipeline is running (covers gaps between RPCs). */

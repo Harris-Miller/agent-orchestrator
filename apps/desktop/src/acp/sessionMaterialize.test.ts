@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
+import { initialSessionSnapshot } from '@lib/ui';
 import { Effect } from 'effect';
 
-import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from './sessionMaterialize.ts';
 
 describe('buildActivatedSession cwd continuity', () => {

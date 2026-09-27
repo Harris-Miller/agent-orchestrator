@@ -1,22 +1,25 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
+
+import type { AgentLaunchTarget } from '@lib/ui';
+import {
+  applySetConfigOptionResult,
+  backendHarnessStateAtom,
+  cancelSession,
+  getPromptSpan,
+  markNonFinishedToolCallsCancelled,
+  normalizeConfigOptions,
+  patchConfigOptionValue,
+  selectedSessionIdAtom,
+  selectionFromSessionConfiguration,
+  setConfigOption,
+  withUserChatMessage,
+} from '@lib/ui';
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import {
-  applySetConfigOptionResult,
-  normalizeConfigOptions,
-  patchConfigOptionValue,
-  selectionFromSessionConfiguration,
-} from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
-import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
-import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
 import { atomRuntime } from '../createHostRuntime.ts';
 
-import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));

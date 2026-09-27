@@ -1,15 +1,15 @@
 /** Staged Materialize helpers: roster entry, config diffs, activated session snapshot. */
-import { Effect, Exit } from 'effect';
 
+import type { NormalizedSessionInfo, SessionSnapshot } from '@lib/ui';
 import {
   applySetConfigOptionResult,
+  emptySessionTranscript,
   normalizeSelectableConfigOptions,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
-} from './acpSessionBootstrap.ts';
-import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
-import { emptySessionTranscript } from './sessionUpdateReducer.ts';
+} from '@lib/ui';
+import { Effect, Exit } from 'effect';
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
 export type SessionActivationCarry = Partial<

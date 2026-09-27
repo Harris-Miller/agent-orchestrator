@@ -13,13 +13,13 @@ import type {
 import { Effect, Exit, Ref } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
-import type { MissingLaunchPrerequisite } from './acpAdapterCommand.ts';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
+import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 

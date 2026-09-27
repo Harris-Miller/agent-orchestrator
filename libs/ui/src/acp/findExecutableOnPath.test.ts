@@ -1,25 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
-import { OS } from '@lib/context-services';
+import { BundledResource, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
-import { resolveResource } from '@tauri-apps/api/path';
 import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/unstable/process';
-import { beforeEach, vi } from 'vitest';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';
-
-vi.mock('@tauri-apps/api/path', () => ({
-  resolveResource: vi.fn(),
-}));
-
-const mockedResolveResource = vi.mocked(resolveResource);
-
-beforeEach(() => {
-  mockedResolveResource.mockReset();
-});
 
 const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
   Layer.succeed(OS, {
@@ -33,6 +21,10 @@ const fsLayer = (existing: ReadonlySet<string>) =>
   layerNoop({
     exists: path => Effect.succeed(existing.has(path)),
   });
+
+const bundledResourceLayer = Layer.succeed(BundledResource, {
+  resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
+});
 
 const authOkSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
@@ -89,7 +81,7 @@ const adapterServices = (
   env: Readonly<Record<string, string>>,
   existing: ReadonlySet<string>,
   authLayer: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner> = authOkSpawnerLayer,
-) => Layer.mergeAll(pathServices(env, existing), authLayer);
+) => Layer.mergeAll(pathServices(env, existing), authLayer, bundledResourceLayer);
 
 describe('findExecutableOnPath', () => {
   it.effect('returns the first matching PATH entry', () =>
@@ -137,9 +129,6 @@ describe('findExecutableOnPath', () => {
 describe('makeAcpAdapterCommand', () => {
   it.effect('builds node + entry with CODEX_PATH when prerequisites exist', () =>
     Effect.gen(function* () {
-      mockedResolveResource.mockResolvedValue(
-        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
-      );
       const command = yield* makeAcpAdapterCommand('codex-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
@@ -159,9 +148,6 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('builds node + entry with CLAUDE_CODE_EXECUTABLE when prerequisites exist', () =>
     Effect.gen(function* () {
-      mockedResolveResource.mockResolvedValue(
-        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js',
-      );
       const command = yield* makeAcpAdapterCommand('claude-agent-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
@@ -175,16 +161,12 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('fails without spawning when vendor CLI is missing', () =>
     Effect.gen(function* () {
-      mockedResolveResource.mockResolvedValue(
-        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
-      );
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       if (error._tag !== 'MissingLaunchPrerequisite') {
         return;
       }
       assert.strictEqual(error.executable, 'codex');
-      assert.strictEqual(mockedResolveResource.mock.calls.length, 1);
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
 
@@ -196,15 +178,11 @@ describe('makeAcpAdapterCommand', () => {
         return;
       }
       assert.strictEqual(error.executable, 'node');
-      assert.strictEqual(mockedResolveResource.mock.calls.length, 0);
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/codex'])))),
   );
 
   it.effect('fails when vendor CLI is present but unauthenticated', () =>
     Effect.gen(function* () {
-      mockedResolveResource.mockResolvedValue(
-        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
-      );
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       if (error._tag !== 'MissingLaunchPrerequisite') {

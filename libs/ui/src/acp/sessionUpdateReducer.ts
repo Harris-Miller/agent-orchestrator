@@ -2,7 +2,7 @@
 
 import type { SessionUsageDocument } from '@lib/ao-home';
 
-import { isRecord } from '../utils.ts';
+import { isRecord } from '../isRecord.ts';
 
 export type PlanEntry = {
   readonly content: string;

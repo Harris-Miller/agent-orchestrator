@@ -1,14 +1,12 @@
 /**
- * Provider launch for Codex/Claude ACP adapters from the Tauri adapter resource tree.
+ * Provider launch for Codex/Claude ACP adapters from the host adapter resource tree.
  */
-import { resolveResource } from '@tauri-apps/api/path';
+import { BundledResource } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
-
-export { MissingLaunchPrerequisite };
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -28,16 +26,15 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
   function* (launchTarget: AcpAdapterLaunchTarget) {
     const resourcePath = adapterEntryResource[launchTarget];
     yield* Effect.logDebug('Resolving ACP adapter resource', launchTarget, resourcePath);
-    return yield* Effect.tryPromise({
-      catch: cause =>
-        new MissingLaunchPrerequisite({
-          executable: resourcePath,
-          message: `ACP adapter resource not found (${resourcePath}): ${
-            cause instanceof Error ? cause.message : String(cause)
-          }`,
-        }),
-      try: () => resolveResource(resourcePath),
-    }).pipe(
+    const bundled = yield* BundledResource;
+    return yield* bundled.resolve(resourcePath).pipe(
+      Effect.mapError(
+        error =>
+          new MissingLaunchPrerequisite({
+            executable: resourcePath,
+            message: `ACP adapter resource not found (${resourcePath}): ${error.message}`,
+          }),
+      ),
       Effect.tap(entry => Effect.logInfo('Resolved ACP adapter entry', launchTarget, entry)),
       Effect.tapError(error => Effect.logError('ACP adapter resource missing', launchTarget, error.message)),
     );

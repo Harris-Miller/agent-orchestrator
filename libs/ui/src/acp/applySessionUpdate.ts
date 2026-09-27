@@ -1,5 +1,5 @@
 /** Session update apply: one inbound session/update → next snapshot (+ roster title). */
-import { isRecord } from '../utils.ts';
+import { isRecord } from '../isRecord.ts';
 
 import { applySessionInfoTitle, applySetConfigOptionResult, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';

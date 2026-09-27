@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { OS } from '@lib/context-services';
+import { BundledResource, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -25,6 +25,10 @@ const osLayer = Layer.succeed(OS, {
   env: () => ({}),
   homedir: () => HOMEDIR,
   platform: () => 'linux',
+});
+
+const bundledResourceLayer = Layer.succeed(BundledResource, {
+  resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
 });
 
 const notFound = (method: string, path: string) =>
@@ -72,7 +76,7 @@ const mockSpawnerLayer = Layer.succeed(
 );
 
 const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof mapFsLayer>[1]) =>
-  Layer.mergeAll(osLayer, mapFsLayer(store, overrides), posixPathLayer, mockSpawnerLayer);
+  Layer.mergeAll(bundledResourceLayer, osLayer, mapFsLayer(store, overrides), posixPathLayer, mockSpawnerLayer);
 
 const awaitSettled = <A, E>(
   registry: AtomRegistry.AtomRegistry,

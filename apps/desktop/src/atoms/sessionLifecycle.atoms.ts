@@ -1,33 +1,29 @@
 /** Session roster / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
-import { Effect, Exit, Option } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
-
+import type { AgentLaunchTarget } from '@lib/ui';
 import {
-  defectsFromActivationFailure,
-  normalizeSessionRoster,
-  resolveSessionCwd,
-  upsertRosterEntry,
-} from '../acp/acpSessionBootstrap.ts';
-import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
-import {
+  ALL_AGENT_LAUNCH_TARGETS,
+  backendHarnessStateAtom,
+  clearSelectedSessionIfMissing,
   closeSession,
   createSession,
+  defectsFromActivationFailure,
   deleteSession,
   listSessions,
   loadSession,
+  normalizeSessionRoster,
+  resolveSessionCwd,
   resumeSession,
-} from '../acp/sessionRpc.ts';
-import { atomRuntime } from '../createHostRuntime.ts';
-
-import {
-  backendHarnessStateAtom,
-  clearSelectedSessionIfMissing,
   selectedSessionIdAtom,
   selectSession,
-} from './backendState.atoms.ts';
+  upsertRosterEntry,
+} from '@lib/ui';
+import { Effect, Exit, Option } from 'effect';
+import { Atom } from 'effect/unstable/reactivity';
+
+import { buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
+import { atomRuntime } from '../createHostRuntime.ts';
+
 import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
 export const selectSessionAtomFn = atomRuntime

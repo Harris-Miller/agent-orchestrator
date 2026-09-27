@@ -4,7 +4,7 @@
 import { Effect, Ref, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
-import { isRecord } from '../utils.ts';
+import { isRecord } from '../isRecord.ts';
 
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 

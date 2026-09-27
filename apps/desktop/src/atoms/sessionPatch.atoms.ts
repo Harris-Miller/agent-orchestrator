@@ -1,30 +1,10 @@
-/** Session snapshot patch helpers shared by ACP atom actions. */
+/** Session snapshot patch helpers + desktop-only session client request orchestration. */
+import type { AgentLaunchTarget, PendingClientRequestKind } from '@lib/ui';
+import { backendHarnessStateAtom, patchSession, sendPrompt } from '@lib/ui';
 import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 
-import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { PendingClientRequestKind, SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { sendPrompt } from '../acp/sessionRpc.ts';
-
-import { backendHarnessStateAtom } from './backendState.atoms.ts';
-
-export const upsertSession = (
-  sessions: Readonly<Record<string, SessionSnapshot>>,
-  session: SessionSnapshot,
-): Readonly<Record<string, SessionSnapshot>> => ({
-  ...sessions,
-  [session.sessionId]: session,
-});
-
-export const patchSession = (
-  sessions: Readonly<Record<string, SessionSnapshot>>,
-  sessionId: string,
-  patch: (current: SessionSnapshot) => SessionSnapshot,
-): Readonly<Record<string, SessionSnapshot>> => {
-  const current = sessions[sessionId] ?? initialSessionSnapshot(sessionId);
-  return upsertSession(sessions, patch(current));
-};
+export { patchSession, upsertSession } from '@lib/ui';
 
 /** session/prompt; soft-succeed with cancelled if Prompt turn cancel was requested. */
 export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* (

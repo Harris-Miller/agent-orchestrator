@@ -1,4 +1,17 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import type { AgentLaunchTarget } from '@lib/ui';
+import {
+  agentLaunchTargetLabel,
+  configOptionIndexAtom,
+  normalizeSelectableConfigOptions,
+  readyLaunchTargetsAtom,
+  rpcWireLogSnapshotAtom,
+  selectedBackendHarnessSnapshotAtom,
+  selectedSessionAtom,
+  selectedSessionIdAtom,
+  selectedSessionLaunchTargetAtom,
+  unifiedSessionRosterAtom,
+} from '@lib/ui';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Stop from '@mui/icons-material/Stop';
@@ -18,19 +31,6 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { normalizeSelectableConfigOptions } from '../../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel } from '../../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import {
-  configOptionIndexAtom,
-  readyLaunchTargetsAtom,
-  rpcWireLogSnapshotAtom,
-  selectedBackendHarnessSnapshotAtom,
-  selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-  unifiedSessionRosterAtom,
-} from '../../atoms/backendState.atoms.ts';
 import {
   cancelPromptAtomFn,
   draftAtom,

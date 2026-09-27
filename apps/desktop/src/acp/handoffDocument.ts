@@ -1,6 +1,6 @@
 /** Handoff prompt text and extraction from chat items. */
 
-import type { ChatItem } from './sessionUpdateReducer.ts';
+import type { ChatItem } from '@lib/ui';
 
 export const SOURCE_HANDOFF_PROMPT = `Write a handoff document summarizing the current conversation so a fresh agent can continue the work.
 

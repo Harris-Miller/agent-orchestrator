@@ -3,7 +3,7 @@
 import type { SessionUsageDocument } from '@lib/ao-home';
 import type { Cause } from 'effect';
 
-import { isRecord } from '../utils.ts';
+import { isRecord } from '../isRecord.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { RpcWireEntry } from './backendHarness.ts';

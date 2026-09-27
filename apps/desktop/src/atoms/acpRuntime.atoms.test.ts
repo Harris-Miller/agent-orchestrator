@@ -61,4 +61,20 @@ describe('createAcpRuntime', () => {
       registry.dispose();
     }),
   );
+
+  it.effect('provides Host services via hostRuntime.runPromise without Tauri', () =>
+    Effect.gen(function* () {
+      const { hostRuntime } = createAcpRuntime(mockHostLayer);
+      const home = yield* Effect.promise(() =>
+        hostRuntime.runPromise(
+          Effect.gen(function* () {
+            const os = yield* OS;
+            return os.homedir();
+          }),
+        ),
+      );
+      assert.strictEqual(home, '/home/operator');
+      yield* Effect.promise(() => hostRuntime.dispose());
+    }),
+  );
 });

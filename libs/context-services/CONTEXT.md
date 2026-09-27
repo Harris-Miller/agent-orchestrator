@@ -13,5 +13,5 @@ The runtime environment that supplies a live implementation of the OS service (N
 _Avoid_: Node, machine, runtime
 
 **Host services**:
-Portable aggregate of ChildProcessSpawner, FileSystem, OS, and Path — the Seam injected into the ACP Atom runtime. Desktop fulfills it with Tauri services; other hosts supply their own Live Adapter.
+Portable aggregate of ChildProcessSpawner, FileSystem, OS, and Path — the Seam injected into host application runtimes (desktop: Host + Atom runtime composition). Desktop fulfills it with Tauri services; other hosts supply their own Live Adapter.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

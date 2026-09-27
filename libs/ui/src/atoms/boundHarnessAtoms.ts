@@ -1,6 +1,6 @@
 /**
  * Module-level Atoms bound to {@link bindHostRuntime}'s Host runtime slot.
- * Load only after the app calls bind (desktop: import `./createHostRuntime.ts` first).
+ * Load only after the app calls bind (desktop: import `./bindHostRuntime.ts` first).
  */
 import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, hostRuntime } from '../hostRuntime.ts';
 

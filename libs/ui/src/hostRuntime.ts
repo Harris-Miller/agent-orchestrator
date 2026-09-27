@@ -45,6 +45,3 @@ export const hostRunPromise: HostRuntimeBag['hostRunPromise'] = ((
 export const hostRunPromiseExit: HostRuntimeBag['hostRunPromiseExit'] = ((
   ...args: Parameters<HostRuntimeBag['hostRunPromiseExit']>
 ) => requireBound().hostRunPromiseExit(...args)) as HostRuntimeBag['hostRunPromiseExit'];
-
-/** Full bag for factories that still accept an explicit runtime (tests). */
-export const hostRuntimeBag = (): HostRuntimeBag => requireBound();

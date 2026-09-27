@@ -8,5 +8,4 @@ export {
   hostRunPromise,
   hostRunPromiseExit,
   hostRuntime,
-  hostRuntimeBag,
 } from './hostRuntime.ts';

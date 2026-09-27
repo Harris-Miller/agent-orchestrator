@@ -6,7 +6,7 @@ import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
 
-import { createAcpRuntime } from './acpRuntime.atoms.ts';
+import { createHostRuntime } from './createHostRuntime.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
   cwd: () => '/home/operator',
@@ -17,20 +17,20 @@ const mockOsLayer = Layer.succeed(OS, {
 
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
-  ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in acpRuntime smoke test'))),
+  ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in createHostRuntime smoke test'))),
 );
 
 const mockHostLayer = Layer.mergeAll(mockOsLayer, layerNoop({}), posixPathLayer, mockSpawnerLayer);
 
-describe('createAcpRuntime', () => {
-  it.effect('provides Host services to acpRuntime.fn without Tauri', () =>
+describe('createHostRuntime', () => {
+  it.effect('provides Host services to atomRuntime.fn without Tauri', () =>
     Effect.gen(function* () {
-      const { acpRuntime } = createAcpRuntime(mockHostLayer);
+      const { atomRuntime } = createHostRuntime(mockHostLayer);
 
       const viaLayer = yield* OS.pipe(Effect.provide(mockHostLayer));
       assert.strictEqual(viaLayer.homedir(), '/home/operator');
 
-      const readHomedirAtom = acpRuntime.fn(() =>
+      const readHomedirAtom = atomRuntime.fn(() =>
         Effect.gen(function* () {
           const os = yield* OS;
           return os.homedir();
@@ -64,7 +64,7 @@ describe('createAcpRuntime', () => {
 
   it.effect('provides Host services via hostRuntime.runPromise without Tauri', () =>
     Effect.gen(function* () {
-      const { hostRuntime } = createAcpRuntime(mockHostLayer);
+      const { hostRuntime } = createHostRuntime(mockHostLayer);
       const home = yield* Effect.promise(() =>
         hostRuntime.runPromise(
           Effect.gen(function* () {

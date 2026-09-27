@@ -1,17 +1,17 @@
-/** Shared Effect Atom runtime for ACP desktop state. */
+/** Desktop Host + Atom runtime composition (Tauri Live). */
 import type { HostServices } from '@lib/context-services';
 import { TauriServicesLive } from '@lib/context-services-tauri';
 import { ManagedRuntime } from 'effect';
 import type { Layer } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-export const createAcpRuntime = (hostLayer: Layer.Layer<HostServices>) => {
-  const acpRuntime = Atom.runtime(() => hostLayer);
+export const createHostRuntime = (hostLayer: Layer.Layer<HostServices>) => {
+  const atomRuntime = Atom.runtime(() => hostLayer);
   const hostRuntime = ManagedRuntime.make(hostLayer);
-  return { acpRuntime, hostRuntime };
+  return { atomRuntime, hostRuntime };
 };
 
-export const { acpRuntime, hostRuntime } = createAcpRuntime(TauriServicesLive);
+export const { atomRuntime, hostRuntime } = createHostRuntime(TauriServicesLive);
 
 export const runHost = hostRuntime.runPromise;
 export const runHostExit = hostRuntime.runPromiseExit;

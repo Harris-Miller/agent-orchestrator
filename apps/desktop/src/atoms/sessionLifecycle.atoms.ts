@@ -20,8 +20,8 @@ import {
   loadSession,
   resumeSession,
 } from '../acp/sessionRpc.ts';
+import { atomRuntime } from '../createHostRuntime.ts';
 
-import { acpRuntime } from './acpRuntime.atoms.ts';
 import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
@@ -30,7 +30,7 @@ import {
 } from './backendState.atoms.ts';
 import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
-export const selectSessionAtomFn = acpRuntime
+export const selectSessionAtomFn = atomRuntime
   .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
     Effect.sync(() => {
       selectSession(get, arg.launchTarget, arg.sessionId);
@@ -38,7 +38,7 @@ export const selectSessionAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const refreshSessionRosterAtomFn = acpRuntime
+export const refreshSessionRosterAtomFn = atomRuntime
   .fn(
     Effect.fn('refreshSessionRosterAtomFn', { root: true })(
       function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
@@ -66,7 +66,7 @@ export const refreshSessionRosterAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const refreshAllSessionRostersAtomFn = acpRuntime
+export const refreshAllSessionRostersAtomFn = atomRuntime
   .fn(
     Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
       yield* Effect.forEach(
@@ -91,7 +91,7 @@ export const refreshAllSessionRostersAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const createSessionAtomFn = acpRuntime
+export const createSessionAtomFn = atomRuntime
   .fn(
     Effect.fn('createSessionAtomFn', { root: true })(
       function* (arg: { cwd: string; launchTarget: AgentLaunchTarget }, get: Atom.FnContext) {
@@ -130,7 +130,7 @@ export const createSessionAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const activateSessionAtomFn = acpRuntime
+export const activateSessionAtomFn = atomRuntime
   .fn(
     Effect.fn('activateSessionAtomFn', { root: true })(function* (
       arg: { launchTarget: AgentLaunchTarget; sessionId: string },
@@ -215,7 +215,7 @@ export const activateSessionAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const deactivateSessionAtomFn = acpRuntime
+export const deactivateSessionAtomFn = atomRuntime
   .fn(
     Effect.fn('deactivateSessionAtomFn', { root: true })(
       function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
@@ -252,7 +252,7 @@ export const deactivateSessionAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const deleteSessionAtomFn = acpRuntime
+export const deleteSessionAtomFn = atomRuntime
   .fn(
     Effect.fn('deleteSessionAtomFn', { root: true })(
       function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {

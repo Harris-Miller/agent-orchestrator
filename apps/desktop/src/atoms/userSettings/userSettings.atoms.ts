@@ -4,10 +4,10 @@ import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/unstable/reactivity';
 
-import type { createAcpRuntime } from '../acpRuntime.atoms.ts';
-import { acpRuntime } from '../acpRuntime.atoms.ts';
+import type { createHostRuntime } from '../../createHostRuntime.ts';
+import { atomRuntime } from '../../createHostRuntime.ts';
 
-type AcpRuntime = ReturnType<typeof createAcpRuntime>['acpRuntime'];
+type AtomRuntime = ReturnType<typeof createHostRuntime>['atomRuntime'];
 
 /** Unwrap AsyncResult to UserSettings: Success value, else previousSuccess, else product defaults. */
 export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
@@ -17,7 +17,7 @@ export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettin
 export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): boolean =>
   AsyncResult.isInitial(result) || result.waiting;
 
-export const createUserSettingsAtoms = (runtime: AcpRuntime) => {
+export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
   /** Subscribe for persist Failure (toast / tests). Not the app write API. */
@@ -50,7 +50,7 @@ export const createUserSettingsAtoms = (runtime: AcpRuntime) => {
   return { persistUserSettingsAtomFn, userSettingsAtom };
 };
 
-const settingsAtoms = createUserSettingsAtoms(acpRuntime);
+const settingsAtoms = createUserSettingsAtoms(atomRuntime);
 
 export const { userSettingsAtom } = settingsAtoms;
 export const { persistUserSettingsAtomFn } = settingsAtoms;

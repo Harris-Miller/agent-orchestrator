@@ -32,9 +32,9 @@ import {
   resolveHomeDir,
   toTildeBrowsePrefix,
 } from '../../acp/sessionDirectoryBrowser.ts';
-import { runHost } from '../../atoms/acpRuntime.atoms.ts';
 import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import { createSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
+import { runHost } from '../../createHostRuntime.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box

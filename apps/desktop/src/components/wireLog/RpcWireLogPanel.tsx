@@ -4,6 +4,7 @@ import {
   agentLaunchTargetLabel,
   ALL_AGENT_LAUNCH_TARGETS,
   backendHarnessStateAtom,
+  isRecord,
   rpcWireLogLaunchTargetAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -18,7 +19,6 @@ import Typography from '@mui/material/Typography';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
-import { isRecord } from '../../utils.ts';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 export const RPC_WIRE_LOG_PANEL_HEIGHT = 320;

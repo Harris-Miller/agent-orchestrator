@@ -8,6 +8,7 @@ import {
   draftAtom,
   handoffInProgressAtom,
   handoffSessionAtomFn,
+  isRecord,
   normalizeSelectableConfigOptions,
   readyLaunchTargetsAtom,
   respondElicitationAtomFn,
@@ -40,7 +41,6 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { isRecord } from '../../utils.ts';
 import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
 import { UsagePopover } from '../shared/UsageCard.tsx';
 

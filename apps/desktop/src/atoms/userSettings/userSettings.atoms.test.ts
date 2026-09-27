@@ -10,7 +10,7 @@ import { ChildProcessSpawner } from 'effect/unstable/process';
 import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
 import type { Atom } from 'effect/unstable/reactivity';
 
-import { createAcpRuntime } from '../acpRuntime.atoms.ts';
+import { createHostRuntime } from '../../createHostRuntime.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -96,8 +96,8 @@ describe('userSettingsAtom', () => {
   it.effect('subscribe loads Initial then Success defaults when settings file missing', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime } = createAcpRuntime(hostLayer(store));
-      const { userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
 
@@ -111,8 +111,8 @@ describe('userSettingsAtom', () => {
   it.effect('set updates memory Success, persists, and read-back matches', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime, hostServicesLayer } = createAcpRuntime(hostLayer(store));
-      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
       yield* awaitSettled(registry, userSettingsAtom);
@@ -127,7 +127,7 @@ describe('userSettingsAtom', () => {
       const persisted = yield* awaitSettled(registry, persistUserSettingsAtomFn);
       assert.ok(AsyncResult.isSuccess(persisted));
 
-      const disk = yield* readUserSettings().pipe(Effect.provide(hostServicesLayer));
+      const disk = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
       assert.deepStrictEqual(disk, next);
       registry.dispose();
     }),
@@ -136,8 +136,8 @@ describe('userSettingsAtom', () => {
   it.effect('restore via set(defaultSettings) clears prefs on disk', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime, hostServicesLayer } = createAcpRuntime(hostLayer(store));
-      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
       yield* awaitSettled(registry, userSettingsAtom);
@@ -149,7 +149,7 @@ describe('userSettingsAtom', () => {
       registry.set(userSettingsAtom, defaultSettings);
       yield* awaitSettled(registry, persistUserSettingsAtomFn);
 
-      const disk = yield* readUserSettings().pipe(Effect.provide(hostServicesLayer));
+      const disk = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
       assert.deepStrictEqual(disk, defaultSettings);
       assert.deepStrictEqual(AsyncResult.getOrThrow(registry.get(userSettingsAtom)), defaultSettings);
       registry.dispose();
@@ -159,7 +159,7 @@ describe('userSettingsAtom', () => {
   it.effect('load Failure is honest; doc helper still yields editable base', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>([[SETTINGS, { content: '{"theme":"dark"}', kind: 'file' }]]);
-      const { acpRuntime } = createAcpRuntime(
+      const { atomRuntime } = createHostRuntime(
         hostLayer(store, {
           readFileString: path =>
             path === SETTINGS
@@ -175,7 +175,7 @@ describe('userSettingsAtom', () => {
               : Effect.fail(notFound('readFileString', path)),
         }),
       );
-      const { userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
 
@@ -189,7 +189,7 @@ describe('userSettingsAtom', () => {
   it.effect('write Failure leaves persist fn Failure and memory Success(next)', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime } = createAcpRuntime(
+      const { atomRuntime } = createHostRuntime(
         hostLayer(store, {
           writeFileString: () =>
             Effect.fail(
@@ -203,7 +203,7 @@ describe('userSettingsAtom', () => {
             ),
         }),
       );
-      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
       yield* awaitSettled(registry, userSettingsAtom);
@@ -225,8 +225,8 @@ describe('userSettingsAtom', () => {
   it.effect('post-write settings Success reflects next value', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
-      const { acpRuntime } = createAcpRuntime(hostLayer(store));
-      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(acpRuntime);
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { persistUserSettingsAtomFn, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
       const registry = AtomRegistry.make();
       registry.mount(userSettingsAtom);
       yield* awaitSettled(registry, userSettingsAtom);

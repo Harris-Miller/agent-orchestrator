@@ -9,8 +9,8 @@ import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
+import { atomRuntime } from '../createHostRuntime.ts';
 
-import { acpRuntime } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, upsertSession, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
@@ -71,7 +71,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     ),
 );
 
-export const handoffSessionAtomFn = acpRuntime
+export const handoffSessionAtomFn = atomRuntime
   .fn(
     Effect.fn('handoffSessionAtomFn', { root: true })(
       function* (

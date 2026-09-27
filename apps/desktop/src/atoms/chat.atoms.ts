@@ -14,14 +14,14 @@ import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
 import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
 import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
+import { atomRuntime } from '../createHostRuntime.ts';
 
-import { acpRuntime } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
-export const sendChatItemAtomFn = acpRuntime
+export const sendChatItemAtomFn = atomRuntime
   .fn(
     Effect.fn('sendChatItemAtomFn', { root: true })(function* (
       arg: { launchTarget: AgentLaunchTarget; text: string },
@@ -57,7 +57,7 @@ export const sendChatItemAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const cancelPromptAtomFn = acpRuntime
+export const cancelPromptAtomFn = atomRuntime
   .fn(
     Effect.fnUntraced(
       function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
@@ -103,7 +103,7 @@ export const cancelPromptAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const respondElicitationAtomFn = acpRuntime
+export const respondElicitationAtomFn = atomRuntime
   .fn(
     Effect.fnUntraced(
       function* (
@@ -140,7 +140,7 @@ export const respondElicitationAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const respondPermissionAtomFn = acpRuntime
+export const respondPermissionAtomFn = atomRuntime
   .fn(
     Effect.fnUntraced(
       function* (
@@ -177,7 +177,7 @@ export const respondPermissionAtomFn = acpRuntime
   )
   .pipe(Atom.keepAlive);
 
-export const setConfigOptionAtomFn = acpRuntime
+export const setConfigOptionAtomFn = atomRuntime
   .fn(
     Effect.fn('setConfigOptionAtomFn', { root: true })(function* (
       arg: { configId: string; launchTarget: AgentLaunchTarget; value: string },

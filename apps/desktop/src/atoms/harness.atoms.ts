@@ -8,13 +8,13 @@ import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
+import { atomRuntime, hostRunFork } from '../createHostRuntime.ts';
 
-import { acpRuntime, hostServicesLayer } from './acpRuntime.atoms.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
 export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  acpRuntime
+  atomRuntime
     .atom(get => {
       const updateState = (patch: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot) => {
         get.registry.update(backendHarnessStateAtom(launchTarget), patch);
@@ -85,9 +85,8 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
           }));
 
           if (result.usageChanged && result.session.usage !== undefined) {
-            Effect.runFork(
+            hostRunFork(
               writeSessionUsage(sessionId, result.session.usage).pipe(
-                Effect.provide(hostServicesLayer),
                 Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
               ),
             );
@@ -98,7 +97,7 @@ export const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) 
     .pipe(Atom.keepAlive),
 );
 
-export const restartBackendAtomFn = acpRuntime
+export const restartBackendAtomFn = atomRuntime
   .fn(
     Effect.fn('restartBackendAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
       yield* Effect.annotateCurrentSpan({

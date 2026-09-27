@@ -23,15 +23,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
 import type { AgentLaunchTarget } from '../../acp/agentLaunchTarget.ts';
-import { normalizeDirPath, PARENT_DIR_ENTRY, toTildeBrowsePrefix } from '../../acp/sessionDirectoryBrowser.ts';
-import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import {
-  joinDirectoryAtomFn,
-  listChildDirectoriesAtomFn,
-  parentDirectoryAtomFn,
-  resolveHomeDirAtomFn,
-} from '../../atoms/directory.atoms.ts';
+  joinDirectory,
+  listChildDirectories,
+  normalizeDirPath,
+  PARENT_DIR_ENTRY,
+  parentDirectory,
+  resolveHomeDir,
+  toTildeBrowsePrefix,
+} from '../../acp/sessionDirectoryBrowser.ts';
+import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import { createSessionAtomFn } from '../../atoms/sessionLifecycle.atoms.ts';
+import { hostRunPromise } from '../../createHostRuntime.ts';
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box
@@ -57,10 +60,6 @@ export const CreateSessionDirectoryPicker: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
-  const resolveHomeDir = useAtomSet(resolveHomeDirAtomFn, { mode: 'promise' });
-  const listChildDirectories = useAtomSet(listChildDirectoriesAtomFn, { mode: 'promise' });
-  const parentDirectory = useAtomSet(parentDirectoryAtomFn, { mode: 'promise' });
-  const joinDirectory = useAtomSet(joinDirectoryAtomFn, { mode: 'promise' });
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -91,10 +90,10 @@ export const CreateSessionDirectoryPicker: FC<{
   useEffect(() => {
     const abort = new AbortController();
 
-    resolveHomeDir(undefined)
+    hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await listChildDirectories(normalizedHome);
+        const dirs = await hostRunPromise(listChildDirectories(normalizedHome));
         if (abort.signal.aborted) {
           return;
         }
@@ -120,13 +119,13 @@ export const CreateSessionDirectoryPicker: FC<{
       abort.abort();
       window.clearTimeout(focusTimer);
     };
-  }, [listChildDirectories, resolveHomeDir]);
+  }, []);
 
   const loadDirectory = (nextPath: string) => {
     setLoading(true);
     setError(undefined);
     setFilter('');
-    listChildDirectories(nextPath)
+    hostRunPromise(listChildDirectories(nextPath))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);
@@ -145,7 +144,7 @@ export const CreateSessionDirectoryPicker: FC<{
     if (browsePath === undefined || homePath === undefined || browsePath === homePath) {
       return;
     }
-    parentDirectory(browsePath)
+    hostRunPromise(parentDirectory(browsePath))
       .then(parent => {
         loadDirectory(parent);
       })
@@ -162,7 +161,7 @@ export const CreateSessionDirectoryPicker: FC<{
       navigateParent();
       return;
     }
-    joinDirectory({ childName: name, dirPath: browsePath })
+    hostRunPromise(joinDirectory(browsePath, name))
       .then(next => {
         loadDirectory(next);
       })

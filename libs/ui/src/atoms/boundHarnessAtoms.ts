@@ -21,7 +21,7 @@ const hostBag = {
 
 export const { backendHarnessAtom, restartBackendAtomFn } = createHarnessAtoms(hostBag);
 
-export const { confirmSessionDeleteAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom } =
+export const { confirmSessionDeleteAtom, developerModeAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom } =
   createUserSettingsAtoms(atomRuntime);
 
 export const {

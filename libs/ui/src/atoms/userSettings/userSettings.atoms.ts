@@ -21,6 +21,9 @@ export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<Use
 /** Prefer confirming session delete when the Settings field is unset. */
 export const confirmSessionDeleteEnabled = (settings: UserSettings): boolean => settings.confirmSessionDelete !== false;
 
+/** Developer mode is off when the Settings field is unset. */
+export const developerModeEnabled = (settings: UserSettings): boolean => settings.developerModeEnabled === true;
+
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
@@ -59,6 +62,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective Developer mode preference (off when unset). Write patches User settings. */
+  const developerModeAtom = Atom.writable(
+    get => developerModeEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), developerModeEnabled: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
   const themeAtom = Atom.writable(
     get => {
@@ -76,5 +87,5 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
-  return { confirmSessionDeleteAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom };
+  return { confirmSessionDeleteAtom, developerModeAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom };
 };

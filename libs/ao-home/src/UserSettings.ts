@@ -6,6 +6,7 @@ import { Schema } from 'effect';
 export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
+    developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     theme: Schema.optionalKey(Schema.String),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)],

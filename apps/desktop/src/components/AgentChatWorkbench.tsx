@@ -1,33 +1,33 @@
 import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
-import { isRecord, selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '@lib/ui';
+import { developerModeAtom, isRecord, selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
+import { DEVELOPER_PANEL_HEIGHT, DeveloperPanel } from './developerPanel/DeveloperPanel.tsx';
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
-import { BootstrapStatePanel, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';
-import { RPC_WIRE_LOG_PANEL_HEIGHT, RpcWireLogPanel } from './wireLog/RpcWireLogPanel.tsx';
+import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 
 type WorkbenchLayout = {
+  readonly developerPanelOpen: boolean;
   readonly horizontalSizes?: readonly number[];
-  readonly rpcWireLogOpen: boolean;
   readonly sessionRosterOpen: boolean;
   readonly sessionStateOpen: boolean;
   readonly verticalSizes?: readonly number[];
 };
 
 const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
-  rpcWireLogOpen: false,
+  developerPanelOpen: false,
   sessionRosterOpen: true,
   sessionStateOpen: true,
 };
@@ -47,10 +47,15 @@ const loadWorkbenchLayout = (): WorkbenchLayout => {
     if (!isRecord(parsed)) {
       return DEFAULT_WORKBENCH_LAYOUT;
     }
+    const developerPanelOpen =
+      typeof parsed.developerPanelOpen === 'boolean'
+        ? parsed.developerPanelOpen
+        : typeof parsed.rpcWireLogOpen === 'boolean'
+          ? parsed.rpcWireLogOpen
+          : DEFAULT_WORKBENCH_LAYOUT.developerPanelOpen;
     return {
+      developerPanelOpen,
       horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
-      rpcWireLogOpen:
-        typeof parsed.rpcWireLogOpen === 'boolean' ? parsed.rpcWireLogOpen : DEFAULT_WORKBENCH_LAYOUT.rpcWireLogOpen,
       sessionRosterOpen:
         typeof parsed.sessionRosterOpen === 'boolean'
           ? parsed.sessionRosterOpen
@@ -75,6 +80,7 @@ export const AgentChatWorkbench: FC<{
 }> = ({ onClientError }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
+  const developerMode = useAtomValue(developerModeAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
 
@@ -86,6 +92,12 @@ export const AgentChatWorkbench: FC<{
       setLayout(next);
     }
   };
+
+  useEffect(() => {
+    if (!developerMode && layoutRef.current.developerPanelOpen) {
+      commitLayout({ developerPanelOpen: false });
+    }
+  }, [developerMode]);
 
   return (
     <Box
@@ -116,7 +128,7 @@ export const AgentChatWorkbench: FC<{
         }}
         onVisibleChange={(index, visible) => {
           if (index === 1) {
-            commitLayout({ rpcWireLogOpen: visible });
+            commitLayout({ developerPanelOpen: visible });
           }
         }}
         vertical
@@ -174,45 +186,46 @@ export const AgentChatWorkbench: FC<{
                         size="small"
                         variant="outlined"
                       >
-                        Session state
+                        Panel
                       </Button>
                     )}
                   </Toolbar>
                 </AppBar>
 
                 <AgentChatMain
+                  developerMode={developerMode}
+                  developerPanelOpen={layout.developerPanelOpen}
                   onClientError={onClientError}
-                  onOpenRpcWireLog={() => {
-                    commitLayout({ rpcWireLogOpen: true });
+                  onOpenDeveloperPanel={() => {
+                    commitLayout({ developerPanelOpen: true });
                   }}
-                  rpcWireLogOpen={layout.rpcWireLogOpen}
                 />
               </Box>
             </Allotment.Pane>
 
-            <Allotment.Pane
-              minSize={240}
-              preferredSize={SESSION_STATE_PANEL_WIDTH}
-              snap
-              visible={layout.sessionStateOpen}
-            >
-              <BootstrapStatePanel
-                initializeResult={selectedSnapshot?.initializeResult}
+            <Allotment.Pane minSize={240} preferredSize={RIGHT_PANEL_WIDTH} snap visible={layout.sessionStateOpen}>
+              <RightPanelPlaceholder
                 onClose={() => {
                   commitLayout({ sessionStateOpen: false });
                 }}
-                session={selectedSession}
               />
             </Allotment.Pane>
           </Allotment>
         </Allotment.Pane>
 
-        <Allotment.Pane minSize={120} preferredSize={RPC_WIRE_LOG_PANEL_HEIGHT} snap visible={layout.rpcWireLogOpen}>
-          <RpcWireLogPanel
+        <Allotment.Pane
+          minSize={120}
+          preferredSize={DEVELOPER_PANEL_HEIGHT}
+          snap
+          visible={developerMode ? layout.developerPanelOpen : false}
+        >
+          <DeveloperPanel
+            initializeResult={selectedSnapshot?.initializeResult}
             onClose={() => {
-              commitLayout({ rpcWireLogOpen: false });
+              commitLayout({ developerPanelOpen: false });
             }}
             onCopyError={onClientError}
+            session={selectedSession}
           />
         </Allotment.Pane>
       </Allotment>

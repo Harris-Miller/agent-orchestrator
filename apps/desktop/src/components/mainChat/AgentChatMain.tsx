@@ -13,7 +13,6 @@ import {
   readyLaunchTargetsAtom,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
-  rpcWireLogSnapshotAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
@@ -68,16 +67,16 @@ const formatActivationDefect = (defect: unknown): string => {
 };
 
 export const AgentChatMain: FC<{
+  readonly developerMode: boolean;
+  readonly developerPanelOpen: boolean;
   readonly onClientError: (error: unknown) => void;
-  readonly onOpenRpcWireLog: () => void;
-  readonly rpcWireLogOpen: boolean;
-}> = ({ onClientError, onOpenRpcWireLog, rpcWireLogOpen }) => {
+  readonly onOpenDeveloperPanel: () => void;
+}> = ({ developerMode, developerPanelOpen, onClientError, onOpenDeveloperPanel }) => {
   const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
   const [draft, setDraft] = useAtom(draftAtom(draftSessionId));
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const rpcSnapshot = useAtomValue(rpcWireLogSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
@@ -297,10 +296,6 @@ export const AgentChatMain: FC<{
 
       <Paper sx={{ flexShrink: 0, p: 2 }}>
         <Stack spacing={1}>
-          <Typography color="text.secondary" variant="caption">
-            agent: {selectedLaunchTarget === undefined ? '—' : agentLaunchTargetLabel(selectedLaunchTarget)} · session:{' '}
-            {selectedSession?.sessionId ?? '—'}
-          </Typography>
           {backendSnapshot?.error !== undefined ? (
             <Typography color="error" variant="body2">
               {backendSnapshot.error}
@@ -333,11 +328,11 @@ export const AgentChatMain: FC<{
                   option={option}
                 />
               ))}
-              {rpcWireLogOpen ? null : (
-                <Button onClick={onOpenRpcWireLog} size="small" variant="outlined">
-                  RPC wire log ({rpcSnapshot.rpcCalls.length})
+              {developerMode && !developerPanelOpen ? (
+                <Button onClick={onOpenDeveloperPanel} size="small" variant="outlined">
+                  Developer panel
                 </Button>
-              )}
+              ) : null}
               <Box sx={{ flexGrow: 1 }} />
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">

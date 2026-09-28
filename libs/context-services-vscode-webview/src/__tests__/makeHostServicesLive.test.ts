@@ -3,7 +3,9 @@ import { OS } from '@lib/context-services';
 import { Effect, FileSystem } from 'effect';
 
 import { makeHostServicesLive } from '../makeHostServicesLive.ts';
-import { connectFakePeers, decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
+import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
+
+import { connectFakePeers } from './fakePeer.ts';
 
 describe('makeHostServicesLive (fake peer)', () => {
   it.effect('OS snapshot + exists round-trip through IPC', () =>

@@ -1,8 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
-import { connectFakePeers, decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
+import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
 import type { IpcMessage } from '../protocol/index.ts';
+
+import { connectFakePeers } from './fakePeer.ts';
 
 describe('extension↔webview IPC protocol (fake peer)', () => {
   it.effect('round-trips OsSnapshot request and result over duplex ports', () =>

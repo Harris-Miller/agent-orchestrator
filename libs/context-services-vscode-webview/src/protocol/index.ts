@@ -1,4 +1,3 @@
-export { connectFakePeers } from './fakePeer.ts';
 export { IpcClient, IpcClientError } from './ipcClient.ts';
 export {
   bytesToArrayBuffer,

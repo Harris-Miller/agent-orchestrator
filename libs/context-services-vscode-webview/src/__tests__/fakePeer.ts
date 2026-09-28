@@ -1,4 +1,4 @@
-import type { IpcPort } from './port.ts';
+import type { IpcPort } from '../protocol/port.ts';
 
 /**
  * In-memory duplex pair for fake-peer protocol tests.

@@ -4,7 +4,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
   ...reactConfig,
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'src/**/__tests__/**']),
   {
     // project root + build scripts (not under src/)
     files: ['*.ts', 'scripts/**/*.js'],

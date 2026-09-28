@@ -13,6 +13,7 @@ export {
 } from './atoms/userSettings/userSettings.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
+export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';
 export * from './host/acpAdapterCommand.ts';
 export * from './host/acpSessionBootstrap.ts';

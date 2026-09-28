@@ -1,10 +1,12 @@
+import './bindHostRuntime.ts';
+
 import { createRoot } from 'react-dom/client';
 
-import { HelloWorld } from './HelloWorld';
+import { App } from './App.tsx';
 
 const rootElement = document.getElementById('root');
 if (rootElement === null) {
-  throw new Error('Missing #root element for Agent Orchestrator webview');
+  throw new Error('Missing #root element');
 }
 
-createRoot(rootElement).render(<HelloWorld />);
+createRoot(rootElement).render(<App />);

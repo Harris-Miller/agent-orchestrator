@@ -1,9 +1,8 @@
-import { AcpBackendsMount } from '@lib/ui';
+import { AcpBackendsMount, UserSettingsMount } from '@lib/ui';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import type { FC } from 'react';
 
 import { PersistUserSettingsToast } from '../components/PersistUserSettingsToast.tsx';
-import { UserSettingsMount } from '../components/UserSettingsMount.tsx';
 
 const RootComponent: FC = () => {
   return (

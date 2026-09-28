@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+import { handleHostIpcMessage } from './host/hostFulfillment';
+import type { ProcessTracker } from './host/processTracker';
+
 const getNonce = function (): string {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let text = '';
@@ -12,23 +15,48 @@ const getNonce = function (): string {
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'agentOrchestrator.sidebar';
 
-  private readonly extensionUri: vscode.Uri;
+  private readonly context: vscode.ExtensionContext;
+  private nextWebviewId = 0;
+  private readonly tracker: ProcessTracker;
 
-  public constructor(extensionUri: vscode.Uri) {
-    this.extensionUri = extensionUri;
+  public constructor(context: vscode.ExtensionContext, tracker: ProcessTracker) {
+    this.context = context;
+    this.tracker = tracker;
   }
 
   public resolveWebviewView(webviewView: vscode.WebviewView): void {
+    const webviewId = `wv-${(this.nextWebviewId += 1)}`;
+
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview')],
+      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview')],
     };
 
     webviewView.webview.html = this.getHtml(webviewView.webview);
+
+    const subscription = webviewView.webview.onDidReceiveMessage((raw: unknown) => {
+      handleHostIpcMessage({
+        context: this.context,
+        raw,
+        tracker: this.tracker,
+        webview: webviewView.webview,
+        webviewId,
+      }).then(
+        () => undefined,
+        () => undefined,
+      );
+    });
+
+    webviewView.onDidDispose(() => {
+      subscription.dispose();
+      this.tracker.killAllForWebview(webviewId);
+    });
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'main.js'));
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'main.js'),
+    );
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
@@ -49,11 +77,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         font-family: var(--vscode-font-family);
         font-size: var(--vscode-font-size);
         background: transparent;
-      }
-      h1 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
       }
     </style>
   </head>

@@ -2,9 +2,9 @@
 import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 
-import type { PendingClientRequestKind } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { sendPrompt } from '../acp/sessionRpc.ts';
+import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { sendPrompt } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom } from './backendState.atoms.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';

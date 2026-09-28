@@ -1,22 +1,18 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { isThemeId, THEME_IDS, themeAtom, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
+import type { ThemeId } from '@lib/ui';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import { ThemeProvider } from '@mui/material/styles';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 
-import { THEME_LABELS, themes } from './theme.ts';
-
-export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
-  const themeId = useAtomValue(themeAtom);
-
-  return (
-    <ThemeProvider noSsr theme={themes[themeId]}>
-      {children}
-    </ThemeProvider>
-  );
+const THEME_LABELS: Record<ThemeId, string> = {
+  frappe: 'Catppuccin Frappé',
+  latte: 'Catppuccin Latte',
+  macchiato: 'Catppuccin Macchiato',
+  mocha: 'Catppuccin Mocha',
+  original: 'Original',
 };
 
 /** Theme preference control for the Settings Appearance pane. */

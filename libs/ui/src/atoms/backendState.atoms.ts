@@ -1,12 +1,12 @@
 /** Core ACP backend / session selection Atom state. */
 import { Atom } from 'effect/unstable/reactivity';
 
-import { initialBackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import type { ConfigOptionIndex } from '../acp/configProbe.ts';
-import { configOptionIndexIsNonempty } from '../acp/configProbe.ts';
+import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../host/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 
 export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<ConfigOptionIndex | undefined>(undefined).pipe(

@@ -1,0 +1,30 @@
+{
+  "name": "@lib/context-services-vscode-webview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "ISC",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lib/context-services": "workspace:^",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@tooling/eslint": "workspace:^",
+    "@tooling/tsconfig": "workspace:^",
+    "@tooling/vitest": "workspace:^",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

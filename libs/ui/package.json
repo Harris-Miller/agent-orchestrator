@@ -13,10 +13,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@effect/atom-react": "catalog:",
+    "@emotion/react": "catalog:",
+    "@emotion/styled": "catalog:",
     "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@libs/effect-acp": "workspace:^",
-    "effect": "catalog:"
+    "@mui/material": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
@@ -24,6 +29,7 @@
     "@tooling/eslint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
+    "@types/react": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

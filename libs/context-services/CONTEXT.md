@@ -12,10 +12,14 @@ _Avoid_: Operating system, platform service, process
 The host capability that turns a path relative to the packaged resource root into an absolute filesystem path.
 _Avoid_: resolveResource, asAbsolutePath, resource path API
 
+**Clipboard** (service):
+The host capability for plain-text clipboard read and write (`writeText` / `readText`). React never imports host clipboard SDKs.
+_Avoid_: clipboard-manager, navigator.clipboard (when you mean the portable Seam)
+
 **Host**:
 The runtime environment that supplies a live implementation of Host services (desktop Tauri; VS Code later; Node/Bun for non-webview tools).
 _Avoid_: Node, machine, runtime
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, FileSystem, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags.
+Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

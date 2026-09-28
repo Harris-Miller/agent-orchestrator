@@ -8,6 +8,8 @@ See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary.
 
 ## Exports
 
+- `BundledResourceLive` — packaged resource path resolution
+- `ClipboardLive` — plain-text clipboard via `@tauri-apps/plugin-clipboard-manager`
 - `OSLive` — `OS` service backed by `@tauri-apps/plugin-os`
 - `PathLive` / `makeWin32Path` — Effect `Path` platform service
 - `FileSystemLive` — Effect `FileSystem` platform service backed by `@tauri-apps/plugin-fs`

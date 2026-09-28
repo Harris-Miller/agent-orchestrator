@@ -3,12 +3,12 @@ import { writeSessionUsage } from '@lib/ao-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../acp/acpSessionBootstrap.ts';
-import type { BackendHarnessSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { applySessionUpdate } from '../acp/applySessionUpdate.ts';
-import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../acp/backendHarness.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
+import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { applySessionUpdate } from '../host/applySessionUpdate.ts';
+import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../host/backendHarness.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';

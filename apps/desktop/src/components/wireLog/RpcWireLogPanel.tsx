@@ -4,8 +4,10 @@ import {
   agentLaunchTargetLabel,
   ALL_AGENT_LAUNCH_TARGETS,
   backendHarnessStateAtom,
+  hostRunPromise,
   isRecord,
   rpcWireLogLaunchTargetAtom,
+  writeTextToClipboard,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -16,7 +18,6 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC, SyntheticEvent } from 'react';
 
 import { PanelHeader } from '../shared/PanelHeader.tsx';
@@ -153,7 +154,7 @@ export const RpcWireLogPanel: FC<{
                     component="span"
                     onClick={event => {
                       event.stopPropagation();
-                      writeText(rpcWireEntryClipboardText(entry)).catch(onCopyError);
+                      hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry))).catch(onCopyError);
                     }}
                     size="small"
                     variant="text"

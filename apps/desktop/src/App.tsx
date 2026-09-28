@@ -1,10 +1,10 @@
 import { RegistryProvider } from '@effect/atom-react';
+import { AppThemeProvider } from '@lib/ui';
 import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 
 import { routeTree } from './routeTree.gen';
-import { AppThemeProvider } from './theme/ThemeChoice.tsx';
 
 // Set up a Router instance
 const router = createRouter({

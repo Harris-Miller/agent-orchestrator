@@ -1,6 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { AcpBootstrapPhase } from '@lib/ui';
-import { allLaunchTargetPhasesAtom, restartBackendAtomFn } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -9,8 +7,13 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { FC } from 'react';
+
+import { allLaunchTargetPhasesAtom } from '../atoms/backendState.atoms.ts';
+import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
+import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
+import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
+import { hostRunPromise } from '../hostRuntime.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
@@ -89,7 +92,7 @@ export const ProvidersSettingsPane: FC = () => {
                       component="span"
                       onClick={event => {
                         event.stopPropagation();
-                        writeText(errorText).catch(() => undefined);
+                        hostRunPromise(writeTextToClipboard(errorText)).catch(() => undefined);
                       }}
                       size="small"
                       variant="text"

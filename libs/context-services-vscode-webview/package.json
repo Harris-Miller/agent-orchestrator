@@ -5,7 +5,8 @@
   "type": "module",
   "license": "ISC",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol/index.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -22,6 +23,7 @@
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/node": "catalog:",
+    "@types/vscode-webview": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",

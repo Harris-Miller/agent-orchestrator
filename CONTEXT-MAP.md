@@ -15,6 +15,7 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 | **gemini-acp** | planned [`libs/gemini-acp/CONTEXT.md`](./libs/gemini-acp/CONTEXT.md) | — | ACP adapter in front of Gemini CLI: completes session lifecycle (`list` / `close` / `delete` / hot-cold `resume`); Issue #42 |
 | **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex, Claude, and (planned) Gemini via ACP adapters |
 | **ui** | [`libs/ui/CONTEXT.md`](./libs/ui/CONTEXT.md) | [`libs/ui/docs/adr/`](./libs/ui/docs/adr/) | Shared Agent Harness webview context: Backend Harness + Harness application state + shared Providers/theme React surfaces |
+| **vscode** | [`apps/vscode/CONTEXT.md`](./apps/vscode/CONTEXT.md) | [`apps/vscode/docs/adr/`](./apps/vscode/docs/adr/) | VS Code extension: extension-host fulfillment + webview Host (Providers mount via shared UI) |
 
 ## Relationships
 
@@ -44,3 +45,4 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **Agent Orchestrator home (`~/.ao`), User settings on disk** → ao-home
 - **Host OS / environment / bundled resources / clipboard / VS Code webview Host Live + extension↔webview IPC** → context-services (+ context-services-node for Node bindings; context-services-tauri for Tauri bindings; context-services-vscode-webview for webview Live + IPC codec)
 - **Shared Harness application state / Backend Harness / shared Providers & theme React** → ui
+- **VS Code extension / sidebar webview Host / extension↔webview IPC fulfillment** → vscode

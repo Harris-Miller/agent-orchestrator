@@ -15,6 +15,7 @@
     "vscode/webview",
     "node_modules",
     "dist",
-    "src/webview"
+    "src/webview",
+    "src/**/__tests__"
   ]
 }

@@ -17,8 +17,8 @@ The host capability for plain-text clipboard read and write (`writeText` / `read
 _Avoid_: clipboard-manager, navigator.clipboard (when you mean the portable Seam)
 
 **Host**:
-The runtime environment that supplies a live implementation of Host services (desktop Tauri; VS Code later; Node/Bun for non-webview tools).
-_Avoid_: Node, machine, runtime
+The runtime environment that supplies a live implementation of Host services to Harness code (desktop Tauri webview; VS Code webview; Node/Bun for non-webview tools). On VS Code, the webview is the Host; the extension host is fulfillment behind extension↔webview IPC.
+_Avoid_: Node, machine, runtime, extension host (when you mean the Seam consumer)
 
 **Host services**:
 Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags.

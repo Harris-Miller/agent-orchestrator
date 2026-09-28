@@ -1,6 +1,12 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { defaultSettings } from '@lib/ao-home';
-import { confirmSessionDeleteAtom, ProvidersSettingsPane, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
+import {
+  confirmSessionDeleteAtom,
+  developerModeAtom,
+  ProvidersSettingsPane,
+  userSettingsAtom,
+  userSettingsEditsDisabled,
+} from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -62,6 +68,8 @@ export const SettingsPage: FC = () => {
   const setUserSettings = useAtomSet(userSettingsAtom);
   const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
   const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
+  const developerMode = useAtomValue(developerModeAtom);
+  const setDeveloperMode = useAtomSet(developerModeAtom);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
@@ -167,7 +175,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">General</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Session delete confirmation lives in User settings.
+                  Session delete confirmation lives in User settings. Developer mode lasts for this app session only.
                 </Typography>
                 <FormControlLabel
                   control={
@@ -180,6 +188,18 @@ export const SettingsPage: FC = () => {
                     />
                   }
                   label="Confirm before deleting a session"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={developerMode}
+                      onChange={(_event, checked) => {
+                        setDeveloperMode(checked);
+                      }}
+                    />
+                  }
+                  label="Developer mode"
+                  sx={{ display: 'block', mt: 1 }}
                 />
               </>
             ) : category === 'providers' ? (

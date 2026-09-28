@@ -11,7 +11,6 @@ const RootComponent: FC = () => {
       <UserSettingsMount />
       <PersistUserSettingsToast />
       <Outlet />
-      {/* <TanStackRouterDevtools /> */}
     </>
   );
 };

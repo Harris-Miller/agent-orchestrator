@@ -163,7 +163,7 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
   </Paper>
 );
 
-const SessionStateContent: FC<{
+export const SessionStateContent: FC<{
   readonly availableCommands?: readonly AvailableCommand[];
   readonly initializeResult: unknown;
   readonly selectedModeId?: string;
@@ -367,37 +367,37 @@ const SessionStateContent: FC<{
   );
 };
 
-export const BootstrapStatePanel: FC<{
+/** Session State body for the Developer panel tab (same props the right pane used to take). */
+export const SessionStateView: FC<{
   readonly initializeResult: unknown;
-  readonly onClose: () => void;
   readonly session?: SessionSnapshot;
-}> = ({ initializeResult, onClose, session }) => {
-  const showSessionDetails = session?.status === 'active';
+}> = ({ initializeResult, session }) => (
+  <SessionStateContent
+    availableCommands={session?.availableCommands}
+    initializeResult={initializeResult}
+    selectedModeId={session?.selectedModeId}
+    selectedModelId={session?.selectedModelId}
+    session={session}
+    showSessionDetails={session?.status === 'active'}
+  />
+);
 
-  return (
-    <Box
-      sx={{
-        bgcolor: 'background.paper',
-        borderColor: 'divider',
-        borderLeft: 1,
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-      }}
-    >
-      <PanelHeader closeAriaLabel="Close session state panel" closeGlyph="›" onClose={onClose} title="Session state" />
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
-        <SessionStateContent
-          availableCommands={session?.availableCommands}
-          initializeResult={initializeResult}
-          selectedModeId={session?.selectedModeId}
-          selectedModelId={session?.selectedModelId}
-          session={session}
-          showSessionDetails={showSessionDetails}
-        />
-      </Box>
-    </Box>
-  );
-};
+/** Empty right-pane placeholder; content TBD. */
+export const RightPanelPlaceholder: FC<{
+  readonly onClose: () => void;
+}> = ({ onClose }) => (
+  <Box
+    sx={{
+      bgcolor: 'background.paper',
+      borderColor: 'divider',
+      borderLeft: 1,
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      minHeight: 0,
+    }}
+  >
+    <PanelHeader closeAriaLabel="Close panel" closeGlyph="›" onClose={onClose} title="Panel" />
+  </Box>
+);

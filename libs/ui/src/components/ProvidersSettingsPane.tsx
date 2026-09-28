@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Clipboard } from '@lib/context-services';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -8,10 +7,10 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Effect } from 'effect';
 import type { FC } from 'react';
 
 import type { AcpBootstrapPhase } from '../acp/acpSessionBootstrap.ts';
+import { writeTextToClipboard } from '../acp/writeTextToClipboard.ts';
 import { allLaunchTargetPhasesAtom } from '../atoms/backendState.atoms.ts';
 import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
@@ -93,12 +92,7 @@ export const ProvidersSettingsPane: FC = () => {
                       component="span"
                       onClick={event => {
                         event.stopPropagation();
-                        hostRunPromise(
-                          Effect.gen(function* () {
-                            const clipboard = yield* Clipboard;
-                            yield* clipboard.writeText(errorText);
-                          }),
-                        ).catch(() => undefined);
+                        hostRunPromise(writeTextToClipboard(errorText)).catch(() => undefined);
                       }}
                       size="small"
                       variant="text"

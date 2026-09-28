@@ -1,5 +1,4 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
-import { Clipboard } from '@lib/context-services';
 import type { AgentLaunchTarget, RpcWireEntry } from '@lib/ui';
 import {
   agentLaunchTargetLabel,
@@ -8,6 +7,7 @@ import {
   hostRunPromise,
   isRecord,
   rpcWireLogLaunchTargetAtom,
+  writeTextToClipboard,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -18,7 +18,6 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { Effect } from 'effect';
 import type { FC, SyntheticEvent } from 'react';
 
 import { PanelHeader } from '../shared/PanelHeader.tsx';
@@ -155,12 +154,7 @@ export const RpcWireLogPanel: FC<{
                     component="span"
                     onClick={event => {
                       event.stopPropagation();
-                      hostRunPromise(
-                        Effect.gen(function* () {
-                          const clipboard = yield* Clipboard;
-                          yield* clipboard.writeText(rpcWireEntryClipboardText(entry));
-                        }),
-                      ).catch(onCopyError);
+                      hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry))).catch(onCopyError);
                     }}
                     size="small"
                     variant="text"

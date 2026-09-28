@@ -13,6 +13,7 @@ export * from './acp/sessionMaterialize.ts';
 export * from './acp/sessionRpc.ts';
 export * from './acp/sessionUpdateReducer.ts';
 export * from './acp/vendorCliAuth.ts';
+export * from './acp/writeTextToClipboard.ts';
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';

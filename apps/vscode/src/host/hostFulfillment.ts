@@ -4,7 +4,7 @@ import {
   encodeIpcMessage,
   unknownBytesToUint8Array,
 } from '@lib/context-services-vscode-webview/protocol';
-import type { IpcMessage } from '@lib/context-services-vscode-webview/protocol';
+import type { IpcMessage, StdioMode } from '@lib/context-services-vscode-webview/protocol';
 import type * as vscode from 'vscode';
 
 import { spawn } from 'node:child_process';
@@ -51,6 +51,46 @@ const stringEnv = (): Record<string, string> => {
   return env;
 };
 
+const toNodeStdio = (mode: StdioMode | undefined): 'ignore' | 'inherit' | 'pipe' =>
+  mode === 'inherit' || mode === 'ignore' ? mode : 'pipe';
+
+type ExtensionInbound = Extract<
+  IpcMessage,
+  {
+    readonly _tag:
+      | 'BundledResolve'
+      | 'FsExists'
+      | 'FsMakeDirectory'
+      | 'FsMakeTempDirectory'
+      | 'FsReadFileString'
+      | 'FsRemove'
+      | 'FsWriteFileString'
+      | 'Kill'
+      | 'OsSnapshot'
+      | 'Spawn'
+      | 'StdinChunk'
+      | 'StdinEnd';
+  }
+>;
+
+const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
+  'BundledResolve',
+  'FsExists',
+  'FsMakeDirectory',
+  'FsMakeTempDirectory',
+  'FsReadFileString',
+  'FsRemove',
+  'FsWriteFileString',
+  'Kill',
+  'OsSnapshot',
+  'Spawn',
+  'StdinChunk',
+  'StdinEnd',
+]);
+
+const isExtensionInbound = (message: IpcMessage): message is ExtensionInbound =>
+  EXTENSION_INBOUND_TAGS.has(message._tag as ExtensionInbound['_tag']);
+
 /**
  * Handle one inbound webview IPC message on the extension host.
  */
@@ -68,127 +108,128 @@ export const handleHostIpcMessage = async (args: {
   } catch {
     return;
   }
+  if (!isExtensionInbound(message)) {
+    return;
+  }
 
   try {
-    if (message._tag === 'OsSnapshot') {
-      post(webview, {
-        _tag: 'OsSnapshotResult',
-        cwd: process.cwd(),
-        env: stringEnv(),
-        homedir: osHomedir(),
-        id: message.id,
-        platform: process.platform,
-      });
-      return;
-    }
-    if (message._tag === 'BundledResolve') {
-      const absolute = context.asAbsolutePath(message.resourcePath);
-      try {
-        await access(absolute, fsConstants.F_OK);
-      } catch {
-        throw new Error(`Bundled resource missing: ${message.resourcePath} (${absolute})`);
+    switch (message._tag) {
+      case 'BundledResolve': {
+        const absolute = context.asAbsolutePath(message.resourcePath);
+        try {
+          await access(absolute, fsConstants.F_OK);
+        } catch {
+          throw new Error(`Bundled resource missing: ${message.resourcePath} (${absolute})`);
+        }
+        post(webview, { _tag: 'BundledResolveResult', id: message.id, path: absolute });
+        return;
       }
-      post(webview, { _tag: 'BundledResolveResult', id: message.id, path: absolute });
-      return;
-    }
-    if (message._tag === 'FsExists') {
-      try {
-        await access(message.path, fsConstants.F_OK);
-        post(webview, { _tag: 'FsExistsResult', exists: true, id: message.id });
-      } catch {
-        post(webview, { _tag: 'FsExistsResult', exists: false, id: message.id });
+      case 'FsExists': {
+        try {
+          await access(message.path, fsConstants.F_OK);
+          post(webview, { _tag: 'FsExistsResult', exists: true, id: message.id });
+        } catch {
+          post(webview, { _tag: 'FsExistsResult', exists: false, id: message.id });
+        }
+        return;
       }
-      return;
-    }
-    if (message._tag === 'FsMakeDirectory') {
-      await mkdir(message.path, { recursive: message.options?.recursive === true });
-      post(webview, { _tag: 'FsMakeDirectoryResult', id: message.id });
-      return;
-    }
-    if (message._tag === 'FsMakeTempDirectory') {
-      const base = message.options?.directory ?? tmpdir();
-      const prefix = message.options?.prefix ?? 'ao-';
-      const path = await mkdtemp(join(base, prefix));
-      post(webview, { _tag: 'FsMakeTempDirectoryResult', id: message.id, path });
-      return;
-    }
-    if (message._tag === 'FsReadFileString') {
-      const content = await readFile(message.path, 'utf8');
-      post(webview, { _tag: 'FsReadFileStringResult', content, id: message.id });
-      return;
-    }
-    if (message._tag === 'FsWriteFileString') {
-      await writeFile(message.path, message.content, 'utf8');
-      post(webview, { _tag: 'FsWriteFileStringResult', id: message.id });
-      return;
-    }
-    if (message._tag === 'FsRemove') {
-      await rm(message.path, { force: true, recursive: message.options?.recursive === true });
-      post(webview, { _tag: 'FsRemoveResult', id: message.id });
-      return;
-    }
-    if (message._tag === 'Spawn') {
-      const handleId = tracker.allocateHandleId();
-      const opts = message.options ?? {};
-      const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...(opts.env ?? {}) };
-      const child = spawn(message.command, [...message.args], {
-        cwd: opts.cwd,
-        env,
-        stdio: [
-          opts.stdin === 'inherit' ? 'inherit' : opts.stdin === 'ignore' ? 'ignore' : 'pipe',
-          opts.stdout === 'inherit' ? 'inherit' : opts.stdout === 'ignore' ? 'ignore' : 'pipe',
-          opts.stderr === 'inherit' ? 'inherit' : opts.stderr === 'ignore' ? 'ignore' : 'pipe',
-        ],
-      });
-      tracker.register(webviewId, handleId, child);
-      post(webview, {
-        _tag: 'SpawnResult',
-        handleId,
-        id: message.id,
-        pid: child.pid ?? -1,
-      });
-
-      if (child.stdout) {
-        child.stdout.on('data', (chunk: Buffer) => {
-          const bytes = bytesToArrayBuffer(new Uint8Array(chunk));
-          post(webview, { _tag: 'StdoutChunk', bytes, handleId }, [bytes]);
-        });
-        child.stdout.on('end', () => {
-          post(webview, { _tag: 'StdoutEnd', handleId });
-        });
+      case 'FsMakeDirectory': {
+        await mkdir(message.path, { recursive: message.options?.recursive === true });
+        post(webview, { _tag: 'FsMakeDirectoryResult', id: message.id });
+        return;
       }
-      if (child.stderr && opts.stderr !== 'inherit') {
-        child.stderr.on('data', (chunk: Buffer) => {
-          const bytes = bytesToArrayBuffer(new Uint8Array(chunk));
-          post(webview, { _tag: 'StderrChunk', bytes, handleId }, [bytes]);
-        });
-        child.stderr.on('end', () => {
-          post(webview, { _tag: 'StderrEnd', handleId });
-        });
+      case 'FsMakeTempDirectory': {
+        const base = message.options?.directory ?? tmpdir();
+        const prefix = message.options?.prefix ?? 'ao-';
+        const path = await mkdtemp(join(base, prefix));
+        post(webview, { _tag: 'FsMakeTempDirectoryResult', id: message.id, path });
+        return;
       }
-      child.on('exit', (code, signal) => {
-        tracker.unregister(webviewId, handleId);
+      case 'FsReadFileString': {
+        const content = await readFile(message.path, 'utf8');
+        post(webview, { _tag: 'FsReadFileStringResult', content, id: message.id });
+        return;
+      }
+      case 'FsRemove': {
+        await rm(message.path, { force: true, recursive: message.options?.recursive === true });
+        post(webview, { _tag: 'FsRemoveResult', id: message.id });
+        return;
+      }
+      case 'FsWriteFileString': {
+        await writeFile(message.path, message.content, 'utf8');
+        post(webview, { _tag: 'FsWriteFileStringResult', id: message.id });
+        return;
+      }
+      case 'Kill': {
+        tracker.kill(webviewId, message.handleId);
+        post(webview, { _tag: 'KillResult', id: message.id });
+        return;
+      }
+      case 'OsSnapshot': {
         post(webview, {
-          _tag: 'Exit',
-          code: code ?? (signal !== null ? 1 : 0),
-          handleId,
+          _tag: 'OsSnapshotResult',
+          cwd: process.cwd(),
+          env: stringEnv(),
+          homedir: osHomedir(),
+          id: message.id,
+          platform: process.platform,
         });
-      });
-      return;
-    }
-    if (message._tag === 'Kill') {
-      tracker.kill(webviewId, message.handleId);
-      post(webview, { _tag: 'KillResult', id: message.id });
-      return;
-    }
-    if (message._tag === 'StdinChunk') {
-      const tracked = tracker.get(webviewId, message.handleId);
-      tracked?.child.stdin?.write(Buffer.from(unknownBytesToUint8Array(message.bytes)));
-      return;
-    }
-    if (message._tag === 'StdinEnd') {
-      const tracked = tracker.get(webviewId, message.handleId);
-      tracked?.child.stdin?.end();
+        return;
+      }
+      case 'Spawn': {
+        const handleId = tracker.allocateHandleId();
+        const opts = message.options ?? {};
+        const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...(opts.env ?? {}) };
+        const child = spawn(message.command, [...message.args], {
+          cwd: opts.cwd,
+          env,
+          stdio: [toNodeStdio(opts.stdin), toNodeStdio(opts.stdout), toNodeStdio(opts.stderr)],
+        });
+        tracker.register(webviewId, handleId, child);
+        post(webview, {
+          _tag: 'SpawnResult',
+          handleId,
+          id: message.id,
+          pid: child.pid ?? -1,
+        });
+
+        if (child.stdout) {
+          child.stdout.on('data', (chunk: Buffer) => {
+            const bytes = bytesToArrayBuffer(new Uint8Array(chunk));
+            post(webview, { _tag: 'StdoutChunk', bytes, handleId }, [bytes]);
+          });
+          child.stdout.on('end', () => {
+            post(webview, { _tag: 'StdoutEnd', handleId });
+          });
+        }
+        if (child.stderr && opts.stderr !== 'inherit') {
+          child.stderr.on('data', (chunk: Buffer) => {
+            const bytes = bytesToArrayBuffer(new Uint8Array(chunk));
+            post(webview, { _tag: 'StderrChunk', bytes, handleId }, [bytes]);
+          });
+          child.stderr.on('end', () => {
+            post(webview, { _tag: 'StderrEnd', handleId });
+          });
+        }
+        child.on('exit', (code, signal) => {
+          tracker.unregister(webviewId, handleId);
+          post(webview, {
+            _tag: 'Exit',
+            code: code ?? (signal !== null ? 1 : 0),
+            handleId,
+          });
+        });
+        return;
+      }
+      case 'StdinChunk': {
+        const tracked = tracker.get(webviewId, message.handleId);
+        tracked?.child.stdin?.write(Buffer.from(unknownBytesToUint8Array(message.bytes)));
+        return;
+      }
+      case 'StdinEnd': {
+        const tracked = tracker.get(webviewId, message.handleId);
+        tracked?.child.stdin?.end();
+      }
     }
   } catch (error) {
     if ('id' in message) {

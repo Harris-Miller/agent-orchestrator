@@ -2,6 +2,7 @@ import { Effect, FileSystem, Layer, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
+import type { IpcMessage } from './protocol/messages.ts';
 
 const mapIpcError = (method: string, path: string, cause: unknown): PlatformError.PlatformError =>
   PlatformError.systemError({
@@ -16,6 +17,34 @@ const mapIpcError = (method: string, path: string, cause: unknown): PlatformErro
 const unsupported = (method: string): Effect.Effect<never> =>
   Effect.die(`FileSystem.${method} not supported on vscode Host`);
 
+const fsIpc = <A>(args: {
+  readonly build: (id: string) => IpcMessage;
+  readonly client: IpcClient;
+  readonly decode: (response: IpcMessage) => A | undefined;
+  readonly method: string;
+  readonly path: string;
+}): Effect.Effect<A, PlatformError.PlatformError> =>
+  args.client.request(args.build).pipe(
+    Effect.mapError(cause => mapIpcError(args.method, args.path, cause)),
+    Effect.flatMap(response => {
+      const decoded = args.decode(response);
+      return decoded !== undefined
+        ? Effect.succeed(decoded)
+        : Effect.fail(mapIpcError(args.method, args.path, new Error(response._tag)));
+    }),
+  );
+
+const fsIpcVoid = (args: {
+  readonly build: (id: string) => IpcMessage;
+  readonly client: IpcClient;
+  readonly method: string;
+  readonly path: string;
+}): Effect.Effect<void, PlatformError.PlatformError> =>
+  args.client.request(args.build).pipe(
+    Effect.mapError(cause => mapIpcError(args.method, args.path, cause)),
+    Effect.asVoid,
+  );
+
 /**
  * IPC FileSystem subset for ao-home / Providers paths; other methods die.
  */
@@ -29,36 +58,41 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       chown: path => unsupported(`chown(${path})`),
       copy: path => unsupported(`copy(${path})`),
       copyFile: path => unsupported(`copyFile(${path})`),
-      exists: path =>
-        client
-          .request(id => ({ _tag: 'FsExists' as const, id, path }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('exists', path, cause)),
-            Effect.flatMap(response => {
-              if (response._tag === 'FsExistsResult') {
-                return Effect.succeed(response.exists);
-              }
-              return Effect.fail(mapIpcError('exists', path, new Error(response._tag)));
-            }),
-          ),
+      exists: Effect.fn('FileSystem.exists')(function* (path: string) {
+        return yield* fsIpc({
+          build: id => ({ _tag: 'FsExists', id, path }),
+          client,
+          decode: response => (response._tag === 'FsExistsResult' ? response.exists : undefined),
+          method: 'exists',
+          path,
+        });
+      }),
       glob: pattern => unsupported(`glob(${pattern})`),
       link: path => unsupported(`link(${path})`),
-      makeDirectory: (path, options) =>
-        client
-          .request(id => ({
-            _tag: 'FsMakeDirectory' as const,
+      makeDirectory: Effect.fn('FileSystem.makeDirectory')(function* (
+        path: string,
+        options?: { readonly recursive?: boolean },
+      ) {
+        yield* fsIpcVoid({
+          build: id => ({
+            _tag: 'FsMakeDirectory',
             id,
             options: options?.recursive === undefined ? undefined : { recursive: options.recursive },
             path,
-          }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('makeDirectory', path, cause)),
-            Effect.asVoid,
-          ),
-      makeTempDirectory: options =>
-        client
-          .request(id => ({
-            _tag: 'FsMakeTempDirectory' as const,
+          }),
+          client,
+          method: 'makeDirectory',
+          path,
+        });
+      }),
+      makeTempDirectory: Effect.fn('FileSystem.makeTempDirectory')(function* (options?: {
+        readonly directory?: string;
+        readonly prefix?: string;
+      }) {
+        const path = options?.directory ?? 'temp';
+        return yield* fsIpc({
+          build: id => ({
+            _tag: 'FsMakeTempDirectory',
             id,
             options:
               options === undefined
@@ -67,62 +101,56 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
                     directory: options.directory,
                     prefix: options.prefix,
                   },
-          }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('makeTempDirectory', options?.directory ?? 'temp', cause)),
-            Effect.flatMap(response => {
-              if (response._tag === 'FsMakeTempDirectoryResult') {
-                return Effect.succeed(response.path);
-              }
-              return Effect.fail(
-                mapIpcError('makeTempDirectory', options?.directory ?? 'temp', new Error(response._tag)),
-              );
-            }),
-          ),
+          }),
+          client,
+          decode: response => (response._tag === 'FsMakeTempDirectoryResult' ? response.path : undefined),
+          method: 'makeTempDirectory',
+          path,
+        });
+      }),
       makeTempDirectoryScoped: () => unsupported('makeTempDirectoryScoped'),
       makeTempFile: () => unsupported('makeTempFile'),
       makeTempFileScoped: () => unsupported('makeTempFileScoped'),
       open: path => unsupported(`open(${path})`),
       readDirectory: path => unsupported(`readDirectory(${path})`),
       readFile: path => unsupported(`readFile(${path})`),
-      readFileString: path =>
-        client
-          .request(id => ({ _tag: 'FsReadFileString' as const, id, path }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('readFileString', path, cause)),
-            Effect.flatMap(response => {
-              if (response._tag === 'FsReadFileStringResult') {
-                return Effect.succeed(response.content);
-              }
-              return Effect.fail(mapIpcError('readFileString', path, new Error(response._tag)));
-            }),
-          ),
+      readFileString: Effect.fn('FileSystem.readFileString')(function* (path: string) {
+        return yield* fsIpc({
+          build: id => ({ _tag: 'FsReadFileString', id, path }),
+          client,
+          decode: response => (response._tag === 'FsReadFileStringResult' ? response.content : undefined),
+          method: 'readFileString',
+          path,
+        });
+      }),
       readLink: path => unsupported(`readLink(${path})`),
       realPath: path => unsupported(`realPath(${path})`),
-      remove: (path, options) =>
-        client
-          .request(id => ({
-            _tag: 'FsRemove' as const,
+      remove: Effect.fn('FileSystem.remove')(function* (path: string, options?: { readonly recursive?: boolean }) {
+        yield* fsIpcVoid({
+          build: id => ({
+            _tag: 'FsRemove',
             id,
             options: options?.recursive === undefined ? undefined : { recursive: options.recursive },
             path,
-          }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('remove', path, cause)),
-            Effect.asVoid,
-          ),
+          }),
+          client,
+          method: 'remove',
+          path,
+        });
+      }),
       rename: path => unsupported(`rename(${path})`),
       stat: path => unsupported(`stat(${path})`),
       symlink: path => unsupported(`symlink(${path})`),
       truncate: path => unsupported(`truncate(${path})`),
       utimes: path => unsupported(`utimes(${path})`),
       watch: path => Stream.die(`FileSystem.watch(${path}) not supported on vscode Host`),
-      writeFileString: (path, content) =>
-        client
-          .request(id => ({ _tag: 'FsWriteFileString' as const, content, id, path }))
-          .pipe(
-            Effect.mapError(cause => mapIpcError('writeFileString', path, cause)),
-            Effect.asVoid,
-          ),
+      writeFileString: Effect.fn('FileSystem.writeFileString')(function* (path: string, content: string) {
+        yield* fsIpcVoid({
+          build: id => ({ _tag: 'FsWriteFileString', content, id, path }),
+          client,
+          method: 'writeFileString',
+          path,
+        });
+      }),
     }),
   );

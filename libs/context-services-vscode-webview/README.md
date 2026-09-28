@@ -1,6 +1,6 @@
 # @lib/context-services-vscode-webview
 
-VS Code webview Host services Live and extension↔webview IPC codec for portable Host services in [`@lib/context-services`](../context-services).
+VS Code webview Host services Live and Host IPC codec for portable Host services in [`@lib/context-services`](../context-services).
 
 Owns:
 

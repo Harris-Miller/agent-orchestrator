@@ -21,6 +21,22 @@ type ProcessListeners = {
   readonly onStdoutEnd: () => void;
 };
 
+type ProcessNotification = Extract<
+  IpcMessage,
+  { readonly _tag: 'Exit' | 'StderrChunk' | 'StderrEnd' | 'StdoutChunk' | 'StdoutEnd' }
+>;
+
+const PROCESS_NOTIFICATION_TAGS: ReadonlySet<ProcessNotification['_tag']> = new Set([
+  'Exit',
+  'StderrChunk',
+  'StderrEnd',
+  'StdoutChunk',
+  'StdoutEnd',
+]);
+
+const isProcessNotification = (message: IpcMessage): message is ProcessNotification =>
+  PROCESS_NOTIFICATION_TAGS.has(message._tag as ProcessNotification['_tag']);
+
 /**
  * Request/response + process notification demux over an {@link IpcPort}.
  */
@@ -100,24 +116,25 @@ export class IpcClient {
       return;
     }
 
-    if (message._tag === 'Exit') {
-      this.processes.get(message.handleId)?.onExit(message.code);
-      return;
-    }
-    if (message._tag === 'StderrChunk') {
-      this.processes.get(message.handleId)?.onStderrChunk(unknownBytesToUint8Array(message.bytes));
-      return;
-    }
-    if (message._tag === 'StderrEnd') {
-      this.processes.get(message.handleId)?.onStderrEnd();
-      return;
-    }
-    if (message._tag === 'StdoutChunk') {
-      this.processes.get(message.handleId)?.onStdoutChunk(unknownBytesToUint8Array(message.bytes));
-      return;
-    }
-    if (message._tag === 'StdoutEnd') {
-      this.processes.get(message.handleId)?.onStdoutEnd();
+    if (isProcessNotification(message)) {
+      const listeners = this.processes.get(message.handleId);
+      switch (message._tag) {
+        case 'Exit':
+          listeners?.onExit(message.code);
+          break;
+        case 'StderrChunk':
+          listeners?.onStderrChunk(unknownBytesToUint8Array(message.bytes));
+          break;
+        case 'StderrEnd':
+          listeners?.onStderrEnd();
+          break;
+        case 'StdoutChunk':
+          listeners?.onStdoutChunk(unknownBytesToUint8Array(message.bytes));
+          break;
+        case 'StdoutEnd':
+          listeners?.onStdoutEnd();
+          break;
+      }
       return;
     }
 

@@ -10,7 +10,7 @@ ACP adapter children and vendor-auth short-lived spawns must not orphan when the
 
 ## Decision
 
-Treat **webview lifetime as the session lifetime for host-tracked children**: the extension-host `ProcessTracker` is source of truth; `onDidDispose` and `deactivate` kill that webview’s (or all) tracked set. Extension allocates opaque spawn handle ids.
+Treat **webview Host lifetime as the session lifetime for Host-tracked children**: the extension-host `ProcessTracker` is source of truth; `onDidDispose` and `deactivate` kill that webview’s (or all) tracked set. Extension allocates opaque spawn handle ids.
 
 ## Consequences
 

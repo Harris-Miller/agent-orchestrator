@@ -3,6 +3,7 @@ import { Layer } from 'effect';
 
 import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
+import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
@@ -21,11 +22,12 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides BundledResource, OS, Path, FileSystem, ChildProcessSpawner, and
+ * Provides BundledResource, Clipboard, OS, Path, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   BundledResourceLive,
+  ClipboardLive,
   ConfigProviderLive,
   ChildProcessSpawnerLive,
   FileSystemLive,

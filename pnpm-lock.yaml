@@ -203,9 +203,6 @@ importers:
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.1
-      '@tauri-apps/plugin-clipboard-manager':
-        specifier: 'catalog:'
-        version: 2.3.3
       '@tauri-apps/plugin-dialog':
         specifier: 'catalog:'
         version: 2.4.2
@@ -448,6 +445,9 @@ importers:
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.1
+      '@tauri-apps/plugin-clipboard-manager':
+        specifier: 'catalog:'
+        version: 2.3.3
       '@tauri-apps/plugin-fs':
         specifier: 'catalog:'
         version: 2.5.1
@@ -460,6 +460,43 @@ importers:
       '@tauri-apps/plugin-shell':
         specifier: 'catalog:'
         version: 2.3.5
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
+      '@tooling/eslint':
+        specifier: workspace:^
+        version: link:../../tooling/eslint
+      '@tooling/tsconfig':
+        specifier: workspace:^
+        version: link:../../tooling/tsconfig
+      '@tooling/vitest':
+        specifier: workspace:^
+        version: link:../../tooling/vitest
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(vitest@4.1.11)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0))
+
+  libs/context-services-vscode-webview:
+    dependencies:
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -531,6 +568,15 @@ importers:
 
   libs/ui:
     dependencies:
+      '@effect/atom-react':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(react@19.2.8)(scheduler@0.27.0)
+      '@emotion/react':
+        specifier: 'catalog:'
+        version: 11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0)
+      '@emotion/styled':
+        specifier: 'catalog:'
+        version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0)
       '@lib/ao-home':
         specifier: workspace:^
         version: link:../ao-home
@@ -540,9 +586,15 @@ importers:
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../effect-acp
+      '@mui/material':
+        specifier: 'catalog:'
+        version: 9.4.0(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react@19.2.8)(supports-color@7.2.0))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -559,6 +611,9 @@ importers:
       '@tooling/vitest':
         specifier: workspace:^
         version: link:../../tooling/vitest
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
       eslint:
         specifier: 'catalog:'
         version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)

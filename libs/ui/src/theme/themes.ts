@@ -1,14 +1,7 @@
-import type { ThemeId } from '@lib/ui';
 import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
-export const THEME_LABELS: Record<ThemeId, string> = {
-  frappe: 'Catppuccin Frappé',
-  latte: 'Catppuccin Latte',
-  macchiato: 'Catppuccin Macchiato',
-  mocha: 'Catppuccin Mocha',
-  original: 'Original',
-};
+import type { ThemeId } from './themeId.ts';
 
 type ThemeColors = {
   readonly alertInfoBg: string;

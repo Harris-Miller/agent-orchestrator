@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { defaultSettings } from '@lib/ao-home';
-import { confirmSessionDeleteAtom, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
+import { confirmSessionDeleteAtom, ProvidersSettingsPane, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -27,8 +27,6 @@ import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { ThemeSelect } from '../../theme/ThemeChoice.tsx';
-
-import { ProvidersSettingsPane } from './ProvidersSettingsPane.tsx';
 
 const CATEGORIES = [
   { id: 'general', label: 'General' },

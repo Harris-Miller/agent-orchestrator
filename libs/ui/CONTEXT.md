@@ -1,6 +1,6 @@
 # ui
 
-Shared Agent Harness webview context: Backend Harness behavior and Harness application state consumed by the desktop app and (planned) VS Code webview. Host apps still own React surfaces until a second consumer mounts them here.
+Shared Agent Harness webview context: Backend Harness behavior, Harness application state, and shared React surfaces (Providers Settings, ACP backend mount, AppThemeProvider) consumed by the desktop app and (planned) VS Code webview. Host apps still own host-specific chrome (Appearance ThemeSelect, Settings shell).
 
 ## Language
 
@@ -16,4 +16,4 @@ _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mea
 Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
-For Host services and BundledResource vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session, chat, and Settings terms used by this state still live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md) until VS Code adopts them as a second consumer.
+For Host services and BundledResource / Clipboard vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session, chat, and Settings terms used by this state still live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md) until VS Code adopts them as a second consumer.

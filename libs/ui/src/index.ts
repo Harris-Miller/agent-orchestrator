@@ -26,6 +26,8 @@ export {
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
+export * from './components/AcpBackendsMount.tsx';
+export * from './components/ProvidersSettingsPane.tsx';
 export * from './createHostRuntime.ts';
 export {
   atomRuntime,
@@ -37,5 +39,7 @@ export {
   hostRuntime,
 } from './hostRuntime.ts';
 export * from './isRecord.ts';
+export * from './theme/AppThemeProvider.tsx';
 export * from './theme/themeId.ts';
 export * from './theme/themePaintCache.ts';
+export * from './theme/themes.ts';

@@ -2,14 +2,18 @@
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
-import { upsertRosterEntry } from '../acp/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel } from '../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
-import { buildTargetHandoffSeedPrompt, extractHandoffDocument, SOURCE_HANDOFF_PROMPT } from '../acp/handoffDocument.ts';
-import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
-import { createSession, setConfigOption } from '../acp/sessionRpc.ts';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
+import { upsertRosterEntry } from '../host/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import {
+  buildTargetHandoffSeedPrompt,
+  extractHandoffDocument,
+  SOURCE_HANDOFF_PROMPT,
+} from '../host/handoffDocument.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, upsertSession, withSessionClientRequest } from './sessionPatch.atoms.ts';

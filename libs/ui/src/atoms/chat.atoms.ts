@@ -3,18 +3,18 @@ import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
+import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySetConfigOptionResult,
   normalizeConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
-} from '../acp/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { withUserChatMessage } from '../acp/applySessionUpdate.ts';
-import { getPromptSpan } from '../acp/promptSpanRegistry.ts';
-import { cancelSession, setConfigOption } from '../acp/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled } from '../acp/sessionUpdateReducer.ts';
-import type { HostRuntimeBag } from '../createHostRuntime.ts';
+} from '../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import { getPromptSpan } from '../host/promptSpanRegistry.ts';
+import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
+import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';

@@ -1,19 +1,3 @@
-export * from './acp/acpAdapterCommand.ts';
-export * from './acp/acpSessionBootstrap.ts';
-export * from './acp/agentLaunchTarget.ts';
-export * from './acp/applySessionUpdate.ts';
-export * from './acp/backendHarness.ts';
-export * from './acp/clientHandlers.ts';
-export * from './acp/configProbe.ts';
-export * from './acp/findExecutableOnPath.ts';
-export * from './acp/handoffDocument.ts';
-export * from './acp/pendingInteractions.ts';
-export * from './acp/promptSpanRegistry.ts';
-export * from './acp/sessionMaterialize.ts';
-export * from './acp/sessionRpc.ts';
-export * from './acp/sessionUpdateReducer.ts';
-export * from './acp/vendorCliAuth.ts';
-export * from './acp/writeTextToClipboard.ts';
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
@@ -30,6 +14,22 @@ export {
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
 export * from './createHostRuntime.ts';
+export * from './host/acpAdapterCommand.ts';
+export * from './host/acpSessionBootstrap.ts';
+export * from './host/agentLaunchTarget.ts';
+export * from './host/applySessionUpdate.ts';
+export * from './host/backendHarness.ts';
+export * from './host/clientHandlers.ts';
+export * from './host/configProbe.ts';
+export * from './host/findExecutableOnPath.ts';
+export * from './host/handoffDocument.ts';
+export * from './host/pendingInteractions.ts';
+export * from './host/promptSpanRegistry.ts';
+export * from './host/sessionMaterialize.ts';
+export * from './host/sessionRpc.ts';
+export * from './host/sessionUpdateReducer.ts';
+export * from './host/vendorCliAuth.ts';
+export * from './host/writeTextToClipboard.ts';
 export {
   atomRuntime,
   bindHostRuntime,

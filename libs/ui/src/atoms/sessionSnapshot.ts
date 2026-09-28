@@ -1,6 +1,6 @@
 /** Pure session snapshot patch helpers. */
-import { initialSessionSnapshot } from '../acp/acpSessionBootstrap.ts';
-import type { SessionSnapshot } from '../acp/acpSessionBootstrap.ts';
+import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 
 export const upsertSession = (
   sessions: Readonly<Record<string, SessionSnapshot>>,

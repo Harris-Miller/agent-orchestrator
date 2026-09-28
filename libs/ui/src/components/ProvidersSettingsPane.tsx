@@ -9,10 +9,10 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
-import type { AcpBootstrapPhase } from '../acp/acpSessionBootstrap.ts';
-import { writeTextToClipboard } from '../acp/writeTextToClipboard.ts';
 import { allLaunchTargetPhasesAtom } from '../atoms/backendState.atoms.ts';
 import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
+import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
+import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {

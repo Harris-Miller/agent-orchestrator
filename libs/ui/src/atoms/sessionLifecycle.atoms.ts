@@ -3,15 +3,16 @@ import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
+import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   defectsFromActivationFailure,
   normalizeSessionRoster,
   resolveSessionCwd,
   upsertRosterEntry,
-} from '../acp/acpSessionBootstrap.ts';
-import { ALL_AGENT_LAUNCH_TARGETS } from '../acp/agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from '../acp/agentLaunchTarget.ts';
-import { buildActivatedSession, rosterEntryFromNew } from '../acp/sessionMaterialize.ts';
+} from '../host/acpSessionBootstrap.ts';
+import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
   closeSession,
   createSession,
@@ -19,8 +20,7 @@ import {
   listSessions,
   loadSession,
   resumeSession,
-} from '../acp/sessionRpc.ts';
-import type { HostRuntimeBag } from '../createHostRuntime.ts';
+} from '../host/sessionRpc.ts';
 
 import {
   backendHarnessStateAtom,

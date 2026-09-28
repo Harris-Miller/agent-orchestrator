@@ -19,9 +19,6 @@ export const selectedSessionIdAtom = Atom.make<string | undefined>(undefined).pi
 
 export const rpcWireLogLaunchTargetAtom = Atom.make<AgentLaunchTarget>('codex-acp').pipe(Atom.keepAlive);
 
-/** App-session only; not persisted to User settings. Default off. */
-export const developerModeAtom = Atom.make(false).pipe(Atom.keepAlive);
-
 export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
 );

@@ -175,7 +175,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">General</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Session delete confirmation lives in User settings. Developer mode lasts for this app session only.
+                  Session delete confirmation and Developer mode live in User settings.
                 </Typography>
                 <FormControlLabel
                   control={
@@ -193,6 +193,7 @@ export const SettingsPage: FC = () => {
                   control={
                     <Switch
                       checked={developerMode}
+                      disabled={editsDisabled}
                       onChange={(_event, checked) => {
                         setDeveloperMode(checked);
                       }}

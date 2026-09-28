@@ -8,6 +8,7 @@ export * from './atoms/sessionPatch.atoms.ts';
 export {
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
+  developerModeEnabled,
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';

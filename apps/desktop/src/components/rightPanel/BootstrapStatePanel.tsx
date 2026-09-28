@@ -21,7 +21,7 @@ import type { FC, ReactNode } from 'react';
 import { PanelHeader } from '../shared/PanelHeader.tsx';
 import { UsageCard } from '../shared/UsageCard.tsx';
 
-export const SESSION_STATE_PANEL_WIDTH = 380;
+export const RIGHT_PANEL_WIDTH = 380;
 
 const sectionCardSx = {
   bgcolor: 'background.default',

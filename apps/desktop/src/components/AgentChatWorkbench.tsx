@@ -13,7 +13,7 @@ import type { FC } from 'react';
 
 import { DEVELOPER_PANEL_HEIGHT, DeveloperPanel } from './developerPanel/DeveloperPanel.tsx';
 import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
-import { RightPanelPlaceholder, SESSION_STATE_PANEL_WIDTH } from './rightPanel/BootstrapStatePanel.tsx';
+import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
@@ -203,12 +203,7 @@ export const AgentChatWorkbench: FC<{
               </Box>
             </Allotment.Pane>
 
-            <Allotment.Pane
-              minSize={240}
-              preferredSize={SESSION_STATE_PANEL_WIDTH}
-              snap
-              visible={layout.sessionStateOpen}
-            >
+            <Allotment.Pane minSize={240} preferredSize={RIGHT_PANEL_WIDTH} snap visible={layout.sessionStateOpen}>
               <RightPanelPlaceholder
                 onClose={() => {
                   commitLayout({ sessionStateOpen: false });

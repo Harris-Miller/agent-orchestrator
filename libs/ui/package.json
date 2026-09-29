@@ -17,12 +17,16 @@
     "@effect/atom-react": "catalog:",
     "@emotion/react": "catalog:",
     "@emotion/styled": "catalog:",
+    "@lexical/react": "catalog:",
     "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@libs/effect-acp": "workspace:^",
+    "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
     "effect": "catalog:",
-    "react": "catalog:"
+    "lexical": "catalog:",
+    "react": "catalog:",
+    "react-markdown": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

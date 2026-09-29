@@ -1,26 +1,4 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { AgentLaunchTarget } from '@lib/ui';
-import {
-  activateSessionAtomFn,
-  agentLaunchTargetLabel,
-  cancelPromptAtomFn,
-  configOptionIndexAtom,
-  draftAtom,
-  handoffInProgressAtom,
-  handoffSessionAtomFn,
-  isRecord,
-  normalizeSelectableConfigOptions,
-  readyLaunchTargetsAtom,
-  respondElicitationAtomFn,
-  respondPermissionAtomFn,
-  selectedBackendHarnessSnapshotAtom,
-  selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-  sendChatItemAtomFn,
-  setConfigOptionAtomFn,
-  unifiedSessionRosterAtom,
-} from '@lib/ui';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Stop from '@mui/icons-material/Stop';
@@ -40,14 +18,39 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
-import { UsagePopover } from '../shared/UsageCard.tsx';
+import {
+  configOptionIndexAtom,
+  readyLaunchTargetsAtom,
+  selectedBackendHarnessSnapshotAtom,
+  selectedSessionAtom,
+  selectedSessionIdAtom,
+  selectedSessionLaunchTargetAtom,
+  unifiedSessionRosterAtom,
+} from '../../atoms/backendState.atoms.ts';
+import {
+  activateSessionAtomFn,
+  cancelPromptAtomFn,
+  developerModeAtom,
+  handoffSessionAtomFn,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
+  sendChatItemAtomFn,
+  setConfigOptionAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
+import { draftAtom } from '../../atoms/chat.atoms.ts';
+import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
+import { normalizeSelectableConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { isRecord } from '../../isRecord.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
+import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
+import { UsagePopover } from './UsagePopover.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
@@ -66,12 +69,12 @@ const formatActivationDefect = (defect: unknown): string => {
   return JSON.stringify(defect);
 };
 
-export const AgentChatMain: FC<{
-  readonly developerMode: boolean;
-  readonly developerPanelOpen: boolean;
+export const SessionChatBody: FC<{
+  readonly developerPanelOpen?: boolean;
   readonly onClientError: (error: unknown) => void;
-  readonly onOpenDeveloperPanel: () => void;
-}> = ({ developerMode, developerPanelOpen, onClientError, onOpenDeveloperPanel }) => {
+  readonly onOpenDeveloperPanel?: () => void;
+}> = ({ developerPanelOpen = false, onClientError, onOpenDeveloperPanel }) => {
+  const developerMode = useAtomValue(developerModeAtom);
   const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
@@ -129,6 +132,7 @@ export const AgentChatMain: FC<{
     hasTranscriptMessage &&
     sourceCwd !== undefined;
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
+  const showDeveloperButton = developerMode && onOpenDeveloperPanel !== undefined && !developerPanelOpen;
 
   const sendDraft = () => {
     if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
@@ -158,13 +162,13 @@ export const AgentChatMain: FC<{
 
   const emptyStateSecondary: ReactNode = (() => {
     if (selectedLaunchTarget === undefined) {
-      return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
+      return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
     if (backendSnapshot?.phase !== 'ready') {
       return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {
-      return <Alert severity="info">No session selected — create or select a session from the left panel.</Alert>;
+      return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
     if (selectedSession.status === 'activating') {
       return <Alert severity="info">Activating session…</Alert>;
@@ -178,7 +182,7 @@ export const AgentChatMain: FC<{
                 color="inherit"
                 onClick={() => {
                   activateSession({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId }).catch(
-                    () => undefined,
+                    onClientError,
                   );
                 }}
                 size="small"
@@ -328,7 +332,7 @@ export const AgentChatMain: FC<{
                   option={option}
                 />
               ))}
-              {developerMode && !developerPanelOpen ? (
+              {showDeveloperButton ? (
                 <Button onClick={onOpenDeveloperPanel} size="small" variant="outlined">
                   Developer panel
                 </Button>

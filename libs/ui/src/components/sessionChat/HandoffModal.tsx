@@ -1,5 +1,3 @@
-import { agentLaunchTargetLabel, configValuesFromOptions, preserveConfigValuesOnModelChange } from '@lib/ui';
-import type { AgentLaunchTarget, ConfigOptionIndex, NormalizedConfigOption } from '@lib/ui';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -13,7 +11,13 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { SessionConfigOptionSelect } from '../shared/SessionConfigOptionSelect.tsx';
+import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
+import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
+import type { ConfigOptionIndex } from '../../host/configProbe.ts';
+
+import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 
 const optionsWithValues = (
   options: readonly NormalizedConfigOption[],

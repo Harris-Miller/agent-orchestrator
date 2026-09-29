@@ -1,7 +1,13 @@
 import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
-import { developerModeAtom, isRecord, selectedBackendHarnessSnapshotAtom, selectedSessionAtom } from '@lib/ui';
+import {
+  developerModeAtom,
+  isRecord,
+  selectedBackendHarnessSnapshotAtom,
+  selectedSessionAtom,
+  SessionChatBody,
+} from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -12,7 +18,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { DEVELOPER_PANEL_HEIGHT, DeveloperPanel } from './developerPanel/DeveloperPanel.tsx';
-import { AgentChatMain } from './mainChat/AgentChatMain.tsx';
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
@@ -192,8 +197,7 @@ export const AgentChatWorkbench: FC<{
                   </Toolbar>
                 </AppBar>
 
-                <AgentChatMain
-                  developerMode={developerMode}
+                <SessionChatBody
                   developerPanelOpen={layout.developerPanelOpen}
                   onClientError={onClientError}
                   onOpenDeveloperPanel={() => {

@@ -1,13 +1,8 @@
 import type { SessionUsageDocument } from '@lib/ao-home';
-import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
-import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
 import type { FC } from 'react';
 
 const usageCardSx = {
@@ -15,8 +10,6 @@ const usageCardSx = {
   borderColor: 'divider',
   p: 1.5,
 } as const;
-
-const USAGE_POPOVER_ID = 'session-usage-popover';
 
 const usagePercent = (usage: SessionUsageDocument): number => (usage.size > 0 ? (usage.used / usage.size) * 100 : 0);
 
@@ -70,55 +63,5 @@ export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage 
         ) : null}
       </Stack>
     </Paper>
-  );
-};
-
-export const UsagePopover: FC<{ readonly usage?: SessionUsageDocument }> = ({ usage }) => {
-  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
-  const open = Boolean(anchorEl);
-
-  if (usage === undefined) {
-    return null;
-  }
-
-  const percent = usagePercent(usage);
-
-  return (
-    <>
-      <IconButton
-        aria-describedby={open ? USAGE_POPOVER_ID : undefined}
-        aria-expanded={open}
-        aria-haspopup="true"
-        aria-label="Session usage"
-        onClick={event => {
-          setAnchorEl(event.currentTarget);
-        }}
-        size="small"
-        type="button"
-      >
-        <Box sx={{ display: 'inline-flex', position: 'relative' }}>
-          <CircularProgress
-            aria-hidden
-            color={usageBarColor(percent)}
-            enableTrackSlot
-            size={18}
-            value={percent}
-            variant="determinate"
-          />
-        </Box>
-      </IconButton>
-      <Popover
-        anchorEl={anchorEl}
-        anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
-        id={USAGE_POPOVER_ID}
-        onClose={() => {
-          setAnchorEl(null);
-        }}
-        open={open}
-        transformOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-      >
-        <UsageCard usage={usage} />
-      </Popover>
-    </>
   );
 };

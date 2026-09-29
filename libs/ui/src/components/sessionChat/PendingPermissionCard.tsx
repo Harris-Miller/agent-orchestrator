@@ -1,10 +1,11 @@
-import { isRecord } from '@lib/ui';
 import type { RequestPermissionRequest } from '@libs/effect-acp';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
+
+import { isRecord } from '../../isRecord.ts';
 
 const toolCallTitle = (request: RequestPermissionRequest): string => {
   const { toolCall } = request;

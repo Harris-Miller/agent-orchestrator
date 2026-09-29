@@ -1,9 +1,10 @@
-import type { NormalizedConfigOption } from '@lib/ui';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { FC } from 'react';
+
+import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
 
 export const SessionConfigOptionSelect: FC<{
   readonly disabled: boolean;

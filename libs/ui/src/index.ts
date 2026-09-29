@@ -16,6 +16,7 @@ export {
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
+export * from './components/sessionChat/UsageCard.tsx';
 export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';
 export * from './host/acpAdapterCommand.ts';

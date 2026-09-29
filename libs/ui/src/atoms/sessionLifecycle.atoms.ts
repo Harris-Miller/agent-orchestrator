@@ -6,6 +6,7 @@ import { Atom } from 'effect/unstable/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   defectsFromActivationFailure,
+  isSessionActiveOrActivating,
   normalizeSessionRoster,
   resolveSessionCwd,
   upsertRosterEntry,
@@ -180,7 +181,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
-        if (existingSession?.status === 'active' || existingSession?.status === 'activating') {
+        if (existingSession !== undefined && isSessionActiveOrActivating(existingSession.status)) {
           yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
           return;
         }

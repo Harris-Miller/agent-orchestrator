@@ -3,6 +3,7 @@ import {
   activateSessionAtomFn,
   agentLaunchTargetLabel,
   backendHarnessStateAtom,
+  isSessionActiveOrActivating,
   selectedSessionIdAtom,
   selectSessionAtomFn,
   SessionChatBody,
@@ -72,7 +73,7 @@ export const SessionChatPage: FC = () => {
       return;
     }
 
-    if (status === 'active' || status === 'activating') {
+    if (isSessionActiveOrActivating(status)) {
       activateKickRef.current = sessionId;
       if (selectedSessionId !== sessionId) {
         selectSessionRef.current({ launchTarget, sessionId }).catch(onClientError);

@@ -15,6 +15,10 @@ export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probin
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';
 
+/** True while load/resume is in flight or the session is loaded on the agent. */
+export const isSessionActiveOrActivating = (status: SessionStatus): boolean =>
+  status === 'active' || status === 'activating';
+
 export type PendingClientRequestKind = 'config' | 'prompt';
 
 export type SessionSnapshot = {

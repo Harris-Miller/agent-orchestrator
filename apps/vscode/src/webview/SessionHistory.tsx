@@ -11,7 +11,6 @@ import {
   ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
-  selectSessionAtomFn,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
 } from '@lib/ui';
@@ -54,7 +53,6 @@ const SessionRow: FC<{
   readonly selected: boolean;
 }> = ({ entry, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
-  const selectSession = useAtomSet(selectSessionAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
@@ -66,14 +64,12 @@ const SessionRow: FC<{
   const displayTitle = entry.title ?? 'New Session';
 
   const openSession = () => {
-    const go = () => {
-      navigate({ params: { sessionId: entry.sessionId }, to: '/session/$sessionId' }).catch(() => undefined);
-    };
-    if (status !== 'active' && status !== 'activating') {
-      activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).then(go).catch(onClientError);
-      return;
-    }
-    selectSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).then(go).catch(onClientError);
+    // activateSession selects + no-ops when already active/activating (Codex-safe).
+    activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId })
+      .then(() => {
+        navigate({ params: { sessionId: entry.sessionId }, to: '/session/$sessionId' }).catch(() => undefined);
+      })
+      .catch(onClientError);
   };
 
   return (

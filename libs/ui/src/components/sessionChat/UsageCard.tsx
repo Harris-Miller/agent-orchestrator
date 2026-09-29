@@ -5,31 +5,13 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
+import { formatUsageCost, usageBarColor, usagePercent } from './usageMetrics.ts';
+
 const usageCardSx = {
   bgcolor: 'background.default',
   borderColor: 'divider',
   p: 1.5,
 } as const;
-
-const usagePercent = (usage: SessionUsageDocument): number => (usage.size > 0 ? (usage.used / usage.size) * 100 : 0);
-
-const usageBarColor = (percent: number): 'error' | 'success' | 'warning' => {
-  if (percent >= 90) {
-    return 'error';
-  }
-  if (percent >= 75) {
-    return 'warning';
-  }
-  return 'success';
-};
-
-const formatCost = (cost: { readonly amount: number; readonly currency: string }): string => {
-  try {
-    return new Intl.NumberFormat(undefined, { currency: cost.currency, style: 'currency' }).format(cost.amount);
-  } catch {
-    return `${cost.amount} ${cost.currency}`;
-  }
-};
 
 export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage }) => {
   const percent = usagePercent(usage);
@@ -58,7 +40,7 @@ export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage 
         </Typography>
         {usage.cost !== undefined ? (
           <Typography variant="body2">
-            Cost: <strong>{formatCost(usage.cost)}</strong>
+            Cost: <strong>{formatUsageCost(usage.cost)}</strong>
           </Typography>
         ) : null}
       </Stack>

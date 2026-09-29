@@ -42,8 +42,18 @@ export const SessionChatPage: FC = () => {
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const wasSelectedRef = useRef(false);
+  /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
+  const activateKickRef = useRef<string | undefined>(undefined);
+  const selectSessionRef = useRef(selectSession);
+  const activateSessionRef = useRef(activateSession);
+
+  useEffect(() => {
+    selectSessionRef.current = selectSession;
+    activateSessionRef.current = activateSession;
+  }, [activateSession, selectSession]);
 
   const entry = roster.find(row => row.sessionId === sessionId);
+  const launchTarget = entry?.launchTarget;
   const session =
     entry === undefined
       ? undefined
@@ -54,22 +64,29 @@ export const SessionChatPage: FC = () => {
   const title = entry === undefined ? 'Chat' : (entry.title ?? agentLaunchTargetLabel(entry.launchTarget));
 
   useEffect(() => {
-    if (entry === undefined) {
+    if (launchTarget === undefined) {
+      activateKickRef.current = undefined;
       wasSelectedRef.current = false;
       setSelectedSessionId(undefined);
       navigate({ to: '/' }).catch(() => undefined);
       return;
     }
 
-    if (status !== 'active' && status !== 'activating') {
-      activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+    if (status === 'active' || status === 'activating') {
+      activateKickRef.current = sessionId;
+      if (selectedSessionId !== sessionId) {
+        selectSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
+      }
       return;
     }
 
-    if (selectedSessionId !== entry.sessionId) {
-      selectSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+    // inactive — kick activate once per sessionId
+    if (activateKickRef.current === sessionId) {
+      return;
     }
-  }, [activateSession, entry, navigate, onClientError, selectSession, selectedSessionId, setSelectedSessionId, status]);
+    activateKickRef.current = sessionId;
+    activateSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
+  }, [launchTarget, navigate, onClientError, selectedSessionId, sessionId, setSelectedSessionId, status]);
 
   useEffect(() => {
     if (selectedSessionId === sessionId) {
@@ -84,6 +101,7 @@ export const SessionChatPage: FC = () => {
 
   const onBack = () => {
     wasSelectedRef.current = false;
+    activateKickRef.current = undefined;
     navigate({ to: '/' }).catch(() => undefined);
     setSelectedSessionId(undefined);
   };

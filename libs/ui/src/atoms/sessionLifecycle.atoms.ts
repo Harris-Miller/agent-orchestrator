@@ -178,6 +178,13 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
         selectSession(get, arg.launchTarget, arg.sessionId);
 
+        // Fresh session/new already materializes an active local snapshot. Re-entering via
+        // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
+        if (existingSession?.status === 'active' || existingSession?.status === 'activating') {
+          yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
+          return;
+        }
+
         if (cwd === undefined) {
           yield* Effect.logError('Session activation failed; session cwd missing', arg.launchTarget, arg.sessionId);
           get.set(backendHarnessStateAtom(arg.launchTarget), {

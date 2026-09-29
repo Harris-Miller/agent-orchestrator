@@ -12,6 +12,7 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
   closeSession,
@@ -28,6 +29,7 @@ import {
   selectedSessionIdAtom,
   selectSession,
 } from './backendState.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
 
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
@@ -54,8 +56,19 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
 
+          const listPayload = listSessionsPayload(get(sessionListScopeAtom));
+          if (listPayload === undefined) {
+            const current = get(backendHarnessStateAtom(launchTarget));
+            get.set(backendHarnessStateAtom(launchTarget), {
+              ...current,
+              sessionRoster: [],
+            });
+            clearSelectedSessionIfMissing(get);
+            return;
+          }
+
           yield* Effect.logDebug('Refreshing session roster', launchTarget);
-          const listResult = yield* listSessions(launchTarget);
+          const listResult = yield* listSessions(launchTarget, listPayload);
           const current = get(backendHarnessStateAtom(launchTarget));
           get.set(backendHarnessStateAtom(launchTarget), {
             ...current,
@@ -72,6 +85,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
   const refreshAllSessionRostersAtomFn = atomRuntime
     .fn(
       Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        const listPayload = listSessionsPayload(get(sessionListScopeAtom));
         yield* Effect.forEach(
           ALL_AGENT_LAUNCH_TARGETS,
           launchTarget =>
@@ -80,7 +94,15 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
               if (snapshot.phase !== 'ready') {
                 return;
               }
-              const listResult = yield* listSessions(launchTarget);
+              if (listPayload === undefined) {
+                const current = get(backendHarnessStateAtom(launchTarget));
+                get.set(backendHarnessStateAtom(launchTarget), {
+                  ...current,
+                  sessionRoster: [],
+                });
+                return;
+              }
+              const listResult = yield* listSessions(launchTarget, listPayload);
               const current = get(backendHarnessStateAtom(launchTarget));
               get.set(backendHarnessStateAtom(launchTarget), {
                 ...current,

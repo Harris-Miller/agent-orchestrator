@@ -37,6 +37,8 @@ const PROCESS_NOTIFICATION_TAGS: ReadonlySet<ProcessNotification['_tag']> = new 
 const isProcessNotification = (message: IpcMessage): message is ProcessNotification =>
   PROCESS_NOTIFICATION_TAGS.has(message._tag as ProcessNotification['_tag']);
 
+type WorkspaceFoldersChangedListener = (paths: readonly string[]) => void;
+
 /**
  * Request/response + process notification demux over an {@link IpcPort}.
  */
@@ -46,6 +48,7 @@ export class IpcClient {
   private readonly pending = new Map<string, Pending>();
   private readonly port: IpcPort;
   private readonly processes = new Map<HandleId, ProcessListeners>();
+  private readonly workspaceFoldersChangedListeners = new Set<WorkspaceFoldersChangedListener>();
 
   public constructor(port: IpcPort) {
     this.port = port;
@@ -66,6 +69,18 @@ export class IpcClient {
     }
     this.pending.clear();
     this.processes.clear();
+    this.workspaceFoldersChangedListeners.clear();
+  };
+
+  /**
+   * Multicast subscribe for unsolicited {@link WorkspaceFoldersChanged} pushes.
+   * Returns dispose; does not replace other listeners.
+   */
+  public readonly onWorkspaceFoldersChanged = (listener: WorkspaceFoldersChangedListener): (() => void) => {
+    this.workspaceFoldersChangedListeners.add(listener);
+    return () => {
+      this.workspaceFoldersChangedListeners.delete(listener);
+    };
   };
 
   public readonly post = (message: IpcMessage): void => {
@@ -134,6 +149,13 @@ export class IpcClient {
         case 'StdoutEnd':
           listeners?.onStdoutEnd();
           break;
+      }
+      return;
+    }
+
+    if (message._tag === 'WorkspaceFoldersChanged') {
+      for (const listener of this.workspaceFoldersChangedListeners) {
+        listener(message.paths);
       }
       return;
     }

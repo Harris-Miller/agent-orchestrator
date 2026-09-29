@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { handleHostIpcMessage } from './host/hostFulfillment';
+import { handleHostIpcMessage, postWorkspaceFoldersChanged } from './host/hostFulfillment';
 import type { ProcessTracker } from './host/processTracker';
 
 const getNonce = function (): string {
@@ -41,14 +41,20 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         tracker: this.tracker,
         webview: webviewView.webview,
         webviewId,
+        workspaceFolders: vscode.workspace.workspaceFolders,
       }).then(
         () => undefined,
         () => undefined,
       );
     });
 
+    const foldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      postWorkspaceFoldersChanged(webviewView.webview, vscode.workspace.workspaceFolders);
+    });
+
     webviewView.onDidDispose(() => {
       subscription.dispose();
+      foldersChanged.dispose();
       this.tracker.killAllForWebview(webviewId);
     });
   }

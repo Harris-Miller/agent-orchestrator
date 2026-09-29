@@ -2,108 +2,72 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   activateSessionAtomFn,
   agentLaunchTargetLabel,
-  backendHarnessStateAtom,
   isSessionActiveOrActivating,
+  selectedSessionAtom,
   selectedSessionIdAtom,
-  selectSessionAtomFn,
+  selectedSessionLaunchTargetAtom,
   SessionChatBody,
   unifiedSessionRosterAtom,
 } from '@lib/ui';
-import type { AgentLaunchTarget, BackendHarnessSnapshot } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useNavigate, useParams } from '@tanstack/react-router';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import { OnClientErrorContext } from './onClientError.tsx';
 
-const useBackendSnapshots = (): Readonly<Record<AgentLaunchTarget, BackendHarnessSnapshot>> => {
-  const claude = useAtomValue(backendHarnessStateAtom('claude-agent-acp'));
-  const codex = useAtomValue(backendHarnessStateAtom('codex-acp'));
-  const gemini = useAtomValue(backendHarnessStateAtom('gemini-cli'));
-  return {
-    'claude-agent-acp': claude,
-    'codex-acp': codex,
-    'gemini-cli': gemini,
-  };
-};
-
+/**
+ * Chat chrome for the Selected session. Parent only mounts this when
+ * `selectedSessionIdAtom` is defined; back clears Selected → Session History.
+ */
 export const SessionChatPage: FC = () => {
-  const { sessionId } = useParams({ from: '/session/$sessionId' });
-  const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const setSelectedSessionId = useAtomSet(selectedSessionIdAtom);
-  const selectSession = useAtomSet(selectSessionAtomFn, { mode: 'promise' });
+  const selectedSession = useAtomValue(selectedSessionAtom);
+  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const roster = useAtomValue(unifiedSessionRosterAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const snapshots = useBackendSnapshots();
-  const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
-  const wasSelectedRef = useRef(false);
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
-  const selectSessionRef = useRef(selectSession);
   const activateSessionRef = useRef(activateSession);
 
   useEffect(() => {
-    selectSessionRef.current = selectSession;
     activateSessionRef.current = activateSession;
-  }, [activateSession, selectSession]);
+  }, [activateSession]);
 
-  const entry = roster.find(row => row.sessionId === sessionId);
-  const launchTarget = entry?.launchTarget;
-  const session =
+  const sessionId = selectedSessionId;
+  const status = selectedSession?.status ?? 'inactive';
+  const entry = sessionId === undefined ? undefined : roster.find(row => row.sessionId === sessionId);
+  const title =
     entry === undefined
-      ? undefined
-      : entry.sessionId in snapshots[entry.launchTarget]
-        ? snapshots[entry.launchTarget].sessions[entry.sessionId]
-        : undefined;
-  const status = session?.status ?? 'inactive';
-  const title = entry === undefined ? 'Chat' : (entry.title ?? agentLaunchTargetLabel(entry.launchTarget));
+      ? 'Chat'
+      : (entry.title ?? (launchTarget === undefined ? 'Chat' : agentLaunchTargetLabel(launchTarget)));
 
   useEffect(() => {
-    if (launchTarget === undefined) {
+    if (sessionId === undefined || launchTarget === undefined) {
       activateKickRef.current = undefined;
-      wasSelectedRef.current = false;
       setSelectedSessionId(undefined);
-      navigate({ to: '/' }).catch(() => undefined);
       return;
     }
 
     if (isSessionActiveOrActivating(status)) {
       activateKickRef.current = sessionId;
-      if (selectedSessionId !== sessionId) {
-        selectSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
-      }
       return;
     }
 
-    // inactive — kick activate once per sessionId
     if (activateKickRef.current === sessionId) {
       return;
     }
     activateKickRef.current = sessionId;
     activateSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
-  }, [launchTarget, navigate, onClientError, selectedSessionId, sessionId, setSelectedSessionId, status]);
-
-  useEffect(() => {
-    if (selectedSessionId === sessionId) {
-      wasSelectedRef.current = true;
-      return;
-    }
-    if (wasSelectedRef.current && selectedSessionId === undefined) {
-      wasSelectedRef.current = false;
-      navigate({ to: '/' }).catch(() => undefined);
-    }
-  }, [navigate, selectedSessionId, sessionId]);
+  }, [launchTarget, onClientError, sessionId, setSelectedSessionId, status]);
 
   const onBack = () => {
-    wasSelectedRef.current = false;
     activateKickRef.current = undefined;
-    navigate({ to: '/' }).catch(() => undefined);
     setSelectedSessionId(undefined);
   };
 

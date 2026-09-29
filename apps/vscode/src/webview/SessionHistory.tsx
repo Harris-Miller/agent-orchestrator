@@ -1,4 +1,4 @@
-import { RegistryContext, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget, UnifiedRosterEntry } from '@lib/ui';
 import {
   activateSessionAtomFn,
@@ -54,7 +54,6 @@ const SessionRow: FC<{
 }> = ({ entry, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
@@ -65,11 +64,8 @@ const SessionRow: FC<{
 
   const openSession = () => {
     // activateSession selects + no-ops when already active/activating (Codex-safe).
-    activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId })
-      .then(() => {
-        navigate({ params: { sessionId: entry.sessionId }, to: '/session/$sessionId' }).catch(() => undefined);
-      })
-      .catch(onClientError);
+    // Selected session flips SessionHome to Chat — no route.
+    activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
 
   return (
@@ -136,7 +132,6 @@ export const SessionHistory: FC = () => {
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
-  const registry = useContext(RegistryContext);
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null);
@@ -160,13 +155,8 @@ export const SessionHistory: FC = () => {
     }
     setCreating(true);
     setCreateMenuAnchor(null);
+    // createSession selects the new session → SessionHome shows Chat.
     createSession({ cwd: sessionCwd, launchTarget })
-      .then(() => {
-        const sessionId = registry.get(selectedSessionIdAtom);
-        if (sessionId !== undefined) {
-          navigate({ params: { sessionId }, to: '/session/$sessionId' }).catch(() => undefined);
-        }
-      })
       .catch(onClientError)
       .finally(() => {
         setCreating(false);

@@ -1,8 +1,8 @@
 import Box from '@mui/material/Box';
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
-import { SessionChatPage } from './SessionChatPage.tsx';
-import { ProvidersPage, SessionHistory } from './SessionHistory.tsx';
+import { ProvidersPage } from './SessionHistory.tsx';
+import { SessionHome } from './SessionHome.tsx';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -12,16 +12,10 @@ const rootRoute = createRootRoute({
   ),
 });
 
-const historyRoute = createRoute({
-  component: SessionHistory,
+const homeRoute = createRoute({
+  component: SessionHome,
   getParentRoute: () => rootRoute,
   path: '/',
-});
-
-const chatRoute = createRoute({
-  component: SessionChatPage,
-  getParentRoute: () => rootRoute,
-  path: '/session/$sessionId',
 });
 
 const providersRoute = createRoute({
@@ -30,7 +24,7 @@ const providersRoute = createRoute({
   path: '/providers',
 });
 
-const routeTree = rootRoute.addChildren([historyRoute, chatRoute, providersRoute]);
+const routeTree = rootRoute.addChildren([homeRoute, providersRoute]);
 
 const memoryHistory = createMemoryHistory({
   initialEntries: ['/'],

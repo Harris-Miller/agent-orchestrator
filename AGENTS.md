@@ -18,6 +18,20 @@ Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/iss
 
 Multi-context: root `CONTEXT-MAP.md` points to per-package `CONTEXT.md` files; system-wide ADRs in `docs/adr/`, context-scoped ADRs under each package. See `docs/agents/domain.md`.
 
+## Coding Style
+
+* **Mutually exclusive construction options** (e.g. pass a `port` *or* an existing `client`, not “maybe both”): use TypeScript **overloads** and/or a **discriminated union**. Do not use a bag of optional fields plus `instanceof` / runtime “if both set, throw” to tell cases apart — encode exclusivity in the type.
+
+```ts
+// ❌ bag of optionals + runtime discrimination
+makeHostServicesLive(options?: { port?: IpcPort; client?: IpcClient })
+
+// ✅ overloads (call sites) + discriminated union (implementation param) if needed
+makeHostServicesLive(): Layer.Layer<HostServices>
+makeHostServicesLive(options: { readonly port: IpcPort }): Layer.Layer<HostServices>
+makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostServices>
+```
+
 ## ACP (Agent Client Protocol)
 
 This repo communicates with ACP Servers that implement the V1 Spec. When needing to review that spec, refer to here: https://agentclientprotocol.com/llms.txt

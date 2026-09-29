@@ -116,9 +116,29 @@ const WorkspaceFoldersGate: FC = () => {
   return (
     <OnClientErrorContext.Provider value={onClientError}>
       <AcpBackendsMount />
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, p: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flex: 1,
+          flexDirection: 'column',
+          gap: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          p: 1,
+        }}
+      >
         <WorkspaceCwdDebug />
-        <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            // RouterProvider / match wrappers must fill so Chat can pin composer.
+            '& > *': { display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 },
+            display: 'flex',
+            flex: 1,
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
           <RouterProvider router={router} />
         </Box>
       </Box>
@@ -150,7 +170,9 @@ export const App: FC = () => (
     <AppThemeProvider>
       <CssBaseline />
       <UserSettingsMount />
-      <WorkspaceFoldersGate />
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <WorkspaceFoldersGate />
+      </Box>
     </AppThemeProvider>
   </RegistryProvider>
 );

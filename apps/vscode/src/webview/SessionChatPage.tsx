@@ -107,7 +107,7 @@ export const SessionChatPage: FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
         <IconButton aria-label="Back to sessions" onClick={onBack} size="small">
           <ArrowBack fontSize="small" />
@@ -116,7 +116,7 @@ export const SessionChatPage: FC = () => {
           {title}
         </Typography>
       </Stack>
-      <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+      <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} />
       </Box>
     </Box>

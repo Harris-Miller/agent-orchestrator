@@ -109,7 +109,7 @@ export const SessionChatPage: FC = () => {
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <IconButton aria-label="Back to sessions" onClick={onBack} size="small">
+        <IconButton aria-label="Back to Session History" onClick={onBack} size="small">
           <ArrowBack fontSize="small" />
         </IconButton>
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">

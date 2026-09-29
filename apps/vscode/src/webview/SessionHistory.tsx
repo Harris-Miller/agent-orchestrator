@@ -95,7 +95,7 @@ const SessionRow: FC<{
       <ListItemButton onClick={openSession} selected={selected}>
         <ListItemText
           primary={displayTitle}
-          secondary={`${agentLaunchTargetLabel(entry.launchTarget)}${pendingClientRequest ? ' · busy' : ''}`}
+          secondary={`${agentLaunchTargetLabel(entry.launchTarget)}${pendingClientRequest ? ' · pending client request' : ''}`}
         />
         {pendingClientRequest ? (
           <CircularProgress aria-label="Pending client request" size={14} sx={{ mr: 1 }} />
@@ -181,7 +181,7 @@ export const SessionHistory: FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          Sessions
+          Session History
         </Typography>
         <IconButton
           aria-label="Create session"
@@ -327,7 +327,7 @@ export const ProvidersPage: FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
         <IconButton
-          aria-label="Back to sessions"
+          aria-label="Back to Session History"
           onClick={() => {
             navigate({ to: '/' }).catch(() => undefined);
           }}

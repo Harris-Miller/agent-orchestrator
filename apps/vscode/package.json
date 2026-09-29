@@ -38,7 +38,9 @@
     "@emotion/styled": "catalog:",
     "@lib/context-services-vscode-webview": "workspace:^",
     "@lib/ui": "workspace:^",
+    "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
+    "@tanstack/react-router": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

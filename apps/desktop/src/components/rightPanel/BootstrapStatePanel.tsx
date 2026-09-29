@@ -1,4 +1,4 @@
-import { normalizeInitialize, normalizeSession } from '@lib/ui';
+import { normalizeInitialize, normalizeSession, UsageCard } from '@lib/ui';
 import type {
   AvailableCommand,
   NormalizedCapability,
@@ -19,7 +19,6 @@ import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
 import { PanelHeader } from '../shared/PanelHeader.tsx';
-import { UsageCard } from '../shared/UsageCard.tsx';
 
 export const RIGHT_PANEL_WIDTH = 380;
 

@@ -76,13 +76,21 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Orchestrator</title>
     <style>
-      body {
+      html,
+      body,
+      #root {
+        box-sizing: border-box;
+        height: 100%;
         margin: 0;
-        padding: 12px;
+        overflow: hidden;
+        padding: 0;
+        width: 100%;
+      }
+      body {
+        background: transparent;
         color: var(--vscode-foreground);
         font-family: var(--vscode-font-family);
         font-size: var(--vscode-font-size);
-        background: transparent;
       }
     </style>
   </head>

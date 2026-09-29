@@ -16,11 +16,11 @@ One root folder in the VS Code workspace. Its absolute filesystem path is the on
 _Avoid_: OS cwd, Host cwd, workspace root, project root (when you mean this VS Code root)
 
 **Session History**:
-The sidebar view that lists Session roster rows for the current Workspace folder Session cwd and can create a new session against that path. On the vscode TanStack router this is the `/` route; shown when there is no Selected session.
+The sidebar view that lists Session roster rows for the current Workspace folder Session cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Providers remains `/providers`).
 _Avoid_: Session roster (the harness data), nav rail, chats list
 
 **Chat**:
-The sidebar view that shows the Selected session’s transcript and composer (same Harness behavior as desktop main chat). On the vscode TanStack router this is `/session/$sessionId`; entering it selects/activates that session, and back navigates to Session History (`/`) and clears the Selected session.
+The sidebar view that shows the Selected session’s transcript and composer (same Harness behavior as desktop main chat). Shown on `/` when a Selected session is set (not a separate URL); entering it selects/activates that session, and back clears Selected so Session History shows again.
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
 For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md) and [`../../libs/context-services-vscode-webview/CONTEXT.md`](../../libs/context-services-vscode-webview/CONTEXT.md). For Session cwd / Session roster / Selected session / Active session, see [`../desktop/CONTEXT.md`](../desktop/CONTEXT.md).

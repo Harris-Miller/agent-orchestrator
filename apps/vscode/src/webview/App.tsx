@@ -5,23 +5,29 @@ import {
   AppThemeProvider,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
-  ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   sessionListScopeAtom,
   UserSettingsMount,
 } from '@lib/ui';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import CssBaseline from '@mui/material/CssBaseline';
+import Snackbar from '@mui/material/Snackbar';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { useContext, useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
+import type { FC } from 'react';
 
 import { hostIpcClient } from './bindHostRuntime.ts';
+import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
+import { router } from './router.tsx';
 import { sessionCwdAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 import { applyWorkspaceFolderPaths, handleWorkspaceFoldersChanged } from './workspaceFoldersChurn.ts';
 
-/** TEMP debug — remove when #90 UI lands. */
+/** TEMP debug — owned by #92 (DeveloperPanel tab); keep as App-shell sibling until then. */
 const WorkspaceCwdDebug: FC = () => {
   const paths = useAtomValue(workspaceFolderPathsAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
@@ -34,6 +40,7 @@ const WorkspaceCwdDebug: FC = () => {
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,
+        flexShrink: 0,
         fontFamily: 'var(--vscode-editor-font-family, monospace)',
         fontSize: 11,
         m: 0,
@@ -53,17 +60,13 @@ ${paths.length === 0 ? '  (empty)' : paths.map(p => `  - ${p}`).join('\n')}`}
   );
 };
 
-/**
- * Request Workspace folders before mounting backends; subscribe to Changed after first Result.
- * Providers shell may paint while waiting.
- */
-const WorkspaceFoldersGate: FC<{ readonly children: ReactNode }> = ({ children }) => {
+const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
-  // Mount atom fns so registry.set + getResult work during churn.
   useAtomSet(cancelPromptAtomFn);
   useAtomSet(deactivateSessionAtomFn);
   useAtomSet(refreshAllSessionRostersAtomFn);
   const [foldersReady, setFoldersReady] = useState(false);
+  const [clientError, setClientError] = useState<null | string>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,13 +100,68 @@ const WorkspaceFoldersGate: FC<{ readonly children: ReactNode }> = ({ children }
     };
   }, [registry]);
 
+  const onClientError = useCallback((error: unknown) => {
+    setClientError(formatClientError(error));
+  }, []);
+
+  if (!foldersReady) {
+    return (
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }}>
+        <CircularProgress size={18} />
+        <Typography variant="body2">Loading workspace…</Typography>
+      </Stack>
+    );
+  }
+
   return (
-    <>
-      {foldersReady ? children : null}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
-        <ProvidersSettingsPane />
+    <OnClientErrorContext.Provider value={onClientError}>
+      <AcpBackendsMount />
+      <Box
+        sx={{
+          display: 'flex',
+          flex: 1,
+          flexDirection: 'column',
+          gap: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          p: 1,
+        }}
+      >
+        <WorkspaceCwdDebug />
+        <Box
+          sx={{
+            // RouterProvider / match wrappers must fill so Chat can pin composer.
+            '& > *': { display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 },
+            display: 'flex',
+            flex: 1,
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <RouterProvider router={router} />
+        </Box>
       </Box>
-    </>
+      <Snackbar
+        anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+        autoHideDuration={6000}
+        onClose={() => {
+          setClientError(null);
+        }}
+        open={clientError !== null}
+      >
+        <Alert
+          onClose={() => {
+            setClientError(null);
+          }}
+          severity="error"
+          sx={{ width: '100%' }}
+          variant="filled"
+        >
+          {clientError}
+        </Alert>
+      </Snackbar>
+    </OnClientErrorContext.Provider>
   );
 };
 
@@ -112,10 +170,9 @@ export const App: FC = () => (
     <AppThemeProvider>
       <CssBaseline />
       <UserSettingsMount />
-      <WorkspaceFoldersGate>
-        <AcpBackendsMount />
-        <WorkspaceCwdDebug />
-      </WorkspaceFoldersGate>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <WorkspaceFoldersGate />
+      </Box>
     </AppThemeProvider>
   </RegistryProvider>
 );

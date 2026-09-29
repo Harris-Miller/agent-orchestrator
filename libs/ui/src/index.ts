@@ -4,6 +4,7 @@ export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
 export { createHarnessAtoms } from './atoms/harness.atoms.ts';
 export { createSessionLifecycleAtoms } from './atoms/sessionLifecycle.atoms.ts';
+export * from './atoms/sessionListScope.atoms.ts';
 export * from './atoms/sessionPatch.atoms.ts';
 export {
   confirmSessionDeleteEnabled,
@@ -27,6 +28,7 @@ export * from './host/findExecutableOnPath.ts';
 export * from './host/handoffDocument.ts';
 export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';
+export * from './host/sessionListScope.ts';
 export * from './host/sessionMaterialize.ts';
 export * from './host/sessionRpc.ts';
 export * from './host/sessionUpdateReducer.ts';

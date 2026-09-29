@@ -38,7 +38,7 @@ describe('makeHostServicesLive (fake peer)', () => {
         }
       });
 
-      const layer = makeHostServicesLive(webview);
+      const layer = makeHostServicesLive({ port: webview });
       const os = yield* OS.pipe(Effect.provide(layer));
       assert.strictEqual(os.cwd(), '/tmp/ext');
       assert.strictEqual(os.homedir(), '/home/test');

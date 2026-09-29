@@ -13,7 +13,10 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import { homedir as osHomedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import type { ProcessTracker } from './processTracker';
+
+export { fileWorkspaceFolderPaths };
 
 const post = (webview: vscode.Webview, message: IpcMessage, transfer?: ArrayBuffer[]): void => {
   const encoded = encodeIpcMessage(message);
@@ -31,6 +34,17 @@ const post = (webview: vscode.Webview, message: IpcMessage, transfer?: ArrayBuff
     () => undefined,
     () => undefined,
   );
+};
+
+/** Push current Workspace folder paths to the webview (unsolicited). */
+export const postWorkspaceFoldersChanged = (
+  webview: vscode.Webview,
+  folders: null | readonly vscode.WorkspaceFolder[] | undefined,
+): void => {
+  post(webview, {
+    _tag: 'WorkspaceFoldersChanged',
+    paths: [...fileWorkspaceFolderPaths(folders)],
+  });
 };
 
 const postError = (webview: vscode.Webview, id: string, error: unknown): void => {
@@ -69,7 +83,8 @@ type ExtensionInbound = Extract<
       | 'OsSnapshot'
       | 'Spawn'
       | 'StdinChunk'
-      | 'StdinEnd';
+      | 'StdinEnd'
+      | 'WorkspaceFolders';
   }
 >;
 
@@ -86,6 +101,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'Spawn',
   'StdinChunk',
   'StdinEnd',
+  'WorkspaceFolders',
 ]);
 
 const isExtensionInbound = (message: IpcMessage): message is ExtensionInbound =>
@@ -100,8 +116,9 @@ export const handleHostIpcMessage = async (args: {
   readonly tracker: ProcessTracker;
   readonly webview: vscode.Webview;
   readonly webviewId: string;
+  readonly workspaceFolders?: null | readonly vscode.WorkspaceFolder[];
 }): Promise<void> => {
-  const { context, raw, tracker, webview, webviewId } = args;
+  const { context, raw, tracker, webview, webviewId, workspaceFolders } = args;
   let message: IpcMessage;
   try {
     message = decodeIpcMessage(raw);
@@ -224,6 +241,14 @@ export const handleHostIpcMessage = async (args: {
       case 'StdinChunk': {
         const tracked = tracker.get(webviewId, message.handleId);
         tracked?.child.stdin?.write(Buffer.from(unknownBytesToUint8Array(message.bytes)));
+        return;
+      }
+      case 'WorkspaceFolders': {
+        post(webview, {
+          _tag: 'WorkspaceFoldersResult',
+          id: message.id,
+          paths: [...fileWorkspaceFolderPaths(workspaceFolders)],
+        });
         return;
       }
       case 'StdinEnd': {

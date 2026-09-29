@@ -39,9 +39,9 @@ export const clearConnectedAgent = (launchTarget: AgentLaunchTarget): void => {
 };
 
 export const listSessions = Effect.fn('listSessions')(
-  function* (launchTarget: AgentLaunchTarget) {
+  function* (launchTarget: AgentLaunchTarget, options?: { readonly cwd?: string }) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
-    return yield* agent['session/list']({});
+    return yield* agent['session/list'](options?.cwd === undefined ? {} : { cwd: options.cwd });
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),

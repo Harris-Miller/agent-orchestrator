@@ -11,6 +11,7 @@ import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../host/backendHarness.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 
 export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
@@ -23,79 +24,83 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
           get.registry.update(backendHarnessStateAtom(launchTarget), patch);
         };
 
-        return runBackendHarness(launchTarget, {
-          onConfigOptionIndexClear: () => {
-            get.registry.set(configOptionIndexAtom(launchTarget), undefined);
-          },
-          onConfigOptionIndexPublish: index => {
-            get.registry.set(configOptionIndexAtom(launchTarget), index);
-          },
-          onElicitationCreate: (sessionId, request, resolve) => {
-            updateState(current => ({
-              ...current,
-              sessions: patchSession(current.sessions, sessionId, session => ({
-                ...session,
-                pendingElicitation: { request, resolve, sessionId },
-              })),
-            }));
-          },
-          onInitializeResult: initializeResult => {
-            updateState(current => ({
-              ...current,
-              initializeResult,
-              phase: 'initialized',
-            }));
-          },
-          onPermissionRequest: (sessionId, request, resolve) => {
-            updateState(current => ({
-              ...current,
-              sessions: patchSession(current.sessions, sessionId, session => ({
-                ...session,
-                pendingPermission: { request, resolve, sessionId },
-              })),
-            }));
-          },
-          onPhase: (phase, error) => {
-            updateState(current => ({
-              ...current,
-              error,
-              phase,
-            }));
-          },
-          onRpcMessage: (direction, message) => {
-            updateState(current => ({
-              ...current,
-              rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message }],
-            }));
-          },
-          onSessionRosterResult: listResult => {
-            updateState(current => ({
-              ...current,
-              sessionRoster: normalizeSessionRoster(listResult),
-            }));
-          },
-          onSessionUpdate: (sessionId, update) => {
-            const before = get.registry.get(backendHarnessStateAtom(launchTarget));
-            const result = applySessionUpdate(before.sessions[sessionId], sessionId, before.sessionRoster, update);
-            if (result.kind === 'noop') {
-              return;
-            }
+        return runBackendHarness(
+          launchTarget,
+          {
+            onConfigOptionIndexClear: () => {
+              get.registry.set(configOptionIndexAtom(launchTarget), undefined);
+            },
+            onConfigOptionIndexPublish: index => {
+              get.registry.set(configOptionIndexAtom(launchTarget), index);
+            },
+            onElicitationCreate: (sessionId, request, resolve) => {
+              updateState(current => ({
+                ...current,
+                sessions: patchSession(current.sessions, sessionId, session => ({
+                  ...session,
+                  pendingElicitation: { request, resolve, sessionId },
+                })),
+              }));
+            },
+            onInitializeResult: initializeResult => {
+              updateState(current => ({
+                ...current,
+                initializeResult,
+                phase: 'initialized',
+              }));
+            },
+            onPermissionRequest: (sessionId, request, resolve) => {
+              updateState(current => ({
+                ...current,
+                sessions: patchSession(current.sessions, sessionId, session => ({
+                  ...session,
+                  pendingPermission: { request, resolve, sessionId },
+                })),
+              }));
+            },
+            onPhase: (phase, error) => {
+              updateState(current => ({
+                ...current,
+                error,
+                phase,
+              }));
+            },
+            onRpcMessage: (direction, message) => {
+              updateState(current => ({
+                ...current,
+                rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message }],
+              }));
+            },
+            onSessionRosterResult: listResult => {
+              updateState(current => ({
+                ...current,
+                sessionRoster: normalizeSessionRoster(listResult),
+              }));
+            },
+            onSessionUpdate: (sessionId, update) => {
+              const before = get.registry.get(backendHarnessStateAtom(launchTarget));
+              const result = applySessionUpdate(before.sessions[sessionId], sessionId, before.sessionRoster, update);
+              if (result.kind === 'noop') {
+                return;
+              }
 
-            updateState(current => ({
-              ...current,
-              sessionRoster: result.sessionRoster ?? current.sessionRoster,
-              sessions: upsertSession(current.sessions, result.session),
-            }));
+              updateState(current => ({
+                ...current,
+                sessionRoster: result.sessionRoster ?? current.sessionRoster,
+                sessions: upsertSession(current.sessions, result.session),
+              }));
 
-            if (result.usageChanged && result.session.usage !== undefined) {
-              hostRunFork(
-                writeSessionUsage(sessionId, result.session.usage).pipe(
-                  Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
-                ),
-              );
-            }
+              if (result.usageChanged && result.session.usage !== undefined) {
+                hostRunFork(
+                  writeSessionUsage(sessionId, result.session.usage).pipe(
+                    Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
+                  ),
+                );
+              }
+            },
           },
-        });
+          () => get.registry.get(sessionListScopeAtom),
+        );
       })
       .pipe(Atom.keepAlive),
   );

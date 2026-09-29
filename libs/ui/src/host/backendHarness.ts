@@ -21,6 +21,8 @@ import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
 import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
+import type { SessionListScope } from './sessionListScope.ts';
+import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
 const pipedSpawnOptions = {
@@ -95,7 +97,12 @@ const MAX_CONNECT_ATTEMPTS = 3;
 
 /** Connect + initialize + Config probe + buffered roster list through ready. Does not hold the connection open. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
-  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
+  function* (
+    launchTarget: AgentLaunchTarget,
+    handlers: BackendHarnessCallbacks,
+    resolveListScope: () => SessionListScope,
+    onReady: () => void,
+  ) {
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
     });
@@ -135,7 +142,8 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onConfigOptionIndexClear();
     yield* Effect.logInfo('ACP harness probing', launchTarget);
 
-    const listResult = yield* agent['session/list']({});
+    const listPayload = listSessionsPayload(resolveListScope());
+    const listResult = listPayload === undefined ? { sessions: [] } : yield* agent['session/list'](listPayload);
     const index = yield* runConfigProbe(agent);
     handlers.onConfigOptionIndexPublish(index);
     handlers.onSessionRosterResult(listResult);
@@ -148,7 +156,11 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
 /** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
 export const runBackendHarness = Effect.fnUntraced(
-  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks) {
+  function* (
+    launchTarget: AgentLaunchTarget,
+    handlers: BackendHarnessCallbacks,
+    resolveListScope: () => SessionListScope,
+  ) {
     const stoppedRef = getStoppedRef(launchTarget);
     yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
@@ -156,7 +168,7 @@ export const runBackendHarness = Effect.fnUntraced(
 
     while (!(yield* Ref.get(stoppedRef))) {
       const exit = yield* Effect.exit(
-        bootstrapOnce(launchTarget, handlers, () => {
+        bootstrapOnce(launchTarget, handlers, resolveListScope, () => {
           consecutiveFailures.count = 0;
         }).pipe(
           Effect.andThen(Effect.never),

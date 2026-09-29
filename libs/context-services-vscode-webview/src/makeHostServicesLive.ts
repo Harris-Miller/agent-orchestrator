@@ -11,14 +11,25 @@ import { IpcClient } from './protocol/ipcClient.ts';
 import type { IpcPort } from './protocol/port.ts';
 import { acquireVsCodeApiPort } from './protocol/vscodeApiPort.ts';
 
+type HostServicesOptions = { readonly client: IpcClient } | { readonly port: IpcPort };
+
 /**
  * Build the six-tag Host services Live for the VS Code webview.
  *
- * Calls {@link acquireVsCodeApi} unless an {@link IpcPort} is injected (tests).
+ * Calls {@link acquireVsCodeApi} unless a port or shared client is injected.
  */
-export const makeHostServicesLive = (port?: IpcPort): Layer.Layer<HostServices> => {
-  const resolvedPort = port ?? acquireVsCodeApiPort();
-  const client = new IpcClient(resolvedPort);
+/* eslint-disable @typescript-eslint/unified-signatures -- AGENTS.md: exclusive port|client via overloads */
+export function makeHostServicesLive(): Layer.Layer<HostServices>;
+export function makeHostServicesLive(options: { readonly port: IpcPort }): Layer.Layer<HostServices>;
+export function makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostServices>;
+/* eslint-enable @typescript-eslint/unified-signatures */
+export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer<HostServices> {
+  const client =
+    options === undefined
+      ? new IpcClient(acquireVsCodeApiPort())
+      : 'client' in options
+        ? options.client
+        : new IpcClient(options.port);
 
   return Layer.mergeAll(
     makeBundledResourceLive(client),
@@ -27,4 +38,4 @@ export const makeHostServicesLive = (port?: IpcPort): Layer.Layer<HostServices> 
     makeFileSystemLive(client),
     PathLive,
   ).pipe(Layer.provideMerge(makeOsSnapshotLive(client)));
-};
+}

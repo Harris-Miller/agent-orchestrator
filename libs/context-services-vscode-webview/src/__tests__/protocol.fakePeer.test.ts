@@ -1,7 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
-import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
+import {
+  decodeIpcMessage,
+  encodeIpcMessage,
+  IpcClient,
+  onWorkspaceFoldersChanged,
+  requestWorkspaceFolders,
+} from '../protocol/index.ts';
 import type { IpcMessage } from '../protocol/index.ts';
 
 import { connectFakePeers } from './fakePeer.ts';
@@ -119,6 +125,55 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
       assert.ok(resultB?._tag === 'SpawnResult');
       assert.strictEqual(resultA.pid, 101);
       assert.strictEqual(resultB.pid, 202);
+    }),
+  );
+
+  it.effect('round-trips WorkspaceFolders request and result', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const client = new IpcClient(webview);
+
+      extension.onMessage(raw => {
+        const message = decodeIpcMessage(raw);
+        assert.strictEqual(message._tag, 'WorkspaceFolders');
+        if (message._tag !== 'WorkspaceFolders') {
+          return;
+        }
+        extension.postMessage(
+          encodeIpcMessage({
+            _tag: 'WorkspaceFoldersResult',
+            id: message.id,
+            paths: ['/ws/a', '/ws/b'],
+          }),
+        );
+      });
+
+      const paths = yield* requestWorkspaceFolders(client);
+      assert.deepStrictEqual(paths, ['/ws/a', '/ws/b']);
+      client.dispose();
+    }),
+  );
+
+  it.effect('pushes WorkspaceFoldersChanged to multicast listeners', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const client = new IpcClient(webview);
+
+      const received = yield* Effect.callback<readonly string[]>(resume => {
+        const dispose = onWorkspaceFoldersChanged(client, paths => {
+          dispose();
+          resume(Effect.succeed(paths));
+        });
+        extension.postMessage(
+          encodeIpcMessage({
+            _tag: 'WorkspaceFoldersChanged',
+            paths: ['/ws/changed'],
+          }),
+        );
+      });
+
+      assert.deepStrictEqual(received, ['/ws/changed']);
+      client.dispose();
     }),
   );
 });

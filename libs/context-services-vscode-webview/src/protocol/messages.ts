@@ -156,6 +156,16 @@ export const IpcMessage = Schema.TaggedUnion({
   StdoutEnd: {
     handleId: HandleId,
   },
+  WorkspaceFolders: {
+    id: CorrelationId,
+  },
+  WorkspaceFoldersChanged: {
+    paths: Schema.Array(Schema.String),
+  },
+  WorkspaceFoldersResult: {
+    id: CorrelationId,
+    paths: Schema.Array(Schema.String),
+  },
 });
 export type IpcMessage = typeof IpcMessage.Type;
 

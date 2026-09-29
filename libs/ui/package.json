@@ -5,6 +5,7 @@
   "license": "ISC",
   "exports": {
     ".": "./src/index.ts",
+    "./acp-session-bootstrap": "./src/host/acpSessionBootstrap.ts",
     "./host-runtime": "./src/hostRuntimeEntry.ts"
   },
   "scripts": {

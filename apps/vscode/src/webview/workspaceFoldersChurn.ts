@@ -108,7 +108,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   for (const match of matches) {
     if (match.pendingClientRequest === 'prompt') {
       yield* runAtomFn(registry, cancelPromptAtomFn, {
-        launchTarget: match.launchTarget as AgentLaunchTarget,
+        launchTarget: match.launchTarget,
         sessionId: match.sessionId,
       }).pipe(Effect.ignore);
     }
@@ -116,18 +116,12 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
 
   for (const match of matches) {
     yield* runAtomFn(registry, deactivateSessionAtomFn, {
-      launchTarget: match.launchTarget as AgentLaunchTarget,
+      launchTarget: match.launchTarget,
       sessionId: match.sessionId,
     }).pipe(Effect.ignore);
   }
 
-  stripPendingOnMatched(
-    registry,
-    matches.map(match => ({
-      launchTarget: match.launchTarget as AgentLaunchTarget,
-      sessionId: match.sessionId,
-    })),
-  );
+  stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
 

@@ -1,3 +1,5 @@
+import { resolveSessionCwd } from '@lib/ui/acp-session-bootstrap';
+
 type SessionLike = {
   readonly cwd?: string;
   readonly pendingClientRequest?: 'config' | 'prompt' | undefined;
@@ -10,25 +12,14 @@ type SnapshotLike = {
   readonly sessions: Readonly<Record<string, SessionLike>>;
 };
 
+/** Launch targets the vscode webview mounts (keep in sync with AcpBackendsMount). */
+const MOUNTED_LAUNCH_TARGETS = ['codex-acp', 'claude-agent-acp'] as const;
+
 export type MatchedSession = {
-  readonly launchTarget: string;
+  readonly launchTarget: (typeof MOUNTED_LAUNCH_TARGETS)[number];
   readonly pendingClientRequest: 'config' | 'prompt' | undefined;
   readonly sessionId: string;
 };
-
-const nonEmptyCwd = (cwd: string | undefined): string | undefined => {
-  if (cwd === undefined) {
-    return undefined;
-  }
-  const trimmed = cwd.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const resolveSessionCwd = (snapshotCwd: string | undefined, rosterCwd: string | undefined): string | undefined =>
-  nonEmptyCwd(snapshotCwd) ?? nonEmptyCwd(rosterCwd);
-
-/** Launch targets the vscode webview mounts (keep in sync with AcpBackendsMount). */
-const MOUNTED_LAUNCH_TARGETS = ['codex-acp', 'claude-agent-acp'] as const;
 
 /**
  * Active + activating sessions whose resolved Session cwd equals `previousSessionCwd`

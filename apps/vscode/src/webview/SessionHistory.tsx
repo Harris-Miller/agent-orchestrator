@@ -30,7 +30,6 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -338,22 +337,20 @@ export const ProvidersPage: FC = () => {
       </Stack>
       <ProvidersSettingsPane />
       {/* Full Settings shell → #96 (Epic #88); not in #92. */}
-      <FormControlLabel
-        control={
-          <Switch
-            checked={developerMode}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setDeveloperMode(checked);
-              if (checked) {
-                openDeveloperPanel();
-              }
-            }}
-          />
-        }
-        label="Developer mode"
-        sx={{ mt: 1 }}
-      />
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+        <Switch
+          checked={developerMode}
+          disabled={editsDisabled}
+          inputProps={{ 'aria-label': 'Developer mode' }}
+          onChange={(_event, checked) => {
+            setDeveloperMode(checked);
+            if (checked) {
+              openDeveloperPanel();
+            }
+          }}
+        />
+        <Typography variant="body1">Developer mode</Typography>
+      </Stack>
     </Box>
   );
 };

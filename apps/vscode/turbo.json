@@ -2,25 +2,15 @@
   "extends": ["//"],
   "tasks": {
     "materialize-acp-adapters": {
-      "inputs": [
-        "$TURBO_ROOT$/acp-adapter-resources/package.json",
-        "$TURBO_ROOT$/acp-adapter-resources/pnpm-lock.yaml",
-        "scripts/ensure-acp-adapter-symlink.js"
-      ],
-      "outputs": [
-        "acp-adapter-resources"
-      ]
+      "dependsOn": ["//#install-acp-adapter-deps"],
+      "inputs": ["scripts/ensure-acp-adapter-symlink.js"],
+      "outputs": ["acp-adapter-resources"]
     },
     "build": {
-      "dependsOn": [
-        "^build",
-        "materialize-acp-adapters"
-      ]
+      "dependsOn": ["^build", "materialize-acp-adapters"]
     },
     "watch:main": {
-      "dependsOn": [
-        "materialize-acp-adapters"
-      ]
+      "dependsOn": ["materialize-acp-adapters"]
     }
   }
 }

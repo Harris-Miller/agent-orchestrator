@@ -12,7 +12,7 @@ const targetPath = path.resolve(extensionRoot, '../../acp-adapter-resources');
 const relativeTarget = path.relative(extensionRoot, targetPath);
 
 if (!fs.existsSync(targetPath)) {
-  console.error(`acp-adapter-resources missing at ${targetPath}. Run: pnpm materialize-acp-adapters`);
+  console.error(`acp-adapter-resources missing at ${targetPath}. Run: pnpm install-acp-adapter-deps`);
   process.exit(1);
 }
 

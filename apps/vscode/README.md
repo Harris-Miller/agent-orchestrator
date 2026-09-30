@@ -24,17 +24,22 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 
 From the monorepo root in Cursor/VS Code:
 
-1. `pnpm vscode:build` (or `pnpm vscode:watch`)
-2. Run and Debug → **Run Extension**
+1. `pnpm vscode:watch` (or F5 — **Run Extension** starts watch via `preLaunchTask`)
+2. `pnpm vscode:dev` / Run and Debug → **Run Extension**
 
 That launches a new window with `--extensionDevelopmentPath=apps/vscode`.
 
-Or from a terminal:
+- **Renderer** edits hot-reload via Vite (`watch:renderer`). Vite must be up in Extension Development Host or the webview scripts fail to load.
+- **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**.
+
+Or from a terminal (watch already running):
 
 ```bash
-pnpm vscode:build
-pnpm vscode:dev
+pnpm vscode:watch   # terminal 1 — host + Vite HMR
+pnpm vscode:dev     # terminal 2 — launch only
 ```
+
+`pnpm vscode:build` + `pnpm vscode:dev` without Vite leaves the Development-mode webview blank until the renderer server is up.
 
 Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.
 

@@ -29,4 +29,10 @@ export default defineConfig(({ mode }) => ({
     'process.env.NODE_ENV': JSON.stringify(mode),
   },
   plugins: [react()],
+  server: {
+    cors: true,
+    origin: 'http://localhost:5173',
+    port: 5173,
+    strictPort: true,
+  },
 }));

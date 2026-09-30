@@ -22,7 +22,7 @@
     "vscode:prepublish": "pnpm run prepare-acp-adapters-for-package && pnpm run build",
     "build": "pnpm run build:main && pnpm run build:renderer",
     "build:main": "tsdown",
-    "build:renderer": "vite build -c vite.webview.config.ts",
+    "build:renderer": "vite build",
     "lint": "eslint . --max-warnings 0",
     "materialize-acp-adapters": "pnpm --dir ../.. run materialize-acp-adapters && node ./scripts/ensure-acp-adapter-symlink.js",
     "package": "pnpm run vscode:prepublish && vsce package --no-dependencies --allow-missing-repository",
@@ -30,7 +30,7 @@
     "typecheck": "tsc -b tsconfig.json --noEmit",
     "test": "vitest run",
     "watch:main": "tsdown --watch",
-    "watch:renderer": "vite build --watch -c vite.webview.config.ts"
+    "watch:renderer": "vite"
   },
   "dependencies": {
     "@effect/atom-react": "catalog:",

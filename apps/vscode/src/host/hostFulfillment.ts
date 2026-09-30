@@ -2,6 +2,7 @@ import {
   bytesToArrayBuffer,
   decodeIpcMessage,
   encodeIpcMessage,
+  getIpcTransferList,
   unknownBytesToUint8Array,
 } from '@lib/context-services-vscode-webview/protocol';
 import type { IpcMessage, StdioMode } from '@lib/context-services-vscode-webview/protocol';
@@ -20,11 +21,12 @@ export { fileWorkspaceFolderPaths };
 
 const post = (webview: vscode.Webview, message: IpcMessage, transfer?: ArrayBuffer[]): void => {
   const encoded = encodeIpcMessage(message);
-  if (transfer !== undefined && transfer.length > 0) {
+  const transferList = transfer ?? getIpcTransferList(message);
+  if (transferList !== undefined && transferList.length > 0) {
     const webviewWithTransfer = webview as vscode.Webview & {
       postMessage: (message: unknown, transfer?: ArrayBuffer[]) => PromiseLike<boolean>;
     };
-    webviewWithTransfer.postMessage(encoded, transfer).then(
+    webviewWithTransfer.postMessage(encoded, transferList).then(
       () => undefined,
       () => undefined,
     );
@@ -79,6 +81,7 @@ type ExtensionInbound = Extract<
       | 'FsReadFileString'
       | 'FsRemove'
       | 'FsWriteFileString'
+      | 'HttpFetch'
       | 'Kill'
       | 'OsSnapshot'
       | 'Spawn'
@@ -96,6 +99,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'FsReadFileString',
   'FsRemove',
   'FsWriteFileString',
+  'HttpFetch',
   'Kill',
   'OsSnapshot',
   'Spawn',
@@ -175,6 +179,31 @@ export const handleHostIpcMessage = async (args: {
       case 'FsWriteFileString': {
         await writeFile(message.path, message.content, 'utf8');
         post(webview, { _tag: 'FsWriteFileStringResult', id: message.id });
+        return;
+      }
+      case 'HttpFetch': {
+        const init: Parameters<typeof fetch>[1] = {
+          headers: message.headers,
+          method: message.method,
+        };
+        if (message.body !== undefined) {
+          init.body = Buffer.from(unknownBytesToUint8Array(message.body));
+        }
+        const res = await fetch(message.url, init);
+        const bodyBytes = new Uint8Array(await res.arrayBuffer());
+        const body = bodyBytes.byteLength > 0 ? bytesToArrayBuffer(bodyBytes) : undefined;
+        const headers: Record<string, string> = {};
+        res.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        post(webview, {
+          _tag: 'HttpFetchResult',
+          body,
+          headers,
+          id: message.id,
+          status: res.status,
+          statusText: res.statusText,
+        });
         return;
       }
       case 'Kill': {

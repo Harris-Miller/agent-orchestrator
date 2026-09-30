@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 
-import { decodeIpcMessage, encodeIpcMessage, isTransferableChunkTag, unknownBytesToUint8Array } from './messages.ts';
+import { decodeIpcMessage, encodeIpcMessage, getIpcTransferList, unknownBytesToUint8Array } from './messages.ts';
 import type { HandleId, IpcMessage } from './messages.ts';
 import type { IpcPort } from './port.ts';
 
@@ -85,8 +85,9 @@ export class IpcClient {
 
   public readonly post = (message: IpcMessage): void => {
     const encoded = encodeIpcMessage(message);
-    if (isTransferableChunkTag(message._tag) && 'bytes' in message && message.bytes instanceof ArrayBuffer) {
-      this.port.postMessage(encoded, [message.bytes]);
+    const transfer = getIpcTransferList(message);
+    if (transfer !== undefined) {
+      this.port.postMessage(encoded, transfer);
       return;
     }
     this.port.postMessage(encoded);

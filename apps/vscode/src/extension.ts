@@ -1,4 +1,7 @@
+import { config as loadDotenv } from 'dotenv';
 import * as vscode from 'vscode';
+
+import { join } from 'node:path';
 
 import { ProcessTracker } from './host/processTracker';
 import { SidebarViewProvider } from './sidebarViewProvider';
@@ -6,6 +9,14 @@ import { SidebarViewProvider } from './sidebarViewProvider';
 const processTracker = new ProcessTracker();
 
 export const activate = function (context: vscode.ExtensionContext): void {
+  if (context.extensionMode === vscode.ExtensionMode.Development) {
+    // Missing file is fine; dotenv does not override existing process.env keys.
+    loadDotenv({
+      path: join(context.extensionPath, '.env.development'),
+      quiet: true,
+    });
+  }
+
   const provider = new SidebarViewProvider(context, processTracker);
 
   context.subscriptions.push(

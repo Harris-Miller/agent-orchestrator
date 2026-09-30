@@ -4,6 +4,7 @@ export {
   CorrelationId,
   decodeIpcMessage,
   encodeIpcMessage,
+  getIpcTransferList,
   HandleId,
   IpcMessage,
   isTransferableChunkTag,

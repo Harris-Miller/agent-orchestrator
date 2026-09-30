@@ -4,7 +4,10 @@ import { Layer } from 'effect';
 import { makeBundledResourceLive } from './BundledResourceLive.ts';
 import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
+import { ConfigProviderLive } from './ConfigProviderLive.ts';
+import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
+import { ObservabilityLive } from './ObservabilityLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
 import { PathLive } from './PathLive.ts';
 import { IpcClient } from './protocol/ipcClient.ts';
@@ -14,7 +17,10 @@ import { acquireVsCodeApiPort } from './protocol/vscodeApiPort.ts';
 type HostServicesOptions = { readonly client: IpcClient } | { readonly port: IpcPort };
 
 /**
- * Build the six-tag Host services Live for the VS Code webview.
+ * Build the Host services Live for the VS Code webview.
+ *
+ * Provides the portable six-tag Host seam, plus ConfigProvider / Observability
+ * composition extras (outside the portable Seam) when host `OTEL_*` enables export.
  *
  * Calls {@link acquireVsCodeApi} unless a port or shared client is injected.
  */
@@ -31,11 +37,22 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
         ? options.client
         : new IpcClient(options.port);
 
+  const osLive = makeOsSnapshotLive(client);
+
   return Layer.mergeAll(
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),
     ClipboardLive,
+    ConfigProviderLive,
     makeFileSystemLive(client),
     PathLive,
-  ).pipe(Layer.provideMerge(makeOsSnapshotLive(client)));
+  ).pipe(
+    Layer.provideMerge(osLive),
+    Layer.provideMerge(
+      ObservabilityLive.pipe(
+        Layer.provide(makeExtensionFetchLive(client)),
+        Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive))),
+      ),
+    ),
+  );
 }

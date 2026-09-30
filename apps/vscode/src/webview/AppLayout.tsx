@@ -14,18 +14,18 @@ import { Allotment } from 'allotment';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 
+import { AppLayoutContext } from './appLayoutContext.ts';
 import { DeveloperPanel } from './DeveloperPanel.tsx';
-import { DeveloperPanelLayoutContext } from './developerPanelLayoutContext.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 
-const LAYOUT_KEY = 'ao-vscode-developer-panel-layout';
+const LAYOUT_KEY = 'ao-vscode-app-layout';
 
-type DeveloperPanelLayoutState = {
+type AppLayoutState = {
   readonly developerPanelOpen: boolean;
   readonly verticalSizes?: readonly number[];
 };
 
-const DEFAULT_LAYOUT: DeveloperPanelLayoutState = {
+const DEFAULT_LAYOUT: AppLayoutState = {
   developerPanelOpen: false,
 };
 
@@ -34,10 +34,26 @@ const isFiniteNumberArray = (value: unknown, length: number): value is number[] 
   value.length === length &&
   value.every(item => typeof item === 'number' && Number.isFinite(item));
 
-const loadLayout = (): DeveloperPanelLayoutState => {
+const loadLayout = (): AppLayoutState => {
   try {
     const raw = localStorage.getItem(LAYOUT_KEY);
     if (raw == null) {
+      // Migrate one-shot from the #92 key if present.
+      const legacy = localStorage.getItem('ao-vscode-developer-panel-layout');
+      if (legacy != null) {
+        localStorage.setItem(LAYOUT_KEY, legacy);
+        localStorage.removeItem('ao-vscode-developer-panel-layout');
+        const parsed: unknown = JSON.parse(legacy);
+        if (isRecord(parsed)) {
+          return {
+            developerPanelOpen:
+              typeof parsed.developerPanelOpen === 'boolean'
+                ? parsed.developerPanelOpen
+                : DEFAULT_LAYOUT.developerPanelOpen,
+            verticalSizes: isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
+          };
+        }
+      }
       return DEFAULT_LAYOUT;
     }
     const parsed: unknown = JSON.parse(raw);
@@ -54,12 +70,12 @@ const loadLayout = (): DeveloperPanelLayoutState => {
   }
 };
 
-const saveLayout = (layout: DeveloperPanelLayoutState): void => {
+const saveLayout = (layout: AppLayoutState): void => {
   localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
 };
 
-/** Root route layout: vertical Allotment with shared Developer panel under router Outlet. */
-export const DeveloperPanelLayout: FC = () => {
+/** Root route layout: vertical Allotment (main Outlet + Developer panel). */
+export const AppLayout: FC = () => {
   const [layout, setLayout] = useState(loadLayout);
   const layoutRef = useRef(layout);
   const developerMode = useAtomValue(developerModeAtom);
@@ -67,7 +83,7 @@ export const DeveloperPanelLayout: FC = () => {
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const onClientError = useContext(OnClientErrorContext);
 
-  const commitLayout = useCallback((patch: Partial<DeveloperPanelLayoutState>, rerender = true) => {
+  const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
     layoutRef.current = next;
     saveLayout(next);
@@ -93,7 +109,7 @@ export const DeveloperPanelLayout: FC = () => {
   );
 
   return (
-    <DeveloperPanelLayoutContext.Provider value={api}>
+    <AppLayoutContext.Provider value={api}>
       <Box
         sx={{
           '& .sash': {
@@ -108,9 +124,7 @@ export const DeveloperPanelLayout: FC = () => {
           '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
             backgroundColor: 'divider',
           },
-          display: 'flex',
-          flex: 1,
-          flexDirection: 'column',
+          height: '100%',
           minHeight: 0,
           overflow: 'hidden',
         }}
@@ -149,6 +163,6 @@ export const DeveloperPanelLayout: FC = () => {
           </Allotment.Pane>
         </Allotment>
       </Box>
-    </DeveloperPanelLayoutContext.Provider>
+    </AppLayoutContext.Provider>
   );
 };

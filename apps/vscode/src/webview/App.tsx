@@ -83,17 +83,15 @@ const WorkspaceFoldersGate: FC = () => {
       <AcpBackendsMount />
       <Box
         sx={{
-          // RouterProvider / match wrappers must fill so Chat can pin composer.
-          '& > *': { display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 },
-          display: 'flex',
           flex: 1,
-          flexDirection: 'column',
           minHeight: 0,
           overflow: 'hidden',
           p: 1,
         }}
       >
-        <RouterProvider router={router} />
+        <Box sx={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+          <RouterProvider router={router} />
+        </Box>
       </Box>
       <Snackbar
         anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}

@@ -1,11 +1,11 @@
 import { createMemoryHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 
-import { DeveloperPanelLayout } from './DeveloperPanelLayout.tsx';
+import { AppLayout } from './AppLayout.tsx';
 import { ProvidersPage } from './SessionHistory.tsx';
 import { SessionHome } from './SessionHome.tsx';
 
 const rootRoute = createRootRoute({
-  component: DeveloperPanelLayout,
+  component: AppLayout,
 });
 
 const homeRoute = createRoute({

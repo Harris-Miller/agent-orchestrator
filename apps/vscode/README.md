@@ -27,17 +27,17 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 1. F5 → **Run Extension**
 2. Or without debugger: `pnpm vscode:watch` then `pnpm vscode:dev`
 
-- **Renderer** edits hot-reload via Vite (`watch:renderer`). Vite must be up in Extension Development Host or the webview scripts fail to load.
+Webview HTML mode is compile-time from the host bundle: `watch:main` injects Vite HMR (`localhost:5173`); `build:main` serves disk `dist/webview` assets. So `vscode:build` + `vscode:dev` works without Vite; HMR needs `vscode:watch` (or F5).
+
+- **Renderer** edits hot-reload via Vite (`watch:renderer`) when the host was built with `watch:main`.
 - **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**. After reload, re-run **Run Extension** (or re-attach to port 5870) if breakpoints stop binding — reload can drop the inspect session.
 
 Or from a terminal (watch already running):
 
 ```bash
-pnpm vscode:watch   # terminal 1 — host + Vite HMR
+pnpm vscode:watch   # terminal 1 — host (HMR flag) + Vite
 pnpm vscode:dev     # terminal 2 — launch only (no debugger)
 ```
-
-`pnpm vscode:build` + `pnpm vscode:dev` without Vite leaves the Development-mode webview blank until the renderer server is up.
 
 Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.
 

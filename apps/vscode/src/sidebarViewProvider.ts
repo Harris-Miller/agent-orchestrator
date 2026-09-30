@@ -83,7 +83,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   private getHtml(webview: vscode.Webview): string {
     const nonce = getNonce();
-    const isDev = this.context.extensionMode === vscode.ExtensionMode.Development;
+    // Compile-time: '1' from `watch:main`, '0' from `build:main` (not ExtensionMode).
+    const isDev = process.env.WEBVIEW_HMR === '1';
 
     if (isDev) {
       return `<!DOCTYPE html>

@@ -20,7 +20,8 @@
     "typecheck": "turbo run typecheck",
     "vscode:watch": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
     "vscode:build": "turbo run build --filter=agent-orchestrator-vscode",
-    "vscode:dev": "code --extensionDevelopmentPath=\"$PWD/apps/vscode\""
+    "vscode:dev": "code --extensionDevelopmentPath=\"$PWD/apps/vscode\"",
+    "vscode:debug": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

@@ -46,6 +46,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useContext, useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
+import { useAppLayout } from './appLayoutContext.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -317,6 +318,7 @@ export const ProvidersPage: FC = () => {
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const userSettings = useAtomValue(userSettingsAtom);
   const editsDisabled = userSettingsEditsDisabled(userSettings);
+  const { openDeveloperPanel } = useAppLayout();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
@@ -343,6 +345,9 @@ export const ProvidersPage: FC = () => {
             disabled={editsDisabled}
             onChange={(_event, checked) => {
               setDeveloperMode(checked);
+              if (checked) {
+                openDeveloperPanel();
+              }
             }}
           />
         }

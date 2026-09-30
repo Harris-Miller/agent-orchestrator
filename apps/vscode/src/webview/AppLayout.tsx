@@ -11,6 +11,7 @@ import {
 import Box from '@mui/material/Box';
 import { Outlet } from '@tanstack/react-router';
 import { Allotment } from 'allotment';
+import type { AllotmentHandle } from 'allotment';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 
@@ -19,6 +20,7 @@ import { DeveloperPanel } from './DeveloperPanel.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 
 const LAYOUT_KEY = 'ao-vscode-app-layout';
+const DEVELOPER_PANE_MIN = 120;
 
 type AppLayoutState = {
   readonly developerPanelOpen: boolean;
@@ -34,37 +36,41 @@ const isFiniteNumberArray = (value: unknown, length: number): value is number[] 
   value.length === length &&
   value.every(item => typeof item === 'number' && Number.isFinite(item));
 
+/** Drop collapsed bottom-pane sizes so preferredSize can apply on open. */
+const sanitizeVerticalSizes = (
+  sizes: readonly number[] | undefined,
+  developerPanelOpen: boolean,
+): readonly number[] | undefined => {
+  if (sizes === undefined) {
+    return undefined;
+  }
+  if (!developerPanelOpen || sizes[1] >= DEVELOPER_PANE_MIN) {
+    return sizes;
+  }
+  return undefined;
+};
+
 const loadLayout = (): AppLayoutState => {
   try {
-    const raw = localStorage.getItem(LAYOUT_KEY);
+    const raw = localStorage.getItem(LAYOUT_KEY) ?? localStorage.getItem('ao-vscode-developer-panel-layout');
     if (raw == null) {
-      // Migrate one-shot from the #92 key if present.
-      const legacy = localStorage.getItem('ao-vscode-developer-panel-layout');
-      if (legacy != null) {
-        localStorage.setItem(LAYOUT_KEY, legacy);
-        localStorage.removeItem('ao-vscode-developer-panel-layout');
-        const parsed: unknown = JSON.parse(legacy);
-        if (isRecord(parsed)) {
-          return {
-            developerPanelOpen:
-              typeof parsed.developerPanelOpen === 'boolean'
-                ? parsed.developerPanelOpen
-                : DEFAULT_LAYOUT.developerPanelOpen,
-            verticalSizes: isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
-          };
-        }
-      }
       return DEFAULT_LAYOUT;
+    }
+    if (localStorage.getItem(LAYOUT_KEY) == null) {
+      localStorage.setItem(LAYOUT_KEY, raw);
+      localStorage.removeItem('ao-vscode-developer-panel-layout');
     }
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) {
       return DEFAULT_LAYOUT;
     }
-    return {
-      developerPanelOpen:
-        typeof parsed.developerPanelOpen === 'boolean' ? parsed.developerPanelOpen : DEFAULT_LAYOUT.developerPanelOpen,
-      verticalSizes: isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
-    };
+    const developerPanelOpen =
+      typeof parsed.developerPanelOpen === 'boolean' ? parsed.developerPanelOpen : DEFAULT_LAYOUT.developerPanelOpen;
+    const verticalSizes = sanitizeVerticalSizes(
+      isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
+      developerPanelOpen,
+    );
+    return { developerPanelOpen, verticalSizes };
   } catch {
     return DEFAULT_LAYOUT;
   }
@@ -78,10 +84,12 @@ const saveLayout = (layout: AppLayoutState): void => {
 export const AppLayout: FC = () => {
   const [layout, setLayout] = useState(loadLayout);
   const layoutRef = useRef(layout);
+  const allotmentRef = useRef<AllotmentHandle | null>(null);
   const developerMode = useAtomValue(developerModeAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const onClientError = useContext(OnClientErrorContext);
+  const panelVisible = developerMode && layout.developerPanelOpen;
 
   const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -98,11 +106,27 @@ export const AppLayout: FC = () => {
     }
   }, [commitLayout, developerMode]);
 
+  // After Allotment applies `visible`, restore preferred height (cached size may be 0).
+  useEffect(() => {
+    if (!panelVisible) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      allotmentRef.current?.reset();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [panelVisible]);
+
   const api = useMemo(
     () => ({
       developerPanelOpen: layout.developerPanelOpen,
       openDeveloperPanel: () => {
-        commitLayout({ developerPanelOpen: true });
+        commitLayout({
+          developerPanelOpen: true,
+          verticalSizes: sanitizeVerticalSizes(layoutRef.current.verticalSizes, true),
+        });
       },
     }),
     [commitLayout, layout.developerPanelOpen],
@@ -139,18 +163,20 @@ export const AppLayout: FC = () => {
               commitLayout({ developerPanelOpen: visible });
             }
           }}
+          ref={allotmentRef}
           vertical
         >
-          <Allotment.Pane>
+          <Allotment.Pane key="main">
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
               <Outlet />
             </Box>
           </Allotment.Pane>
           <Allotment.Pane
-            minSize={120}
+            key="developer"
+            minSize={DEVELOPER_PANE_MIN}
             preferredSize={DEVELOPER_PANEL_HEIGHT}
             snap
-            visible={developerMode ? layout.developerPanelOpen : false}
+            visible={panelVisible}
           >
             <DeveloperPanel
               initializeResult={selectedSnapshot?.initializeResult}

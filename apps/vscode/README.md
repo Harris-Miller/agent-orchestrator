@@ -22,18 +22,21 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 
 ### 1. Extension Development Host (day-to-day)
 
-From the monorepo root in Cursor/VS Code:
+**F5 / Run Extension** (from Cursor or VS Code): starts watch, opens a **VS Code** Extension Development Host with `--inspect-brk-extensions=5870`, then attaches the Node debugger so host `.ts` breakpoints work. (`extensionHost` launch type always uses the *current* editor, so it is not used here.)
 
-1. `pnpm vscode:build` (or `pnpm vscode:watch`)
-2. Run and Debug → **Run Extension**
+1. F5 → **Run Extension**
+2. Or without debugger: `pnpm vscode:watch` then `pnpm vscode:dev`
 
-That launches a new window with `--extensionDevelopmentPath=apps/vscode`.
+Webview HTML mode is compile-time from the host bundle: `watch:main` injects Vite HMR (`localhost:5173`); `build:main` serves disk `dist/webview` assets. So `vscode:build` + `vscode:dev` works without Vite; HMR needs `vscode:watch` (or F5).
 
-Or from a terminal:
+- **Renderer** edits hot-reload via Vite (`watch:renderer`) when the host was built with `watch:main`.
+- **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**. After reload, re-run **Run Extension** (or re-attach to port 5870) if breakpoints stop binding — reload can drop the inspect session.
+
+Or from a terminal (watch already running):
 
 ```bash
-pnpm vscode:build
-pnpm vscode:dev
+pnpm vscode:watch   # terminal 1 — host (HMR flag) + Vite
+pnpm vscode:dev     # terminal 2 — launch only (no debugger)
 ```
 
 Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.

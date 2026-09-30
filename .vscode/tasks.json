@@ -2,6 +2,27 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // F5 "Run Extension": watch first, then spawn EDH with Node inspect paused.
+      "label": "vscode: debug",
+      "dependsOn": ["vscode: watch", "vscode: edh-inspect"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      // EDH = Extension Development Host. Opens a separate `code` window with this
+      // extension loaded, paused on --inspect-brk-extensions until launch.json attaches.
+      // Port 5870 must match launch.json "Run Extension" attach port.
+      "label": "vscode: edh-inspect",
+      "type": "shell",
+      "command": "env -u VSCODE_IPC_HOOK_CLI -u VSCODE_IPC_HOOK code --extensionDevelopmentPath=\"${workspaceFolder}/apps/vscode\" --inspect-brk-extensions=5870",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "vscode-watch"
+      }
+    },
+    {
       "label": "vscode: watch",
       "dependsOn": ["vscode: watch:main", "vscode: watch:renderer"],
       "dependsOrder": "parallel",
@@ -47,8 +68,8 @@
         },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "build started\\.\\.\\.",
-          "endsPattern": "built in \\d+ms\\."
+          "beginsPattern": ".",
+          "endsPattern": "ready in \\d+ m?s"
         }
       },
       "presentation": {

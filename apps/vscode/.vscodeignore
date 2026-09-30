@@ -8,7 +8,7 @@ tsconfig.vscode.json
 tsconfig.webview.json
 tsconfig.node.json
 tsdown.config.ts
-vite.webview.config.ts
+vite.config.ts
 scripts/**
 .turbo/**
 **/*.ts

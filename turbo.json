@@ -11,6 +11,15 @@
       ]
     },
     "lint": {},
+    "//#install-acp-adapter-deps": {
+      "inputs": [
+        "acp-adapter-resources/package.json",
+        "acp-adapter-resources/pnpm-lock.yaml"
+      ],
+      "outputs": [
+        "acp-adapter-resources/node_modules/**"
+      ]
+    },
     "materialize-acp-adapters": {},
     "test": {},
     "typecheck": {},

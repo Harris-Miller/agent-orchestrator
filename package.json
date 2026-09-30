@@ -12,7 +12,7 @@
     "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' 'apps/*/acp-adapter-resources'",
     "lint": "turbo run lint",
     "local-ci": "turbo run typecheck lint test",
-    "materialize-acp-adapters": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
+    "install-acp-adapter-deps": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
     "prepare": "effect-language-service patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
@@ -20,7 +20,7 @@
     "typecheck": "turbo run typecheck",
     "vscode:watch": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
     "vscode:build": "turbo run build --filter=agent-orchestrator-vscode",
-    "vscode:dev": "code --extensionDevelopmentPath=\"$PWD/apps/vscode\""
+    "vscode:dev": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

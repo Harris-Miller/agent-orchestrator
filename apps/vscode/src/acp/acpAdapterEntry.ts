@@ -32,7 +32,7 @@ export const resolveAcpAdapterEntry = (
   if (!existsSync(absolute)) {
     throw new AcpAdapterEntryMissing(
       relative,
-      `ACP adapter resource not found (${relative}). Run pnpm materialize-acp-adapters (dev symlink) or package the extension (prod copy). Resolved: ${absolute}`,
+      `ACP adapter resource not found (${relative}). Run pnpm install-acp-adapter-deps (then materialize-acp-adapters for the symlink) or package the extension (prod copy). Resolved: ${absolute}`,
     );
   }
   return absolute;

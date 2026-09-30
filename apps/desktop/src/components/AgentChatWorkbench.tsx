@@ -2,7 +2,9 @@ import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
 import {
+  DEVELOPER_PANEL_HEIGHT,
   developerModeAtom,
+  DeveloperPanelShell,
   isRecord,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -13,15 +15,16 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import { DEVELOPER_PANEL_HEIGHT, DeveloperPanel } from './developerPanel/DeveloperPanel.tsx';
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
+const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
 type WorkbenchLayout = {
   readonly developerPanelOpen: boolean;
@@ -223,7 +226,18 @@ export const AgentChatWorkbench: FC<{
           snap
           visible={developerMode ? layout.developerPanelOpen : false}
         >
-          <DeveloperPanel
+          <DeveloperPanelShell
+            extraTabs={[
+              {
+                content: (
+                  <TanStackRouterDevtoolsPanel
+                    style={{ height: '100%', maxHeight: '100%', overflow: 'auto', width: '100%' }}
+                  />
+                ),
+                id: TANSTACK_ROUTER_TAB,
+                label: 'TanStack Router',
+              },
+            ]}
             initializeResult={selectedSnapshot?.initializeResult}
             onClose={() => {
               commitLayout({ developerPanelOpen: false });

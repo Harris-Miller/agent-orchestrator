@@ -8,7 +8,6 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { TanStackRouterDevtoolsPanelInProd } from '@tanstack/react-router-devtools';
 import { useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
@@ -27,7 +26,6 @@ import { SessionStateView } from './SessionStateView.tsx';
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
 const SESSION_STATE_TAB = 'session-state' as const;
-const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
 export type DeveloperPanelExtraTab = {
   readonly content: ReactNode;
@@ -210,11 +208,6 @@ export const DeveloperPanelShell: FC<{
           />
         ))}
         <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
-        <Tab
-          label="TanStack Router"
-          sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-          value={TANSTACK_ROUTER_TAB}
-        />
         {extraTabs.map(tab => (
           <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
         ))}
@@ -224,10 +217,6 @@ export const DeveloperPanelShell: FC<{
           <RpcWireLogBody launchTarget={activeTab} onCopyError={onCopyError} />
         ) : activeTab === SESSION_STATE_TAB ? (
           <SessionStateView initializeResult={initializeResult} session={session} />
-        ) : activeTab === TANSTACK_ROUTER_TAB ? (
-          <TanStackRouterDevtoolsPanelInProd
-            style={{ height: '100%', maxHeight: '100%', overflow: 'auto', width: '100%' }}
-          />
         ) : (
           (activeExtraTab?.content ?? null)
         )}

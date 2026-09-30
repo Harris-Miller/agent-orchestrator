@@ -341,13 +341,13 @@ export const ProvidersPage: FC = () => {
         <Switch
           checked={developerMode}
           disabled={editsDisabled}
-          inputProps={{ 'aria-label': 'Developer mode' }}
           onChange={(_event, checked) => {
             setDeveloperMode(checked);
             if (checked) {
               openDeveloperPanel();
             }
           }}
+          slotProps={{ input: { 'aria-label': 'Developer mode' } }}
         />
         <Typography variant="body1">Developer mode</Typography>
       </Stack>

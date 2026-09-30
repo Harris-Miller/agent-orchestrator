@@ -22,21 +22,19 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 
 ### 1. Extension Development Host (day-to-day)
 
-From the monorepo root in Cursor/VS Code:
+**F5 / Run Extension** (from Cursor or VS Code): starts watch, opens a **VS Code** Extension Development Host with `--inspect-brk-extensions=5870`, then attaches the Node debugger so host `.ts` breakpoints work. (`extensionHost` launch type always uses the *current* editor, so it is not used here.)
 
-1. `pnpm vscode:watch` (or F5 — **Run Extension** starts watch via `preLaunchTask`)
-2. `pnpm vscode:dev` / Run and Debug → **Run Extension**
-
-That launches a new window with `--extensionDevelopmentPath=apps/vscode`.
+1. F5 → **Run Extension**
+2. Or without debugger: `pnpm vscode:watch` then `pnpm vscode:dev`
 
 - **Renderer** edits hot-reload via Vite (`watch:renderer`). Vite must be up in Extension Development Host or the webview scripts fail to load.
-- **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**.
+- **Host** (`extension.ts` / host code) edits need **Developer: Reload Window**. After reload, re-run **Run Extension** (or re-attach to port 5870) if breakpoints stop binding — reload can drop the inspect session.
 
 Or from a terminal (watch already running):
 
 ```bash
 pnpm vscode:watch   # terminal 1 — host + Vite HMR
-pnpm vscode:dev     # terminal 2 — launch only
+pnpm vscode:dev     # terminal 2 — launch only (no debugger)
 ```
 
 `pnpm vscode:build` + `pnpm vscode:dev` without Vite leaves the Development-mode webview blank until the renderer server is up.

@@ -2,6 +2,23 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "vscode: debug",
+      "dependsOn": ["vscode: watch", "vscode: edh-inspect"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "vscode: edh-inspect",
+      "type": "shell",
+      "command": "env -u VSCODE_IPC_HOOK_CLI -u VSCODE_IPC_HOOK code --extensionDevelopmentPath=\"${workspaceFolder}/apps/vscode\" --inspect-brk-extensions=5870",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "vscode-watch"
+      }
+    },
+    {
       "label": "vscode: watch",
       "dependsOn": ["vscode: watch:main", "vscode: watch:renderer"],
       "dependsOrder": "parallel",

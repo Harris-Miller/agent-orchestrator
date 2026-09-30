@@ -10,6 +10,7 @@ import {
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   groupAndSortSessionsByCwd,
+  PanelHeader,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   selectSessionAtomFn,
@@ -48,8 +49,6 @@ import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { FC, MouseEvent } from 'react';
-
-import { PanelHeader } from '../shared/PanelHeader.tsx';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 

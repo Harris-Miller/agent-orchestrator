@@ -1,14 +1,4 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
-import type { AgentLaunchTarget, RpcWireEntry, SessionSnapshot } from '@lib/ui';
-import {
-  agentLaunchTargetLabel,
-  ALL_AGENT_LAUNCH_TARGETS,
-  backendHarnessStateAtom,
-  hostRunPromise,
-  isRecord,
-  rpcWireLogLaunchTargetAtom,
-  writeTextToClipboard,
-} from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -18,19 +8,32 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { useState } from 'react';
-import type { FC, SyntheticEvent } from 'react';
+import type { FC, ReactNode, SyntheticEvent } from 'react';
 
-import { SessionStateView } from '../rightPanel/BootstrapStatePanel.tsx';
-import { PanelHeader } from '../shared/PanelHeader.tsx';
+import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
+import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
+import type { RpcWireEntry } from '../../host/backendHarness.ts';
+import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
+import { hostRunPromise } from '../../hostRuntime.ts';
+import { isRecord } from '../../isRecord.ts';
+
+import { PanelHeader } from './PanelHeader.tsx';
+import { SessionStateView } from './SessionStateView.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
 const SESSION_STATE_TAB = 'session-state' as const;
-const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
-type DeveloperPanelTab = AgentLaunchTarget | typeof SESSION_STATE_TAB | typeof TANSTACK_ROUTER_TAB;
+export type DeveloperPanelExtraTab = {
+  readonly content: ReactNode;
+  readonly id: string;
+  readonly label: string;
+};
+
+type DeveloperPanelTab = string;
 
 const isAgentLaunchTarget = (value: string): value is AgentLaunchTarget =>
   (ALL_AGENT_LAUNCH_TARGETS as readonly string[]).includes(value);
@@ -159,14 +162,17 @@ const RpcWireLogBody: FC<{
   );
 };
 
-export const DeveloperPanel: FC<{
+export const DeveloperPanelShell: FC<{
+  readonly extraTabs?: readonly DeveloperPanelExtraTab[];
   readonly initializeResult: unknown;
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
   readonly session?: SessionSnapshot;
-}> = ({ initializeResult, onClose, onCopyError, session }) => {
+}> = ({ extraTabs = [], initializeResult, onClose, onCopyError, session }) => {
   const [rpcLaunchTarget, setRpcLaunchTarget] = useAtom(rpcWireLogLaunchTargetAtom);
   const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(rpcLaunchTarget);
+  const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
+  const bodyPadding = isAgentLaunchTarget(activeTab) || activeTab === SESSION_STATE_TAB ? 2 : 0;
 
   return (
     <Box
@@ -202,19 +208,17 @@ export const DeveloperPanel: FC<{
           />
         ))}
         <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
-        <Tab
-          label="TanStack Router"
-          sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-          value={TANSTACK_ROUTER_TAB}
-        />
+        {extraTabs.map(tab => (
+          <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
+        ))}
       </Tabs>
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: activeTab === TANSTACK_ROUTER_TAB ? 0 : 2 }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: bodyPadding }}>
         {isAgentLaunchTarget(activeTab) ? (
           <RpcWireLogBody launchTarget={activeTab} onCopyError={onCopyError} />
         ) : activeTab === SESSION_STATE_TAB ? (
           <SessionStateView initializeResult={initializeResult} session={session} />
         ) : (
-          <TanStackRouterDevtoolsPanel style={{ height: '100%', maxHeight: '100%', overflow: 'auto', width: '100%' }} />
+          (activeExtraTab?.content ?? null)
         )}
       </Box>
     </Box>

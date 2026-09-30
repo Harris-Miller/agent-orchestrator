@@ -14,6 +14,9 @@ export {
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
+export * from './components/developerPanel/DeveloperPanelShell.tsx';
+export * from './components/developerPanel/PanelHeader.tsx';
+export * from './components/developerPanel/SessionStateView.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';

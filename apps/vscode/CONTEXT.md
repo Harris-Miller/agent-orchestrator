@@ -12,11 +12,15 @@ The sidebar webview that boots `makeHostServicesLive`, binds the Host runtime, a
 _Avoid_: panel, iframe (when you mean this view)
 
 **Workspace folder**:
-One root folder in the VS Code workspace. Its absolute filesystem path is the only Session cwd the sidebar Harness UI may create or show sessions for (when several Workspace folders exist, the first in VS Code’s list). Distinct from OS snapshot `cwd` (extension-host process cwd).
+One root folder in the VS Code workspace. Distinct from OS snapshot `cwd` (extension-host process cwd).
 _Avoid_: OS cwd, Host cwd, workspace root, project root (when you mean this VS Code root)
 
+**Workspace cwd**:
+The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for list/create/load (the user cannot pick another).
+_Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
+
 **Session History**:
-The sidebar view that lists Session roster rows for the current Workspace folder Session cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Providers remains `/providers`).
+The sidebar view that lists Session roster rows for the current Workspace cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Providers remains `/providers`).
 _Avoid_: Session roster (the harness data), nav rail, chats list
 
 **Chat**:

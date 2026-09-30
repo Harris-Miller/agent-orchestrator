@@ -8,11 +8,14 @@ import {
   confirmSessionDeleteAtom,
   createSessionAtomFn,
   deleteSessionAtomFn,
+  developerModeAtom,
   ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
+  userSettingsAtom,
+  userSettingsEditsDisabled,
 } from '@lib/ui';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -36,11 +39,13 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { useContext, useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
+import { useAppLayout } from './appLayoutContext.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -308,6 +313,11 @@ export const SessionHistory: FC = () => {
 
 export const ProvidersPage: FC = () => {
   const navigate = useNavigate();
+  const developerMode = useAtomValue(developerModeAtom);
+  const setDeveloperMode = useAtomSet(developerModeAtom);
+  const userSettings = useAtomValue(userSettingsAtom);
+  const editsDisabled = userSettingsEditsDisabled(userSettings);
+  const { openDeveloperPanel } = useAppLayout();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
@@ -326,6 +336,21 @@ export const ProvidersPage: FC = () => {
         </Typography>
       </Stack>
       <ProvidersSettingsPane />
+      {/* Full Settings shell → #96 (Epic #88); not in #92. */}
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+        <Switch
+          checked={developerMode}
+          disabled={editsDisabled}
+          onChange={(_event, checked) => {
+            setDeveloperMode(checked);
+            if (checked) {
+              openDeveloperPanel();
+            }
+          }}
+          slotProps={{ input: { 'aria-label': 'Developer mode' } }}
+        />
+        <Typography variant="body1">Developer mode</Typography>
+      </Stack>
     </Box>
   );
 };

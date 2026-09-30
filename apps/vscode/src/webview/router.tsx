@@ -1,15 +1,11 @@
-import Box from '@mui/material/Box';
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createMemoryHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 
+import { AppLayout } from './AppLayout.tsx';
 import { ProvidersPage } from './SessionHistory.tsx';
 import { SessionHome } from './SessionHome.tsx';
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-      <Outlet />
-    </Box>
-  ),
+  component: AppLayout,
 });
 
 const homeRoute = createRoute({

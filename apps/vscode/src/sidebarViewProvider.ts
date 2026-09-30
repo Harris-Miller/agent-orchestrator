@@ -63,6 +63,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'main.js'),
     );
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'main.css'),
+    );
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
@@ -75,6 +78,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Orchestrator</title>
+    <link href="${String(styleUri)}" rel="stylesheet" />
     <style>
       html,
       body,

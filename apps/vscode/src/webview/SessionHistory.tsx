@@ -8,11 +8,14 @@ import {
   confirmSessionDeleteAtom,
   createSessionAtomFn,
   deleteSessionAtomFn,
+  developerModeAtom,
   ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
+  userSettingsAtom,
+  userSettingsEditsDisabled,
 } from '@lib/ui';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -27,6 +30,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -36,6 +40,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { useContext, useState } from 'react';
@@ -308,6 +313,10 @@ export const SessionHistory: FC = () => {
 
 export const ProvidersPage: FC = () => {
   const navigate = useNavigate();
+  const developerMode = useAtomValue(developerModeAtom);
+  const setDeveloperMode = useAtomSet(developerModeAtom);
+  const userSettings = useAtomValue(userSettingsAtom);
+  const editsDisabled = userSettingsEditsDisabled(userSettings);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
@@ -326,6 +335,20 @@ export const ProvidersPage: FC = () => {
         </Typography>
       </Stack>
       <ProvidersSettingsPane />
+      {/* Full Settings shell → #96 (Epic #88); not in #92. */}
+      <FormControlLabel
+        control={
+          <Switch
+            checked={developerMode}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setDeveloperMode(checked);
+            }}
+          />
+        }
+        label="Developer mode"
+        sx={{ mt: 1 }}
+      />
     </Box>
   );
 };

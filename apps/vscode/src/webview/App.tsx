@@ -1,4 +1,4 @@
-import { RegistryContext, RegistryProvider, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, RegistryProvider, useAtomSet } from '@effect/atom-react';
 import { onWorkspaceFoldersChanged, requestWorkspaceFolders } from '@lib/context-services-vscode-webview';
 import {
   AcpBackendsMount,
@@ -6,7 +6,6 @@ import {
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
   refreshAllSessionRostersAtomFn,
-  sessionListScopeAtom,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -24,41 +23,7 @@ import type { FC } from 'react';
 import { hostIpcClient } from './bindHostRuntime.ts';
 import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
-import { sessionCwdAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 import { applyWorkspaceFolderPaths, handleWorkspaceFoldersChanged } from './workspaceFoldersChurn.ts';
-
-/** TEMP debug — owned by #92 (DeveloperPanel tab); keep as App-shell sibling until then. */
-const WorkspaceCwdDebug: FC = () => {
-  const paths = useAtomValue(workspaceFolderPathsAtom);
-  const sessionCwd = useAtomValue(sessionCwdAtom);
-  const listScope = useAtomValue(sessionListScopeAtom);
-
-  return (
-    <Box
-      component="pre"
-      sx={{
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: 1,
-        flexShrink: 0,
-        fontFamily: 'var(--vscode-editor-font-family, monospace)',
-        fontSize: 11,
-        m: 0,
-        p: 1,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }}
-    >
-      <Typography component="div" sx={{ display: 'block', fontWeight: 700, mb: 0.5 }} variant="caption">
-        TEMP workspace cwd
-      </Typography>
-      {`sessionCwd: ${sessionCwd ?? '(none)'}
-listScope: ${JSON.stringify(listScope)}
-paths (${paths.length}):
-${paths.length === 0 ? '  (empty)' : paths.map(p => `  - ${p}`).join('\n')}`}
-    </Box>
-  );
-};
 
 const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
@@ -118,29 +83,17 @@ const WorkspaceFoldersGate: FC = () => {
       <AcpBackendsMount />
       <Box
         sx={{
+          // RouterProvider / match wrappers must fill so Chat can pin composer.
+          '& > *': { display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 },
           display: 'flex',
           flex: 1,
           flexDirection: 'column',
-          gap: 1,
           minHeight: 0,
           overflow: 'hidden',
           p: 1,
         }}
       >
-        <WorkspaceCwdDebug />
-        <Box
-          sx={{
-            // RouterProvider / match wrappers must fill so Chat can pin composer.
-            '& > *': { display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 },
-            display: 'flex',
-            flex: 1,
-            flexDirection: 'column',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <RouterProvider router={router} />
-        </Box>
+        <RouterProvider router={router} />
       </Box>
       <Snackbar
         anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}

@@ -41,6 +41,8 @@
     "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-router-devtools": "catalog:",
+    "allotment": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

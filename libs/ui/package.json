@@ -23,6 +23,8 @@
     "@libs/effect-acp": "workspace:^",
     "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-router-devtools": "catalog:",
     "effect": "catalog:",
     "lexical": "catalog:",
     "react": "catalog:",

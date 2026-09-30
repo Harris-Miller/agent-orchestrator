@@ -3,12 +3,10 @@ import type { SessionSnapshot } from '@lib/ui';
 import { DeveloperPanelShell, sessionListScopeAtom } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import type { FC } from 'react';
 
 import { sessionCwdAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
-const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 const WORKSPACE_CWD_TAB = 'workspace-cwd' as const;
 
 const WorkspaceCwdTab: FC = () => {
@@ -47,13 +45,6 @@ export const DeveloperPanel: FC<{
 }> = ({ initializeResult, onClose, onCopyError, session }) => (
   <DeveloperPanelShell
     extraTabs={[
-      {
-        content: (
-          <TanStackRouterDevtoolsPanel style={{ height: '100%', maxHeight: '100%', overflow: 'auto', width: '100%' }} />
-        ),
-        id: TANSTACK_ROUTER_TAB,
-        label: 'TanStack Router',
-      },
       {
         content: <WorkspaceCwdTab />,
         id: WORKSPACE_CWD_TAB,

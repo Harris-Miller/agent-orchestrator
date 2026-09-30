@@ -4,6 +4,8 @@ import { defineConfig } from 'vite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { WEBVIEW_VITE_ORIGIN, WEBVIEW_VITE_PORT } from './src/webviewDevServer.ts';
+
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => ({
@@ -31,8 +33,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     cors: true,
-    origin: 'http://localhost:5173',
-    port: 5173,
+    origin: WEBVIEW_VITE_ORIGIN,
+    port: WEBVIEW_VITE_PORT,
     strictPort: true,
   },
 }));

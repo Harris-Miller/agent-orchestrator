@@ -2,9 +2,7 @@ import * as vscode from 'vscode';
 
 import { handleHostIpcMessage, postWorkspaceFoldersChanged } from './host/hostFulfillment';
 import type { ProcessTracker } from './host/processTracker';
-
-/** Fixed Vite dev-server port — keep in sync with `vite.config.ts` `server.port`. */
-const VITE_DEV_SERVER_ORIGIN = 'http://localhost:5173';
+import { WEBVIEW_VITE_ORIGIN, WEBVIEW_VITE_WS_ORIGIN } from './webviewDevServer';
 
 const getNonce = function (): string {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -93,7 +91,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' ${VITE_DEV_SERVER_ORIGIN}; script-src 'nonce-${nonce}' ${VITE_DEV_SERVER_ORIGIN}; connect-src ${VITE_DEV_SERVER_ORIGIN} ws://localhost:5173;"
+      content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Orchestrator</title>
@@ -102,14 +100,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   <body>
     <div id="root"></div>
     <script type="module" nonce="${nonce}">
-      import RefreshRuntime from '${VITE_DEV_SERVER_ORIGIN}/@react-refresh'
+      import RefreshRuntime from '${WEBVIEW_VITE_ORIGIN}/@react-refresh'
       RefreshRuntime.injectIntoGlobalHook(window)
       window.$RefreshReg$ = () => {}
       window.$RefreshSig$ = () => (type) => type
       window.__vite_plugin_react_preamble_installed__ = true
     </script>
-    <script type="module" nonce="${nonce}" src="${VITE_DEV_SERVER_ORIGIN}/@vite/client"></script>
-    <script type="module" nonce="${nonce}" src="${VITE_DEV_SERVER_ORIGIN}/src/webview/index.tsx"></script>
+    <script type="module" nonce="${nonce}" src="${WEBVIEW_VITE_ORIGIN}/@vite/client"></script>
+    <script type="module" nonce="${nonce}" src="${WEBVIEW_VITE_ORIGIN}/src/webview/index.tsx"></script>
   </body>
 </html>`;
     }

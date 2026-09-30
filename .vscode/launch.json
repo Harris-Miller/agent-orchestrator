@@ -2,6 +2,9 @@
   "version": "0.2.0",
   "configurations": [
     {
+      // Attach Cursor/VS Code debugger to the Extension Development Host's Node
+      // inspector (started by task "vscode: edh-inspect"). Port 5870 must match
+      // --inspect-brk-extensions=5870 in that task.
       "name": "Run Extension",
       "type": "node",
       "request": "attach",

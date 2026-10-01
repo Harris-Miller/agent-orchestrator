@@ -159,14 +159,15 @@ describe('filterAvailableCommands', () => {
     assert.deepStrictEqual(filterAvailableCommands(commands, 'slash', 'zzzz'), []);
   });
 
-  it('exact name match returns only that command', () => {
+  it('exact bare-name matches first, then remaining fzf hits', () => {
     const mixed = [
-      { description: 'Compact context', name: 'compact' },
-      { description: 'Mentions compact too', name: 'status' },
+      { description: 'Grill something', name: 'grill' },
+      { description: 'Grill me harder', name: 'grill-me' },
+      { description: 'Mentions grill in prose', name: 'status' },
     ] as const;
     assert.deepStrictEqual(
-      filterAvailableCommands(mixed, 'slash', 'compact').map(command => command.name),
-      ['compact'],
+      filterAvailableCommands(mixed, 'slash', 'grill').map(command => command.name),
+      ['grill', 'grill-me', 'status'],
     );
     assert.deepStrictEqual(
       filterAvailableCommands([{ description: 'Mode', name: '$caveman' }], 'dollar', 'caveman').map(

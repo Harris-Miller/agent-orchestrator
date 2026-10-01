@@ -32,8 +32,8 @@ const fzfFind = (
 
 /**
  * Filter `availableCommands` for a trigger kind. Empty query lists all of that kind;
- * non-empty query: exact name match alone, else fzf name hits then description hits
- * (no duplicates). Per-agent hidden names are dropped.
+ * non-empty query: exact bare-name matches first, then fzf name hits, then description
+ * hits (no duplicates). Per-agent hidden names are dropped.
  */
 export const filterAvailableCommands = (
   availableCommands: readonly AvailableCommand[],
@@ -51,15 +51,12 @@ export const filterAvailableCommands = (
     return [];
   }
 
-  const exact = forKind.find(command => bareCommandName(command.name) === query);
-  if (exact !== undefined) {
-    return [exact];
-  }
-
-  const byName = fzfFind(forKind, query, command => command.name);
+  const exact = forKind.filter(command => bareCommandName(command.name) === query);
+  const remaining = forKind.filter(command => bareCommandName(command.name) !== query);
+  const byName = fzfFind(remaining, query, command => command.name);
   const seen = new Set(byName);
-  const byDescription = fzfFind(forKind, query, command => command.description ?? '').filter(
+  const byDescription = fzfFind(remaining, query, command => command.description ?? '').filter(
     command => !seen.has(command),
   );
-  return [...byName, ...byDescription];
+  return [...exact, ...byName, ...byDescription];
 };

@@ -15,7 +15,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import {
@@ -42,10 +42,17 @@ import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { isRecord } from '../../isRecord.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
+import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
+import type { ComposerTrigger } from './composerCommandTokens.ts';
+import { commandInvocation, replaceComposerTriggerRange } from './composerCommandTokens.ts';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
+import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
+import { detectComposerTrigger } from './detectComposerTrigger.ts';
+import { filterAvailableCommands } from './filterAvailableCommands.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
@@ -110,8 +117,16 @@ export const SessionChatBody: FC<{
   const pinnedToBottomRef = useRef(true);
   const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
+  const [composerTrigger, setComposerTrigger] = useState<ComposerTrigger | null>(null);
+  const [commandFocusIndex, setCommandFocusIndex] = useState(0);
+  const composerCursorRef = useRef(0);
+  const syncCursorRef = useRef<null | number>(null);
 
   const chatItems = useMemo(() => selectedSession?.transcript.items ?? [], [selectedSession?.transcript.items]);
+  const availableCommands = useMemo(
+    () => selectedSession?.availableCommands ?? [],
+    [selectedSession?.availableCommands],
+  );
   const configOptions = normalizeConfigOptions(selectedSession?.sessionConfiguration);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
@@ -134,12 +149,100 @@ export const SessionChatBody: FC<{
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
   const showDeveloperButton = developerMode && onOpenDeveloperPanel !== undefined && !developerPanelOpen;
 
+  const filteredCommands = useMemo(() => {
+    if (composerTrigger === null) {
+      return [];
+    }
+    return filterAvailableCommands(
+      availableCommands,
+      composerTrigger.kind,
+      composerTrigger.query,
+      selectedLaunchTarget,
+    );
+  }, [availableCommands, composerTrigger, selectedLaunchTarget]);
+
+  const clampedCommandFocus =
+    filteredCommands.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommands.length - 1);
+
+  const selectCommand = useCallback(
+    (command: AvailableCommand) => {
+      const liveTrigger = detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: composerCursorRef.current,
+        launchTarget: selectedLaunchTarget,
+        text: draft,
+      });
+      if (liveTrigger === null) {
+        setComposerTrigger(null);
+        return;
+      }
+      const next = replaceComposerTriggerRange(draft, liveTrigger, commandInvocation(command.name));
+      syncCursorRef.current = next.cursor;
+      composerCursorRef.current = next.cursor;
+      setDraft(next.text);
+      setComposerTrigger(null);
+    },
+    [draft, selectedLaunchTarget, setDraft],
+  );
+
+  const onComposerChange = useCallback(
+    ({ adjacentToToken, cursor, text }: ComposerPromptChange) => {
+      composerCursorRef.current = cursor;
+      setDraft(text);
+      const trigger = detectComposerTrigger({
+        adjacentToToken,
+        cursor,
+        launchTarget: selectedLaunchTarget,
+        text,
+      });
+      setComposerTrigger(prev => {
+        if (trigger === null) {
+          return null;
+        }
+        if (prev !== null && prev.kind === trigger.kind && prev.query === trigger.query) {
+          return { ...trigger };
+        }
+        setCommandFocusIndex(0);
+        return trigger;
+      });
+    },
+    [selectedLaunchTarget, setDraft],
+  );
+
+  const commandMenu = useMemo(
+    () => ({
+      onArrowDown: () => {
+        setCommandFocusIndex(index =>
+          filteredCommands.length === 0 ? 0 : Math.min(index + 1, filteredCommands.length - 1),
+        );
+      },
+      onArrowUp: () => {
+        setCommandFocusIndex(index => Math.max(index - 1, 0));
+      },
+      onDismiss: () => {
+        setComposerTrigger(null);
+      },
+      onSelect: () => {
+        if (filteredCommands.length === 0) {
+          return;
+        }
+        selectCommand(filteredCommands[clampedCommandFocus]);
+      },
+      onSpaceDismiss: () => {
+        setComposerTrigger(null);
+      },
+      open: composerTrigger !== null,
+    }),
+    [clampedCommandFocus, composerTrigger, filteredCommands, selectCommand],
+  );
+
   const sendDraft = () => {
     if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
       return;
     }
 
     const text = draft;
+    setComposerTrigger(null);
     setDraft('');
     sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
@@ -306,16 +409,26 @@ export const SessionChatBody: FC<{
             </Typography>
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <ComposerCommandMenu
+              commands={filteredCommands}
+              focusedIndex={clampedCommandFocus}
+              onFocusIndexChange={setCommandFocusIndex}
+              onSelect={selectCommand}
+              open={composerTrigger !== null}
+            />
             <ComposerPromptEditor
+              availableCommands={availableCommands}
+              commandMenu={commandMenu}
               disabled={!controlsEnabled}
               key={selectedSessionId ?? 'none'}
-              onChange={setDraft}
+              onChange={onComposerChange}
               onSubmit={sendDraft}
               placeholder={
                 selectedLaunchTarget === undefined
                   ? 'Select a session…'
                   : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
               }
+              syncCursorRef={syncCursorRef}
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>

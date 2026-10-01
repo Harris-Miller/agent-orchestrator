@@ -24,6 +24,7 @@
     "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
     "effect": "catalog:",
+    "fzf": "catalog:",
     "lexical": "catalog:",
     "react": "catalog:",
     "react-markdown": "catalog:"

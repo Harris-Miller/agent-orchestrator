@@ -52,8 +52,18 @@
         },
         {
           "args": true,
+          "cmd": "cmd",
+          "name": "cmd"
+        },
+        {
+          "args": true,
           "cmd": "codex",
           "name": "codex"
+        },
+        {
+          "args": true,
+          "cmd": "find",
+          "name": "find"
         },
         {
           "args": true,
@@ -82,8 +92,18 @@
         },
         {
           "args": true,
+          "cmd": "cmd",
+          "name": "cmd"
+        },
+        {
+          "args": true,
           "cmd": "codex",
           "name": "codex"
+        },
+        {
+          "args": true,
+          "cmd": "find",
+          "name": "find"
         },
         {
           "args": true,

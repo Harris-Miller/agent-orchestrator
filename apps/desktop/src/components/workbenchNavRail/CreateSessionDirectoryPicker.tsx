@@ -9,7 +9,9 @@ import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
 import SubdirectoryArrowLeft from '@mui/icons-material/SubdirectoryArrowLeft';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import List from '@mui/material/List';
@@ -34,6 +36,18 @@ import {
   resolveHomeDir,
   toTildeBrowsePrefix,
 } from '../../acp/sessionDirectoryBrowser.ts';
+
+const showHiddenShortcutLabel = navigator.platform.toLowerCase().includes('mac') ? '⌘.' : 'Ctrl+.';
+
+const errorMessage = (cause: unknown): string => {
+  if (cause instanceof Error && cause.message.length > 0) {
+    return cause.message;
+  }
+  if (typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string') {
+    return cause.message;
+  }
+  return String(cause);
+};
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   <Box
@@ -70,6 +84,7 @@ export const CreateSessionDirectoryPicker: FC<{
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [showHidden, setShowHidden] = useState(false);
   const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
   const [createCwd, setCreateCwd] = useState<string | undefined>(undefined);
 
@@ -92,7 +107,7 @@ export const CreateSessionDirectoryPicker: FC<{
     hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await hostRunPromise(listChildDirectories(normalizedHome));
+        const dirs = await hostRunPromise(listChildDirectories(normalizedHome, { showHidden: false }));
         if (abort.signal.aborted) {
           return;
         }
@@ -106,7 +121,7 @@ export const CreateSessionDirectoryPicker: FC<{
         if (abort.signal.aborted) {
           return;
         }
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
         setLoading(false);
       });
 
@@ -120,23 +135,30 @@ export const CreateSessionDirectoryPicker: FC<{
     };
   }, []);
 
-  const loadDirectory = (nextPath: string) => {
+  const loadDirectory = (nextPath: string, nextShowHidden: boolean = showHidden) => {
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listChildDirectories(nextPath))
+    hostRunPromise(listChildDirectories(nextPath, { showHidden: nextShowHidden }))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);
         setFocusedIndex(0);
       })
       .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
       })
       .finally(() => {
         setLoading(false);
         inputRef.current?.focus();
       });
+  };
+
+  const setShowHiddenAndReload = (next: boolean) => {
+    setShowHidden(next);
+    if (browsePath !== undefined) {
+      loadDirectory(browsePath, next);
+    }
   };
 
   const navigateParent = () => {
@@ -148,7 +170,7 @@ export const CreateSessionDirectoryPicker: FC<{
         loadDirectory(parent);
       })
       .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
       });
   };
 
@@ -165,7 +187,7 @@ export const CreateSessionDirectoryPicker: FC<{
         loadDirectory(next);
       })
       .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
       });
   };
 
@@ -227,6 +249,12 @@ export const CreateSessionDirectoryPicker: FC<{
         return;
       }
       onClose();
+      return;
+    }
+
+    if (event.key === '.' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      setShowHiddenAndReload(!showHidden);
       return;
     }
 
@@ -435,17 +463,37 @@ export const CreateSessionDirectoryPicker: FC<{
             <Keycap label="Esc" />
             <Typography variant="caption">Close</Typography>
           </Stack>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            <Keycap label={showHiddenShortcutLabel} />
+            <Typography variant="caption">Show hidden</Typography>
+          </Stack>
         </Stack>
-        <Button
-          disabled={creating}
-          onClick={() => {
-            openFinder();
-          }}
-          size="small"
-          sx={{ textTransform: 'none' }}
-        >
-          Open in Finder
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showHidden}
+                disabled={loading || browsePath === undefined}
+                onChange={(_event, checked) => {
+                  setShowHiddenAndReload(checked);
+                }}
+                size="small"
+              />
+            }
+            label={<Typography variant="caption">Show hidden</Typography>}
+            sx={{ m: 0 }}
+          />
+          <Button
+            disabled={creating}
+            onClick={() => {
+              openFinder();
+            }}
+            size="small"
+            sx={{ textTransform: 'none' }}
+          >
+            Open in Finder
+          </Button>
+        </Stack>
       </Stack>
     </Dialog>
   );

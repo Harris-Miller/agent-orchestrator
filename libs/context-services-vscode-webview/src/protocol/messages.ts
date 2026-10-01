@@ -106,6 +106,22 @@ export const IpcMessage = Schema.TaggedUnion({
   FsWriteFileStringResult: {
     id: CorrelationId,
   },
+  HttpFetch: {
+    /** Optional request body (`ArrayBuffer`); may be transferred via postMessage. */
+    body: Schema.optional(Schema.Unknown),
+    headers: Schema.Record(Schema.String, Schema.String),
+    id: CorrelationId,
+    method: Schema.String,
+    url: Schema.String,
+  },
+  HttpFetchResult: {
+    /** Optional response body (`ArrayBuffer`); may be transferred via postMessage. */
+    body: Schema.optional(Schema.Unknown),
+    headers: Schema.Record(Schema.String, Schema.String),
+    id: CorrelationId,
+    status: Schema.Number,
+    statusText: Schema.String,
+  },
   Kill: {
     handleId: HandleId,
     id: CorrelationId,
@@ -175,6 +191,17 @@ export const encodeIpcMessage = Schema.encodeSync(IpcMessage);
 /** Message tags that carry a transferable `bytes` ArrayBuffer. */
 export const isTransferableChunkTag = (tag: IpcMessage['_tag']): boolean =>
   tag === 'StdoutChunk' || tag === 'StderrChunk' || tag === 'StdinChunk';
+
+/** Transfer list for postMessage, when the message owns an ArrayBuffer payload. */
+export const getIpcTransferList = (message: IpcMessage): ArrayBuffer[] | undefined => {
+  if (isTransferableChunkTag(message._tag) && 'bytes' in message && message.bytes instanceof ArrayBuffer) {
+    return [message.bytes];
+  }
+  if ((message._tag === 'HttpFetch' || message._tag === 'HttpFetchResult') && message.body instanceof ArrayBuffer) {
+    return [message.body];
+  }
+  return undefined;
+};
 
 export const bytesToArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;

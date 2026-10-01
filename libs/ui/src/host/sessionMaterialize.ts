@@ -4,12 +4,13 @@ import { Effect, Exit } from 'effect';
 
 import {
   applySetConfigOptionResult,
-  normalizeSelectableConfigOptions,
+  normalizeConfigOptions,
   normalizeSessionInfoFromNew,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
 } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
+import type { ConfigOptionValues } from './configProbe.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
@@ -22,27 +23,35 @@ export type ApplyConfigDiffsResult = {
   readonly stoppedEarly: boolean;
 };
 
-export type SetConfigOptionFn = (configId: string, value: string) => Effect.Effect<unknown, unknown>;
+export type SetConfigOptionFn = (configId: string, value: boolean | string) => Effect.Effect<unknown, unknown>;
 
-export type ConfigValueDiff = {
-  readonly configId: string;
-  readonly value: string;
-};
+export type ConfigValueDiff =
+  | { readonly configId: string; readonly type: 'boolean'; readonly value: boolean }
+  | { readonly configId: string; readonly type: 'select'; readonly value: string };
 
-/** Config options where desired values differ from the session's current values and remain valid choices. */
+/** Config options where desired values differ from the session's current values and remain valid. */
 export const configValueDiffs = (
   sessionConfiguration: unknown,
-  values: Readonly<Record<string, string>>,
+  values: ConfigOptionValues,
 ): readonly ConfigValueDiff[] =>
-  normalizeSelectableConfigOptions(sessionConfiguration).flatMap(option => {
+  normalizeConfigOptions(sessionConfiguration).flatMap((option): readonly ConfigValueDiff[] => {
     if (!Object.hasOwn(values, option.id)) {
       return [];
     }
     const desired = values[option.id];
-    if (desired === option.currentValue || !option.choices.some(choice => choice.id === desired)) {
+    if (option.type === 'select') {
+      if (typeof desired !== 'string') {
+        return [];
+      }
+      if (desired === option.currentValue || !option.choices.some(choice => choice.id === desired)) {
+        return [];
+      }
+      return [{ configId: option.id, type: 'select', value: desired }];
+    }
+    if (typeof desired !== 'boolean' || desired === option.currentValue) {
       return [];
     }
-    return [{ configId: option.id, value: desired }];
+    return [{ configId: option.id, type: 'boolean', value: desired }];
   });
 
 /** Roster entry from a successful `session/new` result (handoff early upsert). */
@@ -55,7 +64,7 @@ export const rosterEntryFromNew = (result: unknown, cwd: string): NormalizedSess
  */
 export const applyConfigDiffs = Effect.fn('applyConfigDiffs')(function* (
   sessionConfiguration: unknown,
-  values: Readonly<Record<string, string>>,
+  values: ConfigOptionValues,
   setOption: SetConfigOptionFn,
 ) {
   let next: unknown = sessionConfiguration;

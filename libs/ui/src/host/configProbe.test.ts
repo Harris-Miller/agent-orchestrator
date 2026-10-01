@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 
-import type { NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
+import type { NormalizedBooleanConfigOption, NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
 import {
   configOptionIndexFromProbeResponses,
   configOptionIndexIsNonempty,
@@ -17,6 +17,13 @@ const selectOption = (id: string, currentValue: string, choices: readonly string
   id,
   name: id,
   type: 'select',
+});
+
+const booleanOption = (id: string, currentValue: boolean): NormalizedBooleanConfigOption => ({
+  currentValue,
+  id,
+  name: id,
+  type: 'boolean',
 });
 
 const probeServices = layerNoop({
@@ -63,6 +70,12 @@ describe('configOptionIndexFromProbeResponses', () => {
             options: [{ name: 'Default', value: 'default' }],
             type: 'select',
           },
+          {
+            currentValue: false,
+            id: 'fast-mode',
+            name: 'Fast mode',
+            type: 'boolean',
+          },
         ],
       },
     });
@@ -70,7 +83,7 @@ describe('configOptionIndexFromProbeResponses', () => {
     assert.strictEqual(index.defaultModelId, 'sonnet');
     assert.deepStrictEqual(
       index.byModel.sonnet.map(option => option.id),
-      ['model', 'mode'],
+      ['model', 'mode', 'fast-mode'],
     );
     assert.deepStrictEqual(
       index.byModel.opus.map(option => option.id),
@@ -88,12 +101,20 @@ describe('preserveConfigValuesOnModelChange', () => {
     ]);
     assert.deepStrictEqual(next, { effort: 'low', mode: 'plan', model: 'opus' });
   });
+
+  it('preserves boolean picks across model change when option remains', () => {
+    const next = preserveConfigValuesOnModelChange({ 'fast-mode': true, model: 'opus' }, [
+      selectOption('model', 'opus', ['sonnet', 'opus']),
+      booleanOption('fast-mode', false),
+    ]);
+    assert.deepStrictEqual(next, { 'fast-mode': true, model: 'opus' });
+  });
 });
 
 describe('configValuesFromOptions / nonempty', () => {
   it('maps currentValues and reports nonempty index', () => {
-    const options = [selectOption('model', 'sonnet', ['sonnet'])];
-    assert.deepStrictEqual(configValuesFromOptions(options), { model: 'sonnet' });
+    const options = [selectOption('model', 'sonnet', ['sonnet']), booleanOption('fast-mode', false)];
+    assert.deepStrictEqual(configValuesFromOptions(options), { 'fast-mode': false, model: 'sonnet' });
     assert.isTrue(configOptionIndexIsNonempty({ byModel: { sonnet: options }, defaultModelId: 'sonnet' }));
     assert.isFalse(configOptionIndexIsNonempty(undefined));
     assert.isFalse(configOptionIndexIsNonempty({ byModel: {}, defaultModelId: 'x' }));

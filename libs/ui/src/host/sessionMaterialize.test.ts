@@ -61,7 +61,7 @@ const selectableConfig = {
 describe('applyConfigDiffs', () => {
   it.effect('empty diffs leaves configuration unchanged', () =>
     Effect.gen(function* () {
-      const calls: { configId: string; value: string }[] = [];
+      const calls: { configId: string; value: boolean | string }[] = [];
       const result = yield* applyConfigDiffs(selectableConfig, { model: 'sonnet' }, (configId, value) => {
         calls.push({ configId, value });
         return Effect.succeed({ configOptions: [] });
@@ -74,15 +74,15 @@ describe('applyConfigDiffs', () => {
 
   it.effect('applies all succeeding diffs and folds configuration', () =>
     Effect.gen(function* () {
-      const calls: { configId: string; value: string }[] = [];
+      const calls: { configId: string; value: boolean | string }[] = [];
       let model = 'sonnet';
       let mode = 'default';
       const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, (configId, value) => {
         calls.push({ configId, value });
-        if (configId === 'model') {
+        if (configId === 'model' && typeof value === 'string') {
           model = value;
         }
-        if (configId === 'mode') {
+        if (configId === 'mode' && typeof value === 'string') {
           mode = value;
         }
         return Effect.succeed({
@@ -121,6 +121,26 @@ describe('applyConfigDiffs', () => {
       const byId = Object.fromEntries(config.configOptions.map(option => [option.id, option.currentValue]));
       assert.strictEqual(byId.model, 'opus');
       assert.strictEqual(byId.mode, 'plan');
+    }),
+  );
+
+  it.effect('applies boolean diffs', () =>
+    Effect.gen(function* () {
+      const config = {
+        configOptions: [
+          ...selectableConfig.configOptions,
+          { currentValue: false, id: 'fast-mode', name: 'Fast mode', type: 'boolean' },
+        ],
+      };
+      const calls: { configId: string; value: boolean | string }[] = [];
+      const result = yield* applyConfigDiffs(config, { 'fast-mode': true }, (configId, value) => {
+        calls.push({ configId, value });
+        return Effect.succeed({
+          configOptions: [{ currentValue: value, id: configId, name: configId, type: 'boolean' }],
+        });
+      });
+      assert.strictEqual(result.stoppedEarly, false);
+      assert.deepStrictEqual(calls, [{ configId: 'fast-mode', value: true }]);
     }),
   );
 

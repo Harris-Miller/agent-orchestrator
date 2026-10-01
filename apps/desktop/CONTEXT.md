@@ -87,7 +87,7 @@ Harness step that turns a successful session activation RPC result (and any foll
 _Avoid_: Provision, hydrate, commit activation, apply session activation
 
 **Config option index**:
-Ephemeral State Atom per agent launch target: `defaultModelId` plus selectable Config options keyed by model id (with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
+Ephemeral State Atom per agent launch target: `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:

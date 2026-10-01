@@ -7,6 +7,7 @@ import { upsertRosterEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import type { ConfigOptionValues } from '../host/configProbe.ts';
 import {
   buildTargetHandoffSeedPrompt,
   extractHandoffDocument,
@@ -82,7 +83,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
       Effect.fn('handoffSessionAtomFn', { root: true })(
         function* (
           arg: {
-            configValues: Readonly<Record<string, string>>;
+            configValues: ConfigOptionValues;
             sourceLaunchTarget: AgentLaunchTarget;
             sourceSessionId: string;
             targetLaunchTarget: AgentLaunchTarget;
@@ -141,8 +142,13 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           });
           selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
-          const setOption = (configId: string, value: string) =>
-            setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, { type: 'select', value });
+          const setOption = (configId: string, value: boolean | string) =>
+            setConfigOption(
+              arg.targetLaunchTarget,
+              targetSessionId,
+              configId,
+              typeof value === 'boolean' ? { type: 'boolean', value } : { type: 'select', value },
+            );
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
           const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));

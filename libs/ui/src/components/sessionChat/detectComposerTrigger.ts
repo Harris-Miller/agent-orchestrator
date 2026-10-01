@@ -1,8 +1,7 @@
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
+import { isWhitespace } from './composerCommandTokens.ts';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
-
-const isWhitespace = (char: string): boolean => char === ' ' || char === '\t' || char === '\n' || char === '\r';
 
 export type DetectComposerTriggerArgs = {
   readonly adjacentToToken: boolean;

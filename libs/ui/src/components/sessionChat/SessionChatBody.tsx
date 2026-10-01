@@ -209,7 +209,7 @@ export const SessionChatBody: FC<{
     [selectedLaunchTarget, setDraft],
   );
 
-  const commandMenuKeys = useMemo(
+  const commandMenu = useMemo(
     () => ({
       onArrowDown: () => {
         setCommandFocusIndex(index =>
@@ -418,7 +418,7 @@ export const SessionChatBody: FC<{
             />
             <ComposerPromptEditor
               availableCommands={availableCommands}
-              commandMenu={commandMenuKeys}
+              commandMenu={commandMenu}
               disabled={!controlsEnabled}
               key={selectedSessionId ?? 'none'}
               onChange={onComposerChange}

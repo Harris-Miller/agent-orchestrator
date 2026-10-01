@@ -11,7 +11,7 @@ export const findExactCommandMatch = (
   availableCommands: readonly AvailableCommand[],
 ): AvailableCommand | undefined => availableCommands.find(command => commandInvocation(command.name) === token);
 
-const isWhitespace = (char: string): boolean => char === ' ' || char === '\t' || char === '\n' || char === '\r';
+export const isWhitespace = (char: string): boolean => char === ' ' || char === '\t' || char === '\n' || char === '\r';
 
 export const mergeAdjacentTextSegments = (
   segments: readonly ComposerCommandSegment[],

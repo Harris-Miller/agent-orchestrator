@@ -61,6 +61,13 @@ describe('elicitation schemas', () => {
     assert.deepStrictEqual(decoded.fs, { readTextFile: true, writeTextFile: false });
   });
 
+  it('decodes clientCapabilities.session.configOptions.boolean', () => {
+    const decoded = Schema.decodeSync(ClientCapabilities)({
+      session: { configOptions: { boolean: {} } },
+    });
+    assert.deepStrictEqual(decoded.session, { configOptions: { boolean: {} } });
+  });
+
   it('clientSupportsFormElicitation requires present non-null form', () => {
     assert.strictEqual(clientSupportsFormElicitation({ elicitation: { form: {} } }), true);
     assert.strictEqual(clientSupportsFormElicitation({ elicitation: { form: null } }), false);

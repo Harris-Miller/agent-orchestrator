@@ -129,7 +129,7 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
         <Typography sx={{ fontWeight: 600 }} variant="body2">
           {option.name}
         </Typography>
-        {option.type !== undefined ? <Chip label={option.type} size="small" variant="outlined" /> : null}
+        <Chip label={option.type} size="small" variant="outlined" />
         {option.category !== undefined ? (
           <Chip color="default" label={option.category} size="small" variant="outlined" />
         ) : null}
@@ -140,9 +140,16 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
         </Typography>
       ) : null}
       <Typography variant="body2">
-        Current: <strong>{option.currentValue ?? '—'}</strong>
+        Current:{' '}
+        <strong>
+          {option.currentValue === undefined
+            ? '—'
+            : option.type === 'boolean'
+              ? String(option.currentValue)
+              : option.currentValue}
+        </strong>
       </Typography>
-      {option.choices.length > 0 ? (
+      {option.type === 'select' && option.choices.length > 0 ? (
         <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
           {option.choices.map(choice => (
             <Chip

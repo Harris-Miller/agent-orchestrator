@@ -11,7 +11,7 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
+import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
@@ -20,9 +20,9 @@ import type { ConfigOptionIndex } from '../../host/configProbe.ts';
 import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 
 const optionsWithValues = (
-  options: readonly NormalizedConfigOption[],
+  options: readonly NormalizedSelectConfigOption[],
   values: Readonly<Record<string, string>>,
-): readonly NormalizedConfigOption[] =>
+): readonly NormalizedSelectConfigOption[] =>
   options.map(option => ({
     ...option,
     currentValue: values[option.id] ?? option.currentValue,
@@ -31,7 +31,7 @@ const optionsWithValues = (
 const rowForModel = (
   index: ConfigOptionIndex | undefined,
   modelId: string | undefined,
-): readonly NormalizedConfigOption[] => {
+): readonly NormalizedSelectConfigOption[] => {
   if (index === undefined || modelId === undefined) {
     return [];
   }
@@ -41,7 +41,7 @@ const rowForModel = (
 const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,
 ): {
-  readonly options: readonly NormalizedConfigOption[];
+  readonly options: readonly NormalizedSelectConfigOption[];
   readonly values: Readonly<Record<string, string>>;
 } => {
   if (index === undefined) {

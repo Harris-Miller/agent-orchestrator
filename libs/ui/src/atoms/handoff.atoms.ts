@@ -142,7 +142,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
           const setOption = (configId: string, value: string) =>
-            setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, value);
+            setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, { type: 'select', value });
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
           const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));

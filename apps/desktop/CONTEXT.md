@@ -75,7 +75,7 @@ Harness-reported lifecycle for a session snapshot: `activating` (load or resume 
 _Avoid_: Session state (ambiguous with session configuration)
 
 **Config option**:
-An agent-reported selectable setting on a session — model, mode, and other provider-specific choices. Populated from session activation responses and update notifications.
+An agent-reported session setting — a select (named choices such as model or mode) or a boolean on/off toggle. Populated from session activation responses and update notifications.
 _Avoid_: Setting, preference, parameter
 
 **Session configuration**:

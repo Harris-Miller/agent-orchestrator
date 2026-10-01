@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 
-import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
+import type { NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
 import {
   configOptionIndexFromProbeResponses,
   configOptionIndexIsNonempty,
@@ -11,7 +11,7 @@ import {
   runConfigProbe,
 } from './configProbe.ts';
 
-const selectOption = (id: string, currentValue: string, choices: readonly string[]): NormalizedConfigOption => ({
+const selectOption = (id: string, currentValue: string, choices: readonly string[]): NormalizedSelectConfigOption => ({
   choices: choices.map(choice => ({ id: choice, name: choice })),
   currentValue,
   id,

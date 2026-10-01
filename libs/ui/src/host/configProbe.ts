@@ -2,11 +2,11 @@
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
-import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
+import type { NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
 import { normalizeModels, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
 
 export type ConfigOptionIndex = {
-  readonly byModel: Readonly<Record<string, readonly NormalizedConfigOption[]>>;
+  readonly byModel: Readonly<Record<string, readonly NormalizedSelectConfigOption[]>>;
   readonly defaultModelId: string;
 };
 
@@ -16,7 +16,7 @@ export class ConfigProbeError extends Schema.TaggedError<ConfigProbeError>()('Co
 
 /** CurrentValues map from a model row (probe `currentValue`s). */
 export const configValuesFromOptions = (
-  options: readonly NormalizedConfigOption[],
+  options: readonly NormalizedSelectConfigOption[],
 ): Readonly<Record<string, string>> => {
   const values: Record<string, string> = {};
   for (const option of options) {
@@ -33,7 +33,7 @@ export const configValuesFromOptions = (
  */
 export const preserveConfigValuesOnModelChange = (
   previous: Readonly<Record<string, string>>,
-  nextOptions: readonly NormalizedConfigOption[],
+  nextOptions: readonly NormalizedSelectConfigOption[],
 ): Readonly<Record<string, string>> => {
   const next: Record<string, string> = {};
   for (const option of nextOptions) {

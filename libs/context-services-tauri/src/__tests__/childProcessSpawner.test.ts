@@ -104,6 +104,22 @@ describe('ChildProcessSpawnerLive', () => {
       }),
     );
 
+    it.effect('string completes when the process closes (stdout queue ends)', () =>
+      Effect.gen(function* () {
+        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+        const stdout = yield* spawner.string(ChildProcess.make('agent', ['acp'], { cwd: '/tmp' }));
+        assert.strictEqual(stdout, 'hello\n');
+      }),
+    );
+
+    it.effect('lines splits stdout after process close', () =>
+      Effect.gen(function* () {
+        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+        const lines = yield* spawner.lines(ChildProcess.make('agent', ['acp'], { cwd: '/tmp' }));
+        assert.deepStrictEqual([...lines], ['hello']);
+      }),
+    );
+
     it.effect('stdin writes bytes to the Tauri child', () =>
       Effect.gen(function* () {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;

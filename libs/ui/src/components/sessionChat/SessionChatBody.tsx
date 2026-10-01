@@ -49,8 +49,7 @@ import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
-import { SessionConfigOptionSwitch } from './SessionConfigOptionSwitch.tsx';
+import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { UsagePopover } from './UsagePopover.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -320,43 +319,33 @@ export const SessionChatBody: FC<{
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {configOptions.map(option =>
-                option.type === 'boolean' ? (
-                  <SessionConfigOptionSwitch
-                    disabled={!controlsEnabled || selectedLaunchTarget === undefined}
-                    key={option.id}
-                    onChange={(configId, value) => {
-                      if (selectedLaunchTarget === undefined) {
-                        return;
-                      }
-                      setConfigOption({
-                        configId,
-                        launchTarget: selectedLaunchTarget,
-                        type: 'boolean',
-                        value,
-                      }).catch(onClientError);
-                    }}
-                    option={option}
-                  />
-                ) : option.choices.length > 0 ? (
-                  <SessionConfigOptionSelect
-                    disabled={!controlsEnabled || selectedLaunchTarget === undefined}
-                    key={option.id}
-                    onChange={(configId, value) => {
-                      if (selectedLaunchTarget === undefined) {
-                        return;
-                      }
-                      setConfigOption({
-                        configId,
-                        launchTarget: selectedLaunchTarget,
-                        type: 'select',
-                        value,
-                      }).catch(onClientError);
-                    }}
-                    option={option}
-                  />
-                ) : null,
-              )}
+              {configOptions.map(option => (
+                <SessionConfigOptionControl
+                  disabled={!controlsEnabled || selectedLaunchTarget === undefined}
+                  key={option.id}
+                  onChange={diff => {
+                    if (selectedLaunchTarget === undefined) {
+                      return;
+                    }
+                    setConfigOption(
+                      diff.type === 'boolean'
+                        ? {
+                            configId: diff.configId,
+                            launchTarget: selectedLaunchTarget,
+                            type: 'boolean',
+                            value: diff.value,
+                          }
+                        : {
+                            configId: diff.configId,
+                            launchTarget: selectedLaunchTarget,
+                            type: 'select',
+                            value: diff.value,
+                          },
+                    ).catch(onClientError);
+                  }}
+                  option={option}
+                />
+              ))}
               {showDeveloperButton ? (
                 <Button onClick={onOpenDeveloperPanel} size="small" variant="outlined">
                   Developer panel

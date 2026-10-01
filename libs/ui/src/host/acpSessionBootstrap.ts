@@ -671,11 +671,6 @@ export const normalizeSelectableConfigOptions = (
     option.type === 'select' && option.choices.length > 0 ? [option] : [],
   );
 
-export const normalizeBooleanConfigOptions = (
-  sessionConfiguration: unknown,
-): readonly NormalizedBooleanConfigOption[] =>
-  normalizeConfigOptions(sessionConfiguration).flatMap(option => (option.type === 'boolean' ? [option] : []));
-
 export const patchConfigOptionValue = (
   sessionConfiguration: unknown,
   configId: string,

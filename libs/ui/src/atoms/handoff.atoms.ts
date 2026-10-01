@@ -14,6 +14,7 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
@@ -142,12 +143,12 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           });
           selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
-          const setOption = (configId: string, value: boolean | string) =>
+          const setOption = (diff: ConfigValueDiff) =>
             setConfigOption(
               arg.targetLaunchTarget,
               targetSessionId,
-              configId,
-              typeof value === 'boolean' ? { type: 'boolean', value } : { type: 'select', value },
+              diff.configId,
+              diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
             );
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 

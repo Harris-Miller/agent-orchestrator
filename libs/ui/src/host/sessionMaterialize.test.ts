@@ -3,6 +3,7 @@ import { Effect } from 'effect';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from './sessionMaterialize.ts';
+import type { ConfigValueDiff } from './sessionMaterialize.ts';
 
 describe('buildActivatedSession cwd continuity', () => {
   it('preserves existing snapshot cwd through activation merge', () => {
@@ -61,9 +62,9 @@ const selectableConfig = {
 describe('applyConfigDiffs', () => {
   it.effect('empty diffs leaves configuration unchanged', () =>
     Effect.gen(function* () {
-      const calls: { configId: string; value: boolean | string }[] = [];
-      const result = yield* applyConfigDiffs(selectableConfig, { model: 'sonnet' }, (configId, value) => {
-        calls.push({ configId, value });
+      const calls: ConfigValueDiff[] = [];
+      const result = yield* applyConfigDiffs(selectableConfig, { model: 'sonnet' }, diff => {
+        calls.push(diff);
         return Effect.succeed({ configOptions: [] });
       });
       assert.strictEqual(result.stoppedEarly, false);
@@ -74,16 +75,16 @@ describe('applyConfigDiffs', () => {
 
   it.effect('applies all succeeding diffs and folds configuration', () =>
     Effect.gen(function* () {
-      const calls: { configId: string; value: boolean | string }[] = [];
+      const calls: ConfigValueDiff[] = [];
       let model = 'sonnet';
       let mode = 'default';
-      const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, (configId, value) => {
-        calls.push({ configId, value });
-        if (configId === 'model' && typeof value === 'string') {
-          model = value;
+      const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, diff => {
+        calls.push(diff);
+        if (diff.type === 'select' && diff.configId === 'model') {
+          model = diff.value;
         }
-        if (configId === 'mode' && typeof value === 'string') {
-          mode = value;
+        if (diff.type === 'select' && diff.configId === 'mode') {
+          mode = diff.value;
         }
         return Effect.succeed({
           configOptions: [
@@ -112,8 +113,8 @@ describe('applyConfigDiffs', () => {
       });
       assert.strictEqual(result.stoppedEarly, false);
       assert.deepStrictEqual(calls, [
-        { configId: 'model', value: 'opus' },
-        { configId: 'mode', value: 'plan' },
+        { configId: 'model', type: 'select', value: 'opus' },
+        { configId: 'mode', type: 'select', value: 'plan' },
       ]);
       const config = result.sessionConfiguration as {
         configOptions: { currentValue: string; id: string }[];
@@ -132,33 +133,33 @@ describe('applyConfigDiffs', () => {
           { currentValue: false, id: 'fast-mode', name: 'Fast mode', type: 'boolean' },
         ],
       };
-      const calls: { configId: string; value: boolean | string }[] = [];
-      const result = yield* applyConfigDiffs(config, { 'fast-mode': true }, (configId, value) => {
-        calls.push({ configId, value });
+      const calls: ConfigValueDiff[] = [];
+      const result = yield* applyConfigDiffs(config, { 'fast-mode': true }, diff => {
+        calls.push(diff);
         return Effect.succeed({
-          configOptions: [{ currentValue: value, id: configId, name: configId, type: 'boolean' }],
+          configOptions: [{ currentValue: diff.value, id: diff.configId, name: diff.configId, type: 'boolean' }],
         });
       });
       assert.strictEqual(result.stoppedEarly, false);
-      assert.deepStrictEqual(calls, [{ configId: 'fast-mode', value: true }]);
+      assert.deepStrictEqual(calls, [{ configId: 'fast-mode', type: 'boolean', value: true }]);
     }),
   );
 
   it.effect('stops on first failure and keeps partial configuration', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, (configId, value) => {
-        calls.push(configId);
-        if (configId === 'model') {
+      const result = yield* applyConfigDiffs(selectableConfig, { mode: 'plan', model: 'opus' }, diff => {
+        calls.push(diff.configId);
+        if (diff.configId === 'model') {
           return Effect.fail('boom' as const);
         }
         return Effect.succeed({
           configOptions: [
             {
-              currentValue: value,
-              id: configId,
-              name: configId,
-              options: [{ name: value, value }],
+              currentValue: diff.value,
+              id: diff.configId,
+              name: diff.configId,
+              options: [{ name: String(diff.value), value: String(diff.value) }],
               type: 'select',
             },
           ],

@@ -17,8 +17,7 @@ import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../../host/configProbe.ts';
 
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
-import { SessionConfigOptionSwitch } from './SessionConfigOptionSwitch.tsx';
+import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 
 const optionsWithValues = (
   options: readonly NormalizedConfigOption[],
@@ -113,33 +112,25 @@ export const HandoffModal: FC<{
               ))}
             </Select>
           </FormControl>
-          {configOptions.map(option =>
-            option.type === 'boolean' ? (
-              <SessionConfigOptionSwitch
-                disabled={false}
-                key={option.id}
-                onChange={(configId, value) => {
-                  setConfigValues(current => ({ ...current, [configId]: value }));
-                }}
-                option={option}
-              />
-            ) : option.choices.length > 0 ? (
-              <SessionConfigOptionSelect
-                disabled={false}
-                key={option.id}
-                onChange={(configId, value) => {
-                  setConfigValues(current => {
-                    if (configId !== 'model') {
-                      return { ...current, [configId]: value };
-                    }
-                    const nextRow = rowForModel(index, value);
-                    return preserveConfigValuesOnModelChange({ ...current, model: value }, nextRow);
-                  });
-                }}
-                option={option}
-              />
-            ) : null,
-          )}
+          {configOptions.map(option => (
+            <SessionConfigOptionControl
+              disabled={false}
+              key={option.id}
+              onChange={diff => {
+                setConfigValues(current => {
+                  if (diff.type === 'boolean') {
+                    return { ...current, [diff.configId]: diff.value };
+                  }
+                  if (diff.configId !== 'model') {
+                    return { ...current, [diff.configId]: diff.value };
+                  }
+                  const nextRow = rowForModel(index, diff.value);
+                  return preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow);
+                });
+              }}
+              option={option}
+            />
+          ))}
         </Stack>
       </DialogContent>
       <DialogActions>

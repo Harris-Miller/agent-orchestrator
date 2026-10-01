@@ -12,7 +12,6 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
-  normalizeBooleanConfigOptions,
   normalizeConfigOptions,
   normalizeModels,
   normalizeModes,
@@ -226,32 +225,6 @@ describe('normalizeConfigOptions', () => {
         { currentValue: true, id: 'brave', type: 'boolean' },
         { currentValue: 'a', id: 'kept', type: 'select' },
       ],
-    );
-  });
-});
-
-describe('normalizeBooleanConfigOptions', () => {
-  it('keeps only boolean options', () => {
-    const options = normalizeBooleanConfigOptions({
-      configOptions: [
-        { currentValue: false, id: 'brave', name: 'Brave', type: 'boolean' },
-        {
-          currentValue: 'a',
-          id: 'kept',
-          name: 'Kept',
-          options: [{ name: 'A', value: 'a' }],
-          type: 'select',
-        },
-      ],
-    });
-    assert.deepStrictEqual(
-      options.map(option => ({
-        currentValue: option.currentValue,
-        id: option.id,
-        name: option.name,
-        type: option.type,
-      })),
-      [{ currentValue: false, id: 'brave', name: 'Brave', type: 'boolean' }],
     );
   });
 });

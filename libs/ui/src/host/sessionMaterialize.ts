@@ -23,11 +23,11 @@ export type ApplyConfigDiffsResult = {
   readonly stoppedEarly: boolean;
 };
 
-export type SetConfigOptionFn = (configId: string, value: boolean | string) => Effect.Effect<unknown, unknown>;
-
 export type ConfigValueDiff =
   | { readonly configId: string; readonly type: 'boolean'; readonly value: boolean }
   | { readonly configId: string; readonly type: 'select'; readonly value: string };
+
+export type SetConfigOptionFn = (diff: ConfigValueDiff) => Effect.Effect<unknown, unknown>;
 
 /** Config options where desired values differ from the session's current values and remain valid. */
 export const configValueDiffs = (
@@ -72,7 +72,7 @@ export const applyConfigDiffs = Effect.fn('applyConfigDiffs')(function* (
 
   for (const diff of configValueDiffs(next, values)) {
     const patched = patchConfigOptionValue(next, diff.configId, diff.value);
-    const exit = yield* Effect.exit(setOption(diff.configId, diff.value));
+    const exit = yield* Effect.exit(setOption(diff));
     if (Exit.isFailure(exit)) {
       yield* Effect.logWarning('Config option apply failed during materialize', diff.configId);
       stoppedEarly = true;

@@ -32,7 +32,6 @@ export const SessionConfigOptionSwitch: FC<{
         onChange={event => {
           onChange(option.id, event.target.checked);
         }}
-        size="small"
         sx={{ m: 0 }}
       />
       <Typography color={disabled ? 'text.disabled' : 'text.primary'} variant="body2">

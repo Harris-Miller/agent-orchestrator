@@ -21,9 +21,19 @@ const isHidden = (command: AvailableCommand, launchTarget: AgentLaunchTarget | u
   return HIDDEN_COMMAND_NAMES[launchTarget]?.has(command.name) ?? false;
 };
 
+/** Bare name used for exact query match (`$caveman` → `caveman`). */
+const bareCommandName = (name: string): string => (name.startsWith('$') ? name.slice(1) : name);
+
+const fzfFind = (
+  commands: readonly AvailableCommand[],
+  query: string,
+  selector: (command: AvailableCommand) => string,
+): readonly AvailableCommand[] => new Fzf(commands, { selector }).find(query).map(result => result.item);
+
 /**
  * Filter `availableCommands` for a trigger kind. Empty query lists all of that kind;
- * non-empty query runs fzf over name + description. Per-agent hidden names are dropped.
+ * non-empty query: exact name match alone, else fzf name hits then description hits
+ * (no duplicates). Per-agent hidden names are dropped.
  */
 export const filterAvailableCommands = (
   availableCommands: readonly AvailableCommand[],
@@ -40,9 +50,16 @@ export const filterAvailableCommands = (
   if (forKind.length === 0) {
     return [];
   }
-  return new Fzf(forKind, {
-    selector: command => `${command.name} ${command.description ?? ''}`,
-  })
-    .find(query)
-    .map(result => result.item);
+
+  const exact = forKind.find(command => bareCommandName(command.name) === query);
+  if (exact !== undefined) {
+    return [exact];
+  }
+
+  const byName = fzfFind(forKind, query, command => command.name);
+  const seen = new Set(byName);
+  const byDescription = fzfFind(forKind, query, command => command.description ?? '').filter(
+    command => !seen.has(command),
+  );
+  return [...byName, ...byDescription];
 };

@@ -159,6 +159,35 @@ describe('filterAvailableCommands', () => {
     assert.deepStrictEqual(filterAvailableCommands(commands, 'slash', 'zzzz'), []);
   });
 
+  it('exact name match returns only that command', () => {
+    const mixed = [
+      { description: 'Compact context', name: 'compact' },
+      { description: 'Mentions compact too', name: 'status' },
+    ] as const;
+    assert.deepStrictEqual(
+      filterAvailableCommands(mixed, 'slash', 'compact').map(command => command.name),
+      ['compact'],
+    );
+    assert.deepStrictEqual(
+      filterAvailableCommands([{ description: 'Mode', name: '$caveman' }], 'dollar', 'caveman').map(
+        command => command.name,
+      ),
+      ['$caveman'],
+    );
+  });
+
+  it('lists name matches before description matches without duplicates', () => {
+    const mixed = [
+      { description: 'unrelated', name: 'alpha-tool' },
+      { description: 'mentions alpha in prose', name: 'other' },
+      { description: 'alpha also in description', name: 'alpha-helper' },
+    ] as const;
+    assert.deepStrictEqual(
+      filterAvailableCommands(mixed, 'slash', 'alpha').map(command => command.name),
+      ['alpha-tool', 'alpha-helper', 'other'],
+    );
+  });
+
   it('hides per-agent blocklisted slash commands from the menu', () => {
     const mixed = [
       { description: 'Color', name: 'color' },

@@ -1,13 +1,10 @@
 /** Portable directory-browser helpers for create-session cwd picking. */
 import { OS } from '@lib/context-services';
-import { Effect, Ref, Schema, Stream } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 import { Path } from 'effect/Path';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 export const PARENT_DIR_ENTRY = '..' as const;
-
-/** Wall-clock grace after exit so late stdout chunks land (Tauri queues). */
-const POST_EXIT_STDOUT_DRAIN_MS = 100;
 
 export type ListChildDirectoriesOptions = {
   readonly showHidden: boolean;
@@ -62,40 +59,24 @@ export const childDirectoryListCommand = (
   });
 };
 
-/** Parse `find` / `dir` stdout into sorted bare directory names. */
-export const parseChildDirectoryStdout = (stdout: string): readonly string[] => {
-  const names = new Set<string>();
-  for (const rawLine of stdout.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (line.length > 0 && line !== '.' && line !== '..') {
+/** Parse `find` / `dir` stdout lines into sorted bare directory names. */
+export const parseChildDirectoryLines = <E, R>(
+  lines: Stream.Stream<string, E, R>,
+): Effect.Effect<readonly string[], E, R> =>
+  lines.pipe(
+    Stream.map(rawLine => rawLine.trim()),
+    Stream.filter(line => line.length > 0 && line !== '.' && line !== '..'),
+    Stream.map(line => {
       const withoutDotSlash = line.startsWith('./') ? line.slice(2) : line;
-      const basename = withoutDotSlash.replaceAll('\\', '/').split('/').at(-1);
-      if (basename !== undefined && basename.length > 0 && basename !== '.' && basename !== '..') {
-        names.add(basename);
-      }
-    }
-  }
-  return [...names].sort((a, b) => a.localeCompare(b));
-};
-
-const mergeChunks = (chunks: readonly Uint8Array[]): string => {
-  const totalLength = chunks.reduce((n, chunk) => n + chunk.length, 0);
-  const merged = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return new TextDecoder().decode(merged);
-};
-
-/** Wall clock — `@effect/vitest` TestClock freezes `Effect.sleep`. */
-const wallSleep = (ms: number): Effect.Effect<void> =>
-  Effect.promise(
-    () =>
-      new Promise<void>(resolve => {
-        setTimeout(resolve, ms);
-      }),
+      return withoutDotSlash.replaceAll('\\', '/').split('/').at(-1);
+    }),
+    Stream.filter(
+      (basename): basename is string =>
+        basename !== undefined && basename.length > 0 && basename !== '.' && basename !== '..',
+    ),
+    Stream.runCollect,
+    Effect.map(names => [...new Set(names)]),
+    Effect.map(names => names.sort((a, b) => a.localeCompare(b))),
   );
 
 /**
@@ -120,28 +101,34 @@ export const listChildDirectories = Effect.fn('listChildDirectories')(function* 
     extendEnv: true,
   });
 
-  // Tauri ChildProcessSpawnerLive never ends stdout Queue on process close, so
-  // spawner.string() hangs. Fork a collector, await exit, then drain briefly.
-  const { exitCode, stdout } = yield* Effect.scoped(
+  // exitCode resolves on close; stdout Queue.end follows in the same close handler.
+  // Await exit first so we can skip parsing names on failure (still inside spawn scope).
+  type Listed =
+    | { readonly _tag: 'Failed'; readonly exitCode: ChildProcessSpawner.ExitCode }
+    | { readonly _tag: 'Succeeded'; readonly names: readonly string[] };
+
+  const listed: Listed = yield* Effect.scoped(
     Effect.gen(function* () {
       const handle = yield* spawner.spawn(command);
-      const chunksRef = yield* Ref.make<readonly Uint8Array[]>([]);
-      yield* Effect.forkScoped(
-        handle.stdout.pipe(Stream.runForEach(chunk => Ref.update(chunksRef, chunks => [...chunks, chunk]))),
-      );
-      const code = yield* handle.exitCode;
-      yield* wallSleep(POST_EXIT_STDOUT_DRAIN_MS);
-      return { exitCode: code, stdout: mergeChunks(yield* Ref.get(chunksRef)) };
+      const lines = handle.stdout.pipe(Stream.decodeText(), Stream.splitLines);
+      const exitCode = yield* handle.exitCode;
+      if (exitCode !== 0) {
+        return { _tag: 'Failed', exitCode } as const;
+      }
+      return {
+        _tag: 'Succeeded',
+        names: yield* parseChildDirectoryLines(lines),
+      } as const;
     }),
   );
 
-  if (exitCode !== 0) {
+  if (listed._tag === 'Failed') {
     return yield* new ListChildDirectoriesError({
-      message: `${commandName} exited with code ${String(exitCode)} while listing ${dirPath}`,
+      message: `${commandName} exited with code ${String(listed.exitCode)} while listing ${dirPath}`,
     });
   }
 
-  return parseChildDirectoryStdout(stdout);
+  return listed.names;
 });
 
 /** Parent of `dirPath` via Effect `Path.dirname`. */

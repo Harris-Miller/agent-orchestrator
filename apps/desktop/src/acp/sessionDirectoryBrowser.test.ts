@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Effect, Stream } from 'effect';
 
-import { childDirectoryListCommand, parseChildDirectoryStdout } from './sessionDirectoryBrowser.ts';
+import { childDirectoryListCommand, parseChildDirectoryLines } from './sessionDirectoryBrowser.ts';
 
 describe('childDirectoryListCommand', () => {
   it('darwin excludes hidden by default', () => {
@@ -36,23 +37,25 @@ describe('childDirectoryListCommand', () => {
   });
 });
 
-describe('parseChildDirectoryStdout', () => {
+describe('parseChildDirectoryLines', () => {
   it('parses find-style paths and drops . / ..', () => {
-    assert.deepStrictEqual(parseChildDirectoryStdout(['.', '..', './src', './.git', '', './apps'].join('\n')), [
-      '.git',
-      'apps',
-      'src',
-    ]);
+    assert.deepStrictEqual(
+      Effect.runSync(parseChildDirectoryLines(Stream.make('.', '..', './src', './.git', '', './apps'))),
+      ['.git', 'apps', 'src'],
+    );
   });
 
-  it('parses dir bare names with CRLF', () => {
-    assert.deepStrictEqual(parseChildDirectoryStdout('.\r\n..\r\nDocuments\r\nDownloads\r\n'), [
+  it('parses dir bare names', () => {
+    assert.deepStrictEqual(Effect.runSync(parseChildDirectoryLines(Stream.make('.', '..', 'Documents', 'Downloads'))), [
       'Documents',
       'Downloads',
     ]);
   });
 
   it('uses basename for nested path fragments', () => {
-    assert.deepStrictEqual(parseChildDirectoryStdout('C:\\Users\\harris\\Projects\n./nested/dir'), ['dir', 'Projects']);
+    assert.deepStrictEqual(
+      Effect.runSync(parseChildDirectoryLines(Stream.make('C:\\Users\\harris\\Projects', './nested/dir'))),
+      ['dir', 'Projects'],
+    );
   });
 });

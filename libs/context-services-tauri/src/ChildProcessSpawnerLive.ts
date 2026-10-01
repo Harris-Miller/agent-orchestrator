@@ -11,6 +11,7 @@
 import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
+import type { Cause } from 'effect';
 import { Context, Deferred, Effect, Layer, Queue, Sink, Stream, Tracer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
@@ -68,8 +69,8 @@ const spawnStandard = Effect.fnUntraced(
     hostEnv: Readonly<Record<string, string>>,
   ) {
     yield* Effect.logInfo('Spawning child process', command.command, command.args.join(' '));
-    const stdoutQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
-    const stderrQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
+    const stdoutQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
+    const stderrQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
     const exitDeferred = yield* Deferred.make<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>();
     const runningRef = { current: true };
 
@@ -95,8 +96,8 @@ const spawnStandard = Effect.fnUntraced(
     });
 
     // Callbacks leave the Effect fiber; reuse surrounding services via runForkWith.
-    // Do not shutdown stdout/stderr queues on close — Queue.shutdown interrupts
-    // active Stream.fromQueue readers. Scope finalizers shut the queues down.
+    // Complete stdout/stderr with Queue.end on close (not Queue.shutdown) so
+    // Stream.fromQueue readers finish; scope finalizers still shutdown as cleanup.
     // Omit ParentSpan so Tauri callbacks do not inherit spawn/connect as forever parents.
     const runFork = Effect.runForkWith(Context.omit(Tracer.ParentSpan)(yield* Effect.context()));
     const trackedPid = { current: undefined as number | undefined };
@@ -109,9 +110,12 @@ const spawnStandard = Effect.fnUntraced(
       }
       const code = payload.code ?? (payload.signal !== null ? 1 : 0);
       runFork(
-        Effect.logDebug('Child process closed', { code, signal: payload.signal }).pipe(
-          Effect.andThen(Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code))),
-        ),
+        Effect.gen(function* () {
+          yield* Effect.logDebug('Child process closed', { code, signal: payload.signal });
+          yield* Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code));
+          yield* Queue.end(stdoutQueue);
+          yield* Queue.end(stderrQueue);
+        }),
       );
     });
 
@@ -122,15 +126,19 @@ const spawnStandard = Effect.fnUntraced(
         trackedPid.current = undefined;
       }
       runFork(
-        Effect.logError('Child process error event', message).pipe(
-          Effect.andThen(Deferred.fail(exitDeferred, mapSpawnError('spawn', new Error(message)))),
-        ),
+        Effect.gen(function* () {
+          yield* Effect.logError('Child process error event', message);
+          yield* Deferred.fail(exitDeferred, mapSpawnError('spawn', new Error(message)));
+          yield* Queue.end(stdoutQueue);
+          yield* Queue.end(stderrQueue);
+        }),
       );
     });
 
+    // Sync offers so chunks land before close's Queue.end (avoids post-exit sleep hacks).
     tauriCommand.stdout.on('data', (data: number[] | Uint8Array) => {
       try {
-        runFork(Queue.offer(stdoutQueue, encodeChunk(data)));
+        Queue.offerUnsafe(stdoutQueue, encodeChunk(data));
       } catch (cause) {
         runFork(
           Effect.logWarning('Child stdout chunk encode failed', cause).pipe(
@@ -142,7 +150,7 @@ const spawnStandard = Effect.fnUntraced(
 
     tauriCommand.stderr.on('data', (data: number[] | Uint8Array) => {
       try {
-        runFork(Queue.offer(stderrQueue, encodeChunk(data)));
+        Queue.offerUnsafe(stderrQueue, encodeChunk(data));
       } catch (cause) {
         runFork(
           Effect.logWarning('Child stderr chunk encode failed', cause).pipe(

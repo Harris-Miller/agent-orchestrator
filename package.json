@@ -18,9 +18,9 @@
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "vscode:watch": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
     "vscode:build": "turbo run build --filter=agent-orchestrator-vscode",
-    "vscode:dev": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
+    "vscode:dev": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
+    "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

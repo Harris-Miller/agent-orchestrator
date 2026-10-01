@@ -21,7 +21,7 @@
       "url": "http://localhost:3200/api/mcp"
     },
     // CDP for VS Code Electron / webviews. Port 9222 must match
-    // --remote-debugging-port=9222 on `pnpm vscode:dev` (root package.json).
+    // --remote-debugging-port=9222 on `pnpm vscode:open` (root package.json).
     "chrome-devtools": {
       "command": "npx",
       "args": [

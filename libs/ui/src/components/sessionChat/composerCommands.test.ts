@@ -158,4 +158,29 @@ describe('filterAvailableCommands', () => {
     );
     assert.deepStrictEqual(filterAvailableCommands(commands, 'slash', 'zzzz'), []);
   });
+
+  it('hides per-agent blocklisted slash commands from the menu', () => {
+    const mixed = [
+      { description: 'Color', name: 'color' },
+      { description: 'Config', name: 'config' },
+      { description: 'Dataviz', name: 'dataviz' },
+      { description: 'Effect', name: 'effect' },
+      { description: 'Fast', name: 'fast' },
+      { description: 'Model', name: 'model' },
+      { description: 'Logout', name: 'logout' },
+      { description: 'Status', name: 'status' },
+    ] as const;
+    assert.deepStrictEqual(
+      filterAvailableCommands(mixed, 'slash', '', 'claude-agent-acp').map(command => command.name),
+      ['logout', 'status'],
+    );
+    assert.deepStrictEqual(
+      filterAvailableCommands(mixed, 'slash', '', 'codex-acp').map(command => command.name),
+      ['color', 'config', 'dataviz', 'effect', 'fast', 'model', 'status'],
+    );
+    assert.deepStrictEqual(
+      filterAvailableCommands(mixed, 'slash', 'eff', 'claude-agent-acp').map(command => command.name),
+      [],
+    );
+  });
 });

@@ -153,8 +153,13 @@ export const SessionChatBody: FC<{
     if (composerTrigger === null) {
       return [];
     }
-    return filterAvailableCommands(availableCommands, composerTrigger.kind, composerTrigger.query);
-  }, [availableCommands, composerTrigger]);
+    return filterAvailableCommands(
+      availableCommands,
+      composerTrigger.kind,
+      composerTrigger.query,
+      selectedLaunchTarget,
+    );
+  }, [availableCommands, composerTrigger, selectedLaunchTarget]);
 
   const clampedCommandFocus =
     filteredCommands.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommands.length - 1);

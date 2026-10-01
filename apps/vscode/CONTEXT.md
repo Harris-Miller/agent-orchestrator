@@ -5,7 +5,7 @@ VS Code extension Host app: extension-host fulfillment plus webview that present
 ## Language
 
 **Extension host**:
-The Node VS Code extension process that fulfills spawn, filesystem, BundledResource, and OS snapshot behind Host IPC (extension↔webview wire).
+The Node VS Code extension process that fulfills spawn, filesystem, BundledResource, OS snapshot, and HTTP fetch behind Host IPC (extension↔webview wire). In Extension Development it may load host `OTEL_*` development defaults into process env so they reach the webview via OS snapshot.
 
 **Webview**:
 The sidebar webview that boots `makeHostServicesLive`, binds the Host runtime, and presents the sidebar Harness UI (Session History, Chat, and secondary Providers access).

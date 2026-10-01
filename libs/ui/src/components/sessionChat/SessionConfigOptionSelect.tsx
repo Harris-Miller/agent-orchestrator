@@ -4,12 +4,12 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
-import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
+import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 
 export const SessionConfigOptionSelect: FC<{
   readonly disabled: boolean;
   readonly onChange: (configId: string, value: string) => void;
-  readonly option: NormalizedConfigOption;
+  readonly option: NormalizedSelectConfigOption;
 }> = ({ disabled, onChange, option }) => {
   const labelId = `acp-config-${option.id}-label`;
 

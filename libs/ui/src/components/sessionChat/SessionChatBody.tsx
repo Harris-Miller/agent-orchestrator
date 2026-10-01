@@ -39,7 +39,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
-import { normalizeSelectableConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { isRecord } from '../../isRecord.ts';
@@ -49,7 +49,7 @@ import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
+import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { UsagePopover } from './UsagePopover.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -112,7 +112,7 @@ export const SessionChatBody: FC<{
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
 
   const chatItems = useMemo(() => selectedSession?.transcript.items ?? [], [selectedSession?.transcript.items]);
-  const configOptions = normalizeSelectableConfigOptions(selectedSession?.sessionConfiguration);
+  const configOptions = normalizeConfigOptions(selectedSession?.sessionConfiguration);
   const hasPendingInteraction =
     selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
   const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
@@ -320,14 +320,28 @@ export const SessionChatBody: FC<{
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {configOptions.map(option => (
-                <SessionConfigOptionSelect
+                <SessionConfigOptionControl
                   disabled={!controlsEnabled || selectedLaunchTarget === undefined}
                   key={option.id}
-                  onChange={(configId, value) => {
+                  onChange={diff => {
                     if (selectedLaunchTarget === undefined) {
                       return;
                     }
-                    setConfigOption({ configId, launchTarget: selectedLaunchTarget, value }).catch(onClientError);
+                    setConfigOption(
+                      diff.type === 'boolean'
+                        ? {
+                            configId: diff.configId,
+                            launchTarget: selectedLaunchTarget,
+                            type: 'boolean',
+                            value: diff.value,
+                          }
+                        : {
+                            configId: diff.configId,
+                            launchTarget: selectedLaunchTarget,
+                            type: 'select',
+                            value: diff.value,
+                          },
+                    ).catch(onClientError);
                   }}
                   option={option}
                 />

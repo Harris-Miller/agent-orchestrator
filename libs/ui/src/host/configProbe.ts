@@ -1,24 +1,24 @@
-/** Config probe: disposable-cwd session → Config option index (per-model selectable options). */
+/** Config probe: disposable-cwd session → Config option index (per-model config options). */
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
-import { normalizeModels, normalizeSelectableConfigOptions } from './acpSessionBootstrap.ts';
+import { normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
 
 export type ConfigOptionIndex = {
   readonly byModel: Readonly<Record<string, readonly NormalizedConfigOption[]>>;
   readonly defaultModelId: string;
 };
 
+export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
+
 export class ConfigProbeError extends Schema.TaggedError<ConfigProbeError>()('ConfigProbeError', {
   message: Schema.String,
 }) {}
 
 /** CurrentValues map from a model row (probe `currentValue`s). */
-export const configValuesFromOptions = (
-  options: readonly NormalizedConfigOption[],
-): Readonly<Record<string, string>> => {
-  const values: Record<string, string> = {};
+export const configValuesFromOptions = (options: readonly NormalizedConfigOption[]): ConfigOptionValues => {
+  const values: Record<string, boolean | string> = {};
   for (const option of options) {
     if (option.currentValue !== undefined) {
       values[option.id] = option.currentValue;
@@ -28,18 +28,24 @@ export const configValuesFromOptions = (
 };
 
 /**
- * Model change: keep local pick when still a valid choice; else probe `currentValue`.
+ * Model change: keep local pick when still valid; else probe `currentValue`.
  * Drop keys absent from the new row.
  */
 export const preserveConfigValuesOnModelChange = (
-  previous: Readonly<Record<string, string>>,
+  previous: ConfigOptionValues,
   nextOptions: readonly NormalizedConfigOption[],
-): Readonly<Record<string, string>> => {
-  const next: Record<string, string> = {};
+): ConfigOptionValues => {
+  const next: Record<string, boolean | string> = {};
   for (const option of nextOptions) {
     const prior = Object.hasOwn(previous, option.id) ? previous[option.id] : undefined;
-    const stillValid = prior !== undefined && option.choices.some(choice => choice.id === prior);
-    if (stillValid) {
+    if (option.type === 'select') {
+      const stillValid = typeof prior === 'string' && option.choices.some(choice => choice.id === prior);
+      if (stillValid) {
+        next[option.id] = prior;
+      } else if (option.currentValue !== undefined) {
+        next[option.id] = option.currentValue;
+      }
+    } else if (typeof prior === 'boolean') {
       next[option.id] = prior;
     } else if (option.currentValue !== undefined) {
       next[option.id] = option.currentValue;
@@ -54,7 +60,7 @@ export const configOptionIndexFromProbeResponses = (
   byModelRaw: Readonly<Record<string, unknown>>,
 ): ConfigOptionIndex => ({
   byModel: Object.fromEntries(
-    Object.entries(byModelRaw).map(([modelId, raw]) => [modelId, normalizeSelectableConfigOptions(raw)]),
+    Object.entries(byModelRaw).map(([modelId, raw]) => [modelId, normalizeConfigOptions(raw)]),
   ),
   defaultModelId,
 });

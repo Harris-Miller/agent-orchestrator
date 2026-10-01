@@ -139,13 +139,27 @@ export const cancelSession = Effect.fn('cancelSession')(
 );
 
 export const setConfigOption = Effect.fn('setConfigOption')(
-  function* (launchTarget: AgentLaunchTarget, sessionId: string, configId: string, value: string) {
+  function* (
+    launchTarget: AgentLaunchTarget,
+    sessionId: string,
+    configId: string,
+    optionValue:
+      { readonly type: 'boolean'; readonly value: boolean } | { readonly type: 'select'; readonly value: string },
+  ) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
-    yield* Effect.logDebug('session/set_config_option', sessionId, configId, value);
+    yield* Effect.logDebug('session/set_config_option', sessionId, configId, optionValue);
+    if (optionValue.type === 'boolean') {
+      return yield* agent['session/set_config_option']({
+        configId,
+        sessionId,
+        type: 'boolean',
+        value: optionValue.value,
+      });
+    }
     return yield* agent['session/set_config_option']({
       configId,
       sessionId,
-      value,
+      value: optionValue.value,
     });
   },
   (effect, _launchTarget, sessionId, configId) =>

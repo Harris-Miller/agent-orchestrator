@@ -151,13 +151,34 @@ export class FileSystemCapabilities extends Schema.Opaque<FileSystemCapabilities
   }),
 ) {}
 
+/** Empty object advertises support for boolean session config options. */
+export class BooleanConfigOptionCapabilities extends Schema.Opaque<BooleanConfigOptionCapabilities>()(
+  Schema.Struct({
+    _meta: MetaField,
+  }),
+) {}
+
+export class SessionConfigOptionsCapabilities extends Schema.Opaque<SessionConfigOptionsCapabilities>()(
+  Schema.Struct({
+    _meta: MetaField,
+    boolean: optional(Schema.NullOr(BooleanConfigOptionCapabilities)),
+  }),
+) {}
+
+export class ClientSessionCapabilities extends Schema.Opaque<ClientSessionCapabilities>()(
+  Schema.Struct({
+    _meta: MetaField,
+    configOptions: optional(Schema.NullOr(SessionConfigOptionsCapabilities)),
+  }),
+) {}
+
 export class ClientCapabilities extends Schema.Opaque<ClientCapabilities>()(
   Schema.Struct({
     _meta: MetaField,
     auth: optional(Schema.Unknown),
     elicitation: optional(Schema.NullOr(ElicitationCapabilities)),
     fs: optional(FileSystemCapabilities),
-    sessionCapabilities: optional(Schema.NullOr(Schema.Unknown)),
+    session: optional(Schema.NullOr(ClientSessionCapabilities)),
     terminal: optional(Schema.Boolean),
   }),
 ) {}

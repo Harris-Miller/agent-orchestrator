@@ -170,15 +170,25 @@ export type NormalizedConfigChoice = {
   readonly name: string;
 };
 
-export type NormalizedConfigOption = {
+type NormalizedConfigOptionBase = {
   readonly category?: string;
-  readonly choices: readonly NormalizedConfigChoice[];
-  readonly currentValue?: string;
   readonly description?: string;
   readonly id: string;
   readonly name: string;
-  readonly type?: string;
 };
+
+export type NormalizedSelectConfigOption = {
+  readonly choices: readonly NormalizedConfigChoice[];
+  readonly currentValue?: string;
+  readonly type: 'select';
+} & NormalizedConfigOptionBase;
+
+export type NormalizedBooleanConfigOption = {
+  readonly currentValue?: boolean;
+  readonly type: 'boolean';
+} & NormalizedConfigOptionBase;
+
+export type NormalizedConfigOption = NormalizedBooleanConfigOption | NormalizedSelectConfigOption;
 
 export type NormalizedSessionState = {
   readonly configOptions: readonly NormalizedConfigOption[];
@@ -617,29 +627,55 @@ export const normalizeConfigOptions = (sessionNew: unknown): readonly Normalized
     return [];
   }
 
-  return sessionNew.configOptions.flatMap(entry => {
+  return sessionNew.configOptions.flatMap((entry): readonly NormalizedConfigOption[] => {
     if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
       return [];
     }
 
-    return [
-      {
-        category: typeof entry.category === 'string' ? entry.category : undefined,
-        choices: parseConfigChoices(entry.options),
-        currentValue: typeof entry.currentValue === 'string' ? entry.currentValue : undefined,
-        description: typeof entry.description === 'string' ? entry.description : undefined,
-        id: entry.id,
-        name: entry.name,
-        type: typeof entry.type === 'string' ? entry.type : undefined,
-      },
-    ];
+    const base = {
+      category: typeof entry.category === 'string' ? entry.category : undefined,
+      description: typeof entry.description === 'string' ? entry.description : undefined,
+      id: entry.id,
+      name: entry.name,
+    };
+
+    if (entry.type === 'boolean') {
+      return [
+        {
+          ...base,
+          currentValue: typeof entry.currentValue === 'boolean' ? entry.currentValue : undefined,
+          type: 'boolean',
+        },
+      ];
+    }
+
+    if (entry.type === 'select') {
+      return [
+        {
+          ...base,
+          choices: parseConfigChoices(entry.options),
+          currentValue: typeof entry.currentValue === 'string' ? entry.currentValue : undefined,
+          type: 'select',
+        },
+      ];
+    }
+
+    return [];
   });
 };
 
-export const normalizeSelectableConfigOptions = (sessionConfiguration: unknown): readonly NormalizedConfigOption[] =>
-  normalizeConfigOptions(sessionConfiguration).filter(option => option.type === 'select' && option.choices.length > 0);
+export const normalizeSelectableConfigOptions = (
+  sessionConfiguration: unknown,
+): readonly NormalizedSelectConfigOption[] =>
+  normalizeConfigOptions(sessionConfiguration).flatMap(option =>
+    option.type === 'select' && option.choices.length > 0 ? [option] : [],
+  );
 
-export const patchConfigOptionValue = (sessionConfiguration: unknown, configId: string, value: string): unknown => {
+export const patchConfigOptionValue = (
+  sessionConfiguration: unknown,
+  configId: string,
+  value: boolean | string,
+): unknown => {
   if (!isRecord(sessionConfiguration) || !Array.isArray(sessionConfiguration.configOptions)) {
     return sessionConfiguration;
   }

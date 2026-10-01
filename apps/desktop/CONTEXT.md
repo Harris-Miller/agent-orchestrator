@@ -75,7 +75,7 @@ Harness-reported lifecycle for a session snapshot: `activating` (load or resume 
 _Avoid_: Session state (ambiguous with session configuration)
 
 **Config option**:
-An agent-reported selectable setting on a session — model, mode, and other provider-specific choices. Populated from session activation responses and update notifications.
+An agent-reported session setting — a select (named choices such as model or mode) or a boolean on/off toggle. Populated from session activation responses and update notifications.
 _Avoid_: Setting, preference, parameter
 
 **Session configuration**:
@@ -87,7 +87,7 @@ Harness step that turns a successful session activation RPC result (and any foll
 _Avoid_: Provision, hydrate, commit activation, apply session activation
 
 **Config option index**:
-Ephemeral State Atom per agent launch target: `defaultModelId` plus selectable Config options keyed by model id (with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
+Ephemeral State Atom per agent launch target: `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:

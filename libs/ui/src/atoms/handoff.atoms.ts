@@ -7,12 +7,14 @@ import { upsertRosterEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import type { ConfigOptionValues } from '../host/configProbe.ts';
 import {
   buildTargetHandoffSeedPrompt,
   extractHandoffDocument,
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
@@ -82,7 +84,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
       Effect.fn('handoffSessionAtomFn', { root: true })(
         function* (
           arg: {
-            configValues: Readonly<Record<string, string>>;
+            configValues: ConfigOptionValues;
             sourceLaunchTarget: AgentLaunchTarget;
             sourceSessionId: string;
             targetLaunchTarget: AgentLaunchTarget;
@@ -141,8 +143,13 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           });
           selectSession(get, arg.targetLaunchTarget, targetSessionId);
 
-          const setOption = (configId: string, value: string) =>
-            setConfigOption(arg.targetLaunchTarget, targetSessionId, configId, value);
+          const setOption = (diff: ConfigValueDiff) =>
+            setConfigOption(
+              arg.targetLaunchTarget,
+              targetSessionId,
+              diff.configId,
+              diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
+            );
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
           const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));

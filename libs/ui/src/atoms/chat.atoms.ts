@@ -185,7 +185,9 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const setConfigOptionAtomFn = atomRuntime
     .fn(
       Effect.fn('setConfigOptionAtomFn', { root: true })(function* (
-        arg: { configId: string; launchTarget: AgentLaunchTarget; value: string },
+        arg:
+          | { configId: string; launchTarget: AgentLaunchTarget; type: 'boolean'; value: boolean }
+          | { configId: string; launchTarget: AgentLaunchTarget; type: 'select'; value: string },
         get: Atom.FnContext,
       ) {
         const sessionId = get(selectedSessionIdAtom);
@@ -221,7 +223,12 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         });
 
         const rpc = Effect.gen(function* () {
-          const result = yield* setConfigOption(arg.launchTarget, session.sessionId, arg.configId, arg.value);
+          const result = yield* setConfigOption(
+            arg.launchTarget,
+            session.sessionId,
+            arg.configId,
+            arg.type === 'boolean' ? { type: 'boolean', value: arg.value } : { type: 'select', value: arg.value },
+          );
           const currentSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
           const applied = applySetConfigOptionResult(
             currentSnapshot.sessions[session.sessionId].sessionConfiguration,

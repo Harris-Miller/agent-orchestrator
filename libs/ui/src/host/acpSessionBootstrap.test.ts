@@ -12,6 +12,7 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
+  normalizeConfigOptions,
   normalizeModels,
   normalizeModes,
   normalizeSelectableConfigOptions,
@@ -203,6 +204,31 @@ describe('normalizeSelectableConfigOptions', () => {
   });
 });
 
+describe('normalizeConfigOptions', () => {
+  it('keeps select and boolean in agent order and drops unknown types', () => {
+    const options = normalizeConfigOptions({
+      configOptions: [
+        { currentValue: true, id: 'brave', name: 'Brave', type: 'boolean' },
+        {
+          currentValue: 'a',
+          id: 'kept',
+          name: 'Kept',
+          options: [{ name: 'A', value: 'a' }],
+          type: 'select',
+        },
+        { currentValue: 'x', id: 'future', name: 'Future', type: 'slider' },
+      ],
+    });
+    assert.deepStrictEqual(
+      options.map(option => ({ currentValue: option.currentValue, id: option.id, type: option.type })),
+      [
+        { currentValue: true, id: 'brave', type: 'boolean' },
+        { currentValue: 'a', id: 'kept', type: 'select' },
+      ],
+    );
+  });
+});
+
 describe('patchConfigOptionValue', () => {
   it('updates currentValue without dropping options', () => {
     const sessionConfiguration = {
@@ -227,6 +253,17 @@ describe('patchConfigOptionValue', () => {
 
     assert.strictEqual(configOptions[0].currentValue, 'echo-model-verbose');
     assert.strictEqual((configOptions[0].options as readonly unknown[]).length, 2);
+  });
+
+  it('updates boolean currentValue', () => {
+    const sessionConfiguration = {
+      configOptions: [{ currentValue: false, id: 'brave', name: 'Brave', type: 'boolean' }],
+    };
+
+    const patched = patchConfigOptionValue(sessionConfiguration, 'brave', true) as Record<string, unknown>;
+    const configOptions = patched.configOptions as readonly Record<string, unknown>[];
+
+    assert.strictEqual(configOptions[0].currentValue, true);
   });
 });
 

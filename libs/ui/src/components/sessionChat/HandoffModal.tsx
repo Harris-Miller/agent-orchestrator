@@ -15,18 +15,27 @@ import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
-import type { ConfigOptionIndex } from '../../host/configProbe.ts';
+import type { ConfigOptionIndex, ConfigOptionValues } from '../../host/configProbe.ts';
 
-import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
+import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 
 const optionsWithValues = (
   options: readonly NormalizedConfigOption[],
-  values: Readonly<Record<string, string>>,
+  values: ConfigOptionValues,
 ): readonly NormalizedConfigOption[] =>
-  options.map(option => ({
-    ...option,
-    currentValue: values[option.id] ?? option.currentValue,
-  }));
+  options.map(option => {
+    if (!Object.hasOwn(values, option.id)) {
+      return option;
+    }
+    const value = values[option.id];
+    if (option.type === 'boolean' && typeof value === 'boolean') {
+      return { ...option, currentValue: value };
+    }
+    if (option.type === 'select' && typeof value === 'string') {
+      return { ...option, currentValue: value };
+    }
+    return option;
+  });
 
 const rowForModel = (
   index: ConfigOptionIndex | undefined,
@@ -42,7 +51,7 @@ const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,
 ): {
   readonly options: readonly NormalizedConfigOption[];
-  readonly values: Readonly<Record<string, string>>;
+  readonly values: ConfigOptionValues;
 } => {
   if (index === undefined) {
     return { options: [], values: {} };
@@ -60,10 +69,7 @@ const initialLaunchTarget = (
 export const HandoffModal: FC<{
   readonly getConfigOptionIndex: (launchTarget: AgentLaunchTarget) => ConfigOptionIndex | undefined;
   readonly onCancel: () => void;
-  readonly onConfirm: (arg: {
-    configValues: Readonly<Record<string, string>>;
-    targetLaunchTarget: AgentLaunchTarget;
-  }) => void;
+  readonly onConfirm: (arg: { configValues: ConfigOptionValues; targetLaunchTarget: AgentLaunchTarget }) => void;
   readonly open: boolean;
   readonly readyLaunchTargets: readonly AgentLaunchTarget[];
   readonly sourceLaunchTarget: AgentLaunchTarget;
@@ -71,13 +77,13 @@ export const HandoffModal: FC<{
   const [targetLaunchTarget, setTargetLaunchTarget] = useState<AgentLaunchTarget | undefined>(() =>
     initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget),
   );
-  const [configValues, setConfigValues] = useState<Readonly<Record<string, string>>>(() => {
+  const [configValues, setConfigValues] = useState<ConfigOptionValues>(() => {
     const launchTarget = initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget);
     return hardResetForAgent(launchTarget === undefined ? undefined : getConfigOptionIndex(launchTarget)).values;
   });
 
   const index = targetLaunchTarget === undefined ? undefined : getConfigOptionIndex(targetLaunchTarget);
-  const selectedModelId = Object.hasOwn(configValues, 'model') ? configValues.model : index?.defaultModelId;
+  const selectedModelId = typeof configValues.model === 'string' ? configValues.model : index?.defaultModelId;
   const configOptions = optionsWithValues(rowForModel(index, selectedModelId), configValues);
 
   const canConfirm = targetLaunchTarget !== undefined && readyLaunchTargets.includes(targetLaunchTarget);
@@ -107,16 +113,19 @@ export const HandoffModal: FC<{
             </Select>
           </FormControl>
           {configOptions.map(option => (
-            <SessionConfigOptionSelect
+            <SessionConfigOptionControl
               disabled={false}
               key={option.id}
-              onChange={(configId, value) => {
+              onChange={diff => {
                 setConfigValues(current => {
-                  if (configId !== 'model') {
-                    return { ...current, [configId]: value };
+                  if (diff.type === 'boolean') {
+                    return { ...current, [diff.configId]: diff.value };
                   }
-                  const nextRow = rowForModel(index, value);
-                  return preserveConfigValuesOnModelChange({ ...current, model: value }, nextRow);
+                  if (diff.configId !== 'model') {
+                    return { ...current, [diff.configId]: diff.value };
+                  }
+                  const nextRow = rowForModel(index, diff.value);
+                  return preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow);
                 });
               }}
               option={option}

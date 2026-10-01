@@ -38,24 +38,24 @@ describe('childDirectoryListCommand', () => {
 });
 
 describe('parseChildDirectoryLines', () => {
-  it('parses find-style paths and drops . / ..', () => {
-    assert.deepStrictEqual(
-      Effect.runSync(parseChildDirectoryLines(Stream.make('.', '..', './src', './.git', '', './apps'))),
-      ['.git', 'apps', 'src'],
-    );
-  });
+  it.effect('parses find-style paths and drops . / ..', () =>
+    Effect.gen(function* () {
+      const names = yield* parseChildDirectoryLines(Stream.make('.', '..', './src', './.git', '', './apps'));
+      assert.deepStrictEqual(names, ['.git', 'apps', 'src']);
+    }),
+  );
 
-  it('parses dir bare names', () => {
-    assert.deepStrictEqual(Effect.runSync(parseChildDirectoryLines(Stream.make('.', '..', 'Documents', 'Downloads'))), [
-      'Documents',
-      'Downloads',
-    ]);
-  });
+  it.effect('parses dir bare names', () =>
+    Effect.gen(function* () {
+      const names = yield* parseChildDirectoryLines(Stream.make('.', '..', 'Documents', 'Downloads'));
+      assert.deepStrictEqual(names, ['Documents', 'Downloads']);
+    }),
+  );
 
-  it('uses basename for nested path fragments', () => {
-    assert.deepStrictEqual(
-      Effect.runSync(parseChildDirectoryLines(Stream.make('C:\\Users\\harris\\Projects', './nested/dir'))),
-      ['dir', 'Projects'],
-    );
-  });
+  it.effect('uses basename for nested path fragments', () =>
+    Effect.gen(function* () {
+      const names = yield* parseChildDirectoryLines(Stream.make('C:\\Users\\harris\\Projects', './nested/dir'));
+      assert.deepStrictEqual(names, ['dir', 'Projects']);
+    }),
+  );
 });

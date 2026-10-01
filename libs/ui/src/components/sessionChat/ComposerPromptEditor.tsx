@@ -8,21 +8,56 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
 import Box from '@mui/material/Box';
 import {
+  $createLineBreakNode,
   $createParagraphNode,
-  $generateNodesFromRawText,
+  $createTextNode,
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  $isTextNode,
+  COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
+  KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_UP_COMMAND,
   KEY_ENTER_COMMAND,
+  KEY_ESCAPE_COMMAND,
+  KEY_SPACE_COMMAND,
+  KEY_TAB_COMMAND,
 } from 'lexical';
-import type { EditorThemeClasses } from 'lexical';
+import type { EditorThemeClasses, LexicalNode } from 'lexical';
 import { useEffect, useMemo, useRef } from 'react';
 import type { FC, JSX, RefObject } from 'react';
 
+import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+
+import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
+import type { ComposerCommandSegment } from './composerCommandTokens.ts';
+import { mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+
+export type ComposerPromptChange = {
+  readonly adjacentToToken: boolean;
+  readonly cursor: number;
+  readonly text: string;
+};
+
+export type ComposerCommandMenuKeyHandlers = {
+  readonly onArrowDown: () => void;
+  readonly onArrowUp: () => void;
+  readonly onDismiss: () => void;
+  readonly onSelect: () => void;
+  readonly onSpaceDismiss: () => void;
+  readonly open: boolean;
+};
+
 export type ComposerPromptEditorProps = {
+  readonly availableCommands?: readonly AvailableCommand[];
+  readonly commandMenu?: ComposerCommandMenuKeyHandlers;
   readonly disabled: boolean;
-  readonly onChange: (next: string) => void;
+  readonly onChange: (next: ComposerPromptChange) => void;
   readonly onSubmit: () => void;
   readonly placeholder: string;
+  /** When set, applied after an external `value` sync, then cleared by the editor. */
+  readonly syncCursorRef?: RefObject<null | number>;
   readonly value: string;
 };
 
@@ -34,14 +69,206 @@ const onError = (error: Error): void => {
   console.error(error);
 };
 
-const $setComposerPlainText = (text: string): void => {
+const $appendTextWithBreaks = (parent: LexicalNode & { append: (...nodes: LexicalNode[]) => void }, text: string) => {
+  const parts = text.split('\n');
+  parts.forEach((part, index) => {
+    if (part.length > 0) {
+      parent.append($createTextNode(part));
+    }
+    if (index < parts.length - 1) {
+      parent.append($createLineBreakNode());
+    }
+  });
+};
+
+const $readEditorSegments = (): readonly ComposerCommandSegment[] => {
+  const segments: ComposerCommandSegment[] = [];
+  const visit = (node: LexicalNode): void => {
+    if ($isComposerCommandNode(node)) {
+      segments.push({ kind: 'command', value: node.getInvocation() });
+      return;
+    }
+    if ($isTextNode(node)) {
+      segments.push({ kind: 'text', value: node.getTextContent() });
+      return;
+    }
+    if (node.getType() === 'linebreak') {
+      segments.push({ kind: 'text', value: '\n' });
+      return;
+    }
+    const element = node as LexicalNode & { getChildren?: () => LexicalNode[] };
+    if (typeof element.getChildren === 'function') {
+      for (const child of element.getChildren()) {
+        visit(child);
+      }
+    }
+  };
+  visit($getRoot());
+  return mergeAdjacentTextSegments(segments);
+};
+
+const segmentsEqual = (left: readonly ComposerCommandSegment[], right: readonly ComposerCommandSegment[]): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const segment = left[index];
+    const other = right[index];
+    if (segment.kind !== other.kind || segment.value !== other.value) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const $setComposerContent = (text: string, availableCommands: readonly AvailableCommand[]): void => {
   const root = $getRoot();
   root.clear();
   const paragraph = $createParagraphNode();
-  if (text.length > 0) {
-    paragraph.append(...$generateNodesFromRawText(text));
+  const segments = splitComposerCommandSegments(text, availableCommands);
+  if (segments.length === 0) {
+    root.append(paragraph);
+    return;
+  }
+  for (const segment of segments) {
+    if (segment.kind === 'command') {
+      paragraph.append($createComposerCommandNode(segment.value));
+    } else {
+      $appendTextWithBreaks(paragraph, segment.value);
+    }
   }
   root.append(paragraph);
+};
+
+const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: number } => {
+  const selection = $getSelection();
+  const root = $getRoot();
+  if (!$isRangeSelection(selection)) {
+    return { adjacentToToken: false, cursor: root.getTextContentSize() };
+  }
+
+  const { anchor } = selection;
+  const anchorNode = anchor.getNode();
+
+  type WalkResult = { readonly adjacentToToken: boolean; readonly cursor: number };
+
+  const visit = (node: LexicalNode, cursorBefore: number): null | WalkResult => {
+    if ($isComposerCommandNode(node)) {
+      const size = node.getTextContentSize();
+      if (node.getKey() === anchorNode.getKey()) {
+        return {
+          adjacentToToken: true,
+          cursor: cursorBefore + Math.min(anchor.offset, size),
+        };
+      }
+      return null;
+    }
+    if ($isTextNode(node)) {
+      const size = node.getTextContentSize();
+      if (node.getKey() === anchorNode.getKey()) {
+        const prev = node.getPreviousSibling();
+        const next = node.getNextSibling();
+        return {
+          adjacentToToken:
+            (anchor.offset === 0 && $isComposerCommandNode(prev)) ||
+            (anchor.offset === size && $isComposerCommandNode(next)),
+          cursor: cursorBefore + Math.min(anchor.offset, size),
+        };
+      }
+      return null;
+    }
+    if (node.getType() === 'linebreak') {
+      if (node.getKey() === anchorNode.getKey()) {
+        return { adjacentToToken: false, cursor: cursorBefore };
+      }
+      return null;
+    }
+    const element = node as LexicalNode & { getChildren?: () => LexicalNode[] };
+    if (typeof element.getChildren !== 'function') {
+      return null;
+    }
+    const children = element.getChildren();
+    if (node.getKey() === anchorNode.getKey()) {
+      const childIndex = Math.min(anchor.offset, children.length);
+      let cursor = cursorBefore;
+      for (let i = 0; i < childIndex; i += 1) {
+        cursor += children[i].getTextContentSize();
+      }
+      const atChild = children[childIndex];
+      const beforeChild = childIndex > 0 ? children[childIndex - 1] : undefined;
+      return {
+        adjacentToToken: $isComposerCommandNode(atChild) || $isComposerCommandNode(beforeChild),
+        cursor,
+      };
+    }
+    let cursor = cursorBefore;
+    for (const child of children) {
+      const hit = visit(child, cursor);
+      if (hit !== null) {
+        return hit;
+      }
+      cursor += child.getTextContentSize();
+    }
+    return null;
+  };
+
+  const hit = visit(root, 0);
+  if (hit === null) {
+    return { adjacentToToken: false, cursor: root.getTextContentSize() };
+  }
+  return hit;
+};
+
+const $setLogicalCursor = (offset: number): void => {
+  const root = $getRoot();
+  const target = Math.max(0, Math.min(offset, root.getTextContentSize()));
+  let remaining = target;
+
+  const visit = (node: LexicalNode): boolean => {
+    if ($isComposerCommandNode(node)) {
+      const size = node.getTextContentSize();
+      if (remaining <= size) {
+        if (remaining === 0) {
+          node.selectStart();
+        } else {
+          node.selectEnd();
+        }
+        return true;
+      }
+      remaining -= size;
+      return false;
+    }
+    if ($isTextNode(node)) {
+      const size = node.getTextContentSize();
+      if (remaining <= size) {
+        node.select(remaining, remaining);
+        return true;
+      }
+      remaining -= size;
+      return false;
+    }
+    if (node.getType() === 'linebreak') {
+      if (remaining === 0) {
+        node.selectNext(0, 0);
+        return true;
+      }
+      remaining -= 1;
+      return false;
+    }
+    const element = node as LexicalNode & { getChildren?: () => LexicalNode[] };
+    if (typeof element.getChildren === 'function') {
+      for (const child of element.getChildren()) {
+        if (visit(child)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  if (!visit(root)) {
+    root.selectEnd();
+  }
 };
 
 const ComposerErrorBoundary: FC<{
@@ -62,30 +289,48 @@ const EditablePlugin: FC<{ readonly disabled: boolean }> = ({ disabled }) => {
 };
 
 const ExternalValuePlugin: FC<{
+  readonly availableCommands: readonly AvailableCommand[];
   readonly lastEmittedRef: RefObject<string>;
+  readonly syncCursorRef?: RefObject<null | number>;
   readonly value: string;
-}> = ({ lastEmittedRef, value }) => {
+}> = ({ availableCommands, lastEmittedRef, syncCursorRef, value }) => {
   const [editor] = useLexicalComposerContext();
+  const commandsKey = availableCommands.map(command => command.name).join('\0');
+  const prevCommandsKeyRef = useRef(commandsKey);
 
   useEffect(() => {
-    if (value === lastEmittedRef.current) {
+    const commandsChanged = prevCommandsKeyRef.current !== commandsKey;
+    prevCommandsKeyRef.current = commandsKey;
+
+    if (value === lastEmittedRef.current && !commandsChanged) {
       return;
     }
 
-    editor.update(() => {
-      if ($getRoot().getTextContent() === value) {
+    editor.update(
+      () => {
+        if ($getRoot().getTextContent() === value && !commandsChanged) {
+          lastEmittedRef.current = value;
+          return;
+        }
+        $setComposerContent(value, availableCommands);
         lastEmittedRef.current = value;
-        return;
-      }
-      $setComposerPlainText(value);
-      lastEmittedRef.current = value;
-    });
-  }, [editor, lastEmittedRef, value]);
+        const syncCursor = syncCursorRef?.current ?? null;
+        if (syncCursor !== null && syncCursorRef !== undefined) {
+          $setLogicalCursor(syncCursor);
+          syncCursorRef.current = null;
+        }
+      },
+      { tag: 'external-sync' },
+    );
+  }, [availableCommands, commandsKey, editor, lastEmittedRef, syncCursorRef, value]);
 
   return null;
 };
 
-const SubmitOnEnterPlugin: FC<{ readonly onSubmit: () => void }> = ({ onSubmit }) => {
+const SubmitOnEnterPlugin: FC<{ readonly menuOpen: boolean; readonly onSubmit: () => void }> = ({
+  menuOpen,
+  onSubmit,
+}) => {
   const [editor] = useLexicalComposerContext();
 
   useEffect(
@@ -93,6 +338,9 @@ const SubmitOnEnterPlugin: FC<{ readonly onSubmit: () => void }> = ({ onSubmit }
       editor.registerCommand(
         KEY_ENTER_COMMAND,
         event => {
+          if (menuOpen) {
+            return false;
+          }
           if (event === null || event.shiftKey) {
             return false;
           }
@@ -102,20 +350,148 @@ const SubmitOnEnterPlugin: FC<{ readonly onSubmit: () => void }> = ({ onSubmit }
         },
         COMMAND_PRIORITY_HIGH,
       ),
-    [editor, onSubmit],
+    [editor, menuOpen, onSubmit],
   );
 
   return null;
 };
 
+const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[] }> = ({ availableCommands }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(
+    () =>
+      editor.registerUpdateListener(({ editorState, tags }) => {
+        if (tags.has('chipify') || tags.has('external-sync')) {
+          return;
+        }
+        editorState.read(() => {
+          const text = $getRoot().getTextContent();
+          const desired = splitComposerCommandSegments(text, availableCommands);
+          if (segmentsEqual(desired, $readEditorSegments())) {
+            return;
+          }
+          const { cursor } = $getLogicalCursorAndAdjacency();
+          editor.update(
+            () => {
+              $setComposerContent(text, availableCommands);
+              $setLogicalCursor(cursor);
+            },
+            { tag: 'chipify' },
+          );
+        });
+      }),
+    [availableCommands, editor],
+  );
+
+  return null;
+};
+
+const ComposerCommandKeyPlugin: FC<{ readonly commandMenu?: ComposerCommandMenuKeyHandlers }> = ({ commandMenu }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (commandMenu === undefined) {
+      return;
+    }
+
+    const { open } = commandMenu;
+    const unregister = [
+      editor.registerCommand(
+        KEY_ARROW_UP_COMMAND,
+        event => {
+          if (!open) {
+            return false;
+          }
+          event.preventDefault();
+          commandMenu.onArrowUp();
+          return true;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+      editor.registerCommand(
+        KEY_ARROW_DOWN_COMMAND,
+        event => {
+          if (!open) {
+            return false;
+          }
+          event.preventDefault();
+          commandMenu.onArrowDown();
+          return true;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        event => {
+          if (!open) {
+            return false;
+          }
+          event?.preventDefault();
+          commandMenu.onSelect();
+          return true;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+      editor.registerCommand(
+        KEY_TAB_COMMAND,
+        event => {
+          if (!open) {
+            return false;
+          }
+          event.preventDefault();
+          commandMenu.onSelect();
+          return true;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+      editor.registerCommand(
+        KEY_ESCAPE_COMMAND,
+        event => {
+          if (!open) {
+            return false;
+          }
+          event.preventDefault();
+          commandMenu.onDismiss();
+          return true;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+      editor.registerCommand(
+        KEY_SPACE_COMMAND,
+        () => {
+          if (!open) {
+            return false;
+          }
+          commandMenu.onSpaceDismiss();
+          return false;
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
+    ];
+
+    return () => {
+      for (const dispose of unregister) {
+        dispose();
+      }
+    };
+  }, [commandMenu, editor]);
+
+  return null;
+};
+
 export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
+  availableCommands = [],
+  commandMenu,
   disabled,
   onChange,
   onSubmit,
   placeholder,
+  syncCursorRef,
   value,
 }) => {
   const initialValueRef = useRef(value);
+  const initialCommandsRef = useRef(availableCommands);
   const lastEmittedRef = useRef(value);
 
   const initialConfig = useMemo(
@@ -123,11 +499,10 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       // EditablePlugin owns editable; starts true, flips on mount if needed.
       editable: true,
       editorState: () => {
-        $setComposerPlainText(initialValueRef.current);
+        $setComposerContent(initialValueRef.current, initialCommandsRef.current);
       },
       namespace: 'ComposerPromptEditor',
-      // Custom DecoratorNodes (mentions, skills, …) register here later.
-      nodes: [],
+      nodes: [ComposerCommandNode],
       onError,
       theme: lexicalTheme,
     }),
@@ -138,6 +513,22 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
     <LexicalComposer initialConfig={initialConfig}>
       <Box
         sx={{
+          '& .composer-command-chip': {
+            bgcolor: 'action.selected',
+            borderRadius: 1,
+            display: 'inline',
+            fontFamily: 'monospace',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            mx: '1px',
+            px: 0.75,
+            py: 0.15,
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+          },
+          '& .composer-command-chip-host': {
+            display: 'inline',
+          },
           '& .composer-prompt-editor': {
             fontSize: '0.875rem',
             lineHeight: 1.43,
@@ -189,21 +580,25 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       </Box>
       <HistoryPlugin />
       <OnChangePlugin
-        ignoreSelectionChange
         onChange={editorState => {
           editorState.read(() => {
-            const next = $getRoot().getTextContent();
-            if (next === lastEmittedRef.current) {
-              return;
-            }
-            lastEmittedRef.current = next;
-            onChange(next);
+            const text = $getRoot().getTextContent();
+            const { adjacentToToken, cursor } = $getLogicalCursorAndAdjacency();
+            lastEmittedRef.current = text;
+            onChange({ adjacentToToken, cursor, text });
           });
         }}
       />
-      <ExternalValuePlugin lastEmittedRef={lastEmittedRef} value={value} />
+      <ExternalValuePlugin
+        availableCommands={availableCommands}
+        lastEmittedRef={lastEmittedRef}
+        syncCursorRef={syncCursorRef}
+        value={value}
+      />
       <EditablePlugin disabled={disabled} />
-      <SubmitOnEnterPlugin onSubmit={onSubmit} />
+      <ChipifyPlugin availableCommands={availableCommands} />
+      <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />
+      <ComposerCommandKeyPlugin commandMenu={commandMenu} />
     </LexicalComposer>
   );
 };

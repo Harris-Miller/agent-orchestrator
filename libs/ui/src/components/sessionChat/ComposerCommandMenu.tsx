@@ -4,6 +4,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import Paper from '@mui/material/Paper';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import { useLayoutEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
@@ -33,6 +34,15 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
   onSelect,
   open,
 }) => {
+  const rowRefs = useRef(new Map<number, HTMLElement>());
+
+  useLayoutEffect(() => {
+    if (!open || commands.length === 0) {
+      return;
+    }
+    rowRefs.current.get(focusedIndex)?.scrollIntoView({ block: 'nearest' });
+  }, [commands.length, focusedIndex, open]);
+
   if (!open) {
     return null;
   }
@@ -55,6 +65,13 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
                 }}
                 onMouseEnter={() => {
                   onFocusIndexChange(index);
+                }}
+                ref={node => {
+                  if (node === null) {
+                    rowRefs.current.delete(index);
+                    return;
+                  }
+                  rowRefs.current.set(index, node);
                 }}
                 selected={index === focusedIndex}
                 sx={{ py: 0.75 }}

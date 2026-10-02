@@ -1,7 +1,6 @@
 /** Probe PATH for `fd` then `fdfind`; remember the resolved command name for listing spawns. */
 import { Effect, Option } from 'effect';
-
-import { findExecutableOnPath } from './findExecutableOnPath.ts';
+import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 
 export type FdBinaryName = 'fd' | 'fdfind';
 
@@ -17,14 +16,20 @@ export const clearResolvedFdBinary = (): Effect.Effect<void> =>
     resolvedFdBinary = Option.none();
   });
 
-/** Probe `fd` then `fdfind`; persist and return the command name when found. */
+/**
+ * Probe by spawning `fd`/`fdfind --version` (shell-scoped names).
+ * Avoids Tauri `fs.exists` PATH walks — Homebrew symlinks are forbidden by fs scope.
+ */
 export const resolveFdBinary = Effect.fn('resolveFdBinary')(
   function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     for (const name of FD_CANDIDATES) {
-      const found = yield* findExecutableOnPath(name);
-      if (Option.isSome(found)) {
+      const exitCode = yield* spawner
+        .exitCode(ChildProcess.make(name, ['--version'], { extendEnv: true }))
+        .pipe(Effect.orElseSucceed(() => ChildProcessSpawner.ExitCode(1)));
+      if (exitCode === 0) {
         resolvedFdBinary = Option.some(name);
-        yield* Effect.logDebug('Resolved fd binary', name, found.value);
+        yield* Effect.logDebug('Resolved fd binary', name);
         return Option.some(name);
       }
     }

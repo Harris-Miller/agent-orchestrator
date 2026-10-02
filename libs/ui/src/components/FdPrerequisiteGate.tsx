@@ -38,18 +38,26 @@ export const FdPrerequisiteGate: FC<FdPrerequisiteGateProps> = ({ children, onEx
 
   const probe = useCallback(async () => {
     setPhase({ _tag: 'checking' });
-    const result = await hostRuntime.runPromise(
+    const exit = await hostRuntime.runPromiseExit(
       Effect.gen(function* () {
         const os = yield* OS;
         const found = yield* resolveFdBinary();
         return { found, platform: os.platform() } as const;
       }),
     );
-    if (Option.isSome(result.found)) {
+    if (exit._tag === 'Failure') {
+      setPhase({
+        _tag: 'error',
+        message: 'Could not check for fd. Close the application and try again.',
+        platform: 'unknown',
+      });
+      return;
+    }
+    if (Option.isSome(exit.value.found)) {
       setPhase({ _tag: 'ready' });
       return;
     }
-    setPhase({ _tag: 'missing', platform: result.platform });
+    setPhase({ _tag: 'missing', platform: exit.value.platform });
   }, []);
 
   useEffect(() => {

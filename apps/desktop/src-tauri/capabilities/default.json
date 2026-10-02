@@ -24,12 +24,12 @@
         { "path": "/usr/bin/**" },
         { "path": "/bin/**" },
         { "path": "/opt/local/**" },
-        { "path": "C:\\Windows\\System32\\**" },
-        { "path": "C:\\Program Files\\**" },
-        { "path": "C:\\Program Files (x86)\\**" },
-        { "path": "C:\\ProgramData\\chocolatey\\bin\\**" },
-        { "path": "$USERPROFILE\\scoop\\shims\\**" },
-        { "path": "$USERPROFILE\\AppData\\Local\\Microsoft\\WinGet\\Links\\**" },
+        { "path": "C:/Windows/System32/**" },
+        { "path": "C:/Program Files/**" },
+        { "path": "C:/Program Files (x86)/**" },
+        { "path": "C:/ProgramData/chocolatey/bin/**" },
+        { "path": "$USERPROFILE/scoop/shims/**" },
+        { "path": "$USERPROFILE/AppData/Local/Microsoft/WinGet/Links/**" },
         { "path": "$HOME/.local/bin/**" },
         { "path": "$HOME/bin/**" }
       ]

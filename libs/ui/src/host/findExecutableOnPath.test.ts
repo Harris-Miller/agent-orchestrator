@@ -4,6 +4,7 @@ import { PathLive } from '@lib/context-services-tauri';
 import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
+import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
@@ -103,6 +104,30 @@ describe('findExecutableOnPath', () => {
     }).pipe(Effect.provide(pathServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
 
+  it.effect('skips candidates when exists fails and keeps scanning', () => {
+    const pathLayer = posixPathLayer;
+    const os = osLayer({ PATH: '/forbidden/bin:/opt/bin' });
+    const fs = layerNoop({
+      exists: candidate =>
+        candidate.startsWith('/forbidden')
+          ? Effect.fail(
+              PlatformError.systemError({
+                _tag: 'Unknown',
+                description: 'forbidden path',
+                method: 'exists',
+                module: 'FileSystem',
+                pathOrDescriptor: candidate,
+              }),
+            )
+          : Effect.succeed(candidate === '/opt/bin/codex'),
+    });
+    return Effect.gen(function* () {
+      const found = yield* findExecutableOnPath('codex');
+      assert.isTrue(Option.isSome(found));
+      assert.strictEqual(Option.getOrThrow(found), '/opt/bin/codex');
+    }).pipe(Effect.provide(Layer.mergeAll(pathLayer, fs).pipe(Layer.provideMerge(os))));
+  });
+
   it.effect('checks win32 extensions', () =>
     Effect.gen(function* () {
       const found = yield* findExecutableOnPath('codex');
@@ -117,9 +142,6 @@ describe('findExecutableOnPath', () => {
     Effect.gen(function* () {
       const error = yield* requireExecutableOnPath('claude').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      if (error._tag !== 'MissingLaunchPrerequisite') {
-        return;
-      }
       assert.strictEqual(error.executable, 'claude');
       assert.strictEqual(error.message, '`claude` not found on PATH');
     }).pipe(Effect.provide(pathServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
@@ -163,9 +185,6 @@ describe('makeAcpAdapterCommand', () => {
     Effect.gen(function* () {
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      if (error._tag !== 'MissingLaunchPrerequisite') {
-        return;
-      }
       assert.strictEqual(error.executable, 'codex');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
@@ -174,9 +193,6 @@ describe('makeAcpAdapterCommand', () => {
     Effect.gen(function* () {
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      if (error._tag !== 'MissingLaunchPrerequisite') {
-        return;
-      }
       assert.strictEqual(error.executable, 'node');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/codex'])))),
   );
@@ -185,9 +201,6 @@ describe('makeAcpAdapterCommand', () => {
     Effect.gen(function* () {
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      if (error._tag !== 'MissingLaunchPrerequisite') {
-        return;
-      }
       assert.strictEqual(error.executable, 'codex');
       assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
     }).pipe(

@@ -37,7 +37,10 @@ export const findExecutableOnPath = Effect.fn('findExecutableOnPath')(
 
     for (const directory of directories) {
       for (const candidate of executableCandidates(platform, directory, name, path)) {
-        if (yield* fs.exists(candidate)) {
+        // Tauri fs scope rejects many PATH dirs / Homebrew symlinks as non-NotFound errors.
+        // Treat any exists failure as absent and keep scanning.
+        const present = yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false));
+        if (present) {
           yield* Effect.logDebug('Found executable on PATH', name, candidate);
           return Option.some(candidate);
         }

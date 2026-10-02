@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./acp-session-bootstrap": "./src/host/acpSessionBootstrap.ts",
+    "./fd-listing": "./src/host/fdListing.ts",
     "./host-runtime": "./src/hostRuntimeEntry.ts"
   },
   "scripts": {

@@ -6,11 +6,11 @@ import {
   unknownBytesToUint8Array,
 } from '@lib/context-services-vscode-webview/protocol';
 import type { IpcMessage, StdioMode } from '@lib/context-services-vscode-webview/protocol';
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 
 import { spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir as osHomedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -74,12 +74,14 @@ type ExtensionInbound = Extract<
   IpcMessage,
   {
     readonly _tag:
+      | 'AppExit'
       | 'BundledResolve'
       | 'FsExists'
       | 'FsMakeDirectory'
       | 'FsMakeTempDirectory'
       | 'FsReadFileString'
       | 'FsRemove'
+      | 'FsStat'
       | 'FsWriteFileString'
       | 'HttpFetch'
       | 'Kill'
@@ -92,12 +94,14 @@ type ExtensionInbound = Extract<
 >;
 
 const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
+  'AppExit',
   'BundledResolve',
   'FsExists',
   'FsMakeDirectory',
   'FsMakeTempDirectory',
   'FsReadFileString',
   'FsRemove',
+  'FsStat',
   'FsWriteFileString',
   'HttpFetch',
   'Kill',
@@ -135,6 +139,11 @@ export const handleHostIpcMessage = async (args: {
 
   try {
     switch (message._tag) {
+      case 'AppExit': {
+        await vscode.commands.executeCommand('workbench.action.closeSidebar');
+        post(webview, { _tag: 'AppExitResult', id: message.id });
+        return;
+      }
       case 'BundledResolve': {
         const absolute = context.asAbsolutePath(message.resourcePath);
         try {
@@ -174,6 +183,26 @@ export const handleHostIpcMessage = async (args: {
       case 'FsRemove': {
         await rm(message.path, { force: true, recursive: message.options?.recursive === true });
         post(webview, { _tag: 'FsRemoveResult', id: message.id });
+        return;
+      }
+      case 'FsStat': {
+        const info = await stat(message.path);
+        const type = info.isDirectory()
+          ? ('Directory' as const)
+          : info.isFile()
+            ? ('File' as const)
+            : info.isSymbolicLink()
+              ? ('SymbolicLink' as const)
+              : ('Unknown' as const);
+        post(webview, {
+          _tag: 'FsStatResult',
+          atime: Number.isFinite(info.atimeMs) ? info.atimeMs : undefined,
+          birthtime: Number.isFinite(info.birthtimeMs) ? info.birthtimeMs : undefined,
+          id: message.id,
+          mtime: Number.isFinite(info.mtimeMs) ? info.mtimeMs : undefined,
+          size: info.size,
+          type,
+        });
         return;
       }
       case 'FsWriteFileString': {

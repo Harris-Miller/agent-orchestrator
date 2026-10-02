@@ -113,7 +113,6 @@ export class TerminalExitStatus extends Schema.Opaque<TerminalExitStatus>()(
 ) {}
 
 /** Opaque placeholders for large nested unions (expand later). */
-export class ContentBlock extends Schema.Opaque<ContentBlock>()(Schema.Unknown) {}
 export class SessionUpdate extends Schema.Opaque<SessionUpdate>()(Schema.Unknown) {}
 export class AgentCapabilities extends Schema.Opaque<AgentCapabilities>()(Schema.Unknown) {}
 export class AuthMethod extends Schema.Opaque<AuthMethod>()(Schema.Unknown) {}

@@ -42,6 +42,12 @@ export type RemoveOptions = typeof RemoveOptions.Type;
  * Data chunks may carry an `ArrayBuffer` transferred via `postMessage` transfer list.
  */
 export const IpcMessage = Schema.TaggedUnion({
+  AppExit: {
+    id: CorrelationId,
+  },
+  AppExitResult: {
+    id: CorrelationId,
+  },
   BundledResolve: {
     id: CorrelationId,
     resourcePath: Schema.String,
@@ -97,6 +103,18 @@ export const IpcMessage = Schema.TaggedUnion({
   },
   FsRemoveResult: {
     id: CorrelationId,
+  },
+  FsStat: {
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  FsStatResult: {
+    atime: Schema.optional(Schema.Number),
+    birthtime: Schema.optional(Schema.Number),
+    id: CorrelationId,
+    mtime: Schema.optional(Schema.Number),
+    size: Schema.Number,
+    type: Schema.Literals(['Directory', 'File', 'SymbolicLink', 'Unknown']),
   },
   FsWriteFileString: {
     content: Schema.String,

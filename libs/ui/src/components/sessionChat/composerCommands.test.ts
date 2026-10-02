@@ -55,6 +55,14 @@ describe('splitComposerCommandSegments', () => {
       { kind: 'text', value: ' ' },
     ]);
   });
+
+  it('chipifies markdown links inside tokens', () => {
+    assert.deepStrictEqual(splitComposerCommandSegments('see [readme](./README.md) now', commands), [
+      { kind: 'text', value: 'see ' },
+      { href: './README.md', kind: 'markdownLink', label: 'readme' },
+      { kind: 'text', value: ' now' },
+    ]);
+  });
 });
 
 describe('replaceComposerTriggerRange', () => {
@@ -131,6 +139,27 @@ describe('detectComposerTrigger', () => {
         text: '/',
       }),
       null,
+    );
+  });
+
+  it('@ opens from empty query for any agent', () => {
+    assert.deepStrictEqual(
+      detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: 1,
+        launchTarget: 'codex-acp',
+        text: '@',
+      }),
+      { kind: 'at', query: '', rangeEnd: 1, rangeStart: 0 },
+    );
+    assert.deepStrictEqual(
+      detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: 8,
+        launchTarget: 'claude-agent-acp',
+        text: 'see @src',
+      }),
+      { kind: 'at', query: 'src', rangeEnd: 8, rangeStart: 4 },
     );
   });
 });

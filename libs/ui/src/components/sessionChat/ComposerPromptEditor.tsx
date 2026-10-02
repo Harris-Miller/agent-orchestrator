@@ -31,8 +31,13 @@ import type { FC, JSX, RefObject } from 'react';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
-import type { ComposerCommandSegment } from './composerCommandTokens.ts';
+import type { ComposerSegment } from './composerCommandTokens.ts';
 import { mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+import {
+  $createComposerMarkdownLinkNode,
+  $isComposerMarkdownLinkNode,
+  ComposerMarkdownLinkNode,
+} from './ComposerMarkdownLinkNode.tsx';
 
 export type ComposerPromptChange = {
   readonly adjacentToToken: boolean;
@@ -81,11 +86,15 @@ const $appendTextWithBreaks = (parent: LexicalNode & { append: (...nodes: Lexica
   });
 };
 
-const $readEditorSegments = (): readonly ComposerCommandSegment[] => {
-  const segments: ComposerCommandSegment[] = [];
+const $readEditorSegments = (): readonly ComposerSegment[] => {
+  const segments: ComposerSegment[] = [];
   const visit = (node: LexicalNode): void => {
     if ($isComposerCommandNode(node)) {
       segments.push({ kind: 'command', value: node.getInvocation() });
+      return;
+    }
+    if ($isComposerMarkdownLinkNode(node)) {
+      segments.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
       return;
     }
     if ($isTextNode(node)) {
@@ -107,14 +116,21 @@ const $readEditorSegments = (): readonly ComposerCommandSegment[] => {
   return mergeAdjacentTextSegments(segments);
 };
 
-const segmentsEqual = (left: readonly ComposerCommandSegment[], right: readonly ComposerCommandSegment[]): boolean => {
+const segmentsEqual = (left: readonly ComposerSegment[], right: readonly ComposerSegment[]): boolean => {
   if (left.length !== right.length) {
     return false;
   }
   for (let index = 0; index < left.length; index += 1) {
     const segment = left[index];
     const other = right[index];
-    if (segment.kind !== other.kind || segment.value !== other.value) {
+    if (segment.kind !== other.kind) {
+      return false;
+    }
+    if (segment.kind === 'text' || segment.kind === 'command') {
+      if (other.kind !== segment.kind || segment.value !== other.value) {
+        return false;
+      }
+    } else if (other.kind !== 'markdownLink' || segment.label !== other.label || segment.href !== other.href) {
       return false;
     }
   }
@@ -133,6 +149,8 @@ const $setComposerContent = (text: string, availableCommands: readonly Available
   for (const segment of segments) {
     if (segment.kind === 'command') {
       paragraph.append($createComposerCommandNode(segment.value));
+    } else if (segment.kind === 'markdownLink') {
+      paragraph.append($createComposerMarkdownLinkNode(segment.label, segment.href));
     } else {
       $appendTextWithBreaks(paragraph, segment.value);
     }
@@ -152,8 +170,11 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
 
   type WalkResult = { readonly adjacentToToken: boolean; readonly cursor: number };
 
+  const isChip = (node: LexicalNode | null | undefined): boolean =>
+    $isComposerCommandNode(node) || $isComposerMarkdownLinkNode(node);
+
   const visit = (node: LexicalNode, cursorBefore: number): null | WalkResult => {
-    if ($isComposerCommandNode(node)) {
+    if (isChip(node)) {
       const size = node.getTextContentSize();
       if (node.getKey() === anchorNode.getKey()) {
         return {
@@ -169,9 +190,7 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
         const prev = node.getPreviousSibling();
         const next = node.getNextSibling();
         return {
-          adjacentToToken:
-            (anchor.offset === 0 && $isComposerCommandNode(prev)) ||
-            (anchor.offset === size && $isComposerCommandNode(next)),
+          adjacentToToken: (anchor.offset === 0 && isChip(prev)) || (anchor.offset === size && isChip(next)),
           cursor: cursorBefore + Math.min(anchor.offset, size),
         };
       }
@@ -197,7 +216,7 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
       const atChild = children[childIndex];
       const beforeChild = childIndex > 0 ? children[childIndex - 1] : undefined;
       return {
-        adjacentToToken: $isComposerCommandNode(atChild) || $isComposerCommandNode(beforeChild),
+        adjacentToToken: isChip(atChild) || isChip(beforeChild),
         cursor,
       };
     }
@@ -225,7 +244,7 @@ const $setLogicalCursor = (offset: number): void => {
   let remaining = target;
 
   const visit = (node: LexicalNode): boolean => {
-    if ($isComposerCommandNode(node)) {
+    if ($isComposerCommandNode(node) || $isComposerMarkdownLinkNode(node)) {
       const size = node.getTextContentSize();
       if (remaining <= size) {
         if (remaining === 0) {
@@ -502,7 +521,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         $setComposerContent(initialValueRef.current, initialCommandsRef.current);
       },
       namespace: 'ComposerPromptEditor',
-      nodes: [ComposerCommandNode],
+      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode],
       onError,
       theme: lexicalTheme,
     }),
@@ -513,7 +532,10 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
     <LexicalComposer initialConfig={initialConfig}>
       <Box
         sx={{
-          '& .composer-command-chip': {
+          '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
+            display: 'inline',
+          },
+          '& .composer-command-chip, & .composer-markdown-link-chip': {
             bgcolor: 'action.selected',
             borderRadius: 1,
             display: 'inline',
@@ -525,9 +547,6 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             py: 0.15,
             userSelect: 'none',
             whiteSpace: 'nowrap',
-          },
-          '& .composer-command-chip-host': {
-            display: 'inline',
           },
           '& .composer-prompt-editor': {
             fontSize: '0.875rem',

@@ -5,6 +5,7 @@ import {
   AppThemeProvider,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
+  FdPrerequisiteGate,
   refreshAllSessionRostersAtomFn,
   UserSettingsMount,
 } from '@lib/ui';
@@ -122,7 +123,13 @@ export const App: FC = () => (
       <CssBaseline />
       <UserSettingsMount />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-        <WorkspaceFoldersGate />
+        <FdPrerequisiteGate
+          onExit={() => {
+            Effect.runPromise(hostIpcClient.request(id => ({ _tag: 'AppExit' as const, id }))).catch(() => undefined);
+          }}
+        >
+          <WorkspaceFoldersGate />
+        </FdPrerequisiteGate>
       </Box>
     </AppThemeProvider>
   </RegistryProvider>

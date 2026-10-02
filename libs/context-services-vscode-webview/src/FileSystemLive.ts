@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Layer, Stream } from 'effect';
+import { Effect, FileSystem, Layer, Option, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
@@ -139,7 +139,37 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         });
       }),
       rename: path => unsupported(`rename(${path})`),
-      stat: path => unsupported(`stat(${path})`),
+      stat: Effect.fn('FileSystem.stat')(function* (path: string) {
+        return yield* fsIpc({
+          build: id => ({ _tag: 'FsStat', id, path }),
+          client,
+          decode: (response): FileSystem.File.Info | undefined => {
+            if (response._tag !== 'FsStatResult') {
+              return undefined;
+            }
+            const toDate = (ms: number | undefined): Option.Option<Date> =>
+              Option.map(Option.fromNullishOr(ms), value => new Date(value));
+            return {
+              atime: toDate(response.atime),
+              birthtime: toDate(response.birthtime),
+              blksize: Option.none(),
+              blocks: Option.none(),
+              dev: 0,
+              gid: Option.none(),
+              ino: Option.none(),
+              mode: 0,
+              mtime: toDate(response.mtime),
+              nlink: Option.none(),
+              rdev: Option.none(),
+              size: FileSystem.Size(response.size),
+              type: response.type,
+              uid: Option.none(),
+            };
+          },
+          method: 'stat',
+          path,
+        });
+      }),
       symlink: path => unsupported(`symlink(${path})`),
       truncate: path => unsupported(`truncate(${path})`),
       utimes: path => unsupported(`utimes(${path})`),

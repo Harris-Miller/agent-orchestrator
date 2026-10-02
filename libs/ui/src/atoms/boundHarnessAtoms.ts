@@ -7,6 +7,7 @@ import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, 
 import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
+import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 
@@ -43,3 +44,5 @@ export const {
 } = createSessionLifecycleAtoms(hostBag);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
+
+export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag);

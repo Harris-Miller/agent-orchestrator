@@ -3,7 +3,7 @@ import { Fzf } from 'fzf';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
-import type { ComposerTriggerKind } from './composerCommandTokens.ts';
+export type ComposerCommandTriggerKind = 'dollar' | 'slash';
 
 /** Slash-command names hidden from the composer menu per agent. */
 const HIDDEN_COMMAND_NAMES: Readonly<Partial<Record<AgentLaunchTarget, ReadonlySet<string>>>> = {
@@ -11,7 +11,7 @@ const HIDDEN_COMMAND_NAMES: Readonly<Partial<Record<AgentLaunchTarget, ReadonlyS
   'codex-acp': new Set(['logout']),
 };
 
-const matchesTriggerKind = (command: AvailableCommand, kind: ComposerTriggerKind): boolean =>
+const matchesTriggerKind = (command: AvailableCommand, kind: ComposerCommandTriggerKind): boolean =>
   kind === 'dollar' ? command.name.startsWith('$') : !command.name.startsWith('$');
 
 const isHidden = (command: AvailableCommand, launchTarget: AgentLaunchTarget | undefined): boolean => {
@@ -37,7 +37,7 @@ const fzfFind = (
  */
 export const filterAvailableCommands = (
   availableCommands: readonly AvailableCommand[],
-  kind: ComposerTriggerKind,
+  kind: ComposerCommandTriggerKind,
   query: string,
   launchTarget?: AgentLaunchTarget,
 ): readonly AvailableCommand[] => {

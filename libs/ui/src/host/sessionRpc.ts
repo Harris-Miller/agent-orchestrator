@@ -1,5 +1,5 @@
 /** Launch-target-keyed ACP session RPC. Agent handles stay private to this module. */
-import type { AcpAgentConnection } from '@libs/effect-acp';
+import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
 import { Effect, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -99,7 +99,7 @@ export const deleteSession = Effect.fn('deleteSession')(
 );
 
 export const sendPrompt = Effect.fn('sendPrompt')(
-  function* (launchTarget: AgentLaunchTarget, sessionId: string, text: string) {
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
@@ -107,9 +107,10 @@ export const sendPrompt = Effect.fn('sendPrompt')(
     });
     const span = yield* Effect.currentSpan;
     setPromptSpan(launchTarget, sessionId, span);
-    yield* Effect.logDebug('session/prompt', sessionId, { chars: text.length });
+    const textChars = prompt.reduce((sum, block) => sum + (block.type === 'text' ? block.text.length : 0), 0);
+    yield* Effect.logDebug('session/prompt', sessionId, { blocks: prompt.length, textChars });
     return yield* agent['session/prompt']({
-      prompt: [{ text, type: 'text' }],
+      prompt: [...prompt],
       sessionId,
     }).pipe(
       Effect.ensuring(

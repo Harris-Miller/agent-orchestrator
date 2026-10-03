@@ -72,8 +72,9 @@ export class ComposerCommandNode extends DecoratorNode<JSX.Element> {
     return true;
   }
 
-  isIsolated(): true {
-    return true;
+  // false: adjacent Backspace/Delete must remove the whole chip (Lexical skips isolated decorators).
+  isIsolated(): false {
+    return false;
   }
 
   isKeyboardSelectable(): true {

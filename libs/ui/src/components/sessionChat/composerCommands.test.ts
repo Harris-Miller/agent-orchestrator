@@ -32,7 +32,7 @@ describe('findExactCommandMatch', () => {
 });
 
 describe('splitComposerCommandSegments', () => {
-  it('chipifies whitespace-committed exact matches only', () => {
+  it('chipifies exact matches including at EOF', () => {
     assert.deepStrictEqual(splitComposerCommandSegments('/status more', commands), [
       { kind: 'command', value: '/status' },
       { kind: 'text', value: ' more' },
@@ -41,18 +41,30 @@ describe('splitComposerCommandSegments', () => {
       { kind: 'command', value: '/status' },
       { kind: 'text', value: ' ' },
     ]);
-    // In-progress exact token at EOF stays text until whitespace commit.
-    assert.deepStrictEqual(splitComposerCommandSegments('/status', commands), [{ kind: 'text', value: '/status' }]);
+    // Exact token at EOF stays a chip so Backspace removes it whole (not char-by-char).
+    assert.deepStrictEqual(splitComposerCommandSegments('/status', commands), [{ kind: 'command', value: '/status' }]);
+    assert.deepStrictEqual(splitComposerCommandSegments('$caveman', commands), [
+      { kind: 'command', value: '$caveman' },
+    ]);
     assert.deepStrictEqual(splitComposerCommandSegments('hi /sta', commands), [{ kind: 'text', value: 'hi /sta' }]);
     assert.deepStrictEqual(splitComposerCommandSegments('/status $caveman', commands), [
       { kind: 'command', value: '/status' },
-      { kind: 'text', value: ' $caveman' },
+      { kind: 'text', value: ' ' },
+      { kind: 'command', value: '$caveman' },
     ]);
     assert.deepStrictEqual(splitComposerCommandSegments('/status $caveman ', commands), [
       { kind: 'command', value: '/status' },
       { kind: 'text', value: ' ' },
       { kind: 'command', value: '$caveman' },
       { kind: 'text', value: ' ' },
+    ]);
+  });
+
+  it('chipifies markdown links inside tokens', () => {
+    assert.deepStrictEqual(splitComposerCommandSegments('see [readme](./README.md) now', commands), [
+      { kind: 'text', value: 'see ' },
+      { href: './README.md', kind: 'markdownLink', label: 'readme' },
+      { kind: 'text', value: ' now' },
     ]);
   });
 });
@@ -131,6 +143,27 @@ describe('detectComposerTrigger', () => {
         text: '/',
       }),
       null,
+    );
+  });
+
+  it('@ opens from empty query for any agent', () => {
+    assert.deepStrictEqual(
+      detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: 1,
+        launchTarget: 'codex-acp',
+        text: '@',
+      }),
+      { kind: 'at', query: '', rangeEnd: 1, rangeStart: 0 },
+    );
+    assert.deepStrictEqual(
+      detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: 8,
+        launchTarget: 'claude-agent-acp',
+        text: 'see @src',
+      }),
+      { kind: 'at', query: 'src', rangeEnd: 8, rangeStart: 4 },
     );
   });
 });

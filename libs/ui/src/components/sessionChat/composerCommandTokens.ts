@@ -1,7 +1,10 @@
+import { findMarkdownLinks } from '../../host/draftToContentBlocks.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
-export type ComposerCommandSegment =
-  { readonly kind: 'command'; readonly value: string } | { readonly kind: 'text'; readonly value: string };
+export type ComposerSegment =
+  | { readonly href: string; readonly kind: 'markdownLink'; readonly label: string }
+  | { readonly kind: 'command'; readonly value: string }
+  | { readonly kind: 'text'; readonly value: string };
 
 /** Canonical insertion / chip text for an Available Command name. */
 export const commandInvocation = (name: string): string => (name.startsWith('$') ? name : `/${name}`);
@@ -13,10 +16,8 @@ export const findExactCommandMatch = (
 
 export const isWhitespace = (char: string): boolean => char === ' ' || char === '\t' || char === '\n' || char === '\r';
 
-export const mergeAdjacentTextSegments = (
-  segments: readonly ComposerCommandSegment[],
-): readonly ComposerCommandSegment[] => {
-  const merged: ComposerCommandSegment[] = [];
+export const mergeAdjacentTextSegments = (segments: readonly ComposerSegment[]): readonly ComposerSegment[] => {
+  const merged: ComposerSegment[] = [];
   for (const segment of segments) {
     const prev = merged.length > 0 ? merged[merged.length - 1] : undefined;
     if (segment.kind === 'text' && prev?.kind === 'text') {
@@ -28,19 +29,40 @@ export const mergeAdjacentTextSegments = (
   return merged;
 };
 
+const splitMarkdownLinksInText = (text: string): readonly ComposerSegment[] => {
+  const links = findMarkdownLinks(text);
+  if (links.length === 0) {
+    return text.length === 0 ? [] : [{ kind: 'text', value: text }];
+  }
+  const segments: ComposerSegment[] = [];
+  let cursor = 0;
+  for (const link of links) {
+    if (link.start > cursor) {
+      segments.push({ kind: 'text', value: text.slice(cursor, link.start) });
+    }
+    segments.push({ href: link.href, kind: 'markdownLink', label: link.label });
+    cursor = link.end;
+  }
+  if (cursor < text.length) {
+    segments.push({ kind: 'text', value: text.slice(cursor) });
+  }
+  return segments;
+};
+
 /**
- * Split draft text into plain text and command-chip segments.
- * Whitespace-committed tokens that exact-match a current Available Command become chips.
+ * Split draft text into plain text, command-chip, and markdown-link-chip segments.
+ * Tokens that exact-match a current Available Command become command chips (including at EOF).
+ * Complete markdown links become markdown link chips.
  */
 export const splitComposerCommandSegments = (
   text: string,
   availableCommands: readonly AvailableCommand[],
-): readonly ComposerCommandSegment[] => {
+): readonly ComposerSegment[] => {
   if (text.length === 0) {
     return [];
   }
 
-  const segments: ComposerCommandSegment[] = [];
+  const segments: ComposerSegment[] = [];
   let index = 0;
 
   while (index < text.length) {
@@ -56,12 +78,12 @@ export const splitComposerCommandSegments = (
         index += 1;
       }
       const token = text.slice(tokenStart, index);
-      // Chipify only when whitespace-committed (not a trailing in-progress token at EOF).
-      const whitespaceCommitted = index < text.length;
-      if (whitespaceCommitted && findExactCommandMatch(token, availableCommands) !== undefined) {
+      // Exact matches stay chips at EOF too — otherwise deleting the trailing space after a
+      // menu insert unwraps `/cmd` into a live `/` trigger and Backspace eats it char-by-char.
+      if (findExactCommandMatch(token, availableCommands) !== undefined) {
         segments.push({ kind: 'command', value: token });
       } else {
-        segments.push({ kind: 'text', value: token });
+        segments.push(...splitMarkdownLinksInText(token));
       }
     }
   }
@@ -69,7 +91,7 @@ export const splitComposerCommandSegments = (
   return mergeAdjacentTextSegments(segments);
 };
 
-export type ComposerTriggerKind = 'dollar' | 'slash';
+export type ComposerTriggerKind = 'at' | 'dollar' | 'slash';
 
 export type ComposerTrigger = {
   readonly kind: ComposerTriggerKind;

@@ -32,6 +32,7 @@ import {
   cancelPromptAtomFn,
   developerModeAtom,
   handoffSessionAtomFn,
+  refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   sendChatItemAtomFn,
@@ -39,23 +40,30 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
+import { sessionFsListingAtom, sessionFsListingKey } from '../../atoms/sessionFsListing.atoms.ts';
 import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import type { FdListingEntry } from '../../host/fdListing.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
 import { commandInvocation, replaceComposerTriggerRange } from './composerCommandTokens.ts';
+import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommands } from './filterAvailableCommands.ts';
+import { filterFsListingEntries } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
+import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
+import { resolveComposerFsMentions } from './resolveComposerFsMentions.ts';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { UsagePopover } from './UsagePopover.tsx';
 
@@ -101,6 +109,7 @@ export const SessionChatBody: FC<{
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
+  const refreshSessionFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
 
   const getConfigOptionIndex = (launchTarget: AgentLaunchTarget) => {
     switch (launchTarget) {
@@ -140,6 +149,12 @@ export const SessionChatBody: FC<{
     selectedLaunchTarget === undefined || selectedSessionId === undefined
       ? undefined
       : roster.find(entry => entry.launchTarget === selectedLaunchTarget && entry.sessionId === selectedSessionId)?.cwd;
+  const sessionCwd = selectedSession?.cwd ?? sourceCwd;
+  const listingKey =
+    selectedSessionId !== undefined && sessionCwd !== undefined
+      ? sessionFsListingKey(selectedSessionId, sessionCwd)
+      : null;
+  const fsListing = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
   const canHandoff =
     controlsEnabled &&
     selectedLaunchTarget !== undefined &&
@@ -149,20 +164,42 @@ export const SessionChatBody: FC<{
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
   const showDeveloperButton = developerMode && onOpenDeveloperPanel !== undefined && !developerPanelOpen;
 
-  const filteredCommands = useMemo(() => {
+  const commandTrigger = useMemo((): ({ readonly kind: 'dollar' | 'slash' } & ComposerTrigger) | null => {
     if (composerTrigger === null) {
+      return null;
+    }
+    if (composerTrigger.kind === 'slash' || composerTrigger.kind === 'dollar') {
+      return {
+        kind: composerTrigger.kind,
+        query: composerTrigger.query,
+        rangeEnd: composerTrigger.rangeEnd,
+        rangeStart: composerTrigger.rangeStart,
+      };
+    }
+    return null;
+  }, [composerTrigger]);
+  const mentionTrigger = composerTrigger?.kind === 'at' ? composerTrigger : null;
+
+  const filteredCommands = useMemo(() => {
+    if (commandTrigger === null) {
       return [];
     }
-    return filterAvailableCommands(
-      availableCommands,
-      composerTrigger.kind,
-      composerTrigger.query,
-      selectedLaunchTarget,
-    );
-  }, [availableCommands, composerTrigger, selectedLaunchTarget]);
+    return filterAvailableCommands(availableCommands, commandTrigger.kind, commandTrigger.query, selectedLaunchTarget);
+  }, [availableCommands, commandTrigger, selectedLaunchTarget]);
+
+  const filteredMentions = useMemo(() => {
+    if (mentionTrigger === null) {
+      return [];
+    }
+    return filterFsListingEntries(fsListing.entries, mentionTrigger.query);
+  }, [fsListing.entries, mentionTrigger]);
+
+  const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
 
   const clampedCommandFocus =
     filteredCommands.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommands.length - 1);
+  const clampedMentionFocus =
+    filteredMentions.length === 0 ? 0 : Math.min(commandFocusIndex, filteredMentions.length - 1);
 
   const selectCommand = useCallback(
     (command: AvailableCommand) => {
@@ -172,7 +209,7 @@ export const SessionChatBody: FC<{
         launchTarget: selectedLaunchTarget,
         text: draft,
       });
-      if (liveTrigger === null) {
+      if (liveTrigger?.kind === 'at' || liveTrigger === null) {
         setComposerTrigger(null);
         return;
       }
@@ -183,6 +220,27 @@ export const SessionChatBody: FC<{
       setComposerTrigger(null);
     },
     [draft, selectedLaunchTarget, setDraft],
+  );
+
+  const selectMention = useCallback(
+    (entry: FdListingEntry) => {
+      const liveTrigger = detectComposerTrigger({
+        adjacentToToken: false,
+        cursor: composerCursorRef.current,
+        launchTarget: selectedLaunchTarget,
+        text: draft,
+      });
+      if (liveTrigger?.kind !== 'at' || sessionCwd === undefined) {
+        setComposerTrigger(null);
+        return;
+      }
+      const next = replaceComposerTriggerRange(draft, liveTrigger, mentionMarkdownForEntry(sessionCwd, entry));
+      syncCursorRef.current = next.cursor;
+      composerCursorRef.current = next.cursor;
+      setDraft(next.text);
+      setComposerTrigger(null);
+    },
+    [draft, selectedLaunchTarget, sessionCwd, setDraft],
   );
 
   const onComposerChange = useCallback(
@@ -209,12 +267,12 @@ export const SessionChatBody: FC<{
     [selectedLaunchTarget, setDraft],
   );
 
+  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommands.length;
+
   const commandMenu = useMemo(
     () => ({
       onArrowDown: () => {
-        setCommandFocusIndex(index =>
-          filteredCommands.length === 0 ? 0 : Math.min(index + 1, filteredCommands.length - 1),
-        );
+        setCommandFocusIndex(index => (activeMenuCount === 0 ? 0 : Math.min(index + 1, activeMenuCount - 1)));
       },
       onArrowUp: () => {
         setCommandFocusIndex(index => Math.max(index - 1, 0));
@@ -223,6 +281,13 @@ export const SessionChatBody: FC<{
         setComposerTrigger(null);
       },
       onSelect: () => {
+        if (mentionTrigger !== null) {
+          if (filteredMentions.length === 0) {
+            return;
+          }
+          selectMention(filteredMentions[clampedMentionFocus]);
+          return;
+        }
         if (filteredCommands.length === 0) {
           return;
         }
@@ -233,8 +298,50 @@ export const SessionChatBody: FC<{
       },
       open: composerTrigger !== null,
     }),
-    [clampedCommandFocus, composerTrigger, filteredCommands, selectCommand],
+    [
+      activeMenuCount,
+      clampedCommandFocus,
+      clampedMentionFocus,
+      composerTrigger,
+      filteredCommands,
+      filteredMentions,
+      mentionTrigger,
+      selectCommand,
+      selectMention,
+    ],
   );
+
+  const mentionMenuOpen = mentionTrigger !== null;
+
+  // Refresh FS listing when `@` menu opens (stale hits OK while refresh runs).
+  useEffect(() => {
+    if (!mentionMenuOpen || selectedSessionId === undefined || sessionCwd === undefined) {
+      return;
+    }
+    refreshSessionFsListing({ cwd: sessionCwd, sessionId: selectedSessionId }).catch(() => undefined);
+  }, [mentionMenuOpen, refreshSessionFsListing, selectedSessionId, sessionCwd]);
+
+  // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
+  // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.
+  useEffect(() => {
+    if (sessionCwd === undefined || draft.length === 0 || composerTrigger !== null) {
+      return;
+    }
+    let cancelled = false;
+    const cursor = composerCursorRef.current;
+    hostRuntime
+      .runPromise(resolveComposerFsMentions(draft, sessionCwd))
+      .then(next => {
+        if (!cancelled && next !== draft) {
+          syncCursorRef.current = cursor;
+          setDraft(next);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [composerTrigger, draft, sessionCwd, setDraft]);
 
   const sendDraft = () => {
     if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
@@ -414,7 +521,15 @@ export const SessionChatBody: FC<{
               focusedIndex={clampedCommandFocus}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectCommand}
-              open={composerTrigger !== null}
+              open={commandTrigger !== null}
+            />
+            <ComposerMentionMenu
+              entries={filteredMentions}
+              focusedIndex={clampedMentionFocus}
+              loading={mentionLoading}
+              onFocusIndexChange={setCommandFocusIndex}
+              onSelect={selectMention}
+              open={mentionTrigger !== null}
             />
             <ComposerPromptEditor
               availableCommands={availableCommands}

@@ -6,7 +6,6 @@ import {
   AgentCapabilities,
   AuthMethod,
   AuthMethodId,
-  ContentBlock,
   EmptyResult,
   Implementation,
   McpServer,
@@ -22,6 +21,7 @@ import {
   StopReason,
   Usage,
 } from './common.ts';
+import { ContentBlock } from './contentBlock.ts';
 import { ClientCapabilities } from './elicitation.ts';
 
 const AGENT_METHODS = {

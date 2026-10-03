@@ -17,6 +17,7 @@ import {
   $isTextNode,
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
+  DELETE_CHARACTER_COMMAND,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ENTER_COMMAND,
@@ -24,15 +25,104 @@ import {
   KEY_SPACE_COMMAND,
   KEY_TAB_COMMAND,
 } from 'lexical';
-import type { EditorThemeClasses, LexicalNode } from 'lexical';
+import type { EditorThemeClasses, LexicalNode, TextNode } from 'lexical';
 import { useEffect, useMemo, useRef } from 'react';
 import type { FC, JSX, RefObject } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
-import type { ComposerCommandSegment } from './composerCommandTokens.ts';
-import { mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+import type { ComposerSegment } from './composerCommandTokens.ts';
+import { isWhitespace, mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+import {
+  $createComposerMarkdownLinkNode,
+  $isComposerMarkdownLinkNode,
+  ComposerMarkdownLinkNode,
+} from './ComposerMarkdownLinkNode.tsx';
+
+const $isComposerChipNode = (
+  node: LexicalNode | null | undefined,
+): node is ComposerCommandNode | ComposerMarkdownLinkNode =>
+  $isComposerCommandNode(node) || $isComposerMarkdownLinkNode(node);
+
+const isOnlyWhitespace = (text: string): boolean => {
+  for (let i = 0; i < text.length; i += 1) {
+    if (!isWhitespace(text[i])) {
+      return false;
+    }
+  }
+  return text.length > 0;
+};
+
+const $removeChipAndPad = (chip: LexicalNode, pad: TextNode, padStart: number, padEnd: number): void => {
+  if (padStart === 0 && padEnd === pad.getTextContentSize()) {
+    pad.remove();
+  } else {
+    pad.spliceText(padStart, padEnd - padStart, '');
+  }
+  chip.remove();
+};
+
+/** Backspace/Delete against a chip (or its trailing/leading pad space) removes the whole chip. */
+const $deleteAdjacentComposerChip = (isBackward: boolean): boolean => {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+    return false;
+  }
+
+  const { anchor } = selection;
+  const anchorNode = anchor.getNode();
+
+  if ($isComposerChipNode(anchorNode)) {
+    anchorNode.remove();
+    return true;
+  }
+
+  if (!$isTextNode(anchorNode)) {
+    return false;
+  }
+
+  const text = anchorNode.getTextContent();
+  const { offset } = anchor;
+
+  if (isBackward) {
+    if (offset === 0) {
+      const prev = anchorNode.getPreviousSibling();
+      if ($isComposerChipNode(prev)) {
+        prev.remove();
+        return true;
+      }
+      return false;
+    }
+
+    // Cursor after whitespace pad that follows a chip (menu insert adds ` `).
+    const before = text.slice(0, offset);
+    const prev = anchorNode.getPreviousSibling();
+    if (isOnlyWhitespace(before) && $isComposerChipNode(prev)) {
+      $removeChipAndPad(prev, anchorNode, 0, offset);
+      return true;
+    }
+    return false;
+  }
+
+  if (offset === text.length) {
+    const next = anchorNode.getNextSibling();
+    if ($isComposerChipNode(next)) {
+      next.remove();
+      return true;
+    }
+    return false;
+  }
+
+  const after = text.slice(offset);
+  const next = anchorNode.getNextSibling();
+  if (isOnlyWhitespace(after) && $isComposerChipNode(next)) {
+    $removeChipAndPad(next, anchorNode, offset, text.length);
+    return true;
+  }
+
+  return false;
+};
 
 export type ComposerPromptChange = {
   readonly adjacentToToken: boolean;
@@ -81,11 +171,15 @@ const $appendTextWithBreaks = (parent: LexicalNode & { append: (...nodes: Lexica
   });
 };
 
-const $readEditorSegments = (): readonly ComposerCommandSegment[] => {
-  const segments: ComposerCommandSegment[] = [];
+const $readEditorSegments = (): readonly ComposerSegment[] => {
+  const segments: ComposerSegment[] = [];
   const visit = (node: LexicalNode): void => {
     if ($isComposerCommandNode(node)) {
       segments.push({ kind: 'command', value: node.getInvocation() });
+      return;
+    }
+    if ($isComposerMarkdownLinkNode(node)) {
+      segments.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
       return;
     }
     if ($isTextNode(node)) {
@@ -107,14 +201,21 @@ const $readEditorSegments = (): readonly ComposerCommandSegment[] => {
   return mergeAdjacentTextSegments(segments);
 };
 
-const segmentsEqual = (left: readonly ComposerCommandSegment[], right: readonly ComposerCommandSegment[]): boolean => {
+const segmentsEqual = (left: readonly ComposerSegment[], right: readonly ComposerSegment[]): boolean => {
   if (left.length !== right.length) {
     return false;
   }
   for (let index = 0; index < left.length; index += 1) {
     const segment = left[index];
     const other = right[index];
-    if (segment.kind !== other.kind || segment.value !== other.value) {
+    if (segment.kind !== other.kind) {
+      return false;
+    }
+    if (segment.kind === 'text' || segment.kind === 'command') {
+      if (other.kind !== segment.kind || segment.value !== other.value) {
+        return false;
+      }
+    } else if (other.kind !== 'markdownLink' || segment.label !== other.label || segment.href !== other.href) {
       return false;
     }
   }
@@ -133,6 +234,8 @@ const $setComposerContent = (text: string, availableCommands: readonly Available
   for (const segment of segments) {
     if (segment.kind === 'command') {
       paragraph.append($createComposerCommandNode(segment.value));
+    } else if (segment.kind === 'markdownLink') {
+      paragraph.append($createComposerMarkdownLinkNode(segment.label, segment.href));
     } else {
       $appendTextWithBreaks(paragraph, segment.value);
     }
@@ -153,7 +256,7 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
   type WalkResult = { readonly adjacentToToken: boolean; readonly cursor: number };
 
   const visit = (node: LexicalNode, cursorBefore: number): null | WalkResult => {
-    if ($isComposerCommandNode(node)) {
+    if ($isComposerChipNode(node)) {
       const size = node.getTextContentSize();
       if (node.getKey() === anchorNode.getKey()) {
         return {
@@ -170,8 +273,7 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
         const next = node.getNextSibling();
         return {
           adjacentToToken:
-            (anchor.offset === 0 && $isComposerCommandNode(prev)) ||
-            (anchor.offset === size && $isComposerCommandNode(next)),
+            (anchor.offset === 0 && $isComposerChipNode(prev)) || (anchor.offset === size && $isComposerChipNode(next)),
           cursor: cursorBefore + Math.min(anchor.offset, size),
         };
       }
@@ -197,7 +299,7 @@ const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cursor: nu
       const atChild = children[childIndex];
       const beforeChild = childIndex > 0 ? children[childIndex - 1] : undefined;
       return {
-        adjacentToToken: $isComposerCommandNode(atChild) || $isComposerCommandNode(beforeChild),
+        adjacentToToken: $isComposerChipNode(atChild) || $isComposerChipNode(beforeChild),
         cursor,
       };
     }
@@ -225,7 +327,7 @@ const $setLogicalCursor = (offset: number): void => {
   let remaining = target;
 
   const visit = (node: LexicalNode): boolean => {
-    if ($isComposerCommandNode(node)) {
+    if ($isComposerChipNode(node)) {
       const size = node.getTextContentSize();
       if (remaining <= size) {
         if (remaining === 0) {
@@ -387,6 +489,25 @@ const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[
   return null;
 };
 
+const ChipDeletePlugin: FC = () => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(
+    () =>
+      editor.registerCommand(
+        DELETE_CHARACTER_COMMAND,
+        isBackward => {
+          const handled = $deleteAdjacentComposerChip(isBackward);
+          return handled;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+    [editor],
+  );
+
+  return null;
+};
+
 const ComposerCommandKeyPlugin: FC<{ readonly commandMenu?: ComposerCommandMenuKeyHandlers }> = ({ commandMenu }) => {
   const [editor] = useLexicalComposerContext();
 
@@ -502,7 +623,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         $setComposerContent(initialValueRef.current, initialCommandsRef.current);
       },
       namespace: 'ComposerPromptEditor',
-      nodes: [ComposerCommandNode],
+      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode],
       onError,
       theme: lexicalTheme,
     }),
@@ -513,7 +634,10 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
     <LexicalComposer initialConfig={initialConfig}>
       <Box
         sx={{
-          '& .composer-command-chip': {
+          '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
+            display: 'inline',
+          },
+          '& .composer-command-chip, & .composer-markdown-link-chip': {
             bgcolor: 'action.selected',
             borderRadius: 1,
             display: 'inline',
@@ -525,9 +649,6 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             py: 0.15,
             userSelect: 'none',
             whiteSpace: 'nowrap',
-          },
-          '& .composer-command-chip-host': {
-            display: 'inline',
           },
           '& .composer-prompt-editor': {
             fontSize: '0.875rem',
@@ -597,6 +718,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       />
       <EditablePlugin disabled={disabled} />
       <ChipifyPlugin availableCommands={availableCommands} />
+      <ChipDeletePlugin />
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />
       <ComposerCommandKeyPlugin commandMenu={commandMenu} />
     </LexicalComposer>

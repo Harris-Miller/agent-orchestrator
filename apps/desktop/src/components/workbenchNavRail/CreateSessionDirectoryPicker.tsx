@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget } from '@lib/ui';
 import { allLaunchTargetPhasesAtom, createSessionAtomFn } from '@lib/ui';
+import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
@@ -29,7 +30,6 @@ import type { FC, KeyboardEvent, MouseEvent } from 'react';
 
 import {
   joinDirectory,
-  listChildDirectories,
   normalizeDirPath,
   PARENT_DIR_ENTRY,
   parentDirectory,
@@ -107,7 +107,7 @@ export const CreateSessionDirectoryPicker: FC<{
     hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await hostRunPromise(listChildDirectories(normalizedHome, { showHidden: false }));
+        const dirs = await hostRunPromise(listShallowDirectories(normalizedHome, { showHidden: false }));
         if (abort.signal.aborted) {
           return;
         }
@@ -139,7 +139,7 @@ export const CreateSessionDirectoryPicker: FC<{
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listChildDirectories(nextPath, { showHidden: nextShowHidden }))
+    hostRunPromise(listShallowDirectories(nextPath, { showHidden: nextShowHidden }))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);

@@ -1,9 +1,11 @@
 /** Session snapshot patch helpers + session client request orchestration. */
+import type { ContentBlock } from '@libs/effect-acp';
 import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/unstable/reactivity';
 
 import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { draftToContentBlocks, hasEmbeddedContextCapability } from '../host/draftToContentBlocks.ts';
 import { sendPrompt } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom } from './backendState.atoms.ts';
@@ -18,7 +20,18 @@ export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* 
   sessionId: string,
   text: string,
 ) {
-  const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, text));
+  const snapshot = get(backendHarnessStateAtom(launchTarget));
+  const session = snapshot.sessions[sessionId];
+  const { cwd } = session;
+  const prompt: readonly ContentBlock[] =
+    cwd === undefined
+      ? [{ text, type: 'text' }]
+      : yield* draftToContentBlocks(text, {
+          cwd,
+          embeddedContext: hasEmbeddedContextCapability(snapshot.initializeResult),
+        });
+
+  const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, prompt));
   if (Exit.isSuccess(exit)) {
     return exit.value;
   }

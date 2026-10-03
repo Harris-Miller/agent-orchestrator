@@ -1,6 +1,7 @@
 /**
  * Webview ChildProcessSpawner over extension↔webview IPC.
  */
+import type { Cause } from 'effect';
 import { Context, Deferred, Effect, Layer, Queue, Sink, Stream, Tracer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
@@ -29,8 +30,8 @@ const spawnStandard = Effect.fnUntraced(function* (
   client: IpcClient,
   command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
 ) {
-  const stdoutQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
-  const stderrQueue = yield* Queue.unbounded<Uint8Array, PlatformError.PlatformError>();
+  const stdoutQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
+  const stderrQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
   const exitDeferred = yield* Deferred.make<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>();
   const runningRef = { current: true };
   const stderrMode = command.options.stderr ?? 'pipe';
@@ -59,19 +60,35 @@ const spawnStandard = Effect.fnUntraced(function* (
   const { handleId, pid } = response;
   const runFork = Effect.runForkWith(Context.omit(Tracer.ParentSpan)(yield* Effect.context()));
 
+  // End queues so Stream.fromQueue readers (e.g. fd listing runCollect) complete.
+  // Match Tauri ChildProcessSpawnerLive: end on close; also honor stream End events.
+  const endQueues = Effect.gen(function* () {
+    yield* Queue.end(stdoutQueue).pipe(Effect.ignore);
+    yield* Queue.end(stderrQueue).pipe(Effect.ignore);
+  });
+
   client.registerProcess(handleId, {
     onExit: code => {
       runningRef.current = false;
-      runFork(Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code)));
+      runFork(
+        Effect.gen(function* () {
+          yield* Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code));
+          yield* endQueues;
+        }),
+      );
     },
     onStderrChunk: chunk => {
       runFork(Queue.offer(stderrQueue, chunk));
     },
-    onStderrEnd: () => undefined,
+    onStderrEnd: () => {
+      runFork(Queue.end(stderrQueue).pipe(Effect.ignore));
+    },
     onStdoutChunk: chunk => {
       runFork(Queue.offer(stdoutQueue, chunk));
     },
-    onStdoutEnd: () => undefined,
+    onStdoutEnd: () => {
+      runFork(Queue.end(stdoutQueue).pipe(Effect.ignore));
+    },
   });
 
   yield* Effect.addFinalizer(() =>

@@ -25,11 +25,15 @@ A session-advertised ACP command entry from `available_commands_update` (`name` 
 _Avoid_: slash palette entry, skill definition (when you mean this list item)
 
 **Composer Trigger**:
-An in-progress `/` or `$` token in the chat draft that opens the command menu (agent-specific rules for where `/` and `$` may start).
+An in-progress `/`, `$`, or `@` token in the chat draft that opens a composer menu (agent-specific rules for where `/` and `$` may start; `@` is whitespace-bounded and opens from `@` alone).
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Command Chip**:
-A Lexical decorator in the composer for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command; the draft string remains the source of truth for `session/prompt`.
-_Avoid_: skill pill, mention chip, autocomplete token (when you mean this decorator)
+A Lexical decorator in the composer for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command; commands remain plain text in the draft and in `session/prompt` text segments.
+_Avoid_: Markdown Link Chip, skill pill, autocomplete token (when you mean this decorator)
+
+**Markdown Link Chip**:
+A Lexical decorator in the composer whose text is a markdown link `[label](href)` (filesystem path or URL); not clickable. The draft markdown string is the composer edit source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments.
+_Avoid_: Command Chip, mention chip, hyperlink (when you mean this decorator)
 
 For Host services and BundledResource / Clipboard vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session and Settings domain terms live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/CONTEXT.md`](../../apps/vscode/CONTEXT.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.

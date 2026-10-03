@@ -22,7 +22,16 @@
         { "path": "/opt/homebrew/**" },
         { "path": "/usr/local/**" },
         { "path": "/usr/bin/**" },
-        { "path": "/bin/**" }
+        { "path": "/bin/**" },
+        { "path": "/opt/local/**" },
+        { "path": "C:/Windows/System32/**" },
+        { "path": "C:/Program Files/**" },
+        { "path": "C:/Program Files (x86)/**" },
+        { "path": "C:/ProgramData/chocolatey/bin/**" },
+        { "path": "$USERPROFILE/scoop/shims/**" },
+        { "path": "$USERPROFILE/AppData/Local/Microsoft/WinGet/Links/**" },
+        { "path": "$HOME/.local/bin/**" },
+        { "path": "$HOME/bin/**" }
       ]
     },
     "os:default",
@@ -47,13 +56,18 @@
         },
         {
           "args": true,
-          "cmd": "claude",
-          "name": "claude"
+          "cmd": "brew",
+          "name": "brew"
         },
         {
           "args": true,
-          "cmd": "cmd",
-          "name": "cmd"
+          "cmd": "choco",
+          "name": "choco"
+        },
+        {
+          "args": true,
+          "cmd": "claude",
+          "name": "claude"
         },
         {
           "args": true,
@@ -62,8 +76,13 @@
         },
         {
           "args": true,
-          "cmd": "find",
-          "name": "find"
+          "cmd": "fd",
+          "name": "fd"
+        },
+        {
+          "args": true,
+          "cmd": "fdfind",
+          "name": "fdfind"
         },
         {
           "args": true,
@@ -74,6 +93,21 @@
           "args": true,
           "cmd": "node",
           "name": "node"
+        },
+        {
+          "args": true,
+          "cmd": "port",
+          "name": "port"
+        },
+        {
+          "args": true,
+          "cmd": "scoop",
+          "name": "scoop"
+        },
+        {
+          "args": true,
+          "cmd": "winget",
+          "name": "winget"
         }
       ]
     },
@@ -87,13 +121,18 @@
         },
         {
           "args": true,
-          "cmd": "claude",
-          "name": "claude"
+          "cmd": "brew",
+          "name": "brew"
         },
         {
           "args": true,
-          "cmd": "cmd",
-          "name": "cmd"
+          "cmd": "choco",
+          "name": "choco"
+        },
+        {
+          "args": true,
+          "cmd": "claude",
+          "name": "claude"
         },
         {
           "args": true,
@@ -102,8 +141,13 @@
         },
         {
           "args": true,
-          "cmd": "find",
-          "name": "find"
+          "cmd": "fd",
+          "name": "fd"
+        },
+        {
+          "args": true,
+          "cmd": "fdfind",
+          "name": "fdfind"
         },
         {
           "args": true,
@@ -114,6 +158,21 @@
           "args": true,
           "cmd": "node",
           "name": "node"
+        },
+        {
+          "args": true,
+          "cmd": "port",
+          "name": "port"
+        },
+        {
+          "args": true,
+          "cmd": "scoop",
+          "name": "scoop"
+        },
+        {
+          "args": true,
+          "cmd": "winget",
+          "name": "winget"
         }
       ]
     }

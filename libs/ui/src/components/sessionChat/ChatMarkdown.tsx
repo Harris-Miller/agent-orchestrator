@@ -4,6 +4,8 @@ import type { FC, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 
+import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
+
 /** Look like a link; never emit a real <a href> (Tauri navigates absolute paths and breaks the shell). */
 const MarkdownLink: FC<{ children?: ReactNode }> = ({ children }) => (
   <Box component="span" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
@@ -63,7 +65,7 @@ const baseSx = {
 export const ChatMarkdown: FC<{ sx?: SxProps<Theme>; text: string }> = ({ sx, text }) => (
   <Box sx={[baseSx, sx] as SxProps<Theme>}>
     <Markdown components={markdownComponents} skipHtml>
-      {text}
+      {prepareChatMarkdownText(text)}
     </Markdown>
   </Box>
 );

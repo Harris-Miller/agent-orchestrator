@@ -71,7 +71,8 @@ const resourceTextBlock = (uri: string, text: string): ContentBlock => ({ resour
 
 const resourceBlobBlock = (uri: string, blob: string): ContentBlock => ({ resource: { blob, uri }, type: 'resource' });
 
-const isFileSystemHref = (href: string): boolean => {
+/** True for filesystem hrefs (absolute, relative, or `file://`); false for other URI schemes. */
+export const isFileSystemHref = (href: string): boolean => {
   if (href.startsWith('file://')) {
     return true;
   }

@@ -6,9 +6,6 @@ export type ComposerSegment =
   | { readonly kind: 'command'; readonly value: string }
   | { readonly kind: 'text'; readonly value: string };
 
-/** @deprecated Prefer ComposerSegment */
-export type ComposerCommandSegment = ComposerSegment;
-
 /** Canonical insertion / chip text for an Available Command name. */
 export const commandInvocation = (name: string): string => (name.startsWith('$') ? name : `/${name}`);
 

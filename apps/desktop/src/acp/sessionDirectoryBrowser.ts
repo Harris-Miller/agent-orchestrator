@@ -1,14 +1,9 @@
 /** Portable directory-browser helpers for create-session cwd picking. */
 import { OS } from '@lib/context-services';
-import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { Effect } from 'effect';
 import { Path } from 'effect/Path';
 
 export const PARENT_DIR_ENTRY = '..' as const;
-
-export type ListChildDirectoriesOptions = {
-  readonly showHidden: boolean;
-};
 
 export const normalizeDirPath = (dirPath: string): string => {
   if (dirPath.length > 1 && (dirPath.endsWith('/') || dirPath.endsWith('\\'))) {
@@ -21,17 +16,6 @@ export const normalizeDirPath = (dirPath: string): string => {
 export const resolveHomeDir = Effect.fn('resolveHomeDir')(function* () {
   const os = yield* OS;
   return normalizeDirPath(os.homedir());
-});
-
-/**
- * Child directory names under `dirPath` via resolved `fd`/`fdfind`.
- * Hidden filtering is encoded in the command args (`-H`), not applied client-side.
- */
-export const listChildDirectories = Effect.fn('listChildDirectories')(function* (
-  dirPath: string,
-  options: ListChildDirectoriesOptions,
-) {
-  return yield* listShallowDirectories(dirPath, options);
 });
 
 /** Parent of `dirPath` via Effect `Path.dirname`. */

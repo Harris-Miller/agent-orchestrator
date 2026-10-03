@@ -6,27 +6,11 @@ import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { findMarkdownLinks } from '../../host/draftToContentBlocks.ts';
+import { findMarkdownLinks, isFileSystemHref } from '../../host/draftToContentBlocks.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 
 import { isWhitespace } from './composerCommandTokens.ts';
 import { fsMentionMarkdownLink } from './mentionMarkdown.ts';
-
-const WINDOWS_ABS_RE = /^[A-Za-z]:[\\/]/;
-const URI_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
-
-const isFsCandidateHref = (href: string): boolean => {
-  if (href.startsWith('file://')) {
-    return true;
-  }
-  if (href.startsWith('/') || WINDOWS_ABS_RE.test(href)) {
-    return true;
-  }
-  if (URI_SCHEME_RE.test(href)) {
-    return false;
-  }
-  return href.length > 0;
-};
 
 type Replacement = {
   readonly end: number;
@@ -96,7 +80,7 @@ export const resolveComposerFsMentions = Effect.fn('resolveComposerFsMentions')(
   const candidates = [
     ...collectAtPathCandidates(draft),
     ...findMarkdownLinks(draft)
-      .filter(link => isFsCandidateHref(link.href))
+      .filter(link => isFileSystemHref(link.href))
       .map(link => ({ end: link.end, href: link.href, start: link.start })),
   ];
 

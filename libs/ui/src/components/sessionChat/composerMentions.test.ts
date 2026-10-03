@@ -9,7 +9,7 @@ import {
 } from '../../host/fdListing.ts';
 
 import { filterFsListingEntries, MENTION_MENU_LIMIT } from './filterFsListingEntries.ts';
-import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
+import { absolutePathToFileUrlHref, fsMentionMarkdownLink, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
 describe('fdListing helpers', () => {
   it('builds shallow argv with optional -H', () => {
@@ -59,12 +59,35 @@ describe('filterFsListingEntries', () => {
   });
 });
 
+describe('fsMentionMarkdownLink', () => {
+  it('prepends @ to label and file:// to absolute paths', () => {
+    assert.strictEqual(
+      fsMentionMarkdownLink(
+        'package.json',
+        '/Users/harris/Projects/agent-github-watcher/agent-orchestrator/acp-adapter-resources/package.json',
+      ),
+      '[@package.json](file:///Users/harris/Projects/agent-github-watcher/agent-orchestrator/acp-adapter-resources/package.json)',
+    );
+  });
+
+  it('keeps existing @ on label and file:// on href', () => {
+    assert.strictEqual(
+      fsMentionMarkdownLink('@README.md', 'file:///repo/README.md'),
+      '[@README.md](file:///repo/README.md)',
+    );
+  });
+
+  it('maps Windows paths to file:///C:/…', () => {
+    assert.strictEqual(absolutePathToFileUrlHref('C:\\repo\\a.txt'), 'file:///C:/repo/a.txt');
+  });
+});
+
 describe('mentionMarkdownForEntry', () => {
-  it('builds absolute markdown with trailing slash for dirs', () => {
-    assert.strictEqual(mentionMarkdownForEntry('/repo', { kind: 'dir', path: 'src/' }), '[src](/repo/src/)');
+  it('builds [@basename](file://…) markdown with trailing slash for dirs', () => {
+    assert.strictEqual(mentionMarkdownForEntry('/repo', { kind: 'dir', path: 'src/' }), '[@src](file:///repo/src/)');
     assert.strictEqual(
       mentionMarkdownForEntry('/repo', { kind: 'file', path: 'README.md' }),
-      '[README.md](/repo/README.md)',
+      '[@README.md](file:///repo/README.md)',
     );
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Resolve whitespace-committed `@path` tokens and FS markdown links against session cwd.
- * Successful FS paths become `[basename](absolutePath)` (dirs with trailing `/`).
+ * Successful FS paths become `[@basename](file:///absolutePath)` (dirs with trailing `/`).
  */
 import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
@@ -10,7 +10,7 @@ import { findMarkdownLinks } from '../../host/draftToContentBlocks.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 
 import { isWhitespace } from './composerCommandTokens.ts';
-import { markdownLinkText } from './ComposerMarkdownLinkNode.tsx';
+import { fsMentionMarkdownLink } from './mentionMarkdown.ts';
 
 const WINDOWS_ABS_RE = /^[A-Za-z]:[\\/]/;
 const URI_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
@@ -61,7 +61,7 @@ const resolvePathExists = Effect.fn('resolvePathExists')(function* (cwd: string,
   }
   const name = listingBasename(absolute);
   const hrefOut = isDir ? (absolute.endsWith('/') || absolute.endsWith('\\') ? absolute : `${absolute}/`) : absolute;
-  return markdownLinkText(name, hrefOut);
+  return fsMentionMarkdownLink(name, hrefOut);
 });
 
 const collectAtPathCandidates = (
@@ -87,7 +87,7 @@ const collectAtPathCandidates = (
   return candidates;
 };
 
-/** Rewrite draft so FS-valid `@path` / markdown links become basename-labeled chips. */
+/** Rewrite draft so FS-valid `@path` / markdown links become `[@basename](file://…)` chips. */
 export const resolveComposerFsMentions = Effect.fn('resolveComposerFsMentions')(function* (draft: string, cwd: string) {
   if (draft.length === 0 || cwd.length === 0) {
     return draft;

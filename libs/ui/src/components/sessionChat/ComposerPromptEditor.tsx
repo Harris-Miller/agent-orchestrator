@@ -40,7 +40,9 @@ import {
   ComposerMarkdownLinkNode,
 } from './ComposerMarkdownLinkNode.tsx';
 
-const $isComposerChipNode = (node: LexicalNode | null | undefined): boolean =>
+const $isComposerChipNode = (
+  node: LexicalNode | null | undefined,
+): node is ComposerCommandNode | ComposerMarkdownLinkNode =>
   $isComposerCommandNode(node) || $isComposerMarkdownLinkNode(node);
 
 const isOnlyWhitespace = (text: string): boolean => {

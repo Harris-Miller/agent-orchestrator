@@ -54,7 +54,7 @@ const splitMarkdownLinksInText = (text: string): readonly ComposerSegment[] => {
 
 /**
  * Split draft text into plain text, command-chip, and markdown-link-chip segments.
- * Whitespace-committed tokens that exact-match a current Available Command become command chips.
+ * Tokens that exact-match a current Available Command become command chips (including at EOF).
  * Complete markdown links become markdown link chips.
  */
 export const splitComposerCommandSegments = (
@@ -81,8 +81,9 @@ export const splitComposerCommandSegments = (
         index += 1;
       }
       const token = text.slice(tokenStart, index);
-      const whitespaceCommitted = index < text.length;
-      if (whitespaceCommitted && findExactCommandMatch(token, availableCommands) !== undefined) {
+      // Exact matches stay chips at EOF too — otherwise deleting the trailing space after a
+      // menu insert unwraps `/cmd` into a live `/` trigger and Backspace eats it char-by-char.
+      if (findExactCommandMatch(token, availableCommands) !== undefined) {
         segments.push({ kind: 'command', value: token });
       } else {
         segments.push(...splitMarkdownLinksInText(token));

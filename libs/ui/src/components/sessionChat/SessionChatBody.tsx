@@ -55,7 +55,7 @@ import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
-import { filterAvailableCommands } from './filterAvailableCommands.ts';
+import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
@@ -164,11 +164,16 @@ export const SessionChatBody: FC<{
   }, [composerTrigger]);
   const mentionTrigger = composerTrigger?.kind === 'at' ? composerTrigger : null;
 
-  const filteredCommands = useMemo(() => {
+  const filteredCommandMatches = useMemo(() => {
     if (commandTrigger === null) {
       return [];
     }
-    return filterAvailableCommands(availableCommands, commandTrigger.kind, commandTrigger.query, selectedLaunchTarget);
+    return filterAvailableCommandMatches(
+      availableCommands,
+      commandTrigger.kind,
+      commandTrigger.query,
+      selectedLaunchTarget,
+    );
   }, [availableCommands, commandTrigger, selectedLaunchTarget]);
 
   const filteredMentions = useMemo(() => {
@@ -181,7 +186,7 @@ export const SessionChatBody: FC<{
   const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
 
   const clampedCommandFocus =
-    filteredCommands.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommands.length - 1);
+    filteredCommandMatches.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommandMatches.length - 1);
   const clampedMentionFocus =
     filteredMentions.length === 0 ? 0 : Math.min(commandFocusIndex, filteredMentions.length - 1);
 
@@ -251,7 +256,7 @@ export const SessionChatBody: FC<{
     [selectedLaunchTarget, setDraft],
   );
 
-  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommands.length;
+  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommandMatches.length;
 
   const commandMenu = useMemo(
     () => ({
@@ -273,10 +278,11 @@ export const SessionChatBody: FC<{
           selectMention(match.entry);
           return;
         }
-        if (filteredCommands.length === 0) {
+        const commandMatch = filteredCommandMatches.at(clampedCommandFocus);
+        if (commandMatch == null) {
           return;
         }
-        selectCommand(filteredCommands[clampedCommandFocus]);
+        selectCommand(commandMatch.command);
       },
       onSpaceDismiss: () => {
         setComposerTrigger(null);
@@ -288,7 +294,7 @@ export const SessionChatBody: FC<{
       clampedCommandFocus,
       clampedMentionFocus,
       composerTrigger,
-      filteredCommands,
+      filteredCommandMatches,
       filteredMentions,
       mentionTrigger,
       selectCommand,
@@ -502,8 +508,8 @@ export const SessionChatBody: FC<{
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <ComposerCommandMenu
-              commands={filteredCommands}
               focusedIndex={clampedCommandFocus}
+              matches={filteredCommandMatches}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectCommand}
               open={commandTrigger !== null}

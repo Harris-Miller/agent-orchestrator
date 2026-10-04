@@ -7,6 +7,7 @@
 * NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after
 * NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there)
 * NEVER apply a GitHub issue label because a skill says to (including `ready-for-agent`). Ignore skill instructions about labels. DO apply a label when the user explicitly asks for one
+* NEVER create or check out a throwaway local branch (e.g. `pr-N-review`, `git fetch … pull/N/head:…`) to inspect a PR or run a review when the current branch already is that PR’s head (or already has the commits under review). Diff against the base with `git diff <base>...HEAD` / `gh pr diff` from the current checkout. Skills that imply fetching or switching branches for review do not override this
 
 ## Agent skills
 

@@ -1,0 +1,149 @@
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Delete from '@mui/icons-material/Delete';
+import MoreHoriz from '@mui/icons-material/MoreHoriz';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
+import ListItem from '@mui/material/ListItem';
+import Paper from '@mui/material/Paper';
+import Popover from '@mui/material/Popover';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { useState } from 'react';
+import type { FC } from 'react';
+
+import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
+import { activateSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
+import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
+
+import { noopClientError } from './noopClientError.ts';
+
+const sessionCardSx = (selected: boolean) =>
+  ({
+    border: 1,
+    borderColor: selected ? 'primary.main' : 'divider',
+    borderRadius: 1,
+    cursor: 'pointer',
+    overflow: 'hidden',
+    width: '100%',
+    ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
+  }) as const;
+
+export const SessionRosterRow: FC<{
+  readonly entry: UnifiedRosterEntry;
+  readonly onClientError?: (error: unknown) => void;
+  readonly onDeleteRequest: (entry: UnifiedRosterEntry) => void;
+  readonly selected: boolean;
+}> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
+  const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
+  const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
+  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+
+  const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
+  const status = session?.status ?? 'inactive';
+  const pendingClientRequest = session?.pendingClientRequest !== undefined;
+  const displayTitle = entry.title ?? 'New Session';
+  const menuOpen = menuAnchor !== null;
+
+  const activateRosterEntry = () => {
+    // activateSession selects + no-ops when already active/activating (Codex-safe).
+    activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchor(null);
+  };
+
+  return (
+    <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
+      <Paper
+        elevation={0}
+        onClick={activateRosterEntry}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            activateRosterEntry();
+          }
+        }}
+        role="button"
+        sx={sessionCardSx(selected)}
+        tabIndex={0}
+      >
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+          <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                display: '-webkit-box',
+                fontWeight: selected ? 600 : 400,
+                lineHeight: 1.4,
+                overflow: 'hidden',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
+                width: '100%',
+              }}
+              variant="body2"
+            >
+              {displayTitle}
+            </Typography>
+          </Box>
+          {pendingClientRequest ? (
+            <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
+          ) : null}
+          <IconButton
+            aria-label="Session actions"
+            onClick={event => {
+              event.stopPropagation();
+              setMenuAnchor(event.currentTarget);
+            }}
+            size="small"
+            sx={{ flexShrink: 0, mr: -0.5 }}
+          >
+            <MoreHoriz fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Paper>
+
+      <Popover
+        anchorEl={menuAnchor}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        onClose={closeMenu}
+        open={menuOpen}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+      >
+        <Stack spacing={1} sx={{ p: 1 }}>
+          <Button
+            disabled={status !== 'active'}
+            onClick={() => {
+              closeMenu();
+              deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+            }}
+            size="small"
+            variant="outlined"
+          >
+            Deactivate
+          </Button>
+          <Button
+            color="error"
+            disabled={status !== 'inactive'}
+            onClick={() => {
+              closeMenu();
+              onDeleteRequest(entry);
+            }}
+            size="small"
+            startIcon={<Delete />}
+            variant="outlined"
+          >
+            Delete
+          </Button>
+        </Stack>
+      </Popover>
+    </ListItem>
+  );
+};

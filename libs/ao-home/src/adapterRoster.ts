@@ -7,15 +7,10 @@ import type { AdapterRosterDocument } from './AdapterRosterDocument.ts';
 import { ensureHome, resolveHome } from './home.ts';
 
 /** kebab-case launch targets only (`gemini-acp`, `codex-acp`, …). Anything else is a programmer error. */
-const LAUNCH_TARGET_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-const assertLaunchTarget = (launchTarget: string): Effect.Effect<void> =>
-  LAUNCH_TARGET_RE.test(launchTarget)
-    ? Effect.void
-    : Effect.die(new Error(`Invalid launchTarget: ${JSON.stringify(launchTarget)}`));
+const LaunchTarget = Schema.String.check(Schema.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/));
 
 export const adapterDirPath = Effect.fn('adapterDirPath')(function* (launchTarget: string) {
-  yield* assertLaunchTarget(launchTarget);
+  yield* Schema.decodeEffect(LaunchTarget)(launchTarget).pipe(Effect.orDie);
   const path = yield* Path;
   const home = yield* resolveHome();
   return path.join(home, 'adapters', launchTarget);

@@ -2,6 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Ref } from 'effect';
 
 import { makeForwardClientHandlerMap } from './forwardClientHandlers.ts';
+import type { ForwardClientParent } from './forwardClientHandlers.ts';
 
 describe('makeForwardClientHandlerMap', () => {
   it.effect('forwards session/update to the parent client', () =>
@@ -19,9 +20,9 @@ describe('makeForwardClientHandlerMap', () => {
         'terminal/output': () => Effect.succeed({ output: '', truncated: false }),
         'terminal/release': () => Effect.succeed({}),
         'terminal/wait_for_exit': () => Effect.succeed({ exitCode: 0, signal: null }),
-      };
+      } as ForwardClientParent;
 
-      const handlers = makeForwardClientHandlerMap(parent as never);
+      const handlers = makeForwardClientHandlerMap(parent);
       const payload = {
         sessionId: 'sess-1',
         update: { content: { text: 'hi', type: 'text' }, sessionUpdate: 'agent_message_chunk' },

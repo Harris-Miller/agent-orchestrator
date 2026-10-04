@@ -5,69 +5,70 @@ import { ADAPTER_AGENT_INFO } from './adapterAgentInfo.ts';
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './agentHandlers.ts';
 
-const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild => ({
-  agent: {
-    authenticate: () =>
+const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild =>
+  ({
+    agent: {
+      authenticate: () =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, 'authenticate']);
+          return {};
+        }),
+      initialize: () =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, 'initialize']);
+          return {
+            agentCapabilities: {
+              loadSession: true,
+              promptCapabilities: { image: true },
+            },
+            agentInfo: { name: 'gemini', title: 'Gemini CLI', version: '9.9.9' },
+            authMethods: [{ id: 'google', name: 'Google' }],
+            protocolVersion: 1,
+          };
+        }),
+      logout: () =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, 'logout']);
+          return {};
+        }),
+      'session/load': (request: { readonly sessionId: string }) =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, `session/load:${request.sessionId}`]);
+          return {};
+        }),
+      'session/new': (request: { readonly cwd: string }) =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, `session/new:${request.cwd}`]);
+          return { sessionId: 'sess-1' };
+        }),
+      'session/prompt': (request: { readonly sessionId: string }) =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, `session/prompt:${request.sessionId}`]);
+          return { stopReason: 'end_turn' };
+        }),
+      'session/set_config_option': (request: { readonly configId: string }) =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, `session/set_config_option:${request.configId}`]);
+          return { configOptions: [] };
+        }),
+      'session/set_mode': (request: { readonly modeId: string }) =>
+        Effect.gen(function* () {
+          yield* Ref.update(calls, c => [...c, `session/set_mode:${request.modeId}`]);
+          return {};
+        }),
+    },
+    notify: (tag: string, payload: unknown) =>
       Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, 'authenticate']);
-        return {};
+        const sessionId =
+          typeof payload === 'object' &&
+          payload !== null &&
+          'sessionId' in payload &&
+          typeof payload.sessionId === 'string'
+            ? payload.sessionId
+            : '?';
+        yield* Ref.update(calls, c => [...c, `notify:${tag}:${sessionId}`]);
       }),
-    initialize: () =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, 'initialize']);
-        return {
-          agentCapabilities: {
-            loadSession: true,
-            promptCapabilities: { image: true },
-          },
-          agentInfo: { name: 'gemini', title: 'Gemini CLI', version: '9.9.9' },
-          authMethods: [{ id: 'google', name: 'Google' }],
-          protocolVersion: 1,
-        };
-      }),
-    logout: () =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, 'logout']);
-        return {};
-      }),
-    'session/load': request =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, `session/load:${request.sessionId}`]);
-        return {};
-      }),
-    'session/new': request =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, `session/new:${request.cwd}`]);
-        return { sessionId: 'sess-1' };
-      }),
-    'session/prompt': request =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, `session/prompt:${request.sessionId}`]);
-        return { stopReason: 'end_turn' };
-      }),
-    'session/set_config_option': request =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, `session/set_config_option:${request.configId}`]);
-        return { configOptions: [] };
-      }),
-    'session/set_mode': request =>
-      Effect.gen(function* () {
-        yield* Ref.update(calls, c => [...c, `session/set_mode:${request.modeId}`]);
-        return {};
-      }),
-  },
-  notify: (tag, payload) =>
-    Effect.gen(function* () {
-      const sessionId =
-        typeof payload === 'object' &&
-        payload !== null &&
-        'sessionId' in payload &&
-        typeof payload.sessionId === 'string'
-          ? (payload as { sessionId: string }).sessionId
-          : '?';
-      yield* Ref.update(calls, c => [...c, `notify:${tag}:${sessionId}`]);
-    }),
-});
+  }) as GeminiChild;
 
 describe('makeGeminiAcpAgentHandlerMap', () => {
   it.effect('rewrites initialize caps and agentInfo', () =>

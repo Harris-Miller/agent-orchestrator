@@ -17,7 +17,7 @@ Per agent launch target durable session list under `adapters/<launchTarget>/rost
 _Avoid_: session roster (Harness term), user settings, session snapshot
 
 **Adapter roster lock**:
-Cross-process lock guarding read-modify-write of an adapter roster document so multiple adapter processes (e.g. desktop and a future host) do not corrupt shared durable state.
+Cross-process lockfile at `adapters/<launchTarget>/roster.lock` (next to `roster.json`) guarding read-modify-write of an adapter roster document so multiple adapter processes do not corrupt shared durable state. Acquire needs a `FileSystem` that supports `open` with `"wx"` (Node adapter process; not the host webview FS). If a crash leaves the lock wedged, delete `roster.lock` manually.
 _Avoid_: file lock (generic), mutex
 
 **Session usage document**:

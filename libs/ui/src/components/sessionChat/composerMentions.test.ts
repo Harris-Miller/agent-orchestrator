@@ -8,7 +8,13 @@ import {
   shallowDirListingArgs,
 } from '../../host/fdListing.ts';
 
-import { filterFsListingEntries, filterFsListingEntriesAll, MENTION_MENU_LIMIT } from './filterFsListingEntries.ts';
+import {
+  basenameMatchPositions,
+  filterFsListingEntries,
+  filterFsListingEntriesAll,
+  filterFsListingMatchesAll,
+  MENTION_MENU_LIMIT,
+} from './filterFsListingEntries.ts';
 import { absolutePathToFileUrlHref, fsMentionMarkdownLink, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
 describe('fdListing helpers', () => {
@@ -64,6 +70,30 @@ describe('filterFsListingEntries', () => {
       path: `f${String(index)}.ts`,
     }));
     assert.strictEqual(filterFsListingEntriesAll(many, '').length, 60);
+  });
+
+  it('filterFsListingMatchesAll keeps fzf positions', () => {
+    const matches = filterFsListingMatchesAll(entries, 'main');
+    assert.strictEqual(matches.length, 1);
+    assert.strictEqual(matches[0]?.entry.path, 'src/main.ts');
+    assert.isTrue(matches[0]?.positions.has(4));
+    assert.isTrue(matches[0]?.positions.has(5));
+    assert.isTrue(matches[0]?.positions.has(6));
+    assert.isTrue(matches[0]?.positions.has(7));
+  });
+
+  it('exact basename matches highlight the basename span', () => {
+    const entry = { kind: 'file' as const, path: 'src/main.ts' };
+    assert.deepStrictEqual(
+      [...basenameMatchPositions(entry)].sort((a, b) => a - b),
+      [4, 5, 6, 7, 8, 9, 10],
+    );
+    const matches = filterFsListingMatchesAll(entries, 'main.ts');
+    assert.strictEqual(matches[0]?.entry.path, 'src/main.ts');
+    assert.deepStrictEqual(
+      [...(matches[0]?.positions ?? [])].sort((a, b) => a - b),
+      [4, 5, 6, 7, 8, 9, 10],
+    );
   });
 });
 

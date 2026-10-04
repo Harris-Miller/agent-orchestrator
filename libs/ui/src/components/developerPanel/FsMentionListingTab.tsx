@@ -15,7 +15,8 @@ import {
 } from '../../atoms/backendState.atoms.ts';
 import { sessionFsListingAtom, sessionFsListingKey } from '../../atoms/sessionFsListing.atoms.ts';
 import { listingBasename } from '../../host/fdListing.ts';
-import { filterFsListingEntriesAll } from '../sessionChat/filterFsListingEntries.ts';
+import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
+import { filterFsListingMatchesAll } from '../sessionChat/filterFsListingEntries.ts';
 
 const ROW_HEIGHT_PX = 36;
 
@@ -43,7 +44,7 @@ export const FsMentionListingTab: FC = () => {
     if (selectedSessionId === undefined || listingKey === null) {
       return [];
     }
-    return filterFsListingEntriesAll(fsListing.entries, query);
+    return filterFsListingMatchesAll(fsListing.entries, query);
   }, [fsListing.entries, listingKey, query, selectedSessionId]);
 
   const entryCount = selectedSessionId === undefined || listingKey === null ? 0 : fsListing.entries.length;
@@ -86,13 +87,14 @@ export const FsMentionListingTab: FC = () => {
         ) : (
           <Box sx={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map(virtualRow => {
-              const entry = filtered.at(virtualRow.index);
-              if (entry == null) {
+              const match = filtered.at(virtualRow.index);
+              if (match == null) {
                 return null;
               }
-              const name = listingBasename(entry.path);
-              const boldTail = entry.kind === 'dir' ? `${name}/` : name;
-              const pathPrefix = entry.path.slice(0, Math.max(0, entry.path.length - boldTail.length));
+              const path = match.entry.path.normalize();
+              const name = listingBasename(path);
+              const boldTail = match.entry.kind === 'dir' ? `${name}/` : name;
+              const boldFrom = Math.max(0, path.length - boldTail.length);
               return (
                 <Box
                   key={virtualRow.key}
@@ -113,10 +115,7 @@ export const FsMentionListingTab: FC = () => {
                     sx={{ fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: `${ROW_HEIGHT_PX}px` }}
                     variant="body2"
                   >
-                    {pathPrefix}
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      {boldTail}
-                    </Box>
+                    <HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />
                   </Typography>
                 </Box>
               );

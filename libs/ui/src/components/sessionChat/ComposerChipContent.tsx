@@ -9,7 +9,7 @@ import { themeAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { commandChipSx, markdownLinkChipSx } from './composerChipSx.ts';
 import { resolveFileChipIcon } from './fileChipIcons/resolveFileChipIcon.ts';
 
-const iconSx = { flexShrink: 0, fontSize: 14, height: 14, width: 14 } as const;
+const iconSx = { flexShrink: 0, fontSize: '0.875em', height: '0.875em', width: '0.875em' } as const;
 
 export type ComposerChipContentProps = {
   readonly className?: string;

@@ -636,6 +636,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         sx={{
           '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
             display: 'inline',
+            verticalAlign: 'middle',
           },
           '& .composer-prompt-editor': {
             fontSize: '0.875rem',

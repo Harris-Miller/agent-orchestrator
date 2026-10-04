@@ -407,6 +407,7 @@ describe('defectsFromActivationFailure', () => {
           exit: { _tag: 'Failure', cause: [{ _tag: 'Die', defect: wireDefect }] },
           requestId: 6,
         },
+        receivedAt: 0,
       },
     ];
     const cause = Cause.die(new Error('Internal error'));

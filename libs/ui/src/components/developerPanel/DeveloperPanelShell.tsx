@@ -1,31 +1,47 @@
-import { useAtom, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
-import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
+import { allRpcWireCallsAtom, selectedSessionIdAtom } from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
-import { isRecord } from '../../isRecord.ts';
 
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
+import {
+  cascadedWireIds,
+  classifyRpcWireLog,
+  coerceWireIdFilter,
+  filterClassifiedRpcWireEntries,
+  mergeClassifiedRpcWireLogs,
+  resolveSessionFilter,
+  RPC_WIRE_FILTER_ALL,
+  sessionKeysForLaunchTarget,
+} from './rpcWireLogFilter.ts';
+import type { RpcWireFilters, RpcWireLaunchTargetFilter } from './rpcWireLogFilter.ts';
 import { SessionStateView } from './SessionStateView.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
+const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
 const SESSION_STATE_TAB = 'session-state' as const;
 const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
 
@@ -37,75 +53,65 @@ export type DeveloperPanelExtraTab = {
 
 type DeveloperPanelTab = string;
 
-const isAgentLaunchTarget = (value: string): value is AgentLaunchTarget =>
-  (ALL_AGENT_LAUNCH_TARGETS as readonly string[]).includes(value);
+const rpcWireEntryClipboardText = (entry: RpcWireEntry, launchTarget: AgentLaunchTarget): string =>
+  JSON.stringify({ direction: entry.direction, launchTarget, message: entry.message }, null, 2);
 
-const entryIdNameMap = new Map<number, string>();
-
-const rpcWireTagLabel = (message: Record<string, unknown>): null | string => {
-  if (typeof message.tag !== 'string') return null;
-  if (message.tag === 'session/update' && isRecord(message.payload) && isRecord(message.payload.update)) {
-    const { sessionUpdate } = message.payload.update;
-    if (typeof sessionUpdate === 'string') {
-      return `${message.tag} ${sessionUpdate}`;
-    }
-  }
-  return message.tag;
-};
-
-const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
-  const arrow = entry.direction === 'out' ? '→' : '←';
-  if (isRecord(entry.message)) {
-    if (entry.direction === 'in') {
-      if (entry.message.requestId != null) {
-        const cachedName = entryIdNameMap.get(entry.message.requestId as number);
-        return `${arrow} ${cachedName ?? 'message'}`;
-      }
-      const tagLabel = rpcWireTagLabel(entry.message);
-      if (tagLabel != null) {
-        return `${arrow} ${tagLabel}`;
-      }
-      return `${arrow} message`;
-    }
-
-    const cachedName = (() => {
-      const tagLabel = rpcWireTagLabel(entry.message);
-      if (tagLabel != null) {
-        return tagLabel;
-      }
-      if (typeof entry.message.method === 'string') {
-        return entry.message.method;
-      }
-      if ('error' in entry.message) {
-        return 'error';
-      }
-      if ('result' in entry.message) {
-        return 'response';
-      }
-      return 'message';
-    })();
-
-    if (entry.message.id != null) {
-      entryIdNameMap.set(entry.message.id as number, cachedName);
-    }
-
-    return `${arrow} ${cachedName}`;
-  }
-
-  return `${arrow} message`;
-};
-
-const rpcWireEntryClipboardText = (entry: RpcWireEntry): string =>
-  JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2);
+const wireIdMenuLabel = (wireId: string): string => (wireId === '' ? 'id: ""' : wireId);
 
 const RpcWireLogBody: FC<{
-  readonly launchTarget: AgentLaunchTarget;
   readonly onCopyError: (error: unknown) => void;
-}> = ({ launchTarget, onCopyError }) => {
-  const snapshot = useAtomValue(backendHarnessStateAtom(launchTarget));
-  const entries = snapshot.rpcCalls;
+}> = ({ onCopyError }) => {
+  const activeSessionId = useAtomValue(selectedSessionIdAtom);
+  const wireLogs = useAtomValue(allRpcWireCallsAtom);
 
-  if (entries.length === 0) {
+  const [activeSessionOnly, setActiveSessionOnly] = useState(false);
+  const [launchTargetFilter, setLaunchTargetFilter] = useState<RpcWireLaunchTargetFilter>(RPC_WIRE_FILTER_ALL);
+  const [sessionFilter, setSessionFilter] = useState(RPC_WIRE_FILTER_ALL);
+  const [tagFilter, setTagFilter] = useState(RPC_WIRE_FILTER_ALL);
+  const [wireIdFilter, setWireIdFilter] = useState(RPC_WIRE_FILTER_ALL);
+
+  const classification = useMemo(
+    () =>
+      mergeClassifiedRpcWireLogs(
+        wireLogs.map(({ entries, launchTarget }) => classifyRpcWireLog(entries, launchTarget)),
+      ),
+    [wireLogs],
+  );
+
+  const launchTargetForFilters = activeSessionOnly ? RPC_WIRE_FILTER_ALL : launchTargetFilter;
+  const sessionOptions = useMemo(
+    () => sessionKeysForLaunchTarget(classification.classified, launchTargetForFilters),
+    [classification.classified, launchTargetForFilters],
+  );
+  const resolvedSessionFilter = resolveSessionFilter(activeSessionOnly, sessionFilter, activeSessionId);
+
+  const idOptions = useMemo(() => {
+    if (resolvedSessionFilter === null) {
+      return [];
+    }
+    return cascadedWireIds(classification.classified, {
+      launchTarget: launchTargetForFilters,
+      sessionKey: resolvedSessionFilter,
+      tag: tagFilter,
+    });
+  }, [classification.classified, launchTargetForFilters, resolvedSessionFilter, tagFilter]);
+
+  const effectiveWireIdFilter = coerceWireIdFilter(wireIdFilter, idOptions);
+  const filtered = useMemo(() => {
+    if (resolvedSessionFilter === null) {
+      return [];
+    }
+    return filterClassifiedRpcWireEntries(classification.classified, {
+      launchTarget: launchTargetForFilters,
+      sessionKey: resolvedSessionFilter,
+      tag: tagFilter,
+      wireId: effectiveWireIdFilter,
+    });
+  }, [classification.classified, effectiveWireIdFilter, launchTargetForFilters, resolvedSessionFilter, tagFilter]);
+
+  const entryCount = classification.classified.length;
+
+  if (entryCount === 0) {
     return (
       <Typography color="text.secondary" variant="body2">
         No RPC traffic yet.
@@ -113,53 +119,194 @@ const RpcWireLogBody: FC<{
     );
   }
 
+  const coerceWireIdForCascade = (
+    filters: Pick<RpcWireFilters, 'launchTarget' | 'sessionKey' | 'tag'>,
+    wireId: string,
+  ): string => coerceWireIdFilter(wireId, cascadedWireIds(classification.classified, filters));
+
   return (
-    <Stack spacing={1}>
-      {entries.map(entry => (
-        <Accordion
-          disableGutters
-          elevation={0}
-          key={entry.id}
-          sx={{
-            '&::before': { display: 'none' },
-            bgcolor: 'action.hover',
-            borderRadius: 1,
-          }}
-        >
-          <AccordionSummary
-            sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+    <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }} useFlexGap>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Switch
+            checked={activeSessionOnly}
+            onChange={(_event, checked) => {
+              setActiveSessionOnly(checked);
+              setWireIdFilter(RPC_WIRE_FILTER_ALL);
+            }}
+            slotProps={{ input: { 'aria-label': 'Active session' } }}
+          />
+          <Typography variant="body2">Active session</Typography>
+        </Stack>
+        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id="rpc-wire-launch-target">Launch target</InputLabel>
+          <Select
+            label="Launch target"
+            labelId="rpc-wire-launch-target"
+            onChange={event => {
+              const nextLaunchTarget = event.target.value;
+              setLaunchTargetFilter(nextLaunchTarget);
+              setSessionFilter(RPC_WIRE_FILTER_ALL);
+              setWireIdFilter(current =>
+                coerceWireIdForCascade(
+                  {
+                    launchTarget: nextLaunchTarget,
+                    sessionKey: RPC_WIRE_FILTER_ALL,
+                    tag: tagFilter,
+                  },
+                  current,
+                ),
+              );
+            }}
+            value={launchTargetFilter}
           >
-            <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-              {rpcWireEntryTitle(entry)}
-            </Typography>
-            <Button
-              component="span"
-              onClick={event => {
-                event.stopPropagation();
-                hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry))).catch(onCopyError);
-              }}
-              size="small"
-              variant="text"
-            >
-              copy
-            </Button>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            <Box
-              component="pre"
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
+              <MenuItem key={launchTarget} value={launchTarget}>
+                {agentLaunchTargetLabel(launchTarget)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id="rpc-wire-session">Session</InputLabel>
+          <Select
+            label="Session"
+            labelId="rpc-wire-session"
+            onChange={event => {
+              const nextSession = event.target.value;
+              setSessionFilter(nextSession);
+              setWireIdFilter(current =>
+                coerceWireIdForCascade(
+                  {
+                    launchTarget: launchTargetFilter,
+                    sessionKey: nextSession,
+                    tag: tagFilter,
+                  },
+                  current,
+                ),
+              );
+            }}
+            value={sessionFilter}
+          >
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {sessionOptions.map(sessionKey => (
+              <MenuItem key={sessionKey} value={sessionKey}>
+                {sessionKey}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel id="rpc-wire-tag">Tag</InputLabel>
+          <Select
+            label="Tag"
+            labelId="rpc-wire-tag"
+            onChange={event => {
+              const nextTag = event.target.value;
+              setTagFilter(nextTag);
+              setWireIdFilter(current => {
+                if (resolvedSessionFilter === null) {
+                  return RPC_WIRE_FILTER_ALL;
+                }
+                return coerceWireIdForCascade(
+                  {
+                    launchTarget: launchTargetForFilters,
+                    sessionKey: resolvedSessionFilter,
+                    tag: nextTag,
+                  },
+                  current,
+                );
+              });
+            }}
+            value={tagFilter}
+          >
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {classification.tags.map(tag => (
+              <MenuItem key={tag} value={tag}>
+                {tag}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel id="rpc-wire-id">Id</InputLabel>
+          <Select
+            displayEmpty
+            label="Id"
+            labelId="rpc-wire-id"
+            onChange={event => {
+              setWireIdFilter(event.target.value);
+            }}
+            value={effectiveWireIdFilter}
+          >
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {idOptions.map(wireId => (
+              <MenuItem key={wireId === '' ? 'empty-id' : wireId} value={wireId}>
+                {wireIdMenuLabel(wireId)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Typography color="text.secondary" variant="caption">
+          {filtered.length} / {entryCount} shown
+        </Typography>
+      </Stack>
+      <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {filtered.length === 0 ? (
+          <Typography color="text.secondary" variant="body2">
+            No RPC traffic match filters.
+          </Typography>
+        ) : (
+          filtered.map(({ entry, launchTarget, meta }) => (
+            <Accordion
+              disableGutters
+              elevation={0}
+              key={entry.id}
               sx={{
-                fontFamily: 'monospace',
-                fontSize: '0.75rem',
-                m: 0,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
+                '&::before': { display: 'none' },
+                bgcolor: 'action.hover',
+                borderRadius: 1,
               }}
             >
-              {rpcWireEntryClipboardText(entry)}
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+              <AccordionSummary
+                sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+              >
+                <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                  [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
+                </Typography>
+                <Button
+                  component="span"
+                  onClick={event => {
+                    event.stopPropagation();
+                    hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry, launchTarget))).catch(
+                      onCopyError,
+                    );
+                  }}
+                  size="small"
+                  variant="text"
+                >
+                  copy
+                </Button>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                <Box
+                  component="pre"
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    m: 0,
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {rpcWireEntryClipboardText(entry, launchTarget)}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          ))
+        )}
+      </Stack>
     </Stack>
   );
 };
@@ -171,11 +318,12 @@ export const DeveloperPanelShell: FC<{
   readonly onCopyError: (error: unknown) => void;
   readonly session?: SessionSnapshot;
 }> = ({ extraTabs = [], initializeResult, onClose, onCopyError, session }) => {
-  const [rpcLaunchTarget, setRpcLaunchTarget] = useAtom(rpcWireLogLaunchTargetAtom);
-  const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(rpcLaunchTarget);
+  const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(RPC_WIRE_LOG_TAB);
   const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
-  const bodyPadding = isAgentLaunchTarget(activeTab) || activeTab === SESSION_STATE_TAB ? 2 : 0;
+  const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
+  const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
+  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 2 : 0;
 
   return (
     <Box
@@ -194,22 +342,12 @@ export const DeveloperPanelShell: FC<{
       <Tabs
         onChange={(_event: SyntheticEvent, value: DeveloperPanelTab) => {
           setActiveTab(value);
-          if (isAgentLaunchTarget(value)) {
-            setRpcLaunchTarget(value);
-          }
         }}
         sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
         value={activeTab}
         variant="scrollable"
       >
-        {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
-          <Tab
-            key={launchTarget}
-            label={agentLaunchTargetLabel(launchTarget)}
-            sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-            value={launchTarget}
-          />
-        ))}
+        <Tab label="RPC wire" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={RPC_WIRE_LOG_TAB} />
         <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
         <Tab
           label="@ FS listing"
@@ -222,16 +360,16 @@ export const DeveloperPanelShell: FC<{
       </Tabs>
       <Box
         sx={{
-          display: isFsMentionListingTab ? 'flex' : 'block',
+          display: containsOwnScroll ? 'flex' : 'block',
           flex: 1,
           flexDirection: 'column',
           minHeight: 0,
-          overflow: isFsMentionListingTab ? 'hidden' : 'auto',
+          overflow: containsOwnScroll ? 'hidden' : 'auto',
           p: bodyPadding,
         }}
       >
-        {isAgentLaunchTarget(activeTab) ? (
-          <RpcWireLogBody launchTarget={activeTab} onCopyError={onCopyError} />
+        {activeTab === RPC_WIRE_LOG_TAB ? (
+          <RpcWireLogBody onCopyError={onCopyError} />
         ) : activeTab === SESSION_STATE_TAB ? (
           <SessionStateView initializeResult={initializeResult} session={session} />
         ) : isFsMentionListingTab ? (

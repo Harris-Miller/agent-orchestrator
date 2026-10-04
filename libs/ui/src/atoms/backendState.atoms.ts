@@ -17,8 +17,6 @@ export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarge
 
 export const selectedSessionIdAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
-export const rpcWireLogLaunchTargetAtom = Atom.make<AgentLaunchTarget>('codex-acp').pipe(Atom.keepAlive);
-
 export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
 );
@@ -71,8 +69,12 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   return get(backendHarnessStateAtom(launchTarget));
 }).pipe(Atom.keepAlive);
 
-export const rpcWireLogSnapshotAtom = Atom.make(get =>
-  get(backendHarnessStateAtom(get(rpcWireLogLaunchTargetAtom))),
+/** RPC wire logs for every mounted launch target (unified Developer panel wire tab). */
+export const allRpcWireCallsAtom = Atom.make(get =>
+  ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+    entries: get(backendHarnessStateAtom(launchTarget)).rpcCalls,
+    launchTarget,
+  })),
 ).pipe(Atom.keepAlive);
 
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
@@ -105,7 +107,6 @@ export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {
   }
 };
 
-export const selectSession = (get: Atom.FnContext, launchTarget: AgentLaunchTarget, sessionId: string) => {
+export const selectSession = (get: Atom.FnContext, sessionId: string) => {
   get.set(selectedSessionIdAtom, sessionId);
-  get.set(rpcWireLogLaunchTargetAtom, launchTarget);
 };

@@ -53,6 +53,7 @@ export type RpcWireEntry = {
   readonly direction: 'in' | 'out';
   readonly id: string;
   readonly message: unknown;
+  readonly receivedAt: number;
 };
 
 export type BackendHarnessCallbacks = {

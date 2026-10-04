@@ -25,17 +25,24 @@ const userFragmentMarkdownSx = {
 } as const;
 
 /** Transcript chips must be selectable so copy includes them; composer keeps userSelect: none. */
-const TranscriptChip: FC<{
-  copyText: string;
-  href?: string;
-  kind: 'command' | 'markdownLink';
-  label: string;
-  testId: string;
-}> = ({ copyText, href, kind, label, testId }) => (
-  <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
-    <ComposerChipContent href={href} kind={kind} label={label} sx={{ userSelect: 'text' }} />
-  </Box>
-);
+type TranscriptChipProps = {
+  readonly copyText: string;
+  readonly label: string;
+  readonly testId: string;
+} & ({ readonly href?: string; readonly kind: 'markdownLink' } | { readonly kind: 'command' });
+
+const TranscriptChip: FC<TranscriptChipProps> = props => {
+  const { copyText, testId } = props;
+  return (
+    <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
+      {props.kind === 'command' ? (
+        <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
+      ) : (
+        <ComposerChipContent href={props.href} kind="markdownLink" label={props.label} sx={{ userSelect: 'text' }} />
+      )}
+    </Box>
+  );
+};
 
 const onUserMessageCopy: ClipboardEventHandler<HTMLElement> = event => {
   const text = clipboardTextFromSelectionInRoot(event.currentTarget);

@@ -34,6 +34,3 @@ export const markdownLinkChipSx = {
   bgcolor: (theme: Theme) => alpha(theme.palette.primary.main, 0.08),
   color: 'primary.main',
 } as const satisfies SxProps<Theme>;
-
-export const chipSxForKind = (kind: 'command' | 'markdownLink'): SxProps<Theme> =>
-  kind === 'command' ? commandChipSx : markdownLinkChipSx;

@@ -10,14 +10,16 @@ import { resolveFileChipIcon } from './fileChipIcons/resolveFileChipIcon.ts';
 
 const iconSx = { flexShrink: 0, fontSize: '0.875em', height: '0.875em', width: '0.875em' } as const;
 
-export type ComposerChipContentProps = {
+type ComposerChipSharedProps = {
   readonly className?: string;
-  readonly href?: string;
-  readonly kind: 'command' | 'markdownLink';
   readonly label: string;
   readonly sx?: SxProps<Theme>;
   readonly testId?: string;
 };
+
+export type ComposerChipContentProps =
+  | ({ readonly href?: string; readonly kind: 'markdownLink' } & ComposerChipSharedProps)
+  | ({ readonly kind: 'command' } & ComposerChipSharedProps);
 
 const MarkdownLinkChipIcon: FC<{ readonly href?: string; readonly label: string }> = ({ href, label }) => {
   const themeId = useAtomValue(themeAtom);
@@ -29,13 +31,14 @@ const MarkdownLinkChipIcon: FC<{ readonly href?: string; readonly label: string 
   return <Box alt="" component="img" src={icon.url} sx={{ ...iconSx, display: 'block' }} />;
 };
 
-export const ComposerChipContent: FC<ComposerChipContentProps> = ({ className, href, kind, label, sx, testId }) => {
+export const ComposerChipContent: FC<ComposerChipContentProps> = props => {
+  const { className, kind, label, sx, testId } = props;
   const kindSx = kind === 'command' ? commandChipSx : markdownLinkChipSx;
   // MUI SxProps array typing rejects `as const` kind objects + optional override without a cast.
   const mergedSx = (sx === undefined ? kindSx : [kindSx, sx]) as SxProps<Theme>;
   return (
     <Box className={className} component="span" contentEditable={false} data-testid={testId} sx={mergedSx}>
-      {kind === 'markdownLink' ? <MarkdownLinkChipIcon href={href} label={label} /> : null}
+      {kind === 'markdownLink' ? <MarkdownLinkChipIcon href={props.href} label={label} /> : null}
       {label}
     </Box>
   );

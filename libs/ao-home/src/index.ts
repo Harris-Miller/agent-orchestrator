@@ -15,6 +15,7 @@ export {
   emptyAdapterRoster,
 } from './AdapterRosterDocument.ts';
 export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
+export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {
   type SessionUsageDocument,

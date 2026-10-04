@@ -3,7 +3,7 @@ import { Effect, Ref } from 'effect';
 
 import { ADAPTER_AGENT_INFO } from './adapterAgentInfo.ts';
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
-import type { GeminiChild } from './agentHandlers.ts';
+import type { GeminiChild } from './geminiChild.ts';
 
 const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild =>
   ({

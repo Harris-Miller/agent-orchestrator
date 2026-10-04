@@ -2,22 +2,13 @@ import type { InitializeResponse } from '@libs/effect-acp';
 
 import { ADAPTER_AGENT_INFO } from './adapterAgentInfo.ts';
 
-export type AdapterAgentInfo = {
-  readonly name: string;
-  readonly title: string;
-  readonly version: string;
-};
-
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /**
  * Overlay Client-facing session lifecycle caps; replace agentInfo; pass through auth and Gemini prompt/mcp/loadSession.
  */
-export const rewriteInitializeResponse = (
-  geminiResult: InitializeResponse,
-  agentInfo: AdapterAgentInfo = ADAPTER_AGENT_INFO,
-): InitializeResponse => {
+export const rewriteInitializeResponse = (geminiResult: InitializeResponse): InitializeResponse => {
   const caps = isPlainObject(geminiResult.agentCapabilities) ? { ...geminiResult.agentCapabilities } : {};
   const sessionCapabilities = isPlainObject(caps.sessionCapabilities) ? { ...caps.sessionCapabilities } : {};
 
@@ -33,7 +24,7 @@ export const rewriteInitializeResponse = (
         resume: {},
       },
     },
-    agentInfo,
+    agentInfo: ADAPTER_AGENT_INFO,
     authMethods: geminiResult.authMethods,
     protocolVersion: geminiResult.protocolVersion,
   };

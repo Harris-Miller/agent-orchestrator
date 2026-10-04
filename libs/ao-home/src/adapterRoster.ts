@@ -5,15 +5,16 @@ import { Path } from 'effect/Path';
 import { AdapterRosterDocumentJsonString, emptyAdapterRoster } from './AdapterRosterDocument.ts';
 import type { AdapterRosterDocument } from './AdapterRosterDocument.ts';
 import { ensureHome, resolveHome } from './home.ts';
+import { LaunchTargetSchema } from './LaunchTarget.ts';
 
-/** kebab-case launch targets only (`gemini-acp`, `codex-acp`, …). Anything else is a programmer error. */
-const LaunchTarget = Schema.String.check(Schema.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/));
+const decodeLaunchTarget = (launchTarget: string) =>
+  Schema.decodeEffect(LaunchTargetSchema)(launchTarget).pipe(Effect.orDie);
 
 export const adapterDirPath = Effect.fn('adapterDirPath')(function* (launchTarget: string) {
-  yield* Schema.decodeEffect(LaunchTarget)(launchTarget).pipe(Effect.orDie);
+  const target = yield* decodeLaunchTarget(launchTarget);
   const path = yield* Path;
   const home = yield* resolveHome();
-  return path.join(home, 'adapters', launchTarget);
+  return path.join(home, 'adapters', target);
 });
 
 export const adapterRosterPath = Effect.fn('adapterRosterPath')(function* (launchTarget: string) {

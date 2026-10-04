@@ -3,3 +3,5 @@ export const ADAPTER_AGENT_INFO = {
   title: 'Gemini',
   version: '0.1.0',
 } as const;
+
+export type AdapterAgentInfo = typeof ADAPTER_AGENT_INFO;

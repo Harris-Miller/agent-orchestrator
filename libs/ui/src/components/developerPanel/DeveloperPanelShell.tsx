@@ -4,11 +4,15 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
 import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
@@ -18,10 +22,16 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/age
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
-import { isRecord } from '../../isRecord.ts';
 
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
+import {
+  cascadedWireIds,
+  classifyRpcWireLog,
+  coerceWireIdFilter,
+  filterClassifiedRpcWireEntries,
+  RPC_WIRE_FILTER_ALL,
+} from './rpcWireLogFilter.ts';
 import { SessionStateView } from './SessionStateView.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
@@ -40,63 +50,10 @@ type DeveloperPanelTab = string;
 const isAgentLaunchTarget = (value: string): value is AgentLaunchTarget =>
   (ALL_AGENT_LAUNCH_TARGETS as readonly string[]).includes(value);
 
-const entryIdNameMap = new Map<number, string>();
-
-const rpcWireTagLabel = (message: Record<string, unknown>): null | string => {
-  if (typeof message.tag !== 'string') return null;
-  if (message.tag === 'session/update' && isRecord(message.payload) && isRecord(message.payload.update)) {
-    const { sessionUpdate } = message.payload.update;
-    if (typeof sessionUpdate === 'string') {
-      return `${message.tag} ${sessionUpdate}`;
-    }
-  }
-  return message.tag;
-};
-
-const rpcWireEntryTitle = (entry: RpcWireEntry): string => {
-  const arrow = entry.direction === 'out' ? '→' : '←';
-  if (isRecord(entry.message)) {
-    if (entry.direction === 'in') {
-      if (entry.message.requestId != null) {
-        const cachedName = entryIdNameMap.get(entry.message.requestId as number);
-        return `${arrow} ${cachedName ?? 'message'}`;
-      }
-      const tagLabel = rpcWireTagLabel(entry.message);
-      if (tagLabel != null) {
-        return `${arrow} ${tagLabel}`;
-      }
-      return `${arrow} message`;
-    }
-
-    const cachedName = (() => {
-      const tagLabel = rpcWireTagLabel(entry.message);
-      if (tagLabel != null) {
-        return tagLabel;
-      }
-      if (typeof entry.message.method === 'string') {
-        return entry.message.method;
-      }
-      if ('error' in entry.message) {
-        return 'error';
-      }
-      if ('result' in entry.message) {
-        return 'response';
-      }
-      return 'message';
-    })();
-
-    if (entry.message.id != null) {
-      entryIdNameMap.set(entry.message.id as number, cachedName);
-    }
-
-    return `${arrow} ${cachedName}`;
-  }
-
-  return `${arrow} message`;
-};
-
 const rpcWireEntryClipboardText = (entry: RpcWireEntry): string =>
   JSON.stringify({ direction: entry.direction, message: entry.message }, null, 2);
+
+const wireIdMenuLabel = (wireId: string): string => (wireId === '' ? 'id: ""' : wireId);
 
 const RpcWireLogBody: FC<{
   readonly launchTarget: AgentLaunchTarget;
@@ -104,6 +61,25 @@ const RpcWireLogBody: FC<{
 }> = ({ launchTarget, onCopyError }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(launchTarget));
   const entries = snapshot.rpcCalls;
+  const [sessionFilter, setSessionFilter] = useState(RPC_WIRE_FILTER_ALL);
+  const [tagFilter, setTagFilter] = useState(RPC_WIRE_FILTER_ALL);
+  const [wireIdFilter, setWireIdFilter] = useState(RPC_WIRE_FILTER_ALL);
+
+  const classification = useMemo(() => classifyRpcWireLog(entries), [entries]);
+  const idOptions = useMemo(
+    () => cascadedWireIds(classification.classified, { sessionKey: sessionFilter, tag: tagFilter }),
+    [classification.classified, sessionFilter, tagFilter],
+  );
+  const effectiveWireIdFilter = coerceWireIdFilter(wireIdFilter, idOptions);
+  const filtered = useMemo(
+    () =>
+      filterClassifiedRpcWireEntries(classification.classified, {
+        sessionKey: sessionFilter,
+        tag: tagFilter,
+        wireId: effectiveWireIdFilter,
+      }),
+    [classification.classified, effectiveWireIdFilter, sessionFilter, tagFilter],
+  );
 
   if (entries.length === 0) {
     return (
@@ -115,51 +91,137 @@ const RpcWireLogBody: FC<{
 
   return (
     <Stack spacing={1}>
-      {entries.map(entry => (
-        <Accordion
-          disableGutters
-          elevation={0}
-          key={entry.id}
-          sx={{
-            '&::before': { display: 'none' },
-            bgcolor: 'action.hover',
-            borderRadius: 1,
-          }}
-        >
-          <AccordionSummary
-            sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id={`rpc-wire-session-${launchTarget}`}>Session</InputLabel>
+          <Select
+            label="Session"
+            labelId={`rpc-wire-session-${launchTarget}`}
+            onChange={event => {
+              const nextSession = event.target.value;
+              setSessionFilter(nextSession);
+              setWireIdFilter(current =>
+                coerceWireIdFilter(
+                  current,
+                  cascadedWireIds(classification.classified, {
+                    sessionKey: nextSession,
+                    tag: tagFilter,
+                  }),
+                ),
+              );
+            }}
+            value={sessionFilter}
           >
-            <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-              {rpcWireEntryTitle(entry)}
-            </Typography>
-            <Button
-              component="span"
-              onClick={event => {
-                event.stopPropagation();
-                hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry))).catch(onCopyError);
-              }}
-              size="small"
-              variant="text"
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {classification.sessionKeys.map(sessionKey => (
+              <MenuItem key={sessionKey} value={sessionKey}>
+                {sessionKey}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel id={`rpc-wire-tag-${launchTarget}`}>Tag</InputLabel>
+          <Select
+            label="Tag"
+            labelId={`rpc-wire-tag-${launchTarget}`}
+            onChange={event => {
+              const nextTag = event.target.value;
+              setTagFilter(nextTag);
+              setWireIdFilter(current =>
+                coerceWireIdFilter(
+                  current,
+                  cascadedWireIds(classification.classified, {
+                    sessionKey: sessionFilter,
+                    tag: nextTag,
+                  }),
+                ),
+              );
+            }}
+            value={tagFilter}
+          >
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {classification.tags.map(tag => (
+              <MenuItem key={tag} value={tag}>
+                {tag}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel id={`rpc-wire-id-${launchTarget}`}>Id</InputLabel>
+          <Select
+            displayEmpty
+            label="Id"
+            labelId={`rpc-wire-id-${launchTarget}`}
+            onChange={event => {
+              setWireIdFilter(event.target.value);
+            }}
+            value={effectiveWireIdFilter}
+          >
+            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            {idOptions.map(wireId => (
+              <MenuItem key={wireId === '' ? 'empty-id' : wireId} value={wireId}>
+                {wireIdMenuLabel(wireId)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Typography color="text.secondary" variant="caption">
+          {filtered.length} / {entries.length} shown
+        </Typography>
+      </Stack>
+      {filtered.length === 0 ? (
+        <Typography color="text.secondary" variant="body2">
+          No RPC traffic match filters.
+        </Typography>
+      ) : (
+        filtered.map(({ entry, facet }) => (
+          <Accordion
+            disableGutters
+            elevation={0}
+            key={entry.id}
+            sx={{
+              '&::before': { display: 'none' },
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
             >
-              copy
-            </Button>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            <Box
-              component="pre"
-              sx={{
-                fontFamily: 'monospace',
-                fontSize: '0.75rem',
-                m: 0,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {rpcWireEntryClipboardText(entry)}
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                {facet.title}
+              </Typography>
+              <Button
+                component="span"
+                onClick={event => {
+                  event.stopPropagation();
+                  hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry))).catch(onCopyError);
+                }}
+                size="small"
+                variant="text"
+              >
+                copy
+              </Button>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              <Box
+                component="pre"
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  m: 0,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {rpcWireEntryClipboardText(entry)}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        ))
+      )}
     </Stack>
   );
 };

@@ -54,7 +54,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
   const selectSessionAtomFn = atomRuntime
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
       Effect.sync(() => {
-        selectSession(get, arg.launchTarget, arg.sessionId);
+        selectSession(get, arg.sessionId);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -162,7 +162,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
                 : upsertRosterEntry(nextSnapshot.sessionRoster, rosterEntry),
             sessions: upsertSession(nextSnapshot.sessions, session),
           });
-          selectSession(get, arg.launchTarget, sessionId);
+          selectSession(get, sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
           yield* preloadSessionFsListing(get, sessionId, cwd);
         },
@@ -193,7 +193,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
         const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
         const cwd = resolveSessionCwd(existingSession?.cwd, rosterEntry?.cwd);
 
-        selectSession(get, arg.launchTarget, arg.sessionId);
+        selectSession(get, arg.sessionId);
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").

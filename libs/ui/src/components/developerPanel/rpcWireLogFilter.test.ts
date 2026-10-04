@@ -21,7 +21,7 @@ const entry = (
   direction,
   id: options?.id ?? crypto.randomUUID(),
   message,
-  receivedAt: options?.receivedAt,
+  receivedAt: options?.receivedAt ?? 0,
 });
 
 const classify = (entries: readonly RpcWireEntry[]) => classifyRpcWireLog(entries, 'codex-acp');
@@ -36,10 +36,10 @@ describe('classifyRpcWireLog', () => {
         tag: 'initialize',
       }),
     ]);
-    assert.strictEqual(classified[0]?.facet.sessionKey, 'system');
-    assert.strictEqual(classified[0]?.facet.tag, 'initialize');
-    assert.strictEqual(classified[0]?.facet.wireId, '1');
-    assert.strictEqual(classified[0]?.facet.title, '→ initialize');
+    assert.strictEqual(classified[0]?.meta.sessionKey, 'system');
+    assert.strictEqual(classified[0]?.meta.tag, 'initialize');
+    assert.strictEqual(classified[0]?.meta.wireId, '1');
+    assert.strictEqual(classified[0]?.meta.title, '→ initialize');
     assert.strictEqual(classified[0]?.launchTarget, 'codex-acp');
   });
 
@@ -52,8 +52,8 @@ describe('classifyRpcWireLog', () => {
         tag: 'session/prompt',
       }),
     ]);
-    assert.strictEqual(classified[0]?.facet.sessionKey, 'sess-a');
-    assert.strictEqual(classified[0]?.facet.tag, 'session/prompt');
+    assert.strictEqual(classified[0]?.meta.sessionKey, 'sess-a');
+    assert.strictEqual(classified[0]?.meta.tag, 'session/prompt');
   });
 
   it('composes session/update subtype into tag', () => {
@@ -69,10 +69,10 @@ describe('classifyRpcWireLog', () => {
         tag: 'session/update',
       }),
     ]);
-    assert.strictEqual(classified[0]?.facet.tag, 'session/update agent_message_chunk');
-    assert.strictEqual(classified[0]?.facet.wireId, '');
-    assert.strictEqual(classified[0]?.facet.sessionKey, 'sess-a');
-    assert.strictEqual(classified[0]?.facet.title, '← session/update agent_message_chunk');
+    assert.strictEqual(classified[0]?.meta.tag, 'session/update agent_message_chunk');
+    assert.strictEqual(classified[0]?.meta.wireId, '');
+    assert.strictEqual(classified[0]?.meta.sessionKey, 'sess-a');
+    assert.strictEqual(classified[0]?.meta.title, '← session/update agent_message_chunk');
   });
 
   it('inherits tag and session on Exit / Chunk / Defect via requestId', () => {
@@ -97,14 +97,14 @@ describe('classifyRpcWireLog', () => {
         requestId: 3,
       }),
     ]);
-    assert.strictEqual(classified[1]?.facet.tag, 'session/prompt');
-    assert.strictEqual(classified[1]?.facet.sessionKey, 'sess-b');
-    assert.strictEqual(classified[1]?.facet.wireId, '3');
-    assert.strictEqual(classified[1]?.facet.title, '← session/prompt');
-    assert.strictEqual(classified[2]?.facet.tag, 'session/prompt');
-    assert.strictEqual(classified[2]?.facet.sessionKey, 'sess-b');
-    assert.strictEqual(classified[3]?.facet.tag, 'session/prompt');
-    assert.strictEqual(classified[3]?.facet.sessionKey, 'sess-b');
+    assert.strictEqual(classified[1]?.meta.tag, 'session/prompt');
+    assert.strictEqual(classified[1]?.meta.sessionKey, 'sess-b');
+    assert.strictEqual(classified[1]?.meta.wireId, '3');
+    assert.strictEqual(classified[1]?.meta.title, '← session/prompt');
+    assert.strictEqual(classified[2]?.meta.tag, 'session/prompt');
+    assert.strictEqual(classified[2]?.meta.sessionKey, 'sess-b');
+    assert.strictEqual(classified[3]?.meta.tag, 'session/prompt');
+    assert.strictEqual(classified[3]?.meta.sessionKey, 'sess-b');
   });
 
   it('backfills session/new request from Exit success sessionId', () => {
@@ -121,11 +121,11 @@ describe('classifyRpcWireLog', () => {
         requestId: 4,
       }),
     ]);
-    assert.strictEqual(classified[0]?.facet.sessionKey, 'sess-new');
-    assert.strictEqual(classified[0]?.facet.tag, 'session/new');
-    assert.strictEqual(classified[1]?.facet.sessionKey, 'sess-new');
-    assert.strictEqual(classified[1]?.facet.tag, 'session/new');
-    assert.strictEqual(classified[1]?.facet.title, '← session/new');
+    assert.strictEqual(classified[0]?.meta.sessionKey, 'sess-new');
+    assert.strictEqual(classified[0]?.meta.tag, 'session/new');
+    assert.strictEqual(classified[1]?.meta.sessionKey, 'sess-new');
+    assert.strictEqual(classified[1]?.meta.tag, 'session/new');
+    assert.strictEqual(classified[1]?.meta.title, '← session/new');
   });
 
   it('collects distinct session and tag options from the full log', () => {
@@ -176,7 +176,7 @@ describe('mergeClassifiedRpcWireLogs', () => {
       ),
     ]);
     assert.deepStrictEqual(
-      merged.classified.map(row => row.facet.sessionKey),
+      merged.classified.map(row => row.meta.sessionKey),
       ['claude-sess', 'claude-sess', 'codex-sess', 'codex-sess'],
     );
     assert.strictEqual(merged.classified[0]?.launchTarget, 'claude-agent-acp');
@@ -214,7 +214,7 @@ describe('filterClassifiedRpcWireEntries', () => {
       wireId: '2',
     });
     assert.strictEqual(filtered.length, 2);
-    assert.ok(filtered.every(row => row.facet.wireId === '2'));
+    assert.ok(filtered.every(row => row.meta.wireId === '2'));
   });
 
   it('All leaves a dimension unconstrained', () => {
@@ -245,7 +245,7 @@ describe('filterClassifiedRpcWireEntries', () => {
       wireId: RPC_WIRE_FILTER_ALL,
     });
     assert.strictEqual(filtered.length, 1);
-    assert.strictEqual(filtered[0]?.facet.sessionKey, 'b');
+    assert.strictEqual(filtered[0]?.meta.sessionKey, 'b');
   });
 });
 

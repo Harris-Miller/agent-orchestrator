@@ -4,6 +4,8 @@ import { isRecord } from '../../isRecord.ts';
 
 export const RPC_WIRE_FILTER_ALL = 'all';
 
+export type RpcWireProviderFilter = AgentLaunchTarget | typeof RPC_WIRE_FILTER_ALL;
+
 /** Resolve Session filter. `null` means match nothing (active-session mode with no selection). */
 export const resolveSessionFilter = (
   activeSessionOnly: boolean,
@@ -16,7 +18,8 @@ export const resolveSessionFilter = (
   return sessionFilter;
 };
 
-export type RpcWireFacet = {
+/** Derived session/tag/id/title used for filtering and accordion labels. */
+export type RpcWireRowMeta = {
   readonly sessionKey: string;
   readonly tag: null | string;
   readonly title: string;
@@ -25,8 +28,8 @@ export type RpcWireFacet = {
 
 export type ClassifiedRpcWireEntry = {
   readonly entry: RpcWireEntry;
-  readonly facet: RpcWireFacet;
   readonly launchTarget: AgentLaunchTarget;
+  readonly meta: RpcWireRowMeta;
 };
 
 export type RpcWireLogClassification = {
@@ -36,7 +39,7 @@ export type RpcWireLogClassification = {
 };
 
 export type RpcWireFilters = {
-  readonly provider: string;
+  readonly provider: RpcWireProviderFilter;
   readonly sessionKey: string;
   readonly tag: string;
   readonly wireId: string;
@@ -130,7 +133,7 @@ const buildIdCache = (entries: readonly RpcWireEntry[]): Map<string, IdCacheEntr
   return cache;
 };
 
-const facetForEntry = (entry: RpcWireEntry, cache: ReadonlyMap<string, IdCacheEntry>): RpcWireFacet => {
+const metaForEntry = (entry: RpcWireEntry, cache: ReadonlyMap<string, IdCacheEntry>): RpcWireRowMeta => {
   const arrow = entry.direction === 'out' ? '→' : '←';
   if (!isRecord(entry.message)) {
     return { sessionKey: 'system', tag: null, title: `${arrow} message`, wireId: null };
@@ -170,7 +173,7 @@ const uniqueInOrder = (values: readonly (null | string)[]): readonly string[] =>
   return out;
 };
 
-/** Classify one provider's log (id correlation stays scoped to that provider). */
+/** Classify one launch target's log (id correlation stays scoped to that target). */
 export const classifyRpcWireLog = (
   entries: readonly RpcWireEntry[],
   launchTarget: AgentLaunchTarget,
@@ -178,36 +181,36 @@ export const classifyRpcWireLog = (
   const cache = buildIdCache(entries);
   const classified = entries.map((entry): ClassifiedRpcWireEntry => ({
     entry,
-    facet: facetForEntry(entry, cache),
     launchTarget,
+    meta: metaForEntry(entry, cache),
   }));
 
-  const sessionKeys = uniqueInOrder(classified.map(row => row.facet.sessionKey));
-  const tags = uniqueInOrder(classified.map(row => row.facet.tag));
+  const sessionKeys = uniqueInOrder(classified.map(row => row.meta.sessionKey));
+  const tags = uniqueInOrder(classified.map(row => row.meta.tag));
 
   return { classified, sessionKeys, tags };
 };
 
-/** Merge per-provider classifications; sort by capture time when present. */
+/** Merge per-launch-target classifications; sort by capture time. */
 export const mergeClassifiedRpcWireLogs = (parts: readonly RpcWireLogClassification[]): RpcWireLogClassification => {
   const classified = parts
     .flatMap(part => part.classified)
-    .toSorted((left, right) => (left.entry.receivedAt ?? 0) - (right.entry.receivedAt ?? 0));
+    .toSorted((left, right) => left.entry.receivedAt - right.entry.receivedAt);
   return {
     classified,
-    sessionKeys: uniqueInOrder(classified.map(row => row.facet.sessionKey)),
-    tags: uniqueInOrder(classified.map(row => row.facet.tag)),
+    sessionKeys: uniqueInOrder(classified.map(row => row.meta.sessionKey)),
+    tags: uniqueInOrder(classified.map(row => row.meta.tag)),
   };
 };
 
 export const sessionKeysForProvider = (
   classified: readonly ClassifiedRpcWireEntry[],
-  provider: string,
+  provider: RpcWireProviderFilter,
 ): readonly string[] =>
   uniqueInOrder(
     classified
       .filter(row => provider === RPC_WIRE_FILTER_ALL || row.launchTarget === provider)
-      .map(row => row.facet.sessionKey),
+      .map(row => row.meta.sessionKey),
   );
 
 export const filterClassifiedRpcWireEntries = (
@@ -218,13 +221,13 @@ export const filterClassifiedRpcWireEntries = (
     if (filters.provider !== RPC_WIRE_FILTER_ALL && row.launchTarget !== filters.provider) {
       return false;
     }
-    if (filters.sessionKey !== RPC_WIRE_FILTER_ALL && row.facet.sessionKey !== filters.sessionKey) {
+    if (filters.sessionKey !== RPC_WIRE_FILTER_ALL && row.meta.sessionKey !== filters.sessionKey) {
       return false;
     }
-    if (filters.tag !== RPC_WIRE_FILTER_ALL && row.facet.tag !== filters.tag) {
+    if (filters.tag !== RPC_WIRE_FILTER_ALL && row.meta.tag !== filters.tag) {
       return false;
     }
-    if (filters.wireId !== RPC_WIRE_FILTER_ALL && row.facet.wireId !== filters.wireId) {
+    if (filters.wireId !== RPC_WIRE_FILTER_ALL && row.meta.wireId !== filters.wireId) {
       return false;
     }
     return true;
@@ -238,7 +241,7 @@ export const cascadedWireIds = (
     filterClassifiedRpcWireEntries(classified, {
       ...filters,
       wireId: RPC_WIRE_FILTER_ALL,
-    }).map(row => row.facet.wireId),
+    }).map(row => row.meta.wireId),
   );
 
 export const coerceWireIdFilter = (wireId: string, available: readonly string[]): string => {
@@ -247,3 +250,9 @@ export const coerceWireIdFilter = (wireId: string, available: readonly string[])
   }
   return available.includes(wireId) ? wireId : RPC_WIRE_FILTER_ALL;
 };
+
+export const coerceWireIdAgainstCascade = (
+  classified: readonly ClassifiedRpcWireEntry[],
+  filters: Pick<RpcWireFilters, 'provider' | 'sessionKey' | 'tag'>,
+  wireId: string,
+): string => coerceWireIdFilter(wireId, cascadedWireIds(classified, filters));

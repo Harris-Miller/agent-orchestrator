@@ -29,6 +29,7 @@ import { PanelHeader } from './PanelHeader.tsx';
 import {
   cascadedWireIds,
   classifyRpcWireLog,
+  coerceWireIdAgainstCascade,
   coerceWireIdFilter,
   filterClassifiedRpcWireEntries,
   mergeClassifiedRpcWireLogs,
@@ -36,6 +37,7 @@ import {
   RPC_WIRE_FILTER_ALL,
   sessionKeysForProvider,
 } from './rpcWireLogFilter.ts';
+import type { RpcWireProviderFilter } from './rpcWireLogFilter.ts';
 import { SessionStateView } from './SessionStateView.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
@@ -64,7 +66,7 @@ const RpcWireLogBody: FC<{
   const wireLogs = useAtomValue(allRpcWireCallsAtom);
 
   const [activeSessionOnly, setActiveSessionOnly] = useState(false);
-  const [providerFilter, setProviderFilter] = useState(RPC_WIRE_FILTER_ALL);
+  const [providerFilter, setProviderFilter] = useState<RpcWireProviderFilter>(RPC_WIRE_FILTER_ALL);
   const [sessionFilter, setSessionFilter] = useState(RPC_WIRE_FILTER_ALL);
   const [tagFilter, setTagFilter] = useState(RPC_WIRE_FILTER_ALL);
   const [wireIdFilter, setWireIdFilter] = useState(RPC_WIRE_FILTER_ALL);
@@ -139,16 +141,18 @@ const RpcWireLogBody: FC<{
             label="Provider"
             labelId="rpc-wire-provider"
             onChange={event => {
-              setProviderFilter(event.target.value);
+              const nextProvider = event.target.value;
+              setProviderFilter(nextProvider);
               setSessionFilter(RPC_WIRE_FILTER_ALL);
               setWireIdFilter(current =>
-                coerceWireIdFilter(
-                  current,
-                  cascadedWireIds(classification.classified, {
-                    provider: event.target.value,
+                coerceWireIdAgainstCascade(
+                  classification.classified,
+                  {
+                    provider: nextProvider,
                     sessionKey: RPC_WIRE_FILTER_ALL,
                     tag: tagFilter,
-                  }),
+                  },
+                  current,
                 ),
               );
             }}
@@ -171,13 +175,14 @@ const RpcWireLogBody: FC<{
               const nextSession = event.target.value;
               setSessionFilter(nextSession);
               setWireIdFilter(current =>
-                coerceWireIdFilter(
-                  current,
-                  cascadedWireIds(classification.classified, {
+                coerceWireIdAgainstCascade(
+                  classification.classified,
+                  {
                     provider: providerFilter,
                     sessionKey: nextSession,
                     tag: tagFilter,
-                  }),
+                  },
+                  current,
                 ),
               );
             }}
@@ -203,13 +208,14 @@ const RpcWireLogBody: FC<{
                 if (resolvedSessionFilter === null) {
                   return RPC_WIRE_FILTER_ALL;
                 }
-                return coerceWireIdFilter(
-                  current,
-                  cascadedWireIds(classification.classified, {
+                return coerceWireIdAgainstCascade(
+                  classification.classified,
+                  {
                     provider: providerForFilters,
                     sessionKey: resolvedSessionFilter,
                     tag: nextTag,
-                  }),
+                  },
+                  current,
                 );
               });
             }}
@@ -251,7 +257,7 @@ const RpcWireLogBody: FC<{
           No RPC traffic match filters.
         </Typography>
       ) : (
-        filtered.map(({ entry, facet, launchTarget }) => (
+        filtered.map(({ entry, launchTarget, meta }) => (
           <Accordion
             disableGutters
             elevation={0}
@@ -266,7 +272,7 @@ const RpcWireLogBody: FC<{
               sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
             >
               <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-                [{agentLaunchTargetLabel(launchTarget)}] {facet.title}
+                [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
               </Typography>
               <Button
                 component="span"

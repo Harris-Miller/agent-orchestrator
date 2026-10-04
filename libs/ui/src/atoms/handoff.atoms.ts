@@ -141,7 +141,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
                 ? createdSnapshot.sessionRoster
                 : upsertRosterEntry(createdSnapshot.sessionRoster, rosterEntry),
           });
-          selectSession(get, arg.targetLaunchTarget, targetSessionId);
+          selectSession(get, targetSessionId);
 
           const setOption = (diff: ConfigValueDiff) =>
             setConfigOption(

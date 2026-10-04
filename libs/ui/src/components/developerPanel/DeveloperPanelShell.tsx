@@ -122,8 +122,8 @@ const RpcWireLogBody: FC<{
   }
 
   return (
-    <Stack spacing={1}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
+    <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }} useFlexGap>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Switch
             checked={activeSessionOnly}
@@ -252,59 +252,61 @@ const RpcWireLogBody: FC<{
           {filtered.length} / {entryCount} shown
         </Typography>
       </Stack>
-      {filtered.length === 0 ? (
-        <Typography color="text.secondary" variant="body2">
-          No RPC traffic match filters.
-        </Typography>
-      ) : (
-        filtered.map(({ entry, launchTarget, meta }) => (
-          <Accordion
-            disableGutters
-            elevation={0}
-            key={entry.id}
-            sx={{
-              '&::before': { display: 'none' },
-              bgcolor: 'action.hover',
-              borderRadius: 1,
-            }}
-          >
-            <AccordionSummary
-              sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
+      <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {filtered.length === 0 ? (
+          <Typography color="text.secondary" variant="body2">
+            No RPC traffic match filters.
+          </Typography>
+        ) : (
+          filtered.map(({ entry, launchTarget, meta }) => (
+            <Accordion
+              disableGutters
+              elevation={0}
+              key={entry.id}
+              sx={{
+                '&::before': { display: 'none' },
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+              }}
             >
-              <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-                [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
-              </Typography>
-              <Button
-                component="span"
-                onClick={event => {
-                  event.stopPropagation();
-                  hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry, launchTarget))).catch(
-                    onCopyError,
-                  );
-                }}
-                size="small"
-                variant="text"
+              <AccordionSummary
+                sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
               >
-                copy
-              </Button>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <Box
-                component="pre"
-                sx={{
-                  fontFamily: 'monospace',
-                  fontSize: '0.75rem',
-                  m: 0,
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {rpcWireEntryClipboardText(entry, launchTarget)}
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-        ))
-      )}
+                <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                  [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
+                </Typography>
+                <Button
+                  component="span"
+                  onClick={event => {
+                    event.stopPropagation();
+                    hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry, launchTarget))).catch(
+                      onCopyError,
+                    );
+                  }}
+                  size="small"
+                  variant="text"
+                >
+                  copy
+                </Button>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                <Box
+                  component="pre"
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    m: 0,
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {rpcWireEntryClipboardText(entry, launchTarget)}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          ))
+        )}
+      </Stack>
     </Stack>
   );
 };
@@ -319,7 +321,9 @@ export const DeveloperPanelShell: FC<{
   const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(RPC_WIRE_LOG_TAB);
   const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
-  const bodyPadding = activeTab === RPC_WIRE_LOG_TAB || activeTab === SESSION_STATE_TAB ? 2 : 0;
+  const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
+  const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
+  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 2 : 0;
 
   return (
     <Box
@@ -356,11 +360,11 @@ export const DeveloperPanelShell: FC<{
       </Tabs>
       <Box
         sx={{
-          display: isFsMentionListingTab ? 'flex' : 'block',
+          display: containsOwnScroll ? 'flex' : 'block',
           flex: 1,
           flexDirection: 'column',
           minHeight: 0,
-          overflow: isFsMentionListingTab ? 'hidden' : 'auto',
+          overflow: containsOwnScroll ? 'hidden' : 'auto',
           p: bodyPadding,
         }}
       >

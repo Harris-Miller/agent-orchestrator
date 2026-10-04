@@ -1,10 +1,8 @@
-/** Fzf-filter session FS listing entries for the composer `@` menu (display cap 50). */
+/** Fzf-filter session FS listing entries for the composer `@` menu. */
 import { Fzf } from 'fzf';
 
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingBasename } from '../../host/fdListing.ts';
-
-export const MENTION_MENU_LIMIT = 50;
 
 const EMPTY_POSITIONS: ReadonlySet<number> = new Set();
 
@@ -58,16 +56,8 @@ export const filterFsListingMatchesAll = (
 
 /**
  * Filter cached FS entries for `@` query. Empty query lists all;
- * non-empty: exact basename matches first, then fzf path hits. No display cap.
- */
-export const filterFsListingEntriesAll = (
-  entries: readonly FdListingEntry[],
-  query: string,
-): readonly FdListingEntry[] => filterFsListingMatchesAll(entries, query).map(match => match.entry);
-
-/**
- * Filter cached FS entries for `@` query. Empty query lists all (capped);
- * non-empty: exact basename matches first, then fzf path hits. Display capped at 50.
+ * non-empty: exact basename matches first, then fzf path hits. No display cap
+ * (composer menu virtualizes the full result set).
  */
 export const filterFsListingEntries = (entries: readonly FdListingEntry[], query: string): readonly FdListingEntry[] =>
-  filterFsListingEntriesAll(entries, query).slice(0, MENTION_MENU_LIMIT);
+  filterFsListingMatchesAll(entries, query).map(match => match.entry);

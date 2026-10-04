@@ -27,11 +27,18 @@ export const shallowDirListingArgs = (options: ShallowDirListingOptions): readon
   return args;
 };
 
-/** Argv for recursive directory listing (always `-H`, never `-I`). */
-export const recursiveDirListingArgs = (): readonly string[] => ['-t', 'd', '-H', '-0'];
+/**
+ * Argv for recursive directory listing (always `-H`, never `-I`).
+ * Explicit `-E .git`: `-H` would otherwise include the VCS tree (`.git` is hidden,
+ * not gitignore-excluded).
+ */
+export const recursiveDirListingArgs = (): readonly string[] => ['-t', 'd', '-H', '-E', '.git', '-0'];
 
-/** Argv for recursive file listing (always `-H`, never `-I`). */
-export const recursiveFileListingArgs = (): readonly string[] => ['-t', 'f', '-H', '-0'];
+/**
+ * Argv for recursive file listing (always `-H`, never `-I`).
+ * Same `-E .git` as dirs for consistency.
+ */
+export const recursiveFileListingArgs = (): readonly string[] => ['-t', 'f', '-H', '-E', '.git', '-0'];
 
 /** Parse NUL-delimited `fd` stdout into relative path strings. */
 export const parseNulPaths = (stdout: string): readonly string[] =>
@@ -105,7 +112,7 @@ export const listShallowDirectories = Effect.fn('listShallowDirectories')(functi
 });
 
 /**
- * Full recursive file + directory listing under `cwd` (always `-H`).
+ * Full recursive file + directory listing under `cwd` (always `-H`, `-E .git`).
  * Paths are relative to `cwd` as printed by `fd`.
  */
 export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (cwd: string) {

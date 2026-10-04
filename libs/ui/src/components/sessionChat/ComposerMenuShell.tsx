@@ -103,9 +103,6 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
   selected,
 }) => {
   const registry = useContext(ComposerMenuRowRefContext);
-  if (registry === null) {
-    throw new Error('ComposerMenuRow must be rendered inside ComposerMenuShell');
-  }
 
   return (
     <ListItemButton
@@ -114,7 +111,7 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
         onFocusIndexChange(index);
       }}
       ref={node => {
-        registry.register(index, node);
+        registry?.register(index, node);
       }}
       selected={selected}
       sx={{ py: 0.75 }}

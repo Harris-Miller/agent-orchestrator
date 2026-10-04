@@ -8,13 +8,7 @@ import {
   shallowDirListingArgs,
 } from '../../host/fdListing.ts';
 
-import {
-  basenameMatchPositions,
-  filterFsListingEntries,
-  filterFsListingEntriesAll,
-  filterFsListingMatchesAll,
-  MENTION_MENU_LIMIT,
-} from './filterFsListingEntries.ts';
+import { basenameMatchPositions, filterFsListingEntries, filterFsListingMatchesAll } from './filterFsListingEntries.ts';
 import { absolutePathToFileUrlHref, fsMentionMarkdownLink, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
 describe('fdListing helpers', () => {
@@ -23,9 +17,9 @@ describe('fdListing helpers', () => {
     assert.deepStrictEqual(shallowDirListingArgs({ showHidden: true }), ['-H', '-t', 'd', '-d', '1', '-0']);
   });
 
-  it('builds recursive argv always with -H', () => {
-    assert.deepStrictEqual(recursiveDirListingArgs(), ['-t', 'd', '-H', '-0']);
-    assert.deepStrictEqual(recursiveFileListingArgs(), ['-t', 'f', '-H', '-0']);
+  it('builds recursive argv with -H and excludes .git', () => {
+    assert.deepStrictEqual(recursiveDirListingArgs(), ['-t', 'd', '-H', '-E', '.git', '-0']);
+    assert.deepStrictEqual(recursiveFileListingArgs(), ['-t', 'f', '-H', '-E', '.git', '-0']);
   });
 
   it('parses NUL paths', () => {
@@ -45,12 +39,12 @@ describe('filterFsListingEntries', () => {
     { kind: 'file' as const, path: 'README.md' },
   ];
 
-  it('opens on empty query and caps at 50', () => {
+  it('opens on empty query with the full listing', () => {
     const many = Array.from({ length: 60 }, (_, index) => ({
       kind: 'file' as const,
       path: `f${String(index)}.ts`,
     }));
-    assert.strictEqual(filterFsListingEntries(many, '').length, MENTION_MENU_LIMIT);
+    assert.strictEqual(filterFsListingEntries(many, '').length, 60);
     assert.deepStrictEqual(
       filterFsListingEntries(entries, '').map(entry => entry.path),
       ['src/', 'src/main.ts', 'README.md'],
@@ -62,14 +56,6 @@ describe('filterFsListingEntries', () => {
       filterFsListingEntries(entries, 'main').map(entry => entry.path),
       ['src/main.ts'],
     );
-  });
-
-  it('filterFsListingEntriesAll keeps full empty-query list', () => {
-    const many = Array.from({ length: 60 }, (_, index) => ({
-      kind: 'file' as const,
-      path: `f${String(index)}.ts`,
-    }));
-    assert.strictEqual(filterFsListingEntriesAll(many, '').length, 60);
   });
 
   it('filterFsListingMatchesAll keeps fzf positions', () => {

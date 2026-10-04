@@ -13,6 +13,7 @@ import type { FdListingEntry } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 
 import { ComposerMenuRow } from './ComposerMenuShell.tsx';
+import { ListingEntryIcon } from './FileChipIconView.tsx';
 import type { FsListingMatch } from './filterFsListingEntries.ts';
 
 const MENU_MAX_HEIGHT_PX = 320;
@@ -114,7 +115,14 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
                   onSelect={() => {
                     onSelect(match.entry);
                   }}
-                  primary={<HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />}
+                  primary={
+                    <Box component="span" sx={{ alignItems: 'center', display: 'inline-flex', gap: 0.75, minWidth: 0 }}>
+                      <ListingEntryIcon entry={match.entry} sx={{ fontSize: '1rem', height: '1rem', width: '1rem' }} />
+                      <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />
+                      </Box>
+                    </Box>
+                  }
                   selected={virtualRow.index === focusedIndex}
                 />
               </Box>

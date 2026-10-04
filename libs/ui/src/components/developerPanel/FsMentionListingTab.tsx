@@ -16,6 +16,7 @@ import {
 import { sessionFsListingAtom, sessionFsListingKey } from '../../atoms/sessionFsListing.atoms.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
+import { ListingEntryIcon } from '../sessionChat/FileChipIconView.tsx';
 import { filterFsListingMatchesAll } from '../sessionChat/filterFsListingEntries.ts';
 
 const ROW_HEIGHT_PX = 36;
@@ -99,6 +100,9 @@ export const FsMentionListingTab: FC = () => {
                 <Box
                   key={virtualRow.key}
                   sx={{
+                    alignItems: 'center',
+                    display: 'flex',
+                    gap: 0.75,
                     height: virtualRow.size,
                     left: 0,
                     overflow: 'hidden',
@@ -109,10 +113,17 @@ export const FsMentionListingTab: FC = () => {
                     width: '100%',
                   }}
                 >
+                  <ListingEntryIcon entry={match.entry} sx={{ fontSize: '1rem', height: '1rem', width: '1rem' }} />
                   <Typography
                     component="div"
                     noWrap
-                    sx={{ fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: `${ROW_HEIGHT_PX}px` }}
+                    sx={{
+                      flex: 1,
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      lineHeight: `${ROW_HEIGHT_PX}px`,
+                      minWidth: 0,
+                    }}
                     variant="body2"
                   >
                     <HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />

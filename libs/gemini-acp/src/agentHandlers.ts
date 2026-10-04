@@ -15,17 +15,11 @@ import type {
 import { AgentRpcs } from '@libs/effect-acp';
 import { Effect } from 'effect';
 
+import { listRosterSessions, removeRosterEntry, upsertRosterEntry } from './adapterRosterSessions.ts';
 import type { EnsureGeminiChild, GeminiChild } from './geminiChild.ts';
+import type { LoadedSet } from './loadedSet.ts';
+import { isLoaded, markLoaded, unmarkLoaded } from './loadedSet.ts';
 import { rewriteInitializeResponse } from './rewriteInitialize.ts';
-import type { LoadedSet } from './sessionLifecycle.ts';
-import {
-  isLoaded,
-  listRosterSessions,
-  markLoaded,
-  removeRosterEntry,
-  unmarkLoaded,
-  upsertRosterEntry,
-} from './sessionLifecycle.ts';
 
 const withChild = <A>(
   ensureChild: EnsureGeminiChild,
@@ -35,6 +29,12 @@ const withChild = <A>(
     const child = yield* ensureChild;
     return yield* use(child);
   }).pipe(Effect.orDie);
+
+const upsertAndMarkLoaded = (loaded: LoadedSet, entry: { readonly cwd: string; readonly sessionId: string }) =>
+  Effect.gen(function* () {
+    yield* upsertRosterEntry(entry).pipe(Effect.orDie);
+    yield* markLoaded(loaded, entry.sessionId);
+  });
 
 /** Agent handler map: cap rewrite + soft lifecycle + transparent forward to Gemini child. */
 export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loaded: LoadedSet) =>
@@ -63,15 +63,13 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
     'session/load': (request: LoadSessionRequest) =>
       Effect.gen(function* () {
         const result = yield* withChild(ensureChild, child => child.agent['session/load'](request));
-        yield* upsertRosterEntry({ cwd: request.cwd, sessionId: request.sessionId }).pipe(Effect.orDie);
-        yield* markLoaded(loaded, request.sessionId);
+        yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: request.sessionId });
         return result;
       }),
     'session/new': (request: NewSessionRequest) =>
       Effect.gen(function* () {
         const result = yield* withChild(ensureChild, child => child.agent['session/new'](request));
-        yield* upsertRosterEntry({ cwd: request.cwd, sessionId: result.sessionId }).pipe(Effect.orDie);
-        yield* markLoaded(loaded, result.sessionId);
+        yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: result.sessionId });
         return result;
       }),
     'session/prompt': (request: PromptRequest) =>
@@ -90,8 +88,7 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
             : { additionalDirectories: request.additionalDirectories }),
         };
         const loadedResult = yield* withChild(ensureChild, child => child.agent['session/load'](loadRequest));
-        yield* upsertRosterEntry({ cwd: request.cwd, sessionId: request.sessionId }).pipe(Effect.orDie);
-        yield* markLoaded(loaded, request.sessionId);
+        yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: request.sessionId });
         return {
           ...(loadedResult.configOptions === undefined ? {} : { configOptions: loadedResult.configOptions }),
           ...(loadedResult.modes === undefined ? {} : { modes: loadedResult.modes }),

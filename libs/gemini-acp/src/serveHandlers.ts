@@ -9,7 +9,7 @@ import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './geminiChild.ts';
 import { makeLazyEnsureGeminiChild } from './geminiChild.ts';
-import { makeLoadedSet } from './sessionLifecycle.ts';
+import { makeLoadedSet } from './loadedSet.ts';
 
 type AgentHandlersLayer = Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>, never, FileSystem | OS | Path>;
 

@@ -29,11 +29,11 @@ An in-progress `/`, `$`, or `@` token in the chat draft that opens a composer me
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Command Chip**:
-A Lexical decorator in the composer for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command; commands remain plain text in the draft and in `session/prompt` text segments.
-_Avoid_: Markdown Link Chip, skill pill, autocomplete token (when you mean this decorator)
+A monospace display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
+_Avoid_: Markdown Link Chip, skill pill, autocomplete token, mention chip (when you mean this pill)
 
 **Markdown Link Chip**:
-A Lexical decorator in the composer whose text is a markdown link `[label](href)` (filesystem path or URL); not clickable. The draft markdown string is the composer edit source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments.
-_Avoid_: Command Chip, mention chip, hyperlink (when you mean this decorator)
+A monospace display pill whose underlying text is a markdown link `[label](href)` (filesystem path or URL); shows the label only and is not clickable. In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. The draft/transcript markdown string is the source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments.
+_Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
 
 For Host services and BundledResource / Clipboard vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session and Settings domain terms live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/CONTEXT.md`](../../apps/vscode/CONTEXT.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.

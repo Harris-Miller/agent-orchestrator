@@ -9,11 +9,53 @@ import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import type { FC } from 'react';
+import type { ClipboardEventHandler, FC } from 'react';
 
-import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { sharedChipSx } from './composerChipSx.ts';
+import { splitComposerCommandSegments } from './composerCommandTokens.ts';
+import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
+import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
+
+const userFragmentMarkdownSx = {
+  '& p': { display: 'inline', m: 0 },
+  display: 'inline',
+} as const;
+
+/** Transcript chips must be selectable so copy includes them; composer keeps userSelect: none. */
+const TranscriptChip: FC<{ children: string; copyText: string; testId: string }> = ({ children, copyText, testId }) => (
+  <Box component="span" data-copy-text={copyText} data-testid={testId} sx={[sharedChipSx, { userSelect: 'text' }]}>
+    {children}
+  </Box>
+);
+
+const onUserMessageCopy: ClipboardEventHandler<HTMLElement> = event => {
+  const text = clipboardTextFromSelectionInRoot(event.currentTarget);
+  if (text === null) {
+    return;
+  }
+  event.preventDefault();
+  event.clipboardData.setData('text/plain', text);
+};
+
+/** Keep edge whitespace outside ChatMarkdown — react-markdown trims it from <p> text. */
+const UserTextFragment: FC<{ text: string }> = ({ text }) => {
+  const leading = /^(\s*)/.exec(text)?.[1] ?? '';
+  if (leading.length === text.length) {
+    return text;
+  }
+  const trailing = /(\s*)$/.exec(text)?.[1] ?? '';
+  const middle = text.slice(leading.length, text.length - trailing.length);
+  return (
+    <>
+      {leading.length > 0 ? leading : null}
+      {middle.length > 0 ? <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} /> : null}
+      {trailing.length > 0 ? trailing : null}
+    </>
+  );
+};
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
@@ -71,8 +113,13 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
   }
 };
 
-const MessageRow: FC<{ text: string; tone: 'agent' | 'user' }> = ({ text, tone }) => {
+const MessageRow: FC<{
+  availableCommands?: readonly AvailableCommand[];
+  text: string;
+  tone: 'agent' | 'user';
+}> = ({ availableCommands = [], text, tone }) => {
   if (tone === 'user') {
+    const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
     return (
       <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
         <Box
@@ -84,7 +131,27 @@ const MessageRow: FC<{ text: string; tone: 'agent' | 'user' }> = ({ text, tone }
             py: 1.25,
           }}
         >
-          <ChatMarkdown text={text} />
+          <Box onCopy={onUserMessageCopy} sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {segments.map((segment, index) => {
+              const key = `${segment.kind}-${String(index)}`;
+              const copyText = segmentCopyText(segment);
+              if (segment.kind === 'command') {
+                return (
+                  <TranscriptChip copyText={copyText} key={key} testId="transcript-command-chip">
+                    {segment.value}
+                  </TranscriptChip>
+                );
+              }
+              if (segment.kind === 'markdownLink') {
+                return (
+                  <TranscriptChip copyText={copyText} key={key} testId="transcript-markdown-link-chip">
+                    {segment.label}
+                  </TranscriptChip>
+                );
+              }
+              return <UserTextFragment key={key} text={segment.value} />;
+            })}
+          </Box>
         </Box>
       </ListItem>
     );
@@ -134,7 +201,10 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   );
 };
 
-export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
+export const ChatItemView: FC<{
+  availableCommands?: readonly AvailableCommand[];
+  item: ChatItem;
+}> = ({ availableCommands = [], item }) => {
   switch (item.kind) {
     case 'agent_message':
       return <MessageRow text={item.text} tone="agent" />;
@@ -208,7 +278,7 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
       );
 
     case 'user_message':
-      return <MessageRow text={item.text} tone="user" />;
+      return <MessageRow availableCommands={availableCommands} text={item.text} tone="user" />;
 
     default:
       return null;

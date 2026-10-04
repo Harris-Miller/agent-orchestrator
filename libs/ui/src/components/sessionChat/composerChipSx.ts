@@ -3,22 +3,20 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 /** Shared layout for composer / transcript chips (chrome lives on ComposerChipContent only). */
 export const baseChipSx = {
-  alignItems: 'center',
   border: 'none',
   borderRadius: '4px',
-  display: 'inline-flex',
+  // inline-block (not inline-flex): baseline comes from the label text. inline-flex lets a
+  // leading file icon (replaced element) own the baseline and float the pill.
+  display: 'inline-block',
   // Match adjacent editor/transcript type — monospace reads larger than Lato at the same em.
   fontFamily: 'inherit',
   fontSize: 'inherit',
   fontWeight: 'inherit',
-  gap: 0.375,
   lineHeight: 1,
   mx: '0.15em',
   px: 0.5,
   py: '0.05em',
   userSelect: 'none',
-  // baseline (not middle): parent line-height 1.43 puts glyphs low in the line box;
-  // middle centers the chip in that box and leaves chip text sitting high.
   verticalAlign: 'baseline',
   whiteSpace: 'nowrap',
 } as const satisfies SxProps<Theme>;

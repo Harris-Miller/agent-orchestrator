@@ -8,7 +8,14 @@ import { themeAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { commandChipSx, markdownLinkChipSx } from './composerChipSx.ts';
 import { resolveFileChipIcon } from './fileChipIcons/resolveFileChipIcon.ts';
 
-const iconSx = { flexShrink: 0, fontSize: '0.875em', height: '0.875em', width: '0.875em' } as const;
+const iconSx = {
+  display: 'inline-block',
+  fontSize: '0.875em',
+  height: '0.875em',
+  marginRight: '0.25em',
+  verticalAlign: 'middle',
+  width: '0.875em',
+} as const;
 
 type ComposerChipSharedProps = {
   readonly className?: string;
@@ -28,7 +35,7 @@ const MarkdownLinkChipIcon: FC<{ readonly href?: string; readonly label: string 
     const { Icon } = icon;
     return <Icon sx={iconSx} />;
   }
-  return <Box alt="" component="img" src={icon.url} sx={{ ...iconSx, display: 'block' }} />;
+  return <Box alt="" component="img" src={icon.url} sx={iconSx} />;
 };
 
 export const ComposerChipContent: FC<ComposerChipContentProps> = props => {

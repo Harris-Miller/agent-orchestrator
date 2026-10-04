@@ -61,10 +61,15 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
   }
   const trailing = /(\s*)$/.exec(text)?.[1] ?? '';
   const middle = text.slice(leading.length, text.length - trailing.length);
+  // Plain text must stay a text node (same line metrics as chips). ChatMarkdown's inline <p>
+  // wrapper shifts the baseline and makes neighboring chips look high/low.
+  if (middle.length === 0 || !/[*_~`[\]]/.test(middle)) {
+    return text;
+  }
   return (
     <>
       {leading.length > 0 ? leading : null}
-      {middle.length > 0 ? <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} /> : null}
+      <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} />
       {trailing.length > 0 ? trailing : null}
     </>
   );
@@ -144,7 +149,7 @@ const MessageRow: FC<{
             py: 1.25,
           }}
         >
-          <Box onCopy={onUserMessageCopy} sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <Box onCopy={onUserMessageCopy} sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {segments.map((segment, index) => {
               const key = `${segment.kind}-${String(index)}`;
               const copyText = segmentCopyText(segment);

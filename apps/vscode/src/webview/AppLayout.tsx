@@ -9,7 +9,6 @@ import {
   readDeveloperPanelOpen,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
-  useCloseDeveloperPanelWhenModeOff,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { Outlet } from '@tanstack/react-router';
@@ -51,13 +50,9 @@ const sanitizeVerticalSizes = (
 
 const loadLayout = (): AppLayoutState => {
   try {
-    const raw = localStorage.getItem(LAYOUT_KEY) ?? localStorage.getItem('ao-vscode-developer-panel-layout');
+    const raw = localStorage.getItem(LAYOUT_KEY);
     if (raw == null) {
       return DEFAULT_LAYOUT;
-    }
-    if (localStorage.getItem(LAYOUT_KEY) == null) {
-      localStorage.setItem(LAYOUT_KEY, raw);
-      localStorage.removeItem('ao-vscode-developer-panel-layout');
     }
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) {
@@ -90,7 +85,6 @@ export const AppLayout: FC = () => {
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const onClientError = useContext(OnClientErrorContext);
   const panelVisible = developerMode && developerPanelOpen;
-  useCloseDeveloperPanelWhenModeOff();
 
   const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };

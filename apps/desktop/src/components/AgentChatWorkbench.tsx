@@ -11,7 +11,6 @@ import {
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
-  useCloseDeveloperPanelWhenModeOff,
 } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -87,7 +86,6 @@ export const AgentChatWorkbench: FC<{
   const setDeveloperPanelOpen = useAtomSet(developerPanelOpenAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  useCloseDeveloperPanelWhenModeOff();
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };

@@ -19,9 +19,9 @@ type RowRefRegistry = {
   readonly register: (index: number, node: HTMLElement | null) => void;
 };
 
-const ComposerPickerRowRefContext = createContext<null | RowRefRegistry>(null);
+const ComposerMenuRowRefContext = createContext<null | RowRefRegistry>(null);
 
-export type ComposerPickerMenuProps = {
+export type ComposerMenuShellProps = {
   readonly children: ReactNode;
   readonly focusedIndex: number;
   readonly itemCount: number;
@@ -29,7 +29,7 @@ export type ComposerPickerMenuProps = {
   readonly open: boolean;
 };
 
-export const ComposerPickerMenu: FC<ComposerPickerMenuProps> = ({
+export const ComposerMenuShell: FC<ComposerMenuShellProps> = ({
   children,
   focusedIndex,
   itemCount,
@@ -75,17 +75,17 @@ export const ComposerPickerMenu: FC<ComposerPickerMenuProps> = ({
           No matches
         </Typography>
       ) : (
-        <ComposerPickerRowRefContext.Provider value={registry}>
+        <ComposerMenuRowRefContext.Provider value={registry}>
           <List dense disablePadding>
             {children}
           </List>
-        </ComposerPickerRowRefContext.Provider>
+        </ComposerMenuRowRefContext.Provider>
       )}
     </Paper>
   );
 };
 
-export type ComposerPickerRowProps = {
+export type ComposerMenuRowProps = {
   readonly index: number;
   readonly onFocusIndexChange: (index: number) => void;
   readonly onSelect: () => void;
@@ -94,7 +94,7 @@ export type ComposerPickerRowProps = {
   readonly selected: boolean;
 };
 
-export const ComposerPickerRow: FC<ComposerPickerRowProps> = ({
+export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
   index,
   onFocusIndexChange,
   onSelect,
@@ -102,9 +102,9 @@ export const ComposerPickerRow: FC<ComposerPickerRowProps> = ({
   secondary,
   selected,
 }) => {
-  const registry = useContext(ComposerPickerRowRefContext);
+  const registry = useContext(ComposerMenuRowRefContext);
   if (registry === null) {
-    throw new Error('ComposerPickerRow must be rendered inside ComposerPickerMenu');
+    throw new Error('ComposerMenuRow must be rendered inside ComposerMenuShell');
   }
 
   return (

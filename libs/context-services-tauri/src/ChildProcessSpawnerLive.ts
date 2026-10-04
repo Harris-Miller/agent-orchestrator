@@ -105,16 +105,16 @@ const spawnStandard = Effect.fnUntraced(
     tauriCommand.stdout.on('data', (data: number[] | Uint8Array) => {
       try {
         stdio.onStdoutChunk(encodeChunk(data));
-      } catch {
-        // encode failure
+      } catch (cause) {
+        stdio.onStdoutFail(cause);
       }
     });
 
     tauriCommand.stderr.on('data', (data: number[] | Uint8Array) => {
       try {
         stdio.onStderrChunk(encodeChunk(data));
-      } catch {
-        // encode failure
+      } catch (cause) {
+        stdio.onStderrFail(cause);
       }
     });
 

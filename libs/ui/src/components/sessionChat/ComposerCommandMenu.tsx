@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { commandInvocation } from './composerCommandTokens.ts';
-import { ComposerPickerMenu, ComposerPickerRow } from './ComposerPickerMenu.tsx';
+import { ComposerMenuRow, ComposerMenuShell } from './ComposerMenuShell.tsx';
 
 export type ComposerCommandMenuProps = {
   readonly commands: readonly AvailableCommand[];
@@ -22,12 +22,12 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
   onSelect,
   open,
 }) => (
-  <ComposerPickerMenu focusedIndex={focusedIndex} itemCount={commands.length} open={open}>
+  <ComposerMenuShell focusedIndex={focusedIndex} itemCount={commands.length} open={open}>
     {commands.map((command, index) => {
       const invocation = commandInvocation(command.name);
       const description = command.description ?? '';
       const row = (
-        <ComposerPickerRow
+        <ComposerMenuRow
           index={index}
           onFocusIndexChange={onFocusIndexChange}
           onSelect={() => {
@@ -56,5 +56,5 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
         </Tooltip>
       );
     })}
-  </ComposerPickerMenu>
+  </ComposerMenuShell>
 );

@@ -25,8 +25,10 @@ export type QueuedChildProcessCallbacks = {
   readonly onSpawnError: (cause: unknown) => void;
   readonly onStderrChunk: (chunk: Uint8Array) => void;
   readonly onStderrEnd: () => void;
+  readonly onStderrFail: (cause: unknown) => void;
   readonly onStdoutChunk: (chunk: Uint8Array) => void;
   readonly onStdoutEnd: () => void;
+  readonly onStdoutFail: (cause: unknown) => void;
 };
 
 export type FinalizeQueuedChildProcessHandleOptions = {
@@ -63,6 +65,22 @@ export const openQueuedChildProcessStdio = Effect.fnUntraced(function* (
     yield* Queue.end(stderrQueue).pipe(Effect.ignore);
   });
 
+  const onStdoutFail = (cause: unknown) => {
+    runFork(
+      Effect.logWarning('Child stdout chunk failed', cause).pipe(
+        Effect.andThen(Queue.fail(stdoutQueue, mapSpawnError('stdout', cause))),
+      ),
+    );
+  };
+
+  const onStderrFail = (cause: unknown) => {
+    runFork(
+      Effect.logWarning('Child stderr chunk failed', cause).pipe(
+        Effect.andThen(Queue.fail(stderrQueue, mapSpawnError('stderr', cause))),
+      ),
+    );
+  };
+
   const callbacks: QueuedChildProcessCallbacks = {
     onExit: code => {
       runningRef.current = false;
@@ -86,22 +104,24 @@ export const openQueuedChildProcessStdio = Effect.fnUntraced(function* (
       try {
         Queue.offerUnsafe(stderrQueue, chunk);
       } catch (cause) {
-        runFork(Queue.fail(stderrQueue, mapSpawnError('stderr', cause)));
+        onStderrFail(cause);
       }
     },
     onStderrEnd: () => {
       runFork(Queue.end(stderrQueue).pipe(Effect.ignore));
     },
+    onStderrFail,
     onStdoutChunk: chunk => {
       try {
         Queue.offerUnsafe(stdoutQueue, chunk);
       } catch (cause) {
-        runFork(Queue.fail(stdoutQueue, mapSpawnError('stdout', cause)));
+        onStdoutFail(cause);
       }
     },
     onStdoutEnd: () => {
       runFork(Queue.end(stdoutQueue).pipe(Effect.ignore));
     },
+    onStdoutFail,
   };
 
   const finalize = (finalizeOptions: FinalizeQueuedChildProcessHandleOptions) =>

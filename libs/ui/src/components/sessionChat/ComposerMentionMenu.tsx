@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 
-import { ComposerPickerMenu, ComposerPickerRow } from './ComposerPickerMenu.tsx';
+import { ComposerMenuRow, ComposerMenuShell } from './ComposerMenuShell.tsx';
 
 export type ComposerMentionMenuProps = {
   readonly entries: readonly FdListingEntry[];
@@ -22,11 +22,11 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   onSelect,
   open,
 }) => (
-  <ComposerPickerMenu focusedIndex={focusedIndex} itemCount={entries.length} loading={loading} open={open}>
+  <ComposerMenuShell focusedIndex={focusedIndex} itemCount={entries.length} loading={loading} open={open}>
     {entries.map((entry, index) => {
       const name = listingBasename(entry.path);
       return (
-        <ComposerPickerRow
+        <ComposerMenuRow
           index={index}
           key={`${entry.kind}:${entry.path}`}
           onFocusIndexChange={onFocusIndexChange}
@@ -39,5 +39,5 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
         />
       );
     })}
-  </ComposerPickerMenu>
+  </ComposerMenuShell>
 );

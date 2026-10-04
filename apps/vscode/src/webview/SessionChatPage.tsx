@@ -18,7 +18,6 @@ import Typography from '@mui/material/Typography';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
-import { useAppLayout } from './appLayoutContext.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 
 /**
@@ -33,7 +32,6 @@ export const SessionChatPage: FC = () => {
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const onClientError = useContext(OnClientErrorContext);
-  const { developerPanelOpen, openDeveloperPanel } = useAppLayout();
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
   const activateSessionRef = useRef(activateSession);
@@ -83,7 +81,7 @@ export const SessionChatPage: FC = () => {
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
         </Typography>
-        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
+        <OpenDeveloperPanelButton />
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} />

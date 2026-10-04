@@ -31,7 +31,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { useContext, useState } from 'react';
 import type { FC, MouseEvent } from 'react';
 
-import { useAppLayout } from './appLayoutContext.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -46,7 +45,6 @@ export const SessionHistory: FC = () => {
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
-  const { developerPanelOpen, openDeveloperPanel } = useAppLayout();
   const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -75,7 +73,7 @@ export const SessionHistory: FC = () => {
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>
-        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
+        <OpenDeveloperPanelButton />
         <IconButton
           aria-label="Create session"
           disabled={noFolder || creating}
@@ -166,7 +164,6 @@ export const ProvidersPage: FC = () => {
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const userSettings = useAtomValue(userSettingsAtom);
   const editsDisabled = userSettingsEditsDisabled(userSettings);
-  const { developerPanelOpen, openDeveloperPanel } = useAppLayout();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
@@ -183,7 +180,7 @@ export const ProvidersPage: FC = () => {
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Providers
         </Typography>
-        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
+        <OpenDeveloperPanelButton />
       </Stack>
       <ProvidersSettingsPane />
       {/* Full Settings shell → #96 (Epic #88); not in #92. */}
@@ -193,9 +190,6 @@ export const ProvidersPage: FC = () => {
           disabled={editsDisabled}
           onChange={(_event, checked) => {
             setDeveloperMode(checked);
-            if (checked) {
-              openDeveloperPanel();
-            }
           }}
           slotProps={{ input: { 'aria-label': 'Developer mode' } }}
         />

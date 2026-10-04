@@ -1,15 +1,17 @@
 import 'allotment/dist/style.css';
 
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   DEVELOPER_PANEL_HEIGHT,
   developerModeAtom,
+  developerPanelOpenAtom,
   DeveloperPanelShell,
   isRecord,
   OpenDeveloperPanelButton,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
+  useCloseDeveloperPanelWhenModeOff,
 } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -18,7 +20,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
@@ -28,7 +30,6 @@ const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
 type WorkbenchLayout = {
-  readonly developerPanelOpen: boolean;
   readonly horizontalSizes?: readonly number[];
   readonly sessionRosterOpen: boolean;
   readonly sessionStateOpen: boolean;
@@ -36,7 +37,6 @@ type WorkbenchLayout = {
 };
 
 const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
-  developerPanelOpen: false,
   sessionRosterOpen: true,
   sessionStateOpen: true,
 };
@@ -56,14 +56,7 @@ const loadWorkbenchLayout = (): WorkbenchLayout => {
     if (!isRecord(parsed)) {
       return DEFAULT_WORKBENCH_LAYOUT;
     }
-    const developerPanelOpen =
-      typeof parsed.developerPanelOpen === 'boolean'
-        ? parsed.developerPanelOpen
-        : typeof parsed.rpcWireLogOpen === 'boolean'
-          ? parsed.rpcWireLogOpen
-          : DEFAULT_WORKBENCH_LAYOUT.developerPanelOpen;
     return {
-      developerPanelOpen,
       horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
       sessionRosterOpen:
         typeof parsed.sessionRosterOpen === 'boolean'
@@ -90,8 +83,11 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const developerMode = useAtomValue(developerModeAtom);
+  const developerPanelOpen = useAtomValue(developerPanelOpenAtom);
+  const setDeveloperPanelOpen = useAtomSet(developerPanelOpenAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  useCloseDeveloperPanelWhenModeOff();
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -101,12 +97,6 @@ export const AgentChatWorkbench: FC<{
       setLayout(next);
     }
   };
-
-  useEffect(() => {
-    if (!developerMode && layoutRef.current.developerPanelOpen) {
-      commitLayout({ developerPanelOpen: false });
-    }
-  }, [developerMode]);
 
   return (
     <Box
@@ -137,7 +127,7 @@ export const AgentChatWorkbench: FC<{
         }}
         onVisibleChange={(index, visible) => {
           if (index === 1) {
-            commitLayout({ developerPanelOpen: visible });
+            setDeveloperPanelOpen(visible);
           }
         }}
         vertical
@@ -187,12 +177,7 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
-                    <OpenDeveloperPanelButton
-                      onOpen={() => {
-                        commitLayout({ developerPanelOpen: true });
-                      }}
-                      open={layout.developerPanelOpen}
-                    />
+                    <OpenDeveloperPanelButton />
                     {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {
@@ -225,7 +210,7 @@ export const AgentChatWorkbench: FC<{
           minSize={120}
           preferredSize={DEVELOPER_PANEL_HEIGHT}
           snap
-          visible={developerMode ? layout.developerPanelOpen : false}
+          visible={developerMode ? developerPanelOpen : false}
         >
           <DeveloperPanelShell
             extraTabs={[
@@ -241,7 +226,7 @@ export const AgentChatWorkbench: FC<{
             ]}
             initializeResult={selectedSnapshot?.initializeResult}
             onClose={() => {
-              commitLayout({ developerPanelOpen: false });
+              setDeveloperPanelOpen(false);
             }}
             onCopyError={onClientError}
             session={selectedSession}

@@ -15,7 +15,11 @@ import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
-import { backendHarnessStateAtom, rpcWireLogLaunchTargetAtom } from '../../atoms/backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  rpcWireLogLaunchTargetAtom,
+  selectedSessionIdAtom,
+} from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
@@ -30,6 +34,8 @@ import {
   classifyRpcWireLog,
   coerceWireIdFilter,
   filterClassifiedRpcWireEntries,
+  resolveSessionFilter,
+  RPC_WIRE_FILTER_ACTIVE_SESSION,
   RPC_WIRE_FILTER_ALL,
 } from './rpcWireLogFilter.ts';
 import { SessionStateView } from './SessionStateView.tsx';
@@ -60,26 +66,34 @@ const RpcWireLogBody: FC<{
   readonly onCopyError: (error: unknown) => void;
 }> = ({ launchTarget, onCopyError }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(launchTarget));
+  const activeSessionId = useAtomValue(selectedSessionIdAtom);
   const entries = snapshot.rpcCalls;
   const [sessionFilter, setSessionFilter] = useState(RPC_WIRE_FILTER_ALL);
   const [tagFilter, setTagFilter] = useState(RPC_WIRE_FILTER_ALL);
   const [wireIdFilter, setWireIdFilter] = useState(RPC_WIRE_FILTER_ALL);
 
   const classification = useMemo(() => classifyRpcWireLog(entries), [entries]);
-  const idOptions = useMemo(
-    () => cascadedWireIds(classification.classified, { sessionKey: sessionFilter, tag: tagFilter }),
-    [classification.classified, sessionFilter, tagFilter],
-  );
+  const resolvedSessionFilter = resolveSessionFilter(sessionFilter, activeSessionId);
+  const idOptions = useMemo(() => {
+    if (resolvedSessionFilter === null) {
+      return [];
+    }
+    return cascadedWireIds(classification.classified, {
+      sessionKey: resolvedSessionFilter,
+      tag: tagFilter,
+    });
+  }, [classification.classified, resolvedSessionFilter, tagFilter]);
   const effectiveWireIdFilter = coerceWireIdFilter(wireIdFilter, idOptions);
-  const filtered = useMemo(
-    () =>
-      filterClassifiedRpcWireEntries(classification.classified, {
-        sessionKey: sessionFilter,
-        tag: tagFilter,
-        wireId: effectiveWireIdFilter,
-      }),
-    [classification.classified, effectiveWireIdFilter, sessionFilter, tagFilter],
-  );
+  const filtered = useMemo(() => {
+    if (resolvedSessionFilter === null) {
+      return [];
+    }
+    return filterClassifiedRpcWireEntries(classification.classified, {
+      sessionKey: resolvedSessionFilter,
+      tag: tagFilter,
+      wireId: effectiveWireIdFilter,
+    });
+  }, [classification.classified, effectiveWireIdFilter, resolvedSessionFilter, tagFilter]);
 
   if (entries.length === 0) {
     return (
@@ -100,19 +114,23 @@ const RpcWireLogBody: FC<{
             onChange={event => {
               const nextSession = event.target.value;
               setSessionFilter(nextSession);
+              const resolved = resolveSessionFilter(nextSession, activeSessionId);
               setWireIdFilter(current =>
-                coerceWireIdFilter(
-                  current,
-                  cascadedWireIds(classification.classified, {
-                    sessionKey: nextSession,
-                    tag: tagFilter,
-                  }),
-                ),
+                resolved === null
+                  ? RPC_WIRE_FILTER_ALL
+                  : coerceWireIdFilter(
+                      current,
+                      cascadedWireIds(classification.classified, {
+                        sessionKey: resolved,
+                        tag: tagFilter,
+                      }),
+                    ),
               );
             }}
             value={sessionFilter}
           >
             <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+            <MenuItem value={RPC_WIRE_FILTER_ACTIVE_SESSION}>Active session</MenuItem>
             {classification.sessionKeys.map(sessionKey => (
               <MenuItem key={sessionKey} value={sessionKey}>
                 {sessionKey}
@@ -129,13 +147,15 @@ const RpcWireLogBody: FC<{
               const nextTag = event.target.value;
               setTagFilter(nextTag);
               setWireIdFilter(current =>
-                coerceWireIdFilter(
-                  current,
-                  cascadedWireIds(classification.classified, {
-                    sessionKey: sessionFilter,
-                    tag: nextTag,
-                  }),
-                ),
+                resolvedSessionFilter === null
+                  ? RPC_WIRE_FILTER_ALL
+                  : coerceWireIdFilter(
+                      current,
+                      cascadedWireIds(classification.classified, {
+                        sessionKey: resolvedSessionFilter,
+                        tag: nextTag,
+                      }),
+                    ),
               );
             }}
             value={tagFilter}

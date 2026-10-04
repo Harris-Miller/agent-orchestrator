@@ -7,6 +7,8 @@ import {
   classifyRpcWireLog,
   coerceWireIdFilter,
   filterClassifiedRpcWireEntries,
+  resolveSessionFilter,
+  RPC_WIRE_FILTER_ACTIVE_SESSION,
   RPC_WIRE_FILTER_ALL,
 } from './rpcWireLogFilter.ts';
 
@@ -207,5 +209,17 @@ describe('cascadedWireIds / coerceWireIdFilter', () => {
     assert.strictEqual(coerceWireIdFilter('2', ['2', '']), '2');
     assert.strictEqual(coerceWireIdFilter('', ['2', '']), '');
     assert.strictEqual(coerceWireIdFilter(RPC_WIRE_FILTER_ALL, ['2']), RPC_WIRE_FILTER_ALL);
+  });
+});
+
+describe('resolveSessionFilter', () => {
+  it('passes through concrete session and All', () => {
+    assert.strictEqual(resolveSessionFilter(RPC_WIRE_FILTER_ALL, undefined), RPC_WIRE_FILTER_ALL);
+    assert.strictEqual(resolveSessionFilter('sess-a', undefined), 'sess-a');
+  });
+
+  it('maps Active session to the selected id, or null when none', () => {
+    assert.strictEqual(resolveSessionFilter(RPC_WIRE_FILTER_ACTIVE_SESSION, 'sess-a'), 'sess-a');
+    assert.strictEqual(resolveSessionFilter(RPC_WIRE_FILTER_ACTIVE_SESSION, undefined), null);
   });
 });

@@ -2,6 +2,15 @@ import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { isRecord } from '../../isRecord.ts';
 
 export const RPC_WIRE_FILTER_ALL = 'all';
+export const RPC_WIRE_FILTER_ACTIVE_SESSION = 'active-session';
+
+/** Resolve Session select value. `null` means match nothing (active session chosen, none selected). */
+export const resolveSessionFilter = (sessionFilter: string, activeSessionId: string | undefined): null | string => {
+  if (sessionFilter !== RPC_WIRE_FILTER_ACTIVE_SESSION) {
+    return sessionFilter;
+  }
+  return activeSessionId ?? null;
+};
 
 export type RpcWireFacet = {
   readonly sessionKey: string;

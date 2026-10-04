@@ -2,6 +2,9 @@ import { $applyNodeReplacement, DecoratorNode } from 'lexical';
 import type { DOMExportOutput, LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
 import type { JSX } from 'react';
 
+import { ComposerChipContent } from './ComposerChipContent.tsx';
+import { markdownLinkText } from './markdownLinkText.ts';
+
 export type SerializedComposerMarkdownLinkNode = Spread<
   {
     readonly href: string;
@@ -10,7 +13,7 @@ export type SerializedComposerMarkdownLinkNode = Spread<
   SerializedLexicalNode
 >;
 
-export const markdownLinkText = (label: string, href: string): string => `[${label}](${href})`;
+export { markdownLinkText };
 
 export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
   __href: string;
@@ -42,9 +45,13 @@ export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
 
   decorate(): JSX.Element {
     return (
-      <span className="composer-markdown-link-chip" contentEditable={false} data-testid="composer-markdown-link-chip">
-        {this.__label}
-      </span>
+      <ComposerChipContent
+        className="composer-markdown-link-chip"
+        href={this.__href}
+        kind="markdownLink"
+        label={this.__label}
+        testId="composer-markdown-link-chip"
+      />
     );
   }
 

@@ -1,5 +1,5 @@
 import type { ComposerSegment } from './composerCommandTokens.ts';
-import { markdownLinkText } from './ComposerMarkdownLinkNode.tsx';
+import { markdownLinkText } from './markdownLinkText.ts';
 
 /** Plain-text form that pastes back into the composer as the original chip source. */
 export const segmentCopyText = (segment: ComposerSegment): string => {

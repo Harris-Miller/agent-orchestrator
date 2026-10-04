@@ -10,10 +10,10 @@ const fzfFind = (entries: readonly FdListingEntry[], query: string): readonly Fd
   new Fzf(entries, { selector: entry => entry.path }).find(query).map(result => result.item);
 
 /**
- * Filter cached FS entries for `@` query. Empty query lists all (capped);
- * non-empty: exact basename matches first, then fzf path hits. Display capped at 50.
+ * Filter cached FS entries for `@` query. Empty query lists all;
+ * non-empty: exact basename matches first, then fzf path hits. No display cap.
  */
-export const filterFsListingEntries = (
+export const filterFsListingEntriesAll = (
   entries: readonly FdListingEntry[],
   query: string,
 ): readonly FdListingEntry[] => {
@@ -21,11 +21,18 @@ export const filterFsListingEntries = (
     return [];
   }
   if (query.length === 0) {
-    return entries.slice(0, MENTION_MENU_LIMIT);
+    return entries;
   }
 
   const exact = entries.filter(entry => listingBasename(entry.path) === query);
   const remaining = entries.filter(entry => listingBasename(entry.path) !== query);
   const fuzzy = fzfFind(remaining, query);
-  return [...exact, ...fuzzy].slice(0, MENTION_MENU_LIMIT);
+  return [...exact, ...fuzzy];
 };
+
+/**
+ * Filter cached FS entries for `@` query. Empty query lists all (capped);
+ * non-empty: exact basename matches first, then fzf path hits. Display capped at 50.
+ */
+export const filterFsListingEntries = (entries: readonly FdListingEntry[], query: string): readonly FdListingEntry[] =>
+  filterFsListingEntriesAll(entries, query).slice(0, MENTION_MENU_LIMIT);

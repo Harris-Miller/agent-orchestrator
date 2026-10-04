@@ -24,6 +24,7 @@
     "@libs/effect-acp": "workspace:^",
     "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "effect": "catalog:",
     "fzf": "catalog:",
     "lexical": "catalog:",

@@ -8,7 +8,7 @@ import {
   shallowDirListingArgs,
 } from '../../host/fdListing.ts';
 
-import { filterFsListingEntries, MENTION_MENU_LIMIT } from './filterFsListingEntries.ts';
+import { filterFsListingEntries, filterFsListingEntriesAll, MENTION_MENU_LIMIT } from './filterFsListingEntries.ts';
 import { absolutePathToFileUrlHref, fsMentionMarkdownLink, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
 describe('fdListing helpers', () => {
@@ -56,6 +56,14 @@ describe('filterFsListingEntries', () => {
       filterFsListingEntries(entries, 'main').map(entry => entry.path),
       ['src/main.ts'],
     );
+  });
+
+  it('filterFsListingEntriesAll keeps full empty-query list', () => {
+    const many = Array.from({ length: 60 }, (_, index) => ({
+      kind: 'file' as const,
+      path: `f${String(index)}.ts`,
+    }));
+    assert.strictEqual(filterFsListingEntriesAll(many, '').length, 60);
   });
 });
 

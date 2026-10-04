@@ -9,18 +9,51 @@ import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
-import type { FC } from 'react';
+import type { ClipboardEventHandler, FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { sharedChipSx } from './composerChipSx.ts';
+import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
 import { prepareUserMessageSegments } from './userMessageSegments.ts';
 
 const userFragmentMarkdownSx = {
   '& p': { display: 'inline', m: 0 },
   display: 'inline',
 } as const;
+
+/** Transcript chips must be selectable so copy includes them; composer keeps userSelect: none. */
+const transcriptChipSx = {
+  ...sharedChipSx,
+  userSelect: 'text',
+} as const;
+
+const onUserMessageCopy: ClipboardEventHandler<HTMLElement> = event => {
+  const text = clipboardTextFromSelectionInRoot(event.currentTarget);
+  if (text === null) {
+    return;
+  }
+  event.preventDefault();
+  event.clipboardData.setData('text/plain', text);
+};
+
+/** Keep edge whitespace outside ChatMarkdown — react-markdown trims it from <p> text. */
+const UserTextFragment: FC<{ text: string }> = ({ text }) => {
+  const leading = /^(\s*)/.exec(text)?.[1] ?? '';
+  if (leading.length === text.length) {
+    return text;
+  }
+  const trailing = /(\s*)$/.exec(text)?.[1] ?? '';
+  const middle = text.slice(leading.length, text.length - trailing.length);
+  return (
+    <>
+      {leading.length > 0 ? leading : null}
+      {middle.length > 0 ? <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} /> : null}
+      {trailing.length > 0 ? trailing : null}
+    </>
+  );
+};
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
@@ -96,24 +129,37 @@ const MessageRow: FC<{
             py: 1.25,
           }}
         >
-          <Box sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <Box onCopy={onUserMessageCopy} sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {segments.map((segment, index) => {
               const key = `${segment.kind}-${String(index)}`;
+              const copyText = segmentCopyText(segment);
               if (segment.kind === 'command') {
                 return (
-                  <Box component="span" data-testid="transcript-command-chip" key={key} sx={sharedChipSx}>
+                  <Box
+                    component="span"
+                    data-copy-text={copyText}
+                    data-testid="transcript-command-chip"
+                    key={key}
+                    sx={transcriptChipSx}
+                  >
                     {segment.value}
                   </Box>
                 );
               }
               if (segment.kind === 'markdownLink') {
                 return (
-                  <Box component="span" data-testid="transcript-markdown-link-chip" key={key} sx={sharedChipSx}>
+                  <Box
+                    component="span"
+                    data-copy-text={copyText}
+                    data-testid="transcript-markdown-link-chip"
+                    key={key}
+                    sx={transcriptChipSx}
+                  >
                     {segment.label}
                   </Box>
                 );
               }
-              return <ChatMarkdown key={key} sx={userFragmentMarkdownSx} text={segment.value} />;
+              return <UserTextFragment key={key} text={segment.value} />;
             })}
           </Box>
         </Box>

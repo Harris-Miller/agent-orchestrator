@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
+import { segmentCopyText } from './userMessageClipboard.ts';
 import { prepareUserMessageSegments } from './userMessageSegments.ts';
 
 const commands = [
@@ -52,5 +53,16 @@ describe('prepareUserMessageSegments', () => {
         { kind: 'command', value: '/status' },
       ],
     );
+  });
+});
+
+describe('segmentCopyText', () => {
+  it('uses invocation and full markdown link for clipboard parity with composer', () => {
+    assert.strictEqual(segmentCopyText({ kind: 'command', value: '/status' }), '/status');
+    assert.strictEqual(
+      segmentCopyText({ href: 'file:///tmp/package.json', kind: 'markdownLink', label: '@package.json' }),
+      '[@package.json](file:///tmp/package.json)',
+    );
+    assert.strictEqual(segmentCopyText({ kind: 'text', value: ' hello ' }), ' hello ');
   });
 });

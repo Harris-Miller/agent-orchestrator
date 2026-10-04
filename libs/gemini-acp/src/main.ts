@@ -15,7 +15,7 @@ const program = Effect.gen(function* () {
     makeGeminiAcpServeHandlersLayer(
       connectAcpAgent(
         GEMINI_CHILD_COMMAND,
-        ClientRpcs.toLayer(Effect.succeed(makeForwardClientHandlerMap(parentClient))),
+        ClientRpcs.toLayer(Effect.succeed(makeForwardClientHandlerMap(parentClient))).pipe(Layer.provide(runtimeLayer)),
       ).pipe(Effect.provide(runtimeLayer)),
     ).pipe(Layer.provide(runtimeLayer)),
   );

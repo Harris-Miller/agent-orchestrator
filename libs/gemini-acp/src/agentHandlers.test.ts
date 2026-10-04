@@ -161,13 +161,23 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
       }),
     );
 
-    layeredIt.effect('soft close cancels when loaded, keeps roster row, second close is idle', () =>
+    layeredIt.effect('soft close cancels when loaded, keeps roster row, refreshes updatedAt', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
         const loaded = yield* makeLoadedSet();
         const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
 
         yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
+        const rosterPath = '/home/operator/.ao/adapters/gemini-acp/roster.json';
+        const onDisk = store.get(rosterPath);
+        assert.isTrue(onDisk?.kind === 'file');
+        if (onDisk?.kind === 'file') {
+          const doc = JSON.parse(onDisk.content) as {
+            sessions: { sessionId: string; updatedAt?: string }[];
+          };
+          doc.sessions[0] = { ...doc.sessions[0], updatedAt: '2020-01-01T00:00:00.000Z' };
+          store.set(rosterPath, { content: `${JSON.stringify(doc, null, 2)}\n`, kind: 'file' });
+        }
         yield* Ref.set(calls, []);
 
         yield* handlers['session/close']({ sessionId: 'sess-1' });
@@ -176,6 +186,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
 
         const listed = yield* handlers['session/list']({});
         assert.strictEqual(listed.sessions.length, 1);
+        assert.notStrictEqual(listed.sessions[0]?.updatedAt, '2020-01-01T00:00:00.000Z');
 
         yield* Ref.set(calls, []);
         yield* handlers['session/close']({ sessionId: 'sess-1' });

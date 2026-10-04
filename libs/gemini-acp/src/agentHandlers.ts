@@ -15,7 +15,7 @@ import type {
 import { AgentRpcs } from '@libs/effect-acp';
 import { Effect } from 'effect';
 
-import { listRosterSessions, removeRosterEntry, upsertRosterEntry } from './adapterRosterSessions.ts';
+import { listRosterSessions, removeRosterEntry, touchRosterEntry, upsertRosterEntry } from './adapterRosterSessions.ts';
 import type { EnsureGeminiChild, GeminiChild } from './geminiChild.ts';
 import type { LoadedSet } from './loadedSet.ts';
 import { isLoaded, markLoaded, unmarkLoaded } from './loadedSet.ts';
@@ -51,6 +51,7 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
           yield* withChild(ensureChild, child => child.notify('session/cancel', { sessionId: request.sessionId }));
           yield* unmarkLoaded(loaded, request.sessionId);
         }
+        yield* touchRosterEntry(request.sessionId).pipe(Effect.orDie);
         return {};
       }),
     'session/delete': (request: DeleteSessionRequest) =>

@@ -17,7 +17,7 @@ Process-local set of `sessionId`s still bound on the live Gemini child. Cleared 
 _Avoid_: active sessions, open sessions, session roster
 
 **Soft close**:
-Client-facing `session/close` that drops the session from the loaded set (and best-effort cancels in-flight work) without calling a Gemini close RPC or removing the adapter roster entry.
+Client-facing `session/close` that drops the session from the loaded set (and best-effort cancels in-flight work), refreshes the roster row's `updatedAt` when present, without calling a Gemini close RPC or removing the adapter roster entry.
 _Avoid_: hard close, kill child, deactivate (Harness UX term)
 
 **Soft delete**:

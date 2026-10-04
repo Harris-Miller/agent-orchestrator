@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget, UnifiedRosterEntry } from '@lib/ui';
 import {
   activateSessionAtomFn,
-  agentLaunchTargetLabel,
+  AgentLaunchTargetIcon,
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
   confirmSessionDeleteAtom,
@@ -31,12 +31,10 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
-import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
@@ -52,6 +50,20 @@ import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 const truncateSessionId = (sessionId: string): string =>
   sessionId.length > 12 ? `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}` : sessionId;
 
+const sessionCardSx = (selected: boolean) =>
+  ({
+    border: 1,
+    borderColor: selected ? 'primary.main' : 'divider',
+    borderRadius: 1,
+    cursor: 'pointer',
+    overflow: 'hidden',
+    width: '100%',
+    ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
+  }) as const;
+
 const SessionRow: FC<{
   readonly entry: UnifiedRosterEntry;
   readonly onDeleteRequest: (entry: UnifiedRosterEntry) => void;
@@ -66,6 +78,7 @@ const SessionRow: FC<{
   const status = session?.status ?? 'inactive';
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
+  const menuOpen = menuAnchor !== null;
 
   const openSession = () => {
     // activateSession selects + no-ops when already active/activating (Codex-safe).
@@ -73,38 +86,64 @@ const SessionRow: FC<{
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
 
+  const closeMenu = () => {
+    setMenuAnchor(null);
+  };
+
   return (
-    <ListItem
-      disablePadding
-      secondaryAction={
-        <IconButton
-          aria-label="Session actions"
-          edge="end"
-          onClick={event => {
-            setMenuAnchor(event.currentTarget);
-          }}
-          size="small"
-        >
-          <MoreHoriz fontSize="small" />
-        </IconButton>
-      }
-    >
-      <ListItemButton onClick={openSession} selected={selected}>
-        <ListItemText
-          primary={displayTitle}
-          secondary={`${agentLaunchTargetLabel(entry.launchTarget)}${pendingClientRequest ? ' · pending client request' : ''}`}
-        />
-        {pendingClientRequest ? (
-          <CircularProgress aria-label="Pending client request" size={14} sx={{ mr: 1 }} />
-        ) : null}
-      </ListItemButton>
+    <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
+      <Paper
+        elevation={0}
+        onClick={openSession}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openSession();
+          }
+        }}
+        role="button"
+        sx={sessionCardSx(selected)}
+        tabIndex={0}
+      >
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+          <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                display: '-webkit-box',
+                fontWeight: selected ? 600 : 400,
+                lineHeight: 1.4,
+                overflow: 'hidden',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
+                width: '100%',
+              }}
+              variant="body2"
+            >
+              {displayTitle}
+            </Typography>
+          </Box>
+          {pendingClientRequest ? (
+            <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
+          ) : null}
+          <IconButton
+            aria-label="Session actions"
+            onClick={event => {
+              event.stopPropagation();
+              setMenuAnchor(event.currentTarget);
+            }}
+            size="small"
+            sx={{ flexShrink: 0, mr: -0.5 }}
+          >
+            <MoreHoriz fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Paper>
       <Popover
         anchorEl={menuAnchor}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        onClose={() => {
-          setMenuAnchor(null);
-        }}
-        open={menuAnchor !== null}
+        onClose={closeMenu}
+        open={menuOpen}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
@@ -112,7 +151,7 @@ const SessionRow: FC<{
             color="error"
             disabled={status !== 'inactive'}
             onClick={() => {
-              setMenuAnchor(null);
+              closeMenu();
               onDeleteRequest(entry);
             }}
             size="small"
@@ -231,7 +270,7 @@ export const SessionHistory: FC = () => {
           ) : null}
         </Stack>
       ) : (
-        <List dense disablePadding sx={{ overflow: 'auto' }}>
+        <Box sx={{ overflow: 'auto', py: 0.5 }}>
           {roster.map(entry => (
             <SessionRow
               entry={entry}
@@ -240,7 +279,7 @@ export const SessionHistory: FC = () => {
               selected={selectedSessionId === entry.sessionId}
             />
           ))}
-        </List>
+        </Box>
       )}
 
       <Menu

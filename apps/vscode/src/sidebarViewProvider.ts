@@ -91,7 +91,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN};"
+      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Orchestrator</title>
@@ -125,7 +125,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
+      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agent Orchestrator</title>

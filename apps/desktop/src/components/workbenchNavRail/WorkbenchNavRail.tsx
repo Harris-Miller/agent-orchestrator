@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget, SessionSnapshot, UnifiedRosterEntry } from '@lib/ui';
 import {
   activateSessionAtomFn,
-  agentLaunchTargetLabel,
+  AgentLaunchTargetIcon,
   allLaunchTargetPhasesAtom,
   backendHarnessStateAtom,
   confirmSessionDeleteAtom,
@@ -61,17 +61,6 @@ const directoryName = (cwd: string): string => {
   const trimmed = cwd.replace(/[/\\]+$/, '');
   const segment = trimmed.split(/[/\\]/).pop();
   return segment !== undefined && segment.length > 0 ? segment : cwd;
-};
-
-const launchTargetIconSrc = (launchTarget: AgentLaunchTarget): string => {
-  switch (launchTarget) {
-    case 'claude-agent-acp':
-      return '/claude_icon.svg';
-    case 'codex-acp':
-      return '/openai_icon.svg';
-    case 'gemini-cli':
-      return '/gemini_icon.svg';
-  }
 };
 
 const rosterEntrySession = (
@@ -138,14 +127,7 @@ const SessionRow: FC<{
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
-          <Tooltip title={agentLaunchTargetLabel(entry.launchTarget)}>
-            <Box
-              alt=""
-              component="img"
-              src={launchTargetIconSrc(entry.launchTarget)}
-              sx={{ display: 'block', flexShrink: 0, height: 16, width: 16 }}
-            />
-          </Tooltip>
+          <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               sx={{

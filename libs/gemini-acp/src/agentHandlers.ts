@@ -30,11 +30,13 @@ const withChild = <A>(
     return yield* use(child);
   }).pipe(Effect.orDie);
 
-const upsertAndMarkLoaded = (loaded: LoadedSet, entry: { readonly cwd: string; readonly sessionId: string }) =>
-  Effect.gen(function* () {
-    yield* upsertRosterEntry(entry).pipe(Effect.orDie);
-    yield* markLoaded(loaded, entry.sessionId);
-  });
+const upsertAndMarkLoaded = Effect.fn('upsertAndMarkLoaded')(function* (
+  loaded: LoadedSet,
+  entry: { readonly cwd: string; readonly sessionId: string },
+) {
+  yield* upsertRosterEntry(entry).pipe(Effect.orDie);
+  yield* markLoaded(loaded, entry.sessionId);
+});
 
 /** Agent handler map: cap rewrite + soft lifecycle + transparent forward to Gemini child. */
 export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loaded: LoadedSet) =>
@@ -88,11 +90,11 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
             ? {}
             : { additionalDirectories: request.additionalDirectories }),
         };
-        const loadedResult = yield* withChild(ensureChild, child => child.agent['session/load'](loadRequest));
+        const loadResult = yield* withChild(ensureChild, child => child.agent['session/load'](loadRequest));
         yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: request.sessionId });
         return {
-          ...(loadedResult.configOptions === undefined ? {} : { configOptions: loadedResult.configOptions }),
-          ...(loadedResult.modes === undefined ? {} : { modes: loadedResult.modes }),
+          ...(loadResult.configOptions === undefined ? {} : { configOptions: loadResult.configOptions }),
+          ...(loadResult.modes === undefined ? {} : { modes: loadResult.modes }),
         };
       }),
     'session/set_config_option': (request: SetSessionConfigOptionRequest) =>

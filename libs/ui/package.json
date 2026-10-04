@@ -5,6 +5,7 @@
   "license": "ISC",
   "exports": {
     ".": "./src/index.ts",
+    "./acp-adapter-entry": "./src/host/acpAdapterEntryResource.ts",
     "./acp-session-bootstrap": "./src/host/acpSessionBootstrap.ts",
     "./fd-listing": "./src/host/fdListing.ts",
     "./host-runtime": "./src/hostRuntimeEntry.ts"

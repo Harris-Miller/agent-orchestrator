@@ -90,7 +90,7 @@ export type ComposerMenuRowProps = {
   readonly onFocusIndexChange: (index: number) => void;
   readonly onSelect: () => void;
   readonly primary: ReactNode;
-  readonly secondary: ReactNode;
+  readonly secondary?: ReactNode;
   readonly selected: boolean;
 };
 
@@ -103,9 +103,7 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
   selected,
 }) => {
   const registry = useContext(ComposerMenuRowRefContext);
-  if (registry === null) {
-    throw new Error('ComposerMenuRow must be rendered inside ComposerMenuShell');
-  }
+  const hasSecondary = secondary != null && secondary !== false && secondary !== '';
 
   return (
     <ListItemButton
@@ -114,18 +112,20 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
         onFocusIndexChange(index);
       }}
       ref={node => {
-        registry.register(index, node);
+        registry?.register(index, node);
       }}
       selected={selected}
       sx={{ py: 0.75 }}
     >
       <Typography component="div" noWrap sx={{ width: '100%' }} variant="body2">
-        <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, mr: 1 }}>
+        <Box component="span" sx={{ fontFamily: 'monospace', mr: hasSecondary ? 1 : 0 }}>
           {primary}
         </Box>
-        <Box component="span" sx={{ color: 'text.secondary' }}>
-          {secondary}
-        </Box>
+        {hasSecondary ? (
+          <Box component="span" sx={{ color: 'text.secondary' }}>
+            {secondary}
+          </Box>
+        ) : null}
       </Typography>
     </ListItemButton>
   );

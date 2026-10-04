@@ -25,7 +25,6 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
-  unifiedSessionRosterAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
@@ -39,7 +38,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
-import { sessionFsListingAtom, sessionFsListingKey } from '../../atoms/sessionFsListing.atoms.ts';
+import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
@@ -57,7 +56,7 @@ import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommands } from './filterAvailableCommands.ts';
-import { filterFsListingEntries } from './filterFsListingEntries.ts';
+import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
@@ -93,7 +92,7 @@ export const SessionChatBody: FC<{
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const { fsListing, sessionCwd, sourceCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
@@ -141,16 +140,6 @@ export const SessionChatBody: FC<{
     selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
   const canSend = controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
   const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
-  const sourceCwd =
-    selectedLaunchTarget === undefined || selectedSessionId === undefined
-      ? undefined
-      : roster.find(entry => entry.launchTarget === selectedLaunchTarget && entry.sessionId === selectedSessionId)?.cwd;
-  const sessionCwd = selectedSession?.cwd ?? sourceCwd;
-  const listingKey =
-    selectedSessionId !== undefined && sessionCwd !== undefined
-      ? sessionFsListingKey(selectedSessionId, sessionCwd)
-      : null;
-  const fsListing = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
   const canHandoff =
     controlsEnabled &&
     selectedLaunchTarget !== undefined &&
@@ -186,7 +175,7 @@ export const SessionChatBody: FC<{
     if (mentionTrigger === null) {
       return [];
     }
-    return filterFsListingEntries(fsListing.entries, mentionTrigger.query);
+    return filterFsListingMatches(fsListing.entries, mentionTrigger.query);
   }, [fsListing.entries, mentionTrigger]);
 
   const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
@@ -277,10 +266,11 @@ export const SessionChatBody: FC<{
       },
       onSelect: () => {
         if (mentionTrigger !== null) {
-          if (filteredMentions.length === 0) {
+          const match = filteredMentions.at(clampedMentionFocus);
+          if (match == null) {
             return;
           }
-          selectMention(filteredMentions[clampedMentionFocus]);
+          selectMention(match.entry);
           return;
         }
         if (filteredCommands.length === 0) {
@@ -519,9 +509,9 @@ export const SessionChatBody: FC<{
               open={commandTrigger !== null}
             />
             <ComposerMentionMenu
-              entries={filteredMentions}
               focusedIndex={clampedMentionFocus}
               loading={mentionLoading}
+              matches={filteredMentions}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectMention}
               open={mentionTrigger !== null}

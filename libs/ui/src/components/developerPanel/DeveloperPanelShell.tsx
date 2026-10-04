@@ -20,12 +20,14 @@ import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
 
+import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 import { SessionStateView } from './SessionStateView.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
 const SESSION_STATE_TAB = 'session-state' as const;
+const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
 
 export type DeveloperPanelExtraTab = {
   readonly content: ReactNode;
@@ -172,6 +174,7 @@ export const DeveloperPanelShell: FC<{
   const [rpcLaunchTarget, setRpcLaunchTarget] = useAtom(rpcWireLogLaunchTargetAtom);
   const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(rpcLaunchTarget);
   const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
+  const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
   const bodyPadding = isAgentLaunchTarget(activeTab) || activeTab === SESSION_STATE_TAB ? 2 : 0;
 
   return (
@@ -208,15 +211,31 @@ export const DeveloperPanelShell: FC<{
           />
         ))}
         <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
+        <Tab
+          label="@ FS listing"
+          sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
+          value={FS_MENTION_LISTING_TAB}
+        />
         {extraTabs.map(tab => (
           <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
         ))}
       </Tabs>
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: bodyPadding }}>
+      <Box
+        sx={{
+          display: isFsMentionListingTab ? 'flex' : 'block',
+          flex: 1,
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: isFsMentionListingTab ? 'hidden' : 'auto',
+          p: bodyPadding,
+        }}
+      >
         {isAgentLaunchTarget(activeTab) ? (
           <RpcWireLogBody launchTarget={activeTab} onCopyError={onCopyError} />
         ) : activeTab === SESSION_STATE_TAB ? (
           <SessionStateView initializeResult={initializeResult} session={session} />
+        ) : isFsMentionListingTab ? (
+          <FsMentionListingTab />
         ) : (
           (activeExtraTab?.content ?? null)
         )}

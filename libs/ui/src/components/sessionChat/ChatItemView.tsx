@@ -11,9 +11,16 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { sharedChipSx } from './composerChipSx.ts';
+import { prepareUserMessageSegments } from './userMessageSegments.ts';
+
+const userFragmentMarkdownSx = {
+  '& p': { display: 'inline', m: 0 },
+  display: 'inline',
+} as const;
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
@@ -71,8 +78,13 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
   }
 };
 
-const MessageRow: FC<{ text: string; tone: 'agent' | 'user' }> = ({ text, tone }) => {
+const MessageRow: FC<{
+  availableCommands?: readonly AvailableCommand[];
+  text: string;
+  tone: 'agent' | 'user';
+}> = ({ availableCommands = [], text, tone }) => {
   if (tone === 'user') {
+    const segments = prepareUserMessageSegments(text, availableCommands);
     return (
       <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
         <Box
@@ -84,7 +96,26 @@ const MessageRow: FC<{ text: string; tone: 'agent' | 'user' }> = ({ text, tone }
             py: 1.25,
           }}
         >
-          <ChatMarkdown text={text} />
+          <Box sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {segments.map((segment, index) => {
+              const key = `${segment.kind}-${String(index)}`;
+              if (segment.kind === 'command') {
+                return (
+                  <Box component="span" data-testid="transcript-command-chip" key={key} sx={sharedChipSx}>
+                    {segment.value}
+                  </Box>
+                );
+              }
+              if (segment.kind === 'markdownLink') {
+                return (
+                  <Box component="span" data-testid="transcript-markdown-link-chip" key={key} sx={sharedChipSx}>
+                    {segment.label}
+                  </Box>
+                );
+              }
+              return <ChatMarkdown key={key} sx={userFragmentMarkdownSx} text={segment.value} />;
+            })}
+          </Box>
         </Box>
       </ListItem>
     );
@@ -134,7 +165,10 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   );
 };
 
-export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
+export const ChatItemView: FC<{
+  availableCommands?: readonly AvailableCommand[];
+  item: ChatItem;
+}> = ({ availableCommands = [], item }) => {
   switch (item.kind) {
     case 'agent_message':
       return <MessageRow text={item.text} tone="agent" />;
@@ -208,7 +242,7 @@ export const ChatItemView: FC<{ item: ChatItem }> = ({ item }) => {
       );
 
     case 'user_message':
-      return <MessageRow text={item.text} tone="user" />;
+      return <MessageRow availableCommands={availableCommands} text={item.text} tone="user" />;
 
     default:
       return null;

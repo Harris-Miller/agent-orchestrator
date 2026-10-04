@@ -459,7 +459,7 @@ export const SessionChatBody: FC<{
               />
             </ListItem>
           ) : (
-            chatItems.map(item => <ChatItemView item={item} key={item.id} />)
+            chatItems.map(item => <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />)
           )}
           {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>

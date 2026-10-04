@@ -14,7 +14,7 @@ import type { ClipboardEventHandler, FC } from 'react';
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
-import { sharedChipSx } from './composerChipSx.ts';
+import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
@@ -25,9 +25,15 @@ const userFragmentMarkdownSx = {
 } as const;
 
 /** Transcript chips must be selectable so copy includes them; composer keeps userSelect: none. */
-const TranscriptChip: FC<{ children: string; copyText: string; testId: string }> = ({ children, copyText, testId }) => (
-  <Box component="span" data-copy-text={copyText} data-testid={testId} sx={[sharedChipSx, { userSelect: 'text' }]}>
-    {children}
+const TranscriptChip: FC<{
+  copyText: string;
+  href?: string;
+  kind: 'command' | 'markdownLink';
+  label: string;
+  testId: string;
+}> = ({ copyText, href, kind, label, testId }) => (
+  <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
+    <ComposerChipContent href={href} kind={kind} label={label} sx={{ userSelect: 'text' }} />
   </Box>
 );
 
@@ -137,16 +143,25 @@ const MessageRow: FC<{
               const copyText = segmentCopyText(segment);
               if (segment.kind === 'command') {
                 return (
-                  <TranscriptChip copyText={copyText} key={key} testId="transcript-command-chip">
-                    {segment.value}
-                  </TranscriptChip>
+                  <TranscriptChip
+                    copyText={copyText}
+                    key={key}
+                    kind="command"
+                    label={segment.value}
+                    testId="transcript-command-chip"
+                  />
                 );
               }
               if (segment.kind === 'markdownLink') {
                 return (
-                  <TranscriptChip copyText={copyText} key={key} testId="transcript-markdown-link-chip">
-                    {segment.label}
-                  </TranscriptChip>
+                  <TranscriptChip
+                    copyText={copyText}
+                    href={segment.href}
+                    key={key}
+                    kind="markdownLink"
+                    label={segment.label}
+                    testId="transcript-markdown-link-chip"
+                  />
                 );
               }
               return <UserTextFragment key={key} text={segment.value} />;

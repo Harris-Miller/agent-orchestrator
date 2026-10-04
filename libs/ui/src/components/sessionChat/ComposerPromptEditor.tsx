@@ -31,7 +31,6 @@ import type { FC, JSX, RefObject } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
-import { sharedChipSx } from './composerChipSx.ts';
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
 import type { ComposerSegment } from './composerCommandTokens.ts';
 import { isWhitespace, mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
@@ -638,7 +637,6 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
             display: 'inline',
           },
-          '& .composer-command-chip, & .composer-markdown-link-chip': sharedChipSx,
           '& .composer-prompt-editor': {
             fontSize: '0.875rem',
             lineHeight: 1.43,

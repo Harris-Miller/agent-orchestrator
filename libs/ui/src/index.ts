@@ -1,6 +1,7 @@
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
+export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
 export { createHarnessAtoms } from './atoms/harness.atoms.ts';
 export {
@@ -21,8 +22,10 @@ export {
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
+export * from './components/developerPanel/OpenDeveloperPanelButton.tsx';
 export * from './components/developerPanel/PanelHeader.tsx';
 export * from './components/developerPanel/SessionStateView.tsx';
+export * from './components/developerPanel/useDeveloperPanelOpen.ts';
 export * from './components/FdPrerequisiteGate.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';

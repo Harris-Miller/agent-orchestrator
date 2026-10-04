@@ -3,12 +3,13 @@ import 'allotment/dist/style.css';
 import { useAtomValue } from '@effect/atom-react';
 import {
   DEVELOPER_PANEL_HEIGHT,
-  developerModeAtom,
   DeveloperPanelShell,
   isRecord,
+  OpenDeveloperPanelButton,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
+  useDeveloperPanelOpen,
 } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -17,7 +18,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
@@ -27,7 +28,6 @@ const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
 type WorkbenchLayout = {
-  readonly developerPanelOpen: boolean;
   readonly horizontalSizes?: readonly number[];
   readonly sessionRosterOpen: boolean;
   readonly sessionStateOpen: boolean;
@@ -35,7 +35,6 @@ type WorkbenchLayout = {
 };
 
 const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
-  developerPanelOpen: false,
   sessionRosterOpen: true,
   sessionStateOpen: true,
 };
@@ -55,14 +54,7 @@ const loadWorkbenchLayout = (): WorkbenchLayout => {
     if (!isRecord(parsed)) {
       return DEFAULT_WORKBENCH_LAYOUT;
     }
-    const developerPanelOpen =
-      typeof parsed.developerPanelOpen === 'boolean'
-        ? parsed.developerPanelOpen
-        : typeof parsed.rpcWireLogOpen === 'boolean'
-          ? parsed.rpcWireLogOpen
-          : DEFAULT_WORKBENCH_LAYOUT.developerPanelOpen;
     return {
-      developerPanelOpen,
       horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
       sessionRosterOpen:
         typeof parsed.sessionRosterOpen === 'boolean'
@@ -88,7 +80,7 @@ export const AgentChatWorkbench: FC<{
 }> = ({ onClientError }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
-  const developerMode = useAtomValue(developerModeAtom);
+  const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
 
@@ -100,12 +92,6 @@ export const AgentChatWorkbench: FC<{
       setLayout(next);
     }
   };
-
-  useEffect(() => {
-    if (!developerMode && layoutRef.current.developerPanelOpen) {
-      commitLayout({ developerPanelOpen: false });
-    }
-  }, [developerMode]);
 
   return (
     <Box
@@ -134,11 +120,7 @@ export const AgentChatWorkbench: FC<{
         onChange={sizes => {
           commitLayout({ verticalSizes: sizes }, false);
         }}
-        onVisibleChange={(index, visible) => {
-          if (index === 1) {
-            commitLayout({ developerPanelOpen: visible });
-          }
-        }}
+        onVisibleChange={onPaneVisibleChange}
         vertical
       >
         <Allotment.Pane>
@@ -186,6 +168,7 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
+                    <OpenDeveloperPanelButton />
                     {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {
@@ -200,13 +183,7 @@ export const AgentChatWorkbench: FC<{
                   </Toolbar>
                 </AppBar>
 
-                <SessionChatBody
-                  developerPanelOpen={layout.developerPanelOpen}
-                  onClientError={onClientError}
-                  onOpenDeveloperPanel={() => {
-                    commitLayout({ developerPanelOpen: true });
-                  }}
-                />
+                <SessionChatBody onClientError={onClientError} />
               </Box>
             </Allotment.Pane>
 
@@ -220,12 +197,7 @@ export const AgentChatWorkbench: FC<{
           </Allotment>
         </Allotment.Pane>
 
-        <Allotment.Pane
-          minSize={120}
-          preferredSize={DEVELOPER_PANEL_HEIGHT}
-          snap
-          visible={developerMode ? layout.developerPanelOpen : false}
-        >
+        <Allotment.Pane minSize={120} preferredSize={DEVELOPER_PANEL_HEIGHT} snap visible={developerPanelVisible}>
           <DeveloperPanelShell
             extraTabs={[
               {
@@ -239,9 +211,7 @@ export const AgentChatWorkbench: FC<{
               },
             ]}
             initializeResult={selectedSnapshot?.initializeResult}
-            onClose={() => {
-              commitLayout({ developerPanelOpen: false });
-            }}
+            onClose={closeDeveloperPanel}
             onCopyError={onClientError}
             session={selectedSession}
           />

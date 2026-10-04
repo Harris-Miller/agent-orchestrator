@@ -30,7 +30,6 @@ import {
 import {
   activateSessionAtomFn,
   cancelPromptAtomFn,
-  developerModeAtom,
   handoffSessionAtomFn,
   refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
@@ -85,11 +84,8 @@ const formatActivationDefect = (defect: unknown): string => {
 };
 
 export const SessionChatBody: FC<{
-  readonly developerPanelOpen?: boolean;
   readonly onClientError: (error: unknown) => void;
-  readonly onOpenDeveloperPanel?: () => void;
-}> = ({ developerPanelOpen = false, onClientError, onOpenDeveloperPanel }) => {
-  const developerMode = useAtomValue(developerModeAtom);
+}> = ({ onClientError }) => {
   const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
@@ -162,7 +158,6 @@ export const SessionChatBody: FC<{
     hasTranscriptMessage &&
     sourceCwd !== undefined;
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
-  const showDeveloperButton = developerMode && onOpenDeveloperPanel !== undefined && !developerPanelOpen;
 
   const commandTrigger = useMemo((): ({ readonly kind: 'dollar' | 'slash' } & ComposerTrigger) | null => {
     if (composerTrigger === null) {
@@ -574,11 +569,6 @@ export const SessionChatBody: FC<{
                   option={option}
                 />
               ))}
-              {showDeveloperButton ? (
-                <Button onClick={onOpenDeveloperPanel} size="small" variant="outlined">
-                  Developer panel
-                </Button>
-              ) : null}
               <Box sx={{ flexGrow: 1 }} />
               <UsagePopover usage={selectedSession?.usage} />
               <ButtonGroup variant="contained">

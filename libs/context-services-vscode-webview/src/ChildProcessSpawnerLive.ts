@@ -1,23 +1,14 @@
 /**
  * Webview ChildProcessSpawner over extension↔webview IPC.
  */
-import type { Cause } from 'effect';
-import { Context, Deferred, Effect, Layer, Queue, Sink, Stream, Tracer } from 'effect';
+import { mapSpawnError, openQueuedChildProcessStdio } from '@lib/context-services';
+import { Effect, Layer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import type { Command as EffectCommand } from 'effect/unstable/process/ChildProcess';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
 import { bytesToArrayBuffer } from './protocol/messages.ts';
-
-const mapSpawnError = (method: string, cause: unknown): PlatformError.PlatformError =>
-  PlatformError.systemError({
-    _tag: 'Unknown',
-    cause,
-    description: cause instanceof Error ? cause.message : String(cause),
-    method,
-    module: 'ChildProcess',
-  });
 
 const toStdioMode = (value: unknown): 'ignore' | 'inherit' | 'pipe' | undefined => {
   if (value === 'pipe' || value === 'inherit' || value === 'ignore') {
@@ -30,11 +21,10 @@ const spawnStandard = Effect.fnUntraced(function* (
   client: IpcClient,
   command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
 ) {
-  const stdoutQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
-  const stderrQueue = yield* Queue.unbounded<Uint8Array, Cause.Done | PlatformError.PlatformError>();
-  const exitDeferred = yield* Deferred.make<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>();
-  const runningRef = { current: true };
   const stderrMode = command.options.stderr ?? 'pipe';
+  const stdio = yield* openQueuedChildProcessStdio({
+    stderrMode: stderrMode === 'inherit' ? 'inherit' : 'pipe',
+  });
 
   const response = yield* client
     .request(id => ({
@@ -58,85 +48,46 @@ const spawnStandard = Effect.fnUntraced(function* (
   }
 
   const { handleId, pid } = response;
-  const runFork = Effect.runForkWith(Context.omit(Tracer.ParentSpan)(yield* Effect.context()));
-
-  // End queues so Stream.fromQueue readers (e.g. fd listing runCollect) complete.
-  // Match Tauri ChildProcessSpawnerLive: end on close; also honor stream End events.
-  const endQueues = Effect.gen(function* () {
-    yield* Queue.end(stdoutQueue).pipe(Effect.ignore);
-    yield* Queue.end(stderrQueue).pipe(Effect.ignore);
-  });
 
   client.registerProcess(handleId, {
     onExit: code => {
-      runningRef.current = false;
-      runFork(
-        Effect.gen(function* () {
-          yield* Deferred.succeed(exitDeferred, ChildProcessSpawner.ExitCode(code));
-          yield* endQueues;
-        }),
-      );
+      stdio.onExit(code);
     },
     onStderrChunk: chunk => {
-      runFork(Queue.offer(stderrQueue, chunk));
+      stdio.onStderrChunk(chunk);
     },
     onStderrEnd: () => {
-      runFork(Queue.end(stderrQueue).pipe(Effect.ignore));
+      stdio.onStderrEnd();
     },
     onStdoutChunk: chunk => {
-      runFork(Queue.offer(stdoutQueue, chunk));
+      stdio.onStdoutChunk(chunk);
     },
     onStdoutEnd: () => {
-      runFork(Queue.end(stdoutQueue).pipe(Effect.ignore));
+      stdio.onStdoutEnd();
     },
   });
 
-  yield* Effect.addFinalizer(() =>
-    Effect.gen(function* () {
-      if (runningRef.current) {
-        yield* client.request(id => ({ _tag: 'Kill' as const, handleId, id })).pipe(Effect.ignore);
-      }
-      client.unregisterProcess(handleId);
-      yield* Queue.shutdown(stdoutQueue);
-      yield* Queue.shutdown(stderrQueue);
-    }),
-  );
-
-  const stdout = Stream.fromQueue(stdoutQueue);
-  // inherit: empty stream that completes when the process exits (plan Q6).
-  const stderr =
-    stderrMode === 'inherit'
-      ? Stream.fromEffect(Deferred.await(exitDeferred)).pipe(Stream.drain)
-      : Stream.fromQueue(stderrQueue);
-
-  return ChildProcessSpawner.makeHandle({
-    all: Stream.merge(stdout, stderr),
-    exitCode: Deferred.await(exitDeferred),
-    getInputFd: () => Sink.drain,
-    getOutputFd: () => Stream.empty,
-    isRunning: Effect.sync(() => runningRef.current),
-    kill: () =>
-      client
-        .request(id => ({ _tag: 'Kill' as const, handleId, id }))
-        .pipe(
-          Effect.mapError(cause => mapSpawnError('kill', cause)),
-          Effect.tap(() =>
-            Effect.sync(() => {
-              runningRef.current = false;
-            }),
-          ),
-          Effect.asVoid,
-        ),
-    pid: ChildProcessSpawner.ProcessId(pid),
-    stderr,
-    stdin: Sink.forEach((chunk: Uint8Array) =>
+  const handle = yield* stdio.finalize({
+    kill: client
+      .request(id => ({ _tag: 'Kill' as const, handleId, id }))
+      .pipe(
+        Effect.mapError(cause => mapSpawnError('kill', cause)),
+        Effect.asVoid,
+      ),
+    pid,
+    writeStdin: chunk =>
       Effect.sync(() => {
         client.post({ _tag: 'StdinChunk', bytes: bytesToArrayBuffer(chunk), handleId });
       }),
-    ),
-    stdout,
-    unref: Effect.succeed(Effect.void),
   });
+
+  yield* Effect.addFinalizer(() =>
+    Effect.sync(() => {
+      client.unregisterProcess(handleId);
+    }),
+  );
+
+  return handle;
 });
 
 export const makeChildProcessSpawnerLive = (client: IpcClient): Layer.Layer<ChildProcessSpawner.ChildProcessSpawner> =>

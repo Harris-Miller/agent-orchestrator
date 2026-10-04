@@ -1,5 +1,4 @@
 import { useAtomValue } from '@effect/atom-react';
-import Extension from '@mui/icons-material/Extension';
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { FC } from 'react';
@@ -36,7 +35,7 @@ export const ComposerChipContent: FC<ComposerChipContentProps> = ({ className, h
   const mergedSx = (sx === undefined ? kindSx : [kindSx, sx]) as SxProps<Theme>;
   return (
     <Box className={className} component="span" contentEditable={false} data-testid={testId} sx={mergedSx}>
-      {kind === 'command' ? <Extension sx={iconSx} /> : <MarkdownLinkChipIcon href={href} label={label} />}
+      {kind === 'markdownLink' ? <MarkdownLinkChipIcon href={href} label={label} /> : null}
       {label}
     </Box>
   );

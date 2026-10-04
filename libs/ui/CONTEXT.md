@@ -29,7 +29,7 @@ An in-progress `/`, `$`, or `@` token in the chat draft that opens a composer me
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Command Chip**:
-A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. May show a leading kind glyph; label stays the raw invocation. In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
+A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. Label stays the raw invocation (no leading kind glyph). In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
 _Avoid_: Markdown Link Chip, skill pill, autocomplete token, mention chip (when you mean this pill)
 
 **Markdown Link Chip**:

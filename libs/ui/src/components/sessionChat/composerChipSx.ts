@@ -4,33 +4,34 @@ import type { SxProps, Theme } from '@mui/material/styles';
 /** Shared layout for composer / transcript chips (chrome lives on ComposerChipContent only). */
 export const baseChipSx = {
   alignItems: 'center',
-  border: '1px solid',
-  borderRadius: 1,
+  border: 'none',
+  borderRadius: '4px',
   display: 'inline-flex',
-  fontFamily: 'monospace',
+  // Match adjacent editor/transcript type — monospace reads larger than Lato at the same em.
+  fontFamily: 'inherit',
   fontSize: 'inherit',
-  fontWeight: 600,
-  gap: 0.25,
+  fontWeight: 'inherit',
+  gap: 0.375,
   lineHeight: 1,
-  mx: '1px',
+  mx: '0.15em',
   px: 0.5,
-  py: 0,
+  py: '0.05em',
   userSelect: 'none',
-  verticalAlign: 'middle',
+  // baseline (not middle): parent line-height 1.43 puts glyphs low in the line box;
+  // middle centers the chip in that box and leaves chip text sitting high.
+  verticalAlign: 'baseline',
   whiteSpace: 'nowrap',
 } as const satisfies SxProps<Theme>;
 
 export const commandChipSx = {
   ...baseChipSx,
   bgcolor: (theme: Theme) => alpha(theme.palette.secondary.main, 0.08),
-  borderColor: 'secondary.main',
   color: 'secondary.main',
 } as const satisfies SxProps<Theme>;
 
 export const markdownLinkChipSx = {
   ...baseChipSx,
   bgcolor: (theme: Theme) => alpha(theme.palette.primary.main, 0.08),
-  borderColor: 'primary.main',
   color: 'primary.main',
 } as const satisfies SxProps<Theme>;
 

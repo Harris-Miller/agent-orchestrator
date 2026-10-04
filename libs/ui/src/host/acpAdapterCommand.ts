@@ -39,6 +39,25 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
   Effect.annotateLogs({ module: 'acpAdapterCommand' }),
 );
 
+type VendorCliAdapter = {
+  readonly envKey: string;
+  readonly executable: string;
+  readonly launchTarget: 'claude-agent-acp' | 'codex-acp';
+};
+
+const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(function* (
+  adapter: VendorCliAdapter,
+  entry: string,
+) {
+  const vendorPath = yield* requireExecutableOnPath(adapter.executable);
+  yield* requireVendorCliAuthenticated(adapter.launchTarget, vendorPath);
+  yield* Effect.logDebug(`${adapter.launchTarget} adapter env`, { [adapter.envKey]: vendorPath });
+  return ChildProcess.make('node', [entry], {
+    ...pipedSpawnOptions,
+    env: { [adapter.envKey]: vendorPath },
+  });
+});
+
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
 export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
   function* (launchTarget: AcpAdapterLaunchTarget) {
@@ -47,24 +66,13 @@ export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
     const entry = yield* resolveAdapterEntry(launchTarget);
 
     switch (launchTarget) {
-      case 'claude-agent-acp': {
-        const claudePath = yield* requireExecutableOnPath('claude');
-        yield* requireVendorCliAuthenticated('claude-agent-acp', claudePath);
-        yield* Effect.logDebug('Claude adapter env', { CLAUDE_CODE_EXECUTABLE: claudePath });
-        return ChildProcess.make('node', [entry], {
-          ...pipedSpawnOptions,
-          env: { CLAUDE_CODE_EXECUTABLE: claudePath },
-        });
-      }
-      case 'codex-acp': {
-        const codexPath = yield* requireExecutableOnPath('codex');
-        yield* requireVendorCliAuthenticated('codex-acp', codexPath);
-        yield* Effect.logDebug('Codex adapter env', { CODEX_PATH: codexPath });
-        return ChildProcess.make('node', [entry], {
-          ...pipedSpawnOptions,
-          env: { CODEX_PATH: codexPath },
-        });
-      }
+      case 'claude-agent-acp':
+        return yield* makeVendorCliAdapterCommand(
+          { envKey: 'CLAUDE_CODE_EXECUTABLE', executable: 'claude', launchTarget },
+          entry,
+        );
+      case 'codex-acp':
+        return yield* makeVendorCliAdapterCommand({ envKey: 'CODEX_PATH', executable: 'codex', launchTarget }, entry);
       case 'gemini-acp': {
         yield* requireExecutableOnPath('gemini');
         return ChildProcess.make('node', [entry], pipedSpawnOptions);

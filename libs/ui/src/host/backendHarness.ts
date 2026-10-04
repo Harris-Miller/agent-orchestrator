@@ -31,10 +31,6 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
-const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (launchTarget: AgentLaunchTarget) {
-  return yield* makeAcpAdapterCommand(launchTarget);
-});
-
 export type RpcWireEntry = {
   readonly direction: 'in' | 'out';
   readonly id: string;
@@ -97,7 +93,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('connecting');
     clearPromptSpansForLaunchTarget(launchTarget);
 
-    const command = yield* makeAgentCommand(launchTarget);
+    const command = yield* makeAcpAdapterCommand(launchTarget);
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(

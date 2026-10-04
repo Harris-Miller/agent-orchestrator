@@ -56,37 +56,37 @@ export const upsertRosterEntry = Effect.fn('upsertRosterEntry')(function* (entry
   });
 });
 
+/** Patch one roster row by sessionId; return `undefined` to skip the write when missing. */
+const mapRosterEntry = (
+  sessions: readonly AdapterRosterEntry[],
+  sessionId: string,
+  patch: (entry: AdapterRosterEntry) => AdapterRosterEntry,
+): readonly AdapterRosterEntry[] | undefined => {
+  const index = sessions.findIndex(s => s.sessionId === sessionId);
+  if (index === -1) {
+    return undefined;
+  }
+  return sessions.map((s, i) => (i === index ? patch(s) : s));
+};
+
 /** Soft close: refresh `updatedAt` when the row exists; no-op if missing. Does not remove. */
 export const touchRosterEntry = Effect.fn('touchRosterEntry')(function* (sessionId: string) {
   const updatedAt = nowIso();
-  yield* updateRosterSessions(sessions => {
-    const index = sessions.findIndex(s => s.sessionId === sessionId);
-    if (index === -1) {
-      return undefined;
-    }
-    return sessions.map((s, i) => (i === index ? { ...s, updatedAt } : s));
-  });
+  yield* updateRosterSessions(sessions => mapRosterEntry(sessions, sessionId, s => ({ ...s, updatedAt })));
 });
 
 /** Persist `session_info_update.title` onto a durable roster row when known. */
 export const patchRosterTitle = Effect.fn('patchRosterTitle')(function* (sessionId: string, title: null | string) {
   const updatedAt = nowIso();
-  yield* updateRosterSessions(sessions => {
-    const index = sessions.findIndex(s => s.sessionId === sessionId);
-    if (index === -1) {
-      return undefined;
-    }
-    return sessions.map((s, i) => {
-      if (i !== index) {
-        return s;
-      }
+  yield* updateRosterSessions(sessions =>
+    mapRosterEntry(sessions, sessionId, s => {
       if (title === null) {
         const { title: _removed, ...rest } = s;
         return { ...rest, updatedAt };
       }
       return { ...s, title, updatedAt };
-    });
-  });
+    }),
+  );
 });
 
 export const removeRosterEntry = Effect.fn('removeRosterEntry')(function* (sessionId: string) {

@@ -82,15 +82,11 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
   });
 
 /** In-memory FileSystem + Path + OS for adapter-roster lock tests. */
-export const mapFsTestServices = (
-  store: Map<string, MapFsEntry>,
-  options?: { readonly homedir?: string },
-): Layer.Layer<FileSystem | OS | Path> => {
-  const homedir = options?.homedir ?? DEFAULT_HOMEDIR;
+export const mapFsTestServices = (store: Map<string, MapFsEntry>): Layer.Layer<FileSystem | OS | Path> => {
   const osLayer = Layer.succeed(OS, {
-    cwd: () => homedir,
+    cwd: () => DEFAULT_HOMEDIR,
     env: () => ({}),
-    homedir: () => homedir,
+    homedir: () => DEFAULT_HOMEDIR,
     platform: () => 'linux',
   });
   return Layer.mergeAll(posixPathLayer, mapFsLayer(store)).pipe(Layer.provideMerge(osLayer));

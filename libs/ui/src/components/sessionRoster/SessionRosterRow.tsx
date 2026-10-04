@@ -18,6 +18,8 @@ import { activateSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boun
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
+import { noopClientError } from './noopClientError.ts';
+
 const sessionCardSx = (selected: boolean) =>
   ({
     border: 1,
@@ -31,8 +33,6 @@ const sessionCardSx = (selected: boolean) =>
       bgcolor: 'action.hover',
     },
   }) as const;
-
-const noopClientError = (_error: unknown): void => undefined;
 
 export const SessionRosterRow: FC<{
   readonly entry: UnifiedRosterEntry;
@@ -51,7 +51,7 @@ export const SessionRosterRow: FC<{
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
 
-  const openSession = () => {
+  const activateRosterEntry = () => {
     // activateSession selects + no-ops when already active/activating (Codex-safe).
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
@@ -64,11 +64,11 @@ export const SessionRosterRow: FC<{
     <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
       <Paper
         elevation={0}
-        onClick={openSession}
+        onClick={activateRosterEntry}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            openSession();
+            activateRosterEntry();
           }
         }}
         role="button"

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { confirmSessionDeleteAtom, deleteSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 
-const noopClientError = (_error: unknown): void => undefined;
+import { noopClientError } from './noopClientError.ts';
 
 export const useSessionDeleteRequest = (
   onClientError: (error: unknown) => void = noopClientError,

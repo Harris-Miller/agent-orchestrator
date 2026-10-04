@@ -11,9 +11,8 @@ import type { FC } from 'react';
 import { deleteSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 
+import { noopClientError } from './noopClientError.ts';
 import { truncateSessionId } from './truncateSessionId.ts';
-
-const noopClientError = (_error: unknown): void => undefined;
 
 export const ConfirmSessionDeleteDialog: FC<{
   readonly onCancel: () => void;

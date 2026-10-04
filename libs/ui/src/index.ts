@@ -29,7 +29,6 @@ export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
 export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
-export * from './components/sessionRoster/truncateSessionId.ts';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
 export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';

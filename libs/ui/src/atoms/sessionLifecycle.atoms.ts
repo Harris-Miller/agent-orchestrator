@@ -52,9 +52,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
   const selectSessionAtomFn = atomRuntime
-    .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get) =>
+    .fn((sessionId: string, get) =>
       Effect.sync(() => {
-        selectSession(get, arg.sessionId);
+        selectSession(get, sessionId);
       }),
     )
     .pipe(Atom.keepAlive);

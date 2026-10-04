@@ -10,7 +10,8 @@ import {
   mergeClassifiedRpcWireLogs,
   resolveSessionFilter,
   RPC_WIRE_FILTER_ALL,
-  sessionKeysForProvider,
+  RPC_WIRE_SYSTEM_SESSION_KEY,
+  sessionKeysForLaunchTarget,
 } from './rpcWireLogFilter.ts';
 
 const entry = (
@@ -36,7 +37,7 @@ describe('classifyRpcWireLog', () => {
         tag: 'initialize',
       }),
     ]);
-    assert.strictEqual(classified[0]?.meta.sessionKey, 'system');
+    assert.strictEqual(classified[0]?.meta.sessionKey, RPC_WIRE_SYSTEM_SESSION_KEY);
     assert.strictEqual(classified[0]?.meta.tag, 'initialize');
     assert.strictEqual(classified[0]?.meta.wireId, '1');
     assert.strictEqual(classified[0]?.meta.title, '→ initialize');
@@ -144,13 +145,13 @@ describe('classifyRpcWireLog', () => {
         tag: 'session/update',
       }),
     ]);
-    assert.deepStrictEqual(sessionKeys, ['system', 'sess-a']);
+    assert.deepStrictEqual(sessionKeys, [RPC_WIRE_SYSTEM_SESSION_KEY, 'sess-a']);
     assert.deepStrictEqual(tags, ['initialize', 'session/prompt', 'session/update plan']);
   });
 });
 
 describe('mergeClassifiedRpcWireLogs', () => {
-  it('keeps id correlation per provider and sorts by receivedAt', () => {
+  it('keeps id correlation per launch target and sorts by receivedAt', () => {
     const merged = mergeClassifiedRpcWireLogs([
       classifyRpcWireLog(
         [
@@ -206,9 +207,9 @@ describe('filterClassifiedRpcWireEntries', () => {
     }),
   ]);
 
-  it('ANDs provider + session + tag + wireId filters', () => {
+  it('ANDs launchTarget + session + tag + wireId filters', () => {
     const filtered = filterClassifiedRpcWireEntries(classified, {
-      provider: 'codex-acp',
+      launchTarget: 'codex-acp',
       sessionKey: 'sess-a',
       tag: 'session/prompt',
       wireId: '2',
@@ -219,7 +220,7 @@ describe('filterClassifiedRpcWireEntries', () => {
 
   it('All leaves a dimension unconstrained', () => {
     const filtered = filterClassifiedRpcWireEntries(classified, {
-      provider: RPC_WIRE_FILTER_ALL,
+      launchTarget: RPC_WIRE_FILTER_ALL,
       sessionKey: 'sess-a',
       tag: RPC_WIRE_FILTER_ALL,
       wireId: RPC_WIRE_FILTER_ALL,
@@ -227,7 +228,7 @@ describe('filterClassifiedRpcWireEntries', () => {
     assert.strictEqual(filtered.length, 3);
   });
 
-  it('provider filter excludes other launch targets', () => {
+  it('launchTarget filter excludes other launch targets', () => {
     const mixed = mergeClassifiedRpcWireLogs([
       classifyRpcWireLog(
         [entry('out', { _tag: 'Request', id: 1, payload: { sessionId: 'a' }, tag: 'session/prompt' })],
@@ -239,7 +240,7 @@ describe('filterClassifiedRpcWireEntries', () => {
       ),
     ]).classified;
     const filtered = filterClassifiedRpcWireEntries(mixed, {
-      provider: 'claude-agent-acp',
+      launchTarget: 'claude-agent-acp',
       sessionKey: RPC_WIRE_FILTER_ALL,
       tag: RPC_WIRE_FILTER_ALL,
       wireId: RPC_WIRE_FILTER_ALL,
@@ -249,8 +250,8 @@ describe('filterClassifiedRpcWireEntries', () => {
   });
 });
 
-describe('sessionKeysForProvider', () => {
-  it('lists only sessions for the selected provider', () => {
+describe('sessionKeysForLaunchTarget', () => {
+  it('lists only sessions for the selected launch target', () => {
     const mixed = mergeClassifiedRpcWireLogs([
       classifyRpcWireLog(
         [
@@ -264,9 +265,13 @@ describe('sessionKeysForProvider', () => {
         'claude-agent-acp',
       ),
     ]).classified;
-    assert.deepStrictEqual(sessionKeysForProvider(mixed, 'codex-acp'), ['system', 'codex-sess']);
-    assert.deepStrictEqual(sessionKeysForProvider(mixed, 'claude-agent-acp'), ['claude-sess']);
-    assert.deepStrictEqual(sessionKeysForProvider(mixed, RPC_WIRE_FILTER_ALL), ['system', 'codex-sess', 'claude-sess']);
+    assert.deepStrictEqual(sessionKeysForLaunchTarget(mixed, 'codex-acp'), [RPC_WIRE_SYSTEM_SESSION_KEY, 'codex-sess']);
+    assert.deepStrictEqual(sessionKeysForLaunchTarget(mixed, 'claude-agent-acp'), ['claude-sess']);
+    assert.deepStrictEqual(sessionKeysForLaunchTarget(mixed, RPC_WIRE_FILTER_ALL), [
+      RPC_WIRE_SYSTEM_SESSION_KEY,
+      'codex-sess',
+      'claude-sess',
+    ]);
   });
 });
 
@@ -287,10 +292,10 @@ describe('cascadedWireIds / coerceWireIdFilter', () => {
     }),
   ]);
 
-  it('cascades id options from provider + session (+ tag) slice', () => {
+  it('cascades id options from launchTarget + session (+ tag) slice', () => {
     assert.deepStrictEqual(
       cascadedWireIds(classified, {
-        provider: 'codex-acp',
+        launchTarget: 'codex-acp',
         sessionKey: 'sess-a',
         tag: RPC_WIRE_FILTER_ALL,
       }),
@@ -298,7 +303,7 @@ describe('cascadedWireIds / coerceWireIdFilter', () => {
     );
     assert.deepStrictEqual(
       cascadedWireIds(classified, {
-        provider: 'codex-acp',
+        launchTarget: 'codex-acp',
         sessionKey: 'sess-a',
         tag: 'session/prompt',
       }),

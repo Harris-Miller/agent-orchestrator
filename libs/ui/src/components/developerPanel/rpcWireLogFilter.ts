@@ -4,7 +4,10 @@ import { isRecord } from '../../isRecord.ts';
 
 export const RPC_WIRE_FILTER_ALL = 'all';
 
-export type RpcWireProviderFilter = AgentLaunchTarget | typeof RPC_WIRE_FILTER_ALL;
+/** Session bucket for wire rows with no ACP session id (initialize, etc.). */
+export const RPC_WIRE_SYSTEM_SESSION_KEY = 'system';
+
+export type RpcWireLaunchTargetFilter = AgentLaunchTarget | typeof RPC_WIRE_FILTER_ALL;
 
 /** Resolve Session filter. `null` means match nothing (active-session mode with no selection). */
 export const resolveSessionFilter = (
@@ -39,7 +42,7 @@ export type RpcWireLogClassification = {
 };
 
 export type RpcWireFilters = {
-  readonly provider: RpcWireProviderFilter;
+  readonly launchTarget: RpcWireLaunchTargetFilter;
   readonly sessionKey: string;
   readonly tag: string;
   readonly wireId: string;
@@ -113,7 +116,7 @@ const buildIdCache = (entries: readonly RpcWireEntry[]): Map<string, IdCacheEntr
       if (typeof message.tag === 'string' && id != null) {
         const tag = tagLabelFromMessage(message) ?? message.tag;
         cache.set(id, {
-          sessionKey: payloadSessionId(message) ?? 'system',
+          sessionKey: payloadSessionId(message) ?? RPC_WIRE_SYSTEM_SESSION_KEY,
           tag,
         });
       }
@@ -136,7 +139,7 @@ const buildIdCache = (entries: readonly RpcWireEntry[]): Map<string, IdCacheEntr
 const metaForEntry = (entry: RpcWireEntry, cache: ReadonlyMap<string, IdCacheEntry>): RpcWireRowMeta => {
   const arrow = entry.direction === 'out' ? '→' : '←';
   if (!isRecord(entry.message)) {
-    return { sessionKey: 'system', tag: null, title: `${arrow} message`, wireId: null };
+    return { sessionKey: RPC_WIRE_SYSTEM_SESSION_KEY, tag: null, title: `${arrow} message`, wireId: null };
   }
 
   const { message } = entry;
@@ -149,7 +152,8 @@ const metaForEntry = (entry: RpcWireEntry, cache: ReadonlyMap<string, IdCacheEnt
   const tag = tagFromMessage ?? requestCache?.tag ?? null;
 
   const newSessionId = exitSuccessSessionId(message);
-  const sessionKey = payloadSessionId(message) ?? newSessionId ?? requestCache?.sessionKey ?? 'system';
+  const sessionKey =
+    payloadSessionId(message) ?? newSessionId ?? requestCache?.sessionKey ?? RPC_WIRE_SYSTEM_SESSION_KEY;
 
   const titleLabel = tag ?? (entry.direction === 'out' ? titleFallback(message) : 'message');
 
@@ -203,13 +207,13 @@ export const mergeClassifiedRpcWireLogs = (parts: readonly RpcWireLogClassificat
   };
 };
 
-export const sessionKeysForProvider = (
+export const sessionKeysForLaunchTarget = (
   classified: readonly ClassifiedRpcWireEntry[],
-  provider: RpcWireProviderFilter,
+  launchTarget: RpcWireLaunchTargetFilter,
 ): readonly string[] =>
   uniqueInOrder(
     classified
-      .filter(row => provider === RPC_WIRE_FILTER_ALL || row.launchTarget === provider)
+      .filter(row => launchTarget === RPC_WIRE_FILTER_ALL || row.launchTarget === launchTarget)
       .map(row => row.meta.sessionKey),
   );
 
@@ -218,7 +222,7 @@ export const filterClassifiedRpcWireEntries = (
   filters: RpcWireFilters,
 ): readonly ClassifiedRpcWireEntry[] =>
   classified.filter(row => {
-    if (filters.provider !== RPC_WIRE_FILTER_ALL && row.launchTarget !== filters.provider) {
+    if (filters.launchTarget !== RPC_WIRE_FILTER_ALL && row.launchTarget !== filters.launchTarget) {
       return false;
     }
     if (filters.sessionKey !== RPC_WIRE_FILTER_ALL && row.meta.sessionKey !== filters.sessionKey) {
@@ -235,7 +239,7 @@ export const filterClassifiedRpcWireEntries = (
 
 export const cascadedWireIds = (
   classified: readonly ClassifiedRpcWireEntry[],
-  filters: Pick<RpcWireFilters, 'provider' | 'sessionKey' | 'tag'>,
+  filters: Pick<RpcWireFilters, 'launchTarget' | 'sessionKey' | 'tag'>,
 ): readonly string[] =>
   uniqueInOrder(
     filterClassifiedRpcWireEntries(classified, {
@@ -250,9 +254,3 @@ export const coerceWireIdFilter = (wireId: string, available: readonly string[])
   }
   return available.includes(wireId) ? wireId : RPC_WIRE_FILTER_ALL;
 };
-
-export const coerceWireIdAgainstCascade = (
-  classified: readonly ClassifiedRpcWireEntry[],
-  filters: Pick<RpcWireFilters, 'provider' | 'sessionKey' | 'tag'>,
-  wireId: string,
-): string => coerceWireIdFilter(wireId, cascadedWireIds(classified, filters));

@@ -13,7 +13,7 @@ export type AvailableCommandMatch = {
   readonly positions: ReadonlySet<number>;
 };
 
-const EMPTY_POSITIONS: ReadonlySet<number> = new Set();
+export const EMPTY_FZF_POSITIONS: ReadonlySet<number> = new Set();
 
 /** Slash-command names hidden from the composer menu per agent. */
 const HIDDEN_COMMAND_NAMES: Readonly<Partial<Record<AgentLaunchTarget, ReadonlySet<string>>>> = {
@@ -38,7 +38,7 @@ const bareCommandName = (name: string): string => (name.startsWith('$') ? name.s
 export const bareNameMatchPositions = (name: string): ReadonlySet<number> => {
   const bare = bareCommandName(name);
   if (bare.length === 0) {
-    return EMPTY_POSITIONS;
+    return EMPTY_FZF_POSITIONS;
   }
   const start = name.startsWith('$') ? 1 : 0;
   const positions = new Set<number>();
@@ -79,7 +79,7 @@ export const filterAvailableCommandMatches = (
     command => matchesTriggerKind(command, kind) && !isHidden(command, launchTarget),
   );
   if (query.length === 0) {
-    return forKind.map(command => ({ command, field: 'name' as const, positions: EMPTY_POSITIONS }));
+    return forKind.map(command => ({ command, field: 'name' as const, positions: EMPTY_FZF_POSITIONS }));
   }
   if (forKind.length === 0) {
     return [];

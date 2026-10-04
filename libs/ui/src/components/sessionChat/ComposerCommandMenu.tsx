@@ -6,9 +6,8 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 
 import { ComposerMenuRow, ComposerMenuShell } from './ComposerMenuShell.tsx';
+import { EMPTY_FZF_POSITIONS } from './filterAvailableCommands.ts';
 import type { AvailableCommandMatch } from './filterAvailableCommands.ts';
-
-const EMPTY_POSITIONS: ReadonlySet<number> = new Set();
 
 export type ComposerCommandMenuProps = {
   readonly focusedIndex: number;
@@ -30,8 +29,8 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
       const { command, field, positions } = match;
       const { name } = command;
       const description = command.description ?? '';
-      const namePositions = field === 'name' ? positions : EMPTY_POSITIONS;
-      const descriptionPositions = field === 'description' ? positions : EMPTY_POSITIONS;
+      const namePositions = field === 'name' ? positions : EMPTY_FZF_POSITIONS;
+      const descriptionPositions = field === 'description' ? positions : EMPTY_FZF_POSITIONS;
       const isDollar = name.startsWith('$');
       const primary = (
         <Box component="span" sx={{ fontWeight: 700 }}>

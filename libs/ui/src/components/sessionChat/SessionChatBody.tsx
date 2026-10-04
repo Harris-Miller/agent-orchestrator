@@ -164,7 +164,7 @@ export const SessionChatBody: FC<{
   }, [composerTrigger]);
   const mentionTrigger = composerTrigger?.kind === 'at' ? composerTrigger : null;
 
-  const filteredCommands = useMemo(() => {
+  const filteredCommandMatches = useMemo(() => {
     if (commandTrigger === null) {
       return [];
     }
@@ -186,7 +186,7 @@ export const SessionChatBody: FC<{
   const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
 
   const clampedCommandFocus =
-    filteredCommands.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommands.length - 1);
+    filteredCommandMatches.length === 0 ? 0 : Math.min(commandFocusIndex, filteredCommandMatches.length - 1);
   const clampedMentionFocus =
     filteredMentions.length === 0 ? 0 : Math.min(commandFocusIndex, filteredMentions.length - 1);
 
@@ -256,7 +256,7 @@ export const SessionChatBody: FC<{
     [selectedLaunchTarget, setDraft],
   );
 
-  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommands.length;
+  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommandMatches.length;
 
   const commandMenu = useMemo(
     () => ({
@@ -278,7 +278,7 @@ export const SessionChatBody: FC<{
           selectMention(match.entry);
           return;
         }
-        const commandMatch = filteredCommands.at(clampedCommandFocus);
+        const commandMatch = filteredCommandMatches.at(clampedCommandFocus);
         if (commandMatch == null) {
           return;
         }
@@ -294,7 +294,7 @@ export const SessionChatBody: FC<{
       clampedCommandFocus,
       clampedMentionFocus,
       composerTrigger,
-      filteredCommands,
+      filteredCommandMatches,
       filteredMentions,
       mentionTrigger,
       selectCommand,
@@ -509,7 +509,7 @@ export const SessionChatBody: FC<{
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <ComposerCommandMenu
               focusedIndex={clampedCommandFocus}
-              matches={filteredCommands}
+              matches={filteredCommandMatches}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectCommand}
               open={commandTrigger !== null}

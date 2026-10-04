@@ -181,6 +181,31 @@ describe('makeAcpAdapterCommand', () => {
     ),
   );
 
+  it.effect('builds node + gemini-acp entry when node and gemini exist', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpAdapterCommand('gemini-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.strictEqual(command.command, 'node');
+      assert.deepStrictEqual(command.args, [
+        '/resources/acp-adapter-resources/node_modules/@lib/gemini-acp/dist/index.js',
+      ]);
+      assert.strictEqual(command.options.env?.CODEX_PATH, undefined);
+      assert.strictEqual(command.options.env?.CLAUDE_CODE_EXECUTABLE, undefined);
+    }).pipe(
+      Effect.provide(
+        adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/gemini', '/usr/local/bin/node'])),
+      ),
+    ),
+  );
+
+  it.effect('fails without spawning when gemini is missing', () =>
+    Effect.gen(function* () {
+      const error = yield* makeAcpAdapterCommand('gemini-acp').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.executable, 'gemini');
+    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
+  );
+
   it.effect('fails without spawning when vendor CLI is missing', () =>
     Effect.gen(function* () {
       const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);

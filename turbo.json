@@ -14,10 +14,15 @@
     "//#install-acp-adapter-deps": {
       "inputs": [
         "acp-adapter-resources/package.json",
-        "acp-adapter-resources/pnpm-lock.yaml"
+        "acp-adapter-resources/pnpm-lock.yaml",
+        "libs/gemini-acp/package.json",
+        "libs/gemini-acp/src/**",
+        "libs/gemini-acp/tsdown.config.ts",
+        "libs/gemini-acp/scripts/materialize-vendor.mjs"
       ],
       "outputs": [
-        "acp-adapter-resources/node_modules/**"
+        "acp-adapter-resources/node_modules/**",
+        "acp-adapter-resources/vendor/**"
       ]
     },
     "materialize-acp-adapters": {},

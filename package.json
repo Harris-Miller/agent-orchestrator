@@ -12,7 +12,7 @@
     "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' 'apps/*/acp-adapter-resources'",
     "lint": "turbo run lint",
     "local-ci": "turbo run typecheck lint test",
-    "install-acp-adapter-deps": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
+    "install-acp-adapter-deps": "pnpm --filter=@lib/gemini-acp run materialize-vendor && pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
     "prepare": "effect-language-service patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",

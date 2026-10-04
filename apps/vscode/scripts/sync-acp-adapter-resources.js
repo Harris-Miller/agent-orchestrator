@@ -15,10 +15,17 @@ if (!fs.existsSync(sourcePath)) {
   process.exit(1);
 }
 
-const entry = path.join(sourcePath, 'node_modules/@agentclientprotocol/codex-acp/dist/index.js');
-if (!fs.existsSync(entry)) {
-  console.error(`Adapter entry missing at ${entry}. Run: pnpm install-acp-adapter-deps`);
-  process.exit(1);
+const entries = [
+  'node_modules/@agentclientprotocol/codex-acp/dist/index.js',
+  'node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js',
+  'node_modules/@lib/gemini-acp/dist/index.js',
+];
+for (const relative of entries) {
+  const entry = path.join(sourcePath, relative);
+  if (!fs.existsSync(entry)) {
+    console.error(`Adapter entry missing at ${entry}. Run: pnpm install-acp-adapter-deps`);
+    process.exit(1);
+  }
 }
 
 fs.rmSync(destPath, { force: true, recursive: true });

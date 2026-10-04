@@ -96,7 +96,7 @@ export const SessionChatBody: FC<{
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
-  const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-cli'));
+  const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -112,7 +112,7 @@ export const SessionChatBody: FC<{
         return claudeConfigIndex;
       case 'codex-acp':
         return codexConfigIndex;
-      case 'gemini-cli':
+      case 'gemini-acp':
         return geminiConfigIndex;
     }
   };

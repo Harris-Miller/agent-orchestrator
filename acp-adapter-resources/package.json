@@ -7,6 +7,7 @@
   "license": "ISC",
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.73.0",
-    "@agentclientprotocol/codex-acp": "1.8.0"
+    "@agentclientprotocol/codex-acp": "1.8.0",
+    "@lib/gemini-acp": "file:./vendor/gemini-acp"
   }
 }

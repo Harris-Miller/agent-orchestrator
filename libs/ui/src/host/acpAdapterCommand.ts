@@ -1,5 +1,5 @@
 /**
- * Provider launch for Codex/Claude ACP adapters from the host adapter resource tree.
+ * Provider launch for ACP adapters from the host adapter resource tree.
  */
 import { BundledResource } from '@lib/context-services';
 import { Effect } from 'effect';
@@ -18,6 +18,7 @@ const pipedSpawnOptions = {
 const adapterEntryResource = {
   'claude-agent-acp': 'acp-adapter-resources/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js',
   'codex-acp': 'acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
+  'gemini-acp': 'acp-adapter-resources/node_modules/@lib/gemini-acp/dist/index.js',
 } as const;
 
 export type AcpAdapterLaunchTarget = keyof typeof adapterEntryResource;
@@ -59,13 +60,18 @@ export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
       });
     }
 
-    const claudePath = yield* requireExecutableOnPath('claude');
-    yield* requireVendorCliAuthenticated('claude-agent-acp', claudePath);
-    yield* Effect.logDebug('Claude adapter env', { CLAUDE_CODE_EXECUTABLE: claudePath });
-    return ChildProcess.make('node', [entry], {
-      ...pipedSpawnOptions,
-      env: { CLAUDE_CODE_EXECUTABLE: claudePath },
-    });
+    if (launchTarget === 'claude-agent-acp') {
+      const claudePath = yield* requireExecutableOnPath('claude');
+      yield* requireVendorCliAuthenticated('claude-agent-acp', claudePath);
+      yield* Effect.logDebug('Claude adapter env', { CLAUDE_CODE_EXECUTABLE: claudePath });
+      return ChildProcess.make('node', [entry], {
+        ...pipedSpawnOptions,
+        env: { CLAUDE_CODE_EXECUTABLE: claudePath },
+      });
+    }
+
+    yield* requireExecutableOnPath('gemini');
+    return ChildProcess.make('node', [entry], pipedSpawnOptions);
   },
   Effect.annotateLogs({ module: 'acpAdapterCommand' }),
   Effect.tapError(error => Effect.logError('makeAcpAdapterCommand failed', error)),

@@ -91,13 +91,12 @@ export const FsMentionListingTab: FC = () => {
                 return null;
               }
               const name = listingBasename(entry.path);
+              const boldTail = entry.kind === 'dir' ? `${name}/` : name;
+              const pathPrefix = entry.path.slice(0, Math.max(0, entry.path.length - boldTail.length));
               return (
                 <Box
                   key={virtualRow.key}
                   sx={{
-                    alignItems: 'baseline',
-                    display: 'flex',
-                    gap: 1,
                     height: virtualRow.size,
                     left: 0,
                     overflow: 'hidden',
@@ -109,21 +108,15 @@ export const FsMentionListingTab: FC = () => {
                   }}
                 >
                   <Typography
-                    component="span"
+                    component="div"
                     noWrap
-                    sx={{ flexShrink: 0, fontFamily: 'monospace', fontSize: '0.75rem' }}
+                    sx={{ fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: `${ROW_HEIGHT_PX}px` }}
                     variant="body2"
                   >
-                    {entry.kind === 'dir' ? `${name}/` : name}
-                  </Typography>
-                  <Typography
-                    color="text.secondary"
-                    component="span"
-                    noWrap
-                    sx={{ fontFamily: 'monospace', fontSize: '0.7rem', minWidth: 0 }}
-                    variant="body2"
-                  >
-                    {entry.path}
+                    {pathPrefix}
+                    <Box component="span" sx={{ fontWeight: 700 }}>
+                      {boldTail}
+                    </Box>
                   </Typography>
                 </Box>
               );

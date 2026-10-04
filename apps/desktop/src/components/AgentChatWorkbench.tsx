@@ -6,6 +6,7 @@ import {
   developerModeAtom,
   DeveloperPanelShell,
   isRecord,
+  OpenDeveloperPanelButton,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
@@ -186,6 +187,12 @@ export const AgentChatWorkbench: FC<{
                     <Typography sx={{ flexGrow: 1 }} variant="h3">
                       Agent Chat
                     </Typography>
+                    <OpenDeveloperPanelButton
+                      onOpen={() => {
+                        commitLayout({ developerPanelOpen: true });
+                      }}
+                      open={layout.developerPanelOpen}
+                    />
                     {layout.sessionStateOpen ? null : (
                       <Button
                         onClick={() => {
@@ -200,13 +207,7 @@ export const AgentChatWorkbench: FC<{
                   </Toolbar>
                 </AppBar>
 
-                <SessionChatBody
-                  developerPanelOpen={layout.developerPanelOpen}
-                  onClientError={onClientError}
-                  onOpenDeveloperPanel={() => {
-                    commitLayout({ developerPanelOpen: true });
-                  }}
-                />
+                <SessionChatBody onClientError={onClientError} />
               </Box>
             </Allotment.Pane>
 

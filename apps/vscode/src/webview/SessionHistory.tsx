@@ -6,6 +6,7 @@ import {
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
   developerModeAtom,
+  OpenDeveloperPanelButton,
   ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
@@ -45,6 +46,7 @@ export const SessionHistory: FC = () => {
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
+  const { developerPanelOpen, openDeveloperPanel } = useAppLayout();
   const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -73,6 +75,7 @@ export const SessionHistory: FC = () => {
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>
+        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
         <IconButton
           aria-label="Create session"
           disabled={noFolder || creating}
@@ -163,7 +166,7 @@ export const ProvidersPage: FC = () => {
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const userSettings = useAtomValue(userSettingsAtom);
   const editsDisabled = userSettingsEditsDisabled(userSettings);
-  const { openDeveloperPanel } = useAppLayout();
+  const { developerPanelOpen, openDeveloperPanel } = useAppLayout();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
@@ -177,9 +180,10 @@ export const ProvidersPage: FC = () => {
         >
           <ArrowBack fontSize="small" />
         </IconButton>
-        <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
+        <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Providers
         </Typography>
+        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
       </Stack>
       <ProvidersSettingsPane />
       {/* Full Settings shell → #96 (Epic #88); not in #92. */}

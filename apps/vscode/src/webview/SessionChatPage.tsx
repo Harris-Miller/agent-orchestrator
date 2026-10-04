@@ -3,6 +3,7 @@ import {
   activateSessionAtomFn,
   agentLaunchTargetLabel,
   isSessionActiveOrActivating,
+  OpenDeveloperPanelButton,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
@@ -82,13 +83,10 @@ export const SessionChatPage: FC = () => {
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
         </Typography>
+        <OpenDeveloperPanelButton onOpen={openDeveloperPanel} open={developerPanelOpen} />
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <SessionChatBody
-          developerPanelOpen={developerPanelOpen}
-          onClientError={onClientError}
-          onOpenDeveloperPanel={openDeveloperPanel}
-        />
+        <SessionChatBody onClientError={onClientError} />
       </Box>
     </Box>
   );

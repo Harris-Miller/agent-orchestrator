@@ -1,3 +1,19 @@
+export {
+  adapterDirPath,
+  adapterRosterLockPath,
+  adapterRosterPath,
+  readAdapterRoster,
+  withAdapterRosterLock,
+  writeAdapterRoster,
+} from './adapterRoster.ts';
+export {
+  type AdapterRosterDocument,
+  AdapterRosterDocumentJsonString,
+  AdapterRosterDocumentSchema,
+  type AdapterRosterEntry,
+  AdapterRosterEntrySchema,
+  emptyAdapterRoster,
+} from './AdapterRosterDocument.ts';
 export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {

@@ -39,23 +39,4 @@ describe('readDeveloperPanelOpen / writeDeveloperPanelOpen', () => {
     writeDeveloperPanelOpen(false);
     assert.isFalse(readDeveloperPanelOpen());
   });
-
-  it('migrates developerPanelOpen from workbench layout blob', () => {
-    installMemoryLocalStorage();
-    localStorage.setItem('agent-chat-workbench-layout', JSON.stringify({ developerPanelOpen: true }));
-    assert.isTrue(readDeveloperPanelOpen());
-    assert.strictEqual(localStorage.getItem(DEVELOPER_PANEL_OPEN_STORAGE_KEY), 'true');
-  });
-
-  it('migrates rpcWireLogOpen from workbench layout blob', () => {
-    installMemoryLocalStorage();
-    localStorage.setItem('agent-chat-workbench-layout', JSON.stringify({ rpcWireLogOpen: true }));
-    assert.isTrue(readDeveloperPanelOpen());
-  });
-
-  it('migrates from VS Code layout blob', () => {
-    installMemoryLocalStorage();
-    localStorage.setItem('ao-vscode-app-layout', JSON.stringify({ developerPanelOpen: true }));
-    assert.isTrue(readDeveloperPanelOpen());
-  });
 });

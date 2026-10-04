@@ -8,27 +8,29 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLayoutEffect, useRef } from 'react';
 import type { FC } from 'react';
 
-import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingBasename } from '../../host/fdListing.ts';
+import type { FdListingEntry } from '../../host/fdListing.ts';
+import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 
 import { ComposerMenuRow } from './ComposerMenuShell.tsx';
+import type { FsListingMatch } from './filterFsListingEntries.ts';
 
 const MENU_MAX_HEIGHT_PX = 320;
 const ROW_ESTIMATE_PX = 40;
 
 export type ComposerMentionMenuProps = {
-  readonly entries: readonly FdListingEntry[];
   readonly focusedIndex: number;
   readonly loading: boolean;
+  readonly matches: readonly FsListingMatch[];
   readonly onFocusIndexChange: (index: number) => void;
   readonly onSelect: (entry: FdListingEntry) => void;
   readonly open: boolean;
 };
 
 export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
-  entries,
   focusedIndex,
   loading,
+  matches,
   onFocusIndexChange,
   onSelect,
   open,
@@ -38,11 +40,11 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   // TanStack Virtual returns non-memoizable helpers; React Compiler skips this call site.
   // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer API
   const rowVirtualizer = useVirtualizer({
-    count: entries.length,
+    count: matches.length,
     estimateSize: () => ROW_ESTIMATE_PX,
     getItemKey: index => {
-      const entry = entries.at(index);
-      return entry == null ? index : `${entry.kind}:${entry.path}`;
+      const match = matches.at(index);
+      return match == null ? index : `${match.entry.kind}:${match.entry.path}`;
     },
     getScrollElement: () => parentRef.current,
     overscan: 8,
@@ -50,11 +52,11 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   });
 
   useLayoutEffect(() => {
-    if (!open || entries.length === 0) {
+    if (!open || matches.length === 0) {
       return;
     }
     rowVirtualizer.scrollToIndex(focusedIndex, { align: 'auto' });
-  }, [entries.length, focusedIndex, open, rowVirtualizer]);
+  }, [focusedIndex, matches.length, open, rowVirtualizer]);
 
   if (!open) {
     return null;
@@ -78,18 +80,21 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
             <Skeleton height={28} key={index} sx={{ mb: 0.5 }} variant="rounded" />
           ))}
         </Box>
-      ) : entries.length === 0 ? (
+      ) : matches.length === 0 ? (
         <Typography color="text.secondary" sx={{ px: 1.5, py: 1 }} variant="body2">
           No matches
         </Typography>
       ) : (
         <List dense disablePadding sx={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
           {rowVirtualizer.getVirtualItems().map(virtualRow => {
-            const entry = entries.at(virtualRow.index);
-            if (entry == null) {
+            const match = matches.at(virtualRow.index);
+            if (match == null) {
               return null;
             }
-            const name = listingBasename(entry.path);
+            const path = match.entry.path.normalize();
+            const name = listingBasename(path);
+            const boldTail = match.entry.kind === 'dir' ? `${name}/` : name;
+            const boldFrom = Math.max(0, path.length - boldTail.length);
             return (
               <Box
                 data-index={virtualRow.index}
@@ -107,10 +112,9 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
                   index={virtualRow.index}
                   onFocusIndexChange={onFocusIndexChange}
                   onSelect={() => {
-                    onSelect(entry);
+                    onSelect(match.entry);
                   }}
-                  primary={entry.kind === 'dir' ? `${name}/` : name}
-                  secondary={entry.path}
+                  primary={<HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />}
                   selected={virtualRow.index === focusedIndex}
                 />
               </Box>

@@ -57,7 +57,7 @@ import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommands } from './filterAvailableCommands.ts';
-import { filterFsListingEntries } from './filterFsListingEntries.ts';
+import { filterFsListingMatchesAll } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
@@ -186,7 +186,7 @@ export const SessionChatBody: FC<{
     if (mentionTrigger === null) {
       return [];
     }
-    return filterFsListingEntries(fsListing.entries, mentionTrigger.query);
+    return filterFsListingMatchesAll(fsListing.entries, mentionTrigger.query);
   }, [fsListing.entries, mentionTrigger]);
 
   const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
@@ -277,10 +277,11 @@ export const SessionChatBody: FC<{
       },
       onSelect: () => {
         if (mentionTrigger !== null) {
-          if (filteredMentions.length === 0) {
+          const match = filteredMentions.at(clampedMentionFocus);
+          if (match == null) {
             return;
           }
-          selectMention(filteredMentions[clampedMentionFocus]);
+          selectMention(match.entry);
           return;
         }
         if (filteredCommands.length === 0) {
@@ -519,9 +520,9 @@ export const SessionChatBody: FC<{
               open={commandTrigger !== null}
             />
             <ComposerMentionMenu
-              entries={filteredMentions}
               focusedIndex={clampedMentionFocus}
               loading={mentionLoading}
+              matches={filteredMentions}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectMention}
               open={mentionTrigger !== null}

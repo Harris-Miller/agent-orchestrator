@@ -33,7 +33,11 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
           onSelect={() => {
             onSelect(command);
           }}
-          primary={invocation}
+          primary={
+            <Box component="span" sx={{ fontWeight: 700 }}>
+              {invocation}
+            </Box>
+          }
           secondary={description}
           selected={index === focusedIndex}
         />

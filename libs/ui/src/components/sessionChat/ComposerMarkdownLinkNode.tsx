@@ -1,8 +1,9 @@
-import { $applyNodeReplacement, DecoratorNode } from 'lexical';
-import type { DOMExportOutput, LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
+import { $applyNodeReplacement } from 'lexical';
+import type { LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
 import type { JSX } from 'react';
 
 import { ComposerChipContent } from './ComposerChipContent.tsx';
+import { ComposerChipDecoratorNode } from './ComposerChipDecoratorNode.ts';
 import { markdownLinkText } from './markdownLinkText.ts';
 
 export type SerializedComposerMarkdownLinkNode = Spread<
@@ -13,9 +14,7 @@ export type SerializedComposerMarkdownLinkNode = Spread<
   SerializedLexicalNode
 >;
 
-export { markdownLinkText };
-
-export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
+export class ComposerMarkdownLinkNode extends ComposerChipDecoratorNode {
   __href: string;
   __label: string;
 
@@ -38,9 +37,7 @@ export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
   }
 
   createDOM(): HTMLElement {
-    const span = document.createElement('span');
-    span.className = 'composer-markdown-link-chip-host';
-    return span;
+    return this.createChipHostDom('composer-markdown-link-chip-host');
   }
 
   decorate(): JSX.Element {
@@ -53,12 +50,6 @@ export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
         testId="composer-markdown-link-chip"
       />
     );
-  }
-
-  exportDOM(): DOMExportOutput {
-    const element = document.createElement('span');
-    element.textContent = this.getTextContent();
-    return { element };
   }
 
   exportJSON(): SerializedComposerMarkdownLinkNode {
@@ -79,27 +70,6 @@ export class ComposerMarkdownLinkNode extends DecoratorNode<JSX.Element> {
 
   getTextContent(): string {
     return markdownLinkText(this.getLabel(), this.getHref());
-  }
-
-  getTextContentSize(): number {
-    return this.getTextContent().length;
-  }
-
-  isInline(): true {
-    return true;
-  }
-
-  // false: adjacent Backspace/Delete must remove the whole chip (Lexical skips isolated decorators).
-  isIsolated(): false {
-    return false;
-  }
-
-  isKeyboardSelectable(): true {
-    return true;
-  }
-
-  updateDOM(): false {
-    return false;
   }
 }
 

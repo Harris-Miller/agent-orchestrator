@@ -1,6 +1,6 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet } from '@effect/atom-react';
 import type { AgentLaunchTarget } from '@lib/ui';
-import { allLaunchTargetPhasesAtom, createSessionAtomFn } from '@lib/ui';
+import { AgentLaunchTargetMenu, createSessionAtomFn } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -19,8 +19,6 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
@@ -73,7 +71,6 @@ export const CreateSessionDirectoryPicker: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
@@ -356,26 +353,12 @@ export const CreateSessionDirectoryPicker: FC<{
         </Button>
       </Stack>
 
-      <Menu
+      <AgentLaunchTargetMenu
         anchorEl={agentMenuAnchor}
-        onClose={() => {
-          closeAgentMenu();
-        }}
-        open={agentMenuAnchor !== null}
-      >
-        {backendPhases.map(entry => (
-          <MenuItem
-            disabled={entry.phase !== 'ready' || creating}
-            key={entry.launchTarget}
-            onClick={() => {
-              createWithAgent(entry.launchTarget);
-            }}
-          >
-            {entry.label}
-            {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
-          </MenuItem>
-        ))}
-      </Menu>
+        creating={creating}
+        onClose={closeAgentMenu}
+        onSelect={createWithAgent}
+      />
 
       <Box sx={{ height: 360, overflow: 'auto', px: 1.5, py: 1 }}>
         <Typography color="text.secondary" sx={{ mb: 0.75, px: 0.5 }} variant="caption">

@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget } from '@lib/ui';
 import {
+  AgentLaunchTargetMenu,
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
@@ -26,8 +27,6 @@ import IconButton from '@mui/material/IconButton';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
@@ -236,26 +235,12 @@ export const WorkbenchNavRail: FC<{
         />
       ) : null}
 
-      <Menu
+      <AgentLaunchTargetMenu
         anchorEl={agentMenuAnchor}
-        onClose={() => {
-          closeAgentMenu();
-        }}
-        open={agentMenuAnchor !== null}
-      >
-        {backendPhases.map(entry => (
-          <MenuItem
-            disabled={entry.phase !== 'ready' || creating}
-            key={entry.launchTarget}
-            onClick={() => {
-              createWithAgent(entry.launchTarget);
-            }}
-          >
-            {entry.label}
-            {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
-          </MenuItem>
-        ))}
-      </Menu>
+        creating={creating}
+        onClose={closeAgentMenu}
+        onSelect={createWithAgent}
+      />
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} target={deleteTarget} />
     </>

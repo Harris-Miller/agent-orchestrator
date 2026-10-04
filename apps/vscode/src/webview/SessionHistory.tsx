@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { AgentLaunchTarget } from '@lib/ui';
 import {
+  AgentLaunchTargetMenu,
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
@@ -22,8 +23,6 @@ import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
@@ -144,26 +143,14 @@ export const SessionHistory: FC = () => {
         </Box>
       )}
 
-      <Menu
+      <AgentLaunchTargetMenu
         anchorEl={createMenuAnchor}
+        creating={creating}
         onClose={() => {
           setCreateMenuAnchor(null);
         }}
-        open={createMenuAnchor !== null}
-      >
-        {backendPhases.map(entry => (
-          <MenuItem
-            disabled={entry.phase !== 'ready' || creating}
-            key={entry.launchTarget}
-            onClick={() => {
-              createWithAgent(entry.launchTarget);
-            }}
-          >
-            {entry.label}
-            {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
-          </MenuItem>
-        ))}
-      </Menu>
+        onSelect={createWithAgent}
+      />
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>

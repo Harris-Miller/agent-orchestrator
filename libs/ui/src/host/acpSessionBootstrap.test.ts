@@ -20,6 +20,7 @@ import {
   patchConfigOptionValue,
   resolveSessionCwd,
   selectionFromSessionConfiguration,
+  sessionsForCwd,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
@@ -357,6 +358,24 @@ describe('groupAndSortSessionsByCwd', () => {
       groups[0].sessions.map(entry => entry.sessionId),
       ['a', 'z'],
     );
+  });
+});
+
+describe('sessionsForCwd', () => {
+  it('returns the matching cwd group in groupAndSort order; empty when missing', () => {
+    const roster: readonly UnifiedRosterEntry[] = [
+      { cwd: '/old', launchTarget: 'gemini-cli', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'gemini-cli', sessionId: 'd' },
+    ];
+
+    assert.deepStrictEqual(
+      sessionsForCwd(roster, '/new').map(entry => entry.sessionId),
+      ['b', 'c', 'd'],
+    );
+    assert.deepStrictEqual(sessionsForCwd(roster, '/missing'), []);
+    assert.deepStrictEqual(sessionsForCwd(roster, undefined), []);
   });
 });
 

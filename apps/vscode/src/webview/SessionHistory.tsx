@@ -10,6 +10,7 @@ import {
   selectedSessionIdAtom,
   sessionListScopeAtom,
   SessionRosterRow,
+  sessionsForCwd,
   unifiedSessionRosterAtom,
   userSettingsAtom,
   userSettingsEditsDisabled,
@@ -50,6 +51,8 @@ export const SessionHistory: FC = () => {
 
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
+  // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
+  const sessions = sessionsForCwd(roster, sessionCwd);
 
   const createWithAgent = (launchTarget: AgentLaunchTarget) => {
     if (sessionCwd === undefined || creating) {
@@ -108,7 +111,7 @@ export const SessionHistory: FC = () => {
         <Typography color="text.secondary" variant="body2">
           Open a workspace folder to create and list sessions.
         </Typography>
-      ) : roster.length === 0 ? (
+      ) : sessions.length === 0 ? (
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">
             {anyReady
@@ -129,7 +132,7 @@ export const SessionHistory: FC = () => {
         </Stack>
       ) : (
         <Box sx={{ overflow: 'auto', py: 0.5 }}>
-          {roster.map(entry => (
+          {sessions.map(entry => (
             <SessionRosterRow
               entry={entry}
               key={`${entry.launchTarget}:${entry.sessionId}`}

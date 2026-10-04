@@ -316,6 +316,17 @@ export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
     });
 };
 
+/** Same group/sort as the desktop roster; keep only the group for `cwd` (empty if none). */
+export const sessionsForCwd = <T extends NormalizedSessionInfo>(
+  roster: readonly T[],
+  cwd: string | undefined,
+): readonly T[] => {
+  if (cwd === undefined) {
+    return [];
+  }
+  return groupAndSortSessionsByCwd(roster).find(group => group.cwd === cwd)?.sessions ?? [];
+};
+
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   if (!Array.isArray(value)) {
     return [];

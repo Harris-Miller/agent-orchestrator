@@ -27,6 +27,7 @@ export * from './components/FdPrerequisiteGate.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
+export * from './components/sessionRoster/AgentLaunchTargetMenu.tsx';
 export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';

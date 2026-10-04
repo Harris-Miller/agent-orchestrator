@@ -616,6 +616,15 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@lib/ao-home':
+        specifier: workspace:^
+        version: link:../ao-home
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
+      '@lib/context-services-node':
+        specifier: workspace:^
+        version: link:../context-services-node
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../effect-acp

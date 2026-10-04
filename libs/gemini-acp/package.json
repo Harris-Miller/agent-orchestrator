@@ -18,6 +18,9 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@lib/ao-home": "workspace:^",
+    "@lib/context-services": "workspace:^",
+    "@lib/context-services-node": "workspace:^",
     "@libs/effect-acp": "workspace:^",
     "effect": "catalog:"
   },

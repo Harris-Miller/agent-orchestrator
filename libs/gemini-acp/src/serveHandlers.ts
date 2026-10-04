@@ -1,13 +1,17 @@
+import type { OS } from '@lib/context-services';
 import { AgentRpcs } from '@libs/effect-acp';
 import type { Layer, Scope } from 'effect';
 import { Effect } from 'effect';
+import type { FileSystem } from 'effect/FileSystem';
+import type { Path } from 'effect/Path';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './geminiChild.ts';
 import { makeLazyEnsureGeminiChild } from './geminiChild.ts';
+import { makeLoadedSet } from './sessionLifecycle.ts';
 
-type AgentHandlersLayer = Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>>;
+type AgentHandlersLayer = Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>, never, FileSystem | OS | Path>;
 
 /** Serve-facing Agent handlers Layer with lazy Gemini child connect. */
 export const makeGeminiAcpServeHandlersLayer = (
@@ -16,6 +20,7 @@ export const makeGeminiAcpServeHandlersLayer = (
   AgentRpcs.toLayer(
     Effect.gen(function* () {
       const ensureChild = yield* makeLazyEnsureGeminiChild(connect);
-      return makeGeminiAcpAgentHandlerMap(ensureChild);
+      const loaded = yield* makeLoadedSet();
+      return makeGeminiAcpAgentHandlerMap(ensureChild, loaded);
     }),
   );

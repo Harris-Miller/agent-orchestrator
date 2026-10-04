@@ -60,6 +60,14 @@ export const listingBasename = (entryPath: string): string => {
   return parts[parts.length - 1] ?? withoutTrailing;
 };
 
+/** Normalized path + inclusive basename start index for listing-row highlight. */
+export const listingPathBoldFrom = (entry: FdListingEntry): { readonly boldFrom: number; readonly path: string } => {
+  const path = entry.path.normalize();
+  const name = listingBasename(path);
+  const boldTail = entry.kind === 'dir' ? `${name}/` : name;
+  return { boldFrom: Math.max(0, path.length - boldTail.length), path };
+};
+
 const spawnFdStdout = Effect.fn('spawnFdStdout')(function* (
   binary: FdBinaryName,
   args: readonly string[],

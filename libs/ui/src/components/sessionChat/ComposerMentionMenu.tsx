@@ -8,8 +8,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLayoutEffect, useRef } from 'react';
 import type { FC } from 'react';
 
-import { listingBasename } from '../../host/fdListing.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
+import { listingPathBoldFrom } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 
 import { ComposerMenuRow } from './ComposerMenuShell.tsx';
@@ -92,10 +92,7 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
             if (match == null) {
               return null;
             }
-            const path = match.entry.path.normalize();
-            const name = listingBasename(path);
-            const boldTail = match.entry.kind === 'dir' ? `${name}/` : name;
-            const boldFrom = Math.max(0, path.length - boldTail.length);
+            const { boldFrom, path } = listingPathBoldFrom(match.entry);
             return (
               <Box
                 data-index={virtualRow.index}

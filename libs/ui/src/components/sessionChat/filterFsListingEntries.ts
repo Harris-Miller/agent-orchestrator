@@ -33,7 +33,7 @@ export const basenameMatchPositions = (entry: FdListingEntry): ReadonlySet<numbe
  * Empty query lists all (no positions); non-empty: exact basename matches first
  * (basename positions), then fzf path hits.
  */
-export const filterFsListingMatchesAll = (
+export const filterFsListingMatches = (
   entries: readonly FdListingEntry[],
   query: string,
 ): readonly FsListingMatch[] => {
@@ -53,11 +53,3 @@ export const filterFsListingMatchesAll = (
     .map((result): FsListingMatch => ({ entry: result.item, positions: result.positions }));
   return [...exact, ...fuzzy];
 };
-
-/**
- * Filter cached FS entries for `@` query. Empty query lists all;
- * non-empty: exact basename matches first, then fzf path hits. No display cap
- * (composer menu virtualizes the full result set).
- */
-export const filterFsListingEntries = (entries: readonly FdListingEntry[], query: string): readonly FdListingEntry[] =>
-  filterFsListingMatchesAll(entries, query).map(match => match.entry);

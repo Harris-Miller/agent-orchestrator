@@ -1,5 +1,4 @@
 /** Dev-only virtualized view of the active session's preloaded `@` FS listing. */
-import { useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -7,17 +6,11 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-  unifiedSessionRosterAtom,
-} from '../../atoms/backendState.atoms.ts';
-import { sessionFsListingAtom, sessionFsListingKey } from '../../atoms/sessionFsListing.atoms.ts';
-import { listingBasename } from '../../host/fdListing.ts';
+import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { listingPathBoldFrom } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { ListingEntryIcon } from '../sessionChat/FileChipIconView.tsx';
-import { filterFsListingMatchesAll } from '../sessionChat/filterFsListingEntries.ts';
+import { filterFsListingMatches } from '../sessionChat/filterFsListingEntries.ts';
 
 const ROW_HEIGHT_PX = 36;
 
@@ -25,27 +18,13 @@ export const FsMentionListingTab: FC = () => {
   const [query, setQuery] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
-  const selectedSession = useAtomValue(selectedSessionAtom);
-  const roster = useAtomValue(unifiedSessionRosterAtom);
-
-  const sourceCwd =
-    selectedLaunchTarget === undefined || selectedSessionId === undefined
-      ? undefined
-      : roster.find(entry => entry.launchTarget === selectedLaunchTarget && entry.sessionId === selectedSessionId)?.cwd;
-  const sessionCwd = selectedSession?.cwd ?? sourceCwd;
-  const listingKey =
-    selectedSessionId !== undefined && sessionCwd !== undefined
-      ? sessionFsListingKey(selectedSessionId, sessionCwd)
-      : null;
-  const fsListing = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
+  const { fsListing, listingKey, selectedSessionId } = useSelectedSessionFsListing();
 
   const filtered = useMemo(() => {
     if (selectedSessionId === undefined || listingKey === null) {
       return [];
     }
-    return filterFsListingMatchesAll(fsListing.entries, query);
+    return filterFsListingMatches(fsListing.entries, query);
   }, [fsListing.entries, listingKey, query, selectedSessionId]);
 
   const entryCount = selectedSessionId === undefined || listingKey === null ? 0 : fsListing.entries.length;
@@ -92,10 +71,7 @@ export const FsMentionListingTab: FC = () => {
               if (match == null) {
                 return null;
               }
-              const path = match.entry.path.normalize();
-              const name = listingBasename(path);
-              const boldTail = match.entry.kind === 'dir' ? `${name}/` : name;
-              const boldFrom = Math.max(0, path.length - boldTail.length);
+              const { boldFrom, path } = listingPathBoldFrom(match.entry);
               return (
                 <Box
                   key={virtualRow.key}

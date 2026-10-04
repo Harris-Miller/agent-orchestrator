@@ -75,6 +75,14 @@ export const rpcWireLogSnapshotAtom = Atom.make(get =>
   get(backendHarnessStateAtom(get(rpcWireLogLaunchTargetAtom))),
 ).pipe(Atom.keepAlive);
 
+/** Per-provider RPC wire logs for the unified Dev Panel wire tab. */
+export const allRpcWireCallsAtom = Atom.make(get =>
+  ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+    entries: get(backendHarnessStateAtom(launchTarget)).rpcCalls,
+    launchTarget,
+  })),
+).pipe(Atom.keepAlive);
+
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
   ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
     error: get(backendHarnessStateAtom(launchTarget)).error,

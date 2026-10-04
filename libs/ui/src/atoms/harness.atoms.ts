@@ -68,7 +68,10 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
             onRpcMessage: (direction, message) => {
               updateState(current => ({
                 ...current,
-                rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message }],
+                rpcCalls: [
+                  ...current.rpcCalls,
+                  { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() },
+                ],
               }));
             },
             onSessionRosterResult: listResult => {

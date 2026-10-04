@@ -55,7 +55,7 @@ import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
-import { filterAvailableCommands } from './filterAvailableCommands.ts';
+import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
@@ -168,7 +168,12 @@ export const SessionChatBody: FC<{
     if (commandTrigger === null) {
       return [];
     }
-    return filterAvailableCommands(availableCommands, commandTrigger.kind, commandTrigger.query, selectedLaunchTarget);
+    return filterAvailableCommandMatches(
+      availableCommands,
+      commandTrigger.kind,
+      commandTrigger.query,
+      selectedLaunchTarget,
+    );
   }, [availableCommands, commandTrigger, selectedLaunchTarget]);
 
   const filteredMentions = useMemo(() => {
@@ -273,10 +278,11 @@ export const SessionChatBody: FC<{
           selectMention(match.entry);
           return;
         }
-        if (filteredCommands.length === 0) {
+        const commandMatch = filteredCommands.at(clampedCommandFocus);
+        if (commandMatch == null) {
           return;
         }
-        selectCommand(filteredCommands[clampedCommandFocus]);
+        selectCommand(commandMatch.command);
       },
       onSpaceDismiss: () => {
         setComposerTrigger(null);
@@ -502,8 +508,8 @@ export const SessionChatBody: FC<{
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <ComposerCommandMenu
-              commands={filteredCommands}
               focusedIndex={clampedCommandFocus}
+              matches={filteredCommands}
               onFocusIndexChange={setCommandFocusIndex}
               onSelect={selectCommand}
               open={commandTrigger !== null}

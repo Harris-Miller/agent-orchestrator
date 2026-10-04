@@ -3,29 +3,46 @@ import Tooltip from '@mui/material/Tooltip';
 import type { FC } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 
-import { commandInvocation } from './composerCommandTokens.ts';
 import { ComposerMenuRow, ComposerMenuShell } from './ComposerMenuShell.tsx';
+import type { AvailableCommandMatch } from './filterAvailableCommands.ts';
+
+const EMPTY_POSITIONS: ReadonlySet<number> = new Set();
 
 export type ComposerCommandMenuProps = {
-  readonly commands: readonly AvailableCommand[];
   readonly focusedIndex: number;
+  readonly matches: readonly AvailableCommandMatch[];
   readonly onFocusIndexChange: (index: number) => void;
   readonly onSelect: (command: AvailableCommand) => void;
   readonly open: boolean;
 };
 
 export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
-  commands,
   focusedIndex,
+  matches,
   onFocusIndexChange,
   onSelect,
   open,
 }) => (
-  <ComposerMenuShell focusedIndex={focusedIndex} itemCount={commands.length} open={open}>
-    {commands.map((command, index) => {
-      const invocation = commandInvocation(command.name);
+  <ComposerMenuShell focusedIndex={focusedIndex} itemCount={matches.length} open={open}>
+    {matches.map((match, index) => {
+      const { command, field, positions } = match;
+      const { name } = command;
       const description = command.description ?? '';
+      const namePositions = field === 'name' ? positions : EMPTY_POSITIONS;
+      const descriptionPositions = field === 'description' ? positions : EMPTY_POSITIONS;
+      const isDollar = name.startsWith('$');
+      const primary = (
+        <Box component="span" sx={{ fontWeight: 700 }}>
+          {isDollar ? null : '/'}
+          <HighlightFzfChars positions={namePositions} text={name} />
+        </Box>
+      );
+      const secondary =
+        description.length === 0 ? undefined : (
+          <HighlightFzfChars positions={descriptionPositions} text={description} />
+        );
       const row = (
         <ComposerMenuRow
           index={index}
@@ -33,12 +50,8 @@ export const ComposerCommandMenu: FC<ComposerCommandMenuProps> = ({
           onSelect={() => {
             onSelect(command);
           }}
-          primary={
-            <Box component="span" sx={{ fontWeight: 700 }}>
-              {invocation}
-            </Box>
-          }
-          secondary={description}
+          primary={primary}
+          secondary={secondary}
           selected={index === focusedIndex}
         />
       );

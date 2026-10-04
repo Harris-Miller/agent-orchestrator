@@ -17,7 +17,7 @@ Harness-reported lifecycle while bringing a backend harness online: connecting â
 _Avoid_: Status, connection state, phase atoms
 
 **Developer panel**:
-Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Host apps own open/close chrome (e.g. Allotment) and host-only tabs.
+Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the reopen affordance are shared; hosts own pane layout chrome and host-only tabs.
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)
 
 **Available Command**:

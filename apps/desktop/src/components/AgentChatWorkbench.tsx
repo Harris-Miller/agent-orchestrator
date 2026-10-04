@@ -1,16 +1,15 @@
 import 'allotment/dist/style.css';
 
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import {
   DEVELOPER_PANEL_HEIGHT,
-  developerModeAtom,
-  developerPanelOpenAtom,
   DeveloperPanelShell,
   isRecord,
   OpenDeveloperPanelButton,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
+  useDeveloperPanelOpen,
 } from '@lib/ui';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -81,9 +80,7 @@ export const AgentChatWorkbench: FC<{
 }> = ({ onClientError }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
-  const developerMode = useAtomValue(developerModeAtom);
-  const developerPanelOpen = useAtomValue(developerPanelOpenAtom);
-  const setDeveloperPanelOpen = useAtomSet(developerPanelOpenAtom);
+  const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
 
@@ -123,11 +120,7 @@ export const AgentChatWorkbench: FC<{
         onChange={sizes => {
           commitLayout({ verticalSizes: sizes }, false);
         }}
-        onVisibleChange={(index, visible) => {
-          if (index === 1) {
-            setDeveloperPanelOpen(visible);
-          }
-        }}
+        onVisibleChange={onPaneVisibleChange}
         vertical
       >
         <Allotment.Pane>
@@ -204,12 +197,7 @@ export const AgentChatWorkbench: FC<{
           </Allotment>
         </Allotment.Pane>
 
-        <Allotment.Pane
-          minSize={120}
-          preferredSize={DEVELOPER_PANEL_HEIGHT}
-          snap
-          visible={developerMode ? developerPanelOpen : false}
-        >
+        <Allotment.Pane minSize={120} preferredSize={DEVELOPER_PANEL_HEIGHT} snap visible={developerPanelVisible}>
           <DeveloperPanelShell
             extraTabs={[
               {
@@ -223,9 +211,7 @@ export const AgentChatWorkbench: FC<{
               },
             ]}
             initializeResult={selectedSnapshot?.initializeResult}
-            onClose={() => {
-              setDeveloperPanelOpen(false);
-            }}
+            onClose={closeDeveloperPanel}
             onCopyError={onClientError}
             session={selectedSession}
           />

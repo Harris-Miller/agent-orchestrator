@@ -1,14 +1,13 @@
 import 'allotment/dist/style.css';
 
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import {
   DEVELOPER_PANEL_HEIGHT,
-  developerModeAtom,
-  developerPanelOpenAtom,
   isRecord,
   readDeveloperPanelOpen,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
+  useDeveloperPanelOpen,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { Outlet } from '@tanstack/react-router';
@@ -78,13 +77,10 @@ export const AppLayout: FC = () => {
   const [layout, setLayout] = useState(loadLayout);
   const layoutRef = useRef(layout);
   const allotmentRef = useRef<AllotmentHandle | null>(null);
-  const developerMode = useAtomValue(developerModeAtom);
-  const developerPanelOpen = useAtomValue(developerPanelOpenAtom);
-  const setDeveloperPanelOpen = useAtomSet(developerPanelOpenAtom);
+  const { close: closeDeveloperPanel, onPaneVisibleChange, visible: panelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const onClientError = useContext(OnClientErrorContext);
-  const panelVisible = developerMode && developerPanelOpen;
 
   const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -134,11 +130,7 @@ export const AppLayout: FC = () => {
         onChange={sizes => {
           commitLayout({ verticalSizes: sizes }, false);
         }}
-        onVisibleChange={(index, visible) => {
-          if (index === 1) {
-            setDeveloperPanelOpen(visible);
-          }
-        }}
+        onVisibleChange={onPaneVisibleChange}
         ref={allotmentRef}
         vertical
       >
@@ -156,9 +148,7 @@ export const AppLayout: FC = () => {
         >
           <DeveloperPanel
             initializeResult={selectedSnapshot?.initializeResult}
-            onClose={() => {
-              setDeveloperPanelOpen(false);
-            }}
+            onClose={closeDeveloperPanel}
             onCopyError={onClientError}
             session={selectedSession}
           />

@@ -5,31 +5,27 @@ import { Path } from 'effect/Path';
 import { AdapterRosterDocumentJsonString, emptyAdapterRoster } from './AdapterRosterDocument.ts';
 import type { AdapterRosterDocument } from './AdapterRosterDocument.ts';
 import { ensureHome, resolveHome } from './home.ts';
-import { LaunchTargetSchema } from './LaunchTarget.ts';
+import type { LaunchTarget } from './LaunchTarget.ts';
 
-const decodeLaunchTarget = (launchTarget: string) =>
-  Schema.decodeEffect(LaunchTargetSchema)(launchTarget).pipe(Effect.orDie);
-
-export const adapterDirPath = Effect.fn('adapterDirPath')(function* (launchTarget: string) {
-  const target = yield* decodeLaunchTarget(launchTarget);
+export const adapterDirPath = Effect.fn('adapterDirPath')(function* (launchTarget: LaunchTarget) {
   const path = yield* Path;
   const home = yield* resolveHome();
-  return path.join(home, 'adapters', target);
+  return path.join(home, 'adapters', launchTarget);
 });
 
-export const adapterRosterPath = Effect.fn('adapterRosterPath')(function* (launchTarget: string) {
+export const adapterRosterPath = Effect.fn('adapterRosterPath')(function* (launchTarget: LaunchTarget) {
   const path = yield* Path;
   const dir = yield* adapterDirPath(launchTarget);
   return path.join(dir, 'roster.json');
 });
 
-export const adapterRosterLockPath = Effect.fn('adapterRosterLockPath')(function* (launchTarget: string) {
+export const adapterRosterLockPath = Effect.fn('adapterRosterLockPath')(function* (launchTarget: LaunchTarget) {
   const path = yield* Path;
   const dir = yield* adapterDirPath(launchTarget);
   return path.join(dir, 'roster.lock');
 });
 
-export const readAdapterRoster = Effect.fn('readAdapterRoster')(function* (launchTarget: string) {
+export const readAdapterRoster = Effect.fn('readAdapterRoster')(function* (launchTarget: LaunchTarget) {
   const fs = yield* FileSystem;
   const filePath = yield* adapterRosterPath(launchTarget);
   const present = yield* fs.exists(filePath);
@@ -44,7 +40,7 @@ export const readAdapterRoster = Effect.fn('readAdapterRoster')(function* (launc
 });
 
 export const writeAdapterRoster = Effect.fn('writeAdapterRoster')(function* (
-  launchTarget: string,
+  launchTarget: LaunchTarget,
   document: AdapterRosterDocument,
 ) {
   const fs = yield* FileSystem;
@@ -62,7 +58,7 @@ export const writeAdapterRoster = Effect.fn('writeAdapterRoster')(function* (
  * RMW of the roster should run inside this helper; bare read/write stay for tests and full replace.
  */
 export const withAdapterRosterLock = Effect.fn('withAdapterRosterLock')(function* <A, E, R>(
-  launchTarget: string,
+  launchTarget: LaunchTarget,
   effect: Effect.Effect<A, E, R>,
 ) {
   const fs = yield* FileSystem;

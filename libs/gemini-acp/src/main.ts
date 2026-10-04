@@ -1,18 +1,19 @@
 #!/usr/bin/env tsx
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { connectAcpAgent, serveAcpAgent } from '@libs/effect-acp';
+import { ClientRpcs, connectAcpAgent, serveAcpAgent } from '@libs/effect-acp';
 import { Effect } from 'effect';
 
-import { makeForwardClientHandlers } from './forwardClientHandlers.ts';
+import { makeForwardClientHandlerMap } from './forwardClientHandlers.ts';
 import { GEMINI_CHILD_COMMAND } from './geminiChild.ts';
 import { makeGeminiAcpServeHandlersLayer } from './serveHandlers.ts';
 
 const program = Effect.gen(function* () {
   yield* serveAcpAgent(parentClient =>
     makeGeminiAcpServeHandlersLayer(
-      connectAcpAgent(GEMINI_CHILD_COMMAND, makeForwardClientHandlers(parentClient)).pipe(
-        Effect.provide(NodeServices.layer),
-      ),
+      connectAcpAgent(
+        GEMINI_CHILD_COMMAND,
+        ClientRpcs.toLayer(Effect.succeed(makeForwardClientHandlerMap(parentClient))),
+      ).pipe(Effect.provide(NodeServices.layer)),
     ),
   );
   return yield* Effect.never;

@@ -40,6 +40,7 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Confirm before deleting a session"
+        sx={{ ml: 0 }}
       />
       <FormControlLabel
         control={
@@ -52,7 +53,7 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Show No Folder group in Sessions"
-        sx={{ display: 'block', mt: 1 }}
+        sx={{ display: 'block', ml: 0, mt: 1 }}
       />
       <FormControlLabel
         control={
@@ -65,7 +66,7 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Developer mode"
-        sx={{ display: 'block', mt: 1 }}
+        sx={{ display: 'block', ml: 0, mt: 1 }}
       />
     </>
   );

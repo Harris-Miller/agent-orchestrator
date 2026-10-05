@@ -21,6 +21,7 @@ import {
   SessionResume,
   SessionSetConfigOption,
   SessionSetMode,
+  SessionSetModel,
 } from './schema/agent.ts';
 import {
   ElicitationComplete,
@@ -149,6 +150,9 @@ export class ProtocolNotificationRpcs extends RpcGroup.make(CancelRequest) {}
 
 export class AgentRpcs extends AgentRequestRpcs.merge(AgentNotificationRpcs) {}
 export class ClientRpcs extends ClientRequestRpcs.merge(ClientNotificationRpcs) {}
+
+/** Unstable Client→Agent model switch; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionSetModelRpcs extends RpcGroup.make(SessionSetModel) {}
 
 // =============================================================================
 // Intermediate encoded aliases

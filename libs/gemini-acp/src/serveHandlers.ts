@@ -10,6 +10,7 @@ import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './geminiChild.ts';
 import { makeLazyEnsureGeminiChild } from './geminiChild.ts';
 import { makeLoadedSet } from './loadedSet.ts';
+import { makeSessionConfigStore } from './sessionConfigStore.ts';
 
 type AgentHandlersLayer = Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof AgentRpcs>>, never, FileSystem | OS | Path>;
 
@@ -21,6 +22,7 @@ export const makeGeminiAcpServeHandlersLayer = (
     Effect.gen(function* () {
       const ensureChild = yield* makeLazyEnsureGeminiChild(connect);
       const loaded = yield* makeLoadedSet();
-      return makeGeminiAcpAgentHandlerMap(ensureChild, loaded);
+      const configs = yield* makeSessionConfigStore();
+      return makeGeminiAcpAgentHandlerMap(ensureChild, loaded, configs);
     }),
   );

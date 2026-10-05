@@ -17,6 +17,7 @@ import {
   SessionId,
   SessionInfo,
   SessionModeId,
+  SessionModelState,
   SessionModeState,
   StopReason,
   Usage,
@@ -39,6 +40,9 @@ const AGENT_METHODS = {
   session_set_config_option: 'session/set_config_option',
   session_set_mode: 'session/set_mode',
 } as const;
+
+/** Unstable ACP model switch (Gemini `unstable_setSessionModel`). Not in stable AgentRpcs. */
+export const SESSION_SET_MODEL_METHOD = 'session/set_model' as const;
 
 // =============================================================================
 // Payload schemas
@@ -92,6 +96,7 @@ export class NewSessionResponse extends Schema.Opaque<NewSessionResponse>()(
   Schema.Struct({
     _meta: MetaField,
     configOptions: optional(Schema.NullOr(Schema.Array(SessionConfigOption))),
+    models: optional(Schema.NullOr(SessionModelState)),
     modes: optional(Schema.NullOr(SessionModeState)),
     sessionId: SessionId,
   }),
@@ -111,6 +116,7 @@ export class LoadSessionResponse extends Schema.Opaque<LoadSessionResponse>()(
   Schema.Struct({
     _meta: MetaField,
     configOptions: optional(Schema.NullOr(Schema.Array(SessionConfigOption))),
+    models: optional(Schema.NullOr(SessionModelState)),
     modes: optional(Schema.NullOr(SessionModeState)),
   }),
 ) {}
@@ -179,6 +185,17 @@ export class SetSessionModeRequest extends Schema.Opaque<SetSessionModeRequest>(
 
 export const SetSessionModeResponse = EmptyResult;
 export type SetSessionModeResponse = EmptyResult;
+
+export class SetSessionModelRequest extends Schema.Opaque<SetSessionModelRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    modelId: Schema.String,
+    sessionId: SessionId,
+  }),
+) {}
+
+export const SetSessionModelResponse = EmptyResult;
+export type SetSessionModelResponse = EmptyResult;
 
 export const SetSessionConfigOptionRequest = Schema.Union([
   Schema.Struct({
@@ -289,6 +306,13 @@ export class SessionSetMode extends Rpc.make(AGENT_METHODS.session_set_mode, {
   error: AcpError,
   payload: SetSessionModeRequest,
   success: SetSessionModeResponse,
+}) {}
+
+/** Unstable: keep out of AgentRequestRpcs allowlist; Client→Gemini via connectAcpAgent only. */
+export class SessionSetModel extends Rpc.make(SESSION_SET_MODEL_METHOD, {
+  error: AcpError,
+  payload: SetSessionModelRequest,
+  success: SetSessionModelResponse,
 }) {}
 
 export class SessionSetConfigOption extends Rpc.make(AGENT_METHODS.session_set_config_option, {

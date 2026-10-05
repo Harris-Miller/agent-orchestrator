@@ -5,11 +5,15 @@ import type {
   InitializeRequest,
   ListSessionsRequest,
   LoadSessionRequest,
+  LoadSessionResponse,
   LogoutRequest,
   NewSessionRequest,
+  NewSessionResponse,
   PromptRequest,
   ResumeSessionRequest,
+  ResumeSessionResponse,
   SetSessionConfigOptionRequest,
+  SetSessionConfigOptionResponse,
   SetSessionModeRequest,
 } from '@libs/effect-acp';
 import { AgentRpcs } from '@libs/effect-acp';
@@ -20,6 +24,16 @@ import type { EnsureGeminiChild, GeminiChild } from './geminiChild.ts';
 import type { LoadedSet } from './loadedSet.ts';
 import { isLoaded, markLoaded, unmarkLoaded } from './loadedSet.ts';
 import { rewriteInitializeResponse } from './rewriteInitialize.ts';
+import {
+  configOptionsFromSnapshot,
+  rewriteSessionConfiguration,
+  snapshotSessionConfig,
+  withModeId,
+  withModelId,
+} from './rewriteSessionConfiguration.ts';
+import type { RewrittenSessionConfiguration } from './rewriteSessionConfiguration.ts';
+import type { SessionConfigStore } from './sessionConfigStore.ts';
+import { patchSessionConfig, putSessionConfig } from './sessionConfigStore.ts';
 
 const withChild = <A>(
   ensureChild: EnsureGeminiChild,
@@ -38,8 +52,28 @@ const upsertAndMarkLoaded = Effect.fn('upsertAndMarkLoaded')(function* (
   yield* markLoaded(loaded, entry.sessionId);
 });
 
-/** Agent handler map: cap rewrite + soft lifecycle + transparent forward to Gemini child. */
-export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loaded: LoadedSet) =>
+const rememberAndRewrite = Effect.fn('rememberAndRewrite')(function* (
+  configs: SessionConfigStore,
+  sessionId: string,
+  result: unknown,
+): Effect.fn.Return<RewrittenSessionConfiguration> {
+  yield* putSessionConfig(configs, sessionId, snapshotSessionConfig(result));
+  return rewriteSessionConfiguration(result);
+});
+
+const setConfigOptionResponse = (
+  snapshot: ReturnType<typeof configOptionsFromSnapshot> | undefined,
+): SetSessionConfigOptionResponse =>
+  ({
+    configOptions: snapshot?.configOptions ?? [],
+  }) as SetSessionConfigOptionResponse;
+
+/** Agent handler map: cap rewrite + soft lifecycle + configOptions rewrite + transparent forward. */
+export const makeGeminiAcpAgentHandlerMap = (
+  ensureChild: EnsureGeminiChild,
+  loaded: LoadedSet,
+  configs: SessionConfigStore,
+) =>
   AgentRpcs.of({
     authenticate: (request: AuthenticateRequest) => withChild(ensureChild, child => child.agent.authenticate(request)),
     initialize: (request: InitializeRequest) =>
@@ -67,13 +101,14 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
       Effect.gen(function* () {
         const result = yield* withChild(ensureChild, child => child.agent['session/load'](request));
         yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: request.sessionId });
-        return result;
+        return (yield* rememberAndRewrite(configs, request.sessionId, result)) as LoadSessionResponse;
       }),
     'session/new': (request: NewSessionRequest) =>
       Effect.gen(function* () {
         const result = yield* withChild(ensureChild, child => child.agent['session/new'](request));
         yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: result.sessionId });
-        return result;
+        const rewritten = yield* rememberAndRewrite(configs, result.sessionId, result);
+        return { ...rewritten, sessionId: result.sessionId } as NewSessionResponse;
       }),
     'session/prompt': (request: PromptRequest) =>
       withChild(ensureChild, child => child.agent['session/prompt'](request)),
@@ -92,13 +127,36 @@ export const makeGeminiAcpAgentHandlerMap = (ensureChild: EnsureGeminiChild, loa
         };
         const loadResult = yield* withChild(ensureChild, child => child.agent['session/load'](loadRequest));
         yield* upsertAndMarkLoaded(loaded, { cwd: request.cwd, sessionId: request.sessionId });
+        const rewritten = yield* rememberAndRewrite(configs, request.sessionId, loadResult);
         return {
-          ...(loadResult.configOptions === undefined ? {} : { configOptions: loadResult.configOptions }),
-          ...(loadResult.modes === undefined ? {} : { modes: loadResult.modes }),
-        };
+          configOptions: rewritten.configOptions,
+          ...(rewritten.modes === undefined ? {} : { modes: rewritten.modes }),
+        } as ResumeSessionResponse;
       }),
     'session/set_config_option': (request: SetSessionConfigOptionRequest) =>
-      withChild(ensureChild, child => child.agent['session/set_config_option'](request)),
+      Effect.gen(function* () {
+        if (request.configId === 'model' && typeof request.value === 'string') {
+          const modelId = request.value;
+          yield* withChild(ensureChild, child => child.sessionSetModel({ modelId, sessionId: request.sessionId }));
+          const snapshot = yield* patchSessionConfig(configs, request.sessionId, s => withModelId(s, modelId));
+          return setConfigOptionResponse(snapshot === undefined ? undefined : configOptionsFromSnapshot(snapshot));
+        }
+
+        if (request.configId === 'mode' && typeof request.value === 'string') {
+          const modeId = request.value;
+          yield* withChild(ensureChild, child =>
+            child.agent['session/set_mode']({ modeId, sessionId: request.sessionId }),
+          );
+          const snapshot = yield* patchSessionConfig(configs, request.sessionId, s => withModeId(s, modeId));
+          return setConfigOptionResponse(snapshot === undefined ? undefined : configOptionsFromSnapshot(snapshot));
+        }
+
+        return yield* withChild(ensureChild, child => child.agent['session/set_config_option'](request));
+      }),
     'session/set_mode': (request: SetSessionModeRequest) =>
-      withChild(ensureChild, child => child.agent['session/set_mode'](request)),
+      Effect.gen(function* () {
+        const result = yield* withChild(ensureChild, child => child.agent['session/set_mode'](request));
+        yield* patchSessionConfig(configs, request.sessionId, s => withModeId(s, request.modeId));
+        return result;
+      }),
   });

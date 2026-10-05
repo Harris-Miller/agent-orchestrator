@@ -119,5 +119,7 @@ export class AuthMethod extends Schema.Opaque<AuthMethod>()(Schema.Unknown) {}
 export class McpServer extends Schema.Opaque<McpServer>()(Schema.Unknown) {}
 export class SessionConfigOption extends Schema.Opaque<SessionConfigOption>()(Schema.Unknown) {}
 export class SessionModeState extends Schema.Opaque<SessionModeState>()(Schema.Unknown) {}
+/** Gemini (and similar) legacy model list on session/new|load; not part of stable ACP AgentRpcs. */
+export class SessionModelState extends Schema.Opaque<SessionModelState>()(Schema.Unknown) {}
 export class ToolCallUpdate extends Schema.Opaque<ToolCallUpdate>()(Schema.Unknown) {}
 export class Usage extends Schema.Opaque<Usage>()(Schema.Unknown) {}

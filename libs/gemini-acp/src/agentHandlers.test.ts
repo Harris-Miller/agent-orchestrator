@@ -8,6 +8,23 @@ import { ADAPTER_AGENT_INFO } from './adapterAgentInfo.ts';
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './geminiChild.ts';
 import { isLoaded, makeLoadedSet } from './loadedSet.ts';
+import { makeSessionConfigStore } from './sessionConfigStore.ts';
+
+const geminiModels = {
+  availableModels: [
+    { modelId: 'auto-gemini-2.5', name: 'Auto' },
+    { modelId: 'gemini-2.5-pro', name: 'Pro' },
+  ],
+  currentModelId: 'auto-gemini-2.5',
+};
+
+const geminiModes = {
+  availableModes: [
+    { id: 'default', name: 'Default' },
+    { id: 'yolo', name: 'YOLO' },
+  ],
+  currentModeId: 'default',
+};
 
 const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild =>
   ({
@@ -41,12 +58,12 @@ const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild =>
             ...c,
             `session/load:${request.sessionId}:mcp=${JSON.stringify(request.mcpServers)}`,
           ]);
-          return { configOptions: [], modes: null };
+          return { models: geminiModels, modes: geminiModes };
         }),
       'session/new': (request: { readonly cwd: string }) =>
         Effect.gen(function* () {
           yield* Ref.update(calls, c => [...c, `session/new:${request.cwd}`]);
-          return { sessionId: 'sess-1' };
+          return { models: geminiModels, modes: geminiModes, sessionId: 'sess-1' };
         }),
       'session/prompt': (request: { readonly sessionId: string }) =>
         Effect.gen(function* () {
@@ -75,6 +92,11 @@ const makeFakeChild = (calls: Ref.Ref<string[]>): GeminiChild =>
             : '?';
         yield* Ref.update(calls, c => [...c, `notify:${tag}:${sessionId}`]);
       }),
+    sessionSetModel: (request: { readonly modelId: string }) =>
+      Effect.gen(function* () {
+        yield* Ref.update(calls, c => [...c, `session/set_model:${request.modelId}`]);
+        return {};
+      }),
   }) as GeminiChild;
 
 describe('makeGeminiAcpAgentHandlerMap', () => {
@@ -85,11 +107,21 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
   });
 
   layer(mapFsTestServices(store))(layeredIt => {
+    const makeHandlers = (calls: Ref.Ref<string[]>) =>
+      Effect.gen(function* () {
+        const loaded = yield* makeLoadedSet();
+        const configs = yield* makeSessionConfigStore();
+        return {
+          configs,
+          handlers: makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded, configs),
+          loaded,
+        };
+      });
+
     layeredIt.effect('rewrites initialize caps and agentInfo', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers } = yield* makeHandlers(calls);
 
         const result = yield* handlers.initialize({ protocolVersion: 1 });
 
@@ -105,25 +137,31 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
       }),
     );
 
-    layeredIt.effect('forwards prompt/config and persists new/load on adapter roster', () =>
+    layeredIt.effect('rewrites session/new models into configOptions and maps model set to session/set_model', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers, loaded } = yield* makeHandlers(calls);
 
         const created = yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
         assert.strictEqual(created.sessionId, 'sess-1');
+        assert.strictEqual('models' in created, false);
+        const options = created.configOptions as readonly { currentValue?: string; id?: string }[];
+        assert.isTrue(options.some(option => option.id === 'model' && option.currentValue === 'auto-gemini-2.5'));
         assert.isTrue(yield* isLoaded(loaded, 'sess-1'));
 
         yield* handlers['session/prompt']({
           prompt: [{ text: 'hi', type: 'text' }],
           sessionId: 'sess-1',
         });
-        yield* handlers['session/set_config_option']({
+        const setModel = yield* handlers['session/set_config_option']({
           configId: 'model',
           sessionId: 'sess-1',
-          value: 'x',
+          value: 'gemini-2.5-pro',
         });
+        const modelOption = (setModel.configOptions as readonly { currentValue?: string; id?: string }[]).find(
+          option => option.id === 'model',
+        );
+        assert.strictEqual(modelOption?.currentValue, 'gemini-2.5-pro');
 
         const listed = yield* handlers['session/list']({});
         assert.strictEqual(listed.sessions.length, 1);
@@ -134,7 +172,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
         assert.deepStrictEqual(yield* Ref.get(calls), [
           'session/new:/tmp/proj',
           'session/prompt:sess-1',
-          'session/set_config_option:model',
+          'session/set_model:gemini-2.5-pro',
         ]);
       }),
     );
@@ -142,8 +180,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('list filters by cwd when provided', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers } = yield* makeHandlers(calls);
 
         yield* handlers['session/new']({ cwd: '/tmp/a', mcpServers: [] });
         yield* handlers['session/load']({
@@ -164,8 +201,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('soft close cancels when loaded, keeps roster row, refreshes updatedAt', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers, loaded } = yield* makeHandlers(calls);
 
         yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
         const rosterPath = '/home/operator/.ao/adapters/gemini-acp/roster.json';
@@ -197,8 +233,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('soft delete removes roster entry and drops loaded mark', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers, loaded } = yield* makeHandlers(calls);
 
         yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
         yield* handlers['session/delete']({ sessionId: 'sess-1' });
@@ -213,12 +248,12 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('roster survives adapter restart (empty loaded set)', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded1 = yield* makeLoadedSet();
-        const handlers1 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded1);
+        const { handlers: handlers1 } = yield* makeHandlers(calls);
         yield* handlers1['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
 
         const loaded2 = yield* makeLoadedSet();
-        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2);
+        const configs2 = yield* makeSessionConfigStore();
+        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2, configs2);
         assert.isFalse(yield* isLoaded(loaded2, 'sess-1'));
 
         const listed = yield* handlers2['session/list']({});
@@ -227,11 +262,10 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
       }),
     );
 
-    layeredIt.effect('hot resume skips child load; cold resume maps to session/load', () =>
+    layeredIt.effect('hot resume skips child load; cold resume maps to session/load with configOptions', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers, loaded } = yield* makeHandlers(calls);
 
         yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
         yield* Ref.set(calls, []);
@@ -244,7 +278,8 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
         yield* Ref.set(calls, []);
 
         const cold = yield* handlers['session/resume']({ cwd: '/tmp/proj', sessionId: 'sess-1' });
-        assert.deepStrictEqual(cold, { configOptions: [], modes: null });
+        const coldOptions = cold.configOptions as readonly { id?: string }[];
+        assert.isTrue(coldOptions.some(option => option.id === 'model'));
         assert.isTrue(yield* isLoaded(loaded, 'sess-1'));
         assert.deepStrictEqual(yield* Ref.get(calls), ['session/load:sess-1:mcp=[]']);
       }),
@@ -253,12 +288,12 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('cold resume after restart loads with empty mcpServers', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded1 = yield* makeLoadedSet();
-        const handlers1 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded1);
+        const { handlers: handlers1 } = yield* makeHandlers(calls);
         yield* handlers1['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
 
         const loaded2 = yield* makeLoadedSet();
-        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2);
+        const configs2 = yield* makeSessionConfigStore();
+        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2, configs2);
         yield* Ref.set(calls, []);
 
         yield* handlers2['session/resume']({ cwd: '/tmp/proj', sessionId: 'sess-1' });
@@ -270,8 +305,7 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('forwards session/cancel via child notify', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers } = yield* makeHandlers(calls);
 
         yield* handlers['session/cancel']({ sessionId: 'sess-1' });
 
@@ -282,12 +316,32 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
     layeredIt.effect('idempotent delete and close for unknown sessionId', () =>
       Effect.gen(function* () {
         const calls = yield* Ref.make<string[]>([]);
-        const loaded = yield* makeLoadedSet();
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded);
+        const { handlers } = yield* makeHandlers(calls);
 
         yield* handlers['session/close']({ sessionId: 'missing' });
         yield* handlers['session/delete']({ sessionId: 'missing' });
         assert.deepStrictEqual(yield* Ref.get(calls), []);
+      }),
+    );
+
+    layeredIt.effect('maps mode set_config_option to session/set_mode', () =>
+      Effect.gen(function* () {
+        const calls = yield* Ref.make<string[]>([]);
+        const { handlers } = yield* makeHandlers(calls);
+
+        yield* handlers['session/new']({ cwd: '/tmp/proj', mcpServers: [] });
+        yield* Ref.set(calls, []);
+
+        const setMode = yield* handlers['session/set_config_option']({
+          configId: 'mode',
+          sessionId: 'sess-1',
+          value: 'yolo',
+        });
+        const modeOption = (setMode.configOptions as readonly { currentValue?: string; id?: string }[]).find(
+          option => option.id === 'mode',
+        );
+        assert.strictEqual(modeOption?.currentValue, 'yolo');
+        assert.deepStrictEqual(yield* Ref.get(calls), ['session/set_mode:yolo']);
       }),
     );
   });

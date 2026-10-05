@@ -12,6 +12,10 @@ _Avoid_: proxy, shim, Gemini session, vendor session
 Client-facing merge of Gemini's `initialize` result so `sessionCapabilities` advertises `list` / `close` / `delete` / `resume` while preserving Gemini's real prompt, mcp, loadSession, and auth surface; adapter `agentInfo` replaces Gemini's.
 _Avoid_: proxy initialize, shim caps
 
+**Config rewrite**:
+Client-facing synthesis of ACP `configOptions` (mode + model) from Gemini's legacy `modes` / `models` on `session/new` and `session/load`; Client `session/set_config_option` for `model` maps to unstable `session/set_model`, and for `mode` to `session/set_mode`.
+_Avoid_: models passthrough, unstable model API on the Client
+
 **Loaded set**:
 Process-local set of `sessionId`s still bound on the live Gemini child. Cleared on adapter restart. Distinct from the durable adapter roster document (identity/list truth only).
 _Avoid_: active sessions, open sessions, session roster

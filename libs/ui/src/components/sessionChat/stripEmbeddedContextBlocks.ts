@@ -2,6 +2,7 @@
 
 const EMBEDDED_CONTEXT_BLOCK_RE = /\n*<context\b[^>]*>[\s\S]*?<\/context>\n*/gi;
 const SYSTEM_REMINDER_BLOCK_RE = /\n*<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\n*/gi;
+const IDE_SELECTION_BLOCK_RE = /\n*<ide_selection\b[^>]*>[\s\S]*?<\/ide_selection>\n*/gi;
 
 const collapseInnerSpaces = (text: string): string => text.replace(/ {2,}/g, ' ');
 
@@ -19,6 +20,13 @@ export const stripEmbeddedContextBlocks = (text: string): string =>
 export const stripSystemReminderBlocks = (text: string): string =>
   collapseInnerSpaces(text.replace(SYSTEM_REMINDER_BLOCK_RE, ' ')).trim();
 
-/** Strip embedded context / system-reminder bodies for ChatMarkdown (FS mention labels keep `@`). */
+/**
+ * Hide IDE-injected `<ide_selection>` blocks (Cursor/Claude selection context
+ * echoed on `user_message_chunk`) from the chat UI.
+ */
+export const stripIdeSelectionBlocks = (text: string): string =>
+  collapseInnerSpaces(text.replace(IDE_SELECTION_BLOCK_RE, ' ')).trim();
+
+/** Strip embedded context / system-reminder / ide_selection bodies for ChatMarkdown (FS mention labels keep `@`). */
 export const prepareChatMarkdownText = (text: string): string =>
-  stripSystemReminderBlocks(stripEmbeddedContextBlocks(text));
+  stripIdeSelectionBlocks(stripSystemReminderBlocks(stripEmbeddedContextBlocks(text)));

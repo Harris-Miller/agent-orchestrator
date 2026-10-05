@@ -3,6 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import {
   prepareChatMarkdownText,
   stripEmbeddedContextBlocks,
+  stripIdeSelectionBlocks,
   stripSystemReminderBlocks,
 } from './stripEmbeddedContextBlocks.ts';
 
@@ -64,6 +65,32 @@ describe('stripSystemReminderBlocks', () => {
   });
 });
 
+describe('stripIdeSelectionBlocks', () => {
+  it('removes ide_selection body so only the user prompt remains', () => {
+    const input = [
+      '<ide_selection>The user selected the lines 28 to 28 from /Users/hmiller/Projects/dwf/dwf-client/apps/dc-client/rsbuild.config.mts:',
+      'PROXY_DEBUG',
+      'This may or may not be related to the current task.</ide_selection>I have the dev server running, using the chrome-devtools MCP server, start an new instance of chrome. Then hold while I will authenticate into the locally running app for you',
+    ].join('\n');
+
+    assert.strictEqual(
+      stripIdeSelectionBlocks(input),
+      'I have the dev server running, using the chrome-devtools MCP server, start an new instance of chrome. Then hold while I will authenticate into the locally running app for you',
+    );
+  });
+
+  it('removes multiple ide_selection blocks', () => {
+    assert.strictEqual(
+      stripIdeSelectionBlocks('a <ide_selection>one</ide_selection> b <ide_selection>two</ide_selection> c'),
+      'a b c',
+    );
+  });
+
+  it('leaves text without ide_selection tags unchanged', () => {
+    assert.strictEqual(stripIdeSelectionBlocks('plain user prompt'), 'plain user prompt');
+  });
+});
+
 describe('prepareChatMarkdownText', () => {
   it('strips context and keeps @-prefixed FS labels', () => {
     const input = [
@@ -94,5 +121,12 @@ describe('prepareChatMarkdownText', () => {
     ].join('\n');
 
     assert.strictEqual(prepareChatMarkdownText(input), 'Look at [@notes.md](file:///tmp/notes.md) please');
+  });
+
+  it('strips ide_selection so only the user prompt remains', () => {
+    const input =
+      '<ide_selection>The user selected lines 1 to 2 from /tmp/a.ts:\nfoo</ide_selection>Please fix the bug';
+
+    assert.strictEqual(prepareChatMarkdownText(input), 'Please fix the bug');
   });
 });

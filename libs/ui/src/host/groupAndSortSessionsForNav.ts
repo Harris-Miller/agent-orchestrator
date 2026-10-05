@@ -3,7 +3,7 @@
  * Does not replace {@link groupAndSortSessionsByCwd} (VS Code Session History).
  */
 
-import { compareRosterEntriesByUpdatedAtDesc } from './acpSessionBootstrap.ts';
+import { compareRosterEntriesByUpdatedAtDesc, maxUpdatedAtMs } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
 import { isNoFolderSessionCwd } from './noFolderSessionCwd.ts';
 
@@ -11,20 +11,7 @@ export type NavSessionGroup<T extends NormalizedSessionInfo = NormalizedSessionI
   | { readonly cwd: string; readonly kind: 'cwd'; readonly sessions: readonly T[] }
   | { readonly kind: 'noFolder'; readonly sessions: readonly T[] };
 
-const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'updatedAt'>[]): number => {
-  let max = Number.NEGATIVE_INFINITY;
-  for (const entry of sessions) {
-    if (entry.updatedAt !== undefined) {
-      const parsed = Date.parse(entry.updatedAt);
-      if (Number.isFinite(parsed) && parsed > max) {
-        max = parsed;
-      }
-    }
-  }
-  return max;
-};
-
-const groupStableKey = <T extends NormalizedSessionInfo>(group: NavSessionGroup<T>): string =>
+export const navSessionGroupStableKey = <T extends NormalizedSessionInfo>(group: NavSessionGroup<T>): string =>
   group.kind === 'cwd' ? group.cwd : 'noFolder';
 
 /**
@@ -69,8 +56,8 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
     if (leftMax !== rightMax) {
       return rightMax - leftMax;
     }
-    const leftKey = groupStableKey(left);
-    const rightKey = groupStableKey(right);
+    const leftKey = navSessionGroupStableKey(left);
+    const rightKey = navSessionGroupStableKey(right);
     return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
   });
 };

@@ -6,6 +6,7 @@ import {
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
   groupAndSortSessionsForNav,
+  navSessionGroupStableKey,
   PanelHeader,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
@@ -46,14 +47,29 @@ const directoryName = (cwd: string): string => {
   return segment !== undefined && segment.length > 0 ? segment : cwd;
 };
 
-const groupKey = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
-  group.kind === 'cwd' ? group.cwd : 'noFolder';
+type NavGroupPresentation = {
+  readonly createCwd: string | undefined;
+  readonly key: string;
+  readonly label: string;
+  readonly tooltip: string;
+};
 
-const groupLabel = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
-  group.kind === 'cwd' ? directoryName(group.cwd) : 'No Folder';
-
-const groupTooltip = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
-  group.kind === 'cwd' ? group.cwd : NO_FOLDER_TOOLTIP;
+const navGroupPresentation = (group: NavSessionGroup<UnifiedRosterEntry>): NavGroupPresentation => {
+  if (group.kind === 'cwd') {
+    return {
+      createCwd: group.cwd,
+      key: navSessionGroupStableKey(group),
+      label: directoryName(group.cwd),
+      tooltip: group.cwd,
+    };
+  }
+  return {
+    createCwd: undefined,
+    key: navSessionGroupStableKey(group),
+    label: 'No Folder',
+    tooltip: NO_FOLDER_TOOLTIP,
+  };
+};
 
 export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
@@ -153,77 +169,81 @@ export const WorkbenchNavRail: FC<{
             </Typography>
           ) : (
             <Box sx={{ py: 0.5 }}>
-              {navGroups.map(group => (
-                <Accordion
-                  defaultExpanded
-                  disableGutters
-                  elevation={0}
-                  key={groupKey(group)}
-                  square
-                  sx={{
-                    '&::before': { display: 'none' },
-                    bgcolor: 'transparent',
-                  }}
-                >
-                  <AccordionSummary
+              {navGroups.map(group => {
+                const presentation = navGroupPresentation(group);
+                const createCwdForGroup = presentation.createCwd;
+                return (
+                  <Accordion
+                    defaultExpanded
+                    disableGutters
+                    elevation={0}
+                    key={presentation.key}
+                    square
                     sx={{
-                      '&:hover': {
-                        bgcolor: 'action.hover',
-                      },
-                      '& .folder-open': { display: 'none' },
-                      '&.Mui-expanded .folder-closed': { display: 'none' },
-                      '&.Mui-expanded .folder-open': { display: 'inline-flex' },
-                      '& .MuiAccordionSummary-content': {
-                        alignItems: 'center',
-                        gap: 0.75,
-                        m: 0,
-                        width: '100%',
-                      },
-                      fontWeight: 600,
-                      minHeight: 0,
-                      px: 2,
-                      py: 1,
+                      '&::before': { display: 'none' },
+                      bgcolor: 'transparent',
                     }}
                   >
-                    <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <Tooltip title={groupTooltip(group)}>
-                      <Box
-                        component="span"
-                        sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
-                      >
-                        {groupLabel(group)}
-                      </Box>
-                    </Tooltip>
-                    {group.kind === 'cwd' ? (
-                      <IconButton
-                        aria-label={`Create session in ${directoryName(group.cwd)}`}
-                        component="span"
-                        disabled={!anyReady || creating}
-                        edge="end"
-                        onClick={event => {
-                          event.stopPropagation();
-                          openAgentMenu(event, group.cwd);
-                        }}
-                        size="small"
-                        sx={{ flexShrink: 0, ml: 'auto' }}
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    ) : null}
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                    {group.sessions.map(entry => (
-                      <SessionRosterRow
-                        entry={entry}
-                        key={`${entry.launchTarget}:${entry.sessionId}`}
-                        onDeleteRequest={requestDelete}
-                        selected={selectedSessionId === entry.sessionId}
-                      />
-                    ))}
-                  </AccordionDetails>
-                </Accordion>
-              ))}
+                    <AccordionSummary
+                      sx={{
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                        },
+                        '& .folder-open': { display: 'none' },
+                        '&.Mui-expanded .folder-closed': { display: 'none' },
+                        '&.Mui-expanded .folder-open': { display: 'inline-flex' },
+                        '& .MuiAccordionSummary-content': {
+                          alignItems: 'center',
+                          gap: 0.75,
+                          m: 0,
+                          width: '100%',
+                        },
+                        fontWeight: 600,
+                        minHeight: 0,
+                        px: 2,
+                        py: 1,
+                      }}
+                    >
+                      <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <Tooltip title={presentation.tooltip}>
+                        <Box
+                          component="span"
+                          sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
+                        >
+                          {presentation.label}
+                        </Box>
+                      </Tooltip>
+                      {createCwdForGroup !== undefined ? (
+                        <IconButton
+                          aria-label={`Create session in ${presentation.label}`}
+                          component="span"
+                          disabled={!anyReady || creating}
+                          edge="end"
+                          onClick={event => {
+                            event.stopPropagation();
+                            openAgentMenu(event, createCwdForGroup);
+                          }}
+                          size="small"
+                          sx={{ flexShrink: 0, ml: 'auto' }}
+                        >
+                          <Add fontSize="small" />
+                        </IconButton>
+                      ) : null}
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
+                      {group.sessions.map(entry => (
+                        <SessionRosterRow
+                          entry={entry}
+                          key={`${entry.launchTarget}:${entry.sessionId}`}
+                          onDeleteRequest={requestDelete}
+                          selected={selectedSessionId === entry.sessionId}
+                        />
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
+                );
+              })}
             </Box>
           )}
         </Box>

@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { showNoFolderGroupEnabled } from './showNoFolderGroup.atoms.ts';
+import { showNoFolderGroupEnabled } from './userSettings.atoms.ts';
 
 describe('showNoFolderGroupEnabled', () => {
   it('defaults to true when unset', () => {

@@ -86,16 +86,53 @@ describe('routeDecodedMessage', () => {
     assert.strictEqual((toServer[0] as { tag: string }).tag, 'session/request_permission');
   });
 
-  it('tracks id-less agent notifications and routes them to the server', () => {
+  it('tracks id-less agent notifications with unique ids so RpcServer can overlap them', () => {
     const pending = new Set<number | string>();
     const notifications = new Set<number | string>();
-    const toServer: unknown[] = [];
+    const toServer: { id: number | string }[] = [];
+
+    const notify = (): void => {
+      routeDecodedMessage(
+        {
+          _tag: 'Request',
+          headers: [],
+          id: '',
+          isNotification: true,
+          payload: { sessionId: 's1' },
+          tag: 'session/update',
+        },
+        pending,
+        notifications,
+        {
+          toClient: noop,
+          toServer: message => {
+            toServer.push(message as { id: number | string });
+          },
+        },
+      );
+    };
+
+    notify();
+    notify();
+
+    assert.strictEqual(toServer.length, 2);
+    assert.strictEqual(notifications.size, 2);
+    assert.notStrictEqual(toServer[0]?.id, '');
+    assert.notStrictEqual(toServer[1]?.id, '');
+    assert.notStrictEqual(toServer[0]?.id, toServer[1]?.id);
+    assert.deepStrictEqual([...notifications], [toServer[0]?.id, toServer[1]?.id]);
+  });
+
+  it('keeps explicit notification ids unchanged', () => {
+    const pending = new Set<number | string>();
+    const notifications = new Set<number | string>();
+    const toServer: { id: number | string }[] = [];
 
     routeDecodedMessage(
       {
         _tag: 'Request',
         headers: [],
-        id: '',
+        id: 'explicit-notif',
         isNotification: true,
         payload: { sessionId: 's1' },
         tag: 'session/update',
@@ -105,13 +142,13 @@ describe('routeDecodedMessage', () => {
       {
         toClient: noop,
         toServer: message => {
-          toServer.push(message);
+          toServer.push(message as { id: number | string });
         },
       },
     );
 
-    assert.strictEqual(toServer.length, 1);
-    assert.deepStrictEqual([...notifications], ['']);
+    assert.strictEqual(toServer[0]?.id, 'explicit-notif');
+    assert.deepStrictEqual([...notifications], ['explicit-notif']);
   });
 
   it('ignores responses for unknown request ids', () => {

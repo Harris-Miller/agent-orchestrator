@@ -63,7 +63,13 @@ export const routeDecodedMessage = (
   if (tagged._tag === 'Request') {
     const request = message as RequestEncoded;
     if (request.isNotification) {
-      notificationIds.add(request.id);
+      // ndJsonRpc maps JSON-RPC notifications (no id) to id "". RpcServer keys in-flight
+      // handlers by id and returns Effect.interrupt on duplicates — which kills the demux
+      // read fiber and wedges the duplex (in-flight session/new never sees its Exit).
+      const id = request.id !== '' ? request.id : `acp-notif-${crypto.randomUUID()}`;
+      notificationIds.add(id);
+      targets.toServer(id === request.id ? request : { ...request, id });
+      return;
     }
     targets.toServer(request);
   }

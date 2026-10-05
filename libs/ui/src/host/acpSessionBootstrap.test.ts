@@ -12,11 +12,14 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
+  isConfigProbeCwd,
   normalizeConfigOptions,
   normalizeModels,
   normalizeModes,
   normalizeSelectableConfigOptions,
+  normalizeSessionInfo,
   normalizeSessionInfoFromNew,
+  normalizeSessionRoster,
   patchConfigOptionValue,
   resolveSessionCwd,
   selectionFromSessionConfiguration,
@@ -302,6 +305,28 @@ describe('applySessionInfoTitle', () => {
       { cwd: '/a', sessionId: 's1', title: 'Implement auth' },
       { cwd: '/b', sessionId: 's2', title: 'Other' },
     ]);
+  });
+});
+
+describe('isConfigProbeCwd / normalizeSessionRoster', () => {
+  it('detects Config probe temp cwd basename', () => {
+    assert.isTrue(isConfigProbeCwd('/tmp/ao-config-probe-abc'));
+    assert.isTrue(isConfigProbeCwd('C:\\Users\\x\\AppData\\Local\\Temp\\ao-config-probe-abc'));
+    assert.isFalse(isConfigProbeCwd('/Users/harris/Projects/agent-orchestrator'));
+    assert.isFalse(isConfigProbeCwd('/tmp/ao-config-probe'));
+  });
+
+  it('drops Config probe sessions from roster normalization', () => {
+    assert.strictEqual(normalizeSessionInfo({ cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' }), undefined);
+    assert.deepStrictEqual(
+      normalizeSessionRoster({
+        sessions: [
+          { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
+          { cwd: '/proj', sessionId: 'real', title: 'Real' },
+        ],
+      }),
+      [{ cwd: '/proj', sessionId: 'real', title: 'Real', updatedAt: undefined }],
+    );
   });
 });
 

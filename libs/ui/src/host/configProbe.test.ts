@@ -28,6 +28,7 @@ const booleanOption = (id: string, currentValue: boolean): NormalizedBooleanConf
 
 const probeServices = layerNoop({
   makeTempDirectory: () => Effect.succeed('/tmp/ao-config-probe-test'),
+  remove: () => Effect.void,
 });
 
 describe('configOptionIndexFromProbeResponses', () => {
@@ -122,13 +123,17 @@ describe('configValuesFromOptions / nonempty', () => {
 });
 
 describe('runConfigProbe', () => {
-  it.effect('builds index; close failure still returns Ready-eligible index', () =>
+  it.effect('builds index; close/delete/cleanup failure still returns Ready-eligible index', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       const agent = {
         'session/close': () => {
           calls.push('close');
           return Effect.fail('close-failed');
+        },
+        'session/delete': () => {
+          calls.push('delete');
+          return Effect.fail('delete-failed');
         },
         'session/new': () => {
           calls.push('new');
@@ -191,14 +196,22 @@ describe('runConfigProbe', () => {
         index.byModel.opus.map(option => option.id),
         ['model', 'effort'],
       );
-      assert.deepStrictEqual(calls, ['new', 'set:opus', 'close']);
+      assert.deepStrictEqual(calls, ['new', 'set:opus', 'close', 'delete']);
     }).pipe(Effect.provide(probeServices)),
   );
 
-  it.effect('fails when session/new has no model currentValue', () =>
+  it.effect('fails when session/new has no model currentValue; still cleans up', () =>
     Effect.gen(function* () {
+      const calls: string[] = [];
       const agent = {
-        'session/close': () => Effect.void,
+        'session/close': () => {
+          calls.push('close');
+          return Effect.void;
+        },
+        'session/delete': () => {
+          calls.push('delete');
+          return Effect.void;
+        },
         'session/new': () =>
           Effect.succeed({
             configOptions: [{ id: 'mode', name: 'Mode', type: 'select' }],
@@ -208,6 +221,7 @@ describe('runConfigProbe', () => {
       };
       const exit = yield* Effect.exit(runConfigProbe(agent));
       assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(calls, ['close', 'delete']);
     }).pipe(Effect.provide(probeServices)),
   );
 });

@@ -210,8 +210,19 @@ export const initialSessionSnapshot = (sessionId: string, status: SessionStatus 
   transcript: emptySessionTranscript(),
 });
 
+/** Temp-cwd prefix for Config probe sessions — never shown as roster entries. */
+export const CONFIG_PROBE_CWD_PREFIX = 'ao-config-probe-';
+
+export const isConfigProbeCwd = (cwd: string): boolean => {
+  const base = cwd.replaceAll('\\', '/').split('/').pop() ?? '';
+  return base.startsWith(CONFIG_PROBE_CWD_PREFIX);
+};
+
 export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | undefined => {
   if (!isRecord(entry) || typeof entry.sessionId !== 'string' || typeof entry.cwd !== 'string') {
+    return undefined;
+  }
+  if (isConfigProbeCwd(entry.cwd)) {
     return undefined;
   }
 

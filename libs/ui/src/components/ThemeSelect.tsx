@@ -1,11 +1,15 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { isThemeId, THEME_IDS, themeAtom, userSettingsAtom, userSettingsEditsDisabled } from '@lib/ui';
-import type { ThemeId } from '@lib/ui';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import type { FC } from 'react';
+
+import { themeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
+import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+import type { ThemeId } from '../theme/themeId.ts';
+import { THEME_IDS } from '../theme/themeId.ts';
+import { isThemeId } from '../theme/themePaintCache.ts';
 
 const THEME_LABELS: Record<ThemeId, string> = {
   frappe: 'Catppuccin Frappé',

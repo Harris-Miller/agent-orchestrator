@@ -6,6 +6,7 @@ import {
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
   FdPrerequisiteGate,
+  PersistUserSettingsToast,
   refreshAllSessionRostersAtomFn,
   UserSettingsMount,
 } from '@lib/ui';
@@ -122,6 +123,7 @@ export const App: FC = () => (
     <AppThemeProvider>
       <CssBaseline />
       <UserSettingsMount />
+      <PersistUserSettingsToast />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <FdPrerequisiteGate
           onExit={() => {

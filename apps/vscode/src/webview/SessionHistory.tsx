@@ -5,27 +5,21 @@ import {
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
-  developerModeAtom,
   OpenDeveloperPanelButton,
-  ProvidersSettingsPane,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   sessionListScopeAtom,
   SessionRosterRow,
   sessionsForCwd,
   unifiedSessionRosterAtom,
-  userSettingsAtom,
-  userSettingsEditsDisabled,
   useSessionDeleteRequest,
 } from '@lib/ui';
 import Add from '@mui/icons-material/Add';
-import ArrowBack from '@mui/icons-material/ArrowBack';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { useContext, useState } from 'react';
@@ -97,9 +91,9 @@ export const SessionHistory: FC = () => {
           </Typography>
         </IconButton>
         <IconButton
-          aria-label="Providers"
+          aria-label="Settings"
           onClick={() => {
-            navigate({ to: '/providers' }).catch(() => undefined);
+            navigate({ to: '/settings' }).catch(() => undefined);
           }}
           size="small"
         >
@@ -121,12 +115,12 @@ export const SessionHistory: FC = () => {
           {!anyReady ? (
             <Button
               onClick={() => {
-                navigate({ to: '/providers' }).catch(() => undefined);
+                navigate({ to: '/settings' }).catch(() => undefined);
               }}
               size="small"
               variant="outlined"
             >
-              Open Providers
+              Open Settings
             </Button>
           ) : null}
         </Stack>
@@ -154,47 +148,6 @@ export const SessionHistory: FC = () => {
       />
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
-    </Box>
-  );
-};
-
-export const ProvidersPage: FC = () => {
-  const navigate = useNavigate();
-  const developerMode = useAtomValue(developerModeAtom);
-  const setDeveloperMode = useAtomSet(developerModeAtom);
-  const userSettings = useAtomValue(userSettingsAtom);
-  const editsDisabled = userSettingsEditsDisabled(userSettings);
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-        <IconButton
-          aria-label="Back to Session History"
-          onClick={() => {
-            navigate({ to: '/' }).catch(() => undefined);
-          }}
-          size="small"
-        >
-          <ArrowBack fontSize="small" />
-        </IconButton>
-        <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          Providers
-        </Typography>
-        <OpenDeveloperPanelButton />
-      </Stack>
-      <ProvidersSettingsPane />
-      {/* Full Settings shell → #96 (Epic #88); not in #92. */}
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
-        <Switch
-          checked={developerMode}
-          disabled={editsDisabled}
-          onChange={(_event, checked) => {
-            setDeveloperMode(checked);
-          }}
-          slotProps={{ input: { 'aria-label': 'Developer mode' } }}
-        />
-        <Typography variant="body1">Developer mode</Typography>
-      </Stack>
     </Box>
   );
 };

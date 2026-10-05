@@ -51,8 +51,12 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session roster**:
-Cached `session/list` results across mounted backend harnesses; shown in the Harness UI grouped by session cwd (each row carries its agent launch target). Can be refreshed with another `session/list` without restarting the backend harnesses.
+Cached `session/list` results across mounted backend harnesses; shown in the Harness UI grouped by session cwd except sessions classified into the No Folder group (each row carries its agent launch target). Can be refreshed with another `session/list` without restarting the backend harnesses.
 _Avoid_: Session list, session catalog, session drawer
+
+**No Folder group**:
+Sessions roster display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the roster accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
+_Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
 **Roster entry**:
 One row in the session roster: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.

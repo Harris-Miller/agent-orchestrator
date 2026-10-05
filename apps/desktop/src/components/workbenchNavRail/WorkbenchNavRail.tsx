@@ -1,15 +1,16 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { AgentLaunchTarget } from '@lib/ui';
+import type { AgentLaunchTarget, NavSessionGroup, UnifiedRosterEntry } from '@lib/ui';
 import {
   AgentLaunchTargetMenu,
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
   createSessionAtomFn,
-  groupAndSortSessionsByCwd,
+  groupAndSortSessionsForNav,
   PanelHeader,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   SessionRosterRow,
+  showNoFolderGroupAtom,
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
@@ -37,17 +38,29 @@ import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
+const NO_FOLDER_TOOLTIP = 'Projectless / scratch sessions';
+
 const directoryName = (cwd: string): string => {
   const trimmed = cwd.replace(/[/\\]+$/, '');
   const segment = trimmed.split(/[/\\]/).pop();
   return segment !== undefined && segment.length > 0 ? segment : cwd;
 };
 
+const groupKey = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
+  group.kind === 'cwd' ? group.cwd : 'noFolder';
+
+const groupLabel = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
+  group.kind === 'cwd' ? directoryName(group.cwd) : 'No Folder';
+
+const groupTooltip = (group: NavSessionGroup<UnifiedRosterEntry>): string =>
+  group.kind === 'cwd' ? group.cwd : NO_FOLDER_TOOLTIP;
+
 export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
   const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
@@ -59,6 +72,7 @@ export const WorkbenchNavRail: FC<{
   const [creating, setCreating] = useState(false);
 
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
+  const navGroups = groupAndSortSessionsForNav(roster).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
 
   const closeAgentMenu = () => {
     setAgentMenuAnchor(null);
@@ -139,12 +153,12 @@ export const WorkbenchNavRail: FC<{
             </Typography>
           ) : (
             <Box sx={{ py: 0.5 }}>
-              {groupAndSortSessionsByCwd(roster).map(({ cwd, sessions }) => (
+              {navGroups.map(group => (
                 <Accordion
                   defaultExpanded
                   disableGutters
                   elevation={0}
-                  key={cwd}
+                  key={groupKey(group)}
                   square
                   sx={{
                     '&::before': { display: 'none' },
@@ -173,31 +187,33 @@ export const WorkbenchNavRail: FC<{
                   >
                     <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
                     <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <Tooltip title={cwd}>
+                    <Tooltip title={groupTooltip(group)}>
                       <Box
                         component="span"
                         sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
                       >
-                        {directoryName(cwd)}
+                        {groupLabel(group)}
                       </Box>
                     </Tooltip>
-                    <IconButton
-                      aria-label={`Create session in ${directoryName(cwd)}`}
-                      component="span"
-                      disabled={!anyReady || creating}
-                      edge="end"
-                      onClick={event => {
-                        event.stopPropagation();
-                        openAgentMenu(event, cwd);
-                      }}
-                      size="small"
-                      sx={{ flexShrink: 0, ml: 'auto' }}
-                    >
-                      <Add fontSize="small" />
-                    </IconButton>
+                    {group.kind === 'cwd' ? (
+                      <IconButton
+                        aria-label={`Create session in ${directoryName(group.cwd)}`}
+                        component="span"
+                        disabled={!anyReady || creating}
+                        edge="end"
+                        onClick={event => {
+                          event.stopPropagation();
+                          openAgentMenu(event, group.cwd);
+                        }}
+                        size="small"
+                        sx={{ flexShrink: 0, ml: 'auto' }}
+                      >
+                        <Add fontSize="small" />
+                      </IconButton>
+                    ) : null}
                   </AccordionSummary>
                   <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                    {sessions.map(entry => (
+                    {group.sessions.map(entry => (
                       <SessionRosterRow
                         entry={entry}
                         key={`${entry.launchTarget}:${entry.sessionId}`}

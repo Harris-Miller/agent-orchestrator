@@ -16,6 +16,7 @@ export {
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
   developerModeEnabled,
+  showNoFolderGroupEnabled,
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
@@ -47,7 +48,9 @@ export * from './host/draftToContentBlocks.ts';
 export * from './host/fdInstallCommands.ts';
 export * from './host/fdListing.ts';
 export * from './host/findExecutableOnPath.ts';
+export * from './host/groupAndSortSessionsForNav.ts';
 export * from './host/handoffDocument.ts';
+export * from './host/noFolderSessionCwd.ts';
 export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';
 export * from './host/resolveFdBinary.ts';

@@ -32,8 +32,16 @@ export const routeDecodedMessage = (
 
   const tagged = message as { _tag: string; requestId?: number | string };
 
-  if (tagged._tag === 'Chunk' || tagged._tag === 'Defect') {
+  if (tagged._tag === 'Chunk') {
     if (tagged.requestId !== undefined && pendingClientRequestIds.has(tagged.requestId)) {
+      targets.toClient(message as FromServerEncoded);
+    }
+    return;
+  }
+
+  // Connection-level Defect (RpcServer sendDefect) has no requestId; still fail in-flight client RPCs.
+  if (tagged._tag === 'Defect') {
+    if (tagged.requestId === undefined || pendingClientRequestIds.has(tagged.requestId)) {
       targets.toClient(message as FromServerEncoded);
     }
     return;

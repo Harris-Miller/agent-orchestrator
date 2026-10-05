@@ -1,7 +1,7 @@
 import { assert, describe, layer } from '@effect/vitest';
 import { mapFsTestServices } from '@lib/ao-home/testing';
 import type { MapFsEntry } from '@lib/ao-home/testing';
-import { Effect, Ref } from 'effect';
+import { Cause, Effect, Exit, Ref } from 'effect';
 import { beforeEach } from 'vitest';
 
 import { ADAPTER_AGENT_INFO } from './adapterAgentInfo.ts';
@@ -310,6 +310,36 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
         yield* handlers['session/cancel']({ sessionId: 'sess-1' });
 
         assert.deepStrictEqual(yield* Ref.get(calls), ['notify:session/cancel:sess-1']);
+      }),
+    );
+
+    layeredIt.effect('session/prompt fails with AcpError when child prompt fails (not die)', () =>
+      Effect.gen(function* () {
+        const calls = yield* Ref.make<string[]>([]);
+        const { configs, loaded } = yield* makeHandlers(calls);
+        const base = makeFakeChild(calls);
+        const failingChild = {
+          ...base,
+          agent: {
+            ...base.agent,
+            'session/prompt': () => Effect.fail({ message: 'Child process exited with code 1' }),
+          },
+        } as unknown as GeminiChild;
+        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(failingChild), loaded, configs);
+        const promptEffect = handlers['session/prompt']({
+          prompt: [{ text: 'hi', type: 'text' }],
+          sessionId: 'sess-1',
+        }) as Effect.Effect<{ readonly stopReason: string }, { readonly code: number; readonly message: string }>;
+
+        const exit = yield* Effect.exit(promptEffect);
+        assert.isTrue(Exit.isFailure(exit));
+        if (Exit.isFailure(exit)) {
+          assert.isFalse(Cause.hasDies(exit.cause));
+          assert.deepStrictEqual(Cause.squash(exit.cause), {
+            code: -32603,
+            message: 'Child process exited with code 1',
+          });
+        }
       }),
     );
 

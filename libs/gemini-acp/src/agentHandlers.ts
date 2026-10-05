@@ -1,4 +1,5 @@
 import type {
+  AcpError,
   AuthenticateRequest,
   CloseSessionRequest,
   DeleteSessionRequest,
@@ -35,14 +36,36 @@ import type { RewrittenSessionConfiguration } from './rewriteSessionConfiguratio
 import type { SessionConfigStore } from './sessionConfigStore.ts';
 import { patchSessionConfig, putSessionConfig } from './sessionConfigStore.ts';
 
+/** JSON-RPC internal error — child RpcClient failures become typed Exit, not connection Defect. */
+const toAcpError = (error: unknown): AcpError => {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'number' &&
+    'message' in error &&
+    typeof (error as { message: unknown }).message === 'string'
+  ) {
+    const { code, data, message } = error as { data?: unknown } & AcpError;
+    return data === undefined ? { code, message } : { code, data, message };
+  }
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+        ? (error as { message: string }).message
+        : String(error);
+  return { code: -32603, message };
+};
+
 const withChild = <A>(
   ensureChild: EnsureGeminiChild,
   use: (child: GeminiChild) => Effect.Effect<A, unknown>,
-): Effect.Effect<A> =>
+): Effect.Effect<A, AcpError> =>
   Effect.gen(function* () {
     const child = yield* ensureChild;
     return yield* use(child);
-  }).pipe(Effect.orDie);
+  }).pipe(Effect.mapError(toAcpError));
 
 const upsertAndMarkLoaded = Effect.fn('upsertAndMarkLoaded')(function* (
   loaded: LoadedSet,
@@ -79,8 +102,9 @@ export const makeGeminiAcpAgentHandlerMap = (
     initialize: (request: InitializeRequest) =>
       withChild(ensureChild, child => child.agent.initialize(request).pipe(Effect.map(rewriteInitializeResponse))),
     logout: (request: LogoutRequest) => withChild(ensureChild, child => child.agent.logout(request)),
+    // Notification: no error channel — die on child failure rather than AcpError Exit.
     'session/cancel': (payload: { readonly sessionId: string }) =>
-      withChild(ensureChild, child => child.notify('session/cancel', payload)),
+      withChild(ensureChild, child => child.notify('session/cancel', payload)).pipe(Effect.orDie),
     'session/close': (request: CloseSessionRequest) =>
       Effect.gen(function* () {
         if (yield* isLoaded(loaded, request.sessionId)) {
@@ -96,7 +120,7 @@ export const makeGeminiAcpAgentHandlerMap = (
         yield* unmarkLoaded(loaded, request.sessionId);
         return {};
       }),
-    'session/list': (request: ListSessionsRequest = {}) => listRosterSessions(request.cwd).pipe(Effect.orDie),
+    'session/list': (request: ListSessionsRequest) => listRosterSessions(request.cwd).pipe(Effect.orDie),
     'session/load': (request: LoadSessionRequest) =>
       Effect.gen(function* () {
         const result = yield* withChild(ensureChild, child => child.agent['session/load'](request));

@@ -160,4 +160,27 @@ describe('routeDecodedMessage', () => {
 
     assert.strictEqual(toClient.length, 1);
   });
+
+  it('routes connection-level Defect (no requestId) to the client', () => {
+    const pending = new Set<number | string>([31]);
+    const notifications = new Set<number | string>();
+    const toClient: unknown[] = [];
+
+    routeDecodedMessage(
+      {
+        _tag: 'Defect',
+        defect: { message: 'Child process exited with code 1' },
+      },
+      pending,
+      notifications,
+      {
+        toClient: message => {
+          toClient.push(message);
+        },
+        toServer: noop,
+      },
+    );
+
+    assert.strictEqual(toClient.length, 1);
+  });
 });

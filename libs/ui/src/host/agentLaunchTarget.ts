@@ -15,6 +15,6 @@ export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string 
     case 'codex-acp':
       return 'Codex';
     case 'gemini-acp':
-      return 'Gemini';
+      return 'Gemini (beta)';
   }
 };

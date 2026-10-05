@@ -1,6 +1,8 @@
 /** Agent launch target identity: type, mounted list, and display labels. */
 
-export type AgentLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'gemini-acp';
+import type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
+
+export type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 
 export const ALL_AGENT_LAUNCH_TARGETS = [
   'codex-acp',

@@ -1,78 +1,130 @@
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+import { Option, Schema } from 'effect';
+
+const ConfigOptionWithId = Schema.Struct({
+  id: Schema.String,
+});
+
+const GeminiModelEntry = Schema.Struct({
+  description: Schema.optionalKey(Schema.String),
+  modelId: Schema.String,
+  name: Schema.String,
+});
+
+const GeminiModels = Schema.Struct({
+  availableModels: Schema.Array(GeminiModelEntry),
+  currentModelId: Schema.String,
+});
+
+const GeminiModeEntry = Schema.Struct({
+  description: Schema.optionalKey(Schema.String),
+  id: Schema.String,
+  name: Schema.String,
+});
+
+const GeminiModes = Schema.Struct({
+  availableModes: Schema.Array(GeminiModeEntry),
+  currentModeId: Schema.String,
+});
+
+const SessionConfigurationWire = Schema.StructWithRest(
+  Schema.Struct({
+    configOptions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+    models: Schema.optionalKey(Schema.Unknown),
+    modes: Schema.optionalKey(Schema.Unknown),
+    sessionId: Schema.optionalKey(Schema.String),
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)],
+);
+
+const decodeConfigOptionWithId = Schema.decodeUnknownOption(ConfigOptionWithId);
+const decodeModels = Schema.decodeUnknownOption(GeminiModels);
+const decodeModes = Schema.decodeUnknownOption(GeminiModes);
+const decodeSessionConfigurationWire = Schema.decodeUnknownOption(SessionConfigurationWire);
 
 const hasConfigOptionId = (configOptions: readonly unknown[], id: string): boolean =>
-  configOptions.some(option => isPlainObject(option) && option.id === id);
+  configOptions.some(option => Option.getOrUndefined(decodeConfigOptionWithId(option))?.id === id);
 
-const modelConfigOptionFromModels = (models: unknown): Record<string, unknown> | undefined => {
-  if (!isPlainObject(models) || typeof models.currentModelId !== 'string' || !Array.isArray(models.availableModels)) {
+type SelectConfigOption = {
+  readonly category: 'mode' | 'model';
+  readonly currentValue: string;
+  readonly description: string;
+  readonly id: 'mode' | 'model';
+  readonly name: string;
+  readonly options: readonly {
+    readonly description?: string;
+    readonly name: string;
+    readonly value: string;
+  }[];
+  readonly type: 'select';
+};
+
+const selectConfigOption = (args: {
+  readonly category: 'mode' | 'model';
+  readonly currentValue: string;
+  readonly description: string;
+  readonly id: 'mode' | 'model';
+  readonly name: string;
+  readonly options: readonly {
+    readonly description?: string;
+    readonly name: string;
+    readonly value: string;
+  }[];
+}): SelectConfigOption | undefined => {
+  if (args.options.length === 0) {
     return undefined;
   }
-
-  const options = models.availableModels.flatMap(entry => {
-    if (!isPlainObject(entry) || typeof entry.modelId !== 'string' || typeof entry.name !== 'string') {
-      return [];
-    }
-    return [
-      {
-        name: entry.name,
-        value: entry.modelId,
-        ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
-      },
-    ];
-  });
-
-  if (options.length === 0) {
-    return undefined;
-  }
-
   return {
+    category: args.category,
+    currentValue: args.currentValue,
+    description: args.description,
+    id: args.id,
+    name: args.name,
+    options: args.options,
+    type: 'select',
+  };
+};
+
+const modelConfigOptionFromModels = (models: unknown): SelectConfigOption | undefined => {
+  const decoded = Option.getOrUndefined(decodeModels(models));
+  if (decoded === undefined) {
+    return undefined;
+  }
+  return selectConfigOption({
     category: 'model',
-    currentValue: models.currentModelId,
+    currentValue: decoded.currentModelId,
     description: 'AI model to use',
     id: 'model',
     name: 'Model',
-    options,
-    type: 'select',
-  };
+    options: decoded.availableModels.map(entry => ({
+      name: entry.name,
+      value: entry.modelId,
+      ...(entry.description === undefined ? {} : { description: entry.description }),
+    })),
+  });
 };
 
-const modeConfigOptionFromModes = (modes: unknown): Record<string, unknown> | undefined => {
-  if (!isPlainObject(modes) || typeof modes.currentModeId !== 'string' || !Array.isArray(modes.availableModes)) {
+const modeConfigOptionFromModes = (modes: unknown): SelectConfigOption | undefined => {
+  const decoded = Option.getOrUndefined(decodeModes(modes));
+  if (decoded === undefined) {
     return undefined;
   }
-
-  const options = modes.availableModes.flatMap(entry => {
-    if (!isPlainObject(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') {
-      return [];
-    }
-    return [
-      {
-        name: entry.name,
-        value: entry.id,
-        ...(typeof entry.description === 'string' ? { description: entry.description } : {}),
-      },
-    ];
-  });
-
-  if (options.length === 0) {
-    return undefined;
-  }
-
-  return {
+  return selectConfigOption({
     category: 'mode',
-    currentValue: modes.currentModeId,
+    currentValue: decoded.currentModeId,
     description: 'Session permission mode',
     id: 'mode',
     name: 'Mode',
-    options,
-    type: 'select',
-  };
+    options: decoded.availableModes.map(entry => ({
+      name: entry.name,
+      value: entry.id,
+      ...(entry.description === undefined ? {} : { description: entry.description }),
+    })),
+  });
 };
 
 export type GeminiSessionConfigSnapshot = {
-  readonly models?: unknown;
-  readonly modes?: unknown;
+  readonly models?: typeof GeminiModels.Type;
+  readonly modes?: typeof GeminiModes.Type;
 };
 
 export type RewrittenSessionConfiguration = {
@@ -83,24 +135,27 @@ export type RewrittenSessionConfiguration = {
 
 /** Capture Gemini legacy models/modes for later set_config_option rebuilds. */
 export const snapshotSessionConfig = (result: unknown): GeminiSessionConfigSnapshot => {
-  if (!isPlainObject(result)) {
+  const wire = Option.getOrUndefined(decodeSessionConfigurationWire(result));
+  if (wire === undefined) {
     return {};
   }
+  const models = Option.getOrUndefined(decodeModels(wire.models));
+  const modes = Option.getOrUndefined(decodeModes(wire.modes));
   return {
-    ...(result.modes === undefined ? {} : { modes: result.modes }),
-    ...(result.models === undefined ? {} : { models: result.models }),
+    ...(modes === undefined ? {} : { modes }),
+    ...(models === undefined ? {} : { models }),
   };
 };
 
 export const withModelId = (snapshot: GeminiSessionConfigSnapshot, modelId: string): GeminiSessionConfigSnapshot => {
-  if (!isPlainObject(snapshot.models)) {
+  if (snapshot.models === undefined) {
     return snapshot;
   }
   return { ...snapshot, models: { ...snapshot.models, currentModelId: modelId } };
 };
 
 export const withModeId = (snapshot: GeminiSessionConfigSnapshot, modeId: string): GeminiSessionConfigSnapshot => {
-  if (!isPlainObject(snapshot.modes)) {
+  if (snapshot.modes === undefined) {
     return snapshot;
   }
   return { ...snapshot, modes: { ...snapshot.modes, currentModeId: modeId } };
@@ -111,34 +166,34 @@ export const withModeId = (snapshot: GeminiSessionConfigSnapshot, modeId: string
  * when those ids are missing; drop `models` so Clients see stable config options only.
  */
 export const rewriteSessionConfiguration = (result: unknown): RewrittenSessionConfiguration => {
-  if (!isPlainObject(result)) {
+  const wire = Option.getOrUndefined(decodeSessionConfigurationWire(result));
+  if (wire === undefined) {
     return { configOptions: [] };
   }
 
-  const rawOptions = result.configOptions;
-  const existing: unknown[] = Array.isArray(rawOptions) ? (rawOptions as unknown[]) : [];
+  const existing = wire.configOptions ?? [];
   const synthesized: unknown[] = [];
 
   if (!hasConfigOptionId(existing, 'mode')) {
-    const modeOption = modeConfigOptionFromModes(result.modes);
+    const modeOption = modeConfigOptionFromModes(wire.modes);
     if (modeOption !== undefined) {
       synthesized.push(modeOption);
     }
   }
 
   if (!hasConfigOptionId(existing, 'model')) {
-    const modelOption = modelConfigOptionFromModels(result.models);
+    const modelOption = modelConfigOptionFromModels(wire.models);
     if (modelOption !== undefined) {
       synthesized.push(modelOption);
     }
   }
 
-  const { models: _models, ...rest } = result;
+  const { configOptions: _configOptions, models: _models, ...rest } = wire;
 
   return {
     ...rest,
     configOptions: [...synthesized, ...existing],
-    ...(typeof result.sessionId === 'string' ? { sessionId: result.sessionId } : {}),
+    ...(wire.sessionId === undefined ? {} : { sessionId: wire.sessionId }),
   };
 };
 

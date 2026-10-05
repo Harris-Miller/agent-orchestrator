@@ -91,7 +91,7 @@ Ephemeral State Atom per agent launch target: `defaultModelId` plus Config optio
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
-Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close`. Not an Active session; never Materialize; never a Roster entry.
+Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe roster rows). Not an Active session; never Materialize; never a durable Roster entry the user should see.
 _Avoid_: Session create, materialize, activate
 
 **Usage**:

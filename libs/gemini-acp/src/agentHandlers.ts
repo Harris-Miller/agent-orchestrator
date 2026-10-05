@@ -1,5 +1,4 @@
 import type {
-  AcpError,
   AuthenticateRequest,
   CloseSessionRequest,
   DeleteSessionRequest,
@@ -17,8 +16,8 @@ import type {
   SetSessionConfigOptionResponse,
   SetSessionModeRequest,
 } from '@libs/effect-acp';
-import { AgentRpcs } from '@libs/effect-acp';
-import { Effect } from 'effect';
+import { AcpError, AgentRpcs } from '@libs/effect-acp';
+import { Effect, Option, Schema } from 'effect';
 
 import { listRosterSessions, removeRosterEntry, touchRosterEntry, upsertRosterEntry } from './adapterRosterSessions.ts';
 import type { EnsureGeminiChild, GeminiChild } from './geminiChild.ts';
@@ -36,36 +35,40 @@ import type { RewrittenSessionConfiguration } from './rewriteSessionConfiguratio
 import type { SessionConfigStore } from './sessionConfigStore.ts';
 import { patchSessionConfig, putSessionConfig } from './sessionConfigStore.ts';
 
+export type GeminiAcpHandlerDeps = {
+  readonly configs: SessionConfigStore;
+  readonly ensureChild: EnsureGeminiChild;
+  readonly loaded: LoadedSet;
+};
+
+const decodeAcpError = Schema.decodeUnknownOption(AcpError);
+
+const ErrorMessage = Schema.Struct({
+  message: Schema.String,
+});
+
+const decodeErrorMessage = Schema.decodeUnknownOption(ErrorMessage);
+
 /** JSON-RPC internal error — child RpcClient failures become typed Exit, not connection Defect. */
 const toAcpError = (error: unknown): AcpError => {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'number' &&
-    'message' in error &&
-    typeof (error as { message: unknown }).message === 'string'
-  ) {
-    const { code, data, message } = error as { data?: unknown } & AcpError;
-    return data === undefined ? { code, message } : { code, data, message };
+  const acpError = Option.getOrUndefined(decodeAcpError(error));
+  if (acpError !== undefined) {
+    return acpError;
   }
   const message =
     error instanceof Error
       ? error.message
-      : typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
-        ? (error as { message: string }).message
-        : String(error);
+      : (Option.getOrUndefined(decodeErrorMessage(error))?.message ?? String(error));
   return { code: -32603, message };
 };
 
-const withChild = <A>(
+const withChild = Effect.fn('withChild')(function* <A>(
   ensureChild: EnsureGeminiChild,
   use: (child: GeminiChild) => Effect.Effect<A, unknown>,
-): Effect.Effect<A, AcpError> =>
-  Effect.gen(function* () {
-    const child = yield* ensureChild;
-    return yield* use(child);
-  }).pipe(Effect.mapError(toAcpError));
+) {
+  const child = yield* ensureChild;
+  return yield* use(child);
+}, Effect.mapError(toAcpError));
 
 const upsertAndMarkLoaded = Effect.fn('upsertAndMarkLoaded')(function* (
   loaded: LoadedSet,
@@ -92,12 +95,9 @@ const setConfigOptionResponse = (
   }) as SetSessionConfigOptionResponse;
 
 /** Agent handler map: cap rewrite + soft lifecycle + configOptions rewrite + transparent forward. */
-export const makeGeminiAcpAgentHandlerMap = (
-  ensureChild: EnsureGeminiChild,
-  loaded: LoadedSet,
-  configs: SessionConfigStore,
-) =>
-  AgentRpcs.of({
+export const makeGeminiAcpAgentHandlerMap = (deps: GeminiAcpHandlerDeps) => {
+  const { configs, ensureChild, loaded } = deps;
+  return AgentRpcs.of({
     authenticate: (request: AuthenticateRequest) => withChild(ensureChild, child => child.agent.authenticate(request)),
     initialize: (request: InitializeRequest) =>
       withChild(ensureChild, child => child.agent.initialize(request).pipe(Effect.map(rewriteInitializeResponse))),
@@ -184,3 +184,4 @@ export const makeGeminiAcpAgentHandlerMap = (
         return result;
       }),
   });
+};

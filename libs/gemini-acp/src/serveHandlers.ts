@@ -23,6 +23,6 @@ export const makeGeminiAcpServeHandlersLayer = (
       const ensureChild = yield* makeLazyEnsureGeminiChild(connect);
       const loaded = yield* makeLoadedSet();
       const configs = yield* makeSessionConfigStore();
-      return makeGeminiAcpAgentHandlerMap(ensureChild, loaded, configs);
+      return makeGeminiAcpAgentHandlerMap({ configs, ensureChild, loaded });
     }),
   );

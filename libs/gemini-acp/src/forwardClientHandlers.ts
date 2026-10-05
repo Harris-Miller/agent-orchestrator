@@ -1,6 +1,6 @@
 import type { AcpClientConnection } from '@libs/effect-acp';
 import { ClientRpcs } from '@libs/effect-acp';
-import { Effect } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 import { patchRosterTitle } from './adapterRosterSessions.ts';
 
@@ -24,8 +24,12 @@ const orDie =
   (...args: Args): Effect.Effect<A> =>
     method(...args).pipe(Effect.orDie);
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+const SessionInfoTitleUpdate = Schema.Struct({
+  sessionUpdate: Schema.Literal('session_info_update'),
+  title: Schema.NullOr(Schema.String),
+});
+
+const decodeSessionInfoTitleUpdate = Schema.decodeUnknownOption(SessionInfoTitleUpdate);
 
 /** Handler map that re-invokes every Client RPC on the parent (Harness) connection. */
 export const makeForwardClientHandlerMap = (parent: ForwardClientParent) =>
@@ -37,14 +41,9 @@ export const makeForwardClientHandlerMap = (parent: ForwardClientParent) =>
     'session/request_permission': orDie(parent['session/request_permission']),
     'session/update': payload =>
       Effect.gen(function* () {
-        const { update } = payload;
-        if (
-          isRecord(update) &&
-          update.sessionUpdate === 'session_info_update' &&
-          'title' in update &&
-          (typeof update.title === 'string' || update.title === null)
-        ) {
-          yield* patchRosterTitle(payload.sessionId, update.title).pipe(Effect.orDie);
+        const titleUpdate = Option.getOrUndefined(decodeSessionInfoTitleUpdate(payload.update));
+        if (titleUpdate !== undefined) {
+          yield* patchRosterTitle(payload.sessionId, titleUpdate.title).pipe(Effect.orDie);
         }
         yield* parent['session/update'](payload);
       }).pipe(Effect.orDie),

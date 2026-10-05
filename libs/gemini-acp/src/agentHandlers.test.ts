@@ -113,7 +113,11 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
         const configs = yield* makeSessionConfigStore();
         return {
           configs,
-          handlers: makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded, configs),
+          handlers: makeGeminiAcpAgentHandlerMap({
+            configs,
+            ensureChild: Effect.succeed(makeFakeChild(calls)),
+            loaded,
+          }),
           loaded,
         };
       });
@@ -253,7 +257,11 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
 
         const loaded2 = yield* makeLoadedSet();
         const configs2 = yield* makeSessionConfigStore();
-        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2, configs2);
+        const handlers2 = makeGeminiAcpAgentHandlerMap({
+          configs: configs2,
+          ensureChild: Effect.succeed(makeFakeChild(calls)),
+          loaded: loaded2,
+        });
         assert.isFalse(yield* isLoaded(loaded2, 'sess-1'));
 
         const listed = yield* handlers2['session/list']({});
@@ -293,7 +301,11 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
 
         const loaded2 = yield* makeLoadedSet();
         const configs2 = yield* makeSessionConfigStore();
-        const handlers2 = makeGeminiAcpAgentHandlerMap(Effect.succeed(makeFakeChild(calls)), loaded2, configs2);
+        const handlers2 = makeGeminiAcpAgentHandlerMap({
+          configs: configs2,
+          ensureChild: Effect.succeed(makeFakeChild(calls)),
+          loaded: loaded2,
+        });
         yield* Ref.set(calls, []);
 
         yield* handlers2['session/resume']({ cwd: '/tmp/proj', sessionId: 'sess-1' });
@@ -325,7 +337,11 @@ describe('makeGeminiAcpAgentHandlerMap', () => {
             'session/prompt': () => Effect.fail({ message: 'Child process exited with code 1' }),
           },
         } as unknown as GeminiChild;
-        const handlers = makeGeminiAcpAgentHandlerMap(Effect.succeed(failingChild), loaded, configs);
+        const handlers = makeGeminiAcpAgentHandlerMap({
+          configs,
+          ensureChild: Effect.succeed(failingChild),
+          loaded,
+        });
         const promptEffect = handlers['session/prompt']({
           prompt: [{ text: 'hi', type: 'text' }],
           sessionId: 'sess-1',

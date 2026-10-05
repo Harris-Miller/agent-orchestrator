@@ -5,12 +5,12 @@ import { BundledResource } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/unstable/process';
 
-import type { AcpAdapterLaunchTarget } from './acpAdapterEntryResource.ts';
+import type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
-export type { AcpAdapterLaunchTarget } from './acpAdapterEntryResource.ts';
+export type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 
 const pipedSpawnOptions = {
   extendEnv: true,
@@ -20,7 +20,7 @@ const pipedSpawnOptions = {
 };
 
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
-  function* (launchTarget: AcpAdapterLaunchTarget) {
+  function* (launchTarget: AgentLaunchTarget) {
     const resourcePath = ACP_ADAPTER_ENTRY_RESOURCE[launchTarget];
     yield* Effect.logDebug('Resolving ACP adapter resource', launchTarget, resourcePath);
     const bundled = yield* BundledResource;
@@ -60,7 +60,7 @@ const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(fun
 
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
 export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
-  function* (launchTarget: AcpAdapterLaunchTarget) {
+  function* (launchTarget: AgentLaunchTarget) {
     yield* Effect.logInfo('Building ACP adapter command', launchTarget);
     yield* requireExecutableOnPath('node');
     const entry = yield* resolveAdapterEntry(launchTarget);

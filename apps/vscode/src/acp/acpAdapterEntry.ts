@@ -1,16 +1,13 @@
 /**
  * Resolve ACP adapter entry paths packaged under the extension (symlink-dev or copy-prod).
  */
+import type { AgentLaunchTarget } from '@lib/ui/acp-adapter-entry';
+import { ACP_ADAPTER_ENTRY_RESOURCE } from '@lib/ui/acp-adapter-entry';
 import type * as vscode from 'vscode';
 
 import { existsSync } from 'node:fs';
 
-const adapterEntryResource = {
-  'claude-agent-acp': 'acp-adapter-resources/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js',
-  'codex-acp': 'acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
-} as const;
-
-export type AcpAdapterLaunchTarget = keyof typeof adapterEntryResource;
+export type { AgentLaunchTarget } from '@lib/ui/acp-adapter-entry';
 
 export class AcpAdapterEntryMissing extends Error {
   readonly executable: string;
@@ -25,9 +22,9 @@ export class AcpAdapterEntryMissing extends Error {
 /** Absolute FS path to a packaged adapter entry; fails if the file is missing. */
 export const resolveAcpAdapterEntry = (
   context: Pick<vscode.ExtensionContext, 'asAbsolutePath'>,
-  launchTarget: AcpAdapterLaunchTarget,
+  launchTarget: AgentLaunchTarget,
 ): string => {
-  const relative = adapterEntryResource[launchTarget];
+  const relative = ACP_ADAPTER_ENTRY_RESOURCE[launchTarget];
   const absolute = context.asAbsolutePath(relative);
   if (!existsSync(absolute)) {
     throw new AcpAdapterEntryMissing(

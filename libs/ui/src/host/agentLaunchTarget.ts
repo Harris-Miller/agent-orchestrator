@@ -1,11 +1,13 @@
 /** Agent launch target identity: type, mounted list, and display labels. */
 
-export type AgentLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'gemini-cli';
+import type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
+
+export type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 
 export const ALL_AGENT_LAUNCH_TARGETS = [
   'codex-acp',
   'claude-agent-acp',
-  // 'gemini-cli',
+  'gemini-acp',
 ] as const satisfies readonly AgentLaunchTarget[];
 
 export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string => {
@@ -14,7 +16,7 @@ export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string 
       return 'Claude';
     case 'codex-acp':
       return 'Codex';
-    case 'gemini-cli':
-      return 'Gemini';
+    case 'gemini-acp':
+      return 'Gemini (beta)';
   }
 };

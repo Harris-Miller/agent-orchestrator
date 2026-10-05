@@ -30,11 +30,11 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **ao-home → context-services**: uses the portable `OS` service (`homedir`) plus Effect `Path` / `FileSystem`
 - **gemini-acp → effect-acp**: adapter is an ACP Agent (`serveAcpAgent`) and an ACP Client toward Gemini CLI (`connectAcpAgent`)
 - **gemini-acp → ao-home**: durable adapter roster document + lock under `~/.ao/adapters/gemini-acp/`
-- **desktop → gemini-acp** (planned): Harness spawns `gemini-acp` from the adapter resource tree like other ACP adapters
+- **desktop → gemini-acp**: Harness spawns `gemini-acp` from the adapter resource tree like other ACP adapters
 - **context-services → context-services-node**: context-services-node provides the Node/Bun live layer for the OS service defined in context-services
 - **context-services → context-services-tauri**: context-services-tauri provides the Tauri live layers for Host services and Effect platform primitives
 - **context-services → context-services-vscode-webview**: context-services-vscode-webview provides the webview Host services Live and extension↔webview IPC codec (Clipboard + IPC clients + OS snapshot; issue #83)
-- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`, planned `gemini-acp`) — and connects over stdio. Gemini CLI remains the vendor CLI behind `gemini-acp` (native ACP; missing session lifecycle capabilities filled by the adapter)
+- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`, `gemini-acp`) — and connects over stdio. Gemini CLI remains the vendor CLI behind `gemini-acp` (native ACP; missing session lifecycle capabilities filled by the adapter)
 - **vscode → ui**: VS Code webview supplies Host Live via `@lib/context-services-vscode-webview` and reuses Harness application state (Track B / #83)
 - **vscode → context-services-vscode-webview**: extension host imports protocol codec/types for fulfillment; webview boots `makeHostServicesLive`
 

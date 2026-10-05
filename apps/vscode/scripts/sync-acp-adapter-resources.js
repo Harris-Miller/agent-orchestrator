@@ -9,16 +9,20 @@ import { fileURLToPath } from 'node:url';
 const extensionRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const destPath = path.join(extensionRoot, 'acp-adapter-resources');
 const sourcePath = path.resolve(extensionRoot, '../../acp-adapter-resources');
+const entryPathsJson = path.resolve(extensionRoot, '../../libs/ui/src/host/acpAdapterEntryPaths.json');
 
 if (!fs.existsSync(sourcePath)) {
   console.error(`acp-adapter-resources missing at ${sourcePath}. Run: pnpm install-acp-adapter-deps`);
   process.exit(1);
 }
 
-const entry = path.join(sourcePath, 'node_modules/@agentclientprotocol/codex-acp/dist/index.js');
-if (!fs.existsSync(entry)) {
-  console.error(`Adapter entry missing at ${entry}. Run: pnpm install-acp-adapter-deps`);
-  process.exit(1);
+const entryPaths = JSON.parse(fs.readFileSync(entryPathsJson, 'utf8'));
+for (const relative of Object.values(entryPaths)) {
+  const entry = path.join(sourcePath, relative);
+  if (!fs.existsSync(entry)) {
+    console.error(`Adapter entry missing at ${entry}. Run: pnpm install-acp-adapter-deps`);
+    process.exit(1);
+  }
 }
 
 fs.rmSync(destPath, { force: true, recursive: true });

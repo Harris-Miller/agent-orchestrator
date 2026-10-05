@@ -1,0 +1,5 @@
+{
+  "claude-agent-acp": "node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js",
+  "codex-acp": "node_modules/@agentclientprotocol/codex-acp/dist/index.js",
+  "gemini-acp": "node_modules/@lib/gemini-acp/dist/index.js"
+}

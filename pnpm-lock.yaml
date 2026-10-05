@@ -616,6 +616,15 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@lib/ao-home':
+        specifier: workspace:^
+        version: link:../ao-home
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
+      '@lib/context-services-node':
+        specifier: workspace:^
+        version: link:../context-services-node
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../effect-acp
@@ -641,6 +650,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.23.0(tsx@4.23.15)(typescript@6.0.3)
       tsx:
         specifier: 'catalog:'
         version: 4.23.15

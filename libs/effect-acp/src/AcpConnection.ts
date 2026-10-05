@@ -7,7 +7,7 @@ import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import { RpcClientDefect, RpcClientError as RpcClientErrorValue } from 'effect/unstable/rpc/RpcClientError';
 import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effect/unstable/rpc/RpcMessage';
 
-import { AgentRpcs, ClientRpcs } from './AcpSchema.ts';
+import { AgentRpcs, ClientRpcs, SESSION_SET_MODEL_METHOD, UnstableSessionSetModelRpcs } from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
 
@@ -32,8 +32,16 @@ export const routeDecodedMessage = (
 
   const tagged = message as { _tag: string; requestId?: number | string };
 
-  if (tagged._tag === 'Chunk' || tagged._tag === 'Defect') {
+  if (tagged._tag === 'Chunk') {
     if (tagged.requestId !== undefined && pendingClientRequestIds.has(tagged.requestId)) {
+      targets.toClient(message as FromServerEncoded);
+    }
+    return;
+  }
+
+  // Connection-level Defect (RpcServer sendDefect) has no requestId; still fail in-flight client RPCs.
+  if (tagged._tag === 'Defect') {
+    if (tagged.requestId === undefined || pendingClientRequestIds.has(tagged.requestId)) {
       targets.toClient(message as FromServerEncoded);
     }
     return;
@@ -55,7 +63,13 @@ export const routeDecodedMessage = (
   if (tagged._tag === 'Request') {
     const request = message as RequestEncoded;
     if (request.isNotification) {
-      notificationIds.add(request.id);
+      // ndJsonRpc maps JSON-RPC notifications (no id) to id "". RpcServer keys in-flight
+      // handlers by id and returns Effect.interrupt on duplicates — which kills the demux
+      // read fiber and wedges the duplex (in-flight session/new never sees its Exit).
+      const id = request.id !== '' ? request.id : `acp-notif-${crypto.randomUUID()}`;
+      notificationIds.add(id);
+      targets.toServer(id === request.id ? request : { ...request, id });
+      return;
     }
     targets.toServer(request);
   }
@@ -115,6 +129,11 @@ export type AcpAgentConnection = {
   readonly agent: RpcClient.FromGroup<typeof AgentRpcs, RpcClientError>;
   readonly handle: ChildProcessSpawner.ChildProcessHandle;
   readonly notify: (tag: string, payload: unknown) => Effect.Effect<void, TransportError>;
+  /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
+  readonly sessionSetModel: RpcClient.FromGroup<
+    typeof UnstableSessionSetModelRpcs,
+    RpcClientError
+  >[typeof SESSION_SET_MODEL_METHOD];
 };
 
 export type AcpClientConnection = RpcClient.FromGroup<typeof ClientRpcs, RpcClientError>;
@@ -232,6 +251,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     );
 
     const agent = yield* RpcClient.make(AgentRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+    const setModelClient = yield* RpcClient.make(UnstableSessionSetModelRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
 
     yield* transport.start;
     yield* Effect.logInfo('ACP agent connection ready', { pid: handle.pid });
@@ -240,6 +262,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       agent,
       handle,
       notify: transport.notify,
+      sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
     } as const satisfies AcpAgentConnection;
   },
   // Short setup span only — lifetime Agent→Client traffic must not parent under connect.

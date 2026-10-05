@@ -26,6 +26,7 @@ export type GeminiChild = {
     | 'session/set_mode'
   >;
   readonly notify: AcpAgentConnection['notify'];
+  readonly sessionSetModel: AcpAgentConnection['sessionSetModel'];
 };
 
 export type EnsureGeminiChild = Effect.Effect<GeminiChild, unknown>;

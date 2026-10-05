@@ -11,13 +11,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build": "tsdown",
     "lint": "eslint . --max-warnings 0",
+    "materialize-vendor": "node ./scripts/materialize-vendor.mjs",
     "start": "tsx src/main.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@lib/ao-home": "workspace:^",
+    "@lib/context-services": "workspace:^",
+    "@lib/context-services-node": "workspace:^",
     "@libs/effect-acp": "workspace:^",
     "effect": "catalog:"
   },
@@ -28,6 +33,7 @@
     "@tooling/vitest": "workspace:^",
     "@types/node": "catalog:",
     "eslint": "catalog:",
+    "tsdown": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

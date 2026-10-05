@@ -38,7 +38,7 @@ const prettyErrorText = (error: string): string => {
   }
 };
 
-/** Settings → Providers: harness phase chips + Gemini coming soon. */
+/** Settings → Providers: harness phase chips. */
 export const ProvidersSettingsPane: FC = () => {
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const restartBackend = useAtomSet(restartBackendAtomFn, { mode: 'promise' });
@@ -119,12 +119,6 @@ export const ProvidersSettingsPane: FC = () => {
             </Box>
           );
         })}
-        <Box>
-          <Chip color="default" label="Gemini: coming soon" size="small" variant="outlined" />
-          <Typography color="text.secondary" sx={{ mt: 0.75 }} variant="body2">
-            Gemini support is not available yet.
-          </Typography>
-        </Box>
       </Stack>
     </>
   );

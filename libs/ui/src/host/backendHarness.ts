@@ -11,7 +11,6 @@ import type {
   RequestPermissionResponse,
 } from '@libs/effect-acp';
 import { Effect, Exit, Ref } from 'effect';
-import { ChildProcess } from 'effect/unstable/process';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -25,29 +24,12 @@ import type { SessionListScope } from './sessionListScope.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
-const pipedSpawnOptions = {
-  extendEnv: true,
-  stderr: 'inherit' as const,
-  stdin: 'pipe' as const,
-  stdout: 'pipe' as const,
-};
-
 const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
   return JSON.stringify(error);
 };
-
-const makeAgentCommand = Effect.fn('makeAgentCommand')(function* (launchTarget: AgentLaunchTarget) {
-  switch (launchTarget) {
-    case 'claude-agent-acp':
-    case 'codex-acp':
-      return yield* makeAcpAdapterCommand(launchTarget);
-    case 'gemini-cli':
-      return ChildProcess.make('gemini', ['--acp'], pipedSpawnOptions);
-  }
-});
 
 export type RpcWireEntry = {
   readonly direction: 'in' | 'out';
@@ -111,7 +93,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('connecting');
     clearPromptSpansForLaunchTarget(launchTarget);
 
-    const command = yield* makeAgentCommand(launchTarget);
+    const command = yield* makeAcpAdapterCommand(launchTarget);
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(

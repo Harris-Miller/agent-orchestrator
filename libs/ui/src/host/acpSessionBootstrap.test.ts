@@ -12,11 +12,14 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
+  isConfigProbeCwd,
   normalizeConfigOptions,
   normalizeModels,
   normalizeModes,
   normalizeSelectableConfigOptions,
+  normalizeSessionInfo,
   normalizeSessionInfoFromNew,
+  normalizeSessionRoster,
   patchConfigOptionValue,
   resolveSessionCwd,
   selectionFromSessionConfiguration,
@@ -305,6 +308,28 @@ describe('applySessionInfoTitle', () => {
   });
 });
 
+describe('isConfigProbeCwd / normalizeSessionRoster', () => {
+  it('detects Config probe temp cwd basename', () => {
+    assert.isTrue(isConfigProbeCwd('/tmp/ao-config-probe-abc'));
+    assert.isTrue(isConfigProbeCwd('C:\\Users\\x\\AppData\\Local\\Temp\\ao-config-probe-abc'));
+    assert.isFalse(isConfigProbeCwd('/Users/harris/Projects/agent-orchestrator'));
+    assert.isFalse(isConfigProbeCwd('/tmp/ao-config-probe'));
+  });
+
+  it('drops Config probe sessions from roster normalization', () => {
+    assert.strictEqual(normalizeSessionInfo({ cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' }), undefined);
+    assert.deepStrictEqual(
+      normalizeSessionRoster({
+        sessions: [
+          { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
+          { cwd: '/proj', sessionId: 'real', title: 'Real' },
+        ],
+      }),
+      [{ cwd: '/proj', sessionId: 'real', title: 'Real', updatedAt: undefined }],
+    );
+  });
+});
+
 describe('normalizeSessionInfoFromNew', () => {
   it('stamps updatedAt from Date.now when session/new omits it', () => {
     const before = Date.now();
@@ -329,11 +354,11 @@ describe('normalizeSessionInfoFromNew', () => {
 describe('groupAndSortSessionsByCwd', () => {
   it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { cwd: '/old', launchTarget: 'gemini-cli', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'gemini-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { cwd: '/new', launchTarget: 'gemini-cli', sessionId: 'd' },
-      { cwd: '/mid', launchTarget: 'gemini-cli', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'gemini-acp', sessionId: 'd' },
+      { cwd: '/mid', launchTarget: 'gemini-acp', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);
@@ -364,10 +389,10 @@ describe('groupAndSortSessionsByCwd', () => {
 describe('sessionsForCwd', () => {
   it('returns the matching cwd group in groupAndSort order; empty when missing', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { cwd: '/old', launchTarget: 'gemini-cli', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'gemini-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { cwd: '/new', launchTarget: 'gemini-cli', sessionId: 'd' },
+      { cwd: '/new', launchTarget: 'gemini-acp', sessionId: 'd' },
     ];
 
     assert.deepStrictEqual(

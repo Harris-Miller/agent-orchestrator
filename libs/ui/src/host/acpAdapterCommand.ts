@@ -10,8 +10,6 @@ import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
-export type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
-
 const pipedSpawnOptions = {
   extendEnv: true,
   stderr: 'inherit' as const,

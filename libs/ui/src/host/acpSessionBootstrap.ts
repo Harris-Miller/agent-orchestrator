@@ -286,7 +286,7 @@ export const compareRosterEntriesByUpdatedAtDesc = (
   return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
 };
 
-const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'updatedAt'>[]): number => {
+export const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'updatedAt'>[]): number => {
   let max = Number.NEGATIVE_INFINITY;
   for (const entry of sessions) {
     if (entry.updatedAt !== undefined) {

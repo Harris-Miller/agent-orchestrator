@@ -4,6 +4,7 @@ import {
   confirmSessionDeleteAtom,
   developerModeAtom,
   ProvidersSettingsPane,
+  showNoFolderGroupAtom,
   userSettingsAtom,
   userSettingsEditsDisabled,
 } from '@lib/ui';
@@ -70,6 +71,8 @@ export const SettingsPage: FC = () => {
   const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
   const developerMode = useAtomValue(developerModeAtom);
   const setDeveloperMode = useAtomSet(developerModeAtom);
+  const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
+  const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
   const [category, setCategory] = useState<CategoryId>('general');
   const [query, setQuery] = useState('');
@@ -175,7 +178,7 @@ export const SettingsPage: FC = () => {
               <>
                 <Typography variant="h6">General</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-                  Session delete confirmation and Developer mode live in User settings.
+                  Session delete confirmation, No Folder group visibility, and Developer mode live in User settings.
                 </Typography>
                 <FormControlLabel
                   control={
@@ -188,6 +191,19 @@ export const SettingsPage: FC = () => {
                     />
                   }
                   label="Confirm before deleting a session"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showNoFolderGroup}
+                      disabled={editsDisabled}
+                      onChange={(_event, checked) => {
+                        setShowNoFolderGroup(checked);
+                      }}
+                    />
+                  }
+                  label="Show No Folder group in Sessions"
+                  sx={{ display: 'block', mt: 1 }}
                 />
                 <FormControlLabel
                   control={

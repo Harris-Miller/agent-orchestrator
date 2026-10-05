@@ -24,6 +24,9 @@ export const confirmSessionDeleteEnabled = (settings: UserSettings): boolean => 
 /** Developer mode is off when the Settings field is unset. */
 export const developerModeEnabled = (settings: UserSettings): boolean => settings.developerModeEnabled === true;
 
+/** Prefer showing the No Folder group when the Settings field is unset. */
+export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
+
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
@@ -70,6 +73,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective No Folder group visibility (on when unset). Write patches User settings. */
+  const showNoFolderGroupAtom = Atom.writable(
+    get => showNoFolderGroupEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showNoFolderGroup: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
   const themeAtom = Atom.writable(
     get => {
@@ -87,5 +98,12 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
-  return { confirmSessionDeleteAtom, developerModeAtom, persistUserSettingsAtomFn, themeAtom, userSettingsAtom };
+  return {
+    confirmSessionDeleteAtom,
+    developerModeAtom,
+    persistUserSettingsAtomFn,
+    showNoFolderGroupAtom,
+    themeAtom,
+    userSettingsAtom,
+  };
 };

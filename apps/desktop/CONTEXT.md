@@ -13,7 +13,7 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Settings page**:
-Full-page Harness UI route (`/settings`) for browsing preferences; reads and writes User settings through `@lib/ao-home`. Host shells differ (desktop category rail vs vscode list→detail) but share the same Settings panes from `@lib/ui`.
+Full-page Harness UI route (`/settings/$category`, default entry `/settings/general`) for browsing preferences; reads and writes User settings through `@lib/ao-home`. Host shells differ (desktop category rail vs vscode list→detail) but share the same Settings panes from `@lib/ui`.
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:

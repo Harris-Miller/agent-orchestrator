@@ -1,14 +1,12 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
-  AppearanceSettingsPane,
   defaultSettings,
-  GeneralSettingsPane,
-  ProvidersSettingsPane,
+  isSettingsCategoryId,
   SETTINGS_CATEGORIES,
+  settingsCategoryLabel,
   userSettingsAtom,
   userSettingsEditsDisabled,
 } from '@lib/ui';
-import type { SettingsCategoryId } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import Search from '@mui/icons-material/Search';
@@ -26,7 +24,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useNavigate } from '@tanstack/react-router';
+import { Outlet, useMatch, useNavigate } from '@tanstack/react-router';
 import { Cause } from 'effect';
 import { AsyncResult } from 'effect/unstable/reactivity';
 import { useMemo, useState } from 'react';
@@ -48,12 +46,16 @@ const BackToApp: FC = () => {
   );
 };
 
-/** Settings page: flat nav rail + shared category panes. */
-export const SettingsPage: FC = () => {
+/** Desktop Settings shell: category rail + route-driven `$category` outlet. */
+export const SettingsShell: FC = () => {
+  const navigate = useNavigate();
+  const categoryMatch = useMatch({ from: '/settings/$category', shouldThrow: false });
+  const categoryParam = categoryMatch?.params.category;
+  const category = categoryParam !== undefined && isSettingsCategoryId(categoryParam) ? categoryParam : undefined;
+
   const settingsResult = useAtomValue(userSettingsAtom);
   const setUserSettings = useAtomSet(userSettingsAtom);
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
-  const [category, setCategory] = useState<SettingsCategoryId>('general');
   const [query, setQuery] = useState('');
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
@@ -105,7 +107,7 @@ export const SettingsPage: FC = () => {
               dense
               key={item.id}
               onClick={() => {
-                setCategory(item.id);
+                navigate({ params: { category: item.id }, to: '/settings/$category' }).catch(() => undefined);
               }}
               selected={category === item.id}
               sx={{
@@ -124,7 +126,7 @@ export const SettingsPage: FC = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, px: 3, py: 2 }}>
           <Box sx={{ alignItems: 'center', display: 'flex', gap: 2, justifyContent: 'space-between' }}>
             <Typography sx={{ flex: 1 }} variant="h5">
-              {SETTINGS_CATEGORIES.find(c => c.id === category)?.label ?? 'Settings'}
+              {category !== undefined ? settingsCategoryLabel(category) : 'Settings'}
             </Typography>
             <Button
               disabled={editsDisabled}
@@ -145,20 +147,7 @@ export const SettingsPage: FC = () => {
             </Alert>
           ) : null}
           <Paper sx={{ borderRadius: 2, p: 3 }} variant="outlined">
-            {category === 'appearance' ? (
-              <AppearanceSettingsPane />
-            ) : category === 'general' ? (
-              <GeneralSettingsPane />
-            ) : category === 'providers' ? (
-              <ProvidersSettingsPane />
-            ) : (
-              <>
-                <Typography variant="h6">Coming soon</Typography>
-                <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-                  Placeholder category <code>{category}</code> — reserved for growth.
-                </Typography>
-              </>
-            )}
+            <Outlet />
           </Paper>
         </Box>
       </Box>

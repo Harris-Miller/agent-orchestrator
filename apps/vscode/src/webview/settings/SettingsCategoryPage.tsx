@@ -1,11 +1,4 @@
-import {
-  AppearanceSettingsPane,
-  GeneralSettingsPane,
-  isSettingsCategoryId,
-  ProvidersSettingsPane,
-  settingsCategoryLabel,
-} from '@lib/ui';
-import type { SettingsCategoryId } from '@lib/ui';
+import { isSettingsCategoryId, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -15,26 +8,6 @@ import Typography from '@mui/material/Typography';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import type { FC } from 'react';
-
-const CategoryContent: FC<{ readonly category: SettingsCategoryId }> = ({ category }) => {
-  if (category === 'appearance') {
-    return <AppearanceSettingsPane />;
-  }
-  if (category === 'general') {
-    return <GeneralSettingsPane />;
-  }
-  if (category === 'providers') {
-    return <ProvidersSettingsPane />;
-  }
-  return (
-    <>
-      <Typography variant="h6">Coming soon</Typography>
-      <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
-        Placeholder category <code>{category}</code> — reserved for growth.
-      </Typography>
-    </>
-  );
-};
 
 /** VS Code Settings category detail (narrow sidebar). */
 export const SettingsCategoryPage: FC = () => {
@@ -72,7 +45,7 @@ export const SettingsCategoryPage: FC = () => {
       </Stack>
       {/* Extra inset: MUI FormControlLabel applies a negative left margin on Switch. */}
       <Box sx={{ minWidth: 0, px: 1.5 }}>
-        <CategoryContent category={categoryParam} />
+        <SettingsCategoryContent category={categoryParam} />
       </Box>
     </Box>
   );

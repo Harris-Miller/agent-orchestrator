@@ -1,6 +1,6 @@
 # ui
 
-Shared Agent Harness webview context: Backend Harness behavior, Harness application state, and shared React surfaces (Providers / General / Appearance Settings panes, ThemeSelect, ACP backend mount, AppThemeProvider, PersistUserSettingsToast) consumed by the desktop app and VS Code webview. Host apps still own host-specific Settings shell chrome (desktop category rail vs vscode list→detail).
+Shared Agent Harness webview context: Backend Harness behavior, Harness application state, and shared React surfaces (Providers / General / Appearance Settings panes, SettingsCategoryContent, ThemeSelect, ACP backend mount, AppThemeProvider, PersistUserSettingsToast) consumed by the desktop app and VS Code webview. Host apps still own host-specific Settings shell chrome (desktop category rail vs vscode list→detail).
 
 ## Language
 

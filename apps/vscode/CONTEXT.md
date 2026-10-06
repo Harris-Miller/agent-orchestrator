@@ -8,7 +8,7 @@ VS Code extension Host app: extension-host fulfillment plus webview that present
 The Node VS Code extension process that fulfills spawn, filesystem, BundledResource, OS snapshot, and HTTP fetch behind Host IPC (extension↔webview wire). In Extension Development it may load host `OTEL_*` development defaults into process env so they reach the webview via OS snapshot.
 
 **Webview**:
-The sidebar webview that boots `makeHostServicesLive`, binds the Host runtime, and presents the sidebar Harness UI (Session History, Chat, and secondary Providers access).
+The sidebar webview that boots `makeHostServicesLive`, binds the Host runtime, and presents the sidebar Harness UI (Session History, Chat, and Settings).
 _Avoid_: panel, iframe (when you mean this view)
 
 **Workspace folder**:
@@ -20,7 +20,7 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar view that lists Session roster rows for the current Workspace cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Providers remains `/providers`).
+The sidebar view that lists Session roster rows for the current Workspace cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Settings is `/settings` with list→detail category routes).
 _Avoid_: Session roster (the harness data), nav rail, chats list
 
 **Chat**:

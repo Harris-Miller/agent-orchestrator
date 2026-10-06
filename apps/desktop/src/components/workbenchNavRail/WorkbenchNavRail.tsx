@@ -251,7 +251,7 @@ export const WorkbenchNavRail: FC<{
         <Box sx={{ flexShrink: 0, p: 1 }}>
           <ListItemButton
             onClick={() => {
-              navigate({ to: '/settings' }).catch(() => undefined);
+              navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
             }}
             sx={{ borderRadius: 1 }}
           >

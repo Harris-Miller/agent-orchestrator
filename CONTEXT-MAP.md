@@ -14,8 +14,8 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 | **ao-home** | [`libs/ao-home/CONTEXT.md`](./libs/ao-home/CONTEXT.md) | [`libs/ao-home/docs/adr/`](./libs/ao-home/docs/adr/) | Agent Orchestrator home (`~/.ao`) seam: User settings, adapter roster documents, and session usage filesystem I/O |
 | **gemini-acp** | [`libs/gemini-acp/CONTEXT.md`](./libs/gemini-acp/CONTEXT.md) | — | ACP adapter in front of Gemini CLI: completes session lifecycle (`list` / `close` / `delete` / hot-cold `resume`); Issue #42 |
 | **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex, Claude, and (planned) Gemini via ACP adapters |
-| **ui** | [`libs/ui/CONTEXT.md`](./libs/ui/CONTEXT.md) | [`libs/ui/docs/adr/`](./libs/ui/docs/adr/) | Shared Agent Harness webview context: Backend Harness + Harness application state + shared Providers/theme React surfaces |
-| **vscode** | [`apps/vscode/CONTEXT.md`](./apps/vscode/CONTEXT.md) | [`apps/vscode/docs/adr/`](./apps/vscode/docs/adr/) | VS Code extension: extension-host fulfillment + webview Host (Providers mount via shared UI) |
+| **ui** | [`libs/ui/CONTEXT.md`](./libs/ui/CONTEXT.md) | [`libs/ui/docs/adr/`](./libs/ui/docs/adr/) | Shared Agent Harness webview context: Backend Harness + Harness application state + shared Settings panes / theme React surfaces |
+| **vscode** | [`apps/vscode/CONTEXT.md`](./apps/vscode/CONTEXT.md) | [`apps/vscode/docs/adr/`](./apps/vscode/docs/adr/) | VS Code extension: extension-host fulfillment + webview Host (Settings via shared UI panes) |
 
 ## Relationships
 
@@ -23,7 +23,7 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **desktop → context-services**: portable host abstractions (`OS`, `BundledResource`, `Clipboard`, Host services)
 - **desktop → context-services-tauri**: Tauri live layers (`TauriServicesLive`) for Host services
 - **desktop → ao-home**: desktop hydrates User settings into Effect Atoms and the Settings page reads/writes via `@lib/ao-home`; session usage persists under `sessions/<id>/usage.json` through the same seam
-- **desktop → ui**: desktop supplies Host Live and mounts shared Providers/theme/ACP surfaces from `@lib/ui`; host-specific chrome (ThemeSelect, Settings shell) stays desktop-local
+- **desktop → ui**: desktop supplies Host Live and mounts shared Settings panes / theme / ACP surfaces from `@lib/ui`; Settings **shell** chrome (category rail) stays desktop-local
 - **ui → context-services**: portable Host services tags (no Live)
 - **ui → ao-home**: session usage persist and User settings I/O from Harness application state
 - **ui → effect-acp**: ACP connection / RPCs for Backend Harness
@@ -44,5 +44,5 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **Desktop app, Agent Harness, provider backends, Tauri host** → desktop
 - **Agent Orchestrator home (`~/.ao`), User settings on disk** → ao-home
 - **Host OS / environment / bundled resources / clipboard / VS Code webview Host Live + extension↔webview IPC** → context-services (+ context-services-node for Node bindings; context-services-tauri for Tauri bindings; context-services-vscode-webview for webview Live + IPC codec)
-- **Shared Harness application state / Backend Harness / shared Providers & theme React** → ui
+- **Shared Harness application state / Backend Harness / shared Settings panes & theme React** → ui
 - **VS Code extension / sidebar webview Host / extension↔webview IPC fulfillment** → vscode

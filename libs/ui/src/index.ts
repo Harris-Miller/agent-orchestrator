@@ -22,16 +22,15 @@ export {
 } from './atoms/userSettings/userSettings.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
-export * from './components/AppearanceSettingsPane.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
 export * from './components/developerPanel/OpenDeveloperPanelButton.tsx';
 export * from './components/developerPanel/PanelHeader.tsx';
 export * from './components/developerPanel/SessionStateView.tsx';
 export * from './components/developerPanel/useDeveloperPanelOpen.ts';
 export * from './components/FdPrerequisiteGate.tsx';
-export * from './components/GeneralSettingsPane.tsx';
 export * from './components/PersistUserSettingsToast.tsx';
 export * from './components/ProvidersSettingsPane.tsx';
+export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
 
@@ -41,6 +40,7 @@ export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';
+export * from './components/UserSettingsLoadFailureAlert.tsx';
 export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';
 export * from './host/acpAdapterCommand.ts';

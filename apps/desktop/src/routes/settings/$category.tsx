@@ -1,15 +1,5 @@
 import { isSettingsCategoryId, SettingsCategoryContent } from '@lib/ui';
-import Alert from '@mui/material/Alert';
-import { createFileRoute, redirect, useParams } from '@tanstack/react-router';
-import type { FC } from 'react';
-
-const SettingsCategoryRoute: FC = () => {
-  const { category } = useParams({ from: '/settings/$category' });
-  if (!isSettingsCategoryId(category)) {
-    return <Alert severity="warning">Unknown settings category.</Alert>;
-  }
-  return <SettingsCategoryContent category={category} />;
-};
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/settings/$category')({
   beforeLoad: ({ params }) => {
@@ -18,6 +8,10 @@ export const Route = createFileRoute('/settings/$category')({
       // eslint-disable-next-line @typescript-eslint/only-throw-error -- redirect()
       throw redirect({ params: { category: 'general' }, to: '/settings/$category' });
     }
+    return { categoryId: params.category };
   },
-  component: SettingsCategoryRoute,
+  component: function SettingsCategoryRoute() {
+    const { categoryId } = Route.useRouteContext();
+    return <SettingsCategoryContent category={categoryId} />;
+  },
 });

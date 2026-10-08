@@ -220,4 +220,92 @@ describe('routeDecodedMessage', () => {
 
     assert.strictEqual(toClient.length, 1);
   });
+
+  it('remaps AcpError-shaped Exit Die to Fail before forwarding', () => {
+    const pending = new Set<number | string>(['req-1']);
+    const notifications = new Set<number | string>();
+    const toClient: unknown[] = [];
+
+    routeDecodedMessage(
+      {
+        _tag: 'Exit',
+        exit: {
+          _tag: 'Failure',
+          cause: [
+            {
+              _tag: 'Die',
+              defect: {
+                _tag: 'stray',
+                code: -32000,
+                data: { details: 'rate limited' },
+                message: 'Rate limit exceeded',
+              },
+            },
+          ],
+        },
+        requestId: 'req-1',
+      },
+      pending,
+      notifications,
+      {
+        toClient: message => {
+          toClient.push(message);
+        },
+        toServer: noop,
+      },
+    );
+
+    assert.deepStrictEqual(toClient[0], {
+      _tag: 'Exit',
+      exit: {
+        _tag: 'Failure',
+        cause: [
+          {
+            _tag: 'Fail',
+            error: {
+              code: -32000,
+              data: { details: 'rate limited' },
+              message: 'Rate limit exceeded',
+            },
+          },
+        ],
+      },
+      requestId: 'req-1',
+    });
+  });
+
+  it('leaves non-AcpError Exit Die unchanged', () => {
+    const pending = new Set<number | string>(['req-1']);
+    const notifications = new Set<number | string>();
+    const toClient: unknown[] = [];
+    const defect = { message: 'Child process exited with code 1' };
+
+    routeDecodedMessage(
+      {
+        _tag: 'Exit',
+        exit: {
+          _tag: 'Failure',
+          cause: [{ _tag: 'Die', defect }],
+        },
+        requestId: 'req-1',
+      },
+      pending,
+      notifications,
+      {
+        toClient: message => {
+          toClient.push(message);
+        },
+        toServer: noop,
+      },
+    );
+
+    assert.deepStrictEqual(toClient[0], {
+      _tag: 'Exit',
+      exit: {
+        _tag: 'Failure',
+        cause: [{ _tag: 'Die', defect }],
+      },
+      requestId: 'req-1',
+    });
+  });
 });

@@ -2,7 +2,7 @@
 
 When a backend harness comes online it runs `initialize`, then enters **`probing`**: buffers `session/list`, runs a disposable-cwd **Config probe** (`session/new` → per-model `set_config_option` → publish Config option index → best-effort `session/close`), applies the buffered roster, and reaches **`ready`**.
 
-Ready means successful Config probe (and buffered list applied). The probe session is **not** an Active session, never Materialized, and never a Roster entry. The user still creates a new session or activates an existing roster entry explicitly.
+Ready means Config probe completed (and buffered list applied), including probes that soft-failed some model switches as Unavailable models. The probe session is **not** an Active session, never Materialized, and never a Roster entry. The user still creates a new session or activates an existing roster entry explicitly.
 
 This keeps agent connectivity (bootstrap + probe) separate from user-driven session lifecycle. An empty roster after `ready` remains valid.
 

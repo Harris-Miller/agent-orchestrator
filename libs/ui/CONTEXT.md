@@ -16,6 +16,14 @@ _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mea
 Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
+**Config option index**:
+Ephemeral per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models.
+_Avoid_: Provider catalog, harness defaults, config catalog
+
+**Unavailable model**:
+A model id advertised on `session/new` whose probe `session/set_config_option` soft-failed; kept visible in model selects as disabled `(unavailable)`, not present in the probed per-model rows.
+_Avoid_: Missing model, failed model, disabled model (when you mean this probe outcome)
+
 **Developer panel**:
 Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the reopen affordance are shared; hosts own pane layout chrome and host-only tabs.
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)

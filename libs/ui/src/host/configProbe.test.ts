@@ -11,6 +11,7 @@ import {
   modelSelectChoiceLabel,
   preserveConfigValuesOnModelChange,
   runConfigProbe,
+  selectChoiceViews,
 } from './configProbe.ts';
 
 const selectOption = (id: string, currentValue: string, choices: readonly string[]): NormalizedSelectConfigOption => ({
@@ -96,13 +97,26 @@ describe('configOptionIndexFromProbeResponses', () => {
   });
 });
 
-describe('modelSelectChoiceLabel / isModelChoiceUnavailable', () => {
+describe('modelSelectChoiceLabel / isModelChoiceUnavailable / selectChoiceViews', () => {
   it('marks only model select choices listed as unavailable', () => {
     assert.isTrue(isModelChoiceUnavailable('model', 'opus', ['opus']));
     assert.isFalse(isModelChoiceUnavailable('model', 'sonnet', ['opus']));
     assert.isFalse(isModelChoiceUnavailable('mode', 'opus', ['opus']));
     assert.strictEqual(modelSelectChoiceLabel('Opus', true), 'Opus (unavailable)');
     assert.strictEqual(modelSelectChoiceLabel('Opus', false), 'Opus');
+  });
+
+  it('builds select choice views from Config option index Unavailable models', () => {
+    const option = selectOption('model', 'sonnet', ['sonnet', 'opus']);
+    const views = selectChoiceViews(option, {
+      byModel: { sonnet: [option] },
+      defaultModelId: 'sonnet',
+      unavailableModelIds: ['opus'],
+    });
+    assert.deepStrictEqual(views, [
+      { description: undefined, disabled: false, id: 'sonnet', label: 'sonnet' },
+      { description: undefined, disabled: true, id: 'opus', label: 'opus (unavailable)' },
+    ]);
   });
 });
 

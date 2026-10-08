@@ -540,6 +540,9 @@ export const SessionChatBody: FC<{
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {configOptions.map(option => (
                 <SessionConfigOptionControl
+                  configOptionIndex={
+                    selectedLaunchTarget === undefined ? undefined : getConfigOptionIndex(selectedLaunchTarget)
+                  }
                   disabled={!controlsEnabled || selectedLaunchTarget === undefined}
                   key={option.id}
                   onChange={diff => {
@@ -563,11 +566,6 @@ export const SessionChatBody: FC<{
                     ).catch(onClientError);
                   }}
                   option={option}
-                  unavailableModelIds={
-                    selectedLaunchTarget === undefined
-                      ? undefined
-                      : getConfigOptionIndex(selectedLaunchTarget)?.unavailableModelIds
-                  }
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />

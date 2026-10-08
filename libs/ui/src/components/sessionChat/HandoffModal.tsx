@@ -114,6 +114,7 @@ export const HandoffModal: FC<{
           </FormControl>
           {configOptions.map(option => (
             <SessionConfigOptionControl
+              configOptionIndex={index}
               disabled={false}
               key={option.id}
               onChange={diff => {
@@ -129,7 +130,6 @@ export const HandoffModal: FC<{
                 });
               }}
               option={option}
-              unavailableModelIds={index?.unavailableModelIds}
             />
           ))}
         </Stack>

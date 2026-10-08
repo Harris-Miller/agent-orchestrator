@@ -5,15 +5,17 @@ import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
-import type { SelectChoiceView } from '../../host/configProbe.ts';
+
+import { selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 export const SessionConfigOptionSelect: FC<{
-  readonly choices: readonly SelectChoiceView[];
   readonly disabled: boolean;
   readonly onChange: (configId: string, value: string) => void;
   readonly option: NormalizedSelectConfigOption;
-}> = ({ choices, disabled, onChange, option }) => {
+  readonly unavailableModelIds?: readonly string[];
+}> = ({ disabled, onChange, option, unavailableModelIds }) => {
   const labelId = `acp-config-${option.id}-label`;
+  const choices = selectChoiceViews(option, unavailableModelIds);
 
   return (
     <FormControl disabled={disabled} size="small" sx={{ minWidth: 180 }}>

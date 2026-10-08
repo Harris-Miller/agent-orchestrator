@@ -2,7 +2,7 @@
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
-import type { NormalizedConfigOption, NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
+import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { CONFIG_PROBE_CWD_PREFIX, normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
 
 export type ConfigOptionIndex = {
@@ -10,14 +10,6 @@ export type ConfigOptionIndex = {
   readonly defaultModelId: string;
   /** Unavailable models: advertised on session/new but soft-failed during Config probe. */
   readonly unavailableModelIds: readonly string[];
-};
-
-/** Presentation row for a select MenuItem (label/disabled already resolved). */
-export type SelectChoiceView = {
-  readonly description?: string;
-  readonly disabled: boolean;
-  readonly id: string;
-  readonly label: string;
 };
 
 export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
@@ -76,33 +68,6 @@ export const configOptionIndexFromProbeResponses = (
   defaultModelId,
   unavailableModelIds,
 });
-
-/** Model select choice label when the id is an Unavailable model. */
-export const modelSelectChoiceLabel = (name: string, unavailable: boolean): string =>
-  unavailable ? `${name} (unavailable)` : name;
-
-export const isModelChoiceUnavailable = (
-  optionId: string,
-  choiceId: string,
-  unavailableModelIds: readonly string[],
-): boolean => optionId === 'model' && unavailableModelIds.includes(choiceId);
-
-/** Resolve select choices against Config option index Unavailable models. */
-export const selectChoiceViews = (
-  option: NormalizedSelectConfigOption,
-  configOptionIndex: ConfigOptionIndex | undefined,
-): readonly SelectChoiceView[] => {
-  const unavailableModelIds = configOptionIndex?.unavailableModelIds ?? [];
-  return option.choices.map(choice => {
-    const unavailable = isModelChoiceUnavailable(option.id, choice.id, unavailableModelIds);
-    return {
-      description: choice.description,
-      disabled: unavailable,
-      id: choice.id,
-      label: modelSelectChoiceLabel(choice.name, unavailable),
-    };
-  });
-};
 
 export const configOptionIndexIsNonempty = (index: ConfigOptionIndex | undefined): boolean =>
   index !== undefined && Object.keys(index.byModel).length > 0;

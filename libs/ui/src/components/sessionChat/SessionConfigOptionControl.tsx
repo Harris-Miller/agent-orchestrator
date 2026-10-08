@@ -10,7 +10,8 @@ export const SessionConfigOptionControl: FC<{
   readonly disabled: boolean;
   readonly onChange: (diff: ConfigValueDiff) => void;
   readonly option: NormalizedConfigOption;
-}> = ({ disabled, onChange, option }) => {
+  readonly unavailableModelIds?: readonly string[];
+}> = ({ disabled, onChange, option, unavailableModelIds }) => {
   if (option.type === 'boolean') {
     return (
       <SessionConfigOptionSwitch
@@ -32,6 +33,7 @@ export const SessionConfigOptionControl: FC<{
         onChange({ configId, type: 'select', value });
       }}
       option={option}
+      unavailableModelIds={unavailableModelIds}
     />
   );
 };

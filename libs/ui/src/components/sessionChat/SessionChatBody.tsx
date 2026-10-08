@@ -563,6 +563,11 @@ export const SessionChatBody: FC<{
                     ).catch(onClientError);
                   }}
                   option={option}
+                  unavailableModelIds={
+                    selectedLaunchTarget === undefined
+                      ? undefined
+                      : getConfigOptionIndex(selectedLaunchTarget)?.unavailableModelIds
+                  }
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />

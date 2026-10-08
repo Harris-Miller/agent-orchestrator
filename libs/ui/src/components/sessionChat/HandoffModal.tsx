@@ -129,6 +129,7 @@ export const HandoffModal: FC<{
                 });
               }}
               option={option}
+              unavailableModelIds={index?.unavailableModelIds}
             />
           ))}
         </Stack>

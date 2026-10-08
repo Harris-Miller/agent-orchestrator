@@ -7,6 +7,8 @@ import {
   configOptionIndexFromProbeResponses,
   configOptionIndexIsNonempty,
   configValuesFromOptions,
+  isModelChoiceUnavailable,
+  modelSelectChoiceLabel,
   preserveConfigValuesOnModelChange,
   runConfigProbe,
 } from './configProbe.ts';
@@ -90,6 +92,17 @@ describe('configOptionIndexFromProbeResponses', () => {
       index.byModel.opus.map(option => option.id),
       ['model', 'effort'],
     );
+    assert.deepStrictEqual(index.unavailableModelIds, []);
+  });
+});
+
+describe('modelSelectChoiceLabel / isModelChoiceUnavailable', () => {
+  it('marks only model select choices listed as unavailable', () => {
+    assert.isTrue(isModelChoiceUnavailable('model', 'opus', ['opus']));
+    assert.isFalse(isModelChoiceUnavailable('model', 'sonnet', ['opus']));
+    assert.isFalse(isModelChoiceUnavailable('mode', 'opus', ['opus']));
+    assert.strictEqual(modelSelectChoiceLabel('Opus', true), 'Opus (unavailable)');
+    assert.strictEqual(modelSelectChoiceLabel('Opus', false), 'Opus');
   });
 });
 
@@ -116,9 +129,15 @@ describe('configValuesFromOptions / nonempty', () => {
   it('maps currentValues and reports nonempty index', () => {
     const options = [selectOption('model', 'sonnet', ['sonnet']), booleanOption('fast-mode', false)];
     assert.deepStrictEqual(configValuesFromOptions(options), { 'fast-mode': false, model: 'sonnet' });
-    assert.isTrue(configOptionIndexIsNonempty({ byModel: { sonnet: options }, defaultModelId: 'sonnet' }));
+    assert.isTrue(
+      configOptionIndexIsNonempty({
+        byModel: { sonnet: options },
+        defaultModelId: 'sonnet',
+        unavailableModelIds: [],
+      }),
+    );
     assert.isFalse(configOptionIndexIsNonempty(undefined));
-    assert.isFalse(configOptionIndexIsNonempty({ byModel: {}, defaultModelId: 'x' }));
+    assert.isFalse(configOptionIndexIsNonempty({ byModel: {}, defaultModelId: 'x', unavailableModelIds: [] }));
   });
 });
 
@@ -196,7 +215,81 @@ describe('runConfigProbe', () => {
         index.byModel.opus.map(option => option.id),
         ['model', 'effort'],
       );
+      assert.deepStrictEqual(index.unavailableModelIds, []);
       assert.deepStrictEqual(calls, ['new', 'set:opus', 'close', 'delete']);
+    }).pipe(Effect.provide(probeServices)),
+  );
+
+  it.effect('soft-fails mid-loop set_config_option; continues, cleans up, marks unavailable', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const agent = {
+        'session/close': () => {
+          calls.push('close');
+          return Effect.void;
+        },
+        'session/delete': () => {
+          calls.push('delete');
+          return Effect.void;
+        },
+        'session/new': () => {
+          calls.push('new');
+          return Effect.succeed({
+            configOptions: [
+              {
+                currentValue: 'sonnet',
+                id: 'model',
+                name: 'Model',
+                options: [
+                  { name: 'Sonnet', value: 'sonnet' },
+                  { name: 'Opus', value: 'opus' },
+                  { name: 'Haiku', value: 'haiku' },
+                ],
+                type: 'select',
+              },
+            ],
+            sessionId: 'probe-1',
+          });
+        },
+        'session/set_config_option': ({ value }: { value: string }) => {
+          calls.push(`set:${value}`);
+          if (value === 'opus') {
+            return Effect.fail({ code: -32000, message: 'Rate limit exceeded' });
+          }
+          return Effect.succeed({
+            configOptions: [
+              {
+                currentValue: value,
+                id: 'model',
+                name: 'Model',
+                options: [
+                  { name: 'Sonnet', value: 'sonnet' },
+                  { name: 'Opus', value: 'opus' },
+                  { name: 'Haiku', value: 'haiku' },
+                ],
+                type: 'select',
+              },
+              {
+                currentValue: 'high',
+                id: 'effort',
+                name: 'Effort',
+                options: [{ name: 'High', value: 'high' }],
+                type: 'select',
+              },
+            ],
+          });
+        },
+      };
+
+      const index = yield* runConfigProbe(agent);
+      assert.strictEqual(index.defaultModelId, 'sonnet');
+      assert.isUndefined(index.byModel.opus);
+      assert.deepStrictEqual(
+        index.byModel.haiku.map(option => option.id),
+        ['model', 'effort'],
+      );
+      assert.deepStrictEqual(index.unavailableModelIds, ['opus']);
+      assert.deepStrictEqual(calls, ['new', 'set:opus', 'set:haiku', 'close', 'delete']);
     }).pipe(Effect.provide(probeServices)),
   );
 

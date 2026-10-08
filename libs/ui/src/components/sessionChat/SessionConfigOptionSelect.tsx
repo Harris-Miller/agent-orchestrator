@@ -5,12 +5,14 @@ import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
+import { isModelChoiceUnavailable, modelSelectChoiceLabel } from '../../host/configProbe.ts';
 
 export const SessionConfigOptionSelect: FC<{
   readonly disabled: boolean;
   readonly onChange: (configId: string, value: string) => void;
   readonly option: NormalizedSelectConfigOption;
-}> = ({ disabled, onChange, option }) => {
+  readonly unavailableModelIds?: readonly string[];
+}> = ({ disabled, onChange, option, unavailableModelIds = [] }) => {
   const labelId = `acp-config-${option.id}-label`;
 
   return (
@@ -24,11 +26,14 @@ export const SessionConfigOptionSelect: FC<{
         }}
         value={option.currentValue ?? ''}
       >
-        {option.choices.map(choice => (
-          <MenuItem key={choice.id} title={choice.description} value={choice.id}>
-            {choice.name}
-          </MenuItem>
-        ))}
+        {option.choices.map(choice => {
+          const unavailable = isModelChoiceUnavailable(option.id, choice.id, unavailableModelIds);
+          return (
+            <MenuItem disabled={unavailable} key={choice.id} title={choice.description} value={choice.id}>
+              {modelSelectChoiceLabel(choice.name, unavailable)}
+            </MenuItem>
+          );
+        })}
       </Select>
     </FormControl>
   );

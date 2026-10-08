@@ -8,6 +8,8 @@ import { CONFIG_PROBE_CWD_PREFIX, normalizeConfigOptions, normalizeModels } from
 export type ConfigOptionIndex = {
   readonly byModel: Readonly<Record<string, readonly NormalizedConfigOption[]>>;
   readonly defaultModelId: string;
+  /** Model ids offered by session/new but not successfully probed (soft-failed switches). */
+  readonly unavailableModelIds: readonly string[];
 };
 
 export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
@@ -58,12 +60,24 @@ export const preserveConfigValuesOnModelChange = (
 export const configOptionIndexFromProbeResponses = (
   defaultModelId: string,
   byModelRaw: Readonly<Record<string, unknown>>,
+  unavailableModelIds: readonly string[] = [],
 ): ConfigOptionIndex => ({
   byModel: Object.fromEntries(
     Object.entries(byModelRaw).map(([modelId, raw]) => [modelId, normalizeConfigOptions(raw)]),
   ),
   defaultModelId,
+  unavailableModelIds,
 });
+
+/** Model select choice label when the id was soft-failed during config probe. */
+export const modelSelectChoiceLabel = (name: string, unavailable: boolean): string =>
+  unavailable ? `${name} (unavailable)` : name;
+
+export const isModelChoiceUnavailable = (
+  optionId: string,
+  choiceId: string,
+  unavailableModelIds: readonly string[],
+): boolean => optionId === 'model' && unavailableModelIds.includes(choiceId);
 
 export const configOptionIndexIsNonempty = (index: ConfigOptionIndex | undefined): boolean =>
   index !== undefined && Object.keys(index.byModel).length > 0;
@@ -115,14 +129,24 @@ export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: P
     const byModelRaw: Record<string, unknown> = { [defaultModelId]: sessionNew };
 
     for (const model of models.options.filter(entry => entry.id !== defaultModelId)) {
-      const setResult = yield* agent['session/set_config_option']({
-        configId: 'model',
-        sessionId: sessionNew.sessionId,
-        value: model.id,
-      });
-      byModelRaw[model.id] = setResult;
+      const setExit = yield* Effect.exit(
+        agent['session/set_config_option']({
+          configId: 'model',
+          sessionId: sessionNew.sessionId,
+          value: model.id,
+        }),
+      );
+      if (Exit.isFailure(setExit)) {
+        yield* Effect.logWarning('Config probe set_config_option failed for model', model.id, setExit.cause);
+      } else {
+        byModelRaw[model.id] = setExit.value;
+      }
     }
 
-    return configOptionIndexFromProbeResponses(defaultModelId, byModelRaw);
+    const unavailableModelIds = models.options
+      .map(entry => entry.id)
+      .filter(modelId => !Object.hasOwn(byModelRaw, modelId));
+
+    return configOptionIndexFromProbeResponses(defaultModelId, byModelRaw, unavailableModelIds);
   }).pipe(Effect.ensuring(cleanup));
 });

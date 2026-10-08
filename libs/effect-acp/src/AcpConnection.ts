@@ -1,5 +1,5 @@
 import type { Layer } from 'effect';
-import { Context, Effect, Queue, Tracer } from 'effect';
+import { Context, Effect, Option, Queue, Schema, Tracer } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { RpcClient, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
@@ -10,10 +10,37 @@ import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effec
 import { AgentRpcs, ClientRpcs, SESSION_SET_MODEL_METHOD, UnstableSessionSetModelRpcs } from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
+import { AcpError } from './schema/common.ts';
 
 export type DemuxTargets = {
   readonly toClient: (message: FromServerEncoded) => void;
   readonly toServer: (message: FromClientEncoded) => void;
+};
+
+const decodeAcpError = Schema.decodeUnknownOption(AcpError);
+
+/** ndJsonRpc maps JSON-RPC errors to Exit Die; rewrite AcpError-shaped Dies to Fail for RpcClient. */
+const remapExitAcpErrorDies = (message: FromServerEncoded): FromServerEncoded => {
+  if (message._tag !== 'Exit' || message.exit._tag !== 'Failure') {
+    return message;
+  }
+
+  return {
+    ...message,
+    exit: {
+      _tag: 'Failure',
+      cause: message.exit.cause.map(reason => {
+        if (reason._tag !== 'Die') {
+          return reason;
+        }
+        const error = Option.getOrUndefined(decodeAcpError(reason.defect));
+        if (error === undefined) {
+          return reason;
+        }
+        return { _tag: 'Fail' as const, error };
+      }),
+    },
+  };
 };
 
 /**
@@ -49,7 +76,7 @@ export const routeDecodedMessage = (
 
   if (tagged._tag === 'Exit') {
     if (tagged.requestId !== undefined && pendingClientRequestIds.has(tagged.requestId)) {
-      targets.toClient(message as FromServerEncoded);
+      targets.toClient(remapExitAcpErrorDies(message as FromServerEncoded));
       pendingClientRequestIds.delete(tagged.requestId);
     }
     return;

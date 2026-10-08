@@ -13,4 +13,8 @@
     "**/.cursor/**": true,
     "**/.turbo/**": true,
   },
+  "files.associations": {
+    ".mcp.json": "jsonc",
+    "turbo.json": "jsonc",
+  },
 }

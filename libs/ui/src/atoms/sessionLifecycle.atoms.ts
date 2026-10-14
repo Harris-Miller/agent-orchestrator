@@ -277,13 +277,12 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
           yield* closeSession(arg.launchTarget, arg.sessionId);
 
-          const { clearSelectedSessionId, snapshot: next } = markSessionInactive(
-            get(backendHarnessStateAtom(arg.launchTarget)),
-            arg.sessionId,
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            markSessionInactive(get(backendHarnessStateAtom(arg.launchTarget)), arg.sessionId),
           );
-          get.set(backendHarnessStateAtom(arg.launchTarget), next);
 
-          if (clearSelectedSessionId !== undefined && get(selectedSessionIdAtom) === clearSelectedSessionId) {
+          if (get(selectedSessionIdAtom) === arg.sessionId) {
             get.set(selectedSessionIdAtom, undefined);
           }
         },
@@ -324,10 +323,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             ),
           );
 
-          const { clearSelectedSessionId, snapshot: next } = dropSession(snapshot, arg.sessionId);
-          get.set(backendHarnessStateAtom(arg.launchTarget), next);
+          get.set(backendHarnessStateAtom(arg.launchTarget), dropSession(snapshot, arg.sessionId));
 
-          if (clearSelectedSessionId !== undefined && get(selectedSessionIdAtom) === clearSelectedSessionId) {
+          if (get(selectedSessionIdAtom) === arg.sessionId) {
             get.set(selectedSessionIdAtom, undefined);
           }
         },

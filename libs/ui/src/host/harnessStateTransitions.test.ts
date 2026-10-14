@@ -88,16 +88,15 @@ describe('stripSessionPendings', () => {
 });
 
 describe('markSessionInactive', () => {
-  it('sets status inactive and returns clearSelectedSessionId', () => {
+  it('sets status inactive', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const { clearSelectedSessionId, snapshot: next } = markSessionInactive(snapshot, 's1');
+    const next = markSessionInactive(snapshot, 's1');
     assert.strictEqual(next.sessions.s1.status, 'inactive');
-    assert.strictEqual(clearSelectedSessionId, 's1');
   });
 });
 
 describe('dropSession', () => {
-  it('removes session and roster row and returns clearSelectedSessionId', () => {
+  it('removes session and roster row', () => {
     const snapshot: BackendHarnessSnapshot = {
       ...readySnapshot({ s1: activeSession('s1'), s2: activeSession('s2') }),
       sessionRoster: [
@@ -105,14 +104,13 @@ describe('dropSession', () => {
         { cwd: '/b', sessionId: 's2' },
       ],
     };
-    const { clearSelectedSessionId, snapshot: next } = dropSession(snapshot, 's1');
+    const next = dropSession(snapshot, 's1');
     assert.isUndefined(next.sessions.s1);
     assert.isDefined(next.sessions.s2);
     assert.deepStrictEqual(
       next.sessionRoster.map(entry => entry.sessionId),
       ['s2'],
     );
-    assert.strictEqual(clearSelectedSessionId, 's1');
   });
 });
 

@@ -8,9 +8,9 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { draftToContentBlocks, hasEmbeddedContextCapability } from '../host/draftToContentBlocks.ts';
 import { beginClientRequest, endClientRequest } from '../host/harnessStateTransitions.ts';
 import { sendPrompt } from '../host/sessionRpc.ts';
+import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom } from './backendState.atoms.ts';
-import { patchSession, upsertSession } from './sessionSnapshot.ts';
 
 export { patchSession, upsertSession };
 

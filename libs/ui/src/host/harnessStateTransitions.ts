@@ -1,6 +1,4 @@
 /** Pure Harness state transitions over BackendHarnessSnapshot. */
-import { patchSession, upsertSession } from '../atoms/sessionSnapshot.ts';
-
 import type {
   BackendHarnessSnapshot,
   NormalizedSessionInfo,
@@ -8,11 +6,7 @@ import type {
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import { upsertRosterEntry } from './acpSessionBootstrap.ts';
-
-export type HarnessStateTransitionResult = {
-  readonly clearSelectedSessionId?: string;
-  readonly snapshot: BackendHarnessSnapshot;
-};
+import { patchSession, upsertSession } from './sessionSnapshot.ts';
 
 /** Clear pending client request / elicitation / permission on the listed sessions. */
 export const stripSessionPendings = (
@@ -43,31 +37,22 @@ export const stripSessionPendings = (
   };
 };
 
-/** Mark a session inactive. Caller clears selection when selected === clearSelectedSessionId. */
-export const markSessionInactive = (
-  snapshot: BackendHarnessSnapshot,
-  sessionId: string,
-): HarnessStateTransitionResult => ({
-  clearSelectedSessionId: sessionId,
-  snapshot: {
-    ...snapshot,
-    sessions: patchSession(snapshot.sessions, sessionId, session => ({
-      ...session,
-      status: 'inactive',
-    })),
-  },
+/** Mark a session inactive. Caller clears selection when selected === sessionId. */
+export const markSessionInactive = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({
+    ...session,
+    status: 'inactive',
+  })),
 });
 
-/** Remove session map entry and roster row. Caller clears selection when selected === clearSelectedSessionId. */
-export const dropSession = (snapshot: BackendHarnessSnapshot, sessionId: string): HarnessStateTransitionResult => {
+/** Remove session map entry and roster row. Caller clears selection when selected === sessionId. */
+export const dropSession = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => {
   const { [sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
   return {
-    clearSelectedSessionId: sessionId,
-    snapshot: {
-      ...snapshot,
-      sessionRoster: snapshot.sessionRoster.filter(entry => entry.sessionId !== sessionId),
-      sessions: remainingSessions,
-    },
+    ...snapshot,
+    sessionRoster: snapshot.sessionRoster.filter(entry => entry.sessionId !== sessionId),
+    sessions: remainingSessions,
   };
 };
 
@@ -80,10 +65,10 @@ export const replaceSessionRoster = (
   sessionRoster: roster,
 });
 
-export type MaterializeIntoSnapshotArgs = {
-  readonly rosterEntry?: NormalizedSessionInfo;
-  readonly session?: SessionSnapshot;
-};
+/** At least one of session or rosterEntry required. */
+export type MaterializeIntoSnapshotArgs =
+  | { readonly rosterEntry: NormalizedSessionInfo; readonly session?: undefined }
+  | { readonly rosterEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
 
 /** Upsert a Materialized session and/or roster entry into the Backend harness snapshot. */
 export const materializeIntoSnapshot = (

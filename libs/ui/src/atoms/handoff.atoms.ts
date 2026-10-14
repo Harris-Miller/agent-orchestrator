@@ -133,11 +133,13 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const { sessionId: targetSessionId } = result;
 
           const rosterEntry = rosterEntryFromNew(result, cwd);
-          const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-          get.set(
-            backendHarnessStateAtom(arg.targetLaunchTarget),
-            materializeIntoSnapshot(createdSnapshot, { rosterEntry }),
-          );
+          if (rosterEntry !== undefined) {
+            const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
+            get.set(
+              backendHarnessStateAtom(arg.targetLaunchTarget),
+              materializeIntoSnapshot(createdSnapshot, { rosterEntry }),
+            );
+          }
           selectSession(get, targetSessionId);
 
           const setOption = (diff: ConfigValueDiff) =>

@@ -9,11 +9,16 @@ import {
   isSessionActiveOrActivating,
   normalizeSessionRoster,
   resolveSessionCwd,
-  upsertRosterEntry,
 } from '../host/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { listRecursiveEntries } from '../host/fdListing.ts';
+import {
+  dropSession,
+  markSessionInactive,
+  materializeIntoSnapshot,
+  replaceSessionRoster,
+} from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
@@ -33,7 +38,7 @@ import {
 } from './backendState.atoms.ts';
 import { sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { patchSession, upsertSession } from './sessionPatch.atoms.ts';
+import { patchSession } from './sessionPatch.atoms.ts';
 
 const preloadSessionFsListing = (get: Atom.FnContext, sessionId: string, cwd: string) =>
   Effect.gen(function* () {
@@ -75,10 +80,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
           const listPayload = listSessionsPayload(get(sessionListScopeAtom));
           if (listPayload === undefined) {
             const current = get(backendHarnessStateAtom(launchTarget));
-            get.set(backendHarnessStateAtom(launchTarget), {
-              ...current,
-              sessionRoster: [],
-            });
+            get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
             clearSelectedSessionIfMissing(get);
             return;
           }
@@ -86,10 +88,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
           yield* Effect.logDebug('Refreshing session roster', launchTarget);
           const listResult = yield* listSessions(launchTarget, listPayload);
           const current = get(backendHarnessStateAtom(launchTarget));
-          get.set(backendHarnessStateAtom(launchTarget), {
-            ...current,
-            sessionRoster: normalizeSessionRoster(listResult),
-          });
+          get.set(
+            backendHarnessStateAtom(launchTarget),
+            replaceSessionRoster(current, normalizeSessionRoster(listResult)),
+          );
           clearSelectedSessionIfMissing(get);
         },
         (effect, launchTarget) =>
@@ -112,18 +114,15 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
               }
               if (listPayload === undefined) {
                 const current = get(backendHarnessStateAtom(launchTarget));
-                get.set(backendHarnessStateAtom(launchTarget), {
-                  ...current,
-                  sessionRoster: [],
-                });
+                get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
                 return;
               }
               const listResult = yield* listSessions(launchTarget, listPayload);
               const current = get(backendHarnessStateAtom(launchTarget));
-              get.set(backendHarnessStateAtom(launchTarget), {
-                ...current,
-                sessionRoster: normalizeSessionRoster(listResult),
-              });
+              get.set(
+                backendHarnessStateAtom(launchTarget),
+                replaceSessionRoster(current, normalizeSessionRoster(listResult)),
+              );
             }),
           { concurrency: 'unbounded' },
         );
@@ -154,14 +153,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
           const rosterEntry = rosterEntryFromNew(result, cwd);
           const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
 
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...nextSnapshot,
-            sessionRoster:
-              rosterEntry === undefined
-                ? nextSnapshot.sessionRoster
-                : upsertRosterEntry(nextSnapshot.sessionRoster, rosterEntry),
-            sessions: upsertSession(nextSnapshot.sessions, session),
-          });
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            materializeIntoSnapshot(nextSnapshot, { rosterEntry, session }),
+          );
           selectSession(get, sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
           yield* preloadSessionFsListing(get, sessionId, cwd);
@@ -282,13 +277,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
           yield* closeSession(arg.launchTarget, arg.sessionId);
 
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...get(backendHarnessStateAtom(arg.launchTarget)),
-            sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({
-              ...session,
-              status: 'inactive',
-            })),
-          });
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            markSessionInactive(get(backendHarnessStateAtom(arg.launchTarget)), arg.sessionId),
+          );
 
           if (get(selectedSessionIdAtom) === arg.sessionId) {
             get.set(selectedSessionIdAtom, undefined);
@@ -331,14 +323,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             ),
           );
 
-          const { [arg.sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
-          const sessionRoster = snapshot.sessionRoster.filter(entry => entry.sessionId !== arg.sessionId);
-
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...snapshot,
-            sessionRoster,
-            sessions: remainingSessions,
-          });
+          get.set(backendHarnessStateAtom(arg.launchTarget), dropSession(snapshot, arg.sessionId));
 
           if (get(selectedSessionIdAtom) === arg.sessionId) {
             get.set(selectedSessionIdAtom, undefined);

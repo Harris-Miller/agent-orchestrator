@@ -9,10 +9,10 @@ import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from '../host/backendHarness.ts';
+import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { patchSession, upsertSession } from './sessionSnapshot.ts';
 
 export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime, hostRunFork } = runtime;

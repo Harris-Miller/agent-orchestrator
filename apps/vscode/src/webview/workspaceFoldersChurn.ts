@@ -7,6 +7,7 @@ import {
   selectedSessionIdAtom,
   sessionListScopeAtom,
   sessionListScopeFromPaths,
+  stripSessionPendings,
 } from '@lib/ui';
 import type { AgentLaunchTarget, BackendHarnessSnapshot } from '@lib/ui';
 import { Effect } from 'effect';
@@ -37,25 +38,7 @@ const stripPendingOnMatched = (
     byTarget.set(match.launchTarget, list);
   }
   for (const [launchTarget, sessionIds] of byTarget) {
-    const idSet = new Set(sessionIds);
-    registry.update(backendHarnessStateAtom(launchTarget), current => ({
-      ...current,
-      sessions: Object.fromEntries(
-        Object.entries(current.sessions).map(([sessionId, session]) =>
-          idSet.has(sessionId)
-            ? [
-                sessionId,
-                {
-                  ...session,
-                  pendingClientRequest: undefined,
-                  pendingElicitation: undefined,
-                  pendingPermission: undefined,
-                },
-              ]
-            : [sessionId, session],
-        ),
-      ),
-    }));
+    registry.update(backendHarnessStateAtom(launchTarget), current => stripSessionPendings(current, sessionIds));
   }
 };
 

@@ -3,7 +3,6 @@ import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { upsertRosterEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
@@ -13,12 +12,13 @@ import {
   extractHandoffDocument,
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
+import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
-import { patchSession, sendPromptSoftCancel, upsertSession, withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
 
@@ -134,13 +134,10 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           const rosterEntry = rosterEntryFromNew(result, cwd);
           const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-          get.set(backendHarnessStateAtom(arg.targetLaunchTarget), {
-            ...createdSnapshot,
-            sessionRoster:
-              rosterEntry === undefined
-                ? createdSnapshot.sessionRoster
-                : upsertRosterEntry(createdSnapshot.sessionRoster, rosterEntry),
-          });
+          get.set(
+            backendHarnessStateAtom(arg.targetLaunchTarget),
+            materializeIntoSnapshot(createdSnapshot, { rosterEntry }),
+          );
           selectSession(get, targetSessionId);
 
           const setOption = (diff: ConfigValueDiff) =>
@@ -153,13 +150,12 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
           const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-          get.set(backendHarnessStateAtom(arg.targetLaunchTarget), {
-            ...configuredSnapshot,
-            sessions: upsertSession(
-              configuredSnapshot.sessions,
-              buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
-            ),
-          });
+          get.set(
+            backendHarnessStateAtom(arg.targetLaunchTarget),
+            materializeIntoSnapshot(configuredSnapshot, {
+              session: buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
+            }),
+          );
 
           const seedExit = yield* Effect.exit(
             promptPinnedSession(

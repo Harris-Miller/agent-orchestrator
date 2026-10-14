@@ -56,6 +56,7 @@ export * from './host/fdListing.ts';
 export * from './host/findExecutableOnPath.ts';
 export * from './host/groupAndSortSessionsForNav.ts';
 export * from './host/handoffDocument.ts';
+export * from './host/harnessStateTransitions.ts';
 export * from './host/noFolderSessionCwd.ts';
 export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';

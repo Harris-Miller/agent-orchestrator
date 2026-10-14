@@ -8,6 +8,10 @@ Shared Agent Harness webview context: Backend Harness behavior, Harness applicat
 The reactive Harness state shared across host webviews — backend harness phase and selection, sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
+**Harness state transition**:
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, roster replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.
+_Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
+
 **Backend harness**:
 A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, Config probe, and buffered session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)

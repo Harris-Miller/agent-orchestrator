@@ -2,6 +2,8 @@ import 'allotment/dist/style.css';
 
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  AgentLaunchTargetIcon,
+  agentLaunchTargetLabel,
   allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
@@ -9,10 +11,15 @@ import {
   isRecord,
   OpenDeveloperPanelButton,
   PANEL_HEADER_HEIGHT,
+  selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
+  selectedSessionIdAtom,
+  selectedSessionLaunchTargetAtom,
   SessionChatBody,
+  unifiedSessionRosterAtom,
   useDeveloperPanelOpen,
+  virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -83,9 +90,23 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
+  const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const virtualSession = useAtomValue(virtualSessionAtom);
+  const roster = useAtomValue(unifiedSessionRosterAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+
+  const isVirtual = selected?._tag === 'Virtual';
+  const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
+  const entry = selectedSessionId === undefined ? undefined : roster.find(row => row.sessionId === selectedSessionId);
+  const title = isVirtual
+    ? 'New Session'
+    : entry === undefined
+      ? 'Chat'
+      : (entry.title ?? (launchTarget === undefined ? 'Chat' : agentLaunchTargetLabel(launchTarget)));
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);
@@ -172,8 +193,9 @@ export const AgentChatWorkbench: FC<{
                       Sessions
                     </Button>
                   )}
-                  <Typography sx={{ flexGrow: 1 }} variant="h6">
-                    Agent Chat
+                  {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
+                  <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
+                    {title}
                   </Typography>
                   <OpenDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (

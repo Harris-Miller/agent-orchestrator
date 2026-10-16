@@ -15,7 +15,7 @@ export type PartitionedComposerConfigOptions = {
     | undefined;
 };
 
-/** Split Config options for F chrome: Access=`mode`; model slot always when `model` present (effort optional). */
+/** Split Config options for composer chrome: `mode`; model slot when `model` present (effort optional). */
 export const partitionComposerConfigOptions = (
   options: readonly NormalizedConfigOption[],
 ): PartitionedComposerConfigOptions => {

@@ -8,6 +8,15 @@ export type SelectChoiceView = {
   readonly label: string;
 };
 
+/** Chip label: current choice name, else option name. */
+export const configOptionChoiceLabel = (option: NormalizedSelectConfigOption): string => {
+  const current = option.currentValue;
+  if (current === undefined) {
+    return option.name;
+  }
+  return option.choices.find(choice => choice.id === current)?.name ?? current;
+};
+
 /** Model select choice label when the id is an Unavailable model. */
 export const modelSelectChoiceLabel = (name: string, unavailable: boolean): string =>
   unavailable ? `${name} (unavailable)` : name;

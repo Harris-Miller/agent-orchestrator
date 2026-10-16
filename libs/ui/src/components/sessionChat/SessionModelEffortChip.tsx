@@ -5,23 +5,14 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
-import type { FC, MouseEvent } from 'react';
+import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
-import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
-import { selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
-
-const choiceLabel = (option: NormalizedSelectConfigOption): string => {
-  const current = option.currentValue;
-  if (current === undefined) {
-    return option.name;
-  }
-  return option.choices.find(choice => choice.id === current)?.name ?? current;
-};
+import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';
+import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 export const SessionModelEffortChip: FC<{
   readonly disabled?: boolean;
@@ -30,38 +21,26 @@ export const SessionModelEffortChip: FC<{
   readonly onChange: (diff: ConfigValueDiff) => void;
   readonly unavailableModelIds?: readonly string[];
 }> = ({ disabled = false, effort, model, onChange, unavailableModelIds = [] }) => {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const menu = useComposerChromeMenu();
   const modelViews = selectChoiceViews(model, unavailableModelIds);
   const effortViews = effort === undefined ? [] : selectChoiceViews(effort);
   const dualColumn = effort !== undefined;
 
   return (
     <>
-      <ComposerChromeChip
-        active={anchorEl !== null}
-        disabled={disabled}
-        onClick={(event: MouseEvent<HTMLElement>) => {
-          setAnchorEl(event.currentTarget);
-        }}
-      >
+      <ComposerChromeChip active={menu.active} disabled={disabled} onClick={menu.openFromClick}>
         <Typography component="span" sx={{ color: 'text.primary', fontSize: 13 }}>
-          {choiceLabel(model)}
+          {configOptionChoiceLabel(model)}
         </Typography>
         {effort !== undefined ? (
           <Typography component="span" sx={{ color: 'text.secondary', fontSize: 13 }}>
-            · {choiceLabel(effort)}
+            · {configOptionChoiceLabel(effort)}
           </Typography>
         ) : null}
       </ComposerChromeChip>
       <Menu
-        anchorEl={anchorEl}
-        anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
-        onClose={() => {
-          setAnchorEl(null);
-        }}
-        open={anchorEl !== null}
+        {...menu.menuProps}
         slotProps={dualColumn ? { list: { sx: { display: 'flex', flexDirection: 'row', p: 0 } } } : undefined}
-        transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
       >
         <Box sx={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH, py: 0.5 }}>
           {dualColumn ? (
@@ -77,7 +56,7 @@ export const SessionModelEffortChip: FC<{
                 onClick={() => {
                   onChange({ configId: model.id, type: 'select', value: view.id });
                   if (!dualColumn) {
-                    setAnchorEl(null);
+                    menu.close();
                   }
                 }}
                 selected={model.currentValue === view.id}

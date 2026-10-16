@@ -1,59 +1,36 @@
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import { useState } from 'react';
-import type { FC, MouseEvent } from 'react';
+import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
-import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
-import { selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
+import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';
+import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
-const choiceLabel = (option: NormalizedSelectConfigOption): string => {
-  const current = option.currentValue;
-  if (current === undefined) {
-    return option.name;
-  }
-  return option.choices.find(choice => choice.id === current)?.name ?? current;
-};
-
-/** Access chip bound to Config option `mode`. */
+/** Chip bound to Config option `mode` (UI label may say Access). */
 export const SessionAccessChip: FC<{
   readonly disabled?: boolean;
   readonly onChange: (diff: ConfigValueDiff) => void;
   readonly option: NormalizedSelectConfigOption;
 }> = ({ disabled = false, onChange, option }) => {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const menu = useComposerChromeMenu();
   const views = selectChoiceViews(option);
 
   return (
     <>
-      <ComposerChromeChip
-        disabled={disabled}
-        onClick={(event: MouseEvent<HTMLElement>) => {
-          setAnchorEl(event.currentTarget);
-        }}
-      >
-        {choiceLabel(option)}
+      <ComposerChromeChip disabled={disabled} onClick={menu.openFromClick}>
+        {configOptionChoiceLabel(option)}
       </ComposerChromeChip>
-      <Menu
-        anchorEl={anchorEl}
-        anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
-        onClose={() => {
-          setAnchorEl(null);
-        }}
-        open={anchorEl !== null}
-        slotProps={{ paper: { sx: { minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH } } }}
-        transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
-      >
+      <Menu {...menu.menuProps} slotProps={{ paper: { sx: { minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH } } }}>
         {views.map(view => (
           <MenuItem
             key={view.id}
             onClick={() => {
               onChange({ configId: option.id, type: 'select', value: view.id });
-              setAnchorEl(null);
+              menu.close();
             }}
             selected={option.currentValue === view.id}
             sx={{ alignItems: 'flex-start', whiteSpace: 'normal' }}

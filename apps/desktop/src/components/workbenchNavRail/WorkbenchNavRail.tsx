@@ -1,10 +1,8 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { AgentLaunchTarget, NavSessionGroup, UnifiedRosterEntry } from '@lib/ui';
+import type { NavSessionGroup, UnifiedRosterEntry } from '@lib/ui';
 import {
-  AgentLaunchTargetMenu,
-  allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
-  createSessionAtomFn,
+  ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   navSessionGroupStableKey,
   PanelHeader,
@@ -32,10 +30,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
-import type { FC, MouseEvent } from 'react';
-
-import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
+import type { FC } from 'react';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
@@ -77,43 +72,12 @@ export const WorkbenchNavRail: FC<{
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
-  const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest();
   const navigate = useNavigate();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
-  const [createCwd, setCreateCwd] = useState<string | undefined>(undefined);
-  const [creating, setCreating] = useState(false);
 
-  const anyReady = backendPhases.some(entry => entry.phase === 'ready');
   const navGroups = groupAndSortSessionsForNav(roster).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
-
-  const closeAgentMenu = () => {
-    setAgentMenuAnchor(null);
-    setCreateCwd(undefined);
-  };
-
-  const openAgentMenu = (event: MouseEvent<HTMLElement>, cwd: string) => {
-    event.stopPropagation();
-    setCreateCwd(cwd);
-    setAgentMenuAnchor(event.currentTarget);
-  };
-
-  const createWithAgent = (launchTarget: AgentLaunchTarget) => {
-    if (createCwd === undefined || creating) {
-      return;
-    }
-    const cwd = createCwd;
-    setCreating(true);
-    closeAgentMenu();
-    createSession({ cwd, launchTarget })
-      .catch(() => undefined)
-      .finally(() => {
-        setCreating(false);
-      });
-  };
 
   return (
     <>
@@ -135,7 +99,6 @@ export const WorkbenchNavRail: FC<{
           titleEnd={
             <IconButton
               aria-label="Reload sessions"
-              disabled={!anyReady}
               onClick={() => {
                 refreshAllSessionRosters(undefined).catch(() => undefined);
               }}
@@ -149,10 +112,9 @@ export const WorkbenchNavRail: FC<{
         />
         <Box sx={{ flexShrink: 0, p: 2 }}>
           <Button
-            disabled={!anyReady}
             fullWidth
             onClick={() => {
-              setCreateOpen(true);
+              ensureVirtualSession(undefined).catch(() => undefined);
             }}
             variant="contained"
           >
@@ -216,11 +178,13 @@ export const WorkbenchNavRail: FC<{
                         <IconButton
                           aria-label={`Create session in ${presentation.label}`}
                           component="span"
-                          disabled={!anyReady || creating}
                           edge="end"
                           onClick={event => {
                             event.stopPropagation();
-                            openAgentMenu(event, createCwdForGroup);
+                            ensureVirtualSession({
+                              cwd: createCwdForGroup,
+                              patchCwdIfSelectedVirtual: true,
+                            }).catch(() => undefined);
                           }}
                           size="small"
                           sx={{ flexShrink: 0, ml: 'auto' }}
@@ -260,21 +224,6 @@ export const WorkbenchNavRail: FC<{
           </ListItemButton>
         </Box>
       </Box>
-
-      {createOpen ? (
-        <CreateSessionDirectoryPicker
-          onClose={() => {
-            setCreateOpen(false);
-          }}
-        />
-      ) : null}
-
-      <AgentLaunchTargetMenu
-        anchorEl={agentMenuAnchor}
-        creating={creating}
-        onClose={closeAgentMenu}
-        onSelect={createWithAgent}
-      />
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} target={deleteTarget} />
     </>

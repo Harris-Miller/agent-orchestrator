@@ -1,10 +1,12 @@
 import {
   ALL_AGENT_LAUNCH_TARGETS,
+  applyVirtualSessionFolderChurn,
   backendHarnessStateAtom,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
   refreshAllSessionRostersAtomFn,
-  selectedSessionIdAtom,
+  rwFromRegistry,
+  selectedAtom,
   sessionListScopeAtom,
   sessionListScopeFromPaths,
   stripSessionPendings,
@@ -46,9 +48,9 @@ const clearSelectedIfMatched = (
   registry: AtomRegistry.AtomRegistry,
   matches: readonly { readonly sessionId: string }[],
 ): void => {
-  const selected = registry.get(selectedSessionIdAtom);
-  if (selected !== undefined && matches.some(match => match.sessionId === selected)) {
-    registry.set(selectedSessionIdAtom, undefined);
+  const selected = registry.get(selectedAtom);
+  if (selected?._tag === 'Session' && matches.some(match => match.sessionId === selected.sessionId)) {
+    registry.set(selectedAtom, undefined);
   }
 };
 
@@ -82,7 +84,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
 
   if (!anyBackendReady(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
-    registry.set(selectedSessionIdAtom, undefined);
+    applyVirtualSessionFolderChurn(rwFromRegistry(registry), nextSessionCwd);
     return;
   }
 
@@ -107,6 +109,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
+  applyVirtualSessionFolderChurn(rwFromRegistry(registry), nextSessionCwd);
 
   yield* runAtomFn(registry, refreshAllSessionRostersAtomFn, undefined).pipe(Effect.ignore);
 });

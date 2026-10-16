@@ -5,9 +5,11 @@ import {
   AppThemeProvider,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
+  ensureVirtualSession,
   FdPrerequisiteGate,
   PersistUserSettingsToast,
   refreshAllSessionRostersAtomFn,
+  rwFromRegistry,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -25,6 +27,7 @@ import type { FC } from 'react';
 import { hostIpcClient } from './bindHostRuntime.ts';
 import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
+import { firstFolderPath } from './sessionsMatchingSessionCwd.ts';
 import { applyWorkspaceFolderPaths, handleWorkspaceFoldersChanged } from './workspaceFoldersChurn.ts';
 
 const WorkspaceFoldersGate: FC = () => {
@@ -47,6 +50,10 @@ const WorkspaceFoldersGate: FC = () => {
               return;
             }
             applyWorkspaceFolderPaths(registry, paths);
+            const bootCwd = firstFolderPath(paths);
+            if (bootCwd !== undefined) {
+              ensureVirtualSession(rwFromRegistry(registry), { cwd: bootCwd });
+            }
             setFoldersReady(true);
             disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextPaths => {
               Effect.runFork(

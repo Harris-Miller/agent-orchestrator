@@ -1,6 +1,6 @@
 # Config option index via Config probe (supersedes provider catalog + harness defaults)
 
-Selectable config options for create/handoff are no longer persisted to disk. During Bootstrap **`probing`**, a disposable-cwd **Config probe** builds an ephemeral **Config option index** (State Atom per agent launch target: `defaultModelId` + `byModel` selectable rows with probe `currentValue`s + `unavailableModelIds`). Handoff reads that index; Create uses `session/new` `currentValue`s only.
+Selectable config options for create/handoff are no longer persisted to disk. During Bootstrap **`probing`**, a disposable-cwd **Config probe** builds an ephemeral **Config option index** (State Atom per agent launch target: `defaultModelId` + `byModel` selectable rows with probe `currentValue`s + `unavailableModelIds`). Handoff and Virtual-session chat read that index for pickers; Materialize-on-first-send still applies Config diffs after `session/new` (same as Handoff).
 
 Each model’s successful `set_config_option` response is stored **as-is** under that model id (authoritative full option-id set for that model — no probe-local merge across models). Chat live Session configuration still merges `options` fill-in for present ids but **drops** ids absent from the response (#53 absorbed).
 

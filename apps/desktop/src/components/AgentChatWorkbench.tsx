@@ -1,10 +1,11 @@
 import 'allotment/dist/style.css';
 
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
+  ensureVirtualSessionAtomFn,
   isRecord,
   OpenDeveloperPanelButton,
   PANEL_HEADER_HEIGHT,
@@ -18,10 +19,11 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
+import { VirtualProjectChrome } from './VirtualProjectChrome.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
@@ -83,6 +85,11 @@ export const AgentChatWorkbench: FC<{
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+
+  useEffect(() => {
+    ensureVirtualSession(undefined).catch(() => undefined);
+  }, [ensureVirtualSession]);
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -182,7 +189,7 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody onClientError={onClientError} />
+                <SessionChatBody aboveComposer={<VirtualProjectChrome />} onClientError={onClientError} />
               </Box>
             </Allotment.Pane>
 

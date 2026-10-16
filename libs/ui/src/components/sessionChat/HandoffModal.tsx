@@ -11,54 +11,13 @@ import Stack from '@mui/material/Stack';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { configValuesFromOptions, preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
+import { hardResetForAgent, optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../../host/configProbe.ts';
 
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
-
-const optionsWithValues = (
-  options: readonly NormalizedConfigOption[],
-  values: ConfigOptionValues,
-): readonly NormalizedConfigOption[] =>
-  options.map(option => {
-    if (!Object.hasOwn(values, option.id)) {
-      return option;
-    }
-    const value = values[option.id];
-    if (option.type === 'boolean' && typeof value === 'boolean') {
-      return { ...option, currentValue: value };
-    }
-    if (option.type === 'select' && typeof value === 'string') {
-      return { ...option, currentValue: value };
-    }
-    return option;
-  });
-
-const rowForModel = (
-  index: ConfigOptionIndex | undefined,
-  modelId: string | undefined,
-): readonly NormalizedConfigOption[] => {
-  if (index === undefined || modelId === undefined) {
-    return [];
-  }
-  return index.byModel[modelId] ?? [];
-};
-
-const hardResetForAgent = (
-  index: ConfigOptionIndex | undefined,
-): {
-  readonly options: readonly NormalizedConfigOption[];
-  readonly values: ConfigOptionValues;
-} => {
-  if (index === undefined) {
-    return { options: [], values: {} };
-  }
-  const options = rowForModel(index, index.defaultModelId);
-  return { options, values: configValuesFromOptions(options) };
-};
 
 const initialLaunchTarget = (
   readyLaunchTargets: readonly AgentLaunchTarget[],

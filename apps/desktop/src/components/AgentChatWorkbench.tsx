@@ -1,27 +1,36 @@
 import 'allotment/dist/style.css';
 
-import { useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  AgentLaunchTargetIcon,
   allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
+  ensureVirtualSessionAtomFn,
   isRecord,
   OpenDeveloperPanelButton,
   PANEL_HEADER_HEIGHT,
+  selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
+  selectedSessionIdAtom,
+  selectedSessionLaunchTargetAtom,
   SessionChatBody,
+  sessionChatTitle,
+  unifiedSessionRosterAtom,
   useDeveloperPanelOpen,
+  virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
+import { VirtualProjectChrome } from './VirtualProjectChrome.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
@@ -81,8 +90,23 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
+  const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const virtualSession = useAtomValue(virtualSessionAtom);
+  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+
+  const isVirtual = selected?._tag === 'Virtual';
+  const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
+  const entry = selectedSessionId === undefined ? undefined : roster.find(row => row.sessionId === selectedSessionId);
+  const title = sessionChatTitle(isVirtual, entry, launchTarget);
+
+  useEffect(() => {
+    ensureVirtualSession(undefined).catch(() => undefined);
+  }, [ensureVirtualSession]);
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };
@@ -165,8 +189,9 @@ export const AgentChatWorkbench: FC<{
                       Sessions
                     </Button>
                   )}
-                  <Typography sx={{ flexGrow: 1 }} variant="h6">
-                    Agent Chat
+                  {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
+                  <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
+                    {title}
                   </Typography>
                   <OpenDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
@@ -182,7 +207,7 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody onClientError={onClientError} />
+                <SessionChatBody aboveComposer={<VirtualProjectChrome />} onClientError={onClientError} />
               </Box>
             </Allotment.Pane>
 

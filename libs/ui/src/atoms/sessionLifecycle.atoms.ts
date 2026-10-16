@@ -32,8 +32,9 @@ import {
 
 import {
   backendHarnessStateAtom,
+  clearSelected,
   clearSelectedSessionIfMissing,
-  selectedSessionIdAtom,
+  selectedAtom,
   selectSession,
 } from './backendState.atoms.ts';
 import { sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
@@ -60,6 +61,14 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     .fn((sessionId: string, get) =>
       Effect.sync(() => {
         selectSession(get, sessionId);
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  const clearSelectedAtomFn = atomRuntime
+    .fn((_arg: undefined, get: Atom.FnContext) =>
+      Effect.sync(() => {
+        clearSelected(get);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -282,8 +291,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             markSessionInactive(get(backendHarnessStateAtom(arg.launchTarget)), arg.sessionId),
           );
 
-          if (get(selectedSessionIdAtom) === arg.sessionId) {
-            get.set(selectedSessionIdAtom, undefined);
+          const selected = get(selectedAtom);
+          if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
+            clearSelected(get);
           }
         },
         (effect, arg) =>
@@ -325,8 +335,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
           get.set(backendHarnessStateAtom(arg.launchTarget), dropSession(snapshot, arg.sessionId));
 
-          if (get(selectedSessionIdAtom) === arg.sessionId) {
-            get.set(selectedSessionIdAtom, undefined);
+          const selected = get(selectedAtom);
+          if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
+            clearSelected(get);
           }
         },
         (effect, arg) =>
@@ -341,6 +352,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
   return {
     activateSessionAtomFn,
+    clearSelectedAtomFn,
     createSessionAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,

@@ -1,4 +1,4 @@
-import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Stop from '@mui/icons-material/Stop';
@@ -18,30 +18,23 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import {
-  configOptionIndexAtom,
-  readyLaunchTargetsAtom,
-  selectedBackendHarnessSnapshotAtom,
-  selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-} from '../../atoms/backendState.atoms.ts';
+import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
   cancelPromptAtomFn,
   handoffSessionAtomFn,
+  materializeVirtualThenSendAtomFn,
+  patchVirtualSessionAtomFn,
   refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { draftAtom } from '../../atoms/chat.atoms.ts';
-import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
-import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { rowForModel } from '../../host/configOptionIndexUi.ts';
+import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -64,6 +57,8 @@ import { PendingPermissionCard } from './PendingPermissionCard.tsx';
 import { resolveComposerFsMentions } from './resolveComposerFsMentions.ts';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { UsagePopover } from './UsagePopover.tsx';
+import { useSessionChatSurface } from './useSessionChatSurface.ts';
+import { VirtualSessionAgentSelect } from './VirtualSessionAgentSelect.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
@@ -83,21 +78,38 @@ const formatActivationDefect = (defect: unknown): string => {
 };
 
 export const SessionChatBody: FC<{
+  readonly aboveComposer?: ReactNode;
   readonly onClientError: (error: unknown) => void;
-}> = ({ onClientError }) => {
-  const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
-  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const draftSessionId = selectedSessionId ?? '';
-  const [draft, setDraft] = useAtom(draftAtom(draftSessionId));
+}> = ({ aboveComposer, onClientError }) => {
+  const {
+    availableCommands,
+    canCancelPromptTurn,
+    canHandoffBase: canHandoff,
+    canSend,
+    chatItems,
+    chromeLocked,
+    configOptions,
+    controlsEnabled,
+    draft,
+    getConfigOptionIndex,
+    hasPendingInteraction,
+    isVirtual,
+    pendingClientRequest,
+    readyLaunchTargets,
+    selectedLaunchTarget,
+    selectedSession,
+    selectedSessionId,
+    setDraft,
+    setVirtualLaunchTarget,
+    virtualConfigIndex,
+    virtualConfigValues,
+    virtualMaterializeInFlight,
+  } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const selectedSession = useAtomValue(selectedSessionAtom);
-  const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const { fsListing, sessionCwd, sourceCwd } = useSelectedSessionFsListing();
-  const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
-  const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
-  const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
-  const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
+  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
+  const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
+  const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
@@ -105,17 +117,6 @@ export const SessionChatBody: FC<{
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const refreshSessionFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
-
-  const getConfigOptionIndex = (launchTarget: AgentLaunchTarget) => {
-    switch (launchTarget) {
-      case 'claude-agent-acp':
-        return claudeConfigIndex;
-      case 'codex-acp':
-        return codexConfigIndex;
-      case 'gemini-acp':
-        return geminiConfigIndex;
-    }
-  };
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
@@ -126,26 +127,6 @@ export const SessionChatBody: FC<{
   const composerCursorRef = useRef(0);
   const syncCursorRef = useRef<null | number>(null);
 
-  const chatItems = useMemo(() => selectedSession?.transcript.items ?? [], [selectedSession?.transcript.items]);
-  const availableCommands = useMemo(
-    () => selectedSession?.availableCommands ?? [],
-    [selectedSession?.availableCommands],
-  );
-  const configOptions = normalizeConfigOptions(selectedSession?.sessionConfiguration);
-  const hasPendingInteraction =
-    selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
-  const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
-  const canCancelPromptTurn = selectedSession?.pendingClientRequest === 'prompt';
-  const controlsEnabled =
-    selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !handoffInProgress;
-  const canSend = controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
-  const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
-  const canHandoff =
-    controlsEnabled &&
-    selectedLaunchTarget !== undefined &&
-    selectedSessionId !== undefined &&
-    hasTranscriptMessage &&
-    sourceCwd !== undefined;
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
 
   const commandTrigger = useMemo((): ({ readonly kind: 'dollar' | 'slash' } & ComposerTrigger) | null => {
@@ -335,12 +316,19 @@ export const SessionChatBody: FC<{
   }, [composerTrigger, draft, sessionCwd, setDraft]);
 
   const sendDraft = () => {
-    if (selectedLaunchTarget === undefined || !controlsEnabled || draft.trim().length === 0) {
+    if (!canSend) {
       return;
     }
 
-    const text = draft;
     setComposerTrigger(null);
+    if (isVirtual) {
+      materializeVirtualThenSend(undefined).catch(onClientError);
+      return;
+    }
+    if (selectedLaunchTarget === undefined) {
+      return;
+    }
+    const text = draft;
     setDraft('');
     sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
@@ -362,6 +350,9 @@ export const SessionChatBody: FC<{
   };
 
   const emptyStateSecondary: ReactNode = (() => {
+    if (isVirtual) {
+      return <Alert severity="info">New session — choose an agent and project, then send a prompt to create it.</Alert>;
+    }
     if (selectedLaunchTarget === undefined) {
       return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
@@ -506,6 +497,17 @@ export const SessionChatBody: FC<{
             </Typography>
           ) : null}
           <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {aboveComposer}
+            {isVirtual ? (
+              <VirtualSessionAgentSelect
+                disabled={chromeLocked}
+                onChange={launchTarget => {
+                  setVirtualLaunchTarget(launchTarget).catch(() => undefined);
+                }}
+                readyLaunchTargets={readyLaunchTargets}
+                value={selectedLaunchTarget}
+              />
+            ) : null}
             <ComposerCommandMenu
               focusedIndex={clampedCommandFocus}
               matches={filteredCommandMatches}
@@ -525,13 +527,17 @@ export const SessionChatBody: FC<{
               availableCommands={availableCommands}
               commandMenu={commandMenu}
               disabled={!controlsEnabled}
-              key={selectedSessionId ?? 'none'}
+              key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onSubmit={sendDraft}
               placeholder={
-                selectedLaunchTarget === undefined
-                  ? 'Select a session…'
-                  : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
+                isVirtual
+                  ? selectedLaunchTarget === undefined
+                    ? 'Choose an agent, then write a prompt…'
+                    : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
+                  : selectedLaunchTarget === undefined
+                    ? 'Select a session…'
+                    : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
               }
               syncCursorRef={syncCursorRef}
               value={draft}
@@ -543,6 +549,26 @@ export const SessionChatBody: FC<{
                   key={option.id}
                   onChange={diff => {
                     if (selectedLaunchTarget === undefined) {
+                      return;
+                    }
+                    if (isVirtual) {
+                      const current = virtualConfigValues;
+                      if (diff.type === 'boolean') {
+                        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(
+                          () => undefined,
+                        );
+                        return;
+                      }
+                      if (diff.configId !== 'model') {
+                        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(
+                          () => undefined,
+                        );
+                        return;
+                      }
+                      const nextRow = rowForModel(virtualConfigIndex, diff.value);
+                      patchVirtualSession({
+                        configValues: preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow),
+                      }).catch(() => undefined);
                       return;
                     }
                     setConfigOption(
@@ -570,13 +596,13 @@ export const SessionChatBody: FC<{
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />
-              <UsagePopover usage={selectedSession?.usage} />
+              {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
               <ButtonGroup variant="contained">
                 <Button
                   aria-label={
                     canCancelPromptTurn
                       ? 'Prompt turn cancel'
-                      : pendingClientRequest
+                      : pendingClientRequest || virtualMaterializeInFlight
                         ? 'Pending client request'
                         : 'Send'
                   }
@@ -594,7 +620,7 @@ export const SessionChatBody: FC<{
                 >
                   {canCancelPromptTurn ? (
                     <Stop fontSize="small" />
-                  ) : pendingClientRequest ? (
+                  ) : pendingClientRequest || virtualMaterializeInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <ArrowUpward fontSize="small" />
@@ -605,7 +631,7 @@ export const SessionChatBody: FC<{
                   aria-expanded={splitMenuAnchor !== null ? 'true' : undefined}
                   aria-haspopup="menu"
                   aria-label="Open send options"
-                  disabled={handoffInProgress || selectedLaunchTarget === undefined}
+                  disabled={isVirtual || chromeLocked || selectedLaunchTarget === undefined}
                   onClick={event => {
                     setSplitMenuAnchor(event.currentTarget);
                   }}
@@ -637,7 +663,7 @@ export const SessionChatBody: FC<{
         </Stack>
       </Paper>
 
-      {selectedLaunchTarget !== undefined && handoffModalOpen ? (
+      {!isVirtual && selectedLaunchTarget !== undefined && handoffModalOpen ? (
         <HandoffModal
           getConfigOptionIndex={getConfigOptionIndex}
           key={`${selectedLaunchTarget}:${selectedSessionId ?? ''}`}

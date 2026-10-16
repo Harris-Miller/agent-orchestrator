@@ -8,14 +8,28 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 
+export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
+
+export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom.keepAlive);
+
+/**
+ * True only while Virtual Materialize-on-first-send runs (session/new + config + Select).
+ * Selection / create helpers no-op while true. Must not stay set during session/prompt.
+ */
+export const virtualMaterializeInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
+
+/** Session arm sessionId only; undefined when Virtual or no Selected. */
+export const selectedSessionIdAtom = Atom.make(get => {
+  const selected = get(selectedAtom);
+  return selected?._tag === 'Session' ? selected.sessionId : undefined;
+}).pipe(Atom.keepAlive);
+
 export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<ConfigOptionIndex | undefined>(undefined).pipe(
     Atom.withLabel(`configOptionIndex:${launchTarget}`),
     Atom.keepAlive,
   ),
 );
-
-export const selectedSessionIdAtom = Atom.make<string | undefined>(undefined).pipe(Atom.keepAlive);
 
 export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
@@ -95,18 +109,29 @@ export const readyLaunchTargetsAtom = Atom.make(get =>
   ),
 ).pipe(Atom.keepAlive);
 
+export const selectSession = (get: Atom.FnContext, sessionId: string) => {
+  if (get(virtualMaterializeInFlightAtom)) {
+    return;
+  }
+  get.set(selectedAtom, { _tag: 'Session', sessionId });
+};
+
+export const clearSelected = (get: Atom.FnContext) => {
+  if (get(virtualMaterializeInFlightAtom)) {
+    return;
+  }
+  get.set(selectedAtom, undefined);
+};
+
 export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {
-  const sessionId = get(selectedSessionIdAtom);
-  if (sessionId === undefined) {
+  const selected = get(selectedAtom);
+  if (selected?._tag !== 'Session') {
     return;
   }
   if (
-    findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), sessionId) === undefined
+    findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), selected.sessionId) ===
+    undefined
   ) {
-    get.set(selectedSessionIdAtom, undefined);
+    clearSelected(get);
   }
-};
-
-export const selectSession = (get: Atom.FnContext, sessionId: string) => {
-  get.set(selectedSessionIdAtom, sessionId);
 };

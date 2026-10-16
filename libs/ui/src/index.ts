@@ -20,6 +20,18 @@ export {
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
+export {
+  applyVirtualSessionFolderChurn,
+  createVirtualSessionAtoms,
+  discardVirtualSession,
+  ensureVirtualSession,
+  lastCreateDefaultsAtom,
+  patchVirtualSession,
+  rwFromRegistry,
+  setVirtualLaunchTarget,
+  virtualSessionAtom,
+} from './atoms/virtualSession.atoms.ts';
+export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
@@ -33,8 +45,8 @@ export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
-
 export * from './components/sessionRoster/AgentLaunchTargetMenu.tsx';
+
 export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
@@ -49,6 +61,7 @@ export * from './host/agentLaunchTarget.ts';
 export * from './host/applySessionUpdate.ts';
 export * from './host/backendHarness.ts';
 export * from './host/clientHandlers.ts';
+export * from './host/configOptionIndexUi.ts';
 export * from './host/configProbe.ts';
 export * from './host/draftToContentBlocks.ts';
 export * from './host/fdInstallCommands.ts';
@@ -62,6 +75,7 @@ export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';
 export * from './host/resolveFdBinary.ts';
 export * from './host/runFdInstallCommand.ts';
+export * from './host/sessionChatTitle.ts';
 export * from './host/sessionListScope.ts';
 export * from './host/sessionMaterialize.ts';
 export * from './host/sessionRpc.ts';

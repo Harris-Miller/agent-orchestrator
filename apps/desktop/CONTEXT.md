@@ -126,12 +126,16 @@ _Avoid_: Permission card, approval prompt, open permission
 A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present.
 _Avoid_: Pending client request, blocking dialog, modal
 
-**Selected session**:
-App-wide UI focus by `sessionId`; determines which transcript the main chat shows, which session receives prompts, and what the session-state panel displays. Not per-agent — switching focus is choosing a session, not an agent.
-_Avoid_: Current session, focused session
+**Virtual session**:
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd) owned by Harness application state. Not a Roster entry, not Active, not a Session snapshot until Materialize on first Send. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; `session/new` is deferred until first Send.
+_Avoid_: Draft session, pending session, unsaved session
+
+**Selected**:
+App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (desktop normally keeps Virtual or a Session selected). Determines which transcript/composer the main chat shows and what the session-state panel displays. Not per-agent.
+_Avoid_: Selected session (when you mean the union including Virtual), current session, focused session
 
 **Active session**:
-A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Multiple may be active per agent simultaneously; only the selected session accepts prompts.
+A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Multiple may be active per agent simultaneously; only the Selected Session arm accepts prompts after Materialize.
 _Avoid_: Open session, live session
 
 ## Agent backends

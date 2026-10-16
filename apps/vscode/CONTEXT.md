@@ -20,11 +20,11 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar view that lists Session roster rows for the current Workspace cwd and can create a new session against that path. On the vscode TanStack router this is the `/` shell when there is no Selected session (Settings is `/settings` with list→detail category routes).
+The sidebar view that lists Session roster rows for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
 _Avoid_: Session roster (the harness data), nav rail, chats list
 
 **Chat**:
-The sidebar view that shows the Selected session’s transcript and composer (same Harness behavior as desktop main chat). Shown on `/` when a Selected session is set (not a separate URL); entering it selects/activates that session, and back clears Selected so Session History shows again.
+The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if the roster is nonempty. Back clears Selected (Virtual blob kept until process restart); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
-For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md) and [`../../libs/context-services-vscode-webview/CONTEXT.md`](../../libs/context-services-vscode-webview/CONTEXT.md). For Session cwd / Session roster / Selected session / Active session, see [`../desktop/CONTEXT.md`](../desktop/CONTEXT.md).
+For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md) and [`../../libs/context-services-vscode-webview/CONTEXT.md`](../../libs/context-services-vscode-webview/CONTEXT.md). For Session cwd / Session roster / Virtual session / Selected / Active session, see [`../desktop/CONTEXT.md`](../desktop/CONTEXT.md).

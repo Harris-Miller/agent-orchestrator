@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Effect } from 'effect';
+import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/unstable/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -12,14 +12,55 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
-import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
+import { cancelSession, createSession, setConfigOption } from '../host/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessStateAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  selectedAtom,
+  selectedSessionIdAtom,
+  virtualMaterializeInFlightAtom,
+} from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
+
+const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
+  arg: { launchTarget: AgentLaunchTarget; text: string },
+  get: Atom.FnContext,
+) {
+  const trimmed = arg.text.trim();
+  const sessionId = get(selectedSessionIdAtom);
+  const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+  const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+
+  if (trimmed.length === 0 || session?.status !== 'active') {
+    return;
+  }
+
+  yield* Effect.annotateCurrentSpan({
+    'acp.agent': arg.launchTarget,
+    'acp.sessionId': session.sessionId,
+  });
+
+  get.set(backendHarnessStateAtom(arg.launchTarget), {
+    ...snapshot,
+    sessions: patchSession(snapshot.sessions, session.sessionId, current => withUserChatMessage(current, trimmed)),
+  });
+
+  yield* withSessionClientRequest(
+    arg.launchTarget,
+    get,
+    session.sessionId,
+    'prompt',
+    sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed),
+  );
+});
 
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
@@ -30,34 +71,102 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         arg: { launchTarget: AgentLaunchTarget; text: string },
         get: Atom.FnContext,
       ) {
-        const trimmed = arg.text.trim();
-        const sessionId = get(selectedSessionIdAtom);
-        const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-        const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+        yield* sendChatItemEffect(arg, get);
+      }),
+    )
+    .pipe(Atom.keepAlive);
 
-        if (trimmed.length === 0 || session?.status !== 'active') {
+  /**
+   * First send on Virtual: session/new → applyConfigDiffs → Materialize → draft copy →
+   * clear virtual + Select Session → sendChatItem. Stay on Virtual until Materialize succeeds.
+   * Materialize lock ends before session/prompt so switch/create stay available mid-turn.
+   */
+  const materializeVirtualThenSendAtomFn = atomRuntime
+    .fn(
+      Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        if (get(virtualMaterializeInFlightAtom)) {
+          return;
+        }
+        const selected = get(selectedAtom);
+        const virtual = get(virtualSessionAtom);
+        if (selected?._tag !== 'Virtual' || virtual === null) {
+          return;
+        }
+        const { configValues, cwd, draft, launchTarget } = virtual;
+        const trimmed = draft.trim();
+        if (
+          trimmed.length === 0 ||
+          launchTarget === undefined ||
+          cwd === undefined ||
+          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
+        ) {
           return;
         }
 
-        yield* Effect.annotateCurrentSpan({
-          'acp.agent': arg.launchTarget,
-          'acp.sessionId': session.sessionId,
-        });
+        const materialized = yield* Effect.gen(function* () {
+          get.set(virtualMaterializeInFlightAtom, true);
+          yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
+          yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd });
 
-        get.set(backendHarnessStateAtom(arg.launchTarget), {
-          ...snapshot,
-          sessions: patchSession(snapshot.sessions, session.sessionId, current =>
-            withUserChatMessage(current, trimmed),
+          const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
+          if (Exit.isFailure(createExit)) {
+            yield* Effect.logError('materializeVirtualThenSend session/new failed', launchTarget, createExit.cause);
+            return undefined;
+          }
+          const { cwd: createdCwd, result } = createExit.value;
+          const { sessionId } = result;
+          yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
+
+          const rosterEntry = rosterEntryFromNew(result, createdCwd);
+          if (rosterEntry !== undefined) {
+            const createdSnapshot = get(backendHarnessStateAtom(launchTarget));
+            get.set(backendHarnessStateAtom(launchTarget), materializeIntoSnapshot(createdSnapshot, { rosterEntry }));
+          }
+
+          const setOption = (diff: ConfigValueDiff) =>
+            setConfigOption(
+              launchTarget,
+              sessionId,
+              diff.configId,
+              diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
+            );
+          const afterOverrides = yield* applyConfigDiffs(result, configValues, setOption);
+          if (afterOverrides.stoppedEarly) {
+            yield* Effect.logWarning(
+              'materializeVirtualThenSend applyConfigDiffs stopped early',
+              launchTarget,
+              sessionId,
+            );
+          }
+
+          const configuredSnapshot = get(backendHarnessStateAtom(launchTarget));
+          get.set(
+            backendHarnessStateAtom(launchTarget),
+            materializeIntoSnapshot(configuredSnapshot, {
+              session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, { cwd: createdCwd }),
+            }),
+          );
+
+          get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
+          get.set(draftAtom(sessionId), draft);
+          get.set(virtualSessionAtom, null);
+          // Bypass in-flight guard while we still hold the materialize lock.
+          get.set(selectedAtom, { _tag: 'Session', sessionId });
+          return { draft, launchTarget } as const;
+        }).pipe(
+          Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.set(virtualMaterializeInFlightAtom, false);
+            }),
           ),
-        });
-
-        yield* withSessionClientRequest(
-          arg.launchTarget,
-          get,
-          session.sessionId,
-          'prompt',
-          sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed),
         );
+
+        if (materialized === undefined) {
+          return;
+        }
+
+        yield* sendChatItemEffect({ launchTarget: materialized.launchTarget, text: materialized.draft }, get);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -276,6 +385,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
 
   return {
     cancelPromptAtomFn,
+    materializeVirtualThenSendAtomFn,
     respondElicitationAtomFn,
     respondPermissionAtomFn,
     sendChatItemAtomFn,

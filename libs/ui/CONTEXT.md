@@ -5,7 +5,7 @@ Shared Agent Harness webview context: Backend Harness behavior, Harness applicat
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase and selection, sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob, last-create defaults, virtual Materialize in-flight, sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Harness state transition**:

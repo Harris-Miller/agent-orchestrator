@@ -10,6 +10,7 @@ import { createHarnessAtoms } from './harness.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
+import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
 
 const hostBag = {
   atomRuntime,
@@ -33,6 +34,7 @@ export const {
 
 export const {
   cancelPromptAtomFn,
+  materializeVirtualThenSendAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   sendChatItemAtomFn,
@@ -41,6 +43,7 @@ export const {
 
 export const {
   activateSessionAtomFn,
+  clearSelectedAtomFn,
   createSessionAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
@@ -50,5 +53,8 @@ export const {
 } = createSessionLifecycleAtoms(hostBag);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
+
+export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } =
+  createVirtualSessionAtoms(hostBag);
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag);

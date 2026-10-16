@@ -1,6 +1,3 @@
-import { useAtomSet } from '@effect/atom-react';
-import type { AgentLaunchTarget } from '@lib/ui';
-import { AgentLaunchTargetMenu, createSessionAtomFn } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -24,7 +21,7 @@ import Typography from '@mui/material/Typography';
 import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { Fzf } from 'fzf';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FC, KeyboardEvent, MouseEvent } from 'react';
+import type { FC, KeyboardEvent } from 'react';
 
 import {
   joinDirectory,
@@ -67,11 +64,11 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
   </Box>
 );
 
+/** Directory picker only — caller owns what happens with the chosen cwd (Virtual session cwd, etc.). */
 export const CreateSessionDirectoryPicker: FC<{
   readonly onClose: () => void;
-}> = ({ onClose }) => {
-  const createSession = useAtomSet(createSessionAtomFn, { mode: 'promise' });
-
+  readonly onSelectDirectory: (cwd: string) => void;
+}> = ({ onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
   const [browsePath, setBrowsePath] = useState<string | undefined>(undefined);
@@ -79,11 +76,8 @@ export const CreateSessionDirectoryPicker: FC<{
   const [filter, setFilter] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [showHidden, setShowHidden] = useState(false);
-  const [agentMenuAnchor, setAgentMenuAnchor] = useState<HTMLElement | null>(null);
-  const [createCwd, setCreateCwd] = useState<string | undefined>(undefined);
 
   const pathPrefix =
     homePath !== undefined && browsePath !== undefined ? toTildeBrowsePrefix(browsePath, homePath) : '';
@@ -188,37 +182,15 @@ export const CreateSessionDirectoryPicker: FC<{
       });
   };
 
-  const openAgentMenu = (anchor: HTMLElement, cwd: string) => {
-    setCreateCwd(cwd);
-    setAgentMenuAnchor(anchor);
-  };
-
-  const closeAgentMenu = () => {
-    setAgentMenuAnchor(null);
-    setCreateCwd(undefined);
-  };
-
-  const createWithAgent = (launchTarget: AgentLaunchTarget) => {
-    if (createCwd === undefined || creating) {
+  const confirmBrowsePath = () => {
+    if (browsePath === undefined) {
       return;
     }
-    const cwd = createCwd;
-    setCreating(true);
-    closeAgentMenu();
-    createSession({ cwd, launchTarget })
-      .then(() => {
-        onClose();
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        setCreating(false);
-      });
+    onSelectDirectory(browsePath);
+    onClose();
   };
 
   const openFinder = () => {
-    if (creating) {
-      return;
-    }
     openDirectoryDialog({ directory: true, multiple: false })
       .then(selected => {
         if (typeof selected !== 'string') {
@@ -241,10 +213,6 @@ export const CreateSessionDirectoryPicker: FC<{
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      if (agentMenuAnchor !== null) {
-        closeAgentMenu();
-        return;
-      }
       onClose();
       return;
     }
@@ -338,12 +306,9 @@ export const CreateSessionDirectoryPicker: FC<{
           value={inputValue}
         />
         <Button
-          disabled={browsePath === undefined || creating || loading}
-          onClick={(event: MouseEvent<HTMLButtonElement>) => {
-            if (browsePath === undefined) {
-              return;
-            }
-            openAgentMenu(event.currentTarget, browsePath);
+          disabled={browsePath === undefined || loading}
+          onClick={() => {
+            confirmBrowsePath();
           }}
           size="small"
           sx={{ flexShrink: 0, textTransform: 'none' }}
@@ -352,13 +317,6 @@ export const CreateSessionDirectoryPicker: FC<{
           Select
         </Button>
       </Stack>
-
-      <AgentLaunchTargetMenu
-        anchorEl={agentMenuAnchor}
-        creating={creating}
-        onClose={closeAgentMenu}
-        onSelect={createWithAgent}
-      />
 
       <Box sx={{ height: 360, overflow: 'auto', px: 1.5, py: 1 }}>
         <Typography color="text.secondary" sx={{ mb: 0.75, px: 0.5 }} variant="caption">
@@ -467,7 +425,6 @@ export const CreateSessionDirectoryPicker: FC<{
             sx={{ m: 0 }}
           />
           <Button
-            disabled={creating}
             onClick={() => {
               openFinder();
             }}

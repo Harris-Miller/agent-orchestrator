@@ -96,18 +96,11 @@ export const AgentChatWorkbench: FC<{
   return (
     <Box
       sx={theme => ({
-        // Allotment hover sash uses --focus-border (default #007fd4); bind to theme primary
+        // Allotment paints hover on ::before via --focus-border / --sash-hover-size.
+        // Do not set .sash-hover backgroundColor — that fills the full --sash-size (8px) hit target.
         '--focus-border': theme.palette.primary.main,
+        '--sash-hover-size': '3px',
         '--separator-border': theme.palette.divider,
-        '& .sash': {
-          backgroundColor: 'transparent',
-        },
-        '& .sash-active': {
-          backgroundColor: 'primary.main',
-        },
-        '& .sash-hover': {
-          backgroundColor: 'primary.main',
-        },
         '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
           backgroundColor: 'divider',
         },

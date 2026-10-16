@@ -11,8 +11,6 @@ export const RightPanelPlaceholder: FC<{
   <Box
     sx={{
       bgcolor: 'background.paper',
-      borderColor: 'divider',
-      borderLeft: 1,
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',

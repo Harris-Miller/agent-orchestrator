@@ -120,8 +120,6 @@ export const WorkbenchNavRail: FC<{
       <Box
         sx={{
           bgcolor: 'background.paper',
-          borderColor: 'divider',
-          borderRight: 1,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',

@@ -95,16 +95,18 @@ export const AgentChatWorkbench: FC<{
 
   return (
     <Box
-      sx={{
-        // Soften Allotment sash against MUI divider/action colors
+      sx={theme => ({
+        // Allotment hover sash uses --focus-border (default #007fd4); bind to theme primary
+        '--focus-border': theme.palette.primary.main,
+        '--separator-border': theme.palette.divider,
         '& .sash': {
           backgroundColor: 'transparent',
         },
         '& .sash-active': {
-          backgroundColor: 'action.selected',
+          backgroundColor: 'primary.main',
         },
         '& .sash-hover': {
-          backgroundColor: 'action.hover',
+          backgroundColor: 'primary.main',
         },
         '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
           backgroundColor: 'divider',
@@ -113,7 +115,7 @@ export const AgentChatWorkbench: FC<{
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
-      }}
+      })}
     >
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}

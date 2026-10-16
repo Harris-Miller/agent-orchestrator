@@ -423,12 +423,12 @@ export const SessionChatBody: FC<{
         display: 'flex',
         flex: 1,
         flexDirection: 'column',
-        gap: 2,
+        gap: 1,
         height: '100%',
         minHeight: 0,
         minWidth: 0,
         overflow: 'hidden',
-        p: 2,
+        p: 1,
       }}
     >
       <Paper
@@ -499,7 +499,7 @@ export const SessionChatBody: FC<{
         </List>
       </Paper>
 
-      <Paper sx={{ flexShrink: 0, p: 2 }}>
+      <Paper sx={{ flexShrink: 0, p: 1.5 }}>
         <Stack spacing={1}>
           {backendSnapshot?.error !== undefined ? (
             <Typography color="error" variant="body2">

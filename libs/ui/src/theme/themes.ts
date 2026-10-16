@@ -799,7 +799,8 @@ const ORIGINAL_COLORS: ThemeColors = {
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
   bgPaper: '#1d2027',
-  divider: 'rgba(243, 247, 255, 0.10)',
+  // Soft hairline (Cursor-like); panel seams come from Allotment, not doubled pane borders
+  divider: 'rgba(255, 255, 255, 0.09)',
   errorDark: '#962533',
   errorLight: '#ff6b6b',
   errorMain: '#d7354a',
@@ -840,7 +841,7 @@ const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
     alertWarningBg: alpha(f.peach, 0.14),
     bgDefault: f.base,
     bgPaper: f.mantle,
-    divider: alpha(f.overlay0, f.dark ? 0.4 : 0.55),
+    divider: f.dark ? alpha('#ffffff', 0.09) : alpha(f.overlay0, 0.35),
     errorDark: darken(f.red, 0.2),
     errorLight: f.red,
     errorMain: f.red,

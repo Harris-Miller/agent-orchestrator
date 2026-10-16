@@ -13,7 +13,6 @@ import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
@@ -36,6 +35,7 @@ import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
+import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
@@ -52,13 +52,16 @@ import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
+import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
 import { resolveComposerFsMentions } from './resolveComposerFsMentions.ts';
+import { SessionAccessChip } from './SessionAccessChip.tsx';
+import { SessionAgentChip } from './SessionAgentChip.tsx';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
+import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
 import { UsagePopover } from './UsagePopover.tsx';
 import { useSessionChatSurface } from './useSessionChatSurface.ts';
-import { VirtualSessionAgentSelect } from './VirtualSessionAgentSelect.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
@@ -349,6 +352,48 @@ export const SessionChatBody: FC<{
     sendDraft();
   };
 
+  const partitionedConfig = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
+  const configControlsDisabled = !controlsEnabled || selectedLaunchTarget === undefined;
+  const unavailableModelIds =
+    selectedLaunchTarget === undefined ? undefined : getConfigOptionIndex(selectedLaunchTarget)?.unavailableModelIds;
+
+  const onConfigOptionChange = (diff: ConfigValueDiff) => {
+    if (selectedLaunchTarget === undefined) {
+      return;
+    }
+    if (isVirtual) {
+      const current = virtualConfigValues;
+      if (diff.type === 'boolean') {
+        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
+        return;
+      }
+      if (diff.configId !== 'model') {
+        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
+        return;
+      }
+      const nextRow = rowForModel(virtualConfigIndex, diff.value);
+      patchVirtualSession({
+        configValues: preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow),
+      }).catch(() => undefined);
+      return;
+    }
+    setConfigOption(
+      diff.type === 'boolean'
+        ? {
+            configId: diff.configId,
+            launchTarget: selectedLaunchTarget,
+            type: 'boolean',
+            value: diff.value,
+          }
+        : {
+            configId: diff.configId,
+            launchTarget: selectedLaunchTarget,
+            type: 'select',
+            value: diff.value,
+          },
+    ).catch(onClientError);
+  };
+
   const emptyStateSecondary: ReactNode = (() => {
     if (isVirtual) {
       return <Alert severity="info">New session — choose an agent and project, then send a prompt to create it.</Alert>;
@@ -489,25 +534,42 @@ export const SessionChatBody: FC<{
         </List>
       </Box>
 
-      <Paper sx={{ flexShrink: 0, p: 1 }}>
-        <Stack spacing={1}>
-          {backendSnapshot?.error !== undefined ? (
-            <Typography color="error" variant="body2">
-              {backendSnapshot.error}
-            </Typography>
+      <Box sx={{ flexShrink: 0, position: 'relative' }}>
+        {backendSnapshot?.error !== undefined ? (
+          <Typography color="error" sx={{ mb: 1 }} variant="body2">
+            {backendSnapshot.error}
+          </Typography>
+        ) : null}
+        <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
+          {aboveComposer !== undefined && aboveComposer !== null ? (
+            <Box
+              sx={{
+                bgcolor: 'action.hover',
+                borderRadius: '14px 14px 0 0',
+                color: 'text.secondary',
+                fontSize: 12,
+                mb: '-10px',
+                pb: 1.75,
+                pt: 1,
+                px: 1.5,
+              }}
+            >
+              {aboveComposer}
+            </Box>
           ) : null}
-          <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {aboveComposer}
-            {isVirtual ? (
-              <VirtualSessionAgentSelect
-                disabled={chromeLocked}
-                onChange={launchTarget => {
-                  setVirtualLaunchTarget(launchTarget).catch(() => undefined);
-                }}
-                readyLaunchTargets={readyLaunchTargets}
-                value={selectedLaunchTarget}
-              />
-            ) : null}
+          <Paper
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              boxShadow: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              p: 1.5,
+              position: 'relative',
+            }}
+          >
             <ComposerCommandMenu
               focusedIndex={clampedCommandFocus}
               matches={filteredCommandMatches}
@@ -542,57 +604,39 @@ export const SessionChatBody: FC<{
               syncCursorRef={syncCursorRef}
               value={draft}
             />
-            <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {configOptions.map(option => (
+            <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              <SessionAgentChip
+                disabled={chromeLocked}
+                interactive={isVirtual}
+                onChange={launchTarget => {
+                  setVirtualLaunchTarget(launchTarget).catch(() => undefined);
+                }}
+                readyLaunchTargets={readyLaunchTargets}
+                value={selectedLaunchTarget}
+              />
+              {partitionedConfig.modelEffort !== undefined ? (
+                <SessionModelEffortChip
+                  disabled={configControlsDisabled}
+                  effort={partitionedConfig.modelEffort.effort}
+                  model={partitionedConfig.modelEffort.model}
+                  onChange={onConfigOptionChange}
+                  unavailableModelIds={unavailableModelIds}
+                />
+              ) : null}
+              {partitionedConfig.mode !== undefined ? (
+                <SessionAccessChip
+                  disabled={configControlsDisabled}
+                  onChange={onConfigOptionChange}
+                  option={partitionedConfig.mode}
+                />
+              ) : null}
+              {partitionedConfig.leftovers.map(option => (
                 <SessionConfigOptionControl
-                  disabled={!controlsEnabled || selectedLaunchTarget === undefined}
+                  disabled={configControlsDisabled}
                   key={option.id}
-                  onChange={diff => {
-                    if (selectedLaunchTarget === undefined) {
-                      return;
-                    }
-                    if (isVirtual) {
-                      const current = virtualConfigValues;
-                      if (diff.type === 'boolean') {
-                        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(
-                          () => undefined,
-                        );
-                        return;
-                      }
-                      if (diff.configId !== 'model') {
-                        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(
-                          () => undefined,
-                        );
-                        return;
-                      }
-                      const nextRow = rowForModel(virtualConfigIndex, diff.value);
-                      patchVirtualSession({
-                        configValues: preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow),
-                      }).catch(() => undefined);
-                      return;
-                    }
-                    setConfigOption(
-                      diff.type === 'boolean'
-                        ? {
-                            configId: diff.configId,
-                            launchTarget: selectedLaunchTarget,
-                            type: 'boolean',
-                            value: diff.value,
-                          }
-                        : {
-                            configId: diff.configId,
-                            launchTarget: selectedLaunchTarget,
-                            type: 'select',
-                            value: diff.value,
-                          },
-                    ).catch(onClientError);
-                  }}
+                  onChange={onConfigOptionChange}
                   option={option}
-                  unavailableModelIds={
-                    selectedLaunchTarget === undefined
-                      ? undefined
-                      : getConfigOptionIndex(selectedLaunchTarget)?.unavailableModelIds
-                  }
+                  unavailableModelIds={unavailableModelIds}
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />
@@ -659,9 +703,9 @@ export const SessionChatBody: FC<{
                 </MenuItem>
               </Menu>
             </Box>
-          </Box>
-        </Stack>
-      </Paper>
+          </Paper>
+        </Box>
+      </Box>
 
       {!isVirtual && selectedLaunchTarget !== undefined && handoffModalOpen ? (
         <HandoffModal

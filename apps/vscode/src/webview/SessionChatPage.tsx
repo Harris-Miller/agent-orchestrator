@@ -2,9 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   activateSessionAtomFn,
   AgentLaunchTargetIcon,
-  agentLaunchTargetLabel,
   clearSelectedAtomFn,
-  ensureVirtualSessionAtomFn,
   isSessionActiveOrActivating,
   OpenDeveloperPanelButton,
   selectedAtom,
@@ -12,12 +10,12 @@ import {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   SessionChatBody,
+  sessionChatTitle,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
   virtualMaterializeInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
-import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
@@ -28,6 +26,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
+import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -47,7 +46,6 @@ export const SessionChatPage: FC = () => {
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
-  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
@@ -64,11 +62,7 @@ export const SessionChatPage: FC = () => {
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
   const entry = sessionId === undefined ? undefined : roster.find(row => row.sessionId === sessionId);
-  const title = isVirtual
-    ? 'New Session'
-    : entry === undefined
-      ? 'Chat'
-      : (entry.title ?? (launchTarget === undefined ? 'Chat' : agentLaunchTargetLabel(launchTarget)));
+  const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
     if (isVirtual) {
@@ -113,19 +107,7 @@ export const SessionChatPage: FC = () => {
           {title}
         </Typography>
         <OpenDeveloperPanelButton />
-        <IconButton
-          aria-label="Create session"
-          disabled={noFolder || inFlight}
-          onClick={() => {
-            if (sessionCwd === undefined) {
-              return;
-            }
-            ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
-          }}
-          size="small"
-        >
-          <Add fontSize="small" />
-        </IconButton>
+        <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <IconButton
           aria-label="Settings"
           disabled={inFlight}

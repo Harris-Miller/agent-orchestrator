@@ -2,7 +2,6 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
-  ensureVirtualSessionAtomFn,
   OpenDeveloperPanelButton,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
@@ -12,7 +11,6 @@ import {
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
-import Add from '@mui/icons-material/Add';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -23,6 +21,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
+import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -33,7 +32,6 @@ export const SessionHistory: FC = () => {
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
   const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
-  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
@@ -63,19 +61,7 @@ export const SessionHistory: FC = () => {
         </IconButton>
         <Box sx={{ flex: 1 }} />
         <OpenDeveloperPanelButton />
-        <IconButton
-          aria-label="Create session"
-          disabled={noFolder}
-          onClick={() => {
-            if (sessionCwd === undefined) {
-              return;
-            }
-            ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
-          }}
-          size="small"
-        >
-          <Add fontSize="small" />
-        </IconButton>
+        <CreateVirtualSessionButton disabled={noFolder} />
         <IconButton
           aria-label="Settings"
           onClick={() => {

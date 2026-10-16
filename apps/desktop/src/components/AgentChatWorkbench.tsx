@@ -3,7 +3,6 @@ import 'allotment/dist/style.css';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   AgentLaunchTargetIcon,
-  agentLaunchTargetLabel,
   allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
@@ -17,6 +16,7 @@ import {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   SessionChatBody,
+  sessionChatTitle,
   unifiedSessionRosterAtom,
   useDeveloperPanelOpen,
   virtualSessionAtom,
@@ -102,11 +102,7 @@ export const AgentChatWorkbench: FC<{
   const isVirtual = selected?._tag === 'Virtual';
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
   const entry = selectedSessionId === undefined ? undefined : roster.find(row => row.sessionId === selectedSessionId);
-  const title = isVirtual
-    ? 'New Session'
-    : entry === undefined
-      ? 'Chat'
-      : (entry.title ?? (launchTarget === undefined ? 'Chat' : agentLaunchTargetLabel(launchTarget)));
+  const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);

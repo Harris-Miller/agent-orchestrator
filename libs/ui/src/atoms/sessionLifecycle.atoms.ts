@@ -65,6 +65,14 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
+  const clearSelectedAtomFn = atomRuntime
+    .fn((_arg: undefined, get: Atom.FnContext) =>
+      Effect.sync(() => {
+        clearSelected(get);
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
   const refreshSessionRosterAtomFn = atomRuntime
     .fn(
       Effect.fn('refreshSessionRosterAtomFn', { root: true })(
@@ -344,6 +352,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
   return {
     activateSessionAtomFn,
+    clearSelectedAtomFn,
     createSessionAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,

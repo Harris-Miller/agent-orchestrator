@@ -4,13 +4,9 @@ import Button from '@mui/material/Button';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
+import { directoryBasename } from '../directoryBasename.ts';
 
-const directoryName = (cwd: string): string => {
-  const trimmed = cwd.replace(/[/\\]+$/, '');
-  const segment = trimmed.split(/[/\\]/).pop();
-  return segment !== undefined && segment.length > 0 ? segment : cwd;
-};
+import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
 
 /** Desktop composer project chrome for Virtual session Session cwd. */
 export const VirtualProjectChrome: FC = () => {
@@ -25,7 +21,7 @@ export const VirtualProjectChrome: FC = () => {
   }
 
   const cwd = virtual?.cwd;
-  const label = cwd === undefined ? 'Choose Project' : directoryName(cwd);
+  const label = cwd === undefined ? 'Choose Project' : directoryBasename(cwd);
 
   return (
     <>

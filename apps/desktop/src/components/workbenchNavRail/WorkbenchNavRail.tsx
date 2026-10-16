@@ -32,15 +32,11 @@ import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import type { FC } from 'react';
 
+import { directoryBasename } from '../../directoryBasename.ts';
+
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
 const NO_FOLDER_TOOLTIP = 'Projectless / scratch sessions';
-
-const directoryName = (cwd: string): string => {
-  const trimmed = cwd.replace(/[/\\]+$/, '');
-  const segment = trimmed.split(/[/\\]/).pop();
-  return segment !== undefined && segment.length > 0 ? segment : cwd;
-};
 
 type NavGroupPresentation = {
   readonly createCwd: string | undefined;
@@ -54,7 +50,7 @@ const navGroupPresentation = (group: NavSessionGroup<UnifiedRosterEntry>): NavGr
     return {
       createCwd: group.cwd,
       key: navSessionGroupStableKey(group),
-      label: directoryName(group.cwd),
+      label: directoryBasename(group.cwd),
       tooltip: group.cwd,
     };
   }

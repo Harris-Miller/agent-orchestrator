@@ -75,6 +75,7 @@ export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';
 export * from './host/resolveFdBinary.ts';
 export * from './host/runFdInstallCommand.ts';
+export * from './host/sessionChatTitle.ts';
 export * from './host/sessionListScope.ts';
 export * from './host/sessionMaterialize.ts';
 export * from './host/sessionRpc.ts';

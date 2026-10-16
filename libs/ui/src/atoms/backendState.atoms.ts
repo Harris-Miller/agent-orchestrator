@@ -116,13 +116,6 @@ export const selectSession = (get: Atom.FnContext, sessionId: string) => {
   get.set(selectedAtom, { _tag: 'Session', sessionId });
 };
 
-export const selectVirtual = (get: Atom.FnContext) => {
-  if (get(virtualMaterializeInFlightAtom)) {
-    return;
-  }
-  get.set(selectedAtom, { _tag: 'Virtual' });
-};
-
 export const clearSelected = (get: Atom.FnContext) => {
   if (get(virtualMaterializeInFlightAtom)) {
     return;

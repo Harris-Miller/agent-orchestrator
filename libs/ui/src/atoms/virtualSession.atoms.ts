@@ -8,12 +8,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 
-import {
-  clearSelected,
-  configOptionIndexAtom,
-  selectedAtom,
-  virtualMaterializeInFlightAtom,
-} from './backendState.atoms.ts';
+import { configOptionIndexAtom, selectedAtom, virtualMaterializeInFlightAtom } from './backendState.atoms.ts';
 
 export type VirtualSession = {
   readonly configValues: ConfigOptionValues;
@@ -193,16 +188,7 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  const clearSelectedAtomFn = atomRuntime
-    .fn((_arg: undefined, get: Atom.FnContext) =>
-      Effect.sync(() => {
-        clearSelected(get);
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
   return {
-    clearSelectedAtomFn,
     ensureVirtualSessionAtomFn,
     patchVirtualSessionAtomFn,
     setVirtualLaunchTargetAtomFn,

@@ -9,7 +9,6 @@ import {
   configOptionIndexAtom,
   selectedAtom,
   selectSession,
-  selectVirtual,
   virtualMaterializeInFlightAtom,
 } from './backendState.atoms.ts';
 import {
@@ -93,7 +92,7 @@ describe('ensureVirtualSession', () => {
 });
 
 describe('selection in-flight guards', () => {
-  it('selectSession / selectVirtual / clearSelected no-op while in-flight', () => {
+  it('selectSession / clearSelected no-op while in-flight', () => {
     const registry = AtomRegistry.make();
     const get = Object.assign(((atom: Atom.Atom<unknown>) => registry.get(atom)) as Atom.FnContext, {
       set: <R, W>(atom: Atom.Writable<R, W>, value: W) => {
@@ -104,7 +103,6 @@ describe('selection in-flight guards', () => {
     registry.set(virtualMaterializeInFlightAtom, true);
     selectSession(get, 's1');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
-    selectVirtual(get);
     clearSelected(get);
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
   });

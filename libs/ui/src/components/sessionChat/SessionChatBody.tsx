@@ -430,14 +430,14 @@ export const SessionChatBody: FC<{
         p: 0.5,
       }}
     >
-      <Paper
+      <Box
         onScroll={event => {
           const target = event.currentTarget;
           pinnedToBottomRef.current =
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
+        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <List dense disablePadding>
           {chatItems.length === 0 && !hasPendingInteraction ? (
@@ -496,7 +496,7 @@ export const SessionChatBody: FC<{
             </ListItem>
           ) : null}
         </List>
-      </Paper>
+      </Box>
 
       <Paper sx={{ flexShrink: 0, p: 1 }}>
         <Stack spacing={1}>

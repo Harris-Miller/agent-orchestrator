@@ -149,6 +149,7 @@ export const AgentChatWorkbench: FC<{
                 <Box
                   sx={{
                     alignItems: 'center',
+                    bgcolor: 'background.paper',
                     borderBottom: 1,
                     borderColor: 'divider',
                     boxSizing: 'border-box',

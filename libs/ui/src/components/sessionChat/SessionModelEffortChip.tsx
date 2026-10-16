@@ -1,7 +1,5 @@
-import Check from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -14,6 +12,7 @@ import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstra
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
+import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
 import { selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 const choiceLabel = (option: NormalizedSelectConfigOption): string => {
@@ -26,14 +25,15 @@ const choiceLabel = (option: NormalizedSelectConfigOption): string => {
 
 export const SessionModelEffortChip: FC<{
   readonly disabled?: boolean;
-  readonly effort: NormalizedSelectConfigOption;
+  readonly effort?: NormalizedSelectConfigOption;
   readonly model: NormalizedSelectConfigOption;
   readonly onChange: (diff: ConfigValueDiff) => void;
   readonly unavailableModelIds?: readonly string[];
 }> = ({ disabled = false, effort, model, onChange, unavailableModelIds = [] }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const modelViews = selectChoiceViews(model, unavailableModelIds);
-  const effortViews = selectChoiceViews(effort);
+  const effortViews = effort === undefined ? [] : selectChoiceViews(effort);
+  const dualColumn = effort !== undefined;
 
   return (
     <>
@@ -47,9 +47,11 @@ export const SessionModelEffortChip: FC<{
         <Typography component="span" sx={{ color: 'text.primary', fontSize: 13 }}>
           {choiceLabel(model)}
         </Typography>
-        <Typography component="span" sx={{ color: 'text.secondary', fontSize: 13 }}>
-          · {choiceLabel(effort)}
-        </Typography>
+        {effort !== undefined ? (
+          <Typography component="span" sx={{ color: 'text.secondary', fontSize: 13 }}>
+            · {choiceLabel(effort)}
+          </Typography>
+        ) : null}
       </ComposerChromeChip>
       <Menu
         anchorEl={anchorEl}
@@ -58,13 +60,15 @@ export const SessionModelEffortChip: FC<{
           setAnchorEl(null);
         }}
         open={anchorEl !== null}
-        slotProps={{ list: { sx: { display: 'flex', flexDirection: 'row', p: 0 } } }}
+        slotProps={dualColumn ? { list: { sx: { display: 'flex', flexDirection: 'row', p: 0 } } } : undefined}
         transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
       >
-        <Box sx={{ minWidth: 148, py: 0.5 }}>
-          <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
-            Model
-          </Typography>
+        <Box sx={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH, py: 0.5 }}>
+          {dualColumn ? (
+            <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
+              Model
+            </Typography>
+          ) : null}
           <MenuList dense disablePadding>
             {modelViews.map(view => (
               <MenuItem
@@ -72,43 +76,40 @@ export const SessionModelEffortChip: FC<{
                 key={view.id}
                 onClick={() => {
                   onChange({ configId: model.id, type: 'select', value: view.id });
+                  if (!dualColumn) {
+                    setAnchorEl(null);
+                  }
                 }}
                 selected={model.currentValue === view.id}
               >
                 <ListItemText primary={view.label} secondary={view.description} />
-                {model.currentValue === view.id ? (
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Check fontSize="small" />
-                  </ListItemIcon>
-                ) : null}
               </MenuItem>
             ))}
           </MenuList>
         </Box>
-        <Divider flexItem orientation="vertical" />
-        <Box sx={{ minWidth: 148, py: 0.5 }}>
-          <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
-            Effort
-          </Typography>
-          <MenuList dense disablePadding>
-            {effortViews.map(view => (
-              <MenuItem
-                key={view.id}
-                onClick={() => {
-                  onChange({ configId: effort.id, type: 'select', value: view.id });
-                }}
-                selected={effort.currentValue === view.id}
-              >
-                <ListItemText primary={view.label} secondary={view.description} />
-                {effort.currentValue === view.id ? (
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Check fontSize="small" />
-                  </ListItemIcon>
-                ) : null}
-              </MenuItem>
-            ))}
-          </MenuList>
-        </Box>
+        {effort !== undefined ? (
+          <>
+            <Divider flexItem orientation="vertical" />
+            <Box sx={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH, py: 0.5 }}>
+              <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
+                Effort
+              </Typography>
+              <MenuList dense disablePadding>
+                {effortViews.map(view => (
+                  <MenuItem
+                    key={view.id}
+                    onClick={() => {
+                      onChange({ configId: effort.id, type: 'select', value: view.id });
+                    }}
+                    selected={effort.currentValue === view.id}
+                  >
+                    <ListItemText primary={view.label} secondary={view.description} />
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Box>
+          </>
+        ) : null}
       </Menu>
     </>
   );

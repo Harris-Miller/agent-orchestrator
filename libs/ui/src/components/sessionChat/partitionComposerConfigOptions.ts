@@ -4,21 +4,18 @@ const EFFORT_OPTION_IDS = new Set(['effort', 'reasoning_effort']);
 
 export const isEffortConfigOptionId = (id: string): boolean => EFFORT_OPTION_IDS.has(id);
 
-const asSelect = (option: NormalizedConfigOption | undefined): NormalizedSelectConfigOption | undefined =>
-  option?.type === 'select' ? option : undefined;
-
 export type PartitionedComposerConfigOptions = {
   readonly leftovers: readonly NormalizedConfigOption[];
   readonly mode: NormalizedSelectConfigOption | undefined;
   readonly modelEffort:
     | {
-        readonly effort: NormalizedSelectConfigOption;
+        readonly effort: NormalizedSelectConfigOption | undefined;
         readonly model: NormalizedSelectConfigOption;
       }
     | undefined;
 };
 
-/** Split Config options for F chrome: Access=`mode`, Model·Effort only when both halves exist. */
+/** Split Config options for F chrome: Access=`mode`; model slot always when `model` present (effort optional). */
 export const partitionComposerConfigOptions = (
   options: readonly NormalizedConfigOption[],
 ): PartitionedComposerConfigOptions => {
@@ -39,18 +36,12 @@ export const partitionComposerConfigOptions = (
     }
   }
 
-  if (model !== undefined && effort !== undefined) {
+  if (model !== undefined) {
     return { leftovers, mode, modelEffort: { effort, model } };
   }
 
-  const fallbackLeftovers = [...leftovers];
-  const orphanModel = asSelect(model);
-  const orphanEffort = asSelect(effort);
-  if (orphanModel !== undefined) {
-    fallbackLeftovers.push(orphanModel);
+  if (effort !== undefined) {
+    leftovers.push(effort);
   }
-  if (orphanEffort !== undefined) {
-    fallbackLeftovers.push(orphanEffort);
-  }
-  return { leftovers: fallbackLeftovers, mode, modelEffort: undefined };
+  return { leftovers, mode, modelEffort: undefined };
 };

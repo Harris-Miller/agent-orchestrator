@@ -1,6 +1,3 @@
-import Check from '@mui/icons-material/Check';
-import LockOpen from '@mui/icons-material/LockOpen';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -11,6 +8,7 @@ import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstra
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
+import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
 import { selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 const choiceLabel = (option: NormalizedSelectConfigOption): string => {
@@ -37,9 +35,7 @@ export const SessionAccessChip: FC<{
         onClick={(event: MouseEvent<HTMLElement>) => {
           setAnchorEl(event.currentTarget);
         }}
-        tone="warn"
       >
-        <LockOpen sx={{ fontSize: 14 }} />
         {choiceLabel(option)}
       </ComposerChromeChip>
       <Menu
@@ -49,7 +45,7 @@ export const SessionAccessChip: FC<{
           setAnchorEl(null);
         }}
         open={anchorEl !== null}
-        sx={{ maxWidth: 360 }}
+        slotProps={{ paper: { sx: { minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH } } }}
         transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
       >
         {views.map(view => (
@@ -63,11 +59,6 @@ export const SessionAccessChip: FC<{
             sx={{ alignItems: 'flex-start', whiteSpace: 'normal' }}
           >
             <ListItemText primary={view.label} secondary={view.description} />
-            {option.currentValue === view.id ? (
-              <ListItemIcon sx={{ minWidth: 28 }}>
-                <Check fontSize="small" />
-              </ListItemIcon>
-            ) : null}
           </MenuItem>
         ))}
       </Menu>

@@ -9,8 +9,7 @@ export const ComposerChromeChip: FC<{
   readonly disabled?: boolean;
   readonly interactive?: boolean;
   readonly onClick?: (event: MouseEvent<HTMLElement>) => void;
-  readonly tone?: 'default' | 'warn';
-}> = ({ active, children, disabled = false, interactive = true, onClick, tone = 'default' }) => (
+}> = ({ active, children, disabled = false, interactive = true, onClick }) => (
   <Box
     aria-disabled={disabled || undefined}
     component={interactive ? 'button' : 'span'}
@@ -21,7 +20,7 @@ export const ComposerChromeChip: FC<{
       bgcolor: active === true ? 'action.selected' : 'transparent',
       border: 'none',
       borderRadius: 999,
-      color: tone === 'warn' ? 'warning.main' : 'text.secondary',
+      color: 'text.secondary',
       cursor: interactive && !disabled ? 'pointer' : 'default',
       display: 'inline-flex',
       font: 'inherit',

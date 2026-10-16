@@ -1,5 +1,3 @@
-import Check from '@mui/icons-material/Check';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -56,11 +54,6 @@ export const SessionAgentChip: FC<{
               selected={value === launchTarget}
             >
               <ListItemText>{agentLaunchTargetLabel(launchTarget)}</ListItemText>
-              {value === launchTarget ? (
-                <ListItemIcon sx={{ minWidth: 28 }}>
-                  <Check fontSize="small" />
-                </ListItemIcon>
-              ) : null}
             </MenuItem>
           ))}
         </Menu>

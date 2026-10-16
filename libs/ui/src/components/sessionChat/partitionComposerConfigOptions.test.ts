@@ -52,14 +52,14 @@ describe('partitionComposerConfigOptions', () => {
     assert.deepStrictEqual(partitioned.leftovers, []);
   });
 
-  it('leaves model alone in leftovers when effort missing', () => {
+  it('keeps model in modelEffort slot when effort missing', () => {
     const model = selectOption('model', 'sonnet', ['sonnet']);
     const mode = selectOption('mode', 'default', ['default']);
     const partitioned = partitionComposerConfigOptions([model, mode]);
 
     assert.strictEqual(partitioned.mode, mode);
-    assert.isUndefined(partitioned.modelEffort);
-    assert.deepStrictEqual(partitioned.leftovers, [model]);
+    assert.deepStrictEqual(partitioned.modelEffort, { effort: undefined, model });
+    assert.deepStrictEqual(partitioned.leftovers, []);
   });
 
   it('leaves effort alone in leftovers when model missing', () => {

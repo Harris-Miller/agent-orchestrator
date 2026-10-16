@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   activateSessionAtomFn,
+  AgentLaunchTargetIcon,
   agentLaunchTargetLabel,
   clearSelectedAtomFn,
   ensureVirtualSessionAtomFn,
@@ -14,6 +15,7 @@ import {
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
   virtualMaterializeInFlightAtom,
+  virtualSessionAtom,
 } from '@lib/ui';
 import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -37,7 +39,8 @@ export const SessionChatPage: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const virtualSession = useAtomValue(virtualSessionAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const inFlight = useAtomValue(virtualMaterializeInFlightAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
@@ -57,6 +60,7 @@ export const SessionChatPage: FC = () => {
   }, [activateSession]);
 
   const isVirtual = selected?._tag === 'Virtual';
+  const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
   const entry = sessionId === undefined ? undefined : roster.find(row => row.sessionId === sessionId);
@@ -104,6 +108,7 @@ export const SessionChatPage: FC = () => {
         <IconButton aria-label="Back to Session History" disabled={inFlight} onClick={onBack} size="small">
           <ArrowBack fontSize="small" />
         </IconButton>
+        {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
         </Typography>

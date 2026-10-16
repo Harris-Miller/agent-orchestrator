@@ -79,30 +79,31 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   /**
    * First send on Virtual: session/new → applyConfigDiffs → Materialize → draft copy →
    * clear virtual + Select Session → sendChatItem. Stay on Virtual until Materialize succeeds.
+   * Materialize lock ends before session/prompt so switch/create stay available mid-turn.
    */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
-      Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(
-        function* (_arg: undefined, get: Atom.FnContext) {
-          if (get(virtualMaterializeInFlightAtom)) {
-            return;
-          }
-          const selected = get(selectedAtom);
-          const virtual = get(virtualSessionAtom);
-          if (selected?._tag !== 'Virtual' || virtual === null) {
-            return;
-          }
-          const { configValues, cwd, draft, launchTarget } = virtual;
-          const trimmed = draft.trim();
-          if (
-            trimmed.length === 0 ||
-            launchTarget === undefined ||
-            cwd === undefined ||
-            get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
-          ) {
-            return;
-          }
+      Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        if (get(virtualMaterializeInFlightAtom)) {
+          return;
+        }
+        const selected = get(selectedAtom);
+        const virtual = get(virtualSessionAtom);
+        if (selected?._tag !== 'Virtual' || virtual === null) {
+          return;
+        }
+        const { configValues, cwd, draft, launchTarget } = virtual;
+        const trimmed = draft.trim();
+        if (
+          trimmed.length === 0 ||
+          launchTarget === undefined ||
+          cwd === undefined ||
+          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
+        ) {
+          return;
+        }
 
+        const materialized = yield* Effect.gen(function* () {
           get.set(virtualMaterializeInFlightAtom, true);
           yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
           yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd });
@@ -110,7 +111,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
           if (Exit.isFailure(createExit)) {
             yield* Effect.logError('materializeVirtualThenSend session/new failed', launchTarget, createExit.cause);
-            return;
+            return undefined;
           }
           const { cwd: createdCwd, result } = createExit.value;
           const { sessionId } = result;
@@ -149,21 +150,24 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(virtualSessionAtom, null);
-          // Bypass in-flight guard: we still hold the lock until ensuring clears it.
+          // Bypass in-flight guard while we still hold the materialize lock.
           get.set(selectedAtom, { _tag: 'Session', sessionId });
-
-          yield* sendChatItemEffect({ launchTarget, text: draft }, get);
-        },
-        (effect, _arg, get: Atom.FnContext) =>
-          effect.pipe(
-            Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
-            Effect.ensuring(
-              Effect.sync(() => {
-                get.set(virtualMaterializeInFlightAtom, false);
-              }),
-            ),
+          return { draft, launchTarget } as const;
+        }).pipe(
+          Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.set(virtualMaterializeInFlightAtom, false);
+            }),
           ),
-      ),
+        );
+
+        if (materialized === undefined) {
+          return;
+        }
+
+        yield* sendChatItemEffect({ launchTarget: materialized.launchTarget, text: materialized.draft }, get);
+      }),
     )
     .pipe(Atom.keepAlive);
 

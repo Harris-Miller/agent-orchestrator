@@ -12,7 +12,10 @@ export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } 
 
 export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom.keepAlive);
 
-/** True while Virtual Materialize-on-first-send runs; selection helpers no-op. */
+/**
+ * True only while Virtual Materialize-on-first-send runs (session/new + config + Select).
+ * Selection / create helpers no-op while true. Must not stay set during session/prompt.
+ */
 export const virtualMaterializeInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 /** Session arm sessionId only; undefined when Virtual or no Selected. */

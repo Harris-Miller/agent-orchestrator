@@ -108,6 +108,29 @@ describe('selection in-flight guards', () => {
     clearSelected(get);
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
   });
+
+  /**
+   * Contract: materialize lock must be clear once Selected is Session, even if
+   * session/prompt is still running — otherwise switch/create stays stuck.
+   */
+  it('selectSession / ensureVirtual work after materialize lock released', () => {
+    const registry = AtomRegistry.make();
+    const get = Object.assign(((atom: Atom.Atom<unknown>) => registry.get(atom)) as Atom.FnContext, {
+      set: <R, W>(atom: Atom.Writable<R, W>, value: W) => {
+        registry.set(atom, value);
+      },
+    });
+    const rw = rwFromRegistry(registry);
+    registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
+    registry.set(virtualMaterializeInFlightAtom, false);
+
+    selectSession(get, 's2');
+    assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 's2' });
+
+    ensureVirtualSession(rw, { cwd: '/proj' });
+    assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
+    assert.strictEqual(registry.get(virtualSessionAtom)?.cwd, '/proj');
+  });
 });
 
 describe('setVirtualLaunchTarget', () => {

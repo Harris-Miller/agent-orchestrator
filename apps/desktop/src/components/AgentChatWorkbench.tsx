@@ -2,6 +2,7 @@ import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
 import {
+  allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   isRecord,
@@ -95,14 +96,7 @@ export const AgentChatWorkbench: FC<{
   return (
     <Box
       sx={theme => ({
-        // Allotment paints hover on ::before via --focus-border / --sash-hover-size.
-        // Do not set .sash-hover backgroundColor — that fills the full --sash-size (8px) hit target.
-        '--focus-border': theme.palette.primary.main,
-        '--sash-hover-size': '3px',
-        '--separator-border': theme.palette.divider,
-        '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
-          backgroundColor: 'divider',
-        },
+        ...allotmentSashSx(theme),
         bgcolor: 'background.default',
         height: '100%',
         minHeight: 0,

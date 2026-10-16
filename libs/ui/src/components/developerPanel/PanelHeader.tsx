@@ -3,8 +3,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
-/** Matches themed `MuiAppBar` / `MuiToolbar` chrome height (49px). */
-export const PANEL_HEADER_HEIGHT = 49;
+import { PANEL_HEADER_HEIGHT } from '../../theme/tokens.ts';
 
 export const PanelHeader: FC<{
   readonly closeAriaLabel: string;

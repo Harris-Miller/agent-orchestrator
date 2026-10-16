@@ -79,8 +79,10 @@ export {
 } from './hostRuntime.ts';
 export * from './isRecord.ts';
 export * from './settings/settingsCategories.ts';
+export * from './theme/allotmentSashSx.ts';
 export * from './theme/AppThemeProvider.tsx';
 export * from './theme/themeId.ts';
 export * from './theme/themePaintCache.ts';
 export * from './theme/themes.ts';
+export * from './theme/tokens.ts';
 export { defaultSettings } from '@lib/ao-home';

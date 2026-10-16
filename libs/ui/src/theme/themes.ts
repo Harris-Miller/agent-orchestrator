@@ -2,6 +2,7 @@ import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
 import type { ThemeId } from './themeId.ts';
+import { PANEL_HEADER_HEIGHT } from './tokens.ts';
 
 type ThemeColors = {
   readonly alertInfoBg: string;
@@ -120,7 +121,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
             boxShadow: 'none',
             boxSizing: 'border-box',
             color: c.textPrimary,
-            minHeight: '49px',
+            minHeight: PANEL_HEADER_HEIGHT,
           },
         },
       },
@@ -207,6 +208,17 @@ const createAppTheme = (c: ThemeColors): Theme =>
                 },
               },
             ],
+          },
+        },
+      },
+      // Beat MuiButton's pill borderRadius so split/grouped buttons join flush.
+      MuiButtonGroup: {
+        styleOverrides: {
+          grouped: {
+            borderRadius: 0,
+          },
+          root: {
+            borderRadius: 12,
           },
         },
       },
@@ -610,11 +622,11 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiToolbar: {
         styleOverrides: {
           root: {
-            // Override MUI default sm+ minHeight: 64 so chrome matches PanelHeader (49).
+            // Override MUI default sm+ minHeight: 64 so chrome matches PANEL_HEADER_HEIGHT.
             '@media (min-width:600px)': {
-              minHeight: '49px',
+              minHeight: PANEL_HEADER_HEIGHT,
             },
-            minHeight: '49px',
+            minHeight: PANEL_HEADER_HEIGHT,
             paddingLeft: '18px',
             paddingRight: '18px',
           },

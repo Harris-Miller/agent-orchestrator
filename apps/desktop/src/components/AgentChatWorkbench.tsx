@@ -6,15 +6,14 @@ import {
   DeveloperPanelShell,
   isRecord,
   OpenDeveloperPanelButton,
+  PANEL_HEADER_HEIGHT,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   SessionChatBody,
   useDeveloperPanelOpen,
 } from '@lib/ui';
-import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
@@ -147,36 +146,46 @@ export const AgentChatWorkbench: FC<{
 
             <Allotment.Pane minSize={280}>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-                <AppBar position="static" sx={{ flexShrink: 0 }}>
-                  <Toolbar sx={{ gap: 1 }}>
-                    {layout.sessionRosterOpen ? null : (
-                      <Button
-                        onClick={() => {
-                          commitLayout({ sessionRosterOpen: true });
-                        }}
-                        size="small"
-                        variant="outlined"
-                      >
-                        Sessions
-                      </Button>
-                    )}
-                    <Typography sx={{ flexGrow: 1 }} variant="h3">
-                      Agent Chat
-                    </Typography>
-                    <OpenDeveloperPanelButton />
-                    {layout.sessionStateOpen ? null : (
-                      <Button
-                        onClick={() => {
-                          commitLayout({ sessionStateOpen: true });
-                        }}
-                        size="small"
-                        variant="outlined"
-                      >
-                        Panel
-                      </Button>
-                    )}
-                  </Toolbar>
-                </AppBar>
+                <Box
+                  sx={{
+                    alignItems: 'center',
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    flexShrink: 0,
+                    gap: 1,
+                    minHeight: PANEL_HEADER_HEIGHT,
+                    px: 2,
+                  }}
+                >
+                  {layout.sessionRosterOpen ? null : (
+                    <Button
+                      onClick={() => {
+                        commitLayout({ sessionRosterOpen: true });
+                      }}
+                      size="small"
+                      variant="outlined"
+                    >
+                      Sessions
+                    </Button>
+                  )}
+                  <Typography sx={{ flexGrow: 1 }} variant="h6">
+                    Agent Chat
+                  </Typography>
+                  <OpenDeveloperPanelButton />
+                  {layout.sessionStateOpen ? null : (
+                    <Button
+                      onClick={() => {
+                        commitLayout({ sessionStateOpen: true });
+                      }}
+                      size="small"
+                      variant="outlined"
+                    >
+                      Panel
+                    </Button>
+                  )}
+                </Box>
 
                 <SessionChatBody onClientError={onClientError} />
               </Box>

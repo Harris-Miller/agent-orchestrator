@@ -110,13 +110,15 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiAppBar: {
         defaultProps: {
           color: 'default',
-          elevation: 2,
+          elevation: 0,
         },
         styleOverrides: {
           root: {
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
-            boxShadow: '0 1px 0 rgba(0, 0, 0, 0.12)',
+            borderBottom: `1px solid ${c.divider}`,
+            boxShadow: 'none',
+            boxSizing: 'border-box',
             color: c.textPrimary,
             minHeight: '49px',
           },
@@ -608,6 +610,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiToolbar: {
         styleOverrides: {
           root: {
+            // Override MUI default sm+ minHeight: 64 so chrome matches PanelHeader (49).
+            '@media (min-width:600px)': {
+              minHeight: '49px',
+            },
             minHeight: '49px',
             paddingLeft: '18px',
             paddingRight: '18px',

@@ -424,7 +424,6 @@ export const SessionChatBody: FC<{
         flex: 1,
         flexDirection: 'column',
         gap: 0.5,
-        height: '100%',
         minHeight: 0,
         minWidth: 0,
         overflow: 'hidden',

@@ -30,7 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
-import { VirtualProjectChrome } from './VirtualProjectChrome.tsx';
+import { SessionCwdStrip } from './SessionCwdStrip.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
@@ -207,7 +207,10 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody aboveComposer={<VirtualProjectChrome />} onClientError={onClientError} />
+                <SessionChatBody
+                  aboveComposer={isVirtual ? <SessionCwdStrip /> : undefined}
+                  onClientError={onClientError}
+                />
               </Box>
             </Allotment.Pane>
 

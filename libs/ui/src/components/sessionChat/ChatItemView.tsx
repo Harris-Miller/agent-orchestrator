@@ -143,7 +143,7 @@ const MessageRow: FC<{
         <Box
           sx={{
             bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
-            borderRadius: 4,
+            borderRadius: 1,
             maxWidth: 'min(85%, 42rem)',
             px: 1.75,
             py: 1.25,

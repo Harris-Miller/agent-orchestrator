@@ -572,7 +572,7 @@ export const SessionChatBody: FC<{
               ))}
               <Box sx={{ flexGrow: 1 }} />
               <UsagePopover usage={selectedSession?.usage} />
-              <ButtonGroup variant="contained">
+              <ButtonGroup sx={{ borderRadius: 1, overflow: 'hidden' }} variant="contained">
                 <Button
                   aria-label={
                     canCancelPromptTurn
@@ -590,7 +590,11 @@ export const SessionChatBody: FC<{
                         }
                       : undefined
                   }
-                  sx={{ minWidth: 40, px: 1.5 }}
+                  sx={{
+                    borderRadius: '0 !important',
+                    minWidth: 40,
+                    px: 1.5,
+                  }}
                   type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
                   {canCancelPromptTurn ? (
@@ -610,9 +614,9 @@ export const SessionChatBody: FC<{
                   onClick={event => {
                     setSplitMenuAnchor(event.currentTarget);
                   }}
-                  size="small"
+                  sx={{ borderRadius: '0 !important', minWidth: 36, px: 0.75 }}
                 >
-                  <KeyboardArrowDown />
+                  <KeyboardArrowDown fontSize="small" />
                 </Button>
               </ButtonGroup>
               <Menu

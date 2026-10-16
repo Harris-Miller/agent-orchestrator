@@ -1,3 +1,4 @@
+import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -7,6 +8,7 @@ import type { FC, MouseEvent } from 'react';
 
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 
@@ -30,6 +32,7 @@ export const SessionAgentChip: FC<{
           setAnchorEl(event.currentTarget);
         }}
       >
+        {value !== undefined ? <AgentLaunchTargetIcon launchTarget={value} size={14} /> : null}
         <Typography component="span" sx={{ color: 'text.primary', fontSize: 13, fontWeight: 600 }}>
           {label}
         </Typography>
@@ -53,6 +56,9 @@ export const SessionAgentChip: FC<{
               }}
               selected={value === launchTarget}
             >
+              <ListItemIcon sx={{ minWidth: 28 }}>
+                <AgentLaunchTargetIcon launchTarget={launchTarget} />
+              </ListItemIcon>
               <ListItemText>{agentLaunchTargetLabel(launchTarget)}</ListItemText>
             </MenuItem>
           ))}

@@ -2,6 +2,7 @@ import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
 import {
+  allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   isRecord,
   readDeveloperPanelOpen,
@@ -107,23 +108,12 @@ export const AppLayout: FC = () => {
 
   return (
     <Box
-      sx={{
-        '& .sash': {
-          backgroundColor: 'transparent',
-        },
-        '& .sash-active': {
-          backgroundColor: 'action.selected',
-        },
-        '& .sash-hover': {
-          backgroundColor: 'action.hover',
-        },
-        '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
-          backgroundColor: 'divider',
-        },
+      sx={theme => ({
+        ...allotmentSashSx(theme),
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
-      }}
+      })}
     >
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}

@@ -423,22 +423,21 @@ export const SessionChatBody: FC<{
         display: 'flex',
         flex: 1,
         flexDirection: 'column',
-        gap: 2,
-        height: '100%',
+        gap: 0.5,
         minHeight: 0,
         minWidth: 0,
         overflow: 'hidden',
-        p: 2,
+        p: 0.5,
       }}
     >
-      <Paper
+      <Box
         onScroll={event => {
           const target = event.currentTarget;
           pinnedToBottomRef.current =
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}
+        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <List dense disablePadding>
           {chatItems.length === 0 && !hasPendingInteraction ? (
@@ -497,9 +496,9 @@ export const SessionChatBody: FC<{
             </ListItem>
           ) : null}
         </List>
-      </Paper>
+      </Box>
 
-      <Paper sx={{ flexShrink: 0, p: 2 }}>
+      <Paper sx={{ flexShrink: 0, p: 1 }}>
         <Stack spacing={1}>
           {backendSnapshot?.error !== undefined ? (
             <Typography color="error" variant="body2">
@@ -610,9 +609,9 @@ export const SessionChatBody: FC<{
                   onClick={event => {
                     setSplitMenuAnchor(event.currentTarget);
                   }}
-                  size="small"
+                  sx={{ minWidth: 36, px: 0.75 }}
                 >
-                  <KeyboardArrowDown />
+                  <KeyboardArrowDown fontSize="small" />
                 </Button>
               </ButtonGroup>
               <Menu

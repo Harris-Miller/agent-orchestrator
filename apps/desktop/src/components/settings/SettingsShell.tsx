@@ -46,7 +46,7 @@ export const SettingsShell: FC = () => {
   const filteredItems = useMemo(() => filterSettingsCategories(query), [query]);
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <Box sx={{ bgcolor: 'background.default', display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Box
         sx={{
           bgcolor: 'background.paper',

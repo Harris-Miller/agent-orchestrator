@@ -2,6 +2,7 @@ import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
 import type { ThemeId } from './themeId.ts';
+import { PANEL_HEADER_HEIGHT } from './tokens.ts';
 
 type ThemeColors = {
   readonly alertInfoBg: string;
@@ -70,10 +71,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiAlert: {
         styleOverrides: {
           root: {
-            borderRadius: '4px',
-            fontSize: '13px',
-            lineHeight: 1.54,
-            padding: '2px 8px 2px 10px',
+            borderRadius: '12px',
+            fontSize: '14px',
+            lineHeight: 1.5,
+            padding: '5px 14px',
             variants: [
               {
                 props: { severity: 'info', variant: 'standard' },
@@ -110,15 +111,17 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiAppBar: {
         defaultProps: {
           color: 'default',
-          elevation: 2,
+          elevation: 0,
         },
         styleOverrides: {
           root: {
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
-            boxShadow: '0 1px 0 rgba(0, 0, 0, 0.12)',
+            borderBottom: `1px solid ${c.divider}`,
+            boxShadow: 'none',
+            boxSizing: 'border-box',
             color: c.textPrimary,
-            minHeight: '60px',
+            minHeight: PANEL_HEADER_HEIGHT,
           },
         },
       },
@@ -131,13 +134,13 @@ const createAppTheme = (c: ThemeColors): Theme =>
             '&[aria-selected="true"]': {
               backgroundColor: alpha(c.primaryMain, 0.08),
             },
-            fontSize: '13px',
-            minHeight: '30px',
+            fontSize: '14px',
+            minHeight: '35px',
           },
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '6px',
+            borderRadius: '16px',
             boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
           },
         },
@@ -149,18 +152,19 @@ const createAppTheme = (c: ThemeColors): Theme =>
         styleOverrides: {
           root: {
             '&.MuiButton-sizeSmall': {
+              borderRadius: '999px',
               fontSize: '12px',
-              minHeight: '22px',
-              padding: '0 8px',
+              minHeight: '28px',
+              padding: '0 12px',
             },
-            borderRadius: '4px',
-            fontSize: '13px',
-            fontWeight: 400,
+            borderRadius: '999px',
+            fontSize: '14px',
+            fontWeight: 500,
             letterSpacing: 0,
-            lineHeight: 1.54,
-            minHeight: '30px',
+            lineHeight: 1.5,
+            minHeight: '35px',
             minWidth: 0,
-            padding: '0 11px',
+            padding: '0 16px',
             textTransform: 'none',
             variants: [
               {
@@ -207,13 +211,24 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
         },
       },
+      // Beat MuiButton's pill borderRadius so split/grouped buttons join flush.
+      MuiButtonGroup: {
+        styleOverrides: {
+          grouped: {
+            borderRadius: 0,
+          },
+          root: {
+            borderRadius: 12,
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
             border: `1px solid ${c.divider}`,
-            borderRadius: '6px',
+            borderRadius: '16px',
             boxShadow: '0 1px 0 rgba(0, 0, 0, 0.04)',
           },
         },
@@ -227,17 +242,17 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '4px',
+            borderRadius: '12px',
             color: c.textPrimary,
-            fontSize: '13px',
+            fontSize: '14px',
             fontWeight: 400,
-            height: '24px',
+            height: '28px',
             variants: [
               {
                 props: { size: 'small' },
                 style: {
-                  fontSize: '12px',
-                  height: '18px',
+                  fontSize: '13px',
+                  height: '22px',
                 },
               },
               {
@@ -309,7 +324,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           body: {
             backgroundColor: c.bgDefault,
             color: c.textPrimary,
-            fontSize: '13px',
+            fontSize: '14px',
           },
           'html, body, #root': {
             minHeight: '100%',
@@ -321,7 +336,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '8px',
+            borderRadius: '16px',
             boxShadow: '0 24px 60px rgba(0, 0, 0, 0.26)',
           },
         },
@@ -352,15 +367,15 @@ const createAppTheme = (c: ThemeColors): Theme =>
               color: c.primaryMain,
             },
             '&.MuiIconButton-sizeSmall': {
-              height: '22px',
+              height: '28px',
               padding: 0,
-              width: '22px',
+              width: '28px',
             },
-            borderRadius: '4px',
+            borderRadius: '12px',
             color: c.textMuted,
-            height: '30px',
+            height: '35px',
             padding: '4px',
-            width: '30px',
+            width: '35px',
           },
         },
       },
@@ -377,8 +392,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
               opacity: 1,
             },
             boxSizing: 'border-box',
-            height: '20px',
-            padding: '4px 8px',
+            height: '29px',
+            padding: '10px 8px',
           },
           root: {
             '&:hover': {
@@ -393,14 +408,14 @@ const createAppTheme = (c: ThemeColors): Theme =>
               boxShadow: `0 0 0 1px ${alpha(c.primaryMain, 0.22)}`,
             },
             '&.MuiInputBase-sizeSmall': {
-              minHeight: '22px',
+              minHeight: '28px',
             },
             backgroundColor: 'transparent',
             border: `1px solid ${c.divider}`,
-            borderRadius: '4px',
+            borderRadius: '12px',
             color: c.textPrimary,
-            fontSize: '13px',
-            minHeight: '30px',
+            fontSize: '14px',
+            minHeight: '39px',
           },
         },
       },
@@ -428,8 +443,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
               backgroundColor: alpha(c.primaryMain, 0.08),
               color: c.primaryMain,
             },
-            borderRadius: '4px',
-            minHeight: '40px',
+            borderRadius: '12px',
+            minHeight: '42px',
           },
         },
       },
@@ -441,7 +456,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '6px',
+            borderRadius: '16px',
             boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
           },
         },
@@ -459,7 +474,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
             backgroundImage: 'none',
           },
           rounded: {
-            borderRadius: '6px',
+            borderRadius: '16px',
           },
         },
       },
@@ -490,10 +505,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '6px',
+            borderRadius: '16px',
             boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
             color: c.textPrimary,
-            fontSize: '13px',
+            fontSize: '14px',
           },
         },
       },
@@ -535,13 +550,13 @@ const createAppTheme = (c: ThemeColors): Theme =>
               color: c.primaryMain,
             },
             color: c.textSecondary,
-            fontSize: '13px',
+            fontSize: '14px',
             fontWeight: 700,
             letterSpacing: 0,
             lineHeight: 1.15,
-            minHeight: '44px',
+            minHeight: '42px',
             minWidth: 0,
-            padding: '0 8px',
+            padding: '0 12px',
             textTransform: 'none',
           },
         },
@@ -560,10 +575,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             borderBottom: `1px solid ${c.divider}`,
             color: c.textPrimary,
-            fontSize: '13px',
+            fontSize: '14px',
             fontWeight: 400,
-            lineHeight: 1.54,
-            padding: '6px 13px',
+            lineHeight: 1.5,
+            padding: '11px 14px',
           },
           stickyHeader: {
             backgroundColor: c.bgPaper,
@@ -575,7 +590,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '6px',
+            borderRadius: '16px',
             boxShadow: '0 1px 0 rgba(0, 0, 0, 0.04)',
           },
         },
@@ -600,16 +615,20 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
           root: {
             borderBottom: `1px solid ${c.divider}`,
-            minHeight: '45px',
+            minHeight: '43px',
           },
         },
       },
       MuiToolbar: {
         styleOverrides: {
           root: {
-            minHeight: '60px',
-            paddingLeft: '16px',
-            paddingRight: '16px',
+            // Override MUI default sm+ minHeight: 64 so chrome matches PANEL_HEADER_HEIGHT.
+            '@media (min-width:600px)': {
+              minHeight: PANEL_HEADER_HEIGHT,
+            },
+            minHeight: PANEL_HEADER_HEIGHT,
+            paddingLeft: '18px',
+            paddingRight: '18px',
           },
         },
       },
@@ -621,10 +640,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
           tooltip: {
             backgroundColor: alpha(c.bgPaper, 0.98),
             border: `1px solid ${c.divider}`,
-            borderRadius: '4px',
+            borderRadius: '12px',
             boxShadow: '0 10px 24px rgba(0, 0, 0, 0.20)',
             color: c.textPrimary,
-            fontSize: '12px',
+            fontSize: '13px',
           },
         },
       },
@@ -713,61 +732,65 @@ const createAppTheme = (c: ThemeColors): Theme =>
       '0 42px 96px rgba(0, 0, 0, 0.30)',
       '0 44px 100px rgba(0, 0, 0, 0.32)',
     ],
+    shape: {
+      borderRadius: 12,
+    },
     typography: {
       body1: {
-        fontSize: '13px',
+        fontSize: '14px',
         fontWeight: 400,
-        lineHeight: 1.54,
+        lineHeight: 1.5,
       },
       body2: {
-        fontSize: '12px',
-        fontWeight: 400,
-        lineHeight: 1.53,
-      },
-      button: {
         fontSize: '13px',
         fontWeight: 400,
+        lineHeight: 1.5,
+      },
+      button: {
+        fontSize: '14px',
+        fontWeight: 500,
         letterSpacing: 0,
-        lineHeight: 1.54,
+        lineHeight: 1.5,
         textTransform: 'none',
       },
       caption: {
         fontSize: '12px',
         fontWeight: 400,
-        lineHeight: 1.5,
+        lineHeight: 1.4,
       },
-      fontFamily: 'Lato, Arial, sans-serif',
-      fontSize: 13,
+      fontFamily:
+        'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+      fontSize: 14,
       fontWeightMedium: 600,
       h1: {
-        fontSize: '24px',
+        fontSize: '26px',
         fontWeight: 700,
-        lineHeight: '36px',
+        lineHeight: 1.25,
       },
       h2: {
-        fontSize: '18px',
+        fontSize: '20px',
         fontWeight: 700,
-        lineHeight: '27px',
+        lineHeight: 1.3,
       },
       h3: {
-        fontSize: '15px',
+        fontSize: '16px',
         fontWeight: 700,
-        lineHeight: '24px',
+        lineHeight: 1.35,
       },
       h4: {
-        fontSize: '13px',
+        fontSize: '14px',
         fontWeight: 700,
-        lineHeight: 1.53,
+        lineHeight: 1.5,
       },
       h5: {
-        fontSize: '12px',
+        fontSize: '13px',
         fontWeight: 700,
-        lineHeight: '18px',
+        lineHeight: 1.4,
       },
       h6: {
-        fontSize: '12px',
+        fontSize: '13px',
         fontWeight: 700,
-        lineHeight: '18px',
+        lineHeight: 1.4,
       },
       overline: {
         fontSize: '10px',
@@ -777,14 +800,14 @@ const createAppTheme = (c: ThemeColors): Theme =>
         textTransform: 'uppercase',
       },
       subtitle1: {
-        fontSize: '15px',
+        fontSize: '16px',
         fontWeight: 400,
-        lineHeight: '24px',
+        lineHeight: 1.4,
       },
       subtitle2: {
-        fontSize: '13px',
+        fontSize: '14px',
         fontWeight: 600,
-        lineHeight: 1.54,
+        lineHeight: 1.5,
       },
     },
   });
@@ -794,7 +817,8 @@ const ORIGINAL_COLORS: ThemeColors = {
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
   bgPaper: '#1d2027',
-  divider: 'rgba(243, 247, 255, 0.10)',
+  // Soft hairline (Cursor-like); panel seams come from Allotment, not doubled pane borders
+  divider: 'rgba(255, 255, 255, 0.09)',
   errorDark: '#962533',
   errorLight: '#ff6b6b',
   errorMain: '#d7354a',
@@ -835,7 +859,7 @@ const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
     alertWarningBg: alpha(f.peach, 0.14),
     bgDefault: f.base,
     bgPaper: f.mantle,
-    divider: alpha(f.overlay0, f.dark ? 0.4 : 0.55),
+    divider: f.dark ? alpha('#ffffff', 0.09) : alpha(f.overlay0, 0.35),
     errorDark: darken(f.red, 0.2),
     errorLight: f.red,
     errorMain: f.red,

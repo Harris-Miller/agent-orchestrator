@@ -423,12 +423,12 @@ export const SessionChatBody: FC<{
         display: 'flex',
         flex: 1,
         flexDirection: 'column',
-        gap: 1,
+        gap: 0.5,
         height: '100%',
         minHeight: 0,
         minWidth: 0,
         overflow: 'hidden',
-        p: 1,
+        p: 0.5,
       }}
     >
       <Paper
@@ -438,7 +438,7 @@ export const SessionChatBody: FC<{
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1 }}
+        sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <List dense disablePadding>
           {chatItems.length === 0 && !hasPendingInteraction ? (
@@ -499,7 +499,7 @@ export const SessionChatBody: FC<{
         </List>
       </Paper>
 
-      <Paper sx={{ flexShrink: 0, p: 1.5 }}>
+      <Paper sx={{ flexShrink: 0, p: 1 }}>
         <Stack spacing={1}>
           {backendSnapshot?.error !== undefined ? (
             <Typography color="error" variant="body2">

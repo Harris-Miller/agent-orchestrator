@@ -46,9 +46,22 @@ export const SessionHistory: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-        <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
+        <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>
+        <IconButton
+          aria-label="Reload sessions"
+          disabled={noFolder || !anyReady}
+          onClick={() => {
+            refreshAllSessionRosters(undefined).catch(onClientError);
+          }}
+          size="small"
+        >
+          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+            ↻
+          </Typography>
+        </IconButton>
+        <Box sx={{ flex: 1 }} />
         <OpenDeveloperPanelButton />
         <IconButton
           aria-label="Create session"
@@ -62,18 +75,6 @@ export const SessionHistory: FC = () => {
           size="small"
         >
           <Add fontSize="small" />
-        </IconButton>
-        <IconButton
-          aria-label="Reload sessions"
-          disabled={noFolder || !anyReady}
-          onClick={() => {
-            refreshAllSessionRosters(undefined).catch(onClientError);
-          }}
-          size="small"
-        >
-          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-            ↻
-          </Typography>
         </IconButton>
         <IconButton
           aria-label="Settings"

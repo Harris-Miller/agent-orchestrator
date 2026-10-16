@@ -3,6 +3,7 @@ import {
   activateSessionAtomFn,
   agentLaunchTargetLabel,
   clearSelectedAtomFn,
+  ensureVirtualSessionAtomFn,
   isSessionActiveOrActivating,
   OpenDeveloperPanelButton,
   selectedAtom,
@@ -10,18 +11,23 @@ import {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   SessionChatBody,
+  sessionListScopeAtom,
   unifiedSessionRosterAtom,
   virtualMaterializeInFlightAtom,
 } from '@lib/ui';
+import Add from '@mui/icons-material/Add';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useNavigate } from '@tanstack/react-router';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import { OnClientErrorContext } from './onClientError.tsx';
+import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
 /**
  * Chat chrome for Virtual or Selected Session. Parent mounts when Selected is set;
@@ -34,9 +40,14 @@ export const SessionChatPage: FC = () => {
   const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
   const inFlight = useAtomValue(virtualMaterializeInFlightAtom);
+  const sessionCwd = useAtomValue(sessionCwdAtom);
+  const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+  const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
+  const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
   const activateSessionRef = useRef(activateSession);
@@ -97,6 +108,29 @@ export const SessionChatPage: FC = () => {
           {title}
         </Typography>
         <OpenDeveloperPanelButton />
+        <IconButton
+          aria-label="Create session"
+          disabled={noFolder || inFlight}
+          onClick={() => {
+            if (sessionCwd === undefined) {
+              return;
+            }
+            ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
+          }}
+          size="small"
+        >
+          <Add fontSize="small" />
+        </IconButton>
+        <IconButton
+          aria-label="Settings"
+          disabled={inFlight}
+          onClick={() => {
+            navigate({ to: '/settings' }).catch(() => undefined);
+          }}
+          size="small"
+        >
+          <SettingsOutlined fontSize="small" />
+        </IconButton>
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} />

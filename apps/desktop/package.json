@@ -8,6 +8,7 @@
     "dev": "vite",
     "lint": "oxlint . --deny-warnings",
     "preview": "vite preview",
+    "prototype:work-region": "node -e \"console.log('Open the desktop app, then visit /?variant=A (←/→ or yellow bar cycles A/B/C). Run: pnpm tauri:dev')\"",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

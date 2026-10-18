@@ -29,6 +29,8 @@ import { Allotment } from 'allotment';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
+import { PrototypeWorkRegionChat } from './prototype/workRegion/PrototypeWorkRegionChat.tsx';
+import type { WorkRegionVariantKey } from './prototype/workRegion/variants.ts';
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { SessionCwdStrip } from './SessionCwdStrip.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
@@ -86,7 +88,9 @@ const saveWorkbenchLayout = (layout: WorkbenchLayout): void => {
 
 export const AgentChatWorkbench: FC<{
   readonly onClientError: (error: unknown) => void;
-}> = ({ onClientError }) => {
+  /** PROTOTYPE: when set, swap real chat for work-region UI variants. */
+  readonly workRegionPrototypeVariant?: WorkRegionVariantKey;
+}> = ({ onClientError, workRegionPrototypeVariant }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
@@ -207,7 +211,11 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody aboveComposer={<SessionCwdStrip />} onClientError={onClientError} />
+                {workRegionPrototypeVariant !== undefined ? (
+                  <PrototypeWorkRegionChat aboveComposer={<SessionCwdStrip />} variant={workRegionPrototypeVariant} />
+                ) : (
+                  <SessionChatBody aboveComposer={<SessionCwdStrip />} onClientError={onClientError} />
+                )}
               </Box>
             </Allotment.Pane>
 

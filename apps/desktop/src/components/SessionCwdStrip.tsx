@@ -1,7 +1,12 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { patchVirtualSessionAtomFn, selectedAtom, virtualMaterializeInFlightAtom, virtualSessionAtom } from '@lib/ui';
+import {
+  patchVirtualSessionAtomFn,
+  selectedAtom,
+  selectedSessionAtom,
+  virtualMaterializeInFlightAtom,
+  virtualSessionAtom,
+} from '@lib/ui';
 import FolderOpen from '@mui/icons-material/FolderOpen';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Box from '@mui/material/Box';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -10,50 +15,57 @@ import { directoryBasename } from '../directoryBasename.ts';
 
 import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
 
-/** Desktop Session cwd strip for Virtual session (tucked by SessionChatBody aboveComposer). */
+/** Desktop Session cwd strip (tucked by SessionChatBody aboveComposer). Clickable only for Virtual. */
 export const SessionCwdStrip: FC = () => {
   const selected = useAtomValue(selectedAtom);
+  const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializeInFlightAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  if (selected?._tag !== 'Virtual') {
+  if (selected === undefined) {
     return null;
   }
 
-  const cwd = virtual?.cwd;
+  const isVirtual = selected._tag === 'Virtual';
+  const cwd = isVirtual ? virtual?.cwd : selectedSession?.cwd;
   const label = cwd === undefined ? 'Choose Project' : directoryBasename(cwd);
+  const canPick = isVirtual && !inFlight;
 
   return (
     <>
       <Box
-        component="button"
-        disabled={inFlight}
-        onClick={() => {
-          setPickerOpen(true);
-        }}
+        component={canPick ? 'button' : 'div'}
+        disabled={canPick ? false : undefined}
+        onClick={
+          canPick
+            ? () => {
+                setPickerOpen(true);
+              }
+            : undefined
+        }
         sx={{
           '&:disabled': { opacity: 0.5 },
-          '&:hover:not(:disabled)': { color: 'text.primary' },
+          '&:hover:not(:disabled)': canPick ? { color: 'text.primary' } : undefined,
           alignItems: 'center',
           background: 'none',
           border: 'none',
           color: 'inherit',
-          cursor: inFlight ? 'default' : 'pointer',
+          cursor: canPick ? 'pointer' : 'default',
           display: 'inline-flex',
           font: 'inherit',
           fontSize: 12,
           gap: 0.75,
+          opacity: isVirtual && inFlight ? 0.5 : 1,
           p: 0,
         }}
-        type="button"
+        type={canPick ? 'button' : undefined}
       >
         <FolderOpen sx={{ fontSize: 14 }} />
         <span>{label}</span>
-        <KeyboardArrowDown sx={{ fontSize: 14 }} />
       </Box>
-      {pickerOpen ? (
+      {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
           onClose={() => {
             setPickerOpen(false);

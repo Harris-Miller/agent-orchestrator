@@ -376,9 +376,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
 
-          if (arg.sessionId in snapshot.sessions && snapshot.sessions[arg.sessionId].status !== 'inactive') {
-            yield* Effect.logWarning('deleteSession refused; session not inactive', arg.launchTarget, arg.sessionId);
-            return;
+          const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
+          if (session !== undefined && session.status !== 'inactive') {
+            yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
+            yield* closeSession(arg.launchTarget, arg.sessionId);
           }
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);

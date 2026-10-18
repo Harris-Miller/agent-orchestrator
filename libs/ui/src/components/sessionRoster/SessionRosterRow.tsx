@@ -14,7 +14,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import { activateSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
@@ -42,11 +42,9 @@ export const SessionRosterRow: FC<{
 }> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
-  const status = session?.status ?? 'inactive';
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
@@ -119,19 +117,7 @@ export const SessionRosterRow: FC<{
       >
         <Stack spacing={1} sx={{ p: 1 }}>
           <Button
-            disabled={status !== 'active'}
-            onClick={() => {
-              closeMenu();
-              deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
-            }}
-            size="small"
-            variant="outlined"
-          >
-            Deactivate
-          </Button>
-          <Button
             color="error"
-            disabled={status !== 'inactive'}
             onClick={() => {
               closeMenu();
               onDeleteRequest(entry);

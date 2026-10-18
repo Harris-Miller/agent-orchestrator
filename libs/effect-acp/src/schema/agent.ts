@@ -44,6 +44,9 @@ const AGENT_METHODS = {
 /** Unstable ACP model switch (Gemini `unstable_setSessionModel`). Not in stable AgentRpcs. */
 export const SESSION_SET_MODEL_METHOD = 'session/set_model' as const;
 
+/** Unstable ACP session fork. Not in stable AgentRpcs. */
+export const SESSION_FORK_METHOD = 'session/fork' as const;
+
 // =============================================================================
 // Payload schemas
 // =============================================================================
@@ -118,6 +121,27 @@ export class LoadSessionResponse extends Schema.Opaque<LoadSessionResponse>()(
     configOptions: optional(Schema.NullOr(Schema.Array(SessionConfigOption))),
     models: optional(Schema.NullOr(SessionModelState)),
     modes: optional(Schema.NullOr(SessionModeState)),
+  }),
+) {}
+
+/** Unstable: request options align with `session/load`. */
+export class ForkSessionRequest extends Schema.Opaque<ForkSessionRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    additionalDirectories: optional(Schema.Array(Schema.String)),
+    cwd: Schema.String,
+    mcpServers: Schema.Array(McpServer),
+    sessionId: SessionId,
+  }),
+) {}
+
+/** Unstable: response aligns with `session/new` (sessionId + optional config/modes). */
+export class ForkSessionResponse extends Schema.Opaque<ForkSessionResponse>()(
+  Schema.Struct({
+    _meta: MetaField,
+    configOptions: optional(Schema.NullOr(Schema.Array(SessionConfigOption))),
+    modes: optional(Schema.NullOr(SessionModeState)),
+    sessionId: SessionId,
   }),
 ) {}
 
@@ -313,6 +337,13 @@ export class SessionSetModel extends Rpc.make(SESSION_SET_MODEL_METHOD, {
   error: AcpError,
   payload: SetSessionModelRequest,
   success: SetSessionModelResponse,
+}) {}
+
+/** Unstable: keep out of AgentRequestRpcs allowlist; Client via connectAcpAgent.sessionFork. */
+export class SessionFork extends Rpc.make(SESSION_FORK_METHOD, {
+  error: AcpError,
+  payload: ForkSessionRequest,
+  success: ForkSessionResponse,
 }) {}
 
 export class SessionSetConfigOption extends Rpc.make(AGENT_METHODS.session_set_config_option, {

@@ -14,6 +14,7 @@ import {
   SessionCancel,
   SessionClose,
   SessionDelete,
+  SessionFork,
   SessionList,
   SessionLoad,
   SessionNew,
@@ -153,6 +154,9 @@ export class ClientRpcs extends ClientRequestRpcs.merge(ClientNotificationRpcs) 
 
 /** Unstable Client→Agent model switch; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionSetModelRpcs extends RpcGroup.make(SessionSetModel) {}
+
+/** Unstable Client→Agent session fork; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionForkRpcs extends RpcGroup.make(SessionFork) {}
 
 // =============================================================================
 // Intermediate encoded aliases

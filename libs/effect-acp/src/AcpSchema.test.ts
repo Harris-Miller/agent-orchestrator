@@ -6,7 +6,9 @@ import {
   ClientNotificationRpcs,
   ClientRequestRpcs,
   ProtocolNotificationRpcs,
+  UnstableSessionForkRpcs,
 } from './AcpSchema.ts';
+import { SESSION_FORK_METHOD } from './schema/agent.ts';
 
 const STABLE_AGENT_REQUESTS = [
   'initialize',
@@ -80,5 +82,10 @@ describe('AcpSchema stable v1 allowlist', () => {
     ];
     assert.strictEqual(all.length, 25);
     assert.strictEqual(new Set(all).size, 25);
+  });
+
+  it('session/fork stays off the stable AgentRequestRpcs allowlist', () => {
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_FORK_METHOD), false);
+    assertExactTags(UnstableSessionForkRpcs, [SESSION_FORK_METHOD]);
   });
 });

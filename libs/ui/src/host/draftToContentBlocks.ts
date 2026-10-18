@@ -252,7 +252,7 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
   options: { readonly cwd: string | undefined; readonly initializeResult: unknown },
 ) {
   if (options.cwd === undefined) {
-    return [{ text, type: 'text' }];
+    return [textBlock(text)];
   }
   return yield* draftToContentBlocks(text, {
     cwd: options.cwd,

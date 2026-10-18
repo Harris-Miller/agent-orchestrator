@@ -6,17 +6,22 @@ import {
   configOptionIndexAtom,
   readyLaunchTargetsAtom,
   selectedAtom,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   virtualMaterializeInFlightAtom,
 } from '../../atoms/backendState.atoms.ts';
-import { patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import {
+  forkSessionAtomFn,
+  patchVirtualSessionAtomFn,
+  setVirtualLaunchTargetAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
-import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 
@@ -29,15 +34,17 @@ export const useSessionChatSurface = () => {
   const draftSessionId = selectedSessionId ?? '';
   const [sessionDraft, setSessionDraft] = useAtom(draftAtom(draftSessionId));
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const virtualMaterializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
-  const { sourceCwd } = useSelectedSessionFsListing();
+  const { sessionCwd, sourceCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
   const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
+  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
 
   const getConfigOptionIndex = useCallback(
     (launchTarget: AgentLaunchTarget) => {
@@ -107,10 +114,34 @@ export const useSessionChatSurface = () => {
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sourceCwd !== undefined;
+  const canForkBase =
+    !isVirtual &&
+    controlsEnabled &&
+    selectedLaunchTarget !== undefined &&
+    selectedSessionId !== undefined &&
+    sessionCwd !== undefined &&
+    hasSessionForkCapability(backendSnapshot?.initializeResult);
+
+  const requestFork = useCallback((): Promise<unknown> | undefined => {
+    if (
+      selectedLaunchTarget === undefined ||
+      selectedSessionId === undefined ||
+      sessionCwd === undefined ||
+      !canForkBase
+    ) {
+      return undefined;
+    }
+    return forkSession({
+      cwd: sessionCwd,
+      launchTarget: selectedLaunchTarget,
+      sessionId: selectedSessionId,
+    });
+  }, [canForkBase, forkSession, selectedLaunchTarget, selectedSessionId, sessionCwd]);
 
   return {
     availableCommands,
     canCancelPromptTurn,
+    canForkBase,
     canHandoffBase,
     canSend,
     chatItems,
@@ -123,6 +154,7 @@ export const useSessionChatSurface = () => {
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    requestFork,
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,

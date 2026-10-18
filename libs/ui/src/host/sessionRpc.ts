@@ -9,6 +9,7 @@ type AgentHandle = AcpAgentConnection['agent'];
 type ConnectedAgent = {
   readonly agent: AgentHandle;
   readonly notify: AcpAgentConnection['notify'];
+  readonly sessionFork: AcpAgentConnection['sessionFork'];
 };
 
 export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>()('BackendNotConnected', {
@@ -28,9 +29,13 @@ const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<C
 /** Lifecycle hook — backendHarness registers the live agent after connect. */
 export const setConnectedAgent = (
   launchTarget: AgentLaunchTarget,
-  connection: Pick<AcpAgentConnection, 'agent' | 'notify'>,
+  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionFork'>,
 ): void => {
-  connectedAgents.set(launchTarget, { agent: connection.agent, notify: connection.notify });
+  connectedAgents.set(launchTarget, {
+    agent: connection.agent,
+    notify: connection.notify,
+    sessionFork: connection.sessionFork,
+  });
 };
 
 /** Lifecycle hook — backendHarness clears the agent on stop / retry / reset. */
@@ -56,6 +61,22 @@ export const createSession = Effect.fn('createSession')(
     return { cwd, result };
   },
   Effect.tapError(error => Effect.logError('session/new failed', error)),
+);
+
+/** Unstable `session/fork`. Caller owns any UI materialize of the response. */
+export const forkSession = Effect.fn('forkSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
+    const { sessionFork } = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.logInfo('Forking ACP session', sessionId, { cwd });
+    const result = yield* sessionFork({ cwd, mcpServers: [], sessionId });
+    yield* Effect.logInfo('Forked ACP session', {
+      forkedSessionId: result.sessionId,
+      parentSessionId: sessionId,
+    });
+    return result;
+  },
+  (effect, _launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('session/fork failed', sessionId, error))),
 );
 
 export const loadSession = Effect.fn('loadSession')(

@@ -7,7 +7,14 @@ import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import { RpcClientDefect, RpcClientError as RpcClientErrorValue } from 'effect/unstable/rpc/RpcClientError';
 import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effect/unstable/rpc/RpcMessage';
 
-import { AgentRpcs, ClientRpcs, SESSION_SET_MODEL_METHOD, UnstableSessionSetModelRpcs } from './AcpSchema.ts';
+import {
+  AgentRpcs,
+  ClientRpcs,
+  SESSION_FORK_METHOD,
+  SESSION_SET_MODEL_METHOD,
+  UnstableSessionForkRpcs,
+  UnstableSessionSetModelRpcs,
+} from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
 import { AcpError } from './schema/common.ts';
@@ -156,6 +163,8 @@ export type AcpAgentConnection = {
   readonly agent: RpcClient.FromGroup<typeof AgentRpcs, RpcClientError>;
   readonly handle: ChildProcessSpawner.ChildProcessHandle;
   readonly notify: (tag: string, payload: unknown) => Effect.Effect<void, TransportError>;
+  /** Unstable `session/fork`. Not part of stable AgentRpcs. */
+  readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
   /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
   readonly sessionSetModel: RpcClient.FromGroup<
     typeof UnstableSessionSetModelRpcs,
@@ -278,6 +287,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     );
 
     const agent = yield* RpcClient.make(AgentRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+    const forkClient = yield* RpcClient.make(UnstableSessionForkRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
     const setModelClient = yield* RpcClient.make(UnstableSessionSetModelRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
@@ -289,6 +301,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       agent,
       handle,
       notify: transport.notify,
+      sessionFork: forkClient[SESSION_FORK_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
     } as const satisfies AcpAgentConnection;
   },

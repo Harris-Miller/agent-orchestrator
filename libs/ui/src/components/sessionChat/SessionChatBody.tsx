@@ -87,6 +87,7 @@ export const SessionChatBody: FC<{
   const {
     availableCommands,
     canCancelPromptTurn,
+    canForkBase: canFork,
     canHandoffBase: canHandoff,
     canSend,
     chatItems,
@@ -99,6 +100,7 @@ export const SessionChatBody: FC<{
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    requestFork,
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
@@ -700,6 +702,15 @@ export const SessionChatBody: FC<{
                   }}
                 >
                   Handoff
+                </MenuItem>
+                <MenuItem
+                  disabled={!canFork}
+                  onClick={() => {
+                    setSplitMenuAnchor(null);
+                    requestFork()?.catch(onClientError);
+                  }}
+                >
+                  Fork
                 </MenuItem>
               </Menu>
             </Box>

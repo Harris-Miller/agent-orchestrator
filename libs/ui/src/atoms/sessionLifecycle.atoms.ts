@@ -25,6 +25,7 @@ import {
   closeSession,
   createSession,
   deleteSession,
+  forkSession,
   listSessions,
   loadSession,
   resumeSession,
@@ -269,6 +270,61 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
+  /**
+   * `session/fork` then treat the result like a `session/list` row (roster only, not active).
+   * Activate via the normal activate path (empty local transcript ⇒ `session/load`) so the
+   * agent hydrates/replays — vendors' fork may not leave the new id live the way the unstable
+   * spec implies.
+   */
+  const forkSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('forkSessionAtomFn', { root: true })(
+        function* (arg: { cwd: string; launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
+          yield* Effect.annotateCurrentSpan({
+            'acp.agent': arg.launchTarget,
+            'acp.sessionId': arg.sessionId,
+          });
+          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          if (snapshot.phase !== 'ready') {
+            yield* Effect.logWarning('forkSession skipped; backend not ready', arg.launchTarget);
+            return;
+          }
+
+          const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
+          const forkedSessionId = result.sessionId;
+          yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
+
+          const parentRoster = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
+          const createdRoster = rosterEntryFromNew(result, arg.cwd);
+          if (createdRoster === undefined) {
+            yield* Effect.logError('forkSession skipped; fork result missing sessionId', arg.launchTarget);
+            return;
+          }
+          const rosterEntry =
+            parentRoster?.title !== undefined ? { ...createdRoster, title: parentRoster.title } : createdRoster;
+
+          const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          get.set(backendHarnessStateAtom(arg.launchTarget), materializeIntoSnapshot(nextSnapshot, { rosterEntry }));
+
+          yield* get.setResult(activateSessionAtomFn, {
+            launchTarget: arg.launchTarget,
+            sessionId: forkedSessionId,
+          });
+          yield* Effect.logInfo('UI forkSession complete', arg.launchTarget, {
+            forkedSessionId,
+            parentSessionId: arg.sessionId,
+          });
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('forkSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
   const deactivateSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('deactivateSessionAtomFn', { root: true })(
@@ -356,6 +412,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     createSessionAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
+    forkSessionAtomFn,
     refreshAllSessionRostersAtomFn,
     refreshSessionRosterAtomFn,
     selectSessionAtomFn,

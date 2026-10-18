@@ -47,6 +47,7 @@ export const {
   createSessionAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
+  forkSessionAtomFn,
   refreshAllSessionRostersAtomFn,
   refreshSessionRosterAtomFn,
   selectSessionAtomFn,

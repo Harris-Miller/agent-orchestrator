@@ -242,3 +242,20 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 
   return blocks;
 });
+
+/**
+ * ContentBlock[] for `session/prompt` from composer draft — same path as send.
+ * No cwd → plain text block (send cannot resolve FS links).
+ */
+export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
+  text: string,
+  options: { readonly cwd: string | undefined; readonly initializeResult: unknown },
+) {
+  if (options.cwd === undefined) {
+    return [{ text, type: 'text' }];
+  }
+  return yield* draftToContentBlocks(text, {
+    cwd: options.cwd,
+    embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
+  });
+});

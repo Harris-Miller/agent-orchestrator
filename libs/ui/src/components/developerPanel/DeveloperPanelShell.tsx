@@ -24,6 +24,7 @@ import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
 
+import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 import {
@@ -44,6 +45,7 @@ export const DEVELOPER_PANEL_HEIGHT = 320;
 const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
 const SESSION_STATE_TAB = 'session-state' as const;
 const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
+const COMPOSER_TAB = 'composer' as const;
 
 export type DeveloperPanelExtraTab = {
   readonly content: ReactNode;
@@ -352,6 +354,7 @@ export const DeveloperPanelShell: FC<{
           sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
           value={FS_MENTION_LISTING_TAB}
         />
+        <Tab label="Composer" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={COMPOSER_TAB} />
         {extraTabs.map(tab => (
           <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
         ))}
@@ -372,6 +375,8 @@ export const DeveloperPanelShell: FC<{
           <SessionStateView initializeResult={initializeResult} session={session} />
         ) : isFsMentionListingTab ? (
           <FsMentionListingTab />
+        ) : activeTab === COMPOSER_TAB ? (
+          <ComposerTab />
         ) : (
           (activeExtraTab?.content ?? null)
         )}

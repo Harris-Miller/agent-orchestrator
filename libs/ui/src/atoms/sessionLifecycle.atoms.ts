@@ -20,7 +20,7 @@ import {
   replaceSessionRoster,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { buildActivatedSession, rosterEntryFromNew, sessionConfigurationFromFork } from '../host/sessionMaterialize.ts';
+import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
   closeSession,
   createSession,
@@ -178,9 +178,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * `session/fork` then Materialize like `session/new`: active snapshot + roster, copy parent
-   * transcript locally (fork response does not replay history). Then `session/close` +
-   * `session/resume` so the agent rebinds the forked id (workaround for Codex/Claude fork bugs).
+   * `session/fork` then treat the result like a `session/list` row (roster only, not active).
+   * Activate via `session/load` so the agent hydrates/replays — vendors' fork may not leave
+   * the new id live the way the unstable spec implies.
    */
   const forkSessionAtomFn = atomRuntime
     .fn(
@@ -196,53 +196,65 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
 
-          if (!(arg.sessionId in snapshot.sessions)) {
-            yield* Effect.logError(
-              'forkSession skipped; parent session snapshot missing',
-              arg.launchTarget,
-              arg.sessionId,
-            );
-            return;
-          }
-          const parentSession = snapshot.sessions[arg.sessionId];
-
           const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
           const forkedSessionId = result.sessionId;
           yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
 
           const parentRoster = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
           const createdRoster = rosterEntryFromNew(result, arg.cwd);
+          if (createdRoster === undefined) {
+            yield* Effect.logError('forkSession skipped; fork result missing sessionId', arg.launchTarget);
+            return;
+          }
           const rosterEntry =
-            createdRoster === undefined
-              ? undefined
-              : parentRoster?.title !== undefined
-                ? { ...createdRoster, title: parentRoster.title }
-                : createdRoster;
-
-          const sessionConfiguration = sessionConfigurationFromFork(result, parentSession.sessionConfiguration);
-          const session = buildActivatedSession(forkedSessionId, sessionConfiguration, {
-            availableCommands: parentSession.availableCommands,
-            cwd: arg.cwd,
-            transcript: structuredClone(parentSession.transcript),
-            usage: parentSession.usage,
-          });
+            parentRoster?.title !== undefined ? { ...createdRoster, title: parentRoster.title } : createdRoster;
 
           const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          get.set(
-            backendHarnessStateAtom(arg.launchTarget),
-            rosterEntry !== undefined
-              ? materializeIntoSnapshot(nextSnapshot, { rosterEntry, session })
-              : materializeIntoSnapshot(nextSnapshot, { session }),
-          );
+          get.set(backendHarnessStateAtom(arg.launchTarget), materializeIntoSnapshot(nextSnapshot, { rosterEntry }));
           selectSession(get, forkedSessionId);
 
-          // Rebind forked session: close then resume (no replay — transcript already copied).
-          yield* closeSession(arg.launchTarget, forkedSessionId);
-          const resumeResult = yield* resumeSession(arg.launchTarget, forkedSessionId, arg.cwd);
+          yield* Effect.logInfo('Activating forked session via session/load', arg.launchTarget, forkedSessionId, {
+            cwd: arg.cwd,
+          });
           get.set(backendHarnessStateAtom(arg.launchTarget), {
             ...get(backendHarnessStateAtom(arg.launchTarget)),
-            sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, forkedSessionId, s =>
-              buildActivatedSession(forkedSessionId, resumeResult, s),
+            sessions: patchSession(
+              get(backendHarnessStateAtom(arg.launchTarget)).sessions,
+              forkedSessionId,
+              session => ({
+                ...session,
+                cwd: arg.cwd,
+                defects: undefined,
+                status: 'activating',
+              }),
+            ),
+          });
+
+          const exit = yield* Effect.exit(loadSession(arg.launchTarget, forkedSessionId, arg.cwd));
+          if (Exit.isFailure(exit)) {
+            yield* Effect.logError('Forked session/load failed', arg.launchTarget, forkedSessionId);
+            const current = get(backendHarnessStateAtom(arg.launchTarget));
+            get.set(backendHarnessStateAtom(arg.launchTarget), {
+              ...current,
+              sessions: patchSession(current.sessions, forkedSessionId, session => ({
+                ...session,
+                defects: defectsFromActivationFailure(current.rpcCalls, exit.cause),
+                status: 'inactive',
+              })),
+            });
+            return;
+          }
+
+          const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(forkedSessionId));
+          get.set(backendHarnessStateAtom(arg.launchTarget), {
+            ...get(backendHarnessStateAtom(arg.launchTarget)),
+            sessions: patchSession(
+              get(backendHarnessStateAtom(arg.launchTarget)).sessions,
+              forkedSessionId,
+              session => ({
+                ...buildActivatedSession(forkedSessionId, exit.value, session),
+                usage: persistedUsage,
+              }),
             ),
           });
 

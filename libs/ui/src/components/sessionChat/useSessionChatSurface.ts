@@ -12,7 +12,11 @@ import {
   selectedSessionLaunchTargetAtom,
   virtualMaterializeInFlightAtom,
 } from '../../atoms/backendState.atoms.ts';
-import { patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import {
+  forkSessionAtomFn,
+  patchVirtualSessionAtomFn,
+  setVirtualLaunchTargetAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
@@ -40,6 +44,7 @@ export const useSessionChatSurface = () => {
   const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
+  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
 
   const getConfigOptionIndex = useCallback(
     (launchTarget: AgentLaunchTarget) => {
@@ -117,6 +122,22 @@ export const useSessionChatSurface = () => {
     sessionCwd !== undefined &&
     hasSessionForkCapability(backendSnapshot?.initializeResult);
 
+  const requestFork = useCallback((): Promise<unknown> | undefined => {
+    if (
+      selectedLaunchTarget === undefined ||
+      selectedSessionId === undefined ||
+      sessionCwd === undefined ||
+      !canForkBase
+    ) {
+      return undefined;
+    }
+    return forkSession({
+      cwd: sessionCwd,
+      launchTarget: selectedLaunchTarget,
+      sessionId: selectedSessionId,
+    });
+  }, [canForkBase, forkSession, selectedLaunchTarget, selectedSessionId, sessionCwd]);
+
   return {
     availableCommands,
     canCancelPromptTurn,
@@ -133,6 +154,7 @@ export const useSessionChatSurface = () => {
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    requestFork,
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,

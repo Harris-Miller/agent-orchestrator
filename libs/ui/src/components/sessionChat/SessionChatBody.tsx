@@ -21,7 +21,6 @@ import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.ato
 import {
   activateSessionAtomFn,
   cancelPromptAtomFn,
-  forkSessionAtomFn,
   handoffSessionAtomFn,
   materializeVirtualThenSendAtomFn,
   patchVirtualSessionAtomFn,
@@ -101,6 +100,7 @@ export const SessionChatBody: FC<{
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    requestFork,
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
@@ -117,7 +117,6 @@ export const SessionChatBody: FC<{
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
@@ -708,18 +707,7 @@ export const SessionChatBody: FC<{
                   disabled={!canFork}
                   onClick={() => {
                     setSplitMenuAnchor(null);
-                    if (
-                      selectedLaunchTarget === undefined ||
-                      selectedSessionId === undefined ||
-                      sessionCwd === undefined
-                    ) {
-                      return;
-                    }
-                    forkSession({
-                      cwd: sessionCwd,
-                      launchTarget: selectedLaunchTarget,
-                      sessionId: selectedSessionId,
-                    }).catch(onClientError);
+                    requestFork()?.catch(onClientError);
                   }}
                 >
                   Fork

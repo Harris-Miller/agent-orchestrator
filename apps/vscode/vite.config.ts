@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => ({
   define: {
     'process.env.NODE_ENV': JSON.stringify(mode),
   },
+  // Prebundle at server start so the first webview client does not trigger
+  // "optimized dependencies changed. reloading" — that full reload wipes VS Code's
+  // document.write into fake.html and leaves a blank sidebar.
+  optimizeDeps: {
+    entries: ['src/webview/index.tsx'],
+  },
   plugins: [react()],
   server: {
     cors: true,

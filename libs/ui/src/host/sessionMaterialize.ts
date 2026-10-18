@@ -2,8 +2,6 @@
 
 import { Effect, Exit } from 'effect';
 
-import { isRecord } from '../isRecord.ts';
-
 import {
   applySetConfigOptionResult,
   normalizeConfigOptions,
@@ -14,26 +12,6 @@ import {
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { ConfigOptionValues } from './configProbe.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
-
-const isAbsentConfigField = (value: unknown): boolean => value === undefined || value === null;
-
-/**
- * Fork response may omit or null `configOptions` / `modes` (Claude). Fill those from the
- * parent session configuration so Composer chrome still has dropdown options.
- */
-export const sessionConfigurationFromFork = (forkResult: unknown, parentConfiguration: unknown): unknown => {
-  const base: Record<string, unknown> = isRecord(forkResult) ? { ...forkResult } : {};
-  if (!isRecord(parentConfiguration)) {
-    return base;
-  }
-  if (isAbsentConfigField(base.configOptions) && !isAbsentConfigField(parentConfiguration.configOptions)) {
-    base.configOptions = parentConfiguration.configOptions;
-  }
-  if (isAbsentConfigField(base.modes) && !isAbsentConfigField(parentConfiguration.modes)) {
-    base.modes = parentConfiguration.modes;
-  }
-  return base;
-};
 
 /** Fields carried forward across activation merges (create may pass only `{ cwd }`). */
 export type SessionActivationCarry = Partial<

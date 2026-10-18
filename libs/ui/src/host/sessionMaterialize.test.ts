@@ -2,12 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
-import {
-  applyConfigDiffs,
-  buildActivatedSession,
-  rosterEntryFromNew,
-  sessionConfigurationFromFork,
-} from './sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from './sessionMaterialize.ts';
 import type { ConfigValueDiff } from './sessionMaterialize.ts';
 
 describe('buildActivatedSession cwd continuity', () => {
@@ -29,30 +24,6 @@ describe('buildActivatedSession cwd continuity', () => {
     const remapped = buildActivatedSession('s1', { models: [] }, created);
     assert.strictEqual(remapped.cwd, '/proj');
   });
-
-  it('fork carry clones parent transcript onto the new sessionId', () => {
-    const parent = initialSessionSnapshot('parent', 'active');
-    const withItem = {
-      ...parent,
-      transcript: {
-        ...parent.transcript,
-        items: [{ id: 'u1', kind: 'user_message' as const, text: 'hi' }],
-      },
-    };
-    const cloned = structuredClone(withItem.transcript);
-    const forked = buildActivatedSession(
-      'fork',
-      { configOptions: [], sessionId: 'fork' },
-      {
-        cwd: '/proj',
-        transcript: cloned,
-      },
-    );
-    assert.strictEqual(forked.sessionId, 'fork');
-    assert.strictEqual(forked.status, 'active');
-    assert.deepStrictEqual(forked.transcript.items, withItem.transcript.items);
-    assert.notStrictEqual(forked.transcript, withItem.transcript);
-  });
 });
 
 describe('rosterEntryFromNew', () => {
@@ -60,41 +31,6 @@ describe('rosterEntryFromNew', () => {
     const entry = rosterEntryFromNew({ sessionId: 's1' }, '/tmp/proj');
     assert.strictEqual(entry?.sessionId, 's1');
     assert.strictEqual(entry?.cwd, '/tmp/proj');
-  });
-});
-
-describe('sessionConfigurationFromFork', () => {
-  const parentConfig = {
-    configOptions: [{ currentValue: 'sonnet', id: 'model', name: 'Model', type: 'select' }],
-    modes: { availableModes: [{ id: 'default', name: 'Manual' }], currentModeId: 'default' },
-    sessionId: 'parent',
-  };
-
-  it('fills missing configOptions and modes from parent', () => {
-    const merged = sessionConfigurationFromFork({ sessionId: 'fork' }, parentConfig) as Record<string, unknown>;
-    assert.strictEqual(merged.sessionId, 'fork');
-    assert.deepStrictEqual(merged.configOptions, parentConfig.configOptions);
-    assert.deepStrictEqual(merged.modes, parentConfig.modes);
-  });
-
-  it('fills null configOptions and modes from parent', () => {
-    const merged = sessionConfigurationFromFork(
-      { configOptions: null, modes: null, sessionId: 'fork' },
-      parentConfig,
-    ) as Record<string, unknown>;
-    assert.deepStrictEqual(merged.configOptions, parentConfig.configOptions);
-    assert.deepStrictEqual(merged.modes, parentConfig.modes);
-  });
-
-  it('keeps fork-provided configOptions and modes', () => {
-    const forkConfig = {
-      configOptions: [{ currentValue: 'opus', id: 'model', name: 'Model', type: 'select' }],
-      modes: { availableModes: [{ id: 'plan', name: 'Plan' }], currentModeId: 'plan' },
-      sessionId: 'fork',
-    };
-    const merged = sessionConfigurationFromFork(forkConfig, parentConfig) as Record<string, unknown>;
-    assert.deepStrictEqual(merged.configOptions, forkConfig.configOptions);
-    assert.deepStrictEqual(merged.modes, forkConfig.modes);
   });
 });
 

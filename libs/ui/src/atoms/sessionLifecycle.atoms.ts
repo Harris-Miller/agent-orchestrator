@@ -179,7 +179,8 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
 
   /**
    * `session/fork` then Materialize like `session/new`: active snapshot + roster, copy parent
-   * transcript locally (agent already has context; fork response does not replay history).
+   * transcript locally (fork response does not replay history). Then `session/close` +
+   * `session/resume` so the agent rebinds the forked id (workaround for Codex/Claude fork bugs).
    */
   const forkSessionAtomFn = atomRuntime
     .fn(
@@ -234,6 +235,17 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
               : materializeIntoSnapshot(nextSnapshot, { session }),
           );
           selectSession(get, forkedSessionId);
+
+          // Rebind forked session: close then resume (no replay — transcript already copied).
+          yield* closeSession(arg.launchTarget, forkedSessionId);
+          const resumeResult = yield* resumeSession(arg.launchTarget, forkedSessionId, arg.cwd);
+          get.set(backendHarnessStateAtom(arg.launchTarget), {
+            ...get(backendHarnessStateAtom(arg.launchTarget)),
+            sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, forkedSessionId, s =>
+              buildActivatedSession(forkedSessionId, resumeResult, s),
+            ),
+          });
+
           yield* Effect.logInfo('UI forkSession complete', arg.launchTarget, {
             forkedSessionId,
             parentSessionId: arg.sessionId,

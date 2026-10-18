@@ -551,6 +551,7 @@ export const SessionChatBody: FC<{
                 color: 'text.secondary',
                 fontSize: 12,
                 mb: '-10px',
+                mx: 1.5,
                 pb: 1.75,
                 pt: 1,
                 px: 1.5,

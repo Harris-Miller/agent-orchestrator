@@ -20,7 +20,7 @@ import {
   replaceSessionRoster,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { buildActivatedSession, rosterEntryFromNew, sessionConfigurationFromFork } from '../host/sessionMaterialize.ts';
 import {
   closeSession,
   createSession,
@@ -177,21 +177,68 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  /** Fire `session/fork` only — no roster/snapshot materialize yet. */
+  /**
+   * `session/fork` then Materialize like `session/new`: active snapshot + roster, copy parent
+   * transcript locally (agent already has context; fork response does not replay history).
+   */
   const forkSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('forkSessionAtomFn', { root: true })(
-        function* (arg: { cwd: string; launchTarget: AgentLaunchTarget; sessionId: string }) {
+        function* (arg: { cwd: string; launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
           yield* Effect.annotateCurrentSpan({
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
+          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          if (snapshot.phase !== 'ready') {
+            yield* Effect.logWarning('forkSession skipped; backend not ready', arg.launchTarget);
+            return;
+          }
+
+          if (!(arg.sessionId in snapshot.sessions)) {
+            yield* Effect.logError(
+              'forkSession skipped; parent session snapshot missing',
+              arg.launchTarget,
+              arg.sessionId,
+            );
+            return;
+          }
+          const parentSession = snapshot.sessions[arg.sessionId];
+
           const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
-          yield* Effect.annotateCurrentSpan('acp.forkedSessionId', result.sessionId);
-          yield* Effect.logInfo('UI forkSession complete (no materialize)', arg.launchTarget, {
-            forkedSessionId: result.sessionId,
+          const forkedSessionId = result.sessionId;
+          yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
+
+          const parentRoster = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
+          const createdRoster = rosterEntryFromNew(result, arg.cwd);
+          const rosterEntry =
+            createdRoster === undefined
+              ? undefined
+              : parentRoster?.title !== undefined
+                ? { ...createdRoster, title: parentRoster.title }
+                : createdRoster;
+
+          const sessionConfiguration = sessionConfigurationFromFork(result, parentSession.sessionConfiguration);
+          const session = buildActivatedSession(forkedSessionId, sessionConfiguration, {
+            availableCommands: parentSession.availableCommands,
+            cwd: arg.cwd,
+            transcript: structuredClone(parentSession.transcript),
+            usage: parentSession.usage,
+          });
+
+          const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            rosterEntry !== undefined
+              ? materializeIntoSnapshot(nextSnapshot, { rosterEntry, session })
+              : materializeIntoSnapshot(nextSnapshot, { session }),
+          );
+          selectSession(get, forkedSessionId);
+          yield* Effect.logInfo('UI forkSession complete', arg.launchTarget, {
+            forkedSessionId,
             parentSessionId: arg.sessionId,
           });
+          yield* preloadSessionFsListing(get, forkedSessionId, arg.cwd);
         },
         (effect, arg) =>
           effect.pipe(

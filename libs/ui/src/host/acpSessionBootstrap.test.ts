@@ -12,6 +12,7 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
+  hasSessionForkCapability,
   isConfigProbeCwd,
   normalizeConfigOptions,
   normalizeModels,
@@ -454,5 +455,21 @@ describe('defectsFromWireCause', () => {
       ]),
       [{ message: 'Internal error' }],
     );
+  });
+});
+
+describe('hasSessionForkCapability', () => {
+  it('treats sessionCapabilities.fork {} as enabled', () => {
+    assert.isTrue(
+      hasSessionForkCapability({
+        agentCapabilities: { sessionCapabilities: { fork: {} } },
+      }),
+    );
+    assert.isFalse(
+      hasSessionForkCapability({
+        agentCapabilities: { sessionCapabilities: { list: {} } },
+      }),
+    );
+    assert.isFalse(hasSessionForkCapability({}));
   });
 });

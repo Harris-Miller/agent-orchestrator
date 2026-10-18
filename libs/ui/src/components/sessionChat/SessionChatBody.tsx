@@ -21,6 +21,7 @@ import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.ato
 import {
   activateSessionAtomFn,
   cancelPromptAtomFn,
+  forkSessionAtomFn,
   handoffSessionAtomFn,
   materializeVirtualThenSendAtomFn,
   patchVirtualSessionAtomFn,
@@ -87,6 +88,7 @@ export const SessionChatBody: FC<{
   const {
     availableCommands,
     canCancelPromptTurn,
+    canForkBase: canFork,
     canHandoffBase: canHandoff,
     canSend,
     chatItems,
@@ -115,6 +117,7 @@ export const SessionChatBody: FC<{
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
+  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
@@ -700,6 +703,26 @@ export const SessionChatBody: FC<{
                   }}
                 >
                   Handoff
+                </MenuItem>
+                <MenuItem
+                  disabled={!canFork}
+                  onClick={() => {
+                    setSplitMenuAnchor(null);
+                    if (
+                      selectedLaunchTarget === undefined ||
+                      selectedSessionId === undefined ||
+                      sessionCwd === undefined
+                    ) {
+                      return;
+                    }
+                    forkSession({
+                      cwd: sessionCwd,
+                      launchTarget: selectedLaunchTarget,
+                      sessionId: selectedSessionId,
+                    }).catch(onClientError);
+                  }}
+                >
+                  Fork
                 </MenuItem>
               </Menu>
             </Box>

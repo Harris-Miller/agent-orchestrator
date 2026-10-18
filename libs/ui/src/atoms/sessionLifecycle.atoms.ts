@@ -25,6 +25,7 @@ import {
   closeSession,
   createSession,
   deleteSession,
+  forkSession,
   listSessions,
   loadSession,
   resumeSession,
@@ -172,6 +173,32 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
         },
         (effect, arg) =>
           effect.pipe(Effect.tapError(error => Effect.logError('createSessionAtomFn failed', arg.launchTarget, error))),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
+  /** Fire `session/fork` only — no roster/snapshot materialize yet. */
+  const forkSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('forkSessionAtomFn', { root: true })(
+        function* (arg: { cwd: string; launchTarget: AgentLaunchTarget; sessionId: string }) {
+          yield* Effect.annotateCurrentSpan({
+            'acp.agent': arg.launchTarget,
+            'acp.sessionId': arg.sessionId,
+          });
+          const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
+          yield* Effect.annotateCurrentSpan('acp.forkedSessionId', result.sessionId);
+          yield* Effect.logInfo('UI forkSession complete (no materialize)', arg.launchTarget, {
+            forkedSessionId: result.sessionId,
+            parentSessionId: arg.sessionId,
+          });
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('forkSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
       ),
     )
     .pipe(Atom.keepAlive);
@@ -356,6 +383,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag) => {
     createSessionAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
+    forkSessionAtomFn,
     refreshAllSessionRostersAtomFn,
     refreshSessionRosterAtomFn,
     selectSessionAtomFn,

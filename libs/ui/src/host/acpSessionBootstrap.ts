@@ -644,6 +644,16 @@ export const normalizeInitialize = (initializeResult: unknown): NormalizedInitia
   };
 };
 
+/** True when initialize advertises `sessionCapabilities.fork` (`{}`). */
+export const hasSessionForkCapability = (initializeResult: unknown): boolean => {
+  const normalized = normalizeInitialize(initializeResult);
+  return (
+    normalized?.capabilities.some(
+      capability => capability.path === 'sessionCapabilities.fork' && capability.enabled,
+    ) === true
+  );
+};
+
 export const normalizeConfigOptions = (sessionNew: unknown): readonly NormalizedConfigOption[] => {
   if (!isRecord(sessionNew) || !Array.isArray(sessionNew.configOptions)) {
     return [];

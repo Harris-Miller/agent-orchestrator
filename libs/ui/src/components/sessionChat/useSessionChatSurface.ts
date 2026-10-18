@@ -6,6 +6,7 @@ import {
   configOptionIndexAtom,
   readyLaunchTargetsAtom,
   selectedAtom,
+  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
@@ -16,7 +17,7 @@ import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
-import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 
@@ -29,9 +30,10 @@ export const useSessionChatSurface = () => {
   const draftSessionId = selectedSessionId ?? '';
   const [sessionDraft, setSessionDraft] = useAtom(draftAtom(draftSessionId));
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const virtualMaterializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
-  const { sourceCwd } = useSelectedSessionFsListing();
+  const { sessionCwd, sourceCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
@@ -107,10 +109,18 @@ export const useSessionChatSurface = () => {
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sourceCwd !== undefined;
+  const canForkBase =
+    !isVirtual &&
+    controlsEnabled &&
+    selectedLaunchTarget !== undefined &&
+    selectedSessionId !== undefined &&
+    sessionCwd !== undefined &&
+    hasSessionForkCapability(backendSnapshot?.initializeResult);
 
   return {
     availableCommands,
     canCancelPromptTurn,
+    canForkBase,
     canHandoffBase,
     canSend,
     chatItems,

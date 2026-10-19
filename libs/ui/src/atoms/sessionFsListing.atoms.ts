@@ -50,7 +50,7 @@ export const createSessionFsListingAtoms = (
           get.set(sessionFsListingAtom(key), { cwd: arg.cwd, entries: [], status: 'loading' });
         }
 
-        const exit = yield* Effect.exit(listRecursiveEntries(arg.cwd, { alwaysHiddenGlobs }));
+        const exit = yield* Effect.exit(listRecursiveEntries(arg.cwd, alwaysHiddenGlobs));
         if (Exit.isFailure(exit)) {
           yield* Effect.logWarning('session fs listing failed', arg.sessionId, arg.cwd, exit.cause);
           if (get(sessionFsListingAtom(key)).status === 'loading') {

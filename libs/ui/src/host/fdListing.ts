@@ -20,10 +20,6 @@ export type ShallowDirListingOptions = {
   readonly showHidden: boolean;
 };
 
-export type RecursiveListingOptions = {
-  readonly alwaysHiddenGlobs?: readonly string[];
-};
-
 /**
  * Always `-E .git`, then `-E` for each normalized Always-hidden glob (skip redundant `.git`).
  * Never emits `-I` / `--no-ignore*`.
@@ -157,14 +153,13 @@ export const listShallowDirectories = Effect.fn('listShallowDirectories')(functi
  */
 export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (
   cwd: string,
-  options: RecursiveListingOptions = {},
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
 ) {
   const binary = yield* requireFdBinary();
-  const globs = options.alwaysHiddenGlobs;
   const [dirStdout, fileStdout] = yield* Effect.all(
     [
-      spawnFdStdout(binary, recursiveDirListingArgs(globs), cwd),
-      spawnFdStdout(binary, recursiveFileListingArgs(globs), cwd),
+      spawnFdStdout(binary, recursiveDirListingArgs(alwaysHiddenGlobs), cwd),
+      spawnFdStdout(binary, recursiveFileListingArgs(alwaysHiddenGlobs), cwd),
     ],
     { concurrency: 2 },
   );

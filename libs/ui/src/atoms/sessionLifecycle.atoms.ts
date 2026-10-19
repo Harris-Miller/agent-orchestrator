@@ -52,7 +52,7 @@ const preloadSessionFsListing = (
     const alwaysHiddenGlobs = get(alwaysHiddenGlobsAtom);
     const key = sessionFsListingKey(sessionId, cwd);
     get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'loading' });
-    const exit = yield* Effect.exit(listRecursiveEntries(cwd, { alwaysHiddenGlobs }));
+    const exit = yield* Effect.exit(listRecursiveEntries(cwd, alwaysHiddenGlobs));
     if (Exit.isFailure(exit)) {
       yield* Effect.logWarning('session fs listing preload failed', sessionId, cwd, exit.cause);
       get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'empty' });

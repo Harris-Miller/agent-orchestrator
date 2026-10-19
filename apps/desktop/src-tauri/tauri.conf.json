@@ -27,6 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "resources": {
       "../../../libs/hub/dist/hub.mjs": "hub/hub.mjs",
@@ -36,6 +37,10 @@
   "plugins": {
     "fs": {
       "requireLiteralLeadingDot": false
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU3Q0JFRkIzMEY1MDZCMzUKUldRMWExQVBzKy9MVjlFczlmSXpQQTAzS0lTVkxBRXk5T255THNwSDUyNEhEYmI1K0Zac0dVeUoK",
+      "endpoints": ["https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json"]
     }
   }
 }

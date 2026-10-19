@@ -1,7 +1,7 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
 import { writeSessionUsage } from '@lib/ao-home';
 import { Effect } from 'effect';
-import { Atom, AtomRegistry } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/acpSessionBootstrap.ts';
@@ -14,7 +14,12 @@ import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { ensureVirtualAcpBound, excludeBoundVirtualFromRoster, rwFromRegistry } from './virtualBind.ts';
+import {
+  ensureVirtualAcpBound,
+  excludeBoundVirtualFromRoster,
+  refreshFsListingViaRegistry,
+  rwFromRegistry,
+} from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
@@ -78,12 +83,10 @@ export const createHarnessAtoms = (
                 if (virtual?.launchTarget === launchTarget) {
                   const { registry } = get;
                   hostRunFork(
-                    ensureVirtualAcpBound(rwFromRegistry(registry), arg => {
-                      registry.set(refreshSessionFsListingAtomFn, arg);
-                      return AtomRegistry.getResult(registry, refreshSessionFsListingAtomFn, {
-                        suspendOnWaiting: true,
-                      });
-                    }).pipe(
+                    ensureVirtualAcpBound(
+                      rwFromRegistry(registry),
+                      refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
+                    ).pipe(
                       Effect.catchCause(cause =>
                         Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
                       ),

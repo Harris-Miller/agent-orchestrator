@@ -9,8 +9,8 @@ import type { ConfigOptionValues } from '../host/configProbe.ts';
 
 import { configOptionIndexAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
-import type { AtomRw, RefreshSessionFsListing } from './virtualBind.ts';
-import { mutateVirtualThenRebind, rwFromFnContext } from './virtualBind.ts';
+import type { AtomRw } from './virtualBind.ts';
+import { mutateVirtualThenRebind, refreshFsListingViaRegistry, rwFromFnContext } from './virtualBind.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
@@ -190,10 +190,8 @@ export const createVirtualSessionAtoms = (
 ) => {
   const { atomRuntime } = runtime;
 
-  const refreshFsListing =
-    (get: Atom.FnContext): RefreshSessionFsListing =>
-    arg =>
-      get.setResult(refreshSessionFsListingAtomFn, arg);
+  const refreshFsListing = (get: Atom.FnContext) =>
+    refreshFsListingViaRegistry(get.registry, refreshSessionFsListingAtomFn);
 
   const ensureVirtualSessionAtomFn = atomRuntime
     .fn((arg: EnsureVirtualSessionArg | undefined, get: Atom.FnContext) =>

@@ -1,6 +1,7 @@
 /** Virtual ACP Bind lifecycle: teardown, ensure Bind, mutate-then-rebind. */
 import { Effect, Exit } from 'effect';
-import type { Atom, AtomRegistry } from 'effect/reactivity';
+import type { Atom } from 'effect/reactivity';
+import { AtomRegistry } from 'effect/reactivity';
 
 import type { NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -9,8 +10,11 @@ import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { VirtualSession } from './virtualSession.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
+
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
 export type AtomRw = {
   readonly get: <A>(atom: Atom.Atom<A>) => A;
@@ -22,6 +26,19 @@ export type RefreshSessionFsListing = (arg: {
   readonly cwd: string;
   readonly sessionId: string;
 }) => Effect.Effect<unknown>;
+
+/** Shared Bind→FS preload adapter (Ready `onPhase` and mutator AtomFns). */
+export const refreshFsListingViaRegistry =
+  (
+    registry: AtomRegistry.AtomRegistry,
+    refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+  ): RefreshSessionFsListing =>
+  arg => {
+    registry.set(refreshSessionFsListingAtomFn, arg);
+    return AtomRegistry.getResult(registry, refreshSessionFsListingAtomFn, {
+      suspendOnWaiting: true,
+    });
+  };
 
 export const rwFromFnContext = (get: Atom.FnContext): AtomRw => ({
   get: atom => get(atom),

@@ -76,7 +76,7 @@ export const GeneralSettingsPane: FC = () => {
       <TextField
         disabled={editsDisabled}
         fullWidth
-        helperText="fd exclude globs (one per line). Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
+        helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
         label="Always-hidden globs"
         minRows={3}
         multiline

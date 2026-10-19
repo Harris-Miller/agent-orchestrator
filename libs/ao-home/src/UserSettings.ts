@@ -5,6 +5,7 @@ import { Schema } from 'effect';
  */
 export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
+    alwaysHiddenGlobs: Schema.optionalKey(Schema.Array(Schema.String)),
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     showNoFolderGroup: Schema.optionalKey(Schema.Boolean),
@@ -16,6 +17,25 @@ export const UserSettingsSchema = Schema.StructWithRest(
 export type UserSettings = typeof UserSettingsSchema.Type;
 
 export const defaultSettings: UserSettings = {};
+
+const EMPTY_ALWAYS_HIDDEN_GLOBS: readonly string[] = [];
+
+/** Trim, drop empties, dedupe (first wins). Unset / empty → `[]`. */
+export const normalizeAlwaysHiddenGlobs = (globs: readonly string[] | undefined): readonly string[] => {
+  if (globs === undefined || globs.length === 0) {
+    return EMPTY_ALWAYS_HIDDEN_GLOBS;
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of globs) {
+    const trimmed = raw.trim();
+    if (trimmed.length > 0 && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
+    }
+  }
+  return out.length === 0 ? EMPTY_ALWAYS_HIDDEN_GLOBS : out;
+};
 
 /** JSON string codec for user settings (pretty-printed). */
 export const UserSettingsJsonString = Schema.fromJsonString(UserSettingsSchema, { space: 2 });

@@ -22,4 +22,10 @@ export {
   SessionUsageDocumentJsonString,
   SessionUsageDocumentSchema,
 } from './SessionUsageDocument.ts';
-export { defaultSettings, type UserSettings, UserSettingsJsonString, UserSettingsSchema } from './UserSettings.ts';
+export {
+  defaultSettings,
+  normalizeAlwaysHiddenGlobs,
+  type UserSettings,
+  UserSettingsJsonString,
+  UserSettingsSchema,
+} from './UserSettings.ts';

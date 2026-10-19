@@ -10,6 +10,7 @@ import {
   defaultSettings,
   deleteSessionDir,
   ensureHome,
+  normalizeAlwaysHiddenGlobs,
   readSessionUsage,
   readUserSettings,
   resolveHome,
@@ -117,6 +118,15 @@ describe('ao-home', () => {
     }),
   );
 
+  it('normalizeAlwaysHiddenGlobs trims, drops empties, dedupes', () => {
+    assert.deepStrictEqual(normalizeAlwaysHiddenGlobs(undefined), []);
+    assert.deepStrictEqual(normalizeAlwaysHiddenGlobs([' node_modules ', '', 'dist', 'node_modules']), [
+      'node_modules',
+      'dist',
+    ]);
+    assert.strictEqual(normalizeAlwaysHiddenGlobs(undefined), normalizeAlwaysHiddenGlobs([]));
+  });
+
   it.effect('readUserSettings returns defaults when file is missing', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
@@ -132,6 +142,7 @@ describe('ao-home', () => {
       const store = new Map<string, FsEntry>();
       const testLayer = services(store);
       const writtenDoc = {
+        alwaysHiddenGlobs: ['node_modules', 'dist'],
         confirmSessionDelete: false,
         experimental: true,
         theme: 'dark',
@@ -147,6 +158,7 @@ describe('ao-home', () => {
         assert.isTrue(typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed));
         assert.strictEqual((parsed as { theme: unknown }).theme, 'dark');
         assert.strictEqual((parsed as { confirmSessionDelete: unknown }).confirmSessionDelete, false);
+        assert.deepStrictEqual((parsed as { alwaysHiddenGlobs: unknown }).alwaysHiddenGlobs, ['node_modules', 'dist']);
       }
       assert.deepStrictEqual(store.get(HOME), { kind: 'dir' });
     }),

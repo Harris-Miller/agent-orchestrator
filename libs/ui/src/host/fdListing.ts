@@ -1,4 +1,5 @@
 /** Shared `fd` / `fdfind` directory + file listing helpers (NUL-delimited). */
+import { normalizeAlwaysHiddenGlobs } from '@lib/ao-home';
 import { Effect, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
@@ -15,12 +16,32 @@ export class FdListingError extends Schema.TaggedError<FdListingError>()('FdList
 }) {}
 
 export type ShallowDirListingOptions = {
+  readonly alwaysHiddenGlobs?: readonly string[];
   readonly showHidden: boolean;
+};
+
+export type RecursiveListingOptions = {
+  readonly alwaysHiddenGlobs?: readonly string[];
+};
+
+/**
+ * Always `-E .git`, then `-E` for each normalized Always-hidden glob (skip redundant `.git`).
+ * Never emits `-I` / `--no-ignore*`.
+ */
+export const fdExcludeArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => {
+  const args: string[] = ['-E', '.git'];
+  for (const glob of normalizeAlwaysHiddenGlobs(alwaysHiddenGlobs)) {
+    if (glob !== '.git') {
+      args.push('-E', glob);
+    }
+  }
+  return args;
 };
 
 /** Argv for shallow depth-1 directory listing (`-H` only when showHidden). */
 export const shallowDirListingArgs = (options: ShallowDirListingOptions): readonly string[] => {
-  const args = ['-t', 'd', '-d', '1', '-0'];
+  const excludes = fdExcludeArgs(options.alwaysHiddenGlobs);
+  const args = ['-t', 'd', '-d', '1', ...excludes, '-0'];
   if (options.showHidden) {
     return ['-H', ...args];
   }
@@ -29,16 +50,27 @@ export const shallowDirListingArgs = (options: ShallowDirListingOptions): readon
 
 /**
  * Argv for recursive directory listing (always `-H`, never `-I`).
- * Explicit `-E .git`: `-H` would otherwise include the VCS tree (`.git` is hidden,
- * not gitignore-excluded).
+ * Explicit `-E .git` (+ Always-hidden globs): `-H` would otherwise include the VCS tree.
  */
-export const recursiveDirListingArgs = (): readonly string[] => ['-t', 'd', '-H', '-E', '.git', '-0'];
+export const recursiveDirListingArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => [
+  '-t',
+  'd',
+  '-H',
+  ...fdExcludeArgs(alwaysHiddenGlobs),
+  '-0',
+];
 
 /**
  * Argv for recursive file listing (always `-H`, never `-I`).
- * Same `-E .git` as dirs for consistency.
+ * Same excludes as dirs for consistency.
  */
-export const recursiveFileListingArgs = (): readonly string[] => ['-t', 'f', '-H', '-E', '.git', '-0'];
+export const recursiveFileListingArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => [
+  '-t',
+  'f',
+  '-H',
+  ...fdExcludeArgs(alwaysHiddenGlobs),
+  '-0',
+];
 
 /** Parse NUL-delimited `fd` stdout into relative path strings. */
 export const parseNulPaths = (stdout: string): readonly string[] =>
@@ -120,13 +152,20 @@ export const listShallowDirectories = Effect.fn('listShallowDirectories')(functi
 });
 
 /**
- * Full recursive file + directory listing under `cwd` (always `-H`, `-E .git`).
+ * Full recursive file + directory listing under `cwd` (always `-H`, `-E .git` + Always-hidden globs).
  * Paths are relative to `cwd` as printed by `fd`.
  */
-export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (cwd: string) {
+export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (
+  cwd: string,
+  options: RecursiveListingOptions = {},
+) {
   const binary = yield* requireFdBinary();
+  const globs = options.alwaysHiddenGlobs;
   const [dirStdout, fileStdout] = yield* Effect.all(
-    [spawnFdStdout(binary, recursiveDirListingArgs(), cwd), spawnFdStdout(binary, recursiveFileListingArgs(), cwd)],
+    [
+      spawnFdStdout(binary, recursiveDirListingArgs(globs), cwd),
+      spawnFdStdout(binary, recursiveFileListingArgs(globs), cwd),
+    ],
     { concurrency: 2 },
   );
 

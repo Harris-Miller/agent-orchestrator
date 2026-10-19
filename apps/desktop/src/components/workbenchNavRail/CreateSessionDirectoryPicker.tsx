@@ -1,3 +1,5 @@
+import { useAtomValue } from '@effect/atom-react';
+import { alwaysHiddenGlobsAtom } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -70,6 +72,7 @@ export const CreateSessionDirectoryPicker: FC<{
   readonly onSelectDirectory: (cwd: string) => void;
 }> = ({ onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
   const [browsePath, setBrowsePath] = useState<string | undefined>(undefined);
   const [entries, setEntries] = useState<readonly string[]>([]);
@@ -98,7 +101,9 @@ export const CreateSessionDirectoryPicker: FC<{
     hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await hostRunPromise(listShallowDirectories(normalizedHome, { showHidden: false }));
+        const dirs = await hostRunPromise(
+          listShallowDirectories(normalizedHome, { alwaysHiddenGlobs, showHidden: false }),
+        );
         if (abort.signal.aborted) {
           return;
         }
@@ -124,13 +129,19 @@ export const CreateSessionDirectoryPicker: FC<{
       abort.abort();
       window.clearTimeout(focusTimer);
     };
+    // Initial home listing only; glob changes reload via the browsePath effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
-  const loadDirectory = (nextPath: string, nextShowHidden: boolean = showHidden) => {
+  const loadDirectory = (
+    nextPath: string,
+    nextShowHidden: boolean = showHidden,
+    nextGlobs: readonly string[] = alwaysHiddenGlobs,
+  ) => {
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listShallowDirectories(nextPath, { showHidden: nextShowHidden }))
+    hostRunPromise(listShallowDirectories(nextPath, { alwaysHiddenGlobs: nextGlobs, showHidden: nextShowHidden }))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);
@@ -151,6 +162,21 @@ export const CreateSessionDirectoryPicker: FC<{
       loadDirectory(browsePath, next);
     }
   };
+
+  useEffect(() => {
+    if (browsePath === undefined) {
+      return;
+    }
+    // Defer so setState from loadDirectory is not synchronous inside the effect body.
+    const timer = window.setTimeout(() => {
+      loadDirectory(browsePath, showHidden, alwaysHiddenGlobs);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+    // Reload current directory when Always-hidden globs change (same path as show-hidden reload).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: globs-only trigger
+  }, [alwaysHiddenGlobs]);
 
   const navigateParent = () => {
     if (browsePath === undefined || homePath === undefined || browsePath === homePath) {

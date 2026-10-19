@@ -7,12 +7,14 @@ export { createHarnessAtoms } from './atoms/harness.atoms.ts';
 export {
   createSessionFsListingAtoms,
   sessionFsListingAtom,
+  sessionFsListingGlobsMatch,
   sessionFsListingKey,
 } from './atoms/sessionFsListing.atoms.ts';
 export { createSessionLifecycleAtoms } from './atoms/sessionLifecycle.atoms.ts';
 export * from './atoms/sessionListScope.atoms.ts';
 export * from './atoms/sessionPatch.atoms.ts';
 export {
+  alwaysHiddenGlobsFromSettings,
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
   developerModeEnabled,

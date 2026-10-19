@@ -1,5 +1,5 @@
 /** User settings write-through Atom backed by `@lib/ao-home`. */
-import { defaultSettings, readUserSettings, writeUserSettings } from '@lib/ao-home';
+import { defaultSettings, normalizeAlwaysHiddenGlobs, readUserSettings, writeUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
@@ -26,6 +26,10 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
+
+/** Normalized Always-hidden globs (empty when unset). */
+export const alwaysHiddenGlobsFromSettings = (settings: UserSettings): readonly string[] =>
+  normalizeAlwaysHiddenGlobs(settings.alwaysHiddenGlobs);
 
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
@@ -81,6 +85,21 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Normalized Always-hidden globs (empty when unset). Write patches User settings. */
+  const alwaysHiddenGlobsAtom = Atom.writable(
+    get => alwaysHiddenGlobsFromSettings(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, globs: readonly string[]) => {
+      const normalized = normalizeAlwaysHiddenGlobs(globs);
+      const current = unwrapUserSettings(ctx.get(userSettingsAtom));
+      if (normalized.length === 0) {
+        const { alwaysHiddenGlobs: _removed, ...rest } = current;
+        ctx.set(userSettingsAtom, rest);
+        return;
+      }
+      ctx.set(userSettingsAtom, { ...current, alwaysHiddenGlobs: [...normalized] });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
   const themeAtom = Atom.writable(
     get => {
@@ -99,6 +118,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   ).pipe(Atom.keepAlive);
 
   return {
+    alwaysHiddenGlobsAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,
     persistUserSettingsAtomFn,

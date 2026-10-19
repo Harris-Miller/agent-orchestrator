@@ -293,7 +293,6 @@ export const SessionChatBody: FC<{
   const mentionMenuOpen = mentionTrigger !== null;
 
   // Refresh FS listing when `@` menu opens or Always-hidden globs change while open.
-  // Glob mismatch is empty in useSelectedSessionFsListing until this re-lists.
   useEffect(() => {
     if (!mentionMenuOpen || selectedSessionId === undefined || sessionCwd === undefined) {
       return;

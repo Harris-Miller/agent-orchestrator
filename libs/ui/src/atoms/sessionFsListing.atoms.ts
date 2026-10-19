@@ -7,26 +7,16 @@ import type { FdListingEntry } from '../host/fdListing.ts';
 import { listRecursiveEntries } from '../host/fdListing.ts';
 
 export type SessionFsListingState = {
-  readonly alwaysHiddenGlobs: readonly string[];
   readonly cwd: string;
   readonly entries: readonly FdListingEntry[];
   readonly status: 'empty' | 'loading' | 'ready';
 };
 
-const emptyListing = (cwd: string, alwaysHiddenGlobs: readonly string[] = []): SessionFsListingState => ({
-  alwaysHiddenGlobs,
+const emptyListing = (cwd: string): SessionFsListingState => ({
   cwd,
   entries: [],
   status: 'empty',
 });
-
-/** True when stamped globs match the current Always-hidden globs preference. */
-export const sessionFsListingGlobsMatch = (
-  listing: SessionFsListingState,
-  alwaysHiddenGlobs: readonly string[],
-): boolean =>
-  listing.alwaysHiddenGlobs.length === alwaysHiddenGlobs.length &&
-  listing.alwaysHiddenGlobs.every((glob, index) => glob === alwaysHiddenGlobs[index]);
 
 /** Composite Atom key: `sessionId\\0cwd`. */
 export const sessionFsListingKey = (sessionId: string, cwd: string): string => `${sessionId}\0${cwd}`;
@@ -45,6 +35,7 @@ export const createSessionFsListingAtoms = (
    * Load / refresh recursive listing for `sessionId`+`cwd`.
    * Replaces cache on success; leaves prior entries until then (stale OK).
    * If cache empty, sets `loading` so UI can show Skeletons.
+   * Reads Always-hidden globs at list time — stale until next refresh if Settings change while idle.
    */
   const refreshSessionFsListingAtomFn = atomRuntime
     .fn(
@@ -55,30 +46,20 @@ export const createSessionFsListingAtoms = (
         const alwaysHiddenGlobs = get(alwaysHiddenGlobsAtom);
         const key = sessionFsListingKey(arg.sessionId, arg.cwd);
         const current = get(sessionFsListingAtom(key));
-        if (
-          current.status === 'empty' ||
-          current.cwd !== arg.cwd ||
-          !sessionFsListingGlobsMatch(current, alwaysHiddenGlobs)
-        ) {
-          get.set(sessionFsListingAtom(key), {
-            alwaysHiddenGlobs,
-            cwd: arg.cwd,
-            entries: [],
-            status: 'loading',
-          });
+        if (current.status === 'empty' || current.cwd !== arg.cwd) {
+          get.set(sessionFsListingAtom(key), { cwd: arg.cwd, entries: [], status: 'loading' });
         }
 
         const exit = yield* Effect.exit(listRecursiveEntries(arg.cwd, { alwaysHiddenGlobs }));
         if (Exit.isFailure(exit)) {
           yield* Effect.logWarning('session fs listing failed', arg.sessionId, arg.cwd, exit.cause);
           if (get(sessionFsListingAtom(key)).status === 'loading') {
-            get.set(sessionFsListingAtom(key), emptyListing(arg.cwd, alwaysHiddenGlobs));
+            get.set(sessionFsListingAtom(key), emptyListing(arg.cwd));
           }
           return;
         }
 
         get.set(sessionFsListingAtom(key), {
-          alwaysHiddenGlobs,
           cwd: arg.cwd,
           entries: exit.value,
           status: 'ready',

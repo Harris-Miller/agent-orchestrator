@@ -51,14 +51,14 @@ const preloadSessionFsListing = (
   Effect.gen(function* () {
     const alwaysHiddenGlobs = get(alwaysHiddenGlobsAtom);
     const key = sessionFsListingKey(sessionId, cwd);
-    get.set(sessionFsListingAtom(key), { alwaysHiddenGlobs, cwd, entries: [], status: 'loading' });
+    get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'loading' });
     const exit = yield* Effect.exit(listRecursiveEntries(cwd, { alwaysHiddenGlobs }));
     if (Exit.isFailure(exit)) {
       yield* Effect.logWarning('session fs listing preload failed', sessionId, cwd, exit.cause);
-      get.set(sessionFsListingAtom(key), { alwaysHiddenGlobs, cwd, entries: [], status: 'empty' });
+      get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'empty' });
       return;
     }
-    get.set(sessionFsListingAtom(key), { alwaysHiddenGlobs, cwd, entries: exit.value, status: 'ready' });
+    get.set(sessionFsListingAtom(key), { cwd, entries: exit.value, status: 'ready' });
   });
 
 export const createSessionLifecycleAtoms = (

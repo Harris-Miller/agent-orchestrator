@@ -7,8 +7,7 @@ import {
   selectedSessionLaunchTargetAtom,
   unifiedSessionRosterAtom,
 } from './backendState.atoms.ts';
-import { alwaysHiddenGlobsAtom } from './boundHarnessAtoms.ts';
-import { sessionFsListingAtom, sessionFsListingGlobsMatch, sessionFsListingKey } from './sessionFsListing.atoms.ts';
+import { sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
 import type { SessionFsListingState } from './sessionFsListing.atoms.ts';
 
 export type SelectedSessionFsListing = {
@@ -25,7 +24,6 @@ export const useSelectedSessionFsListing = (): SelectedSessionFsListing => {
   const selectedLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
-  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
 
   const sourceCwd =
     selectedLaunchTarget === undefined || selectedSessionId === undefined
@@ -36,11 +34,7 @@ export const useSelectedSessionFsListing = (): SelectedSessionFsListing => {
     selectedSessionId !== undefined && sessionCwd !== undefined
       ? sessionFsListingKey(selectedSessionId, sessionCwd)
       : null;
-  const cached = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
-  const fsListing =
-    sessionCwd !== undefined && !sessionFsListingGlobsMatch(cached, alwaysHiddenGlobs)
-      ? { alwaysHiddenGlobs, cwd: sessionCwd, entries: [], status: 'empty' as const }
-      : cached;
+  const fsListing = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
 
   return { fsListing, listingKey, selectedSessionId, sessionCwd, sourceCwd };
 };

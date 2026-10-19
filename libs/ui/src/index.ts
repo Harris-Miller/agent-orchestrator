@@ -7,7 +7,6 @@ export { createHarnessAtoms } from './atoms/harness.atoms.ts';
 export {
   createSessionFsListingAtoms,
   sessionFsListingAtom,
-  sessionFsListingGlobsMatch,
   sessionFsListingKey,
 } from './atoms/sessionFsListing.atoms.ts';
 export { createSessionLifecycleAtoms } from './atoms/sessionLifecycle.atoms.ts';

@@ -129,19 +129,15 @@ export const CreateSessionDirectoryPicker: FC<{
       abort.abort();
       window.clearTimeout(focusTimer);
     };
-    // Initial home listing only; glob changes reload via the browsePath effect below.
+    // Mount-only bootstrap; reopen picker to pick up Always-hidden glob Settings edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
-  const loadDirectory = (
-    nextPath: string,
-    nextShowHidden: boolean = showHidden,
-    nextGlobs: readonly string[] = alwaysHiddenGlobs,
-  ) => {
+  const loadDirectory = (nextPath: string, nextShowHidden: boolean = showHidden) => {
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listShallowDirectories(nextPath, { alwaysHiddenGlobs: nextGlobs, showHidden: nextShowHidden }))
+    hostRunPromise(listShallowDirectories(nextPath, { alwaysHiddenGlobs, showHidden: nextShowHidden }))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);
@@ -162,21 +158,6 @@ export const CreateSessionDirectoryPicker: FC<{
       loadDirectory(browsePath, next);
     }
   };
-
-  useEffect(() => {
-    if (browsePath === undefined) {
-      return;
-    }
-    // Defer so setState from loadDirectory is not synchronous inside the effect body.
-    const timer = window.setTimeout(() => {
-      loadDirectory(browsePath, showHidden, alwaysHiddenGlobs);
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-    };
-    // Reload current directory when Always-hidden globs change (same path as show-hidden reload).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: globs-only trigger
-  }, [alwaysHiddenGlobs]);
 
   const navigateParent = () => {
     if (browsePath === undefined || homePath === undefined || browsePath === homePath) {

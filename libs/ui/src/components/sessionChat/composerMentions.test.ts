@@ -32,18 +32,9 @@ describe('fdListing helpers', () => {
   });
 
   it('builds shallow argv with optional -H and excludes', () => {
-    assert.deepStrictEqual(shallowDirListingArgs({ showHidden: false }), ['-t', 'd', '-d', '1', '-E', '.git', '-0']);
-    assert.deepStrictEqual(shallowDirListingArgs({ showHidden: true }), [
-      '-H',
-      '-t',
-      'd',
-      '-d',
-      '1',
-      '-E',
-      '.git',
-      '-0',
-    ]);
-    const withGlobs = shallowDirListingArgs({ alwaysHiddenGlobs: ['node_modules'], showHidden: true });
+    assert.deepStrictEqual(shallowDirListingArgs(false), ['-t', 'd', '-d', '1', '-E', '.git', '-0']);
+    assert.deepStrictEqual(shallowDirListingArgs(true), ['-H', '-t', 'd', '-d', '1', '-E', '.git', '-0']);
+    const withGlobs = shallowDirListingArgs(true, ['node_modules']);
     assert.deepStrictEqual(withGlobs, ['-H', '-t', 'd', '-d', '1', '-E', '.git', '-E', 'node_modules', '-0']);
     assertNoIgnoreBypass(withGlobs);
   });

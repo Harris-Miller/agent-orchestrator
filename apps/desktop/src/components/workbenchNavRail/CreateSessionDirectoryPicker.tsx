@@ -101,9 +101,7 @@ export const CreateSessionDirectoryPicker: FC<{
     hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await hostRunPromise(
-          listShallowDirectories(normalizedHome, { alwaysHiddenGlobs, showHidden: false }),
-        );
+        const dirs = await hostRunPromise(listShallowDirectories(normalizedHome, false, alwaysHiddenGlobs));
         if (abort.signal.aborted) {
           return;
         }
@@ -136,7 +134,7 @@ export const CreateSessionDirectoryPicker: FC<{
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listShallowDirectories(nextPath, { alwaysHiddenGlobs, showHidden: nextShowHidden }))
+    hostRunPromise(listShallowDirectories(nextPath, nextShowHidden, alwaysHiddenGlobs))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);

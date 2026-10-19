@@ -14,11 +14,6 @@ export class FdListingError extends Schema.TaggedError<FdListingError>()('FdList
   message: Schema.String,
 }) {}
 
-export type ShallowDirListingOptions = {
-  readonly alwaysHiddenGlobs?: readonly string[];
-  readonly showHidden: boolean;
-};
-
 /**
  * Always `-E .git`, then `-E` for each Always-hidden glob (skip redundant `.git`).
  * Callers pass already-normalized globs (User settings atom boundary).
@@ -35,10 +30,12 @@ export const fdExcludeArgs = (alwaysHiddenGlobs: readonly string[] | undefined =
 };
 
 /** Argv for shallow depth-1 directory listing (`-H` only when showHidden). */
-export const shallowDirListingArgs = (options: ShallowDirListingOptions): readonly string[] => {
-  const excludes = fdExcludeArgs(options.alwaysHiddenGlobs);
-  const args = ['-t', 'd', '-d', '1', ...excludes, '-0'];
-  if (options.showHidden) {
+export const shallowDirListingArgs = (
+  showHidden: boolean,
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
+): readonly string[] => {
+  const args = ['-t', 'd', '-d', '1', ...fdExcludeArgs(alwaysHiddenGlobs), '-0'];
+  if (showHidden) {
     return ['-H', ...args];
   }
   return args;
@@ -139,10 +136,11 @@ const spawnFdStdout = Effect.fn('spawnFdStdout')(function* (
  */
 export const listShallowDirectories = Effect.fn('listShallowDirectories')(function* (
   cwd: string,
-  options: ShallowDirListingOptions,
+  showHidden: boolean,
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
 ) {
   const binary = yield* requireFdBinary();
-  const stdout = yield* spawnFdStdout(binary, shallowDirListingArgs(options), cwd);
+  const stdout = yield* spawnFdStdout(binary, shallowDirListingArgs(showHidden, alwaysHiddenGlobs), cwd);
   const names = [...new Set(parseNulPaths(stdout).map(listingBasename))].sort((a, b) => a.localeCompare(b));
   return names;
 });

@@ -12,7 +12,6 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { listRecursiveEntries } from '../host/fdListing.ts';
 import {
   dropSession,
   markSessionInactive,
@@ -38,32 +37,15 @@ import {
   selectedAtom,
   selectSession,
 } from './backendState.atoms.ts';
-import { sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
 
-const preloadSessionFsListing = (
-  get: Atom.FnContext,
-  sessionId: string,
-  cwd: string,
-  alwaysHiddenGlobsAtom: Atom.Atom<readonly string[]>,
-) =>
-  Effect.gen(function* () {
-    const alwaysHiddenGlobs = get(alwaysHiddenGlobsAtom);
-    const key = sessionFsListingKey(sessionId, cwd);
-    get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'loading' });
-    const exit = yield* Effect.exit(listRecursiveEntries(cwd, alwaysHiddenGlobs));
-    if (Exit.isFailure(exit)) {
-      yield* Effect.logWarning('session fs listing preload failed', sessionId, cwd, exit.cause);
-      get.set(sessionFsListingAtom(key), { cwd, entries: [], status: 'empty' });
-      return;
-    }
-    get.set(sessionFsListingAtom(key), { cwd, entries: exit.value, status: 'ready' });
-  });
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
-  alwaysHiddenGlobsAtom: Atom.Atom<readonly string[]>,
+  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
 ) => {
   const { atomRuntime } = runtime;
 
@@ -178,7 +160,7 @@ export const createSessionLifecycleAtoms = (
           );
           selectSession(get, sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
-          yield* preloadSessionFsListing(get, sessionId, cwd, alwaysHiddenGlobsAtom);
+          yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId });
         },
         (effect, arg) =>
           effect.pipe(Effect.tapError(error => Effect.logError('createSessionAtomFn failed', arg.launchTarget, error))),
@@ -274,7 +256,7 @@ export const createSessionLifecycleAtoms = (
           })),
         });
         yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
-        yield* preloadSessionFsListing(get, arg.sessionId, cwd, alwaysHiddenGlobsAtom);
+        yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId: arg.sessionId });
       }),
     )
     .pipe(Atom.keepAlive);

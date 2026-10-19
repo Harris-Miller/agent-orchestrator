@@ -13,7 +13,6 @@ export { createSessionLifecycleAtoms } from './atoms/sessionLifecycle.atoms.ts';
 export * from './atoms/sessionListScope.atoms.ts';
 export * from './atoms/sessionPatch.atoms.ts';
 export {
-  alwaysHiddenGlobsFromSettings,
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
   developerModeEnabled,

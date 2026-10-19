@@ -27,10 +27,6 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
 
-/** Normalized Always-hidden globs (empty when unset). */
-export const alwaysHiddenGlobsFromSettings = (settings: UserSettings): readonly string[] =>
-  normalizeAlwaysHiddenGlobs(settings.alwaysHiddenGlobs);
-
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
@@ -87,7 +83,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
 
   /** Normalized Always-hidden globs (empty when unset). Write patches User settings. */
   const alwaysHiddenGlobsAtom = Atom.writable(
-    get => alwaysHiddenGlobsFromSettings(unwrapUserSettings(get(userSettingsAtom))),
+    get => normalizeAlwaysHiddenGlobs(unwrapUserSettings(get(userSettingsAtom)).alwaysHiddenGlobs),
     (ctx, globs: readonly string[]) => {
       const normalized = normalizeAlwaysHiddenGlobs(globs);
       const current = unwrapUserSettings(ctx.get(userSettingsAtom));

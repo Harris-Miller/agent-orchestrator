@@ -12,7 +12,7 @@ import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
 
-import { alwaysHiddenGlobsFromSettings, createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
+import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
 const HOMEDIR = '/home/operator';
 const HOME = `${HOMEDIR}/.ao`;
@@ -271,7 +271,6 @@ describe('userSettingsAtom', () => {
       yield* awaitSettled(registry, userSettingsAtom);
 
       assert.deepStrictEqual(registry.get(alwaysHiddenGlobsAtom), []);
-      assert.deepStrictEqual(alwaysHiddenGlobsFromSettings(defaultSettings), []);
 
       registry.set(alwaysHiddenGlobsAtom, [' node_modules ', '', 'dist', 'node_modules']);
       assert.deepStrictEqual(registry.get(alwaysHiddenGlobsAtom), ['node_modules', 'dist']);

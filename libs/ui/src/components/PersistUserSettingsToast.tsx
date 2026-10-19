@@ -1,7 +1,7 @@
 import { useAtomValue } from '@effect/atom-react';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import type { FC } from 'react';
 

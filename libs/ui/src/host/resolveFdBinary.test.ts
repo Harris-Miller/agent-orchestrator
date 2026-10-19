@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcessSpawner } from 'effect/process';
 
 import { clearResolvedFdBinary, requireFdBinary, resolveFdBinary } from './resolveFdBinary.ts';
 

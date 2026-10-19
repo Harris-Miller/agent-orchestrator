@@ -42,7 +42,7 @@
     "@mui/material": "catalog:",
     "@tanstack/react-router": "catalog:",
     "allotment": "catalog:",
-    "dotenv": "^17.2.3",
+    "dotenv": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
@@ -55,7 +55,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "^1.140.0",
     "@types/vscode-webview": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vscode/vsce": "^3.7.1",

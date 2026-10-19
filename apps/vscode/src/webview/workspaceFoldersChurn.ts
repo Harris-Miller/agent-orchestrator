@@ -13,8 +13,8 @@ import {
 } from '@lib/ui';
 import type { AgentLaunchTarget, BackendHarnessSnapshot } from '@lib/ui';
 import { Effect } from 'effect';
-import type { AsyncResult, Atom } from 'effect/unstable/reactivity';
-import { AtomRegistry } from 'effect/unstable/reactivity';
+import type { AsyncResult, Atom } from 'effect/reactivity';
+import { AtomRegistry } from 'effect/reactivity';
 
 import { firstFolderPath, sessionsMatchingSessionCwd } from './sessionsMatchingSessionCwd.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';

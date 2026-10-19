@@ -1,4 +1,4 @@
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 /** Absolute file-scheme Workspace folder paths (extension order). Empty = no folder. */
 export const workspaceFolderPathsAtom = Atom.make<readonly string[]>([]).pipe(Atom.keepAlive);

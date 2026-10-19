@@ -4,7 +4,7 @@
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
  */
 import type { ContentBlock } from '@libs/effect-acp';
-import { Effect, Option } from 'effect';
+import { ByteSize, Effect, Option } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
@@ -171,7 +171,7 @@ const linkToBlock = Effect.fn('draftToContentBlocks.linkToBlock')(function* (
     return resourceLinkBlock(uri, name);
   }
 
-  const size = Number(info.value.size);
+  const size = ByteSize.toNumberUnsafe(info.value.size);
   if (!Number.isFinite(size) || size > BLOB_EMBED_MAX_BYTES) {
     return resourceLinkBlock(uri, name);
   }

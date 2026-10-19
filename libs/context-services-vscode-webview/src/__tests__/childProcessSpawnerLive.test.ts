@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { makeChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';
 import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';

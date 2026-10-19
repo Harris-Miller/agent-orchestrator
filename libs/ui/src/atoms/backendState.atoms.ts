@@ -1,5 +1,5 @@
 /** Core ACP backend / session selection Atom state. */
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../host/acpSessionBootstrap.ts';

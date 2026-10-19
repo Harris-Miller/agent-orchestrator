@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, FileSystem, Layer, Option } from 'effect';
+import type { FileSystem } from 'effect';
+import { ByteSize, Effect, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
@@ -29,14 +30,14 @@ const fileInfo = (type: FileSystem.File.Type, size: number): FileSystem.File.Inf
   birthtime: Option.none(),
   blksize: Option.none(),
   blocks: Option.none(),
-  dev: 0,
+  dev: 0n,
   gid: Option.none(),
   ino: Option.none(),
   mode: 0,
   mtime: Option.none(),
   nlink: Option.none(),
   rdev: Option.none(),
-  size: FileSystem.Size(size),
+  size: ByteSize.bytes(size),
   type,
   uid: Option.none(),
 });

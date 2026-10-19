@@ -6,9 +6,9 @@ import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/unstable/process';
-import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
-import type { Atom } from 'effect/unstable/reactivity';
+import { ChildProcessSpawner } from 'effect/process';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
+import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
 

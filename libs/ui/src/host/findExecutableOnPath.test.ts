@@ -5,7 +5,7 @@ import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcessSpawner } from 'effect/process';
 
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';

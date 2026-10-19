@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Layer, Option, Stream } from 'effect';
+import { ByteSize, Effect, FileSystem, Layer, Option, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
@@ -154,14 +154,14 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
               birthtime: toDate(response.birthtime),
               blksize: Option.none(),
               blocks: Option.none(),
-              dev: 0,
+              dev: 0n,
               gid: Option.none(),
               ino: Option.none(),
               mode: 0,
               mtime: toDate(response.mtime),
               nlink: Option.none(),
               rdev: Option.none(),
-              size: FileSystem.Size(response.size),
+              size: ByteSize.bytes(response.size),
               type: response.type,
               uid: Option.none(),
             };

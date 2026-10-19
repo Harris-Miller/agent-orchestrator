@@ -1,7 +1,7 @@
 /** In-memory Virtual session blob + ensure / selection helpers (defer session/new until first send). */
 import { Effect } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
-import type { AtomRegistry } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';

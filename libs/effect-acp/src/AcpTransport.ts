@@ -1,9 +1,9 @@
 import type { Sink } from 'effect';
 import { Effect, Queue, Schema, Stdio, Stream } from 'effect';
 import type { PlatformError } from 'effect/PlatformError';
-import type { ChildProcessSpawner } from 'effect/unstable/process';
-import { RpcSerialization } from 'effect/unstable/rpc';
-import { RpcClientDefect, RpcClientError } from 'effect/unstable/rpc/RpcClientError';
+import type { ChildProcessSpawner } from 'effect/process';
+import { RpcSerialization } from 'effect/rpc';
+import { RpcClientDefect, RpcClientError } from 'effect/rpc/RpcClientError';
 
 export class TransportError extends Schema.TaggedError<TransportError>()('TransportError', {
   message: Schema.String,

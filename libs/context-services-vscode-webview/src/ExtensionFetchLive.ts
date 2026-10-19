@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
 import { bytesToArrayBuffer, unknownBytesToUint8Array } from './protocol/messages.ts';

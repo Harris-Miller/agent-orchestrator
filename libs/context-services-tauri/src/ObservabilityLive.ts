@@ -1,6 +1,6 @@
 import { ConfigProvider, Layer, References } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
-import { Otlp, OtlpSerialization } from 'effect/unstable/observability';
+import { FetchHttpClient } from 'effect/http';
+import { Otlp, OtlpSerialization } from 'effect/observability';
 
 /**
  * Effect's `layerFromConfig` defaults `OTEL_*_EXPORTER` to `[]` (no export).

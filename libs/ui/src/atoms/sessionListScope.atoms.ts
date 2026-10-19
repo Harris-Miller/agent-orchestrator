@@ -1,4 +1,4 @@
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import { unscopedSessionListScope } from '../host/sessionListScope.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';

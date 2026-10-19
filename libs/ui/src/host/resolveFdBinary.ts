@@ -1,6 +1,6 @@
 /** Probe PATH for `fd` then `fdfind`; remember the resolved command name for listing spawns. */
 import { Effect, Option } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 export type FdBinaryName = 'fd' | 'fdfind';
 

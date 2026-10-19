@@ -2,7 +2,7 @@ import { assert, describe, layer } from '@effect/vitest';
 import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
 import { Effect, Layer, Option, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { beforeEach, vi } from 'vitest';
 
 import { ChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';

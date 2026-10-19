@@ -2,7 +2,7 @@
 import type { HostServices } from '@lib/context-services';
 import { ManagedRuntime } from 'effect';
 import type { Layer } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 export const createHostRuntime = (hostLayer: Layer.Layer<HostServices>) => {
   const atomRuntime = Atom.runtime(() => hostLayer);

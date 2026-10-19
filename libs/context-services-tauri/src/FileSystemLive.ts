@@ -20,7 +20,7 @@ import {
   truncate as tauriTruncate,
   writeFile as tauriWriteFile,
 } from '@tauri-apps/plugin-fs';
-import { Effect, FileSystem, Layer, Option, Stream } from 'effect';
+import { ByteSize, Effect, FileSystem, Layer, Option, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 
 const notSupported = (method: string): PlatformError.PlatformError =>
@@ -61,14 +61,14 @@ const toFileInfo = (info: Awaited<ReturnType<typeof tauriStat>>): FileSystem.Fil
   birthtime: Option.fromNullishOr(info.birthtime),
   blksize: Option.none(),
   blocks: Option.none(),
-  dev: 0,
+  dev: 0n,
   gid: Option.none(),
   ino: Option.none(),
   mode: info.mode ?? 0,
   mtime: Option.fromNullishOr(info.mtime),
   nlink: Option.none(),
   rdev: Option.none(),
-  size: FileSystem.Size(info.size),
+  size: ByteSize.bytes(info.size),
   type: info.isDirectory ? 'Directory' : info.isFile ? 'File' : info.isSymlink ? 'SymbolicLink' : 'Unknown',
   uid: Option.none(),
 });
@@ -127,10 +127,7 @@ const makeTauriFileSystem = (): FileSystem.FileSystem =>
     rename: (oldPath, newPath) => tryFs('rename', oldPath, () => tauriRename(oldPath, newPath)),
     stat: path => tryFs('stat', path, async () => toFileInfo(await tauriStat(path))),
     symlink: _path => Effect.fail(notSupported('symlink')),
-    truncate: (path, length) =>
-      tryFs('truncate', path, () =>
-        tauriTruncate(path, length === undefined ? undefined : Number(FileSystem.Size(length))),
-      ),
+    truncate: (path, length) => tryFs('truncate', path, () => tauriTruncate(path, length)),
     utimes: _path => Effect.fail(notSupported('utimes')),
     watch: () => Stream.fail(notSupported('watch')),
     writeFile: (path, data) => tryFs('writeFile', path, () => tauriWriteFile(path, data)),

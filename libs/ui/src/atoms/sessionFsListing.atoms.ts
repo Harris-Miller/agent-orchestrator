@@ -1,6 +1,6 @@
 /** Session-scoped recursive `fd` listing cache (keyed by sessionId + cwd). */
 import { Effect, Exit } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { FdListingEntry } from '../host/fdListing.ts';

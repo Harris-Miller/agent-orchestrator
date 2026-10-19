@@ -2,7 +2,7 @@
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
 import { Effect, Ref, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { isRecord } from '../isRecord.ts';
 

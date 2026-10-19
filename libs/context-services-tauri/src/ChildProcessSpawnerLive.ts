@@ -13,8 +13,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
 import { Effect, Layer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/unstable/process';
-import type { Command as EffectCommand } from 'effect/unstable/process/ChildProcess';
+import { ChildProcessSpawner } from 'effect/process';
+import type { Command as EffectCommand } from 'effect/process/ChildProcess';
 
 const trackChildProcess = (pid: number): void => {
   invoke('track_child_process', { pid }).then(

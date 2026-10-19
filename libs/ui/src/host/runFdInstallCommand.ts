@@ -1,6 +1,6 @@
 /** Spawn a package-manager install for `fd` (argv only; no shell). */
 import { Effect, Schema } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import type { FdInstallCommand } from './fdInstallCommands.ts';
 

@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Fiber } from 'effect';
-import type { Atom } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/reactivity';
 
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';

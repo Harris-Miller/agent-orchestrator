@@ -30,7 +30,7 @@ describe('OSLive + ConfigProviderLive', () => {
   layer(ConfigProviderLive.pipe(Layer.provideMerge(OSLive)))(it => {
     it.effect('exposes cwd/env from host_process_info and Config CURSOR_API_KEY', () =>
       Effect.gen(function* () {
-        const key = yield* Config.nonEmptyString('CURSOR_API_KEY');
+        const key = yield* Config.NonEmptyString('CURSOR_API_KEY');
         assert.strictEqual(key, 'host-key');
 
         const os = yield* OS;

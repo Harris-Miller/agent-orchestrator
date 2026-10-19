@@ -2,7 +2,7 @@ import { useAtomValue } from '@effect/atom-react';
 import Alert from '@mui/material/Alert';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { Cause } from 'effect';
-import { AsyncResult } from 'effect/unstable/reactivity';
+import { AsyncResult } from 'effect/reactivity';
 import type { FC } from 'react';
 
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';

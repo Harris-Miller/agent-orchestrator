@@ -4,7 +4,7 @@ import type { Layer, Scope } from 'effect';
 import { Effect } from 'effect';
 import type { FileSystem } from 'effect/FileSystem';
 import type { Path } from 'effect/Path';
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import type { Rpc, RpcGroup } from 'effect/rpc';
 
 import { makeGeminiAcpAgentHandlerMap } from './agentHandlers.ts';
 import type { GeminiChild } from './geminiChild.ts';

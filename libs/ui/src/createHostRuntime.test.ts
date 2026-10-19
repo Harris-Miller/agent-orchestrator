@@ -3,8 +3,8 @@ import { BundledResource, Clipboard, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
-import { ChildProcessSpawner } from 'effect/unstable/process';
-import { AsyncResult, AtomRegistry } from 'effect/unstable/reactivity';
+import { ChildProcessSpawner } from 'effect/process';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from './createHostRuntime.ts';
 

@@ -1,6 +1,6 @@
 /** Cross-launch-target session handoff Atom fns. */
 import { Effect, Exit, Schema } from 'effect';
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';

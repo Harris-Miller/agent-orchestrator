@@ -1,6 +1,6 @@
 /** Session snapshot patch helpers + session client request orchestration. */
 import { Effect, Exit } from 'effect';
-import type { Atom } from 'effect/unstable/reactivity';
+import type { Atom } from 'effect/reactivity';
 
 import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';

@@ -1,6 +1,6 @@
 import type { AcpAgentConnection } from '@libs/effect-acp';
 import { Effect, Scope } from 'effect';
-import { ChildProcess } from 'effect/unstable/process';
+import { ChildProcess } from 'effect/process';
 
 const pipedSpawnOptions = {
   extendEnv: true,

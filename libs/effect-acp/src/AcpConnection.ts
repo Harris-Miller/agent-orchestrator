@@ -1,11 +1,11 @@
 import type { Layer } from 'effect';
 import { Context, Effect, Option, Queue, Schema, Tracer } from 'effect';
-import type { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { RpcClient, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
-import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
-import { RpcClientDefect, RpcClientError as RpcClientErrorValue } from 'effect/unstable/rpc/RpcClientError';
-import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effect/unstable/rpc/RpcMessage';
+import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import type { Rpc, RpcGroup } from 'effect/rpc';
+import { RpcClient, RpcSerialization, RpcServer } from 'effect/rpc';
+import type { RpcClientError } from 'effect/rpc/RpcClientError';
+import { RpcClientDefect, RpcClientError as RpcClientErrorValue } from 'effect/rpc/RpcClientError';
+import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effect/rpc/RpcMessage';
 
 import {
   AgentRpcs,

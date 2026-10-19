@@ -1,6 +1,6 @@
 /** Shared `fd` / `fdfind` directory + file listing helpers (NUL-delimited). */
 import { Effect, Schema, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import type { FdBinaryName } from './resolveFdBinary.ts';
 import { requireFdBinary } from './resolveFdBinary.ts';

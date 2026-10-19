@@ -9,7 +9,7 @@
 import type { Cause, Scope } from 'effect';
 import { Context, Deferred, Effect, Queue, Sink, Stream, Tracer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/unstable/process';
+import { ChildProcessSpawner } from 'effect/process';
 
 export const mapSpawnError = (method: string, cause: unknown): PlatformError.PlatformError =>
   PlatformError.systemError({

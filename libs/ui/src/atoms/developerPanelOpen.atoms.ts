@@ -1,4 +1,4 @@
-import { Atom } from 'effect/unstable/reactivity';
+import { Atom } from 'effect/reactivity';
 
 /** Persisted open state for the shared Developer panel (desktop + VS Code). */
 export const DEVELOPER_PANEL_OPEN_STORAGE_KEY = 'ao-developer-panel-open';

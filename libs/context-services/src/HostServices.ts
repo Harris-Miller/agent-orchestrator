@@ -1,6 +1,6 @@
 import type { FileSystem } from 'effect/FileSystem';
 import type { Path } from 'effect/Path';
-import type { ChildProcessSpawner } from 'effect/unstable/process/ChildProcessSpawner';
+import type { ChildProcessSpawner } from 'effect/process/ChildProcessSpawner';
 
 import type { BundledResource } from './BundledResource.ts';
 import type { Clipboard } from './Clipboard.ts';

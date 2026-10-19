@@ -5,7 +5,7 @@
 
 import { OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
-import { Path, layer as posixPathLayer, TypeId } from 'effect/Path';
+import { make as makePath, Path, layer as posixPathLayer } from 'effect/Path';
 import { BadArgument } from 'effect/PlatformError';
 
 const isPathSeparator = (code: number): boolean => code === 47 /* / */ || code === 92; /* \ */
@@ -133,7 +133,7 @@ const win32Extname = (path: string): string => {
  * Pure-TS Windows `Path` service (no IPC). Used when {@link OS.platform} is `win32`.
  */
 export const makeWin32Path = (): Path =>
-  Path.of({
+  makePath({
     basename: win32Basename,
     dirname: win32Dirname,
     extname: win32Extname,
@@ -234,7 +234,6 @@ export const makeWin32Path = (): Path =>
         },
       }),
     toNamespacedPath: (path: string) => path,
-    [TypeId]: TypeId,
   });
 
 /**

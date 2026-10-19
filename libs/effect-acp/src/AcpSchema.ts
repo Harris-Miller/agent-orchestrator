@@ -4,8 +4,8 @@
  * Modeled on Effect `McpSchema`: domain schemas, `Rpc.make` procedures,
  * directional `RpcGroup`s, and encoded duplex message unions.
  */
-import type { Rpc } from 'effect/unstable/rpc';
-import { RpcGroup } from 'effect/unstable/rpc';
+import type { Rpc } from 'effect/rpc';
+import { RpcGroup } from 'effect/rpc';
 
 import {
   Authenticate,

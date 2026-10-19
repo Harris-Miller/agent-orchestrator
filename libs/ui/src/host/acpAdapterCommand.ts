@@ -3,7 +3,7 @@
  */
 import { BundledResource } from '@lib/context-services';
 import { Effect } from 'effect';
-import { ChildProcess } from 'effect/unstable/process';
+import { ChildProcess } from 'effect/process';
 
 import type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';

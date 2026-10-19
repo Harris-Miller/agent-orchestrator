@@ -1,8 +1,7 @@
-import { LexicalComposer } from '@lexical/react/LexicalComposer';
-import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
@@ -17,6 +16,7 @@ import {
   $isTextNode,
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
+  defineExtension,
   DELETE_CHARACTER_COMMAND,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
@@ -26,7 +26,7 @@ import {
   KEY_TAB_COMMAND,
 } from 'lexical';
 import type { EditorThemeClasses, LexicalNode, TextNode } from 'lexical';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC, JSX, RefObject } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
@@ -611,27 +611,27 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   syncCursorRef,
   value,
 }) => {
-  const initialValueRef = useRef(value);
-  const initialCommandsRef = useRef(availableCommands);
   const lastEmittedRef = useRef(value);
 
-  const initialConfig = useMemo(
-    (): InitialConfigType => ({
+  // Stable once: LexicalExtensionComposer recreates the editor if `extension` identity changes.
+  // eslint-disable-next-line react/hook-use-state -- setter unused; extension identity must stay fixed
+  const [extension] = useState(() =>
+    defineExtension({
+      $initialEditorState: () => {
+        $setComposerContent(value, availableCommands);
+      },
       // EditablePlugin owns editable; starts true, flips on mount if needed.
       editable: true,
-      editorState: () => {
-        $setComposerContent(initialValueRef.current, initialCommandsRef.current);
-      },
+      name: 'ComposerPromptEditor',
       namespace: 'ComposerPromptEditor',
       nodes: [ComposerCommandNode, ComposerMarkdownLinkNode],
       onError,
       theme: lexicalTheme,
     }),
-    [],
   );
 
   return (
-    <LexicalComposer initialConfig={initialConfig}>
+    <LexicalExtensionComposer contentEditable={null} extension={extension}>
       <Box
         sx={{
           '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
@@ -709,6 +709,6 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       <ChipDeletePlugin />
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />
       <ComposerCommandKeyPlugin commandMenu={commandMenu} />
-    </LexicalComposer>
+    </LexicalExtensionComposer>
   );
 };

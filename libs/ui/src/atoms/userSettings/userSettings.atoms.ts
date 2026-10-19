@@ -2,7 +2,7 @@
 import { defaultSettings, readUserSettings, writeUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
-import { AsyncResult, Atom } from 'effect/unstable/reactivity';
+import { AsyncResult, Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../../createHostRuntime.ts';
 import type { ThemeId } from '../../theme/themeId.ts';

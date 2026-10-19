@@ -365,43 +365,18 @@ export const SessionChatBody: FC<{
     if (selectedLaunchTarget === undefined) {
       return;
     }
-    if (isVirtual) {
-      const current = virtualConfigValues;
+    if (isVirtual && virtualBoundSessionId === undefined) {
       const nextConfigValues =
         diff.type === 'select' && diff.configId === 'model'
           ? preserveConfigValuesOnModelChange(
-              { ...current, model: diff.value },
+              { ...virtualConfigValues, model: diff.value },
               rowForModel(virtualConfigIndex, diff.value),
             )
-          : { ...current, [diff.configId]: diff.value };
-
-      if (virtualBoundSessionId === undefined) {
-        patchVirtualSession({ configValues: nextConfigValues }).catch(() => undefined);
-        return;
-      }
-
-      // Bound: blob first (model-change preserve), then live setConfigOption on Bound id.
-      patchVirtualSession({ configValues: nextConfigValues })
-        .then(() =>
-          setConfigOption(
-            diff.type === 'boolean'
-              ? {
-                  configId: diff.configId,
-                  launchTarget: selectedLaunchTarget,
-                  type: 'boolean',
-                  value: diff.value,
-                }
-              : {
-                  configId: diff.configId,
-                  launchTarget: selectedLaunchTarget,
-                  type: 'select',
-                  value: diff.value,
-                },
-          ),
-        )
-        .catch(onClientError);
+          : { ...virtualConfigValues, [diff.configId]: diff.value };
+      patchVirtualSession({ configValues: nextConfigValues }).catch(() => undefined);
       return;
     }
+    // Session arm or Bound Virtual: live setConfigOption (AtomFn owns Virtual blob preserve).
     setConfigOption(
       diff.type === 'boolean'
         ? {

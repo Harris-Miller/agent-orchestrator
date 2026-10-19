@@ -12,6 +12,8 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import { rowForModel } from '../host/configOptionIndexUi.ts';
+import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
@@ -21,6 +23,7 @@ import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.
 
 import {
   backendHarnessStateAtom,
+  configOptionIndexAtom,
   selectedAtom,
   selectedSessionIdAtom,
   virtualLifecycleInFlightAtom,
@@ -322,6 +325,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const previousModeId = session.selectedModeId;
         const previousModelId = session.selectedModelId;
         const previousSessionState = session.sessionConfiguration;
+        const previousVirtualConfigValues = virtual?.configValues;
         const patchedSessionState = patchConfigOptionValue(session.sessionConfiguration, arg.configId, arg.value);
         const selection = selectionFromSessionConfiguration(patchedSessionState);
 
@@ -336,9 +340,17 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         });
 
         if (selected?._tag === 'Virtual' && virtual !== null) {
+          const index = get(configOptionIndexAtom(arg.launchTarget));
+          const nextConfigValues =
+            arg.type === 'select' && arg.configId === 'model' && index !== undefined
+              ? preserveConfigValuesOnModelChange(
+                  { ...virtual.configValues, model: arg.value },
+                  rowForModel(index, arg.value),
+                )
+              : { ...virtual.configValues, [arg.configId]: arg.value };
           get.set(virtualSessionAtom, {
             ...virtual,
-            configValues: { ...virtual.configValues, [arg.configId]: arg.value },
+            configValues: nextConfigValues,
           });
         }
 
@@ -387,6 +399,17 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
                   }),
                 ),
               });
+              const currentVirtual = get(virtualSessionAtom);
+              if (
+                selected?._tag === 'Virtual' &&
+                currentVirtual !== null &&
+                previousVirtualConfigValues !== undefined
+              ) {
+                get.set(virtualSessionAtom, {
+                  ...currentVirtual,
+                  configValues: previousVirtualConfigValues,
+                });
+              }
             }),
           ),
         );

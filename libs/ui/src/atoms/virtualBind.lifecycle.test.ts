@@ -19,6 +19,7 @@ import {
   excludeBoundVirtualFromRoster,
   patchVirtualSession,
   rwFromRegistry,
+  selectedActiveSessionAtom,
   setVirtualLaunchTarget,
   teardownVirtualAcpBind,
   virtualSessionAtom,
@@ -166,21 +167,38 @@ describe('ensureVirtualAcpBound', () => {
   it.effect('cwd+LT+Ready → session/new once; Virtual gains sessionId; sessions map has row; roster lacks id', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
+      const fsListingRefreshArgs: { cwd: string; sessionId: string }[] = [];
       installMockAgent(calls);
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry);
 
-      yield* ensureVirtualAcpBound(rw);
+      yield* ensureVirtualAcpBound(rw, arg =>
+        Effect.sync(() => {
+          fsListingRefreshArgs.push(arg);
+        }),
+      );
 
       assert.deepStrictEqual(calls, ['new']);
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
       const snapshot = registry.get(backendHarnessStateAtom('codex-acp'));
       assert.strictEqual(snapshot.sessions['bound-1'].status, 'active');
       assert.strictEqual(snapshot.sessionRoster.length, 0);
+      // `@` FS listing keys off active session (Bound Virtual), not Session-arm Selected.
+      assert.deepStrictEqual(registry.get(selectedActiveSessionAtom), {
+        cwd: '/proj',
+        launchTarget: 'codex-acp',
+        sessionId: 'bound-1',
+      });
+      assert.deepStrictEqual(fsListingRefreshArgs, [{ cwd: '/proj', sessionId: 'bound-1' }]);
 
-      yield* ensureVirtualAcpBound(rw);
+      yield* ensureVirtualAcpBound(rw, arg =>
+        Effect.sync(() => {
+          fsListingRefreshArgs.push(arg);
+        }),
+      );
       assert.deepStrictEqual(calls, ['new']);
+      assert.deepStrictEqual(fsListingRefreshArgs, [{ cwd: '/proj', sessionId: 'bound-1' }]);
       clearConnectedAgent('codex-acp');
     }),
   );

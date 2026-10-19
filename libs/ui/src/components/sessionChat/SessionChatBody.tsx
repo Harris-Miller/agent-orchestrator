@@ -113,7 +113,7 @@ export const SessionChatBody: FC<{
     virtualLifecycleInFlight,
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
@@ -291,15 +291,14 @@ export const SessionChatBody: FC<{
     ],
   );
 
-  const mentionMenuOpen = mentionTrigger !== null;
-
-  // Refresh FS listing when `@` menu opens or Always-hidden globs change while open.
+  // Preload `@` FS listing once Bound Virtual / Session has id+cwd (and when Always-hidden globs change).
+  // Use active-session id — Session-arm `selectedSessionId` is undefined while Selected is Virtual.
   useEffect(() => {
-    if (!mentionMenuOpen || selectedSessionId === undefined || sessionCwd === undefined) {
+    if (fsListingSessionId === undefined || sessionCwd === undefined) {
       return;
     }
-    refreshSessionFsListing({ cwd: sessionCwd, sessionId: selectedSessionId }).catch(() => undefined);
-  }, [alwaysHiddenGlobs, mentionMenuOpen, refreshSessionFsListing, selectedSessionId, sessionCwd]);
+    refreshSessionFsListing({ cwd: sessionCwd, sessionId: fsListingSessionId }).catch(() => undefined);
+  }, [alwaysHiddenGlobs, fsListingSessionId, refreshSessionFsListing, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
   // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.

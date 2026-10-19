@@ -21,6 +21,9 @@ import {
   unifiedSessionRosterAtom,
   virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
 export type VirtualSession = {
   readonly configValues: ConfigOptionValues;
@@ -110,6 +113,12 @@ type AtomRw = {
   readonly get: <A>(atom: Atom.Atom<A>) => A;
   readonly set: <R, W>(atom: Atom.Writable<R, W>, value: W) => void;
 };
+
+/** `@` FS listing preload after Bind (same seam as create/activate). */
+export type RefreshSessionFsListing = (arg: {
+  readonly cwd: string;
+  readonly sessionId: string;
+}) => Effect.Effect<unknown>;
 
 export const rwFromFnContext = (get: Atom.FnContext): AtomRw => ({
   get: atom => get(atom),
@@ -289,8 +298,12 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
  * Sole Virtual Bind entry: `session/new` + sessions-map upsert + Virtual.sessionId; no roster, no Config.
  * Callers: {@link mutateVirtualThenRebind} after Virtual mutates, and Ready `onPhase`. Not Materialize.
  * Config stays on the Virtual blob until live Bound `setConfigOption` or Materialize.
+ * After Bind, optional `refreshFsListing` preloads `@` composer paths (same as create/activate).
  */
-export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function* (rw: AtomRw) {
+export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function* (
+  rw: AtomRw,
+  refreshFsListing?: RefreshSessionFsListing,
+) {
   if (rw.get(virtualLifecycleInFlightAtom)) {
     return;
   }
@@ -351,6 +364,9 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
       return;
     }
     rw.set(virtualSessionAtom, { ...latest, sessionId: boundSessionId });
+    if (refreshFsListing !== undefined) {
+      yield* refreshFsListing({ cwd: createdCwd, sessionId: boundSessionId });
+    }
     yield* Effect.logInfo('UI ensureVirtualAcpBound complete', launchTarget, boundSessionId);
   }).pipe(
     Effect.tapError(error => Effect.logError('ensureVirtualAcpBound failed', error)),
@@ -372,6 +388,7 @@ export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(func
     readonly mutate: (rw: AtomRw) => void;
     /** Call {@link ensureVirtualAcpBound} after mutate/teardown. Default true. */
     readonly rebind?: boolean;
+    readonly refreshFsListing?: RefreshSessionFsListing;
   },
 ) {
   if (rw.get(virtualLifecycleInFlightAtom)) {
@@ -399,7 +416,7 @@ export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(func
   }
 
   if (options.rebind !== false) {
-    yield* ensureVirtualAcpBound(rw);
+    yield* ensureVirtualAcpBound(rw, options.refreshFsListing);
   }
 });
 
@@ -426,8 +443,16 @@ export const applyVirtualSessionFolderChurnEffect = Effect.fn('applyVirtualSessi
   });
 });
 
-export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
+export const createVirtualSessionAtoms = (
+  runtime: HostRuntimeBag,
+  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+) => {
   const { atomRuntime } = runtime;
+
+  const refreshFsListing =
+    (get: Atom.FnContext): RefreshSessionFsListing =>
+    arg =>
+      get.setResult(refreshSessionFsListingAtomFn, arg);
 
   const ensureVirtualSessionAtomFn = atomRuntime
     .fn((arg: EnsureVirtualSessionArg | undefined, get: Atom.FnContext) =>
@@ -435,6 +460,7 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
         mutate: rw => {
           ensureVirtualSession(rw, arg ?? {});
         },
+        refreshFsListing: refreshFsListing(get),
       }),
     )
     .pipe(Atom.keepAlive);
@@ -450,6 +476,7 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
         },
         // Draft/config patches must not re-enter Bind; cwd change always teardown + Bind.
         rebind: cwdChanging,
+        refreshFsListing: refreshFsListing(get),
       });
     })
     .pipe(Atom.keepAlive);
@@ -460,6 +487,7 @@ export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
         mutate: rw => {
           setVirtualLaunchTarget(rw, launchTarget);
         },
+        refreshFsListing: refreshFsListing(get),
       }),
     )
     .pipe(Atom.keepAlive);

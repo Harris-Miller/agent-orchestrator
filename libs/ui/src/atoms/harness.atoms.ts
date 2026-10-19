@@ -1,7 +1,7 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
 import { writeSessionUsage } from '@lib/ao-home';
 import { Effect } from 'effect';
-import { Atom } from 'effect/reactivity';
+import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/acpSessionBootstrap.ts';
@@ -12,6 +12,7 @@ import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from 
 import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import {
   ensureVirtualAcpBound,
@@ -20,7 +21,12 @@ import {
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
-export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
+
+export const createHarnessAtoms = (
+  runtime: HostRuntimeBag,
+  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+) => {
   const { atomRuntime, hostRunFork } = runtime;
 
   const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
@@ -74,8 +80,14 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
                 // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
                 const virtual = get.registry.get(virtualSessionAtom);
                 if (virtual?.launchTarget === launchTarget) {
+                  const { registry } = get;
                   hostRunFork(
-                    ensureVirtualAcpBound(rwFromRegistry(get.registry)).pipe(
+                    ensureVirtualAcpBound(rwFromRegistry(registry), arg => {
+                      registry.set(refreshSessionFsListingAtomFn, arg);
+                      return AtomRegistry.getResult(registry, refreshSessionFsListingAtomFn, {
+                        suspendOnWaiting: true,
+                      });
+                    }).pipe(
                       Effect.catchCause(cause =>
                         Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
                       ),

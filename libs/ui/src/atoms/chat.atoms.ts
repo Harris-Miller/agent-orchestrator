@@ -26,13 +26,7 @@ import {
   virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import {
-  ensureVirtualAcpBound,
-  lastCreateDefaultsAtom,
-  rwFromFnContext,
-  selectedActiveSessionIdAtom,
-  virtualSessionAtom,
-} from './virtualSession.atoms.ts';
+import { lastCreateDefaultsAtom, selectedActiveSessionIdAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -83,9 +77,10 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * First send on Virtual: Bind if needed → leftover Config → roster Materialize →
+   * First send on already-Bound Virtual: apply Virtual Config → roster Materialize →
    * draft copy → clear virtual + Select Session → sendChatItem.
-   * No-op while Bind in-flight (retry after Bound). Materialize lock ends before session/prompt.
+   * Does not Bind (sole Bind triggers: mutateVirtualThenRebind + Ready). No-op if unbound / in-flight.
+   * Materialize lock ends before session/prompt.
    */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
@@ -95,33 +90,14 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         }
         const selected = get(selectedAtom);
         const virtual = get(virtualSessionAtom);
-        if (selected?._tag !== 'Virtual' || virtual === null) {
+        if (selected?._tag !== 'Virtual' || virtual?.sessionId === undefined || virtual.launchTarget === undefined) {
           return;
         }
-        const { cwd, draft, launchTarget } = virtual;
+        const { cwd, draft, launchTarget, sessionId } = virtual;
         const trimmed = draft.trim();
-        if (
-          trimmed.length === 0 ||
-          launchTarget === undefined ||
-          cwd === undefined ||
-          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
-        ) {
+        if (trimmed.length === 0 || cwd === undefined || get(backendHarnessStateAtom(launchTarget)).phase !== 'ready') {
           return;
         }
-
-        const rw = rwFromFnContext(get);
-        if (virtual.sessionId === undefined) {
-          yield* ensureVirtualAcpBound(rw);
-        }
-        const boundVirtual = get(virtualSessionAtom);
-        if (
-          get(selectedAtom)?._tag !== 'Virtual' ||
-          boundVirtual?.sessionId === undefined ||
-          boundVirtual.launchTarget !== launchTarget
-        ) {
-          return;
-        }
-        const { sessionId } = boundVirtual;
 
         const materialized = yield* Effect.gen(function* () {
           get.set(virtualLifecycleInFlightAtom, true);
@@ -145,7 +121,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             );
           const afterOverrides = yield* applyConfigDiffs(
             liveSession.sessionConfiguration,
-            boundVirtual.configValues,
+            virtual.configValues,
             setOption,
           );
           if (afterOverrides.stoppedEarly) {
@@ -171,7 +147,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             }),
           );
 
-          get.set(lastCreateDefaultsAtom, { configValues: boundVirtual.configValues, launchTarget });
+          get.set(lastCreateDefaultsAtom, { configValues: virtual.configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(virtualSessionAtom, null);
           // Bypass in-flight guard while we still hold the materialize lock.

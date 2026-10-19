@@ -71,8 +71,9 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
                 phase,
               }));
               if (phase === 'ready') {
+                // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
                 const virtual = get.registry.get(virtualSessionAtom);
-                if (virtual?.launchTarget === launchTarget && virtual.cwd !== undefined) {
+                if (virtual?.launchTarget === launchTarget) {
                   hostRunFork(
                     ensureVirtualAcpBound(rwFromRegistry(get.registry)).pipe(
                       Effect.catchCause(cause =>

@@ -202,6 +202,23 @@ describe('ensureVirtualAcpBound', () => {
     }),
   );
 
+  it.effect('Bind does not apply Virtual configValues (no set_config_option)', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      seedReadyVirtual(registry, { configValues: { model: 'o1' } });
+
+      yield* ensureVirtualAcpBound(rw);
+
+      assert.deepStrictEqual(calls, ['new']);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
+      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'].selectedModelId, 'gpt');
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
   it.effect('draft-only / configValues-only patch → no session/new', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
@@ -492,6 +509,27 @@ describe('materializeVirtualThenSendAtomFn', () => {
 
       seedReadyVirtual(registry, { draft: 'hello' });
       registry.set(virtualLifecycleInFlightAtom, true);
+
+      yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
+
+      assert.deepStrictEqual(calls, []);
+      assert.isUndefined(registry.get(virtualSessionAtom)?.sessionId);
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('Send while unbound → no-op (Materialize does not Bind)', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const runtime = createHostRuntime(mockHostLayer);
+      const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
+      const registry = AtomRegistry.make();
+      registry.mount(materializeVirtualThenSendAtomFn);
+
+      seedReadyVirtual(registry, { draft: 'hello' });
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
 

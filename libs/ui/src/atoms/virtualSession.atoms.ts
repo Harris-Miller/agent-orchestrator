@@ -9,9 +9,8 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import { dropSession, materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
-import { applyConfigDiffs, buildActivatedSession } from '../host/sessionMaterialize.ts';
-import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
-import { closeSession, createSession, deleteSession, setConfigOption } from '../host/sessionRpc.ts';
+import { buildActivatedSession } from '../host/sessionMaterialize.ts';
+import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import {
   backendHarnessStateAtom,
@@ -286,7 +285,11 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
   }
 });
 
-/** Eager Bind: session/new + sessions-map upsert + Virtual.sessionId; no roster. */
+/**
+ * Sole Virtual Bind entry: `session/new` + sessions-map upsert + Virtual.sessionId; no roster, no Config.
+ * Callers: {@link mutateVirtualThenRebind} after Virtual mutates, and Ready `onPhase`. Not Materialize.
+ * Config stays on the Virtual blob until live Bound `setConfigOption` or Materialize.
+ */
 export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function* (rw: AtomRw) {
   if (rw.get(virtualLifecycleInFlightAtom)) {
     return;
@@ -333,23 +336,11 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
     const boundSessionId = result.sessionId;
     yield* Effect.annotateCurrentSpan('acp.sessionId', boundSessionId);
 
-    const setOption = (diff: ConfigValueDiff) =>
-      setConfigOption(
-        launchTarget,
-        boundSessionId,
-        diff.configId,
-        diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
-      );
-    const afterOverrides = yield* applyConfigDiffs(result, current.configValues, setOption);
-    if (afterOverrides.stoppedEarly) {
-      yield* Effect.logWarning('ensureVirtualAcpBound applyConfigDiffs stopped early', launchTarget, boundSessionId);
-    }
-
-    const configuredSnapshot = rw.get(backendHarnessStateAtom(launchTarget));
+    const afterCreate = rw.get(backendHarnessStateAtom(launchTarget));
     rw.set(
       backendHarnessStateAtom(launchTarget),
-      materializeIntoSnapshot(configuredSnapshot, {
-        session: buildActivatedSession(boundSessionId, afterOverrides.sessionConfiguration, { cwd: createdCwd }),
+      materializeIntoSnapshot(afterCreate, {
+        session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
       }),
     );
 
@@ -372,8 +363,8 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
 });
 
 /**
- * Sync-mutate the Virtual blob, teardown Bound when cwd/LT/id no longer matches, optionally Bind again.
- * Atom fns and folder churn go through here instead of repeating teardown + ensure.
+ * Sync-mutate Virtual, teardown Bound when cwd/LT/id no longer matches, then optional Bind via
+ * {@link ensureVirtualAcpBound} (the only mutator-side Bind trigger).
  */
 export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(function* (
   rw: AtomRw,

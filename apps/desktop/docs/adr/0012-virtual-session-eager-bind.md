@@ -1,6 +1,6 @@
 # Virtual session eager Bind
 
-ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`/` commands, `@` FS) dark until Materialize. We now **Bind** eagerly: once Virtual has absolute Session cwd + launch target and that backend is Bootstrap `ready`, call `session/new`, upsert the session snapshot into the harness sessions map (no Roster), and store the Bound `sessionId` on the Virtual blob. Selected stays Virtual. **Materialize** remains first-Send promote (leftover Config diffs, roster upsert, Select Session, clear Virtual, prompt) — not a second `session/new` when already Bound. Roster publish drops the Bound id until promote. Supersedes ADR 0011’s defer-`session/new` timing only; Virtual draft ownership and non-persistence stay.
+ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`/` commands, `@` FS) dark until Materialize. We now **Bind** eagerly: once Virtual has absolute Session cwd + launch target and that backend is Bootstrap `ready`, call `session/new`, upsert the session snapshot into the harness sessions map (no Roster, no Config apply), and store the Bound `sessionId` on the Virtual blob. Selected stays Virtual. **Materialize** remains first-Send promote (apply Virtual `configValues`, roster upsert, Select Session, clear Virtual, prompt) — not a second `session/new`. Roster publish drops the Bound id until promote. Sole Bind triggers: `mutateVirtualThenRebind` after Virtual mutates, and Ready `onPhase`. Supersedes ADR 0011’s defer-`session/new` timing only; Virtual draft ownership and non-persistence stay.
 
 ## Considered options
 
@@ -8,3 +8,5 @@ ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`
 - **Widen `selectedSessionIdAtom` to Virtual Bound:** couples Session-arm selectors to draft; rejected — `selectedActiveSessionAtom` / Bound helpers instead.
 - **Roster entry at Bind:** History would show unfinished drafts; filter-at-publish + Materialize roster upsert is thinner.
 - **Post-create cwd mutator / vendor `_meta`:** ACP v1 has no cwd update; cwd change always teardown + Bind.
+- **Apply Config at Bind:** duplicates Materialize / live Bound `setConfigOption`; Bind stays create+upsert only.
+- **Bind from Materialize as fallback:** second create path; rejected — Send no-ops until Bound.

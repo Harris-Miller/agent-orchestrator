@@ -2,7 +2,8 @@ name: PR
 
 on:
   pull_request:
-    branches: [main]
+    # develop = day-to-day integration; main = release MRs (gitflow)
+    branches: [develop, main]
 
 concurrency:
   group: pr-${{ github.workflow }}-${{ github.ref }}

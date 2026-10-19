@@ -2,9 +2,9 @@ name: Release desktop
 
 on:
   workflow_dispatch:
+  # gitflow: merge a release PR into main to cut a desktop build
   push:
-    tags:
-      - 'desktop-v*'
+    branches: [main]
 
 concurrency:
   group: release-desktop-${{ github.ref }}

@@ -2,6 +2,8 @@
 
 Builds installers via GitHub Actions and publishes a draft GitHub Release. Installed apps check `https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json` on launch (production builds only).
 
+Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release packaging runs on **push to `main`** (merge a release PR), or via **Actions → Release desktop → Run workflow**.
+
 ## One-time secrets
 
 Signing keys were generated with:
@@ -23,11 +25,10 @@ If you regenerate keys, replace `pubkey` in `tauri.conf.json` and update the pri
 
 ## Ship a build
 
-1. Bump `version` in `apps/desktop/src-tauri/tauri.conf.json` (and `apps/desktop/package.json` if you keep them aligned).
-2. Either:
-   - push a tag `desktop-v0.1.0` (must match conf version), or
-   - run **Actions → Release desktop → Run workflow**.
+1. On `develop` (or a `release/*` branch), bump `version` in `apps/desktop/src-tauri/tauri.conf.json` (and `apps/desktop/package.json` if you keep them aligned).
+2. Open a PR into `main`, merge when green (or run **Actions → Release desktop → Run workflow** on the commit you want).
 3. Open the draft GitHub Release, confirm assets include platform installers plus `latest.json`, then publish it as a normal release (not “pre-release”). GitHub’s `/releases/latest` — used by the updater — ignores pre-releases.
+4. If needed, merge `main` back into `develop` so version bumps stay on the integration branch.
 
 ## Local signed build (optional)
 

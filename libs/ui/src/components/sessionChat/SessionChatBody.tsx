@@ -107,11 +107,10 @@ export const SessionChatBody: FC<{
     selectedSessionId,
     setDraft,
     setVirtualLaunchTarget,
-    virtualBindInFlight,
     virtualBoundSessionId,
     virtualConfigIndex,
     virtualConfigValues,
-    virtualMaterializeInFlight,
+    virtualLifecycleInFlight,
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, sessionCwd } = useSelectedSessionFsListing();
@@ -674,7 +673,7 @@ export const SessionChatBody: FC<{
                   aria-label={
                     canCancelPromptTurn
                       ? 'Prompt turn cancel'
-                      : pendingClientRequest || virtualMaterializeInFlight || virtualBindInFlight
+                      : pendingClientRequest || virtualLifecycleInFlight
                         ? 'Pending client request'
                         : 'Send'
                   }
@@ -692,7 +691,7 @@ export const SessionChatBody: FC<{
                 >
                   {canCancelPromptTurn ? (
                     <Stop fontSize="small" />
-                  ) : pendingClientRequest || virtualMaterializeInFlight || virtualBindInFlight ? (
+                  ) : pendingClientRequest || virtualLifecycleInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <ArrowUpward fontSize="small" />

@@ -3,8 +3,7 @@ import {
   patchVirtualSessionAtomFn,
   selectedAtom,
   selectedSessionAtom,
-  virtualBindInFlightAtom,
-  virtualMaterializeInFlightAtom,
+  virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import FolderOpen from '@mui/icons-material/FolderOpen';
@@ -21,9 +20,7 @@ export const SessionCwdStrip: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
-  const materializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
-  const bindInFlight = useAtomValue(virtualBindInFlightAtom);
-  const inFlight = materializeInFlight || bindInFlight;
+  const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 

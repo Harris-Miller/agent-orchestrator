@@ -12,7 +12,7 @@ import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/a
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessStateAtom, selectedAtom, virtualBindInFlightAtom } from './backendState.atoms.ts';
+import { backendHarnessStateAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import {
   ensureVirtualAcpBound,
@@ -491,7 +491,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
       registry.mount(materializeVirtualThenSendAtomFn);
 
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(virtualBindInFlightAtom, true);
+      registry.set(virtualLifecycleInFlightAtom, true);
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
 

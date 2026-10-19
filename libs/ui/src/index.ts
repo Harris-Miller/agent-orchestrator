@@ -29,15 +29,23 @@ export {
   ensureVirtualSession,
   excludeBoundVirtualFromRoster,
   lastCreateDefaultsAtom,
+  mutateVirtualThenRebind,
   patchVirtualSession,
   rwFromFnContext,
   rwFromRegistry,
+  selectedActiveSessionAtom,
+  selectedActiveSessionIdAtom,
   selectedVirtualBoundSessionIdAtom,
   setVirtualLaunchTarget,
   teardownVirtualAcpBind,
   virtualSessionAtom,
 } from './atoms/virtualSession.atoms.ts';
-export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
+export type {
+  EnsureVirtualSessionArg,
+  LastCreateDefaults,
+  SelectedActiveSession,
+  VirtualSession,
+} from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';

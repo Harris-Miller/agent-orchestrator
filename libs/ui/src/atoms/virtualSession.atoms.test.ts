@@ -9,8 +9,7 @@ import {
   configOptionIndexAtom,
   selectedAtom,
   selectSession,
-  virtualBindInFlightAtom,
-  virtualMaterializeInFlightAtom,
+  virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
 import {
   applyVirtualSessionFolderChurn,
@@ -82,19 +81,10 @@ describe('ensureVirtualSession', () => {
     assert.strictEqual(blob?.configValues.model, 'sonnet');
   });
 
-  it('no-ops while materialize in-flight', () => {
+  it('no-ops while lifecycle in-flight', () => {
     const registry = AtomRegistry.make();
     const rw = rwFromRegistry(registry);
-    registry.set(virtualMaterializeInFlightAtom, true);
-    ensureVirtualSession(rw);
-    assert.isNull(registry.get(virtualSessionAtom));
-    assert.isUndefined(registry.get(selectedAtom));
-  });
-
-  it('no-ops while Bind in-flight', () => {
-    const registry = AtomRegistry.make();
-    const rw = rwFromRegistry(registry);
-    registry.set(virtualBindInFlightAtom, true);
+    registry.set(virtualLifecycleInFlightAtom, true);
     ensureVirtualSession(rw);
     assert.isNull(registry.get(virtualSessionAtom));
     assert.isUndefined(registry.get(selectedAtom));
@@ -110,7 +100,7 @@ describe('selection in-flight guards', () => {
       },
     });
     registry.set(selectedAtom, { _tag: 'Virtual' });
-    registry.set(virtualMaterializeInFlightAtom, true);
+    registry.set(virtualLifecycleInFlightAtom, true);
     selectSession(get, 's1');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
     clearSelected(get);
@@ -118,10 +108,10 @@ describe('selection in-flight guards', () => {
   });
 
   /**
-   * Contract: materialize lock must be clear once Selected is Session, even if
+   * Contract: lifecycle lock must be clear once Selected is Session, even if
    * session/prompt is still running — otherwise switch/create stays stuck.
    */
-  it('selectSession / ensureVirtual work after materialize lock released', () => {
+  it('selectSession / ensureVirtual work after lifecycle lock released', () => {
     const registry = AtomRegistry.make();
     const get = Object.assign(((atom: Atom.Atom<unknown>) => registry.get(atom)) as Atom.FnContext, {
       set: <R, W>(atom: Atom.Writable<R, W>, value: W) => {
@@ -130,7 +120,7 @@ describe('selection in-flight guards', () => {
     });
     const rw = rwFromRegistry(registry);
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
-    registry.set(virtualMaterializeInFlightAtom, false);
+    registry.set(virtualLifecycleInFlightAtom, false);
 
     selectSession(get, 's2');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 's2' });

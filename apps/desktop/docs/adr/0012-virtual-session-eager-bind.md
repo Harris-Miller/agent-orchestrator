@@ -5,6 +5,6 @@ ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`
 ## Considered options
 
 - **Keep defer-until-Send (ADR 0011):** simplest lifecycle, but Bound Active sessionId unavailable for Triggers/Config live apply.
-- **Widen `selectedSessionIdAtom` to Virtual Bound:** couples Session-arm selectors to draft; rejected — derived Bound helpers instead.
+- **Widen `selectedSessionIdAtom` to Virtual Bound:** couples Session-arm selectors to draft; rejected — `selectedActiveSessionAtom` / Bound helpers instead.
 - **Roster entry at Bind:** History would show unfinished drafts; filter-at-publish + Materialize roster upsert is thinner.
 - **Post-create cwd mutator / vendor `_meta`:** ACP v1 has no cwd update; cwd change always teardown + Bind.

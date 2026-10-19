@@ -23,14 +23,14 @@ import {
   backendHarnessStateAtom,
   selectedAtom,
   selectedSessionIdAtom,
-  virtualBindInFlightAtom,
-  virtualMaterializeInFlightAtom,
+  virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import {
   ensureVirtualAcpBound,
   lastCreateDefaultsAtom,
   rwFromFnContext,
+  selectedActiveSessionIdAtom,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
@@ -90,7 +90,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualMaterializeInFlightAtom) || get(virtualBindInFlightAtom)) {
+        if (get(virtualLifecycleInFlightAtom)) {
           return;
         }
         const selected = get(selectedAtom);
@@ -124,7 +124,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const { sessionId } = boundVirtual;
 
         const materialized = yield* Effect.gen(function* () {
-          get.set(virtualMaterializeInFlightAtom, true);
+          get.set(virtualLifecycleInFlightAtom, true);
           yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
           yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
@@ -181,7 +181,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
           Effect.ensuring(
             Effect.sync(() => {
-              get.set(virtualMaterializeInFlightAtom, false);
+              get.set(virtualLifecycleInFlightAtom, false);
             }),
           ),
         );
@@ -326,12 +326,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const selected = get(selectedAtom);
         const virtual = get(virtualSessionAtom);
         // Session arm, or Bound Virtual (do not widen selectedSessionIdAtom).
-        const sessionId =
-          selected?._tag === 'Session'
-            ? selected.sessionId
-            : selected?._tag === 'Virtual'
-              ? virtual?.sessionId
-              : undefined;
+        const sessionId = get(selectedActiveSessionIdAtom);
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
         const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
         const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(

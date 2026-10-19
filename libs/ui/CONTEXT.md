@@ -5,7 +5,7 @@ Shared Agent Harness webview context: Backend Harness behavior, Harness applicat
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual Bind / Materialize in-flight flags, sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Bind**:

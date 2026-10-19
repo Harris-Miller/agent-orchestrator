@@ -13,8 +13,7 @@ import {
   sessionChatTitle,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
-  virtualBindInFlightAtom,
-  virtualMaterializeInFlightAtom,
+  virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -42,9 +41,7 @@ export const SessionChatPage: FC = () => {
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
-  const materializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
-  const bindInFlight = useAtomValue(virtualBindInFlightAtom);
-  const inFlight = materializeInFlight || bindInFlight;
+  const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });

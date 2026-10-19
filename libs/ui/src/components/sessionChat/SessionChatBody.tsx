@@ -107,6 +107,8 @@ export const SessionChatBody: FC<{
     selectedSessionId,
     setDraft,
     setVirtualLaunchTarget,
+    virtualBindInFlight,
+    virtualBoundSessionId,
     virtualConfigIndex,
     virtualConfigValues,
     virtualMaterializeInFlight,
@@ -367,18 +369,39 @@ export const SessionChatBody: FC<{
     }
     if (isVirtual) {
       const current = virtualConfigValues;
-      if (diff.type === 'boolean') {
-        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
+      const nextConfigValues =
+        diff.type === 'select' && diff.configId === 'model'
+          ? preserveConfigValuesOnModelChange(
+              { ...current, model: diff.value },
+              rowForModel(virtualConfigIndex, diff.value),
+            )
+          : { ...current, [diff.configId]: diff.value };
+
+      if (virtualBoundSessionId === undefined) {
+        patchVirtualSession({ configValues: nextConfigValues }).catch(() => undefined);
         return;
       }
-      if (diff.configId !== 'model') {
-        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
-        return;
-      }
-      const nextRow = rowForModel(virtualConfigIndex, diff.value);
-      patchVirtualSession({
-        configValues: preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow),
-      }).catch(() => undefined);
+
+      // Bound: blob first (model-change preserve), then live setConfigOption on Bound id.
+      patchVirtualSession({ configValues: nextConfigValues })
+        .then(() =>
+          setConfigOption(
+            diff.type === 'boolean'
+              ? {
+                  configId: diff.configId,
+                  launchTarget: selectedLaunchTarget,
+                  type: 'boolean',
+                  value: diff.value,
+                }
+              : {
+                  configId: diff.configId,
+                  launchTarget: selectedLaunchTarget,
+                  type: 'select',
+                  value: diff.value,
+                },
+          ),
+        )
+        .catch(onClientError);
       return;
     }
     setConfigOption(
@@ -651,7 +674,7 @@ export const SessionChatBody: FC<{
                   aria-label={
                     canCancelPromptTurn
                       ? 'Prompt turn cancel'
-                      : pendingClientRequest || virtualMaterializeInFlight
+                      : pendingClientRequest || virtualMaterializeInFlight || virtualBindInFlight
                         ? 'Pending client request'
                         : 'Send'
                   }
@@ -669,7 +692,7 @@ export const SessionChatBody: FC<{
                 >
                   {canCancelPromptTurn ? (
                     <Stop fontSize="small" />
-                  ) : pendingClientRequest || virtualMaterializeInFlight ? (
+                  ) : pendingClientRequest || virtualMaterializeInFlight || virtualBindInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <ArrowUpward fontSize="small" />

@@ -22,13 +22,19 @@ export {
 } from './atoms/userSettings/userSettings.atoms.ts';
 export {
   applyVirtualSessionFolderChurn,
+  applyVirtualSessionFolderChurnEffect,
   createVirtualSessionAtoms,
   discardVirtualSession,
+  ensureVirtualAcpBound,
   ensureVirtualSession,
+  excludeBoundVirtualFromRoster,
   lastCreateDefaultsAtom,
   patchVirtualSession,
+  rwFromFnContext,
   rwFromRegistry,
+  selectedVirtualBoundSessionIdAtom,
   setVirtualLaunchTarget,
+  teardownVirtualAcpBind,
   virtualSessionAtom,
 } from './atoms/virtualSession.atoms.ts';
 export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';

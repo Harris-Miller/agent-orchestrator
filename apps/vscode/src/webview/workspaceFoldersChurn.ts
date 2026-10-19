@@ -1,6 +1,6 @@
 import {
   ALL_AGENT_LAUNCH_TARGETS,
-  applyVirtualSessionFolderChurn,
+  applyVirtualSessionFolderChurnEffect,
   backendHarnessStateAtom,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
@@ -84,7 +84,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
 
   if (!anyBackendReady(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
-    applyVirtualSessionFolderChurn(rwFromRegistry(registry), nextSessionCwd);
+    yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
     return;
   }
 
@@ -109,7 +109,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
-  applyVirtualSessionFolderChurn(rwFromRegistry(registry), nextSessionCwd);
+  yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
 
   yield* runAtomFn(registry, refreshAllSessionRostersAtomFn, undefined).pipe(Effect.ignore);
 });

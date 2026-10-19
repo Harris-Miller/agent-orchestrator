@@ -13,6 +13,12 @@ import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import {
+  ensureVirtualAcpBound,
+  excludeBoundVirtualFromRoster,
+  rwFromRegistry,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime, hostRunFork } = runtime;
@@ -64,6 +70,18 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
                 error,
                 phase,
               }));
+              if (phase === 'ready') {
+                const virtual = get.registry.get(virtualSessionAtom);
+                if (virtual?.launchTarget === launchTarget && virtual.cwd !== undefined) {
+                  hostRunFork(
+                    ensureVirtualAcpBound(rwFromRegistry(get.registry)).pipe(
+                      Effect.catchCause(cause =>
+                        Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             onRpcMessage: (direction, message) => {
               updateState(current => ({
@@ -75,9 +93,10 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
               }));
             },
             onSessionRosterResult: listResult => {
+              const boundSessionId = get.registry.get(virtualSessionAtom)?.sessionId;
               updateState(current => ({
                 ...current,
-                sessionRoster: normalizeSessionRoster(listResult),
+                sessionRoster: excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
               }));
             },
             onSessionUpdate: (sessionId, update) => {

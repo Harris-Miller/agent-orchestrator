@@ -13,6 +13,7 @@ import {
   sessionChatTitle,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
+  virtualBindInFlightAtom,
   virtualMaterializeInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -41,7 +42,9 @@ export const SessionChatPage: FC = () => {
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
   const roster = useAtomValue(unifiedSessionRosterAtom);
-  const inFlight = useAtomValue(virtualMaterializeInFlightAtom);
+  const materializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
+  const bindInFlight = useAtomValue(virtualBindInFlightAtom);
+  const inFlight = materializeInFlight || bindInFlight;
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });

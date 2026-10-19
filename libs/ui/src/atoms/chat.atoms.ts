@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Effect, Exit } from 'effect';
+import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -16,17 +16,23 @@ import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
-import { cancelSession, createSession, setConfigOption } from '../host/sessionRpc.ts';
+import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
 
 import {
   backendHarnessStateAtom,
   selectedAtom,
   selectedSessionIdAtom,
+  virtualBindInFlightAtom,
   virtualMaterializeInFlightAtom,
 } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
+import {
+  ensureVirtualAcpBound,
+  lastCreateDefaultsAtom,
+  rwFromFnContext,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -77,14 +83,14 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * First send on Virtual: session/new → applyConfigDiffs → Materialize → draft copy →
-   * clear virtual + Select Session → sendChatItem. Stay on Virtual until Materialize succeeds.
-   * Materialize lock ends before session/prompt so switch/create stay available mid-turn.
+   * First send on Virtual: Bind if needed → leftover Config → roster Materialize →
+   * draft copy → clear virtual + Select Session → sendChatItem.
+   * No-op while Bind in-flight (retry after Bound). Materialize lock ends before session/prompt.
    */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualMaterializeInFlightAtom)) {
+        if (get(virtualMaterializeInFlightAtom) || get(virtualBindInFlightAtom)) {
           return;
         }
         const selected = get(selectedAtom);
@@ -92,7 +98,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         if (selected?._tag !== 'Virtual' || virtual === null) {
           return;
         }
-        const { configValues, cwd, draft, launchTarget } = virtual;
+        const { cwd, draft, launchTarget } = virtual;
         const trimmed = draft.trim();
         if (
           trimmed.length === 0 ||
@@ -103,25 +109,32 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
 
+        const rw = rwFromFnContext(get);
+        if (virtual.sessionId === undefined) {
+          yield* ensureVirtualAcpBound(rw);
+        }
+        const boundVirtual = get(virtualSessionAtom);
+        if (
+          get(selectedAtom)?._tag !== 'Virtual' ||
+          boundVirtual?.sessionId === undefined ||
+          boundVirtual.launchTarget !== launchTarget
+        ) {
+          return;
+        }
+        const { sessionId } = boundVirtual;
+
         const materialized = yield* Effect.gen(function* () {
           get.set(virtualMaterializeInFlightAtom, true);
           yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-          yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd });
+          yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
+          yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
 
-          const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
-          if (Exit.isFailure(createExit)) {
-            yield* Effect.logError('materializeVirtualThenSend session/new failed', launchTarget, createExit.cause);
+          const liveSnapshot = get(backendHarnessStateAtom(launchTarget));
+          if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {
+            yield* Effect.logError('materializeVirtualThenSend missing Bound session', launchTarget, sessionId);
             return undefined;
           }
-          const { cwd: createdCwd, result } = createExit.value;
-          const { sessionId } = result;
-          yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-
-          const rosterEntry = rosterEntryFromNew(result, createdCwd);
-          if (rosterEntry !== undefined) {
-            const createdSnapshot = get(backendHarnessStateAtom(launchTarget));
-            get.set(backendHarnessStateAtom(launchTarget), materializeIntoSnapshot(createdSnapshot, { rosterEntry }));
-          }
+          const liveSession = liveSnapshot.sessions[sessionId];
 
           const setOption = (diff: ConfigValueDiff) =>
             setConfigOption(
@@ -130,7 +143,11 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
               diff.configId,
               diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
             );
-          const afterOverrides = yield* applyConfigDiffs(result, configValues, setOption);
+          const afterOverrides = yield* applyConfigDiffs(
+            liveSession.sessionConfiguration,
+            boundVirtual.configValues,
+            setOption,
+          );
           if (afterOverrides.stoppedEarly) {
             yield* Effect.logWarning(
               'materializeVirtualThenSend applyConfigDiffs stopped early',
@@ -139,15 +156,22 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             );
           }
 
+          const rosterEntry = rosterEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
           const configuredSnapshot = get(backendHarnessStateAtom(launchTarget));
           get.set(
             backendHarnessStateAtom(launchTarget),
             materializeIntoSnapshot(configuredSnapshot, {
-              session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, { cwd: createdCwd }),
+              rosterEntry,
+              session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
+                availableCommands: liveSession.availableCommands,
+                cwd: liveSession.cwd ?? cwd,
+                transcript: liveSession.transcript,
+                usage: liveSession.usage,
+              }),
             }),
           );
 
-          get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
+          get.set(lastCreateDefaultsAtom, { configValues: boundVirtual.configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(virtualSessionAtom, null);
           // Bypass in-flight guard while we still hold the materialize lock.
@@ -299,7 +323,15 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           | { configId: string; launchTarget: AgentLaunchTarget; type: 'select'; value: string },
         get: Atom.FnContext,
       ) {
-        const sessionId = get(selectedSessionIdAtom);
+        const selected = get(selectedAtom);
+        const virtual = get(virtualSessionAtom);
+        // Session arm, or Bound Virtual (do not widen selectedSessionIdAtom).
+        const sessionId =
+          selected?._tag === 'Session'
+            ? selected.sessionId
+            : selected?._tag === 'Virtual'
+              ? virtual?.sessionId
+              : undefined;
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
         const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
         const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(
@@ -330,6 +362,13 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             sessionConfiguration: patchedSessionState,
           })),
         });
+
+        if (selected?._tag === 'Virtual' && virtual !== null) {
+          get.set(virtualSessionAtom, {
+            ...virtual,
+            configValues: { ...virtual.configValues, [arg.configId]: arg.value },
+          });
+        }
 
         const rpc = Effect.gen(function* () {
           const result = yield* setConfigOption(

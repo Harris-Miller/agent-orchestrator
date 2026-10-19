@@ -9,6 +9,7 @@ import {
   configOptionIndexAtom,
   selectedAtom,
   selectSession,
+  virtualBindInFlightAtom,
   virtualMaterializeInFlightAtom,
 } from './backendState.atoms.ts';
 import {
@@ -85,6 +86,15 @@ describe('ensureVirtualSession', () => {
     const registry = AtomRegistry.make();
     const rw = rwFromRegistry(registry);
     registry.set(virtualMaterializeInFlightAtom, true);
+    ensureVirtualSession(rw);
+    assert.isNull(registry.get(virtualSessionAtom));
+    assert.isUndefined(registry.get(selectedAtom));
+  });
+
+  it('no-ops while Bind in-flight', () => {
+    const registry = AtomRegistry.make();
+    const rw = rwFromRegistry(registry);
+    registry.set(virtualBindInFlightAtom, true);
     ensureVirtualSession(rw);
     assert.isNull(registry.get(virtualSessionAtom));
     assert.isUndefined(registry.get(selectedAtom));

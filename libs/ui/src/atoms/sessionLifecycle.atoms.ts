@@ -40,6 +40,7 @@ import {
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
+import { excludeBoundVirtualFromRoster, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
@@ -89,9 +90,13 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.logDebug('Refreshing session roster', launchTarget);
           const listResult = yield* listSessions(launchTarget, listPayload);
           const current = get(backendHarnessStateAtom(launchTarget));
+          const boundSessionId = get(virtualSessionAtom)?.sessionId;
           get.set(
             backendHarnessStateAtom(launchTarget),
-            replaceSessionRoster(current, normalizeSessionRoster(listResult)),
+            replaceSessionRoster(
+              current,
+              excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+            ),
           );
           clearSelectedSessionIfMissing(get);
         },
@@ -120,9 +125,13 @@ export const createSessionLifecycleAtoms = (
               }
               const listResult = yield* listSessions(launchTarget, listPayload);
               const current = get(backendHarnessStateAtom(launchTarget));
+              const boundSessionId = get(virtualSessionAtom)?.sessionId;
               get.set(
                 backendHarnessStateAtom(launchTarget),
-                replaceSessionRoster(current, normalizeSessionRoster(listResult)),
+                replaceSessionRoster(
+                  current,
+                  excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                ),
               );
             }),
           { concurrency: 'unbounded' },

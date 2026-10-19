@@ -5,8 +5,12 @@ Shared Agent Harness webview context: Backend Harness behavior, Harness applicat
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob, last-create defaults, virtual Materialize in-flight, sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual Bind / Materialize in-flight flags, sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
+
+**Bind**:
+Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a Roster entry; Selected stays Virtual. Distinct from Materialize (first-Send promote).
+_Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Harness state transition**:
 Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, roster replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.

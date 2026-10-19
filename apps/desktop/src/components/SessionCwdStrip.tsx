@@ -3,6 +3,7 @@ import {
   patchVirtualSessionAtomFn,
   selectedAtom,
   selectedSessionAtom,
+  virtualBindInFlightAtom,
   virtualMaterializeInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -20,7 +21,9 @@ export const SessionCwdStrip: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
-  const inFlight = useAtomValue(virtualMaterializeInFlightAtom);
+  const materializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
+  const bindInFlight = useAtomValue(virtualBindInFlightAtom);
+  const inFlight = materializeInFlight || bindInFlight;
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 

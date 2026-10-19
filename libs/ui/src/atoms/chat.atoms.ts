@@ -150,7 +150,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           get.set(lastCreateDefaultsAtom, { configValues: virtual.configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(virtualSessionAtom, null);
-          // Bypass in-flight guard while we still hold the materialize lock.
+          // Bypass in-flight guard while we still hold the virtual lifecycle lock.
           get.set(selectedAtom, { _tag: 'Session', sessionId });
           return { draft, launchTarget } as const;
         }).pipe(

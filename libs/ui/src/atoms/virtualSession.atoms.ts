@@ -114,7 +114,7 @@ type AtomRw = {
   readonly set: <R, W>(atom: Atom.Writable<R, W>, value: W) => void;
 };
 
-/** `@` FS listing preload after Bind (same seam as create/activate). */
+/** `@` FS listing preload after Bind. */
 export type RefreshSessionFsListing = (arg: {
   readonly cwd: string;
   readonly sessionId: string;
@@ -352,6 +352,7 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
     const afterCreate = rw.get(backendHarnessStateAtom(launchTarget));
     rw.set(
       backendHarnessStateAtom(launchTarget),
+      // Sessions-map upsert only (no roster) — not Materialize.
       materializeIntoSnapshot(afterCreate, {
         session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
       }),

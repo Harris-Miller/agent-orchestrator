@@ -20,6 +20,7 @@ import type { FC, ReactNode, SubmitEvent } from 'react';
 import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
+  alwaysHiddenGlobsAtom,
   cancelPromptAtomFn,
   handoffSessionAtomFn,
   materializeVirtualThenSendAtomFn,
@@ -112,6 +113,7 @@ export const SessionChatBody: FC<{
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
@@ -290,13 +292,13 @@ export const SessionChatBody: FC<{
 
   const mentionMenuOpen = mentionTrigger !== null;
 
-  // Refresh FS listing when `@` menu opens (stale hits OK while refresh runs).
+  // Refresh FS listing when `@` menu opens or Always-hidden globs change while open.
   useEffect(() => {
     if (!mentionMenuOpen || selectedSessionId === undefined || sessionCwd === undefined) {
       return;
     }
     refreshSessionFsListing({ cwd: sessionCwd, sessionId: selectedSessionId }).catch(() => undefined);
-  }, [mentionMenuOpen, refreshSessionFsListing, selectedSessionId, sessionCwd]);
+  }, [alwaysHiddenGlobs, mentionMenuOpen, refreshSessionFsListing, selectedSessionId, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
   // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.

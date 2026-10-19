@@ -14,14 +14,28 @@ export class FdListingError extends Schema.TaggedError<FdListingError>()('FdList
   message: Schema.String,
 }) {}
 
-export type ShallowDirListingOptions = {
-  readonly showHidden: boolean;
+/**
+ * Always `-E .git`, then `-E` for each Always-hidden glob (skip redundant `.git`).
+ * Callers pass already-normalized globs (User settings atom boundary).
+ * Never emits `-I` / `--no-ignore*`.
+ */
+export const fdExcludeArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => {
+  const args: string[] = ['-E', '.git'];
+  for (const glob of alwaysHiddenGlobs) {
+    if (glob !== '.git') {
+      args.push('-E', glob);
+    }
+  }
+  return args;
 };
 
 /** Argv for shallow depth-1 directory listing (`-H` only when showHidden). */
-export const shallowDirListingArgs = (options: ShallowDirListingOptions): readonly string[] => {
-  const args = ['-t', 'd', '-d', '1', '-0'];
-  if (options.showHidden) {
+export const shallowDirListingArgs = (
+  showHidden: boolean,
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
+): readonly string[] => {
+  const args = ['-t', 'd', '-d', '1', ...fdExcludeArgs(alwaysHiddenGlobs), '-0'];
+  if (showHidden) {
     return ['-H', ...args];
   }
   return args;
@@ -29,16 +43,27 @@ export const shallowDirListingArgs = (options: ShallowDirListingOptions): readon
 
 /**
  * Argv for recursive directory listing (always `-H`, never `-I`).
- * Explicit `-E .git`: `-H` would otherwise include the VCS tree (`.git` is hidden,
- * not gitignore-excluded).
+ * Explicit `-E .git` (+ Always-hidden globs): `-H` would otherwise include the VCS tree.
  */
-export const recursiveDirListingArgs = (): readonly string[] => ['-t', 'd', '-H', '-E', '.git', '-0'];
+export const recursiveDirListingArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => [
+  '-t',
+  'd',
+  '-H',
+  ...fdExcludeArgs(alwaysHiddenGlobs),
+  '-0',
+];
 
 /**
  * Argv for recursive file listing (always `-H`, never `-I`).
- * Same `-E .git` as dirs for consistency.
+ * Same excludes as dirs for consistency.
  */
-export const recursiveFileListingArgs = (): readonly string[] => ['-t', 'f', '-H', '-E', '.git', '-0'];
+export const recursiveFileListingArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => [
+  '-t',
+  'f',
+  '-H',
+  ...fdExcludeArgs(alwaysHiddenGlobs),
+  '-0',
+];
 
 /** Parse NUL-delimited `fd` stdout into relative path strings. */
 export const parseNulPaths = (stdout: string): readonly string[] =>
@@ -111,22 +136,29 @@ const spawnFdStdout = Effect.fn('spawnFdStdout')(function* (
  */
 export const listShallowDirectories = Effect.fn('listShallowDirectories')(function* (
   cwd: string,
-  options: ShallowDirListingOptions,
+  showHidden: boolean,
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
 ) {
   const binary = yield* requireFdBinary();
-  const stdout = yield* spawnFdStdout(binary, shallowDirListingArgs(options), cwd);
+  const stdout = yield* spawnFdStdout(binary, shallowDirListingArgs(showHidden, alwaysHiddenGlobs), cwd);
   const names = [...new Set(parseNulPaths(stdout).map(listingBasename))].sort((a, b) => a.localeCompare(b));
   return names;
 });
 
 /**
- * Full recursive file + directory listing under `cwd` (always `-H`, `-E .git`).
+ * Full recursive file + directory listing under `cwd` (always `-H`, `-E .git` + Always-hidden globs).
  * Paths are relative to `cwd` as printed by `fd`.
  */
-export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (cwd: string) {
+export const listRecursiveEntries = Effect.fn('listRecursiveEntries')(function* (
+  cwd: string,
+  alwaysHiddenGlobs: readonly string[] | undefined = [],
+) {
   const binary = yield* requireFdBinary();
   const [dirStdout, fileStdout] = yield* Effect.all(
-    [spawnFdStdout(binary, recursiveDirListingArgs(), cwd), spawnFdStdout(binary, recursiveFileListingArgs(), cwd)],
+    [
+      spawnFdStdout(binary, recursiveDirListingArgs(alwaysHiddenGlobs), cwd),
+      spawnFdStdout(binary, recursiveFileListingArgs(alwaysHiddenGlobs), cwd),
+    ],
     { concurrency: 2 },
   );
 

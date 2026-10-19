@@ -24,6 +24,7 @@ const hostBag = {
 export const { backendHarnessAtom, restartBackendAtomFn } = createHarnessAtoms(hostBag);
 
 export const {
+  alwaysHiddenGlobsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   persistUserSettingsAtomFn,
@@ -41,6 +42,8 @@ export const {
   setConfigOptionAtomFn,
 } = createChatAtoms(hostBag);
 
+export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
+
 export const {
   activateSessionAtomFn,
   clearSelectedAtomFn,
@@ -51,11 +54,9 @@ export const {
   refreshAllSessionRostersAtomFn,
   refreshSessionRosterAtomFn,
   selectSessionAtomFn,
-} = createSessionLifecycleAtoms(hostBag);
+} = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 
 export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } =
   createVirtualSessionAtoms(hostBag);
-
-export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag);

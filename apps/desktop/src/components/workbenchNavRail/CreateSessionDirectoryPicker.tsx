@@ -1,3 +1,5 @@
+import { useAtomValue } from '@effect/atom-react';
+import { alwaysHiddenGlobsAtom } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import ArrowBack from '@mui/icons-material/ArrowBack';
@@ -70,6 +72,7 @@ export const CreateSessionDirectoryPicker: FC<{
   readonly onSelectDirectory: (cwd: string) => void;
 }> = ({ onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
   const [browsePath, setBrowsePath] = useState<string | undefined>(undefined);
   const [entries, setEntries] = useState<readonly string[]>([]);
@@ -98,7 +101,7 @@ export const CreateSessionDirectoryPicker: FC<{
     hostRunPromise(resolveHomeDir())
       .then(async home => {
         const normalizedHome = normalizeDirPath(home);
-        const dirs = await hostRunPromise(listShallowDirectories(normalizedHome, { showHidden: false }));
+        const dirs = await hostRunPromise(listShallowDirectories(normalizedHome, false, alwaysHiddenGlobs));
         if (abort.signal.aborted) {
           return;
         }
@@ -106,6 +109,7 @@ export const CreateSessionDirectoryPicker: FC<{
         setBrowsePath(normalizedHome);
         setEntries(dirs);
         setFocusedIndex(0);
+        setShowHidden(false);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -124,13 +128,13 @@ export const CreateSessionDirectoryPicker: FC<{
       abort.abort();
       window.clearTimeout(focusTimer);
     };
-  }, []);
+  }, [alwaysHiddenGlobs]);
 
   const loadDirectory = (nextPath: string, nextShowHidden: boolean = showHidden) => {
     setLoading(true);
     setError(undefined);
     setFilter('');
-    hostRunPromise(listShallowDirectories(nextPath, { showHidden: nextShowHidden }))
+    hostRunPromise(listShallowDirectories(nextPath, nextShowHidden, alwaysHiddenGlobs))
       .then(dirs => {
         setBrowsePath(nextPath);
         setEntries(dirs);

@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import {
+  fdExcludeArgs,
   listingBasename,
   listingPathBoldFrom,
   parseNulPaths,
@@ -12,15 +13,37 @@ import {
 import { basenameMatchPositions, filterFsListingMatches } from './filterFsListingEntries.ts';
 import { absolutePathToFileUrlHref, fsMentionMarkdownLink, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
+const assertNoIgnoreBypass = (args: readonly string[]) => {
+  assert.isFalse(args.includes('-I'));
+  assert.isFalse(args.some(arg => arg.startsWith('--no-ignore')));
+};
+
 describe('fdListing helpers', () => {
-  it('builds shallow argv with optional -H', () => {
-    assert.deepStrictEqual(shallowDirListingArgs({ showHidden: false }), ['-t', 'd', '-d', '1', '-0']);
-    assert.deepStrictEqual(shallowDirListingArgs({ showHidden: true }), ['-H', '-t', 'd', '-d', '1', '-0']);
+  it('builds exclude args with .git then user globs', () => {
+    assert.deepStrictEqual(fdExcludeArgs([]), ['-E', '.git']);
+    assert.deepStrictEqual(fdExcludeArgs(['node_modules', '.git', 'dist']), [
+      '-E',
+      '.git',
+      '-E',
+      'node_modules',
+      '-E',
+      'dist',
+    ]);
   });
 
-  it('builds recursive argv with -H and excludes .git', () => {
+  it('builds shallow argv with optional -H and excludes', () => {
+    assert.deepStrictEqual(shallowDirListingArgs(false), ['-t', 'd', '-d', '1', '-E', '.git', '-0']);
+    assert.deepStrictEqual(shallowDirListingArgs(true), ['-H', '-t', 'd', '-d', '1', '-E', '.git', '-0']);
+    const withGlobs = shallowDirListingArgs(true, ['node_modules']);
+    assert.deepStrictEqual(withGlobs, ['-H', '-t', 'd', '-d', '1', '-E', '.git', '-E', 'node_modules', '-0']);
+    assertNoIgnoreBypass(withGlobs);
+  });
+
+  it('builds recursive argv with -H and excludes .git + globs', () => {
     assert.deepStrictEqual(recursiveDirListingArgs(), ['-t', 'd', '-H', '-E', '.git', '-0']);
     assert.deepStrictEqual(recursiveFileListingArgs(), ['-t', 'f', '-H', '-E', '.git', '-0']);
+    assert.deepStrictEqual(recursiveDirListingArgs(['*.log']), ['-t', 'd', '-H', '-E', '.git', '-E', '*.log', '-0']);
+    assertNoIgnoreBypass(recursiveFileListingArgs(['vendor']));
   });
 
   it('parses NUL paths', () => {

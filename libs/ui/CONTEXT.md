@@ -45,7 +45,7 @@ The floating list opened by a Composer Trigger — Available Commands for `/` an
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)
 
 **Filesystem Mention**:
-Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind).
+Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob.
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:

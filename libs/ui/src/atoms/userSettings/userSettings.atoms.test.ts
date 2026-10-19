@@ -259,4 +259,33 @@ describe('userSettingsAtom', () => {
       registry.dispose();
     }),
   );
+
+  it.effect('alwaysHiddenGlobsAtom round-trips normalized globs; unset reads as []', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { alwaysHiddenGlobsAtom, persistUserSettingsAtomFn, userSettingsAtom } =
+        createUserSettingsAtoms(atomRuntime);
+      const registry = AtomRegistry.make();
+      registry.mount(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+
+      assert.deepStrictEqual(registry.get(alwaysHiddenGlobsAtom), []);
+
+      registry.set(alwaysHiddenGlobsAtom, [' node_modules ', '', 'dist', 'node_modules']);
+      assert.deepStrictEqual(registry.get(alwaysHiddenGlobsAtom), ['node_modules', 'dist']);
+
+      registry.mount(persistUserSettingsAtomFn);
+      yield* awaitSettled(registry, persistUserSettingsAtomFn);
+      const disk = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
+      assert.deepStrictEqual(disk.alwaysHiddenGlobs, ['node_modules', 'dist']);
+
+      registry.set(alwaysHiddenGlobsAtom, ['  ', '']);
+      assert.deepStrictEqual(registry.get(alwaysHiddenGlobsAtom), []);
+      yield* awaitSettled(registry, persistUserSettingsAtomFn);
+      const cleared = yield* readUserSettings().pipe(Effect.provide(hostLayer(store)));
+      assert.strictEqual(cleared.alwaysHiddenGlobs, undefined);
+      registry.dispose();
+    }),
+  );
 });

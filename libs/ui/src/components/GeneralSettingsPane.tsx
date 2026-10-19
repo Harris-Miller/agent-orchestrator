@@ -1,10 +1,13 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import {
+  alwaysHiddenGlobsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   showNoFolderGroupAtom,
@@ -21,13 +24,19 @@ export const GeneralSettingsPane: FC = () => {
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
+  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
+  const setAlwaysHiddenGlobs = useAtomSet(alwaysHiddenGlobsAtom);
+  /** Draft text so Enter can open a new line; atom normalize runs on blur. */
+  const [alwaysHiddenGlobsDraft, setAlwaysHiddenGlobsDraft] = useState<string | undefined>(undefined);
+  const alwaysHiddenGlobsText = alwaysHiddenGlobsDraft ?? alwaysHiddenGlobs.join('\n');
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
 
   return (
     <>
       <Typography variant="h6">General</Typography>
       <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-        Session delete confirmation, No Folder group visibility, and Developer mode live in User settings.
+        Session delete confirmation, No Folder group visibility, Developer mode, and Always-hidden globs live in User
+        settings.
       </Typography>
       <FormControlLabel
         control={
@@ -67,6 +76,23 @@ export const GeneralSettingsPane: FC = () => {
         }
         label="Developer mode"
         sx={{ display: 'block', ml: 0, mt: 1 }}
+      />
+      <TextField
+        disabled={editsDisabled}
+        fullWidth
+        helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
+        label="Always-hidden globs"
+        minRows={3}
+        multiline
+        onBlur={() => {
+          setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
+          setAlwaysHiddenGlobsDraft(undefined);
+        }}
+        onChange={event => {
+          setAlwaysHiddenGlobsDraft(event.target.value);
+        }}
+        sx={{ display: 'block', mt: 2 }}
+        value={alwaysHiddenGlobsText}
       />
     </>
   );

@@ -12,6 +12,10 @@ _Avoid_: home directory, OS home, `$HOME` (when meaning this product dir)
 The user-mutable preferences file `settings.json` inside the Agent Orchestrator home.
 _Avoid_: Settings document, config, configuration, session configuration, config option
 
+**Always-hidden glob**:
+A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Harness `fd` listings (New Session shallow picker and composer `@` recursive listing), in addition to the hardcoded `.git` exclude. Beats Show hidden — matching paths stay excluded when Show hidden is on. Not removable via Settings for `.git` itself.
+_Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
+
 **Adapter roster document**:
 Per agent launch target durable session list under `adapters/<launchTarget>/roster.json` inside the Agent Orchestrator home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness in-memory session roster cache.
 _Avoid_: session roster (Harness term), user settings, session snapshot

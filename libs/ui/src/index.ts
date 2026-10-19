@@ -5,11 +5,7 @@ export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
 export { createHarnessAtoms } from './atoms/harness.atoms.ts';
 export type { SelectedActiveSession } from './atoms/selectedActiveSession.atoms.ts';
-export {
-  selectedActiveSessionAtom,
-  selectedActiveSessionIdAtom,
-  selectedVirtualBoundSessionIdAtom,
-} from './atoms/selectedActiveSession.atoms.ts';
+export { selectedActiveSessionAtom, selectedVirtualBoundSessionIdAtom } from './atoms/selectedActiveSession.atoms.ts';
 export {
   createSessionFsListingAtoms,
   sessionFsListingAtom,

@@ -62,8 +62,3 @@ export const selectedActiveSessionAtom = Atom.make(get => {
     sessionId,
   } satisfies SelectedActiveSession;
 }).pipe(Atom.keepAlive);
-
-/** Session id from {@link selectedActiveSessionAtom}. */
-export const selectedActiveSessionIdAtom = Atom.make(get => get(selectedActiveSessionAtom)?.sessionId).pipe(
-  Atom.keepAlive,
-);

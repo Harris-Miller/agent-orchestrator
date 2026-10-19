@@ -28,7 +28,7 @@ import {
   selectedSessionIdAtom,
   virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
-import { selectedActiveSessionIdAtom } from './selectedActiveSession.atoms.ts';
+import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -306,7 +306,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const selected = get(selectedAtom);
         const virtual = get(virtualSessionAtom);
         // Session arm, or Bound Virtual (do not widen selectedSessionIdAtom).
-        const sessionId = get(selectedActiveSessionIdAtom);
+        const sessionId = get(selectedActiveSessionAtom)?.sessionId;
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
         const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
         const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(

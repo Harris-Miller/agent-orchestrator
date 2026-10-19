@@ -10,7 +10,6 @@ export type SelectedSessionFsListing = {
   readonly listingKey: null | string;
   readonly selectedSessionId: string | undefined;
   readonly sessionCwd: string | undefined;
-  readonly sourceCwd: string | undefined;
 };
 
 /** Resolve listing key from selected Active session (Session arm or Bound Virtual). */
@@ -18,12 +17,11 @@ export const useSelectedSessionFsListing = (): SelectedSessionFsListing => {
   const active = useAtomValue(selectedActiveSessionAtom);
   const selectedSessionId = active?.sessionId;
   const sessionCwd = active?.cwd;
-  const sourceCwd = sessionCwd;
   const listingKey =
     selectedSessionId !== undefined && sessionCwd !== undefined
       ? sessionFsListingKey(selectedSessionId, sessionCwd)
       : null;
   const fsListing = useAtomValue(sessionFsListingAtom(listingKey ?? '\0'));
 
-  return { fsListing, listingKey, selectedSessionId, sessionCwd, sourceCwd };
+  return { fsListing, listingKey, selectedSessionId, sessionCwd };
 };

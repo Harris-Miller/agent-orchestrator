@@ -44,7 +44,7 @@ export const useSessionChatSurface = () => {
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const virtualLifecycleInFlight = useAtomValue(virtualLifecycleInFlightAtom);
-  const { sessionCwd, sourceCwd } = useSelectedSessionFsListing();
+  const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
@@ -124,7 +124,7 @@ export const useSessionChatSurface = () => {
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
-    sourceCwd !== undefined;
+    sessionCwd !== undefined;
   const canForkBase =
     !isVirtual &&
     controlsEnabled &&
@@ -171,7 +171,6 @@ export const useSessionChatSurface = () => {
     selectedSessionId,
     setDraft,
     setVirtualLaunchTarget,
-    sourceCwd,
     virtualBoundSessionId,
     virtualConfigIndex,
     virtualConfigValues,

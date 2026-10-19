@@ -21,7 +21,7 @@ const assertNoIgnoreBypass = (args: readonly string[]) => {
 describe('fdListing helpers', () => {
   it('builds exclude args with .git then user globs', () => {
     assert.deepStrictEqual(fdExcludeArgs([]), ['-E', '.git']);
-    assert.deepStrictEqual(fdExcludeArgs(['node_modules', '  ', '.git', 'dist']), [
+    assert.deepStrictEqual(fdExcludeArgs(['node_modules', '.git', 'dist']), [
       '-E',
       '.git',
       '-E',

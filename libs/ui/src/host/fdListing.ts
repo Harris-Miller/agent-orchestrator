@@ -1,5 +1,4 @@
 /** Shared `fd` / `fdfind` directory + file listing helpers (NUL-delimited). */
-import { normalizeAlwaysHiddenGlobs } from '@lib/ao-home';
 import { Effect, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
@@ -21,12 +20,13 @@ export type ShallowDirListingOptions = {
 };
 
 /**
- * Always `-E .git`, then `-E` for each normalized Always-hidden glob (skip redundant `.git`).
+ * Always `-E .git`, then `-E` for each Always-hidden glob (skip redundant `.git`).
+ * Callers pass already-normalized globs (User settings atom boundary).
  * Never emits `-I` / `--no-ignore*`.
  */
 export const fdExcludeArgs = (alwaysHiddenGlobs: readonly string[] | undefined = []): readonly string[] => {
   const args: string[] = ['-E', '.git'];
-  for (const glob of normalizeAlwaysHiddenGlobs(alwaysHiddenGlobs)) {
+  for (const glob of alwaysHiddenGlobs) {
     if (glob !== '.git') {
       args.push('-E', glob);
     }

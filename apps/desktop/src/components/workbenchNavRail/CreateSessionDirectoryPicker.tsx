@@ -111,6 +111,7 @@ export const CreateSessionDirectoryPicker: FC<{
         setBrowsePath(normalizedHome);
         setEntries(dirs);
         setFocusedIndex(0);
+        setShowHidden(false);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -129,9 +130,7 @@ export const CreateSessionDirectoryPicker: FC<{
       abort.abort();
       window.clearTimeout(focusTimer);
     };
-    // Mount-only bootstrap; reopen picker to pick up Always-hidden glob Settings edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
-  }, []);
+  }, [alwaysHiddenGlobs]);
 
   const loadDirectory = (nextPath: string, nextShowHidden: boolean = showHidden) => {
     setLoading(true);

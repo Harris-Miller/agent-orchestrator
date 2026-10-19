@@ -14,12 +14,8 @@ import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import {
-  ensureVirtualAcpBound,
-  excludeBoundVirtualFromRoster,
-  rwFromRegistry,
-  virtualSessionAtom,
-} from './virtualSession.atoms.ts';
+import { ensureVirtualAcpBound, excludeBoundVirtualFromRoster, rwFromRegistry } from './virtualBind.ts';
+import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 

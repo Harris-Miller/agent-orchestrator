@@ -11,12 +11,12 @@ import {
   selectSession,
   virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
+import { rwFromRegistry } from './virtualBind.ts';
 import {
   applyVirtualSessionFolderChurn,
   discardVirtualSession,
   ensureVirtualSession,
   lastCreateDefaultsAtom,
-  rwFromRegistry,
   setVirtualLaunchTarget,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';

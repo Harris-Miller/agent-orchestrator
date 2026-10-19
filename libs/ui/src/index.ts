@@ -4,6 +4,12 @@ export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
 export { createHarnessAtoms } from './atoms/harness.atoms.ts';
+export type { SelectedActiveSession } from './atoms/selectedActiveSession.atoms.ts';
+export {
+  selectedActiveSessionAtom,
+  selectedActiveSessionIdAtom,
+  selectedVirtualBoundSessionIdAtom,
+} from './atoms/selectedActiveSession.atoms.ts';
 export {
   createSessionFsListingAtoms,
   sessionFsListingAtom,
@@ -20,32 +26,27 @@ export {
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
+export type { RefreshSessionFsListing } from './atoms/virtualBind.ts';
+export {
+  ensureVirtualAcpBound,
+  excludeBoundVirtualFromRoster,
+  mutateVirtualThenRebind,
+  rwFromFnContext,
+  rwFromRegistry,
+  teardownVirtualAcpBind,
+} from './atoms/virtualBind.ts';
 export {
   applyVirtualSessionFolderChurn,
   applyVirtualSessionFolderChurnEffect,
   createVirtualSessionAtoms,
   discardVirtualSession,
-  ensureVirtualAcpBound,
   ensureVirtualSession,
-  excludeBoundVirtualFromRoster,
   lastCreateDefaultsAtom,
-  mutateVirtualThenRebind,
   patchVirtualSession,
-  rwFromFnContext,
-  rwFromRegistry,
-  selectedActiveSessionAtom,
-  selectedActiveSessionIdAtom,
-  selectedVirtualBoundSessionIdAtom,
   setVirtualLaunchTarget,
-  teardownVirtualAcpBind,
   virtualSessionAtom,
 } from './atoms/virtualSession.atoms.ts';
-export type {
-  EnsureVirtualSessionArg,
-  LastCreateDefaults,
-  SelectedActiveSession,
-  VirtualSession,
-} from './atoms/virtualSession.atoms.ts';
+export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';

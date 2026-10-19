@@ -14,16 +14,14 @@ import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessStateAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
+import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import {
   ensureVirtualAcpBound,
   excludeBoundVirtualFromRoster,
-  patchVirtualSession,
   rwFromRegistry,
-  selectedActiveSessionAtom,
-  setVirtualLaunchTarget,
   teardownVirtualAcpBind,
-  virtualSessionAtom,
-} from './virtualSession.atoms.ts';
+} from './virtualBind.ts';
+import { patchVirtualSession, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 const runAtomFn = <A, E, W>(
   registry: AtomRegistry.AtomRegistry,

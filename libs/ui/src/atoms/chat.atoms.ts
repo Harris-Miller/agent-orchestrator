@@ -25,8 +25,9 @@ import {
   selectedSessionIdAtom,
   virtualLifecycleInFlightAtom,
 } from './backendState.atoms.ts';
+import { selectedActiveSessionIdAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { lastCreateDefaultsAtom, selectedActiveSessionIdAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 

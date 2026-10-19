@@ -40,7 +40,8 @@ import {
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
-import { excludeBoundVirtualFromRoster, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { excludeBoundVirtualFromRoster } from './virtualBind.ts';
+import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 

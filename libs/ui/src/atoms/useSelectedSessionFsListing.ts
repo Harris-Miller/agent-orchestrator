@@ -1,9 +1,9 @@
 /** Selected session's preloaded recursive `@` FS listing (key + atom value). */
 import { useAtomValue } from '@effect/atom-react';
 
+import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
 import type { SessionFsListingState } from './sessionFsListing.atoms.ts';
-import { selectedActiveSessionAtom } from './virtualSession.atoms.ts';
 
 export type SelectedSessionFsListing = {
   readonly fsListing: SessionFsListingState;

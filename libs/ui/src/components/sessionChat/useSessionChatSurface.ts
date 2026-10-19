@@ -20,12 +20,12 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
-import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import {
   selectedActiveSessionAtom,
   selectedVirtualBoundSessionIdAtom,
-  virtualSessionAtom,
-} from '../../atoms/virtualSession.atoms.ts';
+} from '../../atoms/selectedActiveSession.atoms.ts';
+import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';

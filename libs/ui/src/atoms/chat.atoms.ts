@@ -14,7 +14,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import { rowForModel } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
-import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
@@ -140,7 +140,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           const configuredSnapshot = get(backendHarnessStateAtom(launchTarget));
           get.set(
             backendHarnessStateAtom(launchTarget),
-            materializeIntoSnapshot(configuredSnapshot, {
+            upsertIntoSnapshot(configuredSnapshot, {
               rosterEntry,
               session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
                 availableCommands: liveSession.availableCommands,

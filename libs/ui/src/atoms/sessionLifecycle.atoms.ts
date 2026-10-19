@@ -15,8 +15,8 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
   dropSession,
   markSessionInactive,
-  materializeIntoSnapshot,
   replaceSessionRoster,
+  upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
@@ -166,7 +166,7 @@ export const createSessionLifecycleAtoms = (
 
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
-            materializeIntoSnapshot(nextSnapshot, { rosterEntry, session }),
+            upsertIntoSnapshot(nextSnapshot, { rosterEntry, session }),
           );
           selectSession(get, sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
@@ -305,7 +305,7 @@ export const createSessionLifecycleAtoms = (
             parentRoster?.title !== undefined ? { ...createdRoster, title: parentRoster.title } : createdRoster;
 
           const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          get.set(backendHarnessStateAtom(arg.launchTarget), materializeIntoSnapshot(nextSnapshot, { rosterEntry }));
+          get.set(backendHarnessStateAtom(arg.launchTarget), upsertIntoSnapshot(nextSnapshot, { rosterEntry }));
 
           yield* get.setResult(activateSessionAtomFn, {
             launchTarget: arg.launchTarget,

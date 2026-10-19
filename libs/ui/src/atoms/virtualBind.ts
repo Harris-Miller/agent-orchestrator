@@ -5,7 +5,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import type { NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { dropSession, materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { dropSession, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
@@ -154,7 +154,7 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
     rw.set(
       backendHarnessStateAtom(launchTarget),
       // Sessions-map upsert only (no roster) — not Materialize.
-      materializeIntoSnapshot(afterCreate, {
+      upsertIntoSnapshot(afterCreate, {
         session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
       }),
     );

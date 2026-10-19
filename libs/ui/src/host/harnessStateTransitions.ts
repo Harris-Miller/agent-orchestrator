@@ -66,14 +66,14 @@ export const replaceSessionRoster = (
 });
 
 /** At least one of session or rosterEntry required. */
-export type MaterializeIntoSnapshotArgs =
+export type UpsertIntoSnapshotArgs =
   | { readonly rosterEntry: NormalizedSessionInfo; readonly session?: undefined }
   | { readonly rosterEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
 
-/** Upsert a Materialized session and/or roster entry into the Backend harness snapshot. */
-export const materializeIntoSnapshot = (
+/** Upsert a session snapshot and/or roster entry into the Backend harness snapshot (Bind or Materialize). */
+export const upsertIntoSnapshot = (
   snapshot: BackendHarnessSnapshot,
-  args: MaterializeIntoSnapshotArgs,
+  args: UpsertIntoSnapshotArgs,
 ): BackendHarnessSnapshot => {
   const { rosterEntry, session } = args;
   return {

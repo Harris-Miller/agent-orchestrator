@@ -7,9 +7,9 @@ import {
   dropSession,
   endClientRequest,
   markSessionInactive,
-  materializeIntoSnapshot,
   replaceSessionRoster,
   stripSessionPendings,
+  upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
 
 const readySnapshot = (sessions: Readonly<Record<string, SessionSnapshot>> = {}): BackendHarnessSnapshot => ({
@@ -114,11 +114,11 @@ describe('dropSession', () => {
   });
 });
 
-describe('materializeIntoSnapshot', () => {
+describe('upsertIntoSnapshot', () => {
   it('upserts session and optional roster entry', () => {
     const session = activeSession('s1', { cwd: '/proj' });
     const rosterEntry = { cwd: '/proj', sessionId: 's1', title: 'T' };
-    const next = materializeIntoSnapshot(readySnapshot(), { rosterEntry, session });
+    const next = upsertIntoSnapshot(readySnapshot(), { rosterEntry, session });
     assert.strictEqual(next.sessions.s1.cwd, '/proj');
     assert.strictEqual(next.sessionRoster[0]?.sessionId, 's1');
     assert.strictEqual(next.sessionRoster[0]?.title, 'T');
@@ -126,7 +126,7 @@ describe('materializeIntoSnapshot', () => {
 
   it('upserts roster entry alone', () => {
     const rosterEntry = { cwd: '/proj', sessionId: 's1' };
-    const next = materializeIntoSnapshot(readySnapshot(), { rosterEntry });
+    const next = upsertIntoSnapshot(readySnapshot(), { rosterEntry });
     assert.strictEqual(Object.keys(next.sessions).length, 0);
     assert.strictEqual(next.sessionRoster[0]?.sessionId, 's1');
   });

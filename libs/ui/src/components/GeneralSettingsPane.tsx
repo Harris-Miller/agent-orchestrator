@@ -3,6 +3,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import {
@@ -25,6 +26,9 @@ export const GeneralSettingsPane: FC = () => {
   const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const setAlwaysHiddenGlobs = useAtomSet(alwaysHiddenGlobsAtom);
+  /** Draft text so Enter can open a new line; atom normalize runs on blur. */
+  const [alwaysHiddenGlobsDraft, setAlwaysHiddenGlobsDraft] = useState<string | undefined>(undefined);
+  const alwaysHiddenGlobsText = alwaysHiddenGlobsDraft ?? alwaysHiddenGlobs.join('\n');
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
 
   return (
@@ -80,11 +84,15 @@ export const GeneralSettingsPane: FC = () => {
         label="Always-hidden globs"
         minRows={3}
         multiline
+        onBlur={() => {
+          setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
+          setAlwaysHiddenGlobsDraft(undefined);
+        }}
         onChange={event => {
-          setAlwaysHiddenGlobs(event.target.value.split('\n'));
+          setAlwaysHiddenGlobsDraft(event.target.value);
         }}
         sx={{ display: 'block', mt: 2 }}
-        value={alwaysHiddenGlobs.join('\n')}
+        value={alwaysHiddenGlobsText}
       />
     </>
   );

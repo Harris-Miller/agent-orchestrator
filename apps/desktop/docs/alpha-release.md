@@ -1,8 +1,10 @@
 # Desktop Alpha release
 
-Builds installers via GitHub Actions and publishes a draft GitHub Release. Installed apps check `https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json` on launch (production builds only).
+Builds installers and a VS Code `.vsix` via GitHub Actions and publishes a **draft** GitHub Release tagged `vX.Y.Z`. Installed apps check `https://github.com/Harris-Miller/agent-orchestrator/releases/latest/download/latest.json` on launch (production builds only).
 
-Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release packaging runs on **push to `main`** (merge a release PR), or via **Actions → Release desktop → Run workflow**.
+Branching: see [`docs/gitflow.md`](../../../docs/gitflow.md). Release packaging runs on **push to `main`** (merge a release PR), or via **Actions → Release → Run workflow**.
+
+Product version lives in the **repo root** `package.json`. Bump with `pnpm version:app` (syncs `tauri.conf.json`, `Cargo.toml`, and `apps/vscode/package.json`). Tags are created by CI on `main`, not by the bump script. Workflows do not run on tag pushes.
 
 ## One-time secrets
 
@@ -25,10 +27,10 @@ If you regenerate keys, replace `pubkey` in `tauri.conf.json` and update the pri
 
 ## Ship a build
 
-1. On `develop` (or a `release/*` branch), bump `version` in `apps/desktop/src-tauri/tauri.conf.json` (and `apps/desktop/package.json` if you keep them aligned).
-2. Open a PR into `main`, merge when green (or run **Actions → Release desktop → Run workflow** on the commit you want).
-3. Open the draft GitHub Release, confirm assets include platform installers plus `latest.json`, then publish it as a normal release (not “pre-release”). GitHub’s `/releases/latest` — used by the updater — ignores pre-releases.
-4. If needed, merge `main` back into `develop` so version bumps stay on the integration branch.
+1. From `develop`, create `release/x.y.z` and run `pnpm version:app <patch|minor|major|…>`.
+2. Open a PR into `main`, merge when green (or run **Actions → Release → Run workflow** on the commit you want). Re-runs fail if tag `vX.Y.Z` already exists — bump or delete the tag/release by hand first.
+3. Open the draft GitHub Release (`Agent Orchestrator vX.Y.Z`), confirm assets include platform installers, `latest.json`, and the `.vsix`, edit notes if you want a short changelog, then publish it as a **normal** release (not “pre-release”). GitHub’s `/releases/latest` — used by the updater — ignores pre-releases and drafts.
+4. CI attempts to fast-forward `develop` to `main` after assets upload. If that fails, align the branches manually.
 
 ## Local signed build (optional)
 
@@ -38,7 +40,13 @@ export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/agent-orchestrator.key"
 pnpm --filter @apps/desktop tauri:build
 ```
 
+Local VS Code package (same version as root after a bump):
+
+```bash
+pnpm --filter hoa-vscode run package
+```
+
 ## Notes
 
 - macOS Gatekeeper: Alpha can ship unsigned/ad-hoc; for smoother installs later, add Apple signing/notarization secrets.
-- VS Code `.vsix` is separate (`pnpm --filter agent-orchestrator-vscode run package`) and does not auto-update from GitHub.
+- The `.vsix` is attached to the same GitHub Release as the desktop installers; it does not auto-update from GitHub.

@@ -1,17 +1,72 @@
-name: Release desktop
+name: Release
 
 on:
   workflow_dispatch:
-  # gitflow: merge a release PR into main to cut a desktop build
+  # gitflow: merge a release PR into main to cut a product build
   push:
     branches: [main]
 
 concurrency:
-  group: release-desktop-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      release_id: ${{ steps.create.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: meta
+        run: |
+          VERSION=$(jq -r .version package.json)
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if tag already exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists. Bump the version or delete the tag/release by hand, then re-run." >&2
+            exit 1
+          fi
+
+      - name: Create draft release
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          NOTES=$(printf '%s\n' \
+            "## Agent Orchestrator ${TAG}" \
+            "" \
+            "Product release for version ${VERSION}." \
+            "" \
+            "Desktop installers (with updater \`latest.json\`) and the VS Code \`.vsix\` are attached by CI. Edit this body before publishing if you want a short changelog." \
+            "" \
+            "_Download links will be filled in after build jobs finish._")
+          URL=$(gh release create "$TAG" \
+            --draft \
+            --title "Agent Orchestrator ${TAG}" \
+            --notes "$NOTES" \
+            --target "$GITHUB_SHA")
+          # databaseId = numeric REST id (drafts are not returned by /releases/tags/{tag})
+          RELEASE_ID=$(gh release view "$TAG" --json databaseId --jq .databaseId)
+          echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
+          echo "Created draft release ${URL} (id=${RELEASE_ID})"
+
   publish-tauri:
+    needs: create-release
     permissions:
       contents: write
     strategy:
@@ -62,11 +117,90 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          tagName: desktop-v__VERSION__
-          releaseName: 'Desktop v__VERSION__'
-          releaseBody: 'Agent Orchestrator desktop installers. Updater reads `latest.json` from this release.'
-          # Must not be a GitHub "pre-release": `/releases/latest` ignores those,
-          # and the updater endpoint uses that URL.
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          # Keep tagName so latest.json points at the tagged release, not /releases/latest/download
+          tagName: ${{ needs.create-release.outputs.tag }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish-vscode:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Package VS Code extension
+        run: pnpm --filter hoa-vscode run package
+
+      - name: Upload .vsix to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          VSIX=$(ls apps/vscode/*.vsix | head -n 1)
+          gh release upload "$TAG" "$VSIX" --clobber
+
+  finalize:
+    needs: [create-release, publish-tauri, publish-vscode]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update release notes with asset links
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          DESKTOP_LINKS=$(gh release view "$TAG" --json assets --jq '
+            [.assets[] | select(.name | endswith(".vsix") | not)]
+            | sort_by(.name)
+            | map("- [\(.name)](\(.url))")
+            | join("\n")
+          ')
+          VSIX_LINKS=$(gh release view "$TAG" --json assets --jq '
+            [.assets[] | select(.name | endswith(".vsix"))]
+            | sort_by(.name)
+            | map("- [\(.name)](\(.url))")
+            | join("\n")
+          ')
+          if [ -z "$DESKTOP_LINKS" ]; then DESKTOP_LINKS='_No desktop assets found._'; fi
+          if [ -z "$VSIX_LINKS" ]; then VSIX_LINKS='_No .vsix found._'; fi
+          NOTES=$(printf '%s\n' \
+            "## Agent Orchestrator ${TAG}" \
+            "" \
+            "Product release for version ${VERSION}." \
+            "" \
+            "### Desktop installers" \
+            "$DESKTOP_LINKS" \
+            "" \
+            "### VS Code extension" \
+            "$VSIX_LINKS" \
+            "" \
+            "After publishing this draft (not as a pre-release), the desktop updater reads \`latest.json\` from \`/releases/latest\`.")
+          gh release edit "$TAG" --notes "$NOTES"
+
+      - name: Fast-forward develop to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main develop
+          git checkout -B develop origin/develop
+          git merge --ff-only origin/main
+          git push origin HEAD:develop

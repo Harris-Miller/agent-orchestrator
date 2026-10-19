@@ -21,6 +21,7 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck-root typecheck",
     "typecheck-root": "tsc --noEmit",
+    "version:app": "node scripts/version-app.mjs",
     "vscode:build": "turbo run build --filter=hoa-vscode",
     "vscode:dev": "turbo run watch:main watch:renderer --filter=hoa-vscode",
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\"",

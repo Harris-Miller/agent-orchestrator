@@ -12,9 +12,22 @@ import { resetBackendHarnessState, runBackendHarness, stopBackendHarness } from 
 import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import {
+  ensureVirtualAcpBound,
+  excludeBoundVirtualFromRoster,
+  refreshFsListingViaRegistry,
+  rwFromRegistry,
+} from './virtualBind.ts';
+import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
-export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
+
+export const createHarnessAtoms = (
+  runtime: HostRuntimeBag,
+  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+) => {
   const { atomRuntime, hostRunFork } = runtime;
 
   const backendHarnessAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
@@ -64,6 +77,23 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
                 error,
                 phase,
               }));
+              if (phase === 'ready') {
+                // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
+                const virtual = get.registry.get(virtualSessionAtom);
+                if (virtual?.launchTarget === launchTarget) {
+                  const { registry } = get;
+                  hostRunFork(
+                    ensureVirtualAcpBound(
+                      rwFromRegistry(registry),
+                      refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
+                    ).pipe(
+                      Effect.catchCause(cause =>
+                        Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             onRpcMessage: (direction, message) => {
               updateState(current => ({
@@ -75,9 +105,10 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
               }));
             },
             onSessionRosterResult: listResult => {
+              const boundSessionId = get.registry.get(virtualSessionAtom)?.sessionId;
               updateState(current => ({
                 ...current,
-                sessionRoster: normalizeSessionRoster(listResult),
+                sessionRoster: excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
               }));
             },
             onSessionUpdate: (sessionId, update) => {

@@ -86,9 +86,13 @@ _Avoid_: Setting, preference, parameter
 Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
 _Avoid_: Session state, session/new result
 
+**Bind**:
+Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `ready` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Not a Roster entry; Selected stays Virtual. Distinct from Materialize.
+_Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
+
 **Materialize**:
-Harness step that turns a successful session activation RPC result (and any follow-on config-option applies) into a session snapshot and, when needed, a roster entry. Not the RPC itself (`session/new`, `session/load`, `session/resume`).
-_Avoid_: Provision, hydrate, commit activation, apply session activation
+Harness step on first Send that promotes a Bound Virtual session into a Roster entry, Selects the Session arm, clears Virtual, and locks cwd/launch target — then prompts. Not the Bind RPC and not the sessions-map-only upsert helper used during Bind.
+_Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
 Ephemeral State Atom per agent launch target: `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
@@ -127,7 +131,7 @@ A pending elicitation or pending permission on a session snapshot. The Harness U
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:
-At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd) owned by Harness application state. Not a Roster entry, not Active, not a Session snapshot until Materialize on first Send. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; `session/new` is deferred until first Send.
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a Roster entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target + Ready are known.
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:
@@ -135,7 +139,7 @@ App-wide UI focus: either the Virtual session or a real Session by `sessionId`, 
 _Avoid_: Selected session (when you mean the union including Virtual), current session, focused session
 
 **Active session**:
-A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Multiple may be active per agent simultaneously; only the Selected Session arm accepts prompts after Materialize.
+A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Includes Bound-but-still-Virtual sessions. Multiple may be active per agent simultaneously; only the Selected Session arm accepts prompts after Materialize.
 _Avoid_: Open session, live session
 
 ## Agent backends

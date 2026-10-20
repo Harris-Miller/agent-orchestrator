@@ -3,6 +3,7 @@ import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useCallback, useMemo } from 'react';
 
 import {
+  backendHarnessStateAtom,
   configOptionIndexAtom,
   readyLaunchTargetsAtom,
   selectedAtom,
@@ -10,7 +11,7 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
-  virtualMaterializeInFlightAtom,
+  virtualLifecycleInFlightAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   forkSessionAtomFn,
@@ -19,6 +20,10 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
+import {
+  selectedActiveSessionAtom,
+  selectedVirtualBoundSessionIdAtom,
+} from '../../atoms/selectedActiveSession.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
@@ -29,6 +34,8 @@ export const useSessionChatSurface = () => {
   const selected = useAtomValue(selectedAtom);
   const isVirtual = selected?._tag === 'Virtual';
   const virtualSession = useAtomValue(virtualSessionAtom);
+  const virtualBoundSessionId = useAtomValue(selectedVirtualBoundSessionIdAtom);
+  const activeSession = useAtomValue(selectedActiveSessionAtom);
   const selectedLaunchTargetFromSession = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
@@ -36,8 +43,8 @@ export const useSessionChatSurface = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const virtualMaterializeInFlight = useAtomValue(virtualMaterializeInFlightAtom);
-  const { sessionCwd, sourceCwd } = useSelectedSessionFsListing();
+  const virtualLifecycleInFlight = useAtomValue(virtualLifecycleInFlightAtom);
+  const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
@@ -45,6 +52,11 @@ export const useSessionChatSurface = () => {
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
   const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
+
+  const selectedLaunchTarget = isVirtual ? virtualSession?.launchTarget : selectedLaunchTargetFromSession;
+  const activeBackendSnapshot = useAtomValue(backendHarnessStateAtom(activeSession?.launchTarget ?? 'codex-acp'));
+  const boundVirtualSession =
+    isVirtual && activeSession !== undefined ? activeBackendSnapshot.sessions[activeSession.sessionId] : undefined;
 
   const getConfigOptionIndex = useCallback(
     (launchTarget: AgentLaunchTarget) => {
@@ -60,7 +72,6 @@ export const useSessionChatSurface = () => {
     [claudeConfigIndex, codexConfigIndex, geminiConfigIndex],
   );
 
-  const selectedLaunchTarget = isVirtual ? virtualSession?.launchTarget : selectedLaunchTargetFromSession;
   const draft = isVirtual ? (virtualSession?.draft ?? '') : sessionDraft;
   const setDraft = useCallback(
     (text: string) => {
@@ -78,8 +89,8 @@ export const useSessionChatSurface = () => {
     [isVirtual, selectedSession?.transcript],
   );
   const availableCommands = useMemo(
-    () => (isVirtual ? [] : (selectedSession?.availableCommands ?? [])),
-    [isVirtual, selectedSession?.availableCommands],
+    () => (isVirtual ? (boundVirtualSession?.availableCommands ?? []) : (selectedSession?.availableCommands ?? [])),
+    [boundVirtualSession?.availableCommands, isVirtual, selectedSession?.availableCommands],
   );
   const virtualConfigIndex =
     isVirtual && selectedLaunchTarget !== undefined ? getConfigOptionIndex(selectedLaunchTarget) : undefined;
@@ -94,7 +105,7 @@ export const useSessionChatSurface = () => {
     (selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined);
   const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
   const canCancelPromptTurn = !isVirtual && selectedSession?.pendingClientRequest === 'prompt';
-  const chromeLocked = handoffInProgress || virtualMaterializeInFlight;
+  const chromeLocked = handoffInProgress || virtualLifecycleInFlight;
   const controlsEnabled = isVirtual
     ? !chromeLocked
     : selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !chromeLocked;
@@ -113,7 +124,7 @@ export const useSessionChatSurface = () => {
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
-    sourceCwd !== undefined;
+    sessionCwd !== undefined;
   const canForkBase =
     !isVirtual &&
     controlsEnabled &&
@@ -160,9 +171,9 @@ export const useSessionChatSurface = () => {
     selectedSessionId,
     setDraft,
     setVirtualLaunchTarget,
-    sourceCwd,
+    virtualBoundSessionId,
     virtualConfigIndex,
     virtualConfigValues,
-    virtualMaterializeInFlight,
+    virtualLifecycleInFlight,
   };
 };

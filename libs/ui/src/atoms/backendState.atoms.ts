@@ -13,10 +13,10 @@ export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } 
 export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom.keepAlive);
 
 /**
- * True only while Virtual Materialize-on-first-send runs (session/new + config + Select).
+ * True while Virtual Bind or Materialize holds the lifecycle lock.
  * Selection / create helpers no-op while true. Must not stay set during session/prompt.
  */
-export const virtualMaterializeInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
+export const virtualLifecycleInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 /** Session arm sessionId only; undefined when Virtual or no Selected. */
 export const selectedSessionIdAtom = Atom.make(get => {
@@ -110,14 +110,14 @@ export const readyLaunchTargetsAtom = Atom.make(get =>
 ).pipe(Atom.keepAlive);
 
 export const selectSession = (get: Atom.FnContext, sessionId: string) => {
-  if (get(virtualMaterializeInFlightAtom)) {
+  if (get(virtualLifecycleInFlightAtom)) {
     return;
   }
   get.set(selectedAtom, { _tag: 'Session', sessionId });
 };
 
 export const clearSelected = (get: Atom.FnContext) => {
-  if (get(virtualMaterializeInFlightAtom)) {
+  if (get(virtualLifecycleInFlightAtom)) {
     return;
   }
   get.set(selectedAtom, undefined);

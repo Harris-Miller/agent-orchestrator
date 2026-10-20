@@ -107,12 +107,13 @@ export const SessionChatBody: FC<{
     selectedSessionId,
     setDraft,
     setVirtualLaunchTarget,
+    virtualBoundSessionId,
     virtualConfigIndex,
     virtualConfigValues,
-    virtualMaterializeInFlight,
+    virtualLifecycleInFlight,
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
@@ -290,15 +291,14 @@ export const SessionChatBody: FC<{
     ],
   );
 
-  const mentionMenuOpen = mentionTrigger !== null;
-
-  // Refresh FS listing when `@` menu opens or Always-hidden globs change while open.
+  // Preload `@` FS listing once Bound Virtual / Session has id+cwd (and when Always-hidden globs change).
+  // Use active-session id — Session-arm `selectedSessionId` is undefined while Selected is Virtual.
   useEffect(() => {
-    if (!mentionMenuOpen || selectedSessionId === undefined || sessionCwd === undefined) {
+    if (fsListingSessionId === undefined || sessionCwd === undefined) {
       return;
     }
-    refreshSessionFsListing({ cwd: sessionCwd, sessionId: selectedSessionId }).catch(() => undefined);
-  }, [alwaysHiddenGlobs, mentionMenuOpen, refreshSessionFsListing, selectedSessionId, sessionCwd]);
+    refreshSessionFsListing({ cwd: sessionCwd, sessionId: fsListingSessionId }).catch(() => undefined);
+  }, [alwaysHiddenGlobs, fsListingSessionId, refreshSessionFsListing, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
   // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.
@@ -365,22 +365,18 @@ export const SessionChatBody: FC<{
     if (selectedLaunchTarget === undefined) {
       return;
     }
-    if (isVirtual) {
-      const current = virtualConfigValues;
-      if (diff.type === 'boolean') {
-        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
-        return;
-      }
-      if (diff.configId !== 'model') {
-        patchVirtualSession({ configValues: { ...current, [diff.configId]: diff.value } }).catch(() => undefined);
-        return;
-      }
-      const nextRow = rowForModel(virtualConfigIndex, diff.value);
-      patchVirtualSession({
-        configValues: preserveConfigValuesOnModelChange({ ...current, model: diff.value }, nextRow),
-      }).catch(() => undefined);
+    if (isVirtual && virtualBoundSessionId === undefined) {
+      const nextConfigValues =
+        diff.type === 'select' && diff.configId === 'model'
+          ? preserveConfigValuesOnModelChange(
+              { ...virtualConfigValues, model: diff.value },
+              rowForModel(virtualConfigIndex, diff.value),
+            )
+          : { ...virtualConfigValues, [diff.configId]: diff.value };
+      patchVirtualSession({ configValues: nextConfigValues }).catch(() => undefined);
       return;
     }
+    // Session arm or Bound Virtual: live setConfigOption (AtomFn owns Virtual blob preserve).
     setConfigOption(
       diff.type === 'boolean'
         ? {
@@ -651,7 +647,7 @@ export const SessionChatBody: FC<{
                   aria-label={
                     canCancelPromptTurn
                       ? 'Prompt turn cancel'
-                      : pendingClientRequest || virtualMaterializeInFlight
+                      : pendingClientRequest || virtualLifecycleInFlight
                         ? 'Pending client request'
                         : 'Send'
                   }
@@ -669,7 +665,7 @@ export const SessionChatBody: FC<{
                 >
                   {canCancelPromptTurn ? (
                     <Stop fontSize="small" />
-                  ) : pendingClientRequest || virtualMaterializeInFlight ? (
+                  ) : pendingClientRequest || virtualLifecycleInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <ArrowUpward fontSize="small" />

@@ -1,20 +1,26 @@
-/** In-memory Virtual session blob + ensure / selection helpers (defer session/new until first send). */
+/** In-memory Virtual session blob + ensure / selection mutators + AtomFns. */
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
-import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 
-import { configOptionIndexAtom, selectedAtom, virtualMaterializeInFlightAtom } from './backendState.atoms.ts';
+import { configOptionIndexAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
+import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+import type { AtomRw } from './virtualBind.ts';
+import { mutateVirtualThenRebind, refreshFsListingViaRegistry, rwFromFnContext } from './virtualBind.ts';
+
+type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
 export type VirtualSession = {
   readonly configValues: ConfigOptionValues;
   readonly cwd: string | undefined;
   readonly draft: string;
   readonly launchTarget: AgentLaunchTarget | undefined;
+  /** Bound ACP session id after eager Bind; absent while unbound. */
+  readonly sessionId?: string;
 };
 
 export type LastCreateDefaults = {
@@ -35,25 +41,6 @@ export type EnsureVirtualSessionArg = {
 export const virtualSessionAtom = Atom.make<null | VirtualSession>(null).pipe(Atom.keepAlive);
 
 export const lastCreateDefaultsAtom = Atom.make<LastCreateDefaults | null>(null).pipe(Atom.keepAlive);
-
-type AtomRw = {
-  readonly get: <A>(atom: Atom.Atom<A>) => A;
-  readonly set: <R, W>(atom: Atom.Writable<R, W>, value: W) => void;
-};
-
-const rwFromFnContext = (get: Atom.FnContext): AtomRw => ({
-  get: atom => get(atom),
-  set: (atom, value) => {
-    get.set(atom, value);
-  },
-});
-
-export const rwFromRegistry = (registry: AtomRegistry.AtomRegistry): AtomRw => ({
-  get: atom => registry.get(atom),
-  set: (atom, value) => {
-    registry.set(atom, value);
-  },
-});
 
 const emptyVirtual = (): VirtualSession => ({
   configValues: {},
@@ -76,7 +63,7 @@ const seedFromLastDefaults = (rw: AtomRw): Pick<VirtualSession, 'configValues' |
 
 /** Ensure one Virtual blob + Select Virtual. See EnsureVirtualSessionArg for cwd-group vs Create. */
 export const ensureVirtualSession = (rw: AtomRw, arg: EnsureVirtualSessionArg = {}): void => {
-  if (rw.get(virtualMaterializeInFlightAtom)) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
     return;
   }
 
@@ -106,7 +93,7 @@ export const ensureVirtualSession = (rw: AtomRw, arg: EnsureVirtualSessionArg = 
 };
 
 export const discardVirtualSession = (rw: AtomRw): void => {
-  if (rw.get(virtualMaterializeInFlightAtom)) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
     return;
   }
   rw.set(virtualSessionAtom, null);
@@ -114,7 +101,7 @@ export const discardVirtualSession = (rw: AtomRw): void => {
 
 /** First-path Workspace folder churn: patch cwd + ensure Virtual, or discard when no cwd. */
 export const applyVirtualSessionFolderChurn = (rw: AtomRw, nextCwd: string | undefined): void => {
-  if (rw.get(virtualMaterializeInFlightAtom)) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
     return;
   }
   if (nextCwd === undefined) {
@@ -126,6 +113,9 @@ export const applyVirtualSessionFolderChurn = (rw: AtomRw, nextCwd: string | und
 };
 
 export const patchVirtualSession = (rw: AtomRw, patch: Partial<VirtualSession>): void => {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
   const current = rw.get(virtualSessionAtom);
   if (current === null) {
     return;
@@ -133,14 +123,22 @@ export const patchVirtualSession = (rw: AtomRw, patch: Partial<VirtualSession>):
   rw.set(virtualSessionAtom, { ...current, ...patch });
 };
 
-/** LT change on Virtual: Handoff-style hard reset; keep draft + cwd; prefer lastCreateDefaults when LT matches. */
+/** LT change on Virtual: Handoff-style hard reset; keep draft + cwd; clear Bound id when LT changes; prefer lastCreateDefaults when LT matches. */
 export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarget | undefined): void => {
   const current = rw.get(virtualSessionAtom);
-  if (current === null || rw.get(virtualMaterializeInFlightAtom)) {
+  if (current === null || rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
+  if (launchTarget === current.launchTarget) {
     return;
   }
   if (launchTarget === undefined) {
-    rw.set(virtualSessionAtom, { ...current, configValues: {}, launchTarget: undefined });
+    rw.set(virtualSessionAtom, {
+      ...current,
+      configValues: {},
+      launchTarget: undefined,
+      sessionId: undefined,
+    });
     return;
   }
   const defaults = rw.get(lastCreateDefaultsAtom);
@@ -150,6 +148,7 @@ export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarg
       ...current,
       configValues: sanitizeConfigValuesForIndex(index, defaults.configValues),
       launchTarget,
+      sessionId: undefined,
     });
     return;
   }
@@ -158,37 +157,128 @@ export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarg
     ...current,
     configValues: hardResetForAgent(index).values,
     launchTarget,
+    sessionId: undefined,
   });
 };
 
-export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
+/**
+ * Leave Virtual Selected: best-effort Bound teardown + clear blob, then unset Selected.
+ * No-op on lifecycle lock. Session-arm clear stays a Selected flip only.
+ */
+export const clearSelectedEffect = Effect.fn('clearSelectedEffect')(function* (rw: AtomRw) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
+  if (rw.get(selectedAtom)?._tag === 'Virtual') {
+    yield* mutateVirtualThenRebind(rw, {
+      mutate: inner => {
+        discardVirtualSession(inner);
+        inner.set(selectedAtom, undefined);
+      },
+      rebind: false,
+    });
+    return;
+  }
+  rw.set(selectedAtom, undefined);
+});
+
+/**
+ * Select Session arm: if leaving Virtual, teardown Bound + clear blob first.
+ * No-op on lifecycle lock.
+ */
+export const selectSessionEffect = Effect.fn('selectSessionEffect')(function* (rw: AtomRw, sessionId: string) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
+  if (rw.get(selectedAtom)?._tag === 'Virtual') {
+    yield* mutateVirtualThenRebind(rw, {
+      mutate: inner => {
+        discardVirtualSession(inner);
+        inner.set(selectedAtom, { _tag: 'Session', sessionId });
+      },
+      rebind: false,
+    });
+    return;
+  }
+  rw.set(selectedAtom, { _tag: 'Session', sessionId });
+});
+
+/** Effect folder churn: teardown Bound on clear/swap, then sync mutate, then Bind when cwd present. */
+export const applyVirtualSessionFolderChurnEffect = Effect.fn('applyVirtualSessionFolderChurnEffect')(function* (
+  rw: AtomRw,
+  nextCwd: string | undefined,
+) {
+  if (nextCwd === undefined) {
+    yield* mutateVirtualThenRebind(rw, {
+      mutate: inner => {
+        discardVirtualSession(inner);
+        inner.set(selectedAtom, undefined);
+      },
+      rebind: false,
+    });
+    return;
+  }
+
+  yield* mutateVirtualThenRebind(rw, {
+    mutate: inner => {
+      applyVirtualSessionFolderChurn(inner, nextCwd);
+    },
+  });
+});
+
+export const createVirtualSessionAtoms = (
+  runtime: HostRuntimeBag,
+  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+) => {
   const { atomRuntime } = runtime;
+
+  const refreshFsListing = (get: Atom.FnContext) =>
+    refreshFsListingViaRegistry(get.registry, refreshSessionFsListingAtomFn);
 
   const ensureVirtualSessionAtomFn = atomRuntime
     .fn((arg: EnsureVirtualSessionArg | undefined, get: Atom.FnContext) =>
-      Effect.sync(() => {
-        ensureVirtualSession(rwFromFnContext(get), arg ?? {});
+      mutateVirtualThenRebind(rwFromFnContext(get), {
+        mutate: rw => {
+          ensureVirtualSession(rw, arg ?? {});
+        },
+        refreshFsListing: refreshFsListing(get),
       }),
     )
     .pipe(Atom.keepAlive);
 
   const patchVirtualSessionAtomFn = atomRuntime
-    .fn((patch: Partial<VirtualSession>, get: Atom.FnContext) =>
-      Effect.sync(() => {
-        patchVirtualSession(rwFromFnContext(get), patch);
-      }),
-    )
+    .fn((patch: Partial<VirtualSession>, get: Atom.FnContext) => {
+      const rw = rwFromFnContext(get);
+      const before = rw.get(virtualSessionAtom);
+      const cwdChanging = before !== null && patch.cwd !== undefined && patch.cwd !== before.cwd;
+      return mutateVirtualThenRebind(rw, {
+        mutate: inner => {
+          patchVirtualSession(inner, patch);
+        },
+        // Draft/config patches must not re-enter Bind; cwd change always teardown + Bind.
+        rebind: cwdChanging,
+        refreshFsListing: refreshFsListing(get),
+      });
+    })
     .pipe(Atom.keepAlive);
 
   const setVirtualLaunchTargetAtomFn = atomRuntime
     .fn((launchTarget: AgentLaunchTarget | undefined, get: Atom.FnContext) =>
-      Effect.sync(() => {
-        setVirtualLaunchTarget(rwFromFnContext(get), launchTarget);
+      mutateVirtualThenRebind(rwFromFnContext(get), {
+        mutate: rw => {
+          setVirtualLaunchTarget(rw, launchTarget);
+        },
+        refreshFsListing: refreshFsListing(get),
       }),
     )
     .pipe(Atom.keepAlive);
 
+  const discardVirtualSessionAtomFn = atomRuntime
+    .fn((_arg: undefined, get: Atom.FnContext) => clearSelectedEffect(rwFromFnContext(get)))
+    .pipe(Atom.keepAlive);
+
   return {
+    discardVirtualSessionAtomFn,
     ensureVirtualSessionAtomFn,
     patchVirtualSessionAtomFn,
     setVirtualLaunchTargetAtomFn,

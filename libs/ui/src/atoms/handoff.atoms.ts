@@ -12,13 +12,15 @@ import {
   extractHandoffDocument,
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
-import { materializeIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, selectSession, unifiedSessionRosterAtom } from './backendState.atoms.ts';
+import { backendHarnessStateAtom, unifiedSessionRosterAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { rwFromFnContext } from './virtualBind.ts';
+import { selectSessionEffect } from './virtualSession.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
 
@@ -137,10 +139,10 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
             get.set(
               backendHarnessStateAtom(arg.targetLaunchTarget),
-              materializeIntoSnapshot(createdSnapshot, { rosterEntry }),
+              upsertIntoSnapshot(createdSnapshot, { rosterEntry }),
             );
           }
-          selectSession(get, targetSessionId);
+          yield* selectSessionEffect(rwFromFnContext(get), targetSessionId);
 
           const setOption = (diff: ConfigValueDiff) =>
             setConfigOption(
@@ -154,7 +156,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
           get.set(
             backendHarnessStateAtom(arg.targetLaunchTarget),
-            materializeIntoSnapshot(configuredSnapshot, {
+            upsertIntoSnapshot(configuredSnapshot, {
               session: buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
             }),
           );

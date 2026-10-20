@@ -5,11 +5,10 @@ import {
   AppThemeProvider,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
-  ensureVirtualSession,
+  ensureVirtualSessionAtomFn,
   FdPrerequisiteGate,
   PersistUserSettingsToast,
   refreshAllSessionRostersAtomFn,
-  rwFromRegistry,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -21,6 +20,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
+import type { AsyncResult, Atom } from 'effect/reactivity';
+import { AtomRegistry } from 'effect/reactivity';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
@@ -29,6 +30,16 @@ import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
 import { firstFolderPath } from './sessionsMatchingSessionCwd.ts';
 import { applyWorkspaceFolderPaths, handleWorkspaceFoldersChanged } from './workspaceFoldersChurn.ts';
+
+const runAtomFn = <A, E, W>(
+  registry: AtomRegistry.AtomRegistry,
+  atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
+  arg: W,
+): Effect.Effect<A, E> =>
+  Effect.gen(function* () {
+    registry.set(atom, arg);
+    return yield* AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true });
+  });
 
 const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
@@ -43,16 +54,19 @@ const WorkspaceFoldersGate: FC = () => {
     let disposeChanged: (() => void) | undefined;
 
     Effect.runFork(
-      requestWorkspaceFolders(hostIpcClient).pipe(
-        Effect.tap(paths =>
+      Effect.gen(function* () {
+        const paths = yield* requestWorkspaceFolders(hostIpcClient);
+        applyWorkspaceFolderPaths(registry, paths);
+        const bootCwd = firstFolderPath(paths);
+        if (bootCwd !== undefined) {
+          // AtomFn path rebinds when Ready already fired (sync ensure alone would miss Bind).
+          yield* runAtomFn(registry, ensureVirtualSessionAtomFn, { cwd: bootCwd }).pipe(Effect.ignore);
+        }
+      }).pipe(
+        Effect.tap(() =>
           Effect.sync(() => {
             if (cancelled) {
               return;
-            }
-            applyWorkspaceFolderPaths(registry, paths);
-            const bootCwd = firstFolderPath(paths);
-            if (bootCwd !== undefined) {
-              ensureVirtualSession(rwFromRegistry(registry), { cwd: bootCwd });
             }
             setFoldersReady(true);
             disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextPaths => {

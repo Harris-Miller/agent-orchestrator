@@ -34,11 +34,13 @@ export {
 export {
   applyVirtualSessionFolderChurn,
   applyVirtualSessionFolderChurnEffect,
+  clearSelectedEffect,
   createVirtualSessionAtoms,
   discardVirtualSession,
   ensureVirtualSession,
   lastCreateDefaultsAtom,
   patchVirtualSession,
+  selectSessionEffect,
   setVirtualLaunchTarget,
   virtualSessionAtom,
 } from './atoms/virtualSession.atoms.ts';

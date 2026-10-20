@@ -21,7 +21,13 @@ import {
   rwFromRegistry,
   teardownVirtualAcpBind,
 } from './virtualBind.ts';
-import { patchVirtualSession, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
+import {
+  clearSelectedEffect,
+  patchVirtualSession,
+  selectSessionEffect,
+  setVirtualLaunchTarget,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 const runAtomFn = <A, E, W>(
   registry: AtomRegistry.AtomRegistry,
@@ -419,15 +425,44 @@ describe('ensureVirtualAcpBound', () => {
         },
       });
 
-      yield* teardownVirtualAcpBind(rw, { launchTarget: 'codex-acp', sessionId: 'bound-1' });
-      registry.set(virtualSessionAtom, null);
-      registry.set(selectedAtom, undefined);
+      yield* clearSelectedEffect(rw);
 
       assert.ok(calls.includes('close:bound-1'));
       assert.ok(calls.includes('delete:bound-1'));
       assert.isNull(registry.get(virtualSessionAtom));
       assert.isUndefined(registry.get(selectedAtom));
       assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessionRoster.length, 0);
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
+  it.effect('selectSession while Bound Virtual → teardown Bound + clear blob + Select Session', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      seedReadyVirtual(registry, { sessionId: 'bound-1' });
+      registry.set(backendHarnessStateAtom('codex-acp'), {
+        ...initialBackendHarnessSnapshot(),
+        phase: 'ready',
+        sessions: {
+          'bound-1': {
+            cwd: '/proj',
+            sessionConfiguration: selectableConfig,
+            sessionId: 'bound-1',
+            status: 'active',
+            transcript: emptySessionTranscript(),
+          },
+        },
+      });
+
+      yield* selectSessionEffect(rw, 'real-1');
+
+      assert.ok(calls.includes('close:bound-1'));
+      assert.ok(calls.includes('delete:bound-1'));
+      assert.isNull(registry.get(virtualSessionAtom));
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
       clearConnectedAgent('codex-acp');
     }),
   );

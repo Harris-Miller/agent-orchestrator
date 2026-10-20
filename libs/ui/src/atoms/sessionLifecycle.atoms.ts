@@ -30,18 +30,12 @@ import {
   resumeSession,
 } from '../host/sessionRpc.ts';
 
-import {
-  backendHarnessStateAtom,
-  clearSelected,
-  clearSelectedSessionIfMissing,
-  selectedAtom,
-  selectSession,
-} from './backendState.atoms.ts';
+import { backendHarnessStateAtom, clearSelectedSessionIfMissing, selectedAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
-import { excludeBoundVirtualFromRoster } from './virtualBind.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
+import { excludeBoundVirtualFromRoster, rwFromFnContext } from './virtualBind.ts';
+import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
@@ -52,19 +46,11 @@ export const createSessionLifecycleAtoms = (
   const { atomRuntime } = runtime;
 
   const selectSessionAtomFn = atomRuntime
-    .fn((sessionId: string, get) =>
-      Effect.sync(() => {
-        selectSession(get, sessionId);
-      }),
-    )
+    .fn((sessionId: string, get: Atom.FnContext) => selectSessionEffect(rwFromFnContext(get), sessionId))
     .pipe(Atom.keepAlive);
 
   const clearSelectedAtomFn = atomRuntime
-    .fn((_arg: undefined, get: Atom.FnContext) =>
-      Effect.sync(() => {
-        clearSelected(get);
-      }),
-    )
+    .fn((_arg: undefined, get: Atom.FnContext) => clearSelectedEffect(rwFromFnContext(get)))
     .pipe(Atom.keepAlive);
 
   const refreshSessionRosterAtomFn = atomRuntime
@@ -168,7 +154,7 @@ export const createSessionLifecycleAtoms = (
             backendHarnessStateAtom(arg.launchTarget),
             upsertIntoSnapshot(nextSnapshot, { rosterEntry, session }),
           );
-          selectSession(get, sessionId);
+          yield* selectSessionEffect(rwFromFnContext(get), sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
           yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId });
         },
@@ -199,7 +185,7 @@ export const createSessionLifecycleAtoms = (
         const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
         const cwd = resolveSessionCwd(existingSession?.cwd, rosterEntry?.cwd);
 
-        selectSession(get, arg.sessionId);
+        yield* selectSessionEffect(rwFromFnContext(get), arg.sessionId);
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
@@ -350,7 +336,7 @@ export const createSessionLifecycleAtoms = (
 
           const selected = get(selectedAtom);
           if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
-            clearSelected(get);
+            yield* clearSelectedEffect(rwFromFnContext(get));
           }
         },
         (effect, arg) =>
@@ -395,7 +381,7 @@ export const createSessionLifecycleAtoms = (
 
           const selected = get(selectedAtom);
           if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
-            clearSelected(get);
+            yield* clearSelectedEffect(rwFromFnContext(get));
           }
         },
         (effect, arg) =>

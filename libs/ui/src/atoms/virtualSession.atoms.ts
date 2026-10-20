@@ -161,6 +161,48 @@ export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarg
   });
 };
 
+/**
+ * Leave Virtual Selected: best-effort Bound teardown + clear blob, then unset Selected.
+ * No-op on lifecycle lock. Session-arm clear stays a Selected flip only.
+ */
+export const clearSelectedEffect = Effect.fn('clearSelectedEffect')(function* (rw: AtomRw) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
+  if (rw.get(selectedAtom)?._tag === 'Virtual') {
+    yield* mutateVirtualThenRebind(rw, {
+      mutate: inner => {
+        discardVirtualSession(inner);
+        inner.set(selectedAtom, undefined);
+      },
+      rebind: false,
+    });
+    return;
+  }
+  rw.set(selectedAtom, undefined);
+});
+
+/**
+ * Select Session arm: if leaving Virtual, teardown Bound + clear blob first.
+ * No-op on lifecycle lock.
+ */
+export const selectSessionEffect = Effect.fn('selectSessionEffect')(function* (rw: AtomRw, sessionId: string) {
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    return;
+  }
+  if (rw.get(selectedAtom)?._tag === 'Virtual') {
+    yield* mutateVirtualThenRebind(rw, {
+      mutate: inner => {
+        discardVirtualSession(inner);
+        inner.set(selectedAtom, { _tag: 'Session', sessionId });
+      },
+      rebind: false,
+    });
+    return;
+  }
+  rw.set(selectedAtom, { _tag: 'Session', sessionId });
+});
+
 /** Effect folder churn: teardown Bound on clear/swap, then sync mutate, then Bind when cwd present. */
 export const applyVirtualSessionFolderChurnEffect = Effect.fn('applyVirtualSessionFolderChurnEffect')(function* (
   rw: AtomRw,
@@ -232,15 +274,7 @@ export const createVirtualSessionAtoms = (
     .pipe(Atom.keepAlive);
 
   const discardVirtualSessionAtomFn = atomRuntime
-    .fn((_arg: undefined, get: Atom.FnContext) =>
-      mutateVirtualThenRebind(rwFromFnContext(get), {
-        mutate: rw => {
-          discardVirtualSession(rw);
-          rw.set(selectedAtom, undefined);
-        },
-        rebind: false,
-      }),
-    )
+    .fn((_arg: undefined, get: Atom.FnContext) => clearSelectedEffect(rwFromFnContext(get)))
     .pipe(Atom.keepAlive);
 
   return {

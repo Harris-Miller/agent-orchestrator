@@ -11,7 +11,7 @@
   },
   "type": "module",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.140.0"
   },
   "categories": [
     "Other"

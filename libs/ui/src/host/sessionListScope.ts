@@ -4,6 +4,18 @@ export type SessionListScope =
 
 export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
 
+/** AIR session index list filter. `"all"` includes archived sessions. */
+const sessionListArchivedAll = {
+  _meta: {
+    jetbrains: {
+      air: {
+        list: { archived: 'all' },
+        version: 1,
+      },
+    },
+  },
+} as const;
+
 export const sessionListScopeFromPaths = (paths: readonly string[]): SessionListScope => {
   if (paths.length === 0) {
     return { _tag: 'Skip' };
@@ -13,13 +25,15 @@ export const sessionListScopeFromPaths = (paths: readonly string[]): SessionList
 };
 
 /** Payload for `session/list` given current scope, or undefined when Skip (no RPC). */
-export const listSessionsPayload = (scope: SessionListScope): { readonly cwd?: string } | undefined => {
+export const listSessionsPayload = (
+  scope: SessionListScope,
+): { readonly _meta: (typeof sessionListArchivedAll)['_meta']; readonly cwd?: string } | undefined => {
   switch (scope._tag) {
     case 'Cwd':
-      return { cwd: scope.cwd };
+      return { ...sessionListArchivedAll, cwd: scope.cwd };
     case 'Skip':
       return undefined;
     case 'Unscoped':
-      return {};
+      return sessionListArchivedAll;
   }
 };

@@ -115,6 +115,15 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: {
+        ...(launchTarget === 'claude-agent-acp' || launchTarget === 'codex-acp'
+          ? {
+              _meta: {
+                jetbrains: {
+                  air: { capabilities: ['sessionIndex'], version: 1 },
+                },
+              },
+            }
+          : {}),
         elicitation: { form: {} },
         session: { configOptions: { boolean: {} } },
       },

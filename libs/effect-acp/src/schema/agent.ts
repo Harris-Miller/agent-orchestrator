@@ -47,6 +47,9 @@ export const SESSION_SET_MODEL_METHOD = 'session/set_model' as const;
 /** Unstable ACP session fork. Not in stable AgentRpcs. */
 export const SESSION_FORK_METHOD = 'session/fork' as const;
 
+/** AIR `_session/archive`. Not in stable AgentRpcs. */
+export const SESSION_ARCHIVE_METHOD = '_session/archive' as const;
+
 // =============================================================================
 // Payload schemas
 // =============================================================================
@@ -321,6 +324,13 @@ export class SessionResume extends Rpc.make(AGENT_METHODS.session_resume, {
 }) {}
 
 export class SessionClose extends Rpc.make(AGENT_METHODS.session_close, {
+  error: AcpError,
+  payload: CloseSessionRequest,
+  success: CloseSessionResponse,
+}) {}
+
+/** AIR `_session/archive`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionArchive. */
+export class SessionArchive extends Rpc.make(SESSION_ARCHIVE_METHOD, {
   error: AcpError,
   payload: CloseSessionRequest,
   success: CloseSessionResponse,

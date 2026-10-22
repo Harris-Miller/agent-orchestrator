@@ -11,6 +11,7 @@ import {
   Authenticate,
   Initialize,
   Logout,
+  SessionArchive,
   SessionCancel,
   SessionClose,
   SessionDelete,
@@ -157,6 +158,9 @@ export class UnstableSessionSetModelRpcs extends RpcGroup.make(SessionSetModel) 
 
 /** Unstable Client→Agent session fork; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionForkRpcs extends RpcGroup.make(SessionFork) {}
+
+/** AIR `_session/archive`; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive) {}
 
 // =============================================================================
 // Intermediate encoded aliases

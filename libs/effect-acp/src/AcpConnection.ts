@@ -10,8 +10,10 @@ import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effec
 import {
   AgentRpcs,
   ClientRpcs,
+  SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
   SESSION_SET_MODEL_METHOD,
+  UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
   UnstableSessionSetModelRpcs,
 } from './AcpSchema.ts';
@@ -163,6 +165,11 @@ export type AcpAgentConnection = {
   readonly agent: RpcClient.FromGroup<typeof AgentRpcs, RpcClientError>;
   readonly handle: ChildProcessSpawner.ChildProcessHandle;
   readonly notify: (tag: string, payload: unknown) => Effect.Effect<void, TransportError>;
+  /** AIR `_session/archive`. Not part of stable AgentRpcs. */
+  readonly sessionArchive: RpcClient.FromGroup<
+    typeof UnstableSessionArchiveRpcs,
+    RpcClientError
+  >[typeof SESSION_ARCHIVE_METHOD];
   /** Unstable `session/fork`. Not part of stable AgentRpcs. */
   readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
   /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
@@ -287,6 +294,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     );
 
     const agent = yield* RpcClient.make(AgentRpcs).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
+    const archiveClient = yield* RpcClient.make(UnstableSessionArchiveRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
     const forkClient = yield* RpcClient.make(UnstableSessionForkRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
@@ -301,6 +311,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       agent,
       handle,
       notify: transport.notify,
+      sessionArchive: archiveClient[SESSION_ARCHIVE_METHOD],
       sessionFork: forkClient[SESSION_FORK_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
     } as const satisfies AcpAgentConnection;

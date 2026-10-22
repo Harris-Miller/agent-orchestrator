@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Archive from '@mui/icons-material/Archive';
 import Delete from '@mui/icons-material/Delete';
 import MoreHoriz from '@mui/icons-material/MoreHoriz';
 import Box from '@mui/material/Box';
@@ -14,7 +15,8 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
@@ -42,6 +44,7 @@ export const SessionRosterRow: FC<{
 }> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
+  const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
@@ -116,6 +119,19 @@ export const SessionRosterRow: FC<{
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
+          {hasSessionArchiveCapability(snapshot.initializeResult) ? (
+            <Button
+              onClick={() => {
+                closeMenu();
+                archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+              }}
+              size="small"
+              startIcon={<Archive />}
+              variant="outlined"
+            >
+              Archive
+            </Button>
+          ) : null}
           <Button
             color="error"
             onClick={() => {

@@ -9,6 +9,7 @@ type AgentHandle = AcpAgentConnection['agent'];
 type ConnectedAgent = {
   readonly agent: AgentHandle;
   readonly notify: AcpAgentConnection['notify'];
+  readonly sessionArchive: AcpAgentConnection['sessionArchive'];
   readonly sessionFork: AcpAgentConnection['sessionFork'];
 };
 
@@ -29,11 +30,12 @@ const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<C
 /** Lifecycle hook — backendHarness registers the live agent after connect. */
 export const setConnectedAgent = (
   launchTarget: AgentLaunchTarget,
-  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionFork'>,
+  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionArchive' | 'sessionFork'>,
 ): void => {
   connectedAgents.set(launchTarget, {
     agent: connection.agent,
     notify: connection.notify,
+    sessionArchive: connection.sessionArchive,
     sessionFork: connection.sessionFork,
   });
 };
@@ -107,6 +109,16 @@ export const closeSession = Effect.fn('closeSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
+);
+
+export const archiveSession = Effect.fn('archiveSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string) {
+    const { sessionArchive } = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.logInfo('Archiving ACP session', sessionId);
+    yield* sessionArchive({ sessionId });
+  },
+  (effect, _launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('_session/archive failed', sessionId, error))),
 );
 
 export const deleteSession = Effect.fn('deleteSession')(

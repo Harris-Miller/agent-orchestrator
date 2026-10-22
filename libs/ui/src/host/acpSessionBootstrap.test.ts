@@ -12,6 +12,7 @@ import {
   defectsFromCause,
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
+  hasSessionArchiveCapability,
   hasSessionForkCapability,
   isConfigProbeCwd,
   normalizeConfigOptions,
@@ -455,6 +456,22 @@ describe('defectsFromWireCause', () => {
       ]),
       [{ message: 'Internal error' }],
     );
+  });
+});
+
+describe('hasSessionArchiveCapability', () => {
+  it('is true only when AIR capabilities include sessionArchive', () => {
+    assert.isTrue(
+      hasSessionArchiveCapability({
+        _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionArchive'], version: 1 } } },
+      }),
+    );
+    assert.isFalse(
+      hasSessionArchiveCapability({
+        _meta: { jetbrains: { air: { capabilities: ['sessionIndex'], version: 1 } } },
+      }),
+    );
+    assert.isFalse(hasSessionArchiveCapability({}));
   });
 });
 

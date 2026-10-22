@@ -21,6 +21,7 @@ import {
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
+  archiveSession,
   closeSession,
   createSession,
   deleteSession,
@@ -349,6 +350,40 @@ export const createSessionLifecycleAtoms = (
     )
     .pipe(Atom.keepAlive);
 
+  const archiveSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('archiveSessionAtomFn', { root: true })(
+        function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
+          yield* Effect.annotateCurrentSpan({
+            'acp.agent': arg.launchTarget,
+            'acp.sessionId': arg.sessionId,
+          });
+          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          if (snapshot.phase !== 'ready') {
+            yield* Effect.logWarning('archiveSession skipped; backend not ready', arg.launchTarget);
+            return;
+          }
+
+          yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
+          yield* archiveSession(arg.launchTarget, arg.sessionId);
+
+          get.set(backendHarnessStateAtom(arg.launchTarget), dropSession(snapshot, arg.sessionId));
+
+          const selected = get(selectedAtom);
+          if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
+            yield* clearSelectedEffect(rwFromFnContext(get));
+          }
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('archiveSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
   const deleteSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('deleteSessionAtomFn', { root: true })(
@@ -396,6 +431,7 @@ export const createSessionLifecycleAtoms = (
 
   return {
     activateSessionAtomFn,
+    archiveSessionAtomFn,
     clearSelectedAtomFn,
     createSessionAtomFn,
     deactivateSessionAtomFn,

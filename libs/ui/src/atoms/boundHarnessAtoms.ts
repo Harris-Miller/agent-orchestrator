@@ -46,6 +46,7 @@ export const { backendHarnessAtom, restartBackendAtomFn } = createHarnessAtoms(h
 
 export const {
   activateSessionAtomFn,
+  archiveSessionAtomFn,
   clearSelectedAtomFn,
   createSessionAtomFn,
   deactivateSessionAtomFn,

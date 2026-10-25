@@ -4,11 +4,13 @@ import { Effect, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { clearPromptSpan, setPromptSpan } from './promptSpanRegistry.ts';
+import type { ListSessionsPayload } from './sessionListScope.ts';
 
 type AgentHandle = AcpAgentConnection['agent'];
 type ConnectedAgent = {
   readonly agent: AgentHandle;
   readonly notify: AcpAgentConnection['notify'];
+  readonly sessionArchive: AcpAgentConnection['sessionArchive'];
   readonly sessionFork: AcpAgentConnection['sessionFork'];
 };
 
@@ -29,11 +31,12 @@ const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<C
 /** Lifecycle hook — backendHarness registers the live agent after connect. */
 export const setConnectedAgent = (
   launchTarget: AgentLaunchTarget,
-  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionFork'>,
+  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionArchive' | 'sessionFork'>,
 ): void => {
   connectedAgents.set(launchTarget, {
     agent: connection.agent,
     notify: connection.notify,
+    sessionArchive: connection.sessionArchive,
     sessionFork: connection.sessionFork,
   });
 };
@@ -44,9 +47,9 @@ export const clearConnectedAgent = (launchTarget: AgentLaunchTarget): void => {
 };
 
 export const listSessions = Effect.fn('listSessions')(
-  function* (launchTarget: AgentLaunchTarget, options?: { readonly cwd?: string }) {
+  function* (launchTarget: AgentLaunchTarget, payload: ListSessionsPayload) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
-    return yield* agent['session/list'](options?.cwd === undefined ? {} : { cwd: options.cwd });
+    return yield* agent['session/list'](payload);
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),
@@ -107,6 +110,16 @@ export const closeSession = Effect.fn('closeSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/close failed', sessionId, error))),
+);
+
+export const archiveSession = Effect.fn('archiveSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string) {
+    const { sessionArchive } = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.logInfo('Archiving ACP session', sessionId);
+    yield* sessionArchive({ sessionId });
+  },
+  (effect, _launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('_session/archive failed', sessionId, error))),
 );
 
 export const deleteSession = Effect.fn('deleteSession')(

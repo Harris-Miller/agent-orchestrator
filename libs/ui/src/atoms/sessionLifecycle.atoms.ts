@@ -10,6 +10,7 @@ import {
   normalizeSessionRoster,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
@@ -21,6 +22,7 @@ import {
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
 import {
+  archiveSession,
   closeSession,
   createSession,
   deleteSession,
@@ -38,6 +40,35 @@ import { excludeBoundVirtualFromRoster, rwFromFnContext } from './virtualBind.ts
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
+
+type SessionTarget = {
+  readonly launchTarget: AgentLaunchTarget;
+  readonly sessionId: string;
+};
+
+const sessionSpan = (arg: SessionTarget) =>
+  Effect.annotateCurrentSpan({
+    'acp.agent': arg.launchTarget,
+    'acp.sessionId': arg.sessionId,
+  });
+
+const readyHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
+  const snapshot = get(backendHarnessStateAtom(launchTarget));
+  return snapshot.phase === 'ready' ? snapshot : undefined;
+};
+
+const dropSessionAndClearSelection = Effect.fnUntraced(function* (
+  get: Atom.FnContext,
+  launchTarget: AgentLaunchTarget,
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+) {
+  get.set(backendHarnessStateAtom(launchTarget), dropSession(snapshot, sessionId));
+  const selected = get(selectedAtom);
+  if (selected?._tag === 'Session' && selected.sessionId === sessionId) {
+    yield* clearSelectedEffect(rwFromFnContext(get));
+  }
+});
 
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
@@ -349,16 +380,38 @@ export const createSessionLifecycleAtoms = (
     )
     .pipe(Atom.keepAlive);
 
+  const archiveSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('archiveSessionAtomFn', { root: true })(
+        function* (arg: SessionTarget, get: Atom.FnContext) {
+          yield* sessionSpan(arg);
+          const snapshot = readyHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logWarning('archiveSession skipped; backend not ready', arg.launchTarget);
+            return;
+          }
+
+          yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
+          yield* archiveSession(arg.launchTarget, arg.sessionId);
+          yield* dropSessionAndClearSelection(get, arg.launchTarget, snapshot, arg.sessionId);
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('archiveSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
   const deleteSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('deleteSessionAtomFn', { root: true })(
-        function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.launchTarget,
-            'acp.sessionId': arg.sessionId,
-          });
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (snapshot.phase !== 'ready') {
+        function* (arg: SessionTarget, get: Atom.FnContext) {
+          yield* sessionSpan(arg);
+          const snapshot = readyHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
             yield* Effect.logWarning('deleteSession skipped; backend not ready', arg.launchTarget);
             return;
           }
@@ -377,12 +430,7 @@ export const createSessionLifecycleAtoms = (
             ),
           );
 
-          get.set(backendHarnessStateAtom(arg.launchTarget), dropSession(snapshot, arg.sessionId));
-
-          const selected = get(selectedAtom);
-          if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
-            yield* clearSelectedEffect(rwFromFnContext(get));
-          }
+          yield* dropSessionAndClearSelection(get, arg.launchTarget, snapshot, arg.sessionId);
         },
         (effect, arg) =>
           effect.pipe(
@@ -396,6 +444,7 @@ export const createSessionLifecycleAtoms = (
 
   return {
     activateSessionAtomFn,
+    archiveSessionAtomFn,
     clearSelectedAtomFn,
     createSessionAtomFn,
     deactivateSessionAtomFn,

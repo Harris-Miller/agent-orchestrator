@@ -15,6 +15,7 @@ import { Effect, Exit, Ref } from 'effect';
 import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { airCapability, airMeta } from './airMeta.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
@@ -115,6 +116,11 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
     const initializeResult = yield* agent.initialize({
       clientCapabilities: {
+        ...(launchTarget === 'claude-agent-acp' || launchTarget === 'codex-acp'
+          ? {
+              _meta: airMeta({ capabilities: [airCapability.sessionIndex] }),
+            }
+          : {}),
         elicitation: { form: {} },
         session: { configOptions: { boolean: {} } },
       },

@@ -6,6 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { airCapability } from './airMeta.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
@@ -642,6 +643,19 @@ export const normalizeInitialize = (initializeResult: unknown): NormalizedInitia
     protocolVersion:
       typeof initializeResult.protocolVersion === 'number' ? initializeResult.protocolVersion : undefined,
   };
+};
+
+/** True when initialize lists AIR `sessionArchive` (served with `sessionIndex`). */
+export const hasSessionArchiveCapability = (initializeResult: unknown): boolean => {
+  if (!isRecord(initializeResult) || !isRecord(initializeResult._meta)) {
+    return false;
+  }
+  const { jetbrains } = initializeResult._meta;
+  if (!isRecord(jetbrains) || !isRecord(jetbrains.air)) {
+    return false;
+  }
+  const { capabilities } = jetbrains.air;
+  return Array.isArray(capabilities) && capabilities.includes(airCapability.sessionArchive);
 };
 
 /** True when initialize advertises `sessionCapabilities.fork` (`{}`). */

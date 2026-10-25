@@ -122,6 +122,7 @@ const installMockAgent = (calls: string[], opts: MockOpts = {}) => {
       },
     },
     notify: () => Effect.void,
+    sessionArchive: () => Effect.fail('no-archive'),
     sessionFork: () => Effect.fail('no-fork'),
   } as unknown as Parameters<typeof setConnectedAgent>[1]);
 };
@@ -332,6 +333,7 @@ describe('ensureVirtualAcpBound', () => {
           'session/set_config_option': () => Effect.succeed(selectableConfig),
         },
         notify: () => Effect.void,
+        sessionArchive: () => Effect.fail('no-archive'),
         sessionFork: () => Effect.fail('no-fork'),
       } as unknown as Parameters<typeof setConnectedAgent>[1]);
 

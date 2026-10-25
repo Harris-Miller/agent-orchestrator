@@ -229,9 +229,15 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
   }
-  /* Preflight is off, so unstyled buttons keep the UA gray face on every theme. */
+  /* Preflight is off, so controls keep the UA face and font instead of inheriting. */
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
   button {
     background-color: transparent;
     color: inherit;

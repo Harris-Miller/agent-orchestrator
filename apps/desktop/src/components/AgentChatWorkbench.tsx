@@ -3,7 +3,6 @@ import 'allotment/dist/style.css';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   AgentLaunchTargetIcon,
-  allotmentSashSx,
   Button,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
@@ -117,8 +116,8 @@ export const AgentChatWorkbench: FC<{
 
   return (
     <Box
+      className="ao-allotment"
       sx={{
-        ...allotmentSashSx,
         bgcolor: 'background.default',
         height: '100%',
         minHeight: 0,
@@ -162,7 +161,7 @@ export const AgentChatWorkbench: FC<{
 
             <Allotment.Pane minSize={280}>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-                <div className="box-border flex min-h-[49px] shrink-0 items-center gap-2 border-b border-border bg-card px-4">
+                <div className="ao-pane-header">
                   {layout.sessionRosterOpen ? null : (
                     <Button
                       onClick={() => {

@@ -9,8 +9,8 @@ import {
   FdPrerequisiteGate,
   PersistUserSettingsToast,
   refreshAllSessionRostersAtomFn,
+  showClientErrorToast,
   Spinner,
-  toast,
   Toaster,
   UserSettingsMount,
 } from '@lib/ui';
@@ -86,7 +86,7 @@ const WorkspaceFoldersGate: FC = () => {
   }, [registry]);
 
   const onClientError = useCallback((error: unknown) => {
-    toast.add({ description: formatClientError(error), timeout: 6000, title: 'Error', type: 'error' });
+    showClientErrorToast(formatClientError(error));
   }, []);
 
   if (!foldersReady) {

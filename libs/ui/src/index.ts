@@ -62,6 +62,7 @@ export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
+export { showClientErrorToast } from './components/showClientErrorToast.ts';
 export * from './components/ThemeSelect.tsx';
 export { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './components/ui/accordion.tsx';
 export {
@@ -136,7 +137,6 @@ export {
 } from './hostRuntime.ts';
 export * from './isRecord.ts';
 export * from './settings/settingsCategories.ts';
-export * from './theme/allotmentSashSx.ts';
 export * from './theme/AppThemeProvider.tsx';
 export * from './theme/themeId.ts';
 export * from './theme/themePaintCache.ts';

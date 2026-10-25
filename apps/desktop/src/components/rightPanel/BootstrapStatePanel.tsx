@@ -8,7 +8,7 @@ export const RightPanelPlaceholder: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => (
   <div className="box-border flex h-full min-h-0 flex-col bg-card">
-    <div className="flex min-h-[49px] shrink-0 items-center justify-between border-b border-border px-4">
+    <div className="ao-pane-header">
       <h2 className="text-lg font-medium">Panel</h2>
       <Button aria-label="Close panel" onClick={onClose} size="icon-sm" variant="ghost">
         ›

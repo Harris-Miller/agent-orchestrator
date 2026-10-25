@@ -1,4 +1,4 @@
-import { toast, Toaster } from '@lib/ui';
+import { showClientErrorToast, Toaster } from '@lib/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import type { FC } from 'react';
 
@@ -15,7 +15,7 @@ const Index: FC = () => (
   <div className="h-screen overflow-hidden">
     <AgentChatWorkbench
       onClientError={error => {
-        toast.add({ description: formatClientError(error), timeout: 6000, title: 'Error', type: 'error' });
+        showClientErrorToast(formatClientError(error));
       }}
     />
     <Toaster />

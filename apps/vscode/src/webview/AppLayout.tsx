@@ -105,7 +105,7 @@ export const AppLayout: FC = () => {
   }, [commitLayout, panelVisible]);
 
   return (
-    <div className="ao-app-layout h-full min-h-0 overflow-hidden">
+    <div className="ao-allotment h-full min-h-0 overflow-hidden">
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}
         onChange={sizes => {

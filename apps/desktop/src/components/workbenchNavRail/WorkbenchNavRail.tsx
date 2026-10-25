@@ -71,7 +71,7 @@ export const WorkbenchNavRail: FC<{
   return (
     <>
       <div className="box-border flex h-full min-h-0 flex-col bg-card">
-        <div className="flex min-h-[49px] shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="ao-pane-header">
           <div className="flex min-w-0 items-center gap-1">
             <h2 className="text-lg font-medium">Sessions</h2>
             <Button
@@ -111,49 +111,38 @@ export const WorkbenchNavRail: FC<{
                 return (
                   <Accordion defaultValue={[presentation.key]} key={presentation.key}>
                     <AccordionItem className="border-0" value={presentation.key}>
-                      <AccordionTrigger className="px-4 py-2 hover:bg-muted hover:no-underline **:data-[slot=accordion-trigger-icon]:hidden">
-                        <FolderIcon className="size-4 shrink-0 group-aria-expanded/accordion-trigger:hidden" />
-                        <FolderOpenIcon className="hidden size-4 shrink-0 group-aria-expanded/accordion-trigger:inline" />
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={<span className="min-w-0 flex-1 text-left wrap-anywhere whitespace-normal" />}
-                            >
-                              {presentation.label}
-                            </TooltipTrigger>
-                            <TooltipContent>{presentation.tooltip}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                      <div className="flex items-center">
+                        <AccordionTrigger className="px-4 py-2 hover:bg-muted hover:no-underline **:data-[slot=accordion-trigger-icon]:hidden">
+                          <FolderIcon className="size-4 shrink-0 group-aria-expanded/accordion-trigger:hidden" />
+                          <FolderOpenIcon className="hidden size-4 shrink-0 group-aria-expanded/accordion-trigger:inline" />
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={<span className="min-w-0 flex-1 text-left wrap-anywhere whitespace-normal" />}
+                              >
+                                {presentation.label}
+                              </TooltipTrigger>
+                              <TooltipContent>{presentation.tooltip}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </AccordionTrigger>
                         {createCwdForGroup !== undefined ? (
-                          <span
+                          <Button
                             aria-label={`Create session in ${presentation.label}`}
-                            className="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-background"
-                            onClick={event => {
-                              event.preventDefault();
-                              event.stopPropagation();
+                            className="mr-2 shrink-0"
+                            onClick={() => {
                               ensureVirtualSession({
                                 cwd: createCwdForGroup,
                                 patchCwdIfSelectedVirtual: true,
                               }).catch(() => undefined);
                             }}
-                            onKeyDown={event => {
-                              if (event.key !== 'Enter' && event.key !== ' ') {
-                                return;
-                              }
-                              event.preventDefault();
-                              event.stopPropagation();
-                              ensureVirtualSession({
-                                cwd: createCwdForGroup,
-                                patchCwdIfSelectedVirtual: true,
-                              }).catch(() => undefined);
-                            }}
-                            role="button"
-                            tabIndex={0}
+                            size="icon-sm"
+                            variant="ghost"
                           >
-                            <PlusIcon className="size-4" />
-                          </span>
+                            <PlusIcon />
+                          </Button>
                         ) : null}
-                      </AccordionTrigger>
+                      </div>
                       <AccordionContent className="pb-0">
                         {group.sessions.map(entry => (
                           <SessionRosterRow

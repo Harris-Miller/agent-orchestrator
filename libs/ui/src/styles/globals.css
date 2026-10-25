@@ -267,3 +267,26 @@
     @apply bg-background text-foreground;
   }
 }
+
+.ao-allotment {
+  --focus-border: var(--primary);
+  --sash-hover-size: 3px;
+  --separator-border: var(--border);
+}
+
+.ao-allotment .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before {
+  background-color: var(--border);
+}
+
+.ao-pane-header {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 49px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--card);
+  padding-inline: 1rem;
+}

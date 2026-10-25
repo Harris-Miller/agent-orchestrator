@@ -1,3 +1,5 @@
+import { themePaintBootScript } from '@lib/ui/theme-paint-boot';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -10,7 +12,23 @@ export default defineConfig(() => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
 
-  plugins: [react()],
+  plugins: [
+    tailwindcss(),
+    react(),
+    {
+      name: 'theme-paint-boot',
+      transformIndexHtml: {
+        handler(html) {
+          const script = `<script>${themePaintBootScript}</script>`;
+          if (html.includes(script)) {
+            return html;
+          }
+          return html.replace('<head>', `<head>\n    ${script}`);
+        },
+        order: 'post',
+      },
+    },
+  ],
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     hmr:

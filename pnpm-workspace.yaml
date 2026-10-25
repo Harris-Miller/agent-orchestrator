@@ -24,9 +24,6 @@ catalog:
   '@agentclientprotocol/sdk': ^1.9.0
   '@vitejs/plugin-react': ^6.1.2
   vite: ^8.3.4
-  '@mui/material': ^9.5.0
-  '@emotion/react': ^11.14.0
-  '@emotion/styled': ^11.14.1
   '@tanstack/react-router-devtools': ^1.167.2
   '@tanstack/react-router': ^1.170.45
   '@tanstack/router-cli': ^1.167.45
@@ -45,7 +42,6 @@ catalog:
   react-markdown: ^10.1.0
   lexical: ^0.52.0
   '@lexical/react': ^0.52.0
-  '@mui/icons-material': ^9.5.0
   fzf: ^0.5.2
   tsdown: ^0.23.1
   tsx: ^4.20.5

@@ -1,6 +1,6 @@
 # base-vega, Base UI, and Tailwind replace MUI
 
-The Harness UI is leaving MUI for shadcn **base-vega**: components copied into `@lib/ui`, headless behavior from Base UI (`@base-ui/react`), and layout from Tailwind CSS v4. Theme preference `original` stays the default id and uses the MUI Original palette (custom dark). Latte, Frappé, Macchiato, and Mocha override those same semantic tokens. Stock base-vega colors are not used. MUI still paints current screens until they move over.
+The Harness UI uses shadcn **base-vega**: components copied into `@lib/ui`, headless behavior from Base UI (`@base-ui/react`), and layout from Tailwind CSS v4. Theme preference `original` stays the default id and uses the MUI Original palette (custom dark). Latte, Frappé, Macchiato, and Mocha override those same semantic tokens. Stock base-vega colors are not used. MUI and Emotion are not dependencies.
 
 ## Considered options
 

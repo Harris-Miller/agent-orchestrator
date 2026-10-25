@@ -1,7 +1,5 @@
 import { RegistryProvider } from '@effect/atom-react';
 import { AppThemeProvider } from '@lib/ui';
-import Container from '@mui/material/Container';
-import CssBaseline from '@mui/material/CssBaseline';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 
 import { routeTree } from './routeTree.gen';
@@ -24,14 +22,9 @@ declare module '@tanstack/react-router' {
 const App = () => (
   <RegistryProvider>
     <AppThemeProvider>
-      <CssBaseline />
-      <Container
-        disableGutters
-        maxWidth={false}
-        sx={muiTheme => ({ minHeight: '100vh', minWidth: muiTheme.breakpoints.values.md })}
-      >
+      <div className="h-screen">
         <RouterProvider router={router} />
-      </Container>
+      </div>
     </AppThemeProvider>
   </RegistryProvider>
 );

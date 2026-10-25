@@ -20,7 +20,6 @@ import {
   useDeveloperPanelOpen,
   virtualSessionAtom,
 } from '@lib/ui';
-import Box from '@mui/material/Box';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { useEffect, useRef, useState } from 'react';
@@ -115,15 +114,7 @@ export const AgentChatWorkbench: FC<{
   };
 
   return (
-    <Box
-      className="ao-allotment"
-      sx={{
-        bgcolor: 'background.default',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="ao-allotment h-full min-h-0 overflow-hidden bg-background">
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}
         onChange={sizes => {
@@ -160,7 +151,7 @@ export const AgentChatWorkbench: FC<{
             </Allotment.Pane>
 
             <Allotment.Pane minSize={280}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+              <div className="flex h-full min-h-0 flex-col overflow-hidden">
                 <div className="ao-pane-header">
                   {layout.sessionRosterOpen ? null : (
                     <Button
@@ -190,7 +181,7 @@ export const AgentChatWorkbench: FC<{
                 </div>
 
                 <SessionChatBody aboveComposer={<SessionCwdStrip />} onClientError={onClientError} />
-              </Box>
+              </div>
             </Allotment.Pane>
 
             <Allotment.Pane minSize={240} preferredSize={RIGHT_PANEL_WIDTH} snap visible={layout.sessionStateOpen}>
@@ -223,6 +214,6 @@ export const AgentChatWorkbench: FC<{
           />
         </Allotment.Pane>
       </Allotment>
-    </Box>
+    </div>
   );
 };

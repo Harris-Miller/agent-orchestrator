@@ -34,12 +34,8 @@
   },
   "dependencies": {
     "@effect/atom-react": "catalog:",
-    "@emotion/react": "catalog:",
-    "@emotion/styled": "catalog:",
     "@lib/context-services-vscode-webview": "workspace:^",
     "@lib/ui": "workspace:^",
-    "@mui/icons-material": "catalog:",
-    "@mui/material": "catalog:",
     "@tanstack/react-router": "catalog:",
     "allotment": "catalog:",
     "dotenv": "catalog:",

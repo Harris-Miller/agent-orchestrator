@@ -14,8 +14,6 @@ import {
   Toaster,
   UserSettingsMount,
 } from '@lib/ui';
-import Box from '@mui/material/Box';
-import CssBaseline from '@mui/material/CssBaseline';
 import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import type { AsyncResult, Atom } from 'effect/reactivity';
@@ -113,11 +111,10 @@ const WorkspaceFoldersGate: FC = () => {
 export const App: FC = () => (
   <RegistryProvider>
     <AppThemeProvider>
-      <CssBaseline />
       <UserSettingsMount />
       <PersistUserSettingsToast />
       <Toaster />
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <FdPrerequisiteGate
           onExit={() => {
             Effect.runPromise(hostIpcClient.request(id => ({ _tag: 'AppExit' as const, id }))).catch(() => undefined);
@@ -125,7 +122,7 @@ export const App: FC = () => (
         >
           <WorkspaceFoldersGate />
         </FdPrerequisiteGate>
-      </Box>
+      </div>
     </AppThemeProvider>
   </RegistryProvider>
 );

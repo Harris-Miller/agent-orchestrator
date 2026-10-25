@@ -1,13 +1,12 @@
 import { useAtomValue } from '@effect/atom-react';
-import { ThemeProvider } from '@mui/material/styles';
 import { useLayoutEffect } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { themeAtom } from '../atoms/boundHarnessAtoms.ts';
 
 import { applyDocumentTheme } from './themePaintCache.ts';
-import { themes } from './themes.ts';
 
+/** Applies the Theme preference's semantic tokens. The paint cache covers the first paint. */
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
   const themeId = useAtomValue(themeAtom);
 
@@ -15,9 +14,5 @@ export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ childre
     applyDocumentTheme(themeId);
   }, [themeId]);
 
-  return (
-    <ThemeProvider noSsr theme={themes[themeId]}>
-      {children}
-    </ThemeProvider>
-  );
+  return children;
 };

@@ -148,11 +148,7 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   return (
     <div className="flex flex-col gap-0.5">
       <div
-        className={
-          expanded
-            ? 'overflow-auto rounded-md bg-muted p-3 text-muted-foreground'
-            : 'overflow-hidden rounded-md bg-muted p-3 text-muted-foreground'
-        }
+        className={`rounded-md bg-muted p-3 text-muted-foreground ${expanded ? 'overflow-auto' : 'overflow-hidden'}`}
         style={{ maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT }}
       >
         {hasCommand ? (

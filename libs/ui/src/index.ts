@@ -62,6 +62,7 @@ export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
+export * from './components/settingsChrome.tsx';
 export { showClientErrorToast } from './components/showClientErrorToast.ts';
 export * from './components/ThemeSelect.tsx';
 export { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './components/ui/accordion.tsx';

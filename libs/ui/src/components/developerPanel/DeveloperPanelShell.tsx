@@ -9,9 +9,9 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/age
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
+import { LabeledSelect } from '../LabeledSelect.tsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion.tsx';
 import { Button } from '../ui/button.tsx';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select.tsx';
 import { Switch } from '../ui/switch.tsx';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs.tsx';
 
@@ -51,43 +51,13 @@ const rpcWireEntryClipboardText = (entry: RpcWireEntry, launchTarget: AgentLaunc
 
 const wireIdMenuLabel = (wireId: string): string => (wireId === '' ? 'id: ""' : wireId);
 
+/** Base UI treats a value that stringifies to '' as unselected, so a blank wire id uses a sentinel in the menu only. */
+const EMPTY_WIRE_ID_VALUE = '\u0000';
+const toWireIdSelectValue = (wireId: string): string => (wireId === '' ? EMPTY_WIRE_ID_VALUE : wireId);
+const fromWireIdSelectValue = (value: string): string => (value === EMPTY_WIRE_ID_VALUE ? '' : value);
+
 const isLaunchTargetFilter = (value: string): value is RpcWireLaunchTargetFilter =>
   value === RPC_WIRE_FILTER_ALL || ALL_AGENT_LAUNCH_TARGETS.some(target => target === value);
-
-const FilterSelect: FC<{
-  readonly disabled?: boolean;
-  readonly id: string;
-  readonly label: string;
-  readonly onValueChange: (value: string) => void;
-  readonly options: readonly { readonly label: string; readonly value: string }[];
-  readonly value: string;
-}> = ({ disabled, id, label, onValueChange, options, value }) => (
-  <div className="flex min-w-36 flex-col gap-1">
-    <span className="text-xs text-muted-foreground" id={`${id}-label`}>
-      {label}
-    </span>
-    <Select
-      disabled={disabled}
-      onValueChange={next => {
-        if (next !== null) {
-          onValueChange(next);
-        }
-      }}
-      value={value}
-    >
-      <SelectTrigger aria-labelledby={`${id}-label`} size="sm">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map(option => (
-          <SelectItem key={option.value === '' ? 'empty-id' : option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-);
 
 const RpcWireLogBody: FC<{
   readonly onCopyError: (error: unknown) => void;
@@ -165,7 +135,7 @@ const RpcWireLogBody: FC<{
           />
           <span id="rpc-wire-active-session-label">Active session</span>
         </div>
-        <FilterSelect
+        <LabeledSelect
           disabled={activeSessionOnly}
           id="rpc-wire-launch-target"
           label="Launch target"
@@ -195,7 +165,7 @@ const RpcWireLogBody: FC<{
           ]}
           value={launchTargetFilter}
         />
-        <FilterSelect
+        <LabeledSelect
           disabled={activeSessionOnly}
           id="rpc-wire-session"
           label="Session"
@@ -218,7 +188,7 @@ const RpcWireLogBody: FC<{
           ]}
           value={sessionFilter}
         />
-        <FilterSelect
+        <LabeledSelect
           id="rpc-wire-tag"
           label="Tag"
           onValueChange={nextTag => {
@@ -243,15 +213,17 @@ const RpcWireLogBody: FC<{
           ]}
           value={tagFilter}
         />
-        <FilterSelect
+        <LabeledSelect
           id="rpc-wire-id"
           label="Id"
-          onValueChange={setWireIdFilter}
+          onValueChange={value => {
+            setWireIdFilter(fromWireIdSelectValue(value));
+          }}
           options={[
             { label: 'All', value: RPC_WIRE_FILTER_ALL },
-            ...idOptions.map(wireId => ({ label: wireIdMenuLabel(wireId), value: wireId })),
+            ...idOptions.map(wireId => ({ label: wireIdMenuLabel(wireId), value: toWireIdSelectValue(wireId) })),
           ]}
-          value={effectiveWireIdFilter}
+          value={toWireIdSelectValue(effectiveWireIdFilter)}
         />
         <p className="text-xs text-muted-foreground">
           {filtered.length} / {entryCount} shown
@@ -309,9 +281,10 @@ export const DeveloperPanelShell: FC<{
   const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 'p-4' : '';
 
   return (
-    <div className="box-border flex h-full min-h-0 flex-col bg-card">
+    <div className="box-border flex h-full min-h-0 min-w-0 flex-col bg-card">
       <PanelHeader closeAriaLabel="Close developer panel" closeGlyph="∨" onClose={onClose} title="Developer panel" />
       <Tabs
+        className="flex-none"
         onValueChange={value => {
           if (value !== null) {
             setActiveTab(String(value));
@@ -320,15 +293,23 @@ export const DeveloperPanelShell: FC<{
         value={activeTab}
       >
         <TabsList
-          className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border"
+          className="h-auto w-full min-w-0 justify-start overflow-x-auto rounded-none border-b border-border"
           variant="line"
         >
-          <TabsTrigger value={RPC_WIRE_LOG_TAB}>RPC wire</TabsTrigger>
-          <TabsTrigger value={SESSION_STATE_TAB}>Session State</TabsTrigger>
-          <TabsTrigger value={FS_MENTION_LISTING_TAB}>@ FS listing</TabsTrigger>
-          <TabsTrigger value={COMPOSER_TAB}>Composer</TabsTrigger>
+          <TabsTrigger className="flex-none" value={RPC_WIRE_LOG_TAB}>
+            RPC wire
+          </TabsTrigger>
+          <TabsTrigger className="flex-none" value={SESSION_STATE_TAB}>
+            Session State
+          </TabsTrigger>
+          <TabsTrigger className="flex-none" value={FS_MENTION_LISTING_TAB}>
+            @ FS listing
+          </TabsTrigger>
+          <TabsTrigger className="flex-none" value={COMPOSER_TAB}>
+            Composer
+          </TabsTrigger>
           {extraTabs.map(tab => (
-            <TabsTrigger key={tab.id} value={tab.id}>
+            <TabsTrigger className="flex-none" key={tab.id} value={tab.id}>
               {tab.label}
             </TabsTrigger>
           ))}

@@ -7,6 +7,7 @@ import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 
+import { SettingsSectionIntro } from './settingsChrome.tsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion.tsx';
 import { Badge } from './ui/badge.tsx';
 import { Button } from './ui/button.tsx';
@@ -41,10 +42,9 @@ export const ProvidersSettingsPane: FC = () => {
 
   return (
     <>
-      <h2 className="text-lg font-medium">Providers</h2>
-      <p className="mt-2 mb-4 text-sm text-muted-foreground">
+      <SettingsSectionIntro title="Providers">
         Bootstrap phase per provider. Click an error chip to retry that provider.
-      </p>
+      </SettingsSectionIntro>
       <div className="flex flex-col gap-4">
         {backendPhases.map(entry => {
           const errorText = entry.error === undefined ? undefined : prettyErrorText(entry.error);

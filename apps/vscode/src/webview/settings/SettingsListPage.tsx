@@ -1,12 +1,13 @@
 import {
   Button,
   filterSettingsCategories,
-  Input,
   RestoreUserSettingsDefaultsControl,
+  settingsCategoryRowClass,
+  SettingsSearchField,
   UserSettingsLoadFailureAlert,
 } from '@lib/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowLeftIcon, SearchIcon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
@@ -35,22 +36,12 @@ export const SettingsListPage: FC = () => {
 
       <UserSettingsLoadFailureAlert />
 
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-8"
-          onChange={event => {
-            setQuery(event.target.value);
-          }}
-          placeholder="Search settings…"
-          value={query}
-        />
-      </div>
+      <SettingsSearchField onValueChange={setQuery} value={query} />
 
       <div className="min-h-0 flex-1 overflow-auto">
         {filteredItems.map(item => (
           <button
-            className="flex min-h-7 w-full items-center rounded-md px-2 py-0.5 text-left text-sm hover:bg-muted"
+            className={`${settingsCategoryRowClass} hover:bg-muted`}
             key={item.id}
             onClick={() => {
               navigate({ params: { category: item.id }, to: '/settings/$category' }).catch(() => undefined);

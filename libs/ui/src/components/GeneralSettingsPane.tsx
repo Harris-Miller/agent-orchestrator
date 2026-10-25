@@ -11,7 +11,21 @@ import {
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 
+import { SettingsSectionIntro } from './settingsChrome.tsx';
 import { Switch } from './ui/switch.tsx';
+
+const SettingSwitch: FC<{
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly id: string;
+  readonly label: string;
+  readonly onCheckedChange: (checked: boolean) => void;
+}> = ({ checked, disabled, id, label, onCheckedChange }) => (
+  <div className="flex items-center gap-2 text-sm">
+    <Switch aria-labelledby={`${id}-label`} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+    <span id={`${id}-label`}>{label}</span>
+  </div>
+);
 
 /** Settings → General: User settings toggles shared across hosts. */
 export const GeneralSettingsPane: FC = () => {
@@ -31,37 +45,32 @@ export const GeneralSettingsPane: FC = () => {
 
   return (
     <>
-      <h2 className="text-lg font-medium">General</h2>
-      <p className="mt-2 mb-4 text-sm text-muted-foreground">
+      <SettingsSectionIntro title="General">
         Session delete confirmation, No Folder group visibility, Developer mode, and Always-hidden globs live in User
         settings.
-      </p>
-      <div className="flex items-center gap-2 text-sm">
-        <Switch
-          aria-labelledby="confirm-session-delete-label"
+      </SettingsSectionIntro>
+      <div className="flex flex-col gap-2">
+        <SettingSwitch
           checked={confirmSessionDelete}
           disabled={editsDisabled}
+          id="confirm-session-delete"
+          label="Confirm before deleting a session"
           onCheckedChange={setConfirmSessionDelete}
         />
-        <span id="confirm-session-delete-label">Confirm before deleting a session</span>
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-sm">
-        <Switch
-          aria-labelledby="show-no-folder-group-label"
+        <SettingSwitch
           checked={showNoFolderGroup}
           disabled={editsDisabled}
+          id="show-no-folder-group"
+          label="Show No Folder group in Sessions"
           onCheckedChange={setShowNoFolderGroup}
         />
-        <span id="show-no-folder-group-label">Show No Folder group in Sessions</span>
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-sm">
-        <Switch
-          aria-labelledby="developer-mode-label"
+        <SettingSwitch
           checked={developerMode}
           disabled={editsDisabled}
+          id="developer-mode"
+          label="Developer mode"
           onCheckedChange={setDeveloperMode}
         />
-        <span id="developer-mode-label">Developer mode</span>
       </div>
       <span className="mt-4 block text-sm font-medium" id="always-hidden-globs-label">
         Always-hidden globs

@@ -106,7 +106,6 @@ const WorkspaceFoldersGate: FC = () => {
           <RouterProvider router={router} />
         </div>
       </div>
-      <Toaster />
     </OnClientErrorContext.Provider>
   );
 };
@@ -117,6 +116,7 @@ export const App: FC = () => (
       <CssBaseline />
       <UserSettingsMount />
       <PersistUserSettingsToast />
+      <Toaster />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <FdPrerequisiteGate
           onExit={() => {

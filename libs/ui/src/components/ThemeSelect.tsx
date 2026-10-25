@@ -1,8 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
 import type { FC } from 'react';
 
 import { themeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
@@ -10,6 +6,8 @@ import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.at
 import type { ThemeId } from '../theme/themeId.ts';
 import { THEME_IDS } from '../theme/themeId.ts';
 import { isThemeId } from '../theme/themePaintCache.ts';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select.tsx';
 
 const THEME_LABELS: Record<ThemeId, string> = {
   frappe: 'Catppuccin Frappé',
@@ -24,27 +22,32 @@ export const ThemeSelect: FC = () => {
   const themeId = useAtomValue(themeAtom);
   const setTheme = useAtomSet(themeAtom);
   const editable = !userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
-  const labelId = 'ao-theme-select-label';
 
   return (
-    <FormControl disabled={!editable} size="small" sx={{ minWidth: 180 }}>
-      <InputLabel id={labelId}>Theme</InputLabel>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium" id="ao-theme-select-label">
+        Theme
+      </span>
       <Select
-        label="Theme"
-        labelId={labelId}
-        onChange={event => {
-          if (isThemeId(event.target.value)) {
-            setTheme(event.target.value);
+        disabled={!editable}
+        onValueChange={value => {
+          if (typeof value === 'string' && isThemeId(value)) {
+            setTheme(value);
           }
         }}
         value={themeId}
       >
-        {THEME_IDS.map(id => (
-          <MenuItem key={id} value={id}>
-            {THEME_LABELS[id]}
-          </MenuItem>
-        ))}
+        <SelectTrigger aria-labelledby="ao-theme-select-label" className="min-w-44" size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {THEME_IDS.map(id => (
+            <SelectItem key={id} value={id}>
+              {THEME_LABELS[id]}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
-    </FormControl>
+    </div>
   );
 };

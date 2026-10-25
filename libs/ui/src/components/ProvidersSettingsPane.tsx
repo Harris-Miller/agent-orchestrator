@@ -1,12 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { allLaunchTargetPhasesAtom } from '../atoms/backendState.atoms.ts';
@@ -15,18 +7,22 @@ import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 
-const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion.tsx';
+import { Badge } from './ui/badge.tsx';
+import { Button } from './ui/button.tsx';
+
+const phaseClass = (phase: AcpBootstrapPhase): string => {
   switch (phase) {
     case 'connecting':
     case 'initialized':
     case 'probing':
-      return 'warning';
+      return 'border-muted-foreground text-muted-foreground';
     case 'error':
-      return 'error';
+      return 'border-destructive text-destructive';
     case 'ready':
-      return 'success';
+      return 'border-primary text-primary';
     default:
-      return 'default';
+      return '';
   }
 };
 
@@ -45,18 +41,17 @@ export const ProvidersSettingsPane: FC = () => {
 
   return (
     <>
-      <Typography variant="h6">Providers</Typography>
-      <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
+      <h2 className="text-lg font-medium">Providers</h2>
+      <p className="mt-2 mb-4 text-sm text-muted-foreground">
         Bootstrap phase per provider. Click an error chip to retry that provider.
-      </Typography>
-      <Stack spacing={2}>
+      </p>
+      <div className="flex flex-col gap-4">
         {backendPhases.map(entry => {
           const errorText = entry.error === undefined ? undefined : prettyErrorText(entry.error);
           return (
-            <Box key={entry.launchTarget}>
-              <Chip
-                color={phaseColor(entry.phase)}
-                label={`${entry.label}: ${entry.phase}`}
+            <div key={entry.launchTarget}>
+              <Badge
+                className={phaseClass(entry.phase)}
                 onClick={
                   entry.phase === 'error'
                     ? () => {
@@ -64,62 +59,42 @@ export const ProvidersSettingsPane: FC = () => {
                       }
                     : undefined
                 }
-                size="small"
-                sx={{ cursor: entry.phase === 'error' ? 'pointer' : 'default' }}
-                variant="outlined"
-              />
+                render={
+                  entry.phase === 'error' ? (
+                    <button aria-label={`${entry.label}: ${entry.phase}`} type="button" />
+                  ) : undefined
+                }
+                variant="outline"
+              >
+                {entry.label}: {entry.phase}
+              </Badge>
               {errorText !== undefined ? (
-                <Accordion
-                  disableGutters
-                  elevation={0}
-                  sx={{
-                    '&::before': { display: 'none' },
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    mt: 0.75,
-                  }}
-                >
-                  <AccordionSummary
-                    sx={{
-                      '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 },
-                      minHeight: 36,
-                    }}
-                  >
-                    <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-                      Expand to view error message
-                    </Typography>
-                    <Button
-                      component="span"
-                      onClick={event => {
-                        event.stopPropagation();
-                        hostRunPromise(writeTextToClipboard(errorText)).catch(() => undefined);
-                      }}
-                      size="small"
-                      variant="text"
-                    >
-                      copy
-                    </Button>
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ pt: 0 }}>
-                    <Box
-                      component="pre"
-                      sx={{
-                        fontFamily: 'monospace',
-                        fontSize: '0.75rem',
-                        m: 0,
-                        overflow: 'auto',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {errorText}
-                    </Box>
-                  </AccordionDetails>
+                <Accordion className="mt-1.5">
+                  <AccordionItem className="rounded-md border-0 bg-muted" value={entry.launchTarget}>
+                    <div className="flex items-center pr-2">
+                      <AccordionTrigger className="min-w-0 flex-1 py-2 text-xs">
+                        <span className="font-mono">Expand to view error message</span>
+                      </AccordionTrigger>
+                      <Button
+                        onClick={() => {
+                          hostRunPromise(writeTextToClipboard(errorText)).catch(() => undefined);
+                        }}
+                        size="xs"
+                        variant="ghost"
+                      >
+                        copy
+                      </Button>
+                    </div>
+                    <AccordionContent>
+                      <pre className="m-0 overflow-auto font-mono text-xs whitespace-pre-wrap">{errorText}</pre>
+                    </AccordionContent>
+                  </AccordionItem>
                 </Accordion>
               ) : null}
-            </Box>
+            </div>
           );
         })}
-      </Stack>
+      </div>
     </>
   );
 };

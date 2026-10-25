@@ -1,4 +1,3 @@
-import Box from '@mui/material/Box';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { SettingsShell } from '../../components/settings/SettingsShell.tsx';
@@ -12,8 +11,8 @@ export const Route = createFileRoute('/settings')({
     }
   },
   component: () => (
-    <Box sx={{ height: '100vh', overflow: 'hidden' }}>
+    <div className="h-screen overflow-hidden">
       <SettingsShell />
-    </Box>
+    </div>
   ),
 });

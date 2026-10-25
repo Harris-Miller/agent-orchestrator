@@ -1,4 +1,3 @@
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
@@ -12,10 +11,8 @@ export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId
   if (category === 'appearance') {
     return (
       <>
-        <Typography variant="h6">Appearance</Typography>
-        <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-          Theme preference is stored in User settings.
-        </Typography>
+        <h2 className="text-lg font-medium">Appearance</h2>
+        <p className="mt-2 mb-4 text-sm text-muted-foreground">Theme preference is stored in User settings.</p>
         <ThemeSelect />
       </>
     );
@@ -28,10 +25,10 @@ export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId
   }
   return (
     <>
-      <Typography variant="h6">Coming soon</Typography>
-      <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
+      <h2 className="text-lg font-medium">Coming soon</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
         Placeholder category <code>{category}</code> — reserved for growth.
-      </Typography>
+      </p>
     </>
   );
 };

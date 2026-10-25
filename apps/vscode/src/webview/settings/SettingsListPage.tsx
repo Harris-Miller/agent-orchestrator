@@ -1,15 +1,12 @@
-import { filterSettingsCategories, RestoreUserSettingsDefaultsControl, UserSettingsLoadFailureAlert } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import Search from '@mui/icons-material/Search';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import {
+  Button,
+  filterSettingsCategories,
+  Input,
+  RestoreUserSettingsDefaultsControl,
+  UserSettingsLoadFailureAlert,
+} from '@lib/ui';
 import { useNavigate } from '@tanstack/react-router';
+import { ArrowLeftIcon, SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
@@ -20,58 +17,50 @@ export const SettingsListPage: FC = () => {
   const filteredItems = useMemo(() => filterSettingsCategories(query), [query]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, p: 1 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-        <IconButton
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+      <div className="flex items-center gap-1">
+        <Button
           aria-label="Back to Session History"
           onClick={() => {
             navigate({ to: '/' }).catch(() => undefined);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          <ArrowBack fontSize="small" />
-        </IconButton>
-        <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          Settings
-        </Typography>
-        <RestoreUserSettingsDefaultsControl iconFontSize="small" />
-      </Stack>
+          <ArrowLeftIcon />
+        </Button>
+        <h1 className="min-w-0 flex-1 text-base font-semibold">Settings</h1>
+        <RestoreUserSettingsDefaultsControl />
+      </div>
 
       <UserSettingsLoadFailureAlert />
 
-      <TextField
-        fullWidth
-        onChange={event => {
-          setQuery(event.target.value);
-        }}
-        placeholder="Search settings…"
-        size="small"
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
-        value={query}
-      />
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-8"
+          onChange={event => {
+            setQuery(event.target.value);
+          }}
+          placeholder="Search settings…"
+          value={query}
+        />
+      </div>
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div className="min-h-0 flex-1 overflow-auto">
         {filteredItems.map(item => (
-          <ListItemButton
-            dense
+          <button
+            className="flex min-h-7 w-full items-center rounded-md px-2 py-0.5 text-left text-sm hover:bg-muted"
             key={item.id}
             onClick={() => {
               navigate({ params: { category: item.id }, to: '/settings/$category' }).catch(() => undefined);
             }}
-            sx={{ borderRadius: 1, minHeight: 28, py: 0.25 }}
+            type="button"
           >
-            <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
-          </ListItemButton>
+            {item.label}
+          </button>
         ))}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };

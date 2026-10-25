@@ -1,4 +1,4 @@
-import { AcpBackendsMount, FdPrerequisiteGate, PersistUserSettingsToast, UserSettingsMount } from '@lib/ui';
+import { AcpBackendsMount, FdPrerequisiteGate, PersistUserSettingsToast, Toaster, UserSettingsMount } from '@lib/ui';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { FC } from 'react';
@@ -15,6 +15,7 @@ const RootComponent: FC = () => {
       <AcpBackendsMount />
       <UserSettingsMount />
       <PersistUserSettingsToast />
+      <Toaster />
       <Outlet />
     </FdPrerequisiteGate>
   );

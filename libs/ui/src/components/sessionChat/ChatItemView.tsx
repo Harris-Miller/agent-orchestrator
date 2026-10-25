@@ -1,28 +1,16 @@
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
-import ListItem from '@mui/material/ListItem';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import { alpha } from '@mui/material/styles';
-import Typography from '@mui/material/Typography';
+import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
+import { Badge } from '../ui/badge.tsx';
+import { Button } from '../ui/button.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
-
-const userFragmentMarkdownSx = {
-  '& p': { display: 'inline', m: 0 },
-  display: 'inline',
-} as const;
 
 /** Transcript chips must be selectable so copy includes them; composer keeps userSelect: none. */
 type TranscriptChipProps = {
@@ -34,13 +22,13 @@ type TranscriptChipProps = {
 const TranscriptChip: FC<TranscriptChipProps> = props => {
   const { copyText, testId } = props;
   return (
-    <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
+    <span className="inline" data-copy-text={copyText} data-testid={testId}>
       {props.kind === 'command' ? (
         <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
       ) : (
         <ComposerChipContent href={props.href} kind="markdownLink" label={props.label} sx={{ userSelect: 'text' }} />
       )}
-    </Box>
+    </span>
   );
 };
 
@@ -69,7 +57,7 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
   return (
     <>
       {leading.length > 0 ? leading : null}
-      <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} />
+      <ChatMarkdown className="inline [&_p]:m-0 [&_p]:inline" text={middle} />
       {trailing.length > 0 ? trailing : null}
     </>
   );
@@ -79,55 +67,20 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
 const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
 const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
 
-const toolResultShellSx = {
-  bgcolor: 'action.hover',
-  borderRadius: 1,
-  color: 'text.secondary',
-  p: 1.5,
-} as const;
-
-const toolCommandMarkdownSx = {
-  '& pre': {
-    bgcolor: 'transparent',
-    borderRadius: 0,
-    mb: 0,
-    overflow: 'hidden',
-    p: 0,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
-  bgcolor: 'transparent',
-  p: 0,
-} as const;
-
-const toolResultMarkdownSx = {
-  '& code': { bgcolor: 'transparent' },
-  '& pre': {
-    bgcolor: 'transparent',
-    borderRadius: 0,
-    mb: 0,
-    overflow: 'auto',
-    p: 0,
-  },
-  bgcolor: 'transparent',
-  p: 0,
-} as const;
-
-const statusColor = (status: string | undefined): 'default' | 'error' | 'info' | 'success' | 'warning' => {
+const statusClass = (status: string | undefined): string => {
   switch (status) {
-    case 'cancelled':
-      return 'default';
     case 'completed':
-      return 'success';
+      return 'border-primary text-primary';
     case 'failed':
-      return 'error';
+      return 'border-destructive text-destructive';
     case 'in_progress':
-      return 'info';
+      return 'border-ring text-foreground';
     case 'pending':
-      return 'warning';
+      return 'border-muted-foreground text-muted-foreground';
+    case 'cancelled':
     case undefined:
     default:
-      return 'default';
+      return '';
   }
 };
 
@@ -139,17 +92,9 @@ const MessageRow: FC<{
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
     return (
-      <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
-        <Box
-          sx={{
-            bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
-            borderRadius: 1,
-            maxWidth: 'min(85%, 42rem)',
-            px: 1.75,
-            py: 1.25,
-          }}
-        >
-          <Box onCopy={onUserMessageCopy} sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      <div className="flex justify-end py-2">
+        <div className="max-w-[min(85%,42rem)] rounded-md bg-secondary px-3.5 py-2.5">
+          <div className="text-base break-words whitespace-pre-wrap" onCopy={onUserMessageCopy}>
             {segments.map((segment, index) => {
               const key = `${segment.kind}-${String(index)}`;
               const copyText = segmentCopyText(segment);
@@ -178,16 +123,16 @@ const MessageRow: FC<{
               }
               return <UserTextFragment key={key} text={segment.value} />;
             })}
-          </Box>
-        </Box>
-      </ListItem>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 1 }}>
+    <div className="py-2">
       <ChatMarkdown text={text} />
-    </ListItem>
+    </div>
   );
 };
 
@@ -201,30 +146,42 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   }
 
   return (
-    <Stack spacing={0.25}>
-      <Box
-        sx={{
-          ...toolResultShellSx,
-          maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
-          overflow: expanded ? 'auto' : 'hidden',
-        }}
+    <div className="flex flex-col gap-0.5">
+      <div
+        className={
+          expanded
+            ? 'overflow-auto rounded-md bg-muted p-3 text-muted-foreground'
+            : 'overflow-hidden rounded-md bg-muted p-3 text-muted-foreground'
+        }
+        style={{ maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT }}
       >
-        {hasCommand ? <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} /> : null}
-        {hasResult ? <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} /> : null}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <IconButton
+        {hasCommand ? (
+          <ChatMarkdown
+            className="bg-transparent p-0 [&_pre]:mb-0 [&_pre]:overflow-hidden [&_pre]:bg-transparent [&_pre]:p-0 [&_pre]:break-words [&_pre]:whitespace-pre-wrap"
+            text={`\`\`\`\n$ ${command}\n\`\`\``}
+          />
+        ) : null}
+        {hasResult ? (
+          <ChatMarkdown
+            className="bg-transparent p-0 [&_code]:bg-transparent [&_pre]:mb-0 [&_pre]:bg-transparent [&_pre]:p-0"
+            text={resultText}
+          />
+        ) : null}
+      </div>
+      <div className="flex justify-end">
+        <Button
           aria-expanded={expanded}
           aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
           onClick={() => {
             setExpanded(current => !current);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          {expanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-        </IconButton>
-      </Box>
-    </Stack>
+          {expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+        </Button>
+      </div>
+    </div>
   );
 };
 
@@ -238,70 +195,60 @@ export const ChatItemView: FC<{
 
     case 'config_options':
       return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Typography sx={{ fontWeight: 600, mb: 1 }} variant="body2">
-            Config
-          </Typography>
-          <Stack spacing={1}>
+        <div className="py-2">
+          <p className="mb-2 text-sm font-semibold">Config</p>
+          <div className="flex flex-col gap-2">
             {item.options.map(option => (
-              <Box key={`${item.id}-${option.id}`}>
-                <Typography variant="body2">
+              <div key={`${item.id}-${option.id}`}>
+                <p className="text-sm">
                   {option.name}: <strong>{option.currentValue ?? '—'}</strong>
-                </Typography>
-                {option.type !== undefined ? (
-                  <Typography color="text.secondary" variant="caption">
-                    {option.type}
-                  </Typography>
-                ) : null}
-              </Box>
+                </p>
+                {option.type !== undefined ? <p className="text-xs text-muted-foreground">{option.type}</p> : null}
+              </div>
             ))}
-          </Stack>
-        </ListItem>
+          </div>
+        </div>
       );
 
     case 'plan':
       return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Typography sx={{ fontWeight: 600, mb: 1 }} variant="body2">
-            Plan
-          </Typography>
-          <Stack spacing={1}>
+        <div className="py-2">
+          <p className="mb-2 text-sm font-semibold">Plan</p>
+          <div className="flex flex-col gap-2">
             {item.entries.map(entry => (
-              <Paper key={`${item.id}-${entry.content}`} sx={{ p: 1.5 }} variant="outlined">
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <Typography sx={{ flex: 1 }} variant="body2">
-                    {entry.content}
-                  </Typography>
+              <div className="rounded-md border border-border p-3" key={`${item.id}-${entry.content}`}>
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 text-sm">{entry.content}</p>
                   {entry.status !== undefined ? (
-                    <Chip color={statusColor(entry.status)} label={entry.status} size="small" variant="outlined" />
+                    <Badge className={statusClass(entry.status)} variant="outline">
+                      {entry.status}
+                    </Badge>
                   ) : null}
-                  {entry.priority !== undefined ? (
-                    <Chip label={entry.priority} size="small" variant="outlined" />
-                  ) : null}
-                </Stack>
-              </Paper>
+                  {entry.priority !== undefined ? <Badge variant="outline">{entry.priority}</Badge> : null}
+                </div>
+              </div>
             ))}
-          </Stack>
-        </ListItem>
+          </div>
+        </div>
       );
 
     case 'tool_call':
       return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Paper sx={{ p: 1.5, width: '100%' }} variant="outlined">
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography sx={{ flex: 1, fontWeight: 600 }} variant="body2">
-                  {item.title}
-                </Typography>
-                <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
-              </Stack>
+        <div className="py-2">
+          <div className="w-full rounded-md border border-border p-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 text-sm font-semibold">{item.title}</p>
+                <Badge className={statusClass(item.status)} variant="outline">
+                  {item.status}
+                </Badge>
+              </div>
               {item.command !== undefined || item.resultText !== undefined ? (
                 <ToolCallResult command={item.command} resultText={item.resultText} />
               ) : null}
-            </Stack>
-          </Paper>
-        </ListItem>
+            </div>
+          </div>
+        </div>
       );
 
     case 'user_message':

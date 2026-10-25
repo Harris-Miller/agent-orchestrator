@@ -1,12 +1,3 @@
-import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
 import type {
@@ -19,26 +10,13 @@ import type {
 import { normalizeInitialize, normalizeSession } from '../../host/acpSessionBootstrap.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { UsageCard } from '../sessionChat/UsageCard.tsx';
-
-const sectionCardSx = {
-  bgcolor: 'background.default',
-  borderColor: 'divider',
-  p: 1.5,
-} as const;
+import { Badge } from '../ui/badge.tsx';
 
 const Section: FC<{ children: ReactNode; pending?: boolean; title: string }> = ({ children, pending, title }) => (
-  <Stack spacing={1}>
-    <Typography sx={{ fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }} variant="caption">
-      {title}
-    </Typography>
-    {pending === true ? (
-      <Typography color="text.secondary" variant="body2">
-        Pending…
-      </Typography>
-    ) : (
-      children
-    )}
-  </Stack>
+  <div className="flex flex-col gap-2">
+    <p className="text-xs font-semibold tracking-wide uppercase">{title}</p>
+    {pending === true ? <p className="text-sm text-muted-foreground">Pending…</p> : children}
+  </div>
 );
 
 const capabilityGroupLabel = (path: string): string => {
@@ -79,67 +57,42 @@ const OptionChips: FC<{
   readonly options: readonly (NormalizedMode | NormalizedModel)[];
 }> = ({ currentId, options }) => {
   if (options.length === 0) {
-    return (
-      <Typography color="text.secondary" variant="body2">
-        None reported
-      </Typography>
-    );
+    return <p className="text-sm text-muted-foreground">None reported</p>;
   }
 
   return (
-    <Stack spacing={1}>
+    <div className="flex flex-col gap-2">
       {options.map(option => {
         const selected = option.id === currentId;
         return (
-          <Paper key={option.id} sx={sectionCardSx} variant="outlined">
-            <Stack spacing={0.5}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Chip
-                  color={selected ? 'primary' : 'default'}
-                  label={option.name}
-                  size="small"
-                  variant={selected ? 'filled' : 'outlined'}
-                />
-                {selected ? (
-                  <Typography color="primary.main" variant="caption">
-                    current
-                  </Typography>
-                ) : null}
-              </Stack>
-              <Typography color="text.secondary" sx={{ fontFamily: 'monospace' }} variant="caption">
-                {option.id}
-              </Typography>
+          <div className="rounded-md border border-border bg-background p-3" key={option.id}>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Badge variant={selected ? 'default' : 'outline'}>{option.name}</Badge>
+                {selected ? <span className="text-xs text-primary">current</span> : null}
+              </div>
+              <p className="font-mono text-xs text-muted-foreground">{option.id}</p>
               {option.description !== undefined ? (
-                <Typography color="text.secondary" variant="body2">
-                  {option.description}
-                </Typography>
+                <p className="text-sm text-muted-foreground">{option.description}</p>
               ) : null}
-            </Stack>
-          </Paper>
+            </div>
+          </div>
         );
       })}
-    </Stack>
+    </div>
   );
 };
 
 const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ option }) => (
-  <Paper sx={sectionCardSx} variant="outlined">
-    <Stack spacing={0.75}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-        <Typography sx={{ fontWeight: 600 }} variant="body2">
-          {option.name}
-        </Typography>
-        <Chip label={option.type} size="small" variant="outlined" />
-        {option.category !== undefined ? (
-          <Chip color="default" label={option.category} size="small" variant="outlined" />
-        ) : null}
-      </Stack>
-      {option.description !== undefined ? (
-        <Typography color="text.secondary" variant="body2">
-          {option.description}
-        </Typography>
-      ) : null}
-      <Typography variant="body2">
+  <div className="rounded-md border border-border bg-background p-3">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold">{option.name}</p>
+        <Badge variant="outline">{option.type}</Badge>
+        {option.category !== undefined ? <Badge variant="outline">{option.category}</Badge> : null}
+      </div>
+      {option.description !== undefined ? <p className="text-sm text-muted-foreground">{option.description}</p> : null}
+      <p className="text-sm">
         Current:{' '}
         <strong>
           {option.currentValue === undefined
@@ -148,23 +101,22 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
               ? String(option.currentValue)
               : option.currentValue}
         </strong>
-      </Typography>
+      </p>
       {option.type === 'select' && option.choices.length > 0 ? (
-        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+        <div className="flex flex-wrap gap-1">
           {option.choices.map(choice => (
-            <Chip
-              color={choice.id === option.currentValue ? 'primary' : 'default'}
+            <Badge
               key={choice.id}
-              label={choice.name}
-              size="small"
               title={choice.description}
-              variant={choice.id === option.currentValue ? 'filled' : 'outlined'}
-            />
+              variant={choice.id === option.currentValue ? 'default' : 'outline'}
+            >
+              {choice.name}
+            </Badge>
           ))}
-        </Stack>
+        </div>
       ) : null}
-    </Stack>
-  </Paper>
+    </div>
+  </div>
 );
 
 export const SessionStateContent: FC<{
@@ -181,193 +133,164 @@ export const SessionStateContent: FC<{
   const capabilityGroups = initialize === undefined ? [] : groupCapabilities(initialize.capabilities);
 
   return (
-    <Stack spacing={2}>
-      <Typography color="text.secondary" variant="body2">
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
         Abstracted from initialize, session lifecycle RPCs, available_commands_update, and usage_update.
-      </Typography>
-
-      <Divider />
+      </p>
+      <div className="h-px bg-border" />
 
       <Section pending={initialize === undefined} title="Agent">
         {initialize !== undefined ? (
-          <Stack spacing={1.5}>
+          <div className="flex flex-col gap-3">
             {initialize.agentInfo !== undefined ? (
-              <Paper sx={sectionCardSx} variant="outlined">
-                <Stack spacing={0.5}>
-                  <Typography sx={{ fontWeight: 600 }} variant="body1">
-                    {initialize.agentInfo.title ?? initialize.agentInfo.name}
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ fontFamily: 'monospace' }} variant="caption">
+              <div className="rounded-md border border-border bg-background p-3">
+                <div className="flex flex-col gap-1">
+                  <p className="font-semibold">{initialize.agentInfo.title ?? initialize.agentInfo.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
                     {initialize.agentInfo.name} · v{initialize.agentInfo.version}
-                  </Typography>
+                  </p>
                   {initialize.protocolVersion !== undefined ? (
-                    <Chip label={`protocol v${initialize.protocolVersion}`} size="small" variant="outlined" />
+                    <Badge className="self-start" variant="outline">
+                      protocol v{initialize.protocolVersion}
+                    </Badge>
                   ) : null}
-                </Stack>
-              </Paper>
+                </div>
+              </div>
             ) : null}
 
             {initialize.authMethods.length > 0 ? (
-              <Stack spacing={0.75}>
-                <Typography color="text.secondary" variant="caption">
-                  Auth methods
-                </Typography>
-                <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs text-muted-foreground">Auth methods</p>
+                <div className="flex flex-wrap gap-1">
                   {initialize.authMethods.map(method => (
-                    <Chip key={method.id} label={method.name ?? method.id} size="small" variant="outlined" />
+                    <Badge key={method.id} variant="outline">
+                      {method.name ?? method.id}
+                    </Badge>
                   ))}
-                </Stack>
-              </Stack>
+                </div>
+              </div>
             ) : null}
 
             {initialize.metaExtensions.length > 0 ? (
-              <Stack spacing={0.75}>
-                <Typography color="text.secondary" variant="caption">
-                  Extensions
-                </Typography>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs text-muted-foreground">Extensions</p>
                 {initialize.metaExtensions.map(extension => (
-                  <Box key={extension.key}>
-                    <Typography sx={{ fontWeight: 600 }} variant="body2">
-                      {extension.key}
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      {extension.summary}
-                    </Typography>
-                  </Box>
+                  <div key={extension.key}>
+                    <p className="text-sm font-semibold">{extension.key}</p>
+                    <p className="text-sm text-muted-foreground">{extension.summary}</p>
+                  </div>
                 ))}
-              </Stack>
+              </div>
             ) : null}
-          </Stack>
+          </div>
         ) : null}
       </Section>
 
-      <Divider />
+      <div className="h-px bg-border" />
 
       <Section pending={initialize === undefined} title="Capabilities">
         {initialize !== undefined ? (
           capabilityGroups.length === 0 ? (
-            <Typography color="text.secondary" variant="body2">
-              None reported
-            </Typography>
+            <p className="text-sm text-muted-foreground">None reported</p>
           ) : (
-            <Stack spacing={1.25}>
+            <div className="flex flex-col gap-2.5">
               {capabilityGroups.map(group => (
-                <Box key={group.group}>
-                  <Typography color="text.secondary" sx={{ mb: 0.75 }} variant="caption">
-                    {group.group}
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                <div key={group.group}>
+                  <p className="mb-1.5 text-xs text-muted-foreground">{group.group}</p>
+                  <div className="flex flex-wrap gap-1">
                     {group.items.map(capability => (
-                      <Chip
-                        color={capability.enabled ? 'success' : 'default'}
+                      <Badge
+                        className={capability.enabled ? 'border-primary text-primary' : undefined}
                         key={capability.path}
-                        label={capabilityLabel(capability.path)}
-                        size="small"
                         title={capability.path}
-                        variant="outlined"
-                      />
+                        variant="outline"
+                      >
+                        {capabilityLabel(capability.path)}
+                      </Badge>
                     ))}
-                  </Stack>
-                </Box>
+                  </div>
+                </div>
               ))}
-            </Stack>
+            </div>
           )
         ) : null}
       </Section>
 
       {showSessionDetails ? (
         <>
-          <Divider />
+          <div className="h-px bg-border" />
 
           <Section pending={sessionConfiguration === undefined} title="Session">
             {sessionConfiguration !== undefined ? (
-              <Stack spacing={1.5}>
+              <div className="flex flex-col gap-3">
                 {session?.sessionId !== undefined ? (
-                  <Chip
-                    label={session.sessionId}
-                    size="small"
-                    sx={{ alignSelf: 'flex-start', fontFamily: 'monospace' }}
-                  />
+                  <Badge className="self-start font-mono" variant="outline">
+                    {session.sessionId}
+                  </Badge>
                 ) : null}
 
-                <Stack spacing={0.75}>
-                  <Typography color="text.secondary" variant="caption">
-                    Usage
-                  </Typography>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted-foreground">Usage</p>
                   {session?.usage === undefined ? (
-                    <Typography color="text.secondary" variant="body2">
-                      None reported
-                    </Typography>
+                    <p className="text-sm text-muted-foreground">None reported</p>
                   ) : (
                     <UsageCard usage={session.usage} />
                   )}
-                </Stack>
+                </div>
 
-                <Stack spacing={0.75}>
-                  <Typography color="text.secondary" variant="caption">
-                    Models
-                  </Typography>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted-foreground">Models</p>
                   <OptionChips
                     currentId={selectedModelId ?? sessionConfiguration.models.currentId}
                     options={sessionConfiguration.models.options}
                   />
-                </Stack>
+                </div>
 
-                <Stack spacing={0.75}>
-                  <Typography color="text.secondary" variant="caption">
-                    Modes
-                  </Typography>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted-foreground">Modes</p>
                   <OptionChips
                     currentId={selectedModeId ?? sessionConfiguration.modes.currentId}
                     options={sessionConfiguration.modes.options}
                   />
-                </Stack>
+                </div>
 
                 {sessionConfiguration.configOptions.length > 0 ? (
-                  <Stack spacing={0.75}>
-                    <Typography color="text.secondary" variant="caption">
-                      Config options
-                    </Typography>
-                    <Stack spacing={1}>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-muted-foreground">Config options</p>
+                    <div className="flex flex-col gap-2">
                       {sessionConfiguration.configOptions.map(option => (
                         <ConfigOptionCard key={option.id} option={option} />
                       ))}
-                    </Stack>
-                  </Stack>
+                    </div>
+                  </div>
                 ) : null}
-              </Stack>
+              </div>
             ) : null}
           </Section>
 
-          <Divider />
+          <div className="h-px bg-border" />
 
           <Section pending={availableCommands === undefined} title="Commands">
             {availableCommands !== undefined ? (
               availableCommands.length === 0 ? (
-                <Typography color="text.secondary" variant="body2">
-                  None reported
-                </Typography>
+                <p className="text-sm text-muted-foreground">None reported</p>
               ) : (
-                <List dense disablePadding>
+                <div>
                   {availableCommands.map(command => (
-                    <ListItem disableGutters key={command.name} sx={{ px: 0 }}>
-                      <ListItemText
-                        primary={command.name}
-                        secondary={command.description}
-                        slotProps={{
-                          primary: { sx: { fontFamily: 'monospace', fontWeight: 600 } },
-                          secondary: { sx: { color: 'text.secondary' } },
-                        }}
-                      />
-                    </ListItem>
+                    <div className="py-1" key={command.name}>
+                      <p className="font-mono text-sm font-semibold">{command.name}</p>
+                      {command.description !== undefined ? (
+                        <p className="text-sm text-muted-foreground">{command.description}</p>
+                      ) : null}
+                    </div>
                   ))}
-                </List>
+                </div>
               )
             ) : null}
           </Section>
         </>
       ) : null}
-    </Stack>
+    </div>
   );
 };
 

@@ -1,20 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
 import { useMemo, useState } from 'react';
-import type { FC, ReactNode, SyntheticEvent } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { allRpcWireCallsAtom, selectedSessionIdAtom } from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
@@ -23,6 +9,11 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/age
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion.tsx';
+import { Button } from '../ui/button.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select.tsx';
+import { Switch } from '../ui/switch.tsx';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs.tsx';
 
 import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
@@ -59,6 +50,44 @@ const rpcWireEntryClipboardText = (entry: RpcWireEntry, launchTarget: AgentLaunc
   JSON.stringify({ direction: entry.direction, launchTarget, message: entry.message }, null, 2);
 
 const wireIdMenuLabel = (wireId: string): string => (wireId === '' ? 'id: ""' : wireId);
+
+const isLaunchTargetFilter = (value: string): value is RpcWireLaunchTargetFilter =>
+  value === RPC_WIRE_FILTER_ALL || ALL_AGENT_LAUNCH_TARGETS.some(target => target === value);
+
+const FilterSelect: FC<{
+  readonly disabled?: boolean;
+  readonly id: string;
+  readonly label: string;
+  readonly onValueChange: (value: string) => void;
+  readonly options: readonly { readonly label: string; readonly value: string }[];
+  readonly value: string;
+}> = ({ disabled, id, label, onValueChange, options, value }) => (
+  <div className="flex min-w-36 flex-col gap-1">
+    <span className="text-xs text-muted-foreground" id={`${id}-label`}>
+      {label}
+    </span>
+    <Select
+      disabled={disabled}
+      onValueChange={next => {
+        if (next !== null) {
+          onValueChange(next);
+        }
+      }}
+      value={value}
+    >
+      <SelectTrigger aria-labelledby={`${id}-label`} size="sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(option => (
+          <SelectItem key={option.value === '' ? 'empty-id' : option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+);
 
 const RpcWireLogBody: FC<{
   readonly onCopyError: (error: unknown) => void;
@@ -114,11 +143,7 @@ const RpcWireLogBody: FC<{
   const entryCount = classification.classified.length;
 
   if (entryCount === 0) {
-    return (
-      <Typography color="text.secondary" variant="body2">
-        No RPC traffic yet.
-      </Typography>
-    );
+    return <p className="text-sm text-muted-foreground">No RPC traffic yet.</p>;
   }
 
   const coerceWireIdForCascade = (
@@ -127,189 +152,145 @@ const RpcWireLogBody: FC<{
   ): string => coerceWireIdFilter(wireId, cascadedWireIds(classification.classified, filters));
 
   return (
-    <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }} useFlexGap>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 flex-wrap items-end gap-2">
+        <div className="flex items-center gap-2 text-sm">
           <Switch
+            aria-labelledby="rpc-wire-active-session-label"
             checked={activeSessionOnly}
-            onChange={(_event, checked) => {
+            onCheckedChange={checked => {
               setActiveSessionOnly(checked);
               setWireIdFilter(RPC_WIRE_FILTER_ALL);
             }}
-            slotProps={{ input: { 'aria-label': 'Active session' } }}
           />
-          <Typography variant="body2">Active session</Typography>
-        </Stack>
-        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="rpc-wire-launch-target">Launch target</InputLabel>
-          <Select
-            label="Launch target"
-            labelId="rpc-wire-launch-target"
-            onChange={event => {
-              const nextLaunchTarget = event.target.value;
-              setLaunchTargetFilter(nextLaunchTarget);
-              setSessionFilter(RPC_WIRE_FILTER_ALL);
-              setWireIdFilter(current =>
-                coerceWireIdForCascade(
-                  {
-                    launchTarget: nextLaunchTarget,
-                    sessionKey: RPC_WIRE_FILTER_ALL,
-                    tag: tagFilter,
-                  },
-                  current,
-                ),
+          <span id="rpc-wire-active-session-label">Active session</span>
+        </div>
+        <FilterSelect
+          disabled={activeSessionOnly}
+          id="rpc-wire-launch-target"
+          label="Launch target"
+          onValueChange={nextLaunchTarget => {
+            if (!isLaunchTargetFilter(nextLaunchTarget)) {
+              return;
+            }
+            setLaunchTargetFilter(nextLaunchTarget);
+            setSessionFilter(RPC_WIRE_FILTER_ALL);
+            setWireIdFilter(current =>
+              coerceWireIdForCascade(
+                {
+                  launchTarget: nextLaunchTarget,
+                  sessionKey: RPC_WIRE_FILTER_ALL,
+                  tag: tagFilter,
+                },
+                current,
+              ),
+            );
+          }}
+          options={[
+            { label: 'All', value: RPC_WIRE_FILTER_ALL },
+            ...ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+              label: agentLaunchTargetLabel(launchTarget),
+              value: launchTarget,
+            })),
+          ]}
+          value={launchTargetFilter}
+        />
+        <FilterSelect
+          disabled={activeSessionOnly}
+          id="rpc-wire-session"
+          label="Session"
+          onValueChange={nextSession => {
+            setSessionFilter(nextSession);
+            setWireIdFilter(current =>
+              coerceWireIdForCascade(
+                {
+                  launchTarget: launchTargetFilter,
+                  sessionKey: nextSession,
+                  tag: tagFilter,
+                },
+                current,
+              ),
+            );
+          }}
+          options={[
+            { label: 'All', value: RPC_WIRE_FILTER_ALL },
+            ...sessionOptions.map(sessionKey => ({ label: sessionKey, value: sessionKey })),
+          ]}
+          value={sessionFilter}
+        />
+        <FilterSelect
+          id="rpc-wire-tag"
+          label="Tag"
+          onValueChange={nextTag => {
+            setTagFilter(nextTag);
+            setWireIdFilter(current => {
+              if (resolvedSessionFilter === null) {
+                return RPC_WIRE_FILTER_ALL;
+              }
+              return coerceWireIdForCascade(
+                {
+                  launchTarget: launchTargetForFilters,
+                  sessionKey: resolvedSessionFilter,
+                  tag: nextTag,
+                },
+                current,
               );
-            }}
-            value={launchTargetFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
-              <MenuItem key={launchTarget} value={launchTarget}>
-                {agentLaunchTargetLabel(launchTarget)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="rpc-wire-session">Session</InputLabel>
-          <Select
-            label="Session"
-            labelId="rpc-wire-session"
-            onChange={event => {
-              const nextSession = event.target.value;
-              setSessionFilter(nextSession);
-              setWireIdFilter(current =>
-                coerceWireIdForCascade(
-                  {
-                    launchTarget: launchTargetFilter,
-                    sessionKey: nextSession,
-                    tag: tagFilter,
-                  },
-                  current,
-                ),
-              );
-            }}
-            value={sessionFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {sessionOptions.map(sessionKey => (
-              <MenuItem key={sessionKey} value={sessionKey}>
-                {sessionKey}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel id="rpc-wire-tag">Tag</InputLabel>
-          <Select
-            label="Tag"
-            labelId="rpc-wire-tag"
-            onChange={event => {
-              const nextTag = event.target.value;
-              setTagFilter(nextTag);
-              setWireIdFilter(current => {
-                if (resolvedSessionFilter === null) {
-                  return RPC_WIRE_FILTER_ALL;
-                }
-                return coerceWireIdForCascade(
-                  {
-                    launchTarget: launchTargetForFilters,
-                    sessionKey: resolvedSessionFilter,
-                    tag: nextTag,
-                  },
-                  current,
-                );
-              });
-            }}
-            value={tagFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {classification.tags.map(tag => (
-              <MenuItem key={tag} value={tag}>
-                {tag}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel id="rpc-wire-id">Id</InputLabel>
-          <Select
-            displayEmpty
-            label="Id"
-            labelId="rpc-wire-id"
-            onChange={event => {
-              setWireIdFilter(event.target.value);
-            }}
-            value={effectiveWireIdFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {idOptions.map(wireId => (
-              <MenuItem key={wireId === '' ? 'empty-id' : wireId} value={wireId}>
-                {wireIdMenuLabel(wireId)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Typography color="text.secondary" variant="caption">
+            });
+          }}
+          options={[
+            { label: 'All', value: RPC_WIRE_FILTER_ALL },
+            ...classification.tags.map(tag => ({ label: tag, value: tag })),
+          ]}
+          value={tagFilter}
+        />
+        <FilterSelect
+          id="rpc-wire-id"
+          label="Id"
+          onValueChange={setWireIdFilter}
+          options={[
+            { label: 'All', value: RPC_WIRE_FILTER_ALL },
+            ...idOptions.map(wireId => ({ label: wireIdMenuLabel(wireId), value: wireId })),
+          ]}
+          value={effectiveWireIdFilter}
+        />
+        <p className="text-xs text-muted-foreground">
           {filtered.length} / {entryCount} shown
-        </Typography>
-      </Stack>
-      <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        </p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
         {filtered.length === 0 ? (
-          <Typography color="text.secondary" variant="body2">
-            No RPC traffic match filters.
-          </Typography>
+          <p className="text-sm text-muted-foreground">No RPC traffic match filters.</p>
         ) : (
           filtered.map(({ entry, launchTarget, meta }) => (
-            <Accordion
-              disableGutters
-              elevation={0}
-              key={entry.id}
-              sx={{
-                '&::before': { display: 'none' },
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-              }}
-            >
-              <AccordionSummary
-                sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
-              >
-                <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
-                  [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
-                </Typography>
-                <Button
-                  component="span"
-                  onClick={event => {
-                    event.stopPropagation();
-                    hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry, launchTarget))).catch(
-                      onCopyError,
-                    );
-                  }}
-                  size="small"
-                  variant="text"
-                >
-                  copy
-                </Button>
-              </AccordionSummary>
-              <AccordionDetails sx={{ pt: 0 }}>
-                <Box
-                  component="pre"
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem',
-                    m: 0,
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {rpcWireEntryClipboardText(entry, launchTarget)}
-                </Box>
-              </AccordionDetails>
+            <Accordion key={entry.id}>
+              <AccordionItem className="rounded-md border-0 bg-muted" value={entry.id}>
+                <div className="flex items-center pr-2">
+                  <AccordionTrigger className="min-w-0 flex-1 py-2 font-mono text-xs">
+                    [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
+                  </AccordionTrigger>
+                  <Button
+                    onClick={() => {
+                      hostRunPromise(writeTextToClipboard(rpcWireEntryClipboardText(entry, launchTarget))).catch(
+                        onCopyError,
+                      );
+                    }}
+                    size="xs"
+                    variant="ghost"
+                  >
+                    copy
+                  </Button>
+                </div>
+                <AccordionContent>
+                  <pre className="m-0 overflow-auto font-mono text-xs whitespace-pre-wrap">
+                    {rpcWireEntryClipboardText(entry, launchTarget)}
+                  </pre>
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
           ))
         )}
-      </Stack>
-    </Stack>
+      </div>
+    </div>
   );
 };
 
@@ -325,49 +306,40 @@ export const DeveloperPanelShell: FC<{
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
   const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
   const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
-  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 2 : 0;
+  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 'p-4' : '';
 
   return (
-    <Box
-      sx={{
-        bgcolor: 'background.paper',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-      }}
-    >
+    <div className="box-border flex h-full min-h-0 flex-col bg-card">
       <PanelHeader closeAriaLabel="Close developer panel" closeGlyph="∨" onClose={onClose} title="Developer panel" />
       <Tabs
-        onChange={(_event: SyntheticEvent, value: DeveloperPanelTab) => {
-          setActiveTab(value);
+        onValueChange={value => {
+          if (value !== null) {
+            setActiveTab(String(value));
+          }
         }}
-        sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
         value={activeTab}
-        variant="scrollable"
       >
-        <Tab label="RPC wire" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={RPC_WIRE_LOG_TAB} />
-        <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
-        <Tab
-          label="@ FS listing"
-          sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-          value={FS_MENTION_LISTING_TAB}
-        />
-        <Tab label="Composer" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={COMPOSER_TAB} />
-        {extraTabs.map(tab => (
-          <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
-        ))}
+        <TabsList
+          className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border"
+          variant="line"
+        >
+          <TabsTrigger value={RPC_WIRE_LOG_TAB}>RPC wire</TabsTrigger>
+          <TabsTrigger value={SESSION_STATE_TAB}>Session State</TabsTrigger>
+          <TabsTrigger value={FS_MENTION_LISTING_TAB}>@ FS listing</TabsTrigger>
+          <TabsTrigger value={COMPOSER_TAB}>Composer</TabsTrigger>
+          {extraTabs.map(tab => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </Tabs>
-      <Box
-        sx={{
-          display: containsOwnScroll ? 'flex' : 'block',
-          flex: 1,
-          flexDirection: 'column',
-          minHeight: 0,
-          overflow: containsOwnScroll ? 'hidden' : 'auto',
-          p: bodyPadding,
-        }}
+      <div
+        className={
+          containsOwnScroll
+            ? `flex min-h-0 flex-1 flex-col overflow-hidden ${bodyPadding}`
+            : `min-h-0 flex-1 overflow-auto ${bodyPadding}`
+        }
       >
         {activeTab === RPC_WIRE_LOG_TAB ? (
           <RpcWireLogBody onCopyError={onCopyError} />
@@ -380,7 +352,7 @@ export const DeveloperPanelShell: FC<{
         ) : (
           (activeExtraTab?.content ?? null)
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };

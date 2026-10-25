@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Button from '@mui/material/Button';
 import type { FC } from 'react';
 
 import { developerModeAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { developerPanelOpenAtom } from '../../atoms/developerPanelOpen.atoms.ts';
+import { Button } from '../ui/button.tsx';
 
 /** Opens the Developer panel when Developer mode is on and the panel is closed. */
 export const OpenDeveloperPanelButton: FC = () => {
@@ -18,8 +18,8 @@ export const OpenDeveloperPanelButton: FC = () => {
       onClick={() => {
         setOpen(true);
       }}
-      size="small"
-      variant="outlined"
+      size="sm"
+      variant="outline"
     >
       Developer panel
     </Button>

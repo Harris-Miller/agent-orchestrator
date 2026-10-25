@@ -1,11 +1,13 @@
-import { isSettingsCategoryId, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  isSettingsCategoryId,
+  SettingsCategoryContent,
+  settingsCategoryLabel,
+} from '@lib/ui';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeftIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
@@ -22,31 +24,31 @@ export const SettingsCategoryPage: FC = () => {
   }, [navigate, valid]);
 
   if (!valid) {
-    return <Alert severity="warning">Unknown settings category.</Alert>;
+    return (
+      <Alert>
+        <AlertDescription>Unknown settings category.</AlertDescription>
+      </Alert>
+    );
   }
 
   return (
-    <Box
-      sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, overflow: 'auto', p: 1 }}
-    >
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-        <IconButton
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-auto p-2">
+      <div className="flex items-center gap-1">
+        <Button
           aria-label="Back to Settings"
           onClick={() => {
             navigate({ to: '/settings' }).catch(() => undefined);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          <ArrowBack fontSize="small" />
-        </IconButton>
-        <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          {settingsCategoryLabel(categoryParam)}
-        </Typography>
-      </Stack>
-      {/* Extra inset: MUI FormControlLabel applies a negative left margin on Switch. */}
-      <Box sx={{ minWidth: 0, px: 1.5 }}>
+          <ArrowLeftIcon />
+        </Button>
+        <h1 className="min-w-0 flex-1 text-base font-semibold">{settingsCategoryLabel(categoryParam)}</h1>
+      </div>
+      <div className="min-w-0 px-3">
         <SettingsCategoryContent category={categoryParam} />
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };

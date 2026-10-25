@@ -1,4 +1,4 @@
-import { showClientErrorToast, Toaster } from '@lib/ui';
+import { showClientErrorToast } from '@lib/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import type { FC } from 'react';
 
@@ -18,7 +18,6 @@ const Index: FC = () => (
         showClientErrorToast(formatClientError(error));
       }}
     />
-    <Toaster />
   </div>
 );
 

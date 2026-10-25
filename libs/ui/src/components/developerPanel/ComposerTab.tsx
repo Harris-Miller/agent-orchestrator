@@ -1,8 +1,6 @@
 /** Live preview of ContentBlock[] the composer draft would send on session/prompt. */
 import { useAtomValue } from '@effect/atom-react';
 import type { ContentBlock } from '@libs/effect-acp';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
@@ -49,24 +47,12 @@ export const ComposerTab: FC = () => {
   }, [cwd, initializeResult, text]);
 
   return (
-    <Box
-      component="pre"
-      sx={{
-        fontFamily: 'var(--vscode-editor-font-family, monospace)',
-        fontSize: 11,
-        m: 0,
-        p: 2,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }}
-    >
+    <pre className="m-0 p-4 font-mono text-[11px] break-all whitespace-pre-wrap">
       {blocks === undefined ? (
-        <Typography color="text.secondary" component="span" variant="caption">
-          Resolving…
-        </Typography>
+        <span className="text-muted-foreground">Resolving…</span>
       ) : (
         JSON.stringify(blocks, null, 2)
       )}
-    </Box>
+    </pre>
   );
 };

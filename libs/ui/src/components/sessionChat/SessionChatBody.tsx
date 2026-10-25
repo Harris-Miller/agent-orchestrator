@@ -2,18 +2,13 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import Stop from '@mui/icons-material/Stop';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -40,6 +35,9 @@ import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
+import { Alert, AlertDescription } from '../ui/alert.tsx';
+import { Button as VegaButton } from '../ui/button.tsx';
+import { Spinner } from '../ui/spinner.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
@@ -394,48 +392,59 @@ export const SessionChatBody: FC<{
     ).catch(onClientError);
   };
 
+  const chatNotice = (text: string) => (
+    <Alert>
+      <AlertDescription>{text}</AlertDescription>
+    </Alert>
+  );
+
+  const loadingNotice = (text: string) => (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Spinner className="size-4" />
+      {text}
+    </div>
+  );
+
   const emptyStateSecondary: ReactNode = (() => {
     if (isVirtual) {
-      return <Alert severity="info">New session — choose an agent and project, then send a prompt to create it.</Alert>;
+      return chatNotice('New session — choose an agent and project, then send a prompt to create it.');
     }
     if (selectedLaunchTarget === undefined) {
-      return <Alert severity="info">No session selected — create or select a session.</Alert>;
+      return chatNotice('No session selected — create or select a session.');
     }
     if (backendSnapshot?.phase !== 'ready') {
-      return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
+      return loadingNotice(`Starting ${agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…`);
     }
     if (selectedSession === undefined) {
-      return <Alert severity="info">No session selected — create or select a session.</Alert>;
+      return chatNotice('No session selected — create or select a session.');
     }
     if (selectedSession.status === 'activating') {
-      return <Alert severity="info">Activating session…</Alert>;
+      return loadingNotice('Activating session…');
     }
     if (selectedSession.status === 'inactive') {
       if (selectedSession.defects !== undefined && selectedSession.defects.length > 0) {
         return (
-          <Alert
-            action={
-              <Button
-                color="inherit"
-                onClick={() => {
-                  activateSession({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId }).catch(
-                    onClientError,
-                  );
-                }}
-                size="small"
-              >
-                Retry
-              </Button>
-            }
-            severity="error"
-          >
-            Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
+          <Alert variant="destructive">
+            <AlertDescription>
+              Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
+            </AlertDescription>
+            <VegaButton
+              onClick={() => {
+                activateSession({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId }).catch(
+                  onClientError,
+                );
+              }}
+              size="sm"
+              variant="outline"
+            >
+              Retry
+            </VegaButton>
           </Alert>
         );
       }
-      return <Alert severity="info">Session is inactive — select it again to activate.</Alert>;
+      return chatNotice('Session is inactive — select it again to activate.');
     }
-    return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
+    return chatNotice(`${agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt`);
   })();
 
   useEffect(() => {
@@ -475,20 +484,17 @@ export const SessionChatBody: FC<{
         ref={chatScrollRef}
         sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
-        <List dense disablePadding>
+        <div>
           {chatItems.length === 0 && !hasPendingInteraction ? (
-            <ListItem>
-              <ListItemText
-                primary="No messages yet"
-                secondary={emptyStateSecondary}
-                slotProps={{ secondary: { component: 'div' } }}
-              />
-            </ListItem>
+            <div className="py-2">
+              <p className="text-sm font-medium">No messages yet</p>
+              <div className="mt-1">{emptyStateSecondary}</div>
+            </div>
           ) : (
             chatItems.map(item => <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />)
           )}
           {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
-            <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
+            <div className="px-2 py-2">
               <PendingElicitationCard
                 agentTitle={agentTitle}
                 onAccept={content => {
@@ -514,10 +520,10 @@ export const SessionChatBody: FC<{
                 }}
                 request={selectedSession.pendingElicitation.request}
               />
-            </ListItem>
+            </div>
           ) : null}
           {selectedSession?.pendingPermission !== undefined && selectedLaunchTarget !== undefined ? (
-            <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
+            <div className="px-2 py-2">
               <PendingPermissionCard
                 agentTitle={agentTitle}
                 onSelect={optionId => {
@@ -529,16 +535,16 @@ export const SessionChatBody: FC<{
                 }}
                 request={selectedSession.pendingPermission.request}
               />
-            </ListItem>
+            </div>
           ) : null}
-        </List>
+        </div>
       </Box>
 
       <Box sx={{ flexShrink: 0, position: 'relative' }}>
         {backendSnapshot?.error !== undefined ? (
-          <Typography color="error" sx={{ mb: 1 }} variant="body2">
-            {backendSnapshot.error}
-          </Typography>
+          <Alert className="mb-2" variant="destructive">
+            <AlertDescription>{backendSnapshot.error}</AlertDescription>
+          </Alert>
         ) : null}
         <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
           {aboveComposer !== undefined && aboveComposer !== null ? (

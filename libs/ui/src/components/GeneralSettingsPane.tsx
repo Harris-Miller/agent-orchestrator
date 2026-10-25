@@ -1,8 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -14,6 +10,8 @@ import {
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+
+import { Switch } from './ui/switch.tsx';
 
 /** Settings → General: User settings toggles shared across hosts. */
 export const GeneralSettingsPane: FC = () => {
@@ -33,57 +31,45 @@ export const GeneralSettingsPane: FC = () => {
 
   return (
     <>
-      <Typography variant="h6">General</Typography>
-      <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
+      <h2 className="text-lg font-medium">General</h2>
+      <p className="mt-2 mb-4 text-sm text-muted-foreground">
         Session delete confirmation, No Folder group visibility, Developer mode, and Always-hidden globs live in User
         settings.
-      </Typography>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={confirmSessionDelete}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setConfirmSessionDelete(checked);
-            }}
-          />
-        }
-        label="Confirm before deleting a session"
-        sx={{ ml: 0 }}
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={showNoFolderGroup}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setShowNoFolderGroup(checked);
-            }}
-          />
-        }
-        label="Show No Folder group in Sessions"
-        sx={{ display: 'block', ml: 0, mt: 1 }}
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={developerMode}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setDeveloperMode(checked);
-            }}
-          />
-        }
-        label="Developer mode"
-        sx={{ display: 'block', ml: 0, mt: 1 }}
-      />
-      <TextField
+      </p>
+      <div className="flex items-center gap-2 text-sm">
+        <Switch
+          aria-labelledby="confirm-session-delete-label"
+          checked={confirmSessionDelete}
+          disabled={editsDisabled}
+          onCheckedChange={setConfirmSessionDelete}
+        />
+        <span id="confirm-session-delete-label">Confirm before deleting a session</span>
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        <Switch
+          aria-labelledby="show-no-folder-group-label"
+          checked={showNoFolderGroup}
+          disabled={editsDisabled}
+          onCheckedChange={setShowNoFolderGroup}
+        />
+        <span id="show-no-folder-group-label">Show No Folder group in Sessions</span>
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        <Switch
+          aria-labelledby="developer-mode-label"
+          checked={developerMode}
+          disabled={editsDisabled}
+          onCheckedChange={setDeveloperMode}
+        />
+        <span id="developer-mode-label">Developer mode</span>
+      </div>
+      <span className="mt-4 block text-sm font-medium" id="always-hidden-globs-label">
+        Always-hidden globs
+      </span>
+      <textarea
+        aria-labelledby="always-hidden-globs-label"
+        className="mt-1.5 block min-h-20 w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
         disabled={editsDisabled}
-        fullWidth
-        helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
-        label="Always-hidden globs"
-        minRows={3}
-        multiline
         onBlur={() => {
           setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
           setAlwaysHiddenGlobsDraft(undefined);
@@ -91,9 +77,12 @@ export const GeneralSettingsPane: FC = () => {
         onChange={event => {
           setAlwaysHiddenGlobsDraft(event.target.value);
         }}
-        sx={{ display: 'block', mt: 2 }}
         value={alwaysHiddenGlobsText}
       />
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions,
+        including when Show hidden is on. .git is always excluded.
+      </p>
     </>
   );
 };

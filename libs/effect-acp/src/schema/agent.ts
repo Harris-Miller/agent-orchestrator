@@ -192,15 +192,21 @@ export class ResumeSessionResponse extends Schema.Opaque<ResumeSessionResponse>(
   }),
 ) {}
 
-export class CloseSessionRequest extends Schema.Opaque<CloseSessionRequest>()(
-  Schema.Struct({
-    _meta: MetaField,
-    sessionId: SessionId,
-  }),
-) {}
+/** `sessionId` plus `_meta`. Shared by `session/close` and `_session/archive`. */
+const sessionIdRequest = Schema.Struct({
+  _meta: MetaField,
+  sessionId: SessionId,
+});
+
+export class CloseSessionRequest extends Schema.Opaque<CloseSessionRequest>()(sessionIdRequest) {}
 
 export const CloseSessionResponse = EmptyResult;
 export type CloseSessionResponse = EmptyResult;
+
+export class SessionArchiveRequest extends Schema.Opaque<SessionArchiveRequest>()(sessionIdRequest) {}
+
+export const SessionArchiveResponse = EmptyResult;
+export type SessionArchiveResponse = EmptyResult;
 
 export class SetSessionModeRequest extends Schema.Opaque<SetSessionModeRequest>()(
   Schema.Struct({
@@ -332,8 +338,8 @@ export class SessionClose extends Rpc.make(AGENT_METHODS.session_close, {
 /** AIR `_session/archive`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionArchive. */
 export class SessionArchive extends Rpc.make(SESSION_ARCHIVE_METHOD, {
   error: AcpError,
-  payload: CloseSessionRequest,
-  success: CloseSessionResponse,
+  payload: SessionArchiveRequest,
+  success: SessionArchiveResponse,
 }) {}
 
 export class SessionSetMode extends Rpc.make(AGENT_METHODS.session_set_mode, {

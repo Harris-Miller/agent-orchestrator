@@ -4,6 +4,7 @@ import { Effect, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { clearPromptSpan, setPromptSpan } from './promptSpanRegistry.ts';
+import type { ListSessionsPayload } from './sessionListScope.ts';
 
 type AgentHandle = AcpAgentConnection['agent'];
 type ConnectedAgent = {
@@ -46,12 +47,9 @@ export const clearConnectedAgent = (launchTarget: AgentLaunchTarget): void => {
 };
 
 export const listSessions = Effect.fn('listSessions')(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    options?: { readonly _meta?: Record<string, unknown>; readonly cwd?: string },
-  ) {
+  function* (launchTarget: AgentLaunchTarget, payload: ListSessionsPayload) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
-    return yield* agent['session/list'](options ?? {});
+    return yield* agent['session/list'](payload);
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),

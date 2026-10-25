@@ -6,6 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { airCapability } from './airMeta.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
@@ -654,7 +655,7 @@ export const hasSessionArchiveCapability = (initializeResult: unknown): boolean 
     return false;
   }
   const { capabilities } = jetbrains.air;
-  return Array.isArray(capabilities) && capabilities.includes('sessionArchive');
+  return Array.isArray(capabilities) && capabilities.includes(airCapability.sessionArchive);
 };
 
 /** True when initialize advertises `sessionCapabilities.fork` (`{}`). */

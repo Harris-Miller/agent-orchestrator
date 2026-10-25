@@ -1,3 +1,5 @@
+import { airListArchivedAll, airMeta } from './airMeta.ts';
+
 /** How bootstrap/refresh call `session/list`. Desktop stays Unscoped; vscode sets Cwd/Skip. */
 export type SessionListScope =
   { readonly _tag: 'Cwd'; readonly cwd: string } | { readonly _tag: 'Skip' } | { readonly _tag: 'Unscoped' };
@@ -6,15 +8,10 @@ export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
 
 /** AIR session index list filter. `"all"` includes archived sessions. */
 const sessionListArchivedAll = {
-  _meta: {
-    jetbrains: {
-      air: {
-        list: { archived: 'all' },
-        version: 1,
-      },
-    },
-  },
-} as const;
+  _meta: airMeta({
+    list: { archived: airListArchivedAll },
+  }),
+};
 
 export const sessionListScopeFromPaths = (paths: readonly string[]): SessionListScope => {
   if (paths.length === 0) {
@@ -37,3 +34,5 @@ export const listSessionsPayload = (
       return sessionListArchivedAll;
   }
 };
+
+export type ListSessionsPayload = NonNullable<ReturnType<typeof listSessionsPayload>>;

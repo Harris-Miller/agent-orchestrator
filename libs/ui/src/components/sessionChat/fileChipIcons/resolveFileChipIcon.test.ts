@@ -14,7 +14,7 @@ describe('resolveFileChipIcon', () => {
     assert.strictEqual(file.kind, 'svg');
 
     const url = resolveFileChipIcon({ href: 'https://example.com/docs', label: 'docs' }, 'mocha');
-    assert.strictEqual(url.kind, 'lucide');
+    assert.strictEqual(url.kind, 'link');
   });
 
   it('maps package.json key and unknown basename to default file svg', () => {

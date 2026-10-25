@@ -5,14 +5,14 @@ import { Button } from '../ui/button.tsx';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover.tsx';
 
 import { UsageCard } from './UsageCard.tsx';
-import { usagePercent } from './usageMetrics.ts';
+import { usagePercent, usageToneClass } from './usageMetrics.ts';
 
 const UsageRing: FC<{ readonly percent: number }> = ({ percent }) => {
   const clamped = Math.max(0, Math.min(100, percent));
   const radius = 7;
   const circumference = 2 * Math.PI * radius;
   const dash = (clamped / 100) * circumference;
-  const stroke = percent >= 90 ? 'stroke-destructive' : percent >= 75 ? 'stroke-amber-500' : 'stroke-primary';
+  const { stroke } = usageToneClass(percent);
 
   return (
     <svg aria-hidden className="size-[18px]" viewBox="0 0 18 18">

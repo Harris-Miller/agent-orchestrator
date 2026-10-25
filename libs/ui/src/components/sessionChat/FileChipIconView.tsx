@@ -20,7 +20,7 @@ export const FileChipIconView: FC<FileChipIconViewProps> = ({ className, href, l
   const themeId = useAtomValue(themeAtom);
   const icon = resolveFileChipIcon({ href, label }, themeId);
   const classes = cn('inline-block size-[0.875em] shrink-0 align-middle', className);
-  if (icon.kind === 'lucide') {
+  if (icon.kind === 'link') {
     return <Link2Icon aria-hidden className={classes} />;
   }
   return <img alt="" className={classes} src={icon.url} />;

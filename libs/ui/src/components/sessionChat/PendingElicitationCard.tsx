@@ -16,6 +16,8 @@ import { Button } from '../ui/button.tsx';
 import { Checkbox } from '../ui/checkbox.tsx';
 import { Input } from '../ui/input.tsx';
 
+import { pendingRequestCardClass } from './PendingPermissionCard.tsx';
+
 const SupportedFormProperty = Schema.Union([
   ElicitationStringProperty,
   ElicitationBooleanProperty,
@@ -55,8 +57,6 @@ const unsupportedTypeLabel = (property: ElicitationPropertySchema): string => {
   return 'unknown';
 };
 
-const cardClass = 'rounded-md border border-border bg-muted p-4';
-
 export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
   readonly onAccept: (content: ElicitationContent) => void;
@@ -79,7 +79,7 @@ export const PendingElicitationCard: FC<{
 
   if (formRequest === undefined) {
     return (
-      <div className={cardClass}>
+      <div className={pendingRequestCardClass}>
         <p className="mb-2 text-sm font-medium">Unsupported elicitation from {agentTitle}</p>
         <div className="flex gap-2">
           <Button onClick={onDecline} size="sm" variant="outline">
@@ -94,7 +94,7 @@ export const PendingElicitationCard: FC<{
   }
 
   return (
-    <div className={cardClass}>
+    <div className={pendingRequestCardClass}>
       <p className="text-xs text-muted-foreground">{agentTitle} asks</p>
       <p className="mb-2 text-base font-medium">{formRequest.message}</p>
       <div className="mt-2 mb-4 flex flex-col gap-3">
@@ -120,7 +120,16 @@ export const PendingElicitationCard: FC<{
                     setValues(current => ({ ...current, [name]: checked }));
                   }}
                 />
-                <span id={`elicit-${name}-label`}>{title}</span>
+                <button
+                  className="cursor-pointer text-sm"
+                  id={`elicit-${name}-label`}
+                  onClick={() => {
+                    setValues(current => ({ ...current, [name]: current[name] !== true }));
+                  }}
+                  type="button"
+                >
+                  {title}
+                </button>
               </div>
             );
           }

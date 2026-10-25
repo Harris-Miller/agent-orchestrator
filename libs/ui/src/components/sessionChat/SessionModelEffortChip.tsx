@@ -1,12 +1,11 @@
-import { cn } from 'cn';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
-import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
+import { COMPOSER_MODEL_MENU_MIN_WIDTH, ComposerChoiceItem } from './composerChromeMenu.tsx';
 import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 export const SessionModelEffortChip: FC<{
@@ -32,22 +31,17 @@ export const SessionModelEffortChip: FC<{
         <div className="py-1" style={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
           {dualColumn ? <p className="px-2 py-1 text-xs text-muted-foreground">Model</p> : null}
           {modelViews.map(view => (
-            <DropdownMenuItem
-              className={cn(model.currentValue === view.id && 'bg-accent')}
+            <ComposerChoiceItem
               closeOnClick={!dualColumn}
+              description={view.description}
               disabled={view.disabled}
               key={view.id}
-              onClick={() => {
+              label={view.label}
+              onSelect={() => {
                 onChange({ configId: model.id, type: 'select', value: view.id });
               }}
-            >
-              <span className="flex flex-col">
-                <span>{view.label}</span>
-                {view.description !== undefined ? (
-                  <span className="text-xs text-muted-foreground">{view.description}</span>
-                ) : null}
-              </span>
-            </DropdownMenuItem>
+              selected={model.currentValue === view.id}
+            />
           ))}
         </div>
         {effort !== undefined ? (
@@ -56,21 +50,16 @@ export const SessionModelEffortChip: FC<{
             <div className="py-1" style={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
               <p className="px-2 py-1 text-xs text-muted-foreground">Effort</p>
               {effortViews.map(view => (
-                <DropdownMenuItem
-                  className={cn(effort.currentValue === view.id && 'bg-accent')}
+                <ComposerChoiceItem
                   closeOnClick={false}
+                  description={view.description}
                   key={view.id}
-                  onClick={() => {
+                  label={view.label}
+                  onSelect={() => {
                     onChange({ configId: effort.id, type: 'select', value: view.id });
                   }}
-                >
-                  <span className="flex flex-col">
-                    <span>{view.label}</span>
-                    {view.description !== undefined ? (
-                      <span className="text-xs text-muted-foreground">{view.description}</span>
-                    ) : null}
-                  </span>
-                </DropdownMenuItem>
+                  selected={effort.currentValue === view.id}
+                />
               ))}
             </div>
           </>

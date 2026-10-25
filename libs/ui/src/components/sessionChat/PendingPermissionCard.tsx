@@ -4,6 +4,8 @@ import type { FC } from 'react';
 import { isRecord } from '../../isRecord.ts';
 import { Button } from '../ui/button.tsx';
 
+export const pendingRequestCardClass = 'rounded-md border border-border bg-muted p-4';
+
 const toolCallTitle = (request: RequestPermissionRequest): string => {
   const { toolCall } = request;
   if (isRecord(toolCall) && typeof toolCall.title === 'string') {
@@ -20,7 +22,7 @@ export const PendingPermissionCard: FC<{
   readonly onSelect: (optionId: string) => void;
   readonly request: RequestPermissionRequest;
 }> = ({ agentTitle, onSelect, request }) => (
-  <div className="rounded-md border border-border bg-muted p-4">
+  <div className={pendingRequestCardClass}>
     <p className="text-xs text-muted-foreground">{agentTitle} needs permission</p>
     <p className="mb-2 text-base font-medium">{toolCallTitle(request)}</p>
     <div className="flex flex-wrap gap-2">

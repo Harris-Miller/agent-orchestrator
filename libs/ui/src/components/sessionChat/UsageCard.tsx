@@ -3,17 +3,7 @@ import type { FC } from 'react';
 
 import { Progress } from '../ui/progress.tsx';
 
-import { formatUsageCost, usagePercent } from './usageMetrics.ts';
-
-const indicatorClass = (percent: number): string => {
-  if (percent >= 90) {
-    return '[&_[data-slot=progress-indicator]]:bg-destructive';
-  }
-  if (percent >= 75) {
-    return '[&_[data-slot=progress-indicator]]:bg-amber-500';
-  }
-  return '';
-};
+import { formatUsageCost, usagePercent, usageToneClass } from './usageMetrics.ts';
 
 export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage }) => {
   const percent = usagePercent(usage);
@@ -29,7 +19,7 @@ export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage 
         <Progress
           aria-label="Context window usage"
           aria-valuetext={`${usage.used.toLocaleString()} of ${usage.size.toLocaleString()} tokens`}
-          className={indicatorClass(percent)}
+          className={usageToneClass(percent).indicator}
           max={usage.size}
           value={usage.used}
         />

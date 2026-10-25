@@ -4,6 +4,19 @@ import type { FC, ReactNode } from 'react';
 
 import { Skeleton } from '../ui/skeleton.tsx';
 
+export const composerMenuPanelClass = 'max-h-80 overflow-auto rounded-md border border-border bg-card shadow-lg';
+
+export const ComposerMenuPlaceholder: FC<{ readonly loading: boolean }> = ({ loading }) =>
+  loading ? (
+    <div className="flex flex-col gap-1 px-3 py-2">
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton className="h-7" key={index} />
+      ))}
+    </div>
+  ) : (
+    <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
+  );
+
 const ComposerMenuRowRefContext = createContext<{
   readonly register: (index: number, node: HTMLElement | null) => void;
 } | null>(null);
@@ -49,15 +62,9 @@ export const ComposerMenuShell: FC<ComposerMenuShellProps> = ({
   }
 
   return (
-    <div className="max-h-80 overflow-auto rounded-md border border-border bg-card shadow-lg">
-      {loading ? (
-        <div className="flex flex-col gap-1 px-3 py-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="h-7" key={index} />
-          ))}
-        </div>
-      ) : itemCount === 0 ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
+    <div className={composerMenuPanelClass}>
+      {loading || itemCount === 0 ? (
+        <ComposerMenuPlaceholder loading={loading} />
       ) : (
         <ComposerMenuRowRefContext.Provider value={registry}>
           <div>{children}</div>

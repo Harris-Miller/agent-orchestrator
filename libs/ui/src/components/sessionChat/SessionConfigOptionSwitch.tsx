@@ -23,9 +23,17 @@ export const SessionConfigOptionSwitch: FC<{
           onChange(option.id, checked);
         }}
       />
-      <span className={disabled ? 'text-sm text-muted-foreground' : 'text-sm'} id={id}>
+      <button
+        className={disabled ? 'text-sm text-muted-foreground' : 'cursor-pointer text-sm'}
+        disabled={disabled}
+        id={id}
+        onClick={() => {
+          onChange(option.id, option.currentValue !== true);
+        }}
+        type="button"
+      >
         {option.name}
-      </span>
+      </button>
     </span>
   );
 };

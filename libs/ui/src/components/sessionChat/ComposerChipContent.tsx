@@ -1,7 +1,7 @@
 import { cn } from 'cn';
 import type { FC } from 'react';
 
-import { commandChipClass, markdownLinkChipClass } from './composerChipSx.ts';
+import { commandChipClass, markdownLinkChipClass } from './composerChipClass.ts';
 import { FileChipIconView } from './FileChipIconView.tsx';
 
 type ComposerChipSharedProps = {

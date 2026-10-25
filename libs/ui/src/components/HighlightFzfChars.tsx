@@ -18,7 +18,7 @@ export const HighlightFzfChars: FC<HighlightFzfCharsProps> = ({ boldFrom, positi
     const bold = boldFrom !== undefined && index >= boldFrom;
     nodes.push(
       <span
-        className={cn((highlighted || bold) && 'font-bold', highlighted && 'rounded-xs bg-amber-400/30')}
+        className={cn((highlighted || bold) && 'font-bold', highlighted && 'rounded-xs bg-chart-3/30')}
         key={`fzf-${String(index)}`}
       >
         {char}

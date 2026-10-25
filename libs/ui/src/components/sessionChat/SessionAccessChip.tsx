@@ -1,12 +1,11 @@
-import { cn } from 'cn';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
-import { COMPOSER_MODEL_MENU_MIN_WIDTH } from './composerChromeMenu.ts';
+import { COMPOSER_MODEL_MENU_MIN_WIDTH, ComposerChoiceItem } from './composerChromeMenu.tsx';
 import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
 /** Chip bound to Config option `mode` (UI label may say Access). */
@@ -24,20 +23,15 @@ export const SessionAccessChip: FC<{
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-w-[360px]" side="top" style={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
         {views.map(view => (
-          <DropdownMenuItem
-            className={cn('items-start whitespace-normal', option.currentValue === view.id && 'bg-accent')}
+          <ComposerChoiceItem
+            description={view.description}
             key={view.id}
-            onClick={() => {
+            label={view.label}
+            onSelect={() => {
               onChange({ configId: option.id, type: 'select', value: view.id });
             }}
-          >
-            <span className="flex flex-col">
-              <span>{view.label}</span>
-              {view.description !== undefined ? (
-                <span className="text-xs text-muted-foreground">{view.description}</span>
-              ) : null}
-            </span>
-          </DropdownMenuItem>
+            selected={option.currentValue === view.id}
+          />
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

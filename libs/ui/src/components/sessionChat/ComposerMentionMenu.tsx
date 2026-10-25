@@ -6,9 +6,8 @@ import type { FC } from 'react';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingPathBoldFrom } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
-import { Skeleton } from '../ui/skeleton.tsx';
 
-import { ComposerMenuRow } from './ComposerMenuShell.tsx';
+import { composerMenuPanelClass, ComposerMenuPlaceholder, ComposerMenuRow } from './ComposerMenuShell.tsx';
 import { ListingEntryIcon } from './FileChipIconView.tsx';
 import type { FsListingMatch } from './filterFsListingEntries.ts';
 
@@ -60,19 +59,9 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   }
 
   return (
-    <div
-      className="max-h-80 overflow-auto rounded-md border border-border bg-card shadow-lg"
-      ref={parentRef}
-      style={{ maxHeight: MENU_MAX_HEIGHT_PX }}
-    >
-      {loading ? (
-        <div className="flex flex-col gap-1 px-3 py-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="h-7" key={index} />
-          ))}
-        </div>
-      ) : matches.length === 0 ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
+    <div className={composerMenuPanelClass} ref={parentRef} style={{ maxHeight: MENU_MAX_HEIGHT_PX }}>
+      {loading || matches.length === 0 ? (
+        <ComposerMenuPlaceholder loading={loading} />
       ) : (
         <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
           {rowVirtualizer.getVirtualItems().map(virtualRow => {

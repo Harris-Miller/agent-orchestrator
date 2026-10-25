@@ -1,11 +1,10 @@
-import Box from '@mui/material/Box';
-import Tooltip from '@mui/material/Tooltip';
 import type { FC } from 'react';
 
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 
 import { svgToDataUrl } from './sessionChat/fileChipIcons/packs.ts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip.tsx';
 
 /** Inlined from apps/desktop/public/*_icon.svg — keep SVG sources there. */
 const LAUNCH_TARGET_SVG: Readonly<Record<AgentLaunchTarget, string>> = {
@@ -155,12 +154,20 @@ export const AgentLaunchTargetIcon: FC<{
   readonly launchTarget: AgentLaunchTarget;
   readonly size?: number;
 }> = ({ launchTarget, size = 16 }) => (
-  <Tooltip title={agentLaunchTargetLabel(launchTarget)}>
-    <Box
-      alt=""
-      component="img"
-      src={LAUNCH_TARGET_ICON_URL[launchTarget]}
-      sx={{ display: 'block', flexShrink: 0, height: size, width: size }}
-    />
-  </Tooltip>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <img
+            alt=""
+            className="block shrink-0"
+            height={size}
+            src={LAUNCH_TARGET_ICON_URL[launchTarget]}
+            width={size}
+          />
+        }
+      />
+      <TooltipContent>{agentLaunchTargetLabel(launchTarget)}</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 );

@@ -9,15 +9,13 @@ import {
   FdPrerequisiteGate,
   PersistUserSettingsToast,
   refreshAllSessionRostersAtomFn,
+  Spinner,
+  toast,
+  Toaster,
   UserSettingsMount,
 } from '@lib/ui';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import CssBaseline from '@mui/material/CssBaseline';
-import Snackbar from '@mui/material/Snackbar';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import type { AsyncResult, Atom } from 'effect/reactivity';
@@ -47,7 +45,6 @@ const WorkspaceFoldersGate: FC = () => {
   useAtomSet(deactivateSessionAtomFn);
   useAtomSet(refreshAllSessionRostersAtomFn);
   const [foldersReady, setFoldersReady] = useState(false);
-  const [clientError, setClientError] = useState<null | string>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,52 +86,27 @@ const WorkspaceFoldersGate: FC = () => {
   }, [registry]);
 
   const onClientError = useCallback((error: unknown) => {
-    setClientError(formatClientError(error));
+    toast.add({ description: formatClientError(error), timeout: 6000, title: 'Error', type: 'error' });
   }, []);
 
   if (!foldersReady) {
     return (
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }}>
-        <CircularProgress size={18} />
-        <Typography variant="body2">Loading workspace…</Typography>
-      </Stack>
+      <div className="flex items-center gap-2 p-4 text-sm">
+        <Spinner className="size-[18px]" />
+        Loading workspace…
+      </div>
     );
   }
 
   return (
     <OnClientErrorContext.Provider value={onClientError}>
       <AcpBackendsMount />
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-          p: 1,
-        }}
-      >
-        <Box sx={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <div className="min-h-0 flex-1 overflow-hidden p-2">
+        <div className="h-full min-h-0 overflow-hidden">
           <RouterProvider router={router} />
-        </Box>
-      </Box>
-      <Snackbar
-        anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-        autoHideDuration={6000}
-        onClose={() => {
-          setClientError(null);
-        }}
-        open={clientError !== null}
-      >
-        <Alert
-          onClose={() => {
-            setClientError(null);
-          }}
-          severity="error"
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {clientError}
-        </Alert>
-      </Snackbar>
+        </div>
+      </div>
+      <Toaster />
     </OnClientErrorContext.Provider>
   );
 };

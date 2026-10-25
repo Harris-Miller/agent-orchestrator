@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   activateSessionAtomFn,
   AgentLaunchTargetIcon,
+  Button,
   clearSelectedAtomFn,
   isSessionActiveOrActivating,
   OpenDeveloperPanelButton,
@@ -16,13 +17,8 @@ import {
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { ArrowLeftIcon, SettingsIcon } from 'lucide-react';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
@@ -97,31 +93,36 @@ export const SessionChatPage: FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <IconButton aria-label="Back to Session History" disabled={inFlight} onClick={onBack} size="small">
-          <ArrowBack fontSize="small" />
-        </IconButton>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center gap-1 px-2 py-1">
+        <Button
+          aria-label="Back to Session History"
+          disabled={inFlight}
+          onClick={onBack}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <ArrowLeftIcon />
+        </Button>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-        <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          {title}
-        </Typography>
+        <h1 className="min-w-0 flex-1 truncate text-base font-semibold">{title}</h1>
         <OpenDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
-        <IconButton
+        <Button
           aria-label="Settings"
           disabled={inFlight}
           onClick={() => {
             navigate({ to: '/settings' }).catch(() => undefined);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          <SettingsOutlined fontSize="small" />
-        </IconButton>
-      </Stack>
-      <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <SettingsIcon />
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SessionChatBody onClientError={onClientError} />
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };

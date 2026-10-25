@@ -1,17 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Archive from '@mui/icons-material/Archive';
-import Delete from '@mui/icons-material/Delete';
-import MoreHoriz from '@mui/icons-material/MoreHoriz';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
-import ListItem from '@mui/material/ListItem';
-import Paper from '@mui/material/Paper';
-import Popover from '@mui/material/Popover';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { ArchiveIcon, EllipsisIcon, Trash2Icon } from 'lucide-react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
@@ -19,22 +7,11 @@ import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHa
 import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
+import { Button } from '../ui/button.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
+import { Spinner } from '../ui/spinner.tsx';
 
 import { noopClientError } from './noopClientError.ts';
-
-const sessionCardSx = (selected: boolean) =>
-  ({
-    border: 1,
-    borderColor: selected ? 'primary.main' : 'divider',
-    borderRadius: 1,
-    cursor: 'pointer',
-    overflow: 'hidden',
-    width: '100%',
-    ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
-    '&:hover': {
-      bgcolor: 'action.hover',
-    },
-  }) as const;
 
 export const SessionRosterRow: FC<{
   readonly entry: UnifiedRosterEntry;
@@ -45,26 +22,24 @@ export const SessionRosterRow: FC<{
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
-  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
-  const menuOpen = menuAnchor !== null;
 
   const activateRosterEntry = () => {
     // activateSession selects + no-ops when already active/activating (Codex-safe).
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
 
-  const closeMenu = () => {
-    setMenuAnchor(null);
-  };
-
   return (
-    <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
-      <Paper
-        elevation={0}
+    <div className="px-2 py-1.5">
+      <div
+        className={
+          selected
+            ? 'w-full cursor-pointer overflow-hidden rounded-md border border-primary bg-accent hover:bg-muted'
+            : 'w-full cursor-pointer overflow-hidden rounded-md border border-border bg-card hover:bg-muted'
+        }
         onClick={activateRosterEntry}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -73,79 +48,64 @@ export const SessionRosterRow: FC<{
           }
         }}
         role="button"
-        sx={sessionCardSx(selected)}
         tabIndex={0}
       >
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+        <div className="flex items-center gap-1 px-3 py-2.5">
           <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              sx={{
-                display: '-webkit-box',
-                fontWeight: selected ? 600 : 400,
-                lineHeight: 1.4,
-                overflow: 'hidden',
-                WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 2,
-                width: '100%',
-              }}
-              variant="body2"
+          <div className="min-w-0 flex-1">
+            <p
+              className={
+                selected
+                  ? 'line-clamp-2 w-full text-sm leading-snug font-semibold'
+                  : 'line-clamp-2 w-full text-sm leading-snug'
+              }
             >
               {displayTitle}
-            </Typography>
-          </Box>
-          {pendingClientRequest ? (
-            <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
-          ) : null}
-          <IconButton
-            aria-label="Session actions"
-            onClick={event => {
-              event.stopPropagation();
-              setMenuAnchor(event.currentTarget);
-            }}
-            size="small"
-            sx={{ flexShrink: 0, mr: -0.5 }}
-          >
-            <MoreHoriz fontSize="small" />
-          </IconButton>
-        </Stack>
-      </Paper>
-
-      <Popover
-        anchorEl={menuAnchor}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        onClose={closeMenu}
-        open={menuOpen}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-      >
-        <Stack spacing={1} sx={{ p: 1 }}>
-          {hasSessionArchiveCapability(snapshot.initializeResult) ? (
-            <Button
-              onClick={() => {
-                closeMenu();
-                archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
-              }}
-              size="small"
-              startIcon={<Archive />}
-              variant="outlined"
+            </p>
+          </div>
+          {pendingClientRequest ? <Spinner aria-label="Pending client request" className="size-3.5 shrink-0" /> : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Session actions"
+                  className="shrink-0"
+                  onClick={event => {
+                    event.stopPropagation();
+                  }}
+                  size="icon-sm"
+                  variant="ghost"
+                />
+              }
             >
-              Archive
-            </Button>
-          ) : null}
-          <Button
-            color="error"
-            onClick={() => {
-              closeMenu();
-              onDeleteRequest(entry);
-            }}
-            size="small"
-            startIcon={<Delete />}
-            variant="outlined"
-          >
-            Delete
-          </Button>
-        </Stack>
-      </Popover>
-    </ListItem>
+              <EllipsisIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {hasSessionArchiveCapability(snapshot.initializeResult) ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
+                      onClientError,
+                    );
+                  }}
+                >
+                  <ArchiveIcon />
+                  Archive
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem
+                onClick={() => {
+                  onDeleteRequest(entry);
+                }}
+                variant="destructive"
+              >
+                <Trash2Icon />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
   );
 };

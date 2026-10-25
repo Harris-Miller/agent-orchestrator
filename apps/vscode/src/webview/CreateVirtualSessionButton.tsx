@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { ensureVirtualSessionAtomFn } from '@lib/ui';
-import Add from '@mui/icons-material/Add';
-import IconButton from '@mui/material/IconButton';
+import { Button, ensureVirtualSessionAtomFn } from '@lib/ui';
+import { PlusIcon } from 'lucide-react';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
@@ -15,7 +14,7 @@ export const CreateVirtualSessionButton: FC<{ readonly disabled?: boolean }> = (
   const onClientError = useContext(OnClientErrorContext);
 
   return (
-    <IconButton
+    <Button
       aria-label="Create session"
       disabled={disabled || sessionCwd === undefined}
       onClick={() => {
@@ -24,9 +23,10 @@ export const CreateVirtualSessionButton: FC<{ readonly disabled?: boolean }> = (
         }
         ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
       }}
-      size="small"
+      size="icon-sm"
+      variant="ghost"
     >
-      <Add fontSize="small" />
-    </IconButton>
+      <PlusIcon />
+    </Button>
   );
 };

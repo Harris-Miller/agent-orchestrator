@@ -2,7 +2,6 @@ import 'allotment/dist/style.css';
 
 import { useAtomValue } from '@effect/atom-react';
 import {
-  allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
   isRecord,
   readDeveloperPanelOpen,
@@ -10,7 +9,6 @@ import {
   selectedSessionAtom,
   useDeveloperPanelOpen,
 } from '@lib/ui';
-import Box from '@mui/material/Box';
 import { Outlet } from '@tanstack/react-router';
 import { Allotment } from 'allotment';
 import type { AllotmentHandle } from 'allotment';
@@ -107,14 +105,7 @@ export const AppLayout: FC = () => {
   }, [commitLayout, panelVisible]);
 
   return (
-    <Box
-      sx={{
-        ...allotmentSashSx,
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="ao-app-layout h-full min-h-0 overflow-hidden">
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}
         onChange={sizes => {
@@ -125,9 +116,9 @@ export const AppLayout: FC = () => {
         vertical
       >
         <Allotment.Pane key="main">
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <Outlet />
-          </Box>
+          </div>
         </Allotment.Pane>
         <Allotment.Pane
           key="developer"
@@ -144,6 +135,6 @@ export const AppLayout: FC = () => {
           />
         </Allotment.Pane>
       </Allotment>
-    </Box>
+    </div>
   );
 };

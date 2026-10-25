@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allLaunchTargetPhasesAtom,
+  Button,
   ConfirmSessionDeleteDialog,
   OpenDeveloperPanelButton,
   refreshAllSessionRostersAtomFn,
@@ -11,13 +12,8 @@ import {
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { RotateCwIcon, SettingsIcon } from 'lucide-react';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
@@ -42,62 +38,59 @@ export const SessionHistory: FC = () => {
   const sessions = sessionsForCwd(roster, sessionCwd);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-        <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
-          Session History
-        </Typography>
-        <IconButton
+    <div className="flex min-h-0 flex-col gap-2 p-2">
+      <div className="flex items-center gap-1">
+        <h2 className="text-base font-semibold">Session History</h2>
+        <Button
           aria-label="Reload sessions"
           disabled={noFolder || !anyReady}
           onClick={() => {
             refreshAllSessionRosters(undefined).catch(onClientError);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-            ↻
-          </Typography>
-        </IconButton>
-        <Box sx={{ flex: 1 }} />
+          <RotateCwIcon />
+        </Button>
+        <div className="flex-1" />
         <OpenDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
-        <IconButton
+        <Button
           aria-label="Settings"
           onClick={() => {
             navigate({ to: '/settings' }).catch(() => undefined);
           }}
-          size="small"
+          size="icon-sm"
+          variant="ghost"
         >
-          <SettingsOutlined fontSize="small" />
-        </IconButton>
-      </Stack>
+          <SettingsIcon />
+        </Button>
+      </div>
 
       {noFolder ? (
-        <Typography color="text.secondary" variant="body2">
-          Open a workspace folder to create and list sessions.
-        </Typography>
+        <p className="text-sm text-muted-foreground">Open a workspace folder to create and list sessions.</p>
       ) : sessions.length === 0 ? (
-        <Stack spacing={1} sx={{ p: 1 }}>
-          <Typography color="text.secondary" variant="body2">
+        <div className="flex flex-col gap-2 p-2">
+          <p className="text-sm text-muted-foreground">
             {anyReady
               ? 'No sessions yet. Create one to get started.'
               : 'No sessions yet. Configure a provider before creating a session.'}
-          </Typography>
+          </p>
           {!anyReady ? (
             <Button
+              className="self-start"
               onClick={() => {
                 navigate({ to: '/settings' }).catch(() => undefined);
               }}
-              size="small"
-              variant="outlined"
+              size="sm"
+              variant="outline"
             >
               Open Settings
             </Button>
           ) : null}
-        </Stack>
+        </div>
       ) : (
-        <Box sx={{ overflow: 'auto', py: 0.5 }}>
+        <div className="overflow-auto py-1">
           {sessions.map(entry => (
             <SessionRosterRow
               entry={entry}
@@ -107,10 +100,10 @@ export const SessionHistory: FC = () => {
               selected={selectedSessionId === entry.sessionId}
             />
           ))}
-        </Box>
+        </div>
       )}
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
-    </Box>
+    </div>
   );
 };

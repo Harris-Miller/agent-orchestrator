@@ -1,27 +1,10 @@
 import { useAtomValue } from '@effect/atom-react';
-import { alwaysHiddenGlobsAtom } from '@lib/ui';
+import { alwaysHiddenGlobsAtom, Button, Checkbox, Dialog, DialogContent, Input } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import FolderOutlined from '@mui/icons-material/FolderOutlined';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
-import SubdirectoryArrowLeft from '@mui/icons-material/SubdirectoryArrowLeft';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import Dialog from '@mui/material/Dialog';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import IconButton from '@mui/material/IconButton';
-import InputBase from '@mui/material/InputBase';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { Fzf } from 'fzf';
+import { ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon, CornerUpLeftIcon, FolderIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent } from 'react';
 
@@ -47,23 +30,9 @@ const errorMessage = (cause: unknown): string => {
 };
 
 const Keycap: FC<{ readonly label: string }> = ({ label }) => (
-  <Box
-    component="span"
-    sx={{
-      bgcolor: 'action.hover',
-      border: 1,
-      borderColor: 'divider',
-      borderRadius: 0.75,
-      color: 'text.secondary',
-      fontFamily: 'monospace',
-      fontSize: '0.7rem',
-      lineHeight: 1.4,
-      px: 0.75,
-      py: 0.15,
-    }}
-  >
+  <span className="rounded-sm border border-border bg-muted px-1.5 py-px font-mono text-[0.7rem] leading-snug text-muted-foreground">
     {label}
-  </Box>
+  </span>
 );
 
 /** Directory picker only — caller owns what happens with the chosen cwd (Virtual session cwd, etc.). */
@@ -256,189 +225,136 @@ export const CreateSessionDirectoryPicker: FC<{
 
   return (
     <Dialog
-      fullWidth
-      maxWidth="sm"
-      onClose={(_event, reason) => {
-        if (reason === 'backdropClick') {
-          return;
+      disablePointerDismissal
+      onOpenChange={open => {
+        if (!open) {
+          onClose();
         }
-        onClose();
       }}
-      onKeyDown={onKeyDown}
       open
-      slotProps={{
-        paper: {
-          sx: {
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 2,
-            overflow: 'hidden',
-          },
-        },
-      }}
     >
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', borderBottom: 1, borderColor: 'divider', gap: 1, px: 1.5, py: 1.25 }}
-      >
-        <IconButton
-          aria-label="Go to parent directory"
-          disabled={browsePath === undefined || homePath === undefined || browsePath === homePath || loading}
-          edge="start"
-          onClick={() => {
-            navigateParent();
-          }}
-          size="small"
-        >
-          <ArrowBack fontSize="small" />
-        </IconButton>
-        <InputBase
-          fullWidth
-          inputRef={inputRef}
-          onChange={event => {
-            onInputChange(event.target.value);
-          }}
-          placeholder="~/…"
-          sx={{
-            flex: 1,
-            fontFamily: 'monospace',
-            fontSize: '0.9rem',
-            minWidth: 0,
-          }}
-          value={inputValue}
-        />
-        <Button
-          disabled={browsePath === undefined || loading}
-          onClick={() => {
-            confirmBrowsePath();
-          }}
-          size="small"
-          sx={{ flexShrink: 0, textTransform: 'none' }}
-          variant="outlined"
-        >
-          Select
-        </Button>
-      </Stack>
-
-      <Box sx={{ height: 360, overflow: 'auto', px: 1.5, py: 1 }}>
-        <Typography color="text.secondary" sx={{ mb: 0.75, px: 0.5 }} variant="caption">
-          Directories
-        </Typography>
-        {error !== undefined ? (
-          <Typography color="error" sx={{ px: 0.5 }} variant="body2">
-            {error}
-          </Typography>
-        ) : null}
-        {loading && entries.length === 0 ? (
-          <Typography color="text.secondary" sx={{ px: 0.5 }} variant="body2">
-            Loading…
-          </Typography>
-        ) : null}
-        {!loading && error === undefined && visibleRows.length === 0 ? (
-          <Typography color="text.secondary" sx={{ px: 0.5 }} variant="body2">
-            No directories
-          </Typography>
-        ) : null}
-        <List dense disablePadding>
-          {visibleRows.map((name, index) => {
-            const isParent = name === PARENT_DIR_ENTRY;
-            const selected = index === clampedFocus;
-            return (
-              <ListItemButton
-                key={name}
-                onClick={() => {
-                  selectRow(name);
-                }}
-                onMouseEnter={() => {
-                  setFocusedIndex(index);
-                }}
-                selected={selected}
-                sx={{ borderRadius: 1, mb: 0.25 }}
-              >
-                <ListItemIcon sx={{ color: 'text.secondary', minWidth: 36 }}>
-                  {isParent ? <SubdirectoryArrowLeft fontSize="small" /> : <FolderOutlined fontSize="small" />}
-                </ListItemIcon>
-                <ListItemText
-                  primary={name}
-                  slotProps={{
-                    primary: {
-                      noWrap: true,
-                      sx: { fontFamily: 'monospace', fontSize: '0.875rem' },
-                    },
-                  }}
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </Box>
-
-      <Stack
-        direction="row"
-        spacing={2}
-        sx={{
-          alignItems: 'center',
-          borderColor: 'divider',
-          borderTop: 1,
-          color: 'text.secondary',
-          flexWrap: 'wrap',
-          gap: 1.5,
-          justifyContent: 'space-between',
-          px: 1.5,
-          py: 1,
-        }}
-      >
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <KeyboardArrowUp fontSize="inherit" sx={{ fontSize: '1rem' }} />
-            <KeyboardArrowDown fontSize="inherit" sx={{ fontSize: '1rem' }} />
-            <Typography variant="caption">Navigate</Typography>
-          </Stack>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <Keycap label="Enter" />
-            <Typography variant="caption">Open folder</Typography>
-          </Stack>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <Keycap label="Backspace" />
-            <Typography variant="caption">Back</Typography>
-          </Stack>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <Keycap label="Esc" />
-            <Typography variant="caption">Close</Typography>
-          </Stack>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <Keycap label={showHiddenShortcutLabel} />
-            <Typography variant="caption">Show hidden</Typography>
-          </Stack>
-        </Stack>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={showHidden}
-                disabled={loading || browsePath === undefined}
-                onChange={(_event, checked) => {
-                  setShowHiddenAndReload(checked);
-                }}
-                size="small"
-              />
-            }
-            label={<Typography variant="caption">Show hidden</Typography>}
-            sx={{ m: 0 }}
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" onKeyDown={onKeyDown} showCloseButton={false}>
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+          <Button
+            aria-label="Go to parent directory"
+            disabled={browsePath === undefined || homePath === undefined || browsePath === homePath || loading}
+            onClick={() => {
+              navigateParent();
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ArrowLeftIcon />
+          </Button>
+          <Input
+            className="min-w-0 flex-1 border-0 font-mono text-sm shadow-none focus-visible:ring-0"
+            onChange={event => {
+              onInputChange(event.target.value);
+            }}
+            placeholder="~/…"
+            ref={inputRef}
+            value={inputValue}
           />
           <Button
+            className="shrink-0"
+            disabled={browsePath === undefined || loading}
             onClick={() => {
-              openFinder();
+              confirmBrowsePath();
             }}
-            size="small"
-            sx={{ textTransform: 'none' }}
+            size="sm"
+            variant="outline"
           >
-            Open in Finder
+            Select
           </Button>
-        </Stack>
-      </Stack>
+        </div>
+
+        <div className="h-[360px] overflow-auto px-3 py-2">
+          <p className="mb-1.5 px-1 text-xs text-muted-foreground">Directories</p>
+          {error !== undefined ? <p className="px-1 text-sm text-destructive">{error}</p> : null}
+          {loading && entries.length === 0 ? <p className="px-1 text-sm text-muted-foreground">Loading…</p> : null}
+          {!loading && error === undefined && visibleRows.length === 0 ? (
+            <p className="px-1 text-sm text-muted-foreground">No directories</p>
+          ) : null}
+          <div className="flex flex-col gap-0.5">
+            {visibleRows.map((name, index) => {
+              const isParent = name === PARENT_DIR_ENTRY;
+              const selected = index === clampedFocus;
+              return (
+                <button
+                  className={
+                    selected
+                      ? 'flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-left text-sm'
+                      : 'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted'
+                  }
+                  key={name}
+                  onClick={() => {
+                    selectRow(name);
+                  }}
+                  onMouseEnter={() => {
+                    setFocusedIndex(index);
+                  }}
+                  type="button"
+                >
+                  {isParent ? (
+                    <CornerUpLeftIcon className="size-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="truncate font-mono">{name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-0.5">
+              <ChevronUpIcon className="size-4" />
+              <ChevronDownIcon className="size-4" />
+              Navigate
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Keycap label="Enter" />
+              Open folder
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Keycap label="Backspace" />
+              Back
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Keycap label="Esc" />
+              Close
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Keycap label={showHiddenShortcutLabel} />
+              Show hidden
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="inline-flex items-center gap-2">
+              <Checkbox
+                aria-labelledby="show-hidden-directories-label"
+                checked={showHidden}
+                disabled={loading || browsePath === undefined}
+                onCheckedChange={checked => {
+                  setShowHiddenAndReload(checked);
+                }}
+              />
+              <span id="show-hidden-directories-label">Show hidden</span>
+            </span>
+            <Button
+              onClick={() => {
+                openFinder();
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              Open in Finder
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 };

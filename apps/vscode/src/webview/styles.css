@@ -1,3 +1,13 @@
 @import "@lib/ui/styles.css";
 
 @source ".";
+
+.ao-app-layout {
+  --focus-border: var(--primary);
+  --sash-hover-size: 3px;
+  --separator-border: var(--border);
+}
+
+.ao-app-layout .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before {
+  background-color: var(--border);
+}

@@ -1,5 +1,4 @@
-import { PanelHeader } from '@lib/ui';
-import Box from '@mui/material/Box';
+import { Button } from '@lib/ui';
 import type { FC } from 'react';
 
 export const RIGHT_PANEL_WIDTH = 380;
@@ -8,16 +7,12 @@ export const RIGHT_PANEL_WIDTH = 380;
 export const RightPanelPlaceholder: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => (
-  <Box
-    sx={{
-      bgcolor: 'background.paper',
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      minHeight: 0,
-    }}
-  >
-    <PanelHeader closeAriaLabel="Close panel" closeGlyph="›" onClose={onClose} title="Panel" />
-  </Box>
+  <div className="box-border flex h-full min-h-0 flex-col bg-card">
+    <div className="flex min-h-[49px] shrink-0 items-center justify-between border-b border-border px-4">
+      <h2 className="text-lg font-medium">Panel</h2>
+      <Button aria-label="Close panel" onClick={onClose} size="icon-sm" variant="ghost">
+        ›
+      </Button>
+    </div>
+  </div>
 );

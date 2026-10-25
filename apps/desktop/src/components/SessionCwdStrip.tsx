@@ -6,8 +6,7 @@ import {
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
-import FolderOpen from '@mui/icons-material/FolderOpen';
-import Box from '@mui/material/Box';
+import { FolderOpenIcon } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -35,36 +34,29 @@ export const SessionCwdStrip: FC = () => {
 
   return (
     <>
-      <Box
-        component={canPick ? 'button' : 'div'}
-        disabled={canPick ? false : undefined}
-        onClick={
-          canPick
-            ? () => {
-                setPickerOpen(true);
-              }
-            : undefined
-        }
-        sx={{
-          '&:disabled': { opacity: 0.5 },
-          '&:hover:not(:disabled)': canPick ? { color: 'text.primary' } : undefined,
-          alignItems: 'center',
-          background: 'none',
-          border: 'none',
-          color: 'inherit',
-          cursor: canPick ? 'pointer' : 'default',
-          display: 'inline-flex',
-          font: 'inherit',
-          fontSize: 12,
-          gap: 0.75,
-          opacity: isVirtual && inFlight ? 0.5 : 1,
-          p: 0,
-        }}
-        type={canPick ? 'button' : undefined}
-      >
-        <FolderOpen sx={{ fontSize: 14 }} />
-        <span>{label}</span>
-      </Box>
+      {canPick ? (
+        <button
+          className="inline-flex items-center gap-1.5 border-0 bg-transparent p-0 text-xs text-inherit hover:text-foreground disabled:opacity-50"
+          onClick={() => {
+            setPickerOpen(true);
+          }}
+          type="button"
+        >
+          <FolderOpenIcon className="size-3.5" />
+          <span>{label}</span>
+        </button>
+      ) : (
+        <div
+          className={
+            isVirtual && inFlight
+              ? 'inline-flex items-center gap-1.5 text-xs opacity-50'
+              : 'inline-flex items-center gap-1.5 text-xs'
+          }
+        >
+          <FolderOpenIcon className="size-3.5" />
+          <span>{label}</span>
+        </div>
+      )}
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
           onClose={() => {

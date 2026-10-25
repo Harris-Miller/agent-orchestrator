@@ -4,12 +4,12 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   AgentLaunchTargetIcon,
   allotmentSashSx,
+  Button,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
   isRecord,
   OpenDeveloperPanelButton,
-  PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -22,8 +22,6 @@ import {
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { useEffect, useRef, useState } from 'react';
@@ -164,48 +162,33 @@ export const AgentChatWorkbench: FC<{
 
             <Allotment.Pane minSize={280}>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-                <Box
-                  sx={{
-                    alignItems: 'center',
-                    bgcolor: 'background.paper',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    flexShrink: 0,
-                    gap: 1,
-                    minHeight: PANEL_HEADER_HEIGHT,
-                    px: 2,
-                  }}
-                >
+                <div className="box-border flex min-h-[49px] shrink-0 items-center gap-2 border-b border-border bg-card px-4">
                   {layout.sessionRosterOpen ? null : (
                     <Button
                       onClick={() => {
                         commitLayout({ sessionRosterOpen: true });
                       }}
-                      size="small"
-                      variant="outlined"
+                      size="sm"
+                      variant="outline"
                     >
                       Sessions
                     </Button>
                   )}
                   {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-                  <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
-                    {title}
-                  </Typography>
+                  <h1 className="min-w-0 flex-1 truncate text-lg font-medium">{title}</h1>
                   <OpenDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
                     <Button
                       onClick={() => {
                         commitLayout({ sessionStateOpen: true });
                       }}
-                      size="small"
-                      variant="outlined"
+                      size="sm"
+                      variant="outline"
                     >
                       Panel
                     </Button>
                   )}
-                </Box>
+                </div>
 
                 <SessionChatBody aboveComposer={<SessionCwdStrip />} onClientError={onClientError} />
               </Box>

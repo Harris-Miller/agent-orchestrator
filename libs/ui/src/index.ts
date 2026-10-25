@@ -58,13 +58,43 @@ export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
-export * from './components/sessionRoster/AgentLaunchTargetMenu.tsx';
-
 export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionRoster/SessionRosterRow.tsx';
 export * from './components/sessionRoster/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';
+export { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './components/ui/accordion.tsx';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './components/ui/alert-dialog.tsx';
+export { Alert, AlertDescription, AlertTitle } from './components/ui/alert.tsx';
+export { Button } from './components/ui/button.tsx';
+export { Checkbox } from './components/ui/checkbox.tsx';
+export {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './components/ui/dialog.tsx';
+export {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './components/ui/dropdown-menu.tsx';
+export { Input } from './components/ui/input.tsx';
+export { Spinner } from './components/ui/spinner.tsx';
+export { toast, Toaster } from './components/ui/toast.tsx';
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip.tsx';
 export * from './components/UserSettingsLoadFailureAlert.tsx';
 export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';

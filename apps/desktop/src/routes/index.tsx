@@ -1,8 +1,5 @@
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Snackbar from '@mui/material/Snackbar';
+import { toast, Toaster } from '@lib/ui';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import type { FC } from 'react';
 
 import { AgentChatWorkbench } from '../components/AgentChatWorkbench.tsx';
@@ -14,39 +11,16 @@ const formatClientError = (error: unknown): string => {
   return String(error);
 };
 
-const Index: FC = () => {
-  const [clientError, setClientError] = useState<null | string>(null);
-
-  return (
-    <Box sx={{ height: '100vh', overflow: 'hidden' }}>
-      <AgentChatWorkbench
-        onClientError={error => {
-          setClientError(formatClientError(error));
-        }}
-      />
-
-      <Snackbar
-        anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-        autoHideDuration={6000}
-        onClose={() => {
-          setClientError(null);
-        }}
-        open={clientError !== null}
-      >
-        <Alert
-          onClose={() => {
-            setClientError(null);
-          }}
-          severity="error"
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {clientError}
-        </Alert>
-      </Snackbar>
-    </Box>
-  );
-};
+const Index: FC = () => (
+  <div className="h-screen overflow-hidden">
+    <AgentChatWorkbench
+      onClientError={error => {
+        toast.add({ description: formatClientError(error), timeout: 6000, title: 'Error', type: 'error' });
+      }}
+    />
+    <Toaster />
+  </div>
+);
 
 export const Route = createFileRoute('/')({
   component: Index,

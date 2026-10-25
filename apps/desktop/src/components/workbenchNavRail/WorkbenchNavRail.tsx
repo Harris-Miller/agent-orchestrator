@@ -1,35 +1,28 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { NavSessionGroup, UnifiedRosterEntry } from '@lib/ui';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  Button,
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   navSessionGroupStableKey,
-  PanelHeader,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
   SessionRosterRow,
   showNoFolderGroupAtom,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
-import Add from '@mui/icons-material/Add';
-import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
-import FolderOutlined from '@mui/icons-material/FolderOutlined';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Tooltip from '@mui/material/Tooltip';
-import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { FolderIcon, FolderOpenIcon, PlusIcon, RotateCwIcon, SettingsIcon } from 'lucide-react';
 import type { FC } from 'react';
 
 import { directoryBasename } from '../../directoryBasename.ts';
@@ -77,149 +70,121 @@ export const WorkbenchNavRail: FC<{
 
   return (
     <>
-      <Box
-        sx={{
-          bgcolor: 'background.paper',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          minHeight: 0,
-        }}
-      >
-        <PanelHeader
-          closeAriaLabel="Close session roster panel"
-          closeGlyph="‹"
-          onClose={onClose}
-          title="Sessions"
-          titleEnd={
-            <IconButton
+      <div className="box-border flex h-full min-h-0 flex-col bg-card">
+        <div className="flex min-h-[49px] shrink-0 items-center justify-between border-b border-border px-4">
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 className="text-lg font-medium">Sessions</h2>
+            <Button
               aria-label="Reload sessions"
               onClick={() => {
                 refreshAllSessionRosters(undefined).catch(() => undefined);
               }}
-              size="small"
+              size="icon-sm"
+              variant="ghost"
             >
-              <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-                ↻
-              </Typography>
-            </IconButton>
-          }
-        />
-        <Box sx={{ flexShrink: 0, p: 2 }}>
+              <RotateCwIcon />
+            </Button>
+          </div>
+          <Button aria-label="Close session roster panel" onClick={onClose} size="icon-sm" variant="ghost">
+            ‹
+          </Button>
+        </div>
+        <div className="shrink-0 p-4">
           <Button
-            fullWidth
+            className="w-full"
             onClick={() => {
               ensureVirtualSession(undefined).catch(() => undefined);
             }}
-            variant="contained"
           >
             Create New Session
           </Button>
-        </Box>
-        <Divider />
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        </div>
+        <div className="h-px bg-border" />
+        <div className="min-h-0 flex-1 overflow-auto">
           {roster.length === 0 ? (
-            <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
-              No sessions yet. Create one to get started.
-            </Typography>
+            <p className="p-4 text-sm text-muted-foreground">No sessions yet. Create one to get started.</p>
           ) : (
-            <Box sx={{ py: 0.5 }}>
+            <div className="py-1">
               {navGroups.map(group => {
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;
                 return (
-                  <Accordion
-                    defaultExpanded
-                    disableGutters
-                    elevation={0}
-                    key={presentation.key}
-                    square
-                    sx={{
-                      '&::before': { display: 'none' },
-                      bgcolor: 'transparent',
-                    }}
-                  >
-                    <AccordionSummary
-                      sx={{
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                        },
-                        '& .folder-open': { display: 'none' },
-                        '&.Mui-expanded .folder-closed': { display: 'none' },
-                        '&.Mui-expanded .folder-open': { display: 'inline-flex' },
-                        '& .MuiAccordionSummary-content': {
-                          alignItems: 'center',
-                          gap: 0.75,
-                          m: 0,
-                          width: '100%',
-                        },
-                        fontWeight: 600,
-                        minHeight: 0,
-                        px: 2,
-                        py: 1,
-                      }}
-                    >
-                      <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                      <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                      <Tooltip title={presentation.tooltip}>
-                        <Box
-                          component="span"
-                          sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
-                        >
-                          {presentation.label}
-                        </Box>
-                      </Tooltip>
-                      {createCwdForGroup !== undefined ? (
-                        <IconButton
-                          aria-label={`Create session in ${presentation.label}`}
-                          component="span"
-                          edge="end"
-                          onClick={event => {
-                            event.stopPropagation();
-                            ensureVirtualSession({
-                              cwd: createCwdForGroup,
-                              patchCwdIfSelectedVirtual: true,
-                            }).catch(() => undefined);
-                          }}
-                          size="small"
-                          sx={{ flexShrink: 0, ml: 'auto' }}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      ) : null}
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                      {group.sessions.map(entry => (
-                        <SessionRosterRow
-                          entry={entry}
-                          key={`${entry.launchTarget}:${entry.sessionId}`}
-                          onDeleteRequest={requestDelete}
-                          selected={selectedSessionId === entry.sessionId}
-                        />
-                      ))}
-                    </AccordionDetails>
+                  <Accordion defaultValue={[presentation.key]} key={presentation.key}>
+                    <AccordionItem className="border-0" value={presentation.key}>
+                      <AccordionTrigger className="px-4 py-2 hover:bg-muted hover:no-underline **:data-[slot=accordion-trigger-icon]:hidden">
+                        <FolderIcon className="size-4 shrink-0 group-aria-expanded/accordion-trigger:hidden" />
+                        <FolderOpenIcon className="hidden size-4 shrink-0 group-aria-expanded/accordion-trigger:inline" />
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={<span className="min-w-0 flex-1 text-left wrap-anywhere whitespace-normal" />}
+                            >
+                              {presentation.label}
+                            </TooltipTrigger>
+                            <TooltipContent>{presentation.tooltip}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        {createCwdForGroup !== undefined ? (
+                          <span
+                            aria-label={`Create session in ${presentation.label}`}
+                            className="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-background"
+                            onClick={event => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              ensureVirtualSession({
+                                cwd: createCwdForGroup,
+                                patchCwdIfSelectedVirtual: true,
+                              }).catch(() => undefined);
+                            }}
+                            onKeyDown={event => {
+                              if (event.key !== 'Enter' && event.key !== ' ') {
+                                return;
+                              }
+                              event.preventDefault();
+                              event.stopPropagation();
+                              ensureVirtualSession({
+                                cwd: createCwdForGroup,
+                                patchCwdIfSelectedVirtual: true,
+                              }).catch(() => undefined);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <PlusIcon className="size-4" />
+                          </span>
+                        ) : null}
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-0">
+                        {group.sessions.map(entry => (
+                          <SessionRosterRow
+                            entry={entry}
+                            key={`${entry.launchTarget}:${entry.sessionId}`}
+                            onDeleteRequest={requestDelete}
+                            selected={selectedSessionId === entry.sessionId}
+                          />
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
                   </Accordion>
                 );
               })}
-            </Box>
+            </div>
           )}
-        </Box>
-        <Divider />
-        <Box sx={{ flexShrink: 0, p: 1 }}>
-          <ListItemButton
+        </div>
+        <div className="h-px bg-border" />
+        <div className="shrink-0 p-2">
+          <Button
+            className="w-full justify-start"
             onClick={() => {
               navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
             }}
-            sx={{ borderRadius: 1 }}
+            variant="ghost"
           >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <SettingsOutlined fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Settings" />
-          </ListItemButton>
-        </Box>
-      </Box>
+            <SettingsIcon />
+            Settings
+          </Button>
+        </div>
+      </div>
 
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} target={deleteTarget} />
     </>

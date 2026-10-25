@@ -1,8 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
 import type { SessionSnapshot } from '@lib/ui';
 import { DeveloperPanelShell, sessionListScopeAtom } from '@lib/ui';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { sessionCwdAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
@@ -15,25 +13,13 @@ const WorkspaceCwdTab: FC = () => {
   const listScope = useAtomValue(sessionListScopeAtom);
 
   return (
-    <Box
-      component="pre"
-      sx={{
-        fontFamily: 'var(--vscode-editor-font-family, monospace)',
-        fontSize: 11,
-        m: 0,
-        p: 2,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-      }}
-    >
-      <Typography component="div" sx={{ display: 'block', fontWeight: 700, mb: 0.5 }} variant="caption">
-        Workspace cwd
-      </Typography>
+    <div className="p-4 font-mono text-[11px] break-all whitespace-pre-wrap">
+      <div className="mb-1 font-bold">Workspace cwd</div>
       {`sessionCwd: ${sessionCwd ?? '(none)'}
 listScope: ${JSON.stringify(listScope)}
 paths (${paths.length}):
 ${paths.length === 0 ? '  (empty)' : paths.map(p => `  - ${p}`).join('\n')}`}
-    </Box>
+    </div>
   );
 };
 

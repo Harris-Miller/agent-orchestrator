@@ -5,7 +5,7 @@ import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionCompose
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
-import Box from '@mui/material/Box';
+import { cn } from 'cn';
 import {
   $createLineBreakNode,
   $createParagraphNode,
@@ -632,48 +632,16 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
 
   return (
     <LexicalExtensionComposer contentEditable={null} extension={extension}>
-      <Box
-        sx={{
-          '& .composer-command-chip-host, & .composer-markdown-link-chip-host': {
-            display: 'inline',
-            verticalAlign: 'baseline',
-          },
-          '& .composer-prompt-editor': {
-            fontSize: '0.875rem',
-            lineHeight: 1.43,
-            maxHeight: 200,
-            minHeight: 40,
-            outline: 'none',
-            overflowY: 'auto',
-            px: 1.5,
-            py: 1,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          },
-          '& .composer-prompt-editor__paragraph': {
-            m: 0,
-          },
-          '& .composer-prompt-editor__placeholder': {
-            color: 'text.secondary',
-            fontSize: '0.875rem',
-            left: 12,
-            lineHeight: 1.43,
-            overflow: 'hidden',
-            pointerEvents: 'none',
-            position: 'absolute',
-            right: 12,
-            textOverflow: 'ellipsis',
-            top: 8,
-            userSelect: 'none',
-            whiteSpace: 'nowrap',
-          },
-          bgcolor: 'background.paper',
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          opacity: disabled ? 0.5 : 1,
-          position: 'relative',
-        }}
+      <div
+        className={cn(
+          'relative rounded-md border border-border bg-card',
+          disabled && 'opacity-50',
+          '[&_.composer-command-chip-host]:inline [&_.composer-command-chip-host]:align-baseline',
+          '[&_.composer-markdown-link-chip-host]:inline [&_.composer-markdown-link-chip-host]:align-baseline',
+          '[&_.composer-prompt-editor]:max-h-[200px] [&_.composer-prompt-editor]:min-h-10 [&_.composer-prompt-editor]:overflow-y-auto [&_.composer-prompt-editor]:px-3 [&_.composer-prompt-editor]:py-2 [&_.composer-prompt-editor]:text-sm [&_.composer-prompt-editor]:leading-[1.43] [&_.composer-prompt-editor]:break-words [&_.composer-prompt-editor]:whitespace-pre-wrap [&_.composer-prompt-editor]:outline-none',
+          '[&_.composer-prompt-editor__paragraph]:m-0',
+          '[&_.composer-prompt-editor__placeholder]:pointer-events-none [&_.composer-prompt-editor__placeholder]:absolute [&_.composer-prompt-editor__placeholder]:top-2 [&_.composer-prompt-editor__placeholder]:right-3 [&_.composer-prompt-editor__placeholder]:left-3 [&_.composer-prompt-editor__placeholder]:overflow-hidden [&_.composer-prompt-editor__placeholder]:text-sm [&_.composer-prompt-editor__placeholder]:leading-[1.43] [&_.composer-prompt-editor__placeholder]:text-ellipsis [&_.composer-prompt-editor__placeholder]:whitespace-nowrap [&_.composer-prompt-editor__placeholder]:text-muted-foreground [&_.composer-prompt-editor__placeholder]:select-none',
+        )}
       >
         <PlainTextPlugin
           contentEditable={
@@ -686,7 +654,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           }
           ErrorBoundary={ComposerErrorBoundary}
         />
-      </Box>
+      </div>
       <HistoryPlugin />
       <OnChangePlugin
         onChange={editorState => {

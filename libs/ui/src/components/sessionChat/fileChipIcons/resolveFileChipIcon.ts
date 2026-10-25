@@ -1,14 +1,9 @@
-import Link from '@mui/icons-material/Link';
-import type { SvgIconProps } from '@mui/material/SvgIcon';
-import type { ComponentType } from 'react';
-
 import type { ThemeId } from '../../../theme/themeId.ts';
 
 import type { FileIconPackId } from './packId.ts';
 import { getPackSvg, svgToDataUrl } from './packs.ts';
 
-export type FileChipIcon =
-  { readonly Icon: ComponentType<SvgIconProps>; readonly kind: 'mui' } | { readonly kind: 'svg'; readonly url: string };
+export type FileChipIcon = { readonly kind: 'lucide' } | { readonly kind: 'svg'; readonly url: string };
 
 const EXT_TO_KEY: Readonly<Record<string, string>> = {
   bash: 'sh',
@@ -118,7 +113,7 @@ const svgIcon = (key: string, themeId: ThemeId): FileChipIcon => {
   const svg = getPackSvg(packId, key) ?? getPackSvg(packId, 'default-file');
   if (svg === undefined) {
     // Packs always ship default-file; keep a Link fallback if assets fail to load in tests.
-    return { Icon: Link, kind: 'mui' };
+    return { kind: 'lucide' };
   }
   return { kind: 'svg', url: svgToDataUrl(svg) };
 };
@@ -135,7 +130,7 @@ export const resolveFileChipIcon = (
     return svgIcon('default-folder', themeId);
   }
   if (!isPathLikeHref(href)) {
-    return { Icon: Link, kind: 'mui' };
+    return { kind: 'lucide' };
   }
   const fromHref = basenameFromHref(href);
   const basename = fromHref !== undefined && fromHref.length > 0 ? fromHref : basenameForLookup(input.label);

@@ -24,9 +24,9 @@ const TranscriptChip: FC<TranscriptChipProps> = props => {
   return (
     <span className="inline" data-copy-text={copyText} data-testid={testId}>
       {props.kind === 'command' ? (
-        <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
+        <ComposerChipContent className="select-text" kind="command" label={props.label} />
       ) : (
-        <ComposerChipContent href={props.href} kind="markdownLink" label={props.label} sx={{ userSelect: 'text' }} />
+        <ComposerChipContent className="select-text" href={props.href} kind="markdownLink" label={props.label} />
       )}
     </span>
   );

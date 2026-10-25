@@ -1,22 +1,19 @@
-import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
+import { cn } from 'cn';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
-import { useComposerChromeMenu } from './composerChromeMenu.ts';
 import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
 
-/** Pill for a select Config option — current value only; Menu for choices. */
+/** Pill for a select Config option — current value only; menu for choices. */
 export const SessionConfigOptionSelect: FC<{
   readonly disabled: boolean;
   readonly onChange: (configId: string, value: string) => void;
   readonly option: NormalizedSelectConfigOption;
   readonly unavailableModelIds?: readonly string[];
 }> = ({ disabled, onChange, option, unavailableModelIds }) => {
-  const menu = useComposerChromeMenu();
   const choices = selectChoiceViews(option, unavailableModelIds);
 
   if (choices.length === 0) {
@@ -24,26 +21,30 @@ export const SessionConfigOptionSelect: FC<{
   }
 
   return (
-    <>
-      <ComposerChromeChip disabled={disabled} onClick={menu.openFromClick}>
+    <DropdownMenu>
+      <DropdownMenuTrigger disabled={disabled} render={<ComposerChromeChip disabled={disabled} />}>
         {configOptionChoiceLabel(option)}
-      </ComposerChromeChip>
-      <Menu {...menu.menuProps} sx={{ maxWidth: 360 }}>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="max-w-[360px]" side="top">
         {choices.map(choice => (
-          <MenuItem
+          <DropdownMenuItem
+            className={cn('items-start whitespace-normal', option.currentValue === choice.id && 'bg-accent')}
+            closeOnClick
             disabled={choice.disabled}
             key={choice.id}
             onClick={() => {
               onChange(option.id, choice.id);
-              menu.close();
             }}
-            selected={option.currentValue === choice.id}
-            sx={{ alignItems: 'flex-start', whiteSpace: 'normal' }}
           >
-            <ListItemText primary={choice.label} secondary={choice.description} />
-          </MenuItem>
+            <span className="flex flex-col">
+              <span>{choice.label}</span>
+              {choice.description !== undefined ? (
+                <span className="text-xs text-muted-foreground">{choice.description}</span>
+              ) : null}
+            </span>
+          </DropdownMenuItem>
         ))}
-      </Menu>
-    </>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

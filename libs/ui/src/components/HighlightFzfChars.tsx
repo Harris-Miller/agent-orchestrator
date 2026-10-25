@@ -1,6 +1,5 @@
 /** Render a string with fzf match indices emphasized (and optional bold tail). */
-import Box from '@mui/material/Box';
-import { alpha } from '@mui/material/styles';
+import { cn } from 'cn';
 import type { FC, ReactNode } from 'react';
 
 export type HighlightFzfCharsProps = {
@@ -18,17 +17,12 @@ export const HighlightFzfChars: FC<HighlightFzfCharsProps> = ({ boldFrom, positi
     const highlighted = positions.has(index);
     const bold = boldFrom !== undefined && index >= boldFrom;
     nodes.push(
-      <Box
-        component="span"
+      <span
+        className={cn((highlighted || bold) && 'font-bold', highlighted && 'rounded-xs bg-amber-400/30')}
         key={`fzf-${String(index)}`}
-        sx={{
-          bgcolor: highlighted ? theme => alpha(theme.palette.warning.main, 0.28) : undefined,
-          borderRadius: highlighted ? 0.25 : undefined,
-          fontWeight: highlighted || bold ? 700 : undefined,
-        }}
       >
         {char}
-      </Box>,
+      </span>,
     );
   }
   return nodes;

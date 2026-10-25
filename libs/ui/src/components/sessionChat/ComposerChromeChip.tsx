@@ -1,67 +1,32 @@
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import { styled } from '@mui/material/styles';
-import type { Theme } from '@mui/material/styles';
-import type { FC, MouseEvent, ReactNode } from 'react';
-
-type ChipStyleProps = {
-  readonly active?: boolean;
-  readonly disabled?: boolean;
-};
-
-const composerChromeChipStyle = ({ active = false, disabled = false, theme }: { theme: Theme } & ChipStyleProps) => ({
-  alignItems: 'center',
-  backgroundColor: active ? theme.palette.action.selected : 'transparent',
-  border: 'none',
-  borderRadius: 999,
-  color: theme.palette.text.secondary,
-  display: 'inline-flex',
-  font: 'inherit',
-  fontSize: 13,
-  gap: theme.spacing(0.5),
-  opacity: disabled ? 0.5 : 1,
-  padding: theme.spacing(0.5, 1),
-});
-
-const ComposerChromeChipButton = styled('button', {
-  shouldForwardProp: prop => prop !== 'active',
-})<ChipStyleProps>(({ active = false, disabled = false, theme }) => ({
-  ...composerChromeChipStyle({ active, disabled, theme }),
-  '&:hover': disabled ? undefined : { backgroundColor: theme.palette.action.hover },
-  cursor: disabled ? 'default' : 'pointer',
-}));
-
-const ComposerChromeChipSpan = styled('span', {
-  shouldForwardProp: prop => prop !== 'active' && prop !== 'disabled',
-})<ChipStyleProps>(({ active = false, disabled = false, theme }) => ({
-  ...composerChromeChipStyle({ active, disabled, theme }),
-  cursor: 'default',
-}));
+import { cn } from 'cn';
+import { ChevronDownIcon } from 'lucide-react';
+import type { ComponentProps, FC } from 'react';
 
 /** Pill chip used by composer / handoff Config chrome. */
-export const ComposerChromeChip: FC<{
-  readonly active?: boolean;
-  readonly children: ReactNode;
-  readonly disabled?: boolean;
-  readonly interactive?: boolean;
-  readonly onClick?: (event: MouseEvent<HTMLElement>) => void;
-}> = ({ active, children, disabled = false, interactive = true, onClick }) => {
+export const ComposerChromeChip: FC<
+  {
+    readonly interactive?: boolean;
+  } & ComponentProps<'button'>
+> = ({ children, className, disabled = false, interactive = true, type: _type = 'button', ...props }) => {
+  const classes = cn(
+    'inline-flex items-center gap-1 rounded-full border-0 bg-transparent px-2 py-1 text-[13px] text-muted-foreground',
+    'data-popup-open:bg-accent',
+    disabled ? 'cursor-default opacity-50' : interactive ? 'cursor-pointer hover:bg-muted' : 'cursor-default',
+    className,
+  );
+
   if (!interactive) {
     return (
-      <ComposerChromeChipSpan active={active} aria-disabled={disabled || undefined} disabled={disabled}>
+      <span aria-disabled={disabled || undefined} className={classes}>
         {children}
-      </ComposerChromeChipSpan>
+      </span>
     );
   }
 
   return (
-    <ComposerChromeChipButton
-      active={active}
-      disabled={disabled}
-      onClick={disabled || onClick === undefined ? undefined : onClick}
-      type="button"
-    >
+    <button {...props} className={classes} disabled={disabled} type="button">
       {children}
-      <KeyboardArrowDown sx={{ fontSize: 16, opacity: 0.7 }} />
-    </ComposerChromeChipButton>
+      <ChevronDownIcon className="size-4 opacity-70" />
+    </button>
   );
 };

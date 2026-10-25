@@ -1,9 +1,3 @@
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
@@ -12,6 +6,8 @@ import { hardResetForAgent, optionsWithValues, rowForModel } from '../../host/co
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../../host/configProbe.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
+import { Button } from '../ui/button.tsx';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog.tsx';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { SessionAccessChip } from './SessionAccessChip.tsx';
@@ -62,10 +58,19 @@ export const HandoffModal: FC<{
   };
 
   return (
-    <Dialog fullWidth maxWidth="sm" onClose={onCancel} open={open}>
-      <DialogTitle>Handoff</DialogTitle>
-      <DialogContent>
-        <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+    <Dialog
+      onOpenChange={next => {
+        if (!next) {
+          onCancel();
+        }
+      }}
+      open={open}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Handoff</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-wrap items-center gap-1">
           <SessionAgentChip
             interactive
             onChange={next => {
@@ -95,23 +100,24 @@ export const HandoffModal: FC<{
               unavailableModelIds={index?.unavailableModelIds}
             />
           ))}
-        </Box>
+        </div>
+        <DialogFooter>
+          <Button onClick={onCancel} variant="outline">
+            Cancel
+          </Button>
+          <Button
+            disabled={!canConfirm}
+            onClick={() => {
+              if (targetLaunchTarget === undefined) {
+                return;
+              }
+              onConfirm({ configValues, targetLaunchTarget });
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button
-          disabled={!canConfirm}
-          onClick={() => {
-            if (targetLaunchTarget === undefined) {
-              return;
-            }
-            onConfirm({ configValues, targetLaunchTarget });
-          }}
-          variant="contained"
-        >
-          Confirm
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

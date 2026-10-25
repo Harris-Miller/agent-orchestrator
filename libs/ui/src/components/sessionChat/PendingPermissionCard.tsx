@@ -1,11 +1,8 @@
 import type { RequestPermissionRequest } from '@libs/effect-acp';
-import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { isRecord } from '../../isRecord.ts';
+import { Button } from '../ui/button.tsx';
 
 const toolCallTitle = (request: RequestPermissionRequest): string => {
   const { toolCall } = request;
@@ -23,26 +20,22 @@ export const PendingPermissionCard: FC<{
   readonly onSelect: (optionId: string) => void;
   readonly request: RequestPermissionRequest;
 }> = ({ agentTitle, onSelect, request }) => (
-  <Paper sx={{ bgcolor: 'action.hover', p: 2 }} variant="outlined">
-    <Typography color="text.secondary" variant="caption">
-      {agentTitle} needs permission
-    </Typography>
-    <Typography gutterBottom variant="subtitle1">
-      {toolCallTitle(request)}
-    </Typography>
-    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
+  <div className="rounded-md border border-border bg-muted p-4">
+    <p className="text-xs text-muted-foreground">{agentTitle} needs permission</p>
+    <p className="mb-2 text-base font-medium">{toolCallTitle(request)}</p>
+    <div className="flex flex-wrap gap-2">
       {request.options.map(option => (
         <Button
           key={option.optionId}
           onClick={() => {
             onSelect(option.optionId);
           }}
-          size="small"
-          variant={option.kind.startsWith('allow') ? 'contained' : 'outlined'}
+          size="sm"
+          variant={option.kind.startsWith('allow') ? 'default' : 'outline'}
         >
           {option.name}
         </Button>
       ))}
-    </Stack>
-  </Paper>
+    </div>
+  </div>
 );

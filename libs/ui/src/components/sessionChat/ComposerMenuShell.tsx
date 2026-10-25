@@ -1,25 +1,12 @@
-import Box from '@mui/material/Box';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import Paper from '@mui/material/Paper';
-import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
+import { cn } from 'cn';
 import { createContext, useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 
-const menuShellSx = {
-  bgcolor: 'background.paper',
-  border: 1,
-  borderColor: 'divider',
-  maxHeight: 320,
-  overflow: 'auto',
-} as const;
+import { Skeleton } from '../ui/skeleton.tsx';
 
-type RowRefRegistry = {
+const ComposerMenuRowRefContext = createContext<{
   readonly register: (index: number, node: HTMLElement | null) => void;
-};
-
-const ComposerMenuRowRefContext = createContext<null | RowRefRegistry>(null);
+} | null>(null);
 
 export type ComposerMenuShellProps = {
   readonly children: ReactNode;
@@ -37,10 +24,9 @@ export const ComposerMenuShell: FC<ComposerMenuShellProps> = ({
   open,
 }) => {
   const rowRefs = useRef(new Map<number, HTMLElement>());
-  // Stable registry so Provider value identity does not churn; register closes over rowRefs.
-  const registry = useMemo<RowRefRegistry>(
+  const registry = useMemo(
     () => ({
-      register: (index, node) => {
+      register: (index: number, node: HTMLElement | null) => {
         if (node === null) {
           rowRefs.current.delete(index);
           return;
@@ -63,25 +49,21 @@ export const ComposerMenuShell: FC<ComposerMenuShellProps> = ({
   }
 
   return (
-    <Paper elevation={8} sx={menuShellSx}>
+    <div className="max-h-80 overflow-auto rounded-md border border-border bg-card shadow-lg">
       {loading ? (
-        <Box sx={{ px: 1.5, py: 1 }}>
+        <div className="flex flex-col gap-1 px-3 py-2">
           {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton height={28} key={index} sx={{ mb: 0.5 }} variant="rounded" />
+            <Skeleton className="h-7" key={index} />
           ))}
-        </Box>
+        </div>
       ) : itemCount === 0 ? (
-        <Typography color="text.secondary" sx={{ px: 1.5, py: 1 }} variant="body2">
-          No matches
-        </Typography>
+        <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
       ) : (
         <ComposerMenuRowRefContext.Provider value={registry}>
-          <List dense disablePadding>
-            {children}
-          </List>
+          <div>{children}</div>
         </ComposerMenuRowRefContext.Provider>
       )}
-    </Paper>
+    </div>
   );
 };
 
@@ -106,7 +88,8 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
   const hasSecondary = secondary != null && secondary !== false && secondary !== '';
 
   return (
-    <ListItemButton
+    <button
+      className={cn('w-full px-2 py-1.5 text-left text-sm', selected && 'bg-accent')}
       onClick={onSelect}
       onMouseEnter={() => {
         onFocusIndexChange(index);
@@ -114,19 +97,12 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
       ref={node => {
         registry?.register(index, node);
       }}
-      selected={selected}
-      sx={{ py: 0.75 }}
+      type="button"
     >
-      <Typography component="div" noWrap sx={{ width: '100%' }} variant="body2">
-        <Box component="span" sx={{ fontFamily: 'monospace', mr: hasSecondary ? 1 : 0 }}>
-          {primary}
-        </Box>
-        {hasSecondary ? (
-          <Box component="span" sx={{ color: 'text.secondary' }}>
-            {secondary}
-          </Box>
-        ) : null}
-      </Typography>
-    </ListItemButton>
+      <span className="block w-full truncate">
+        <span className={cn('font-mono', hasSecondary && 'mr-2')}>{primary}</span>
+        {hasSecondary ? <span className="text-muted-foreground">{secondary}</span> : null}
+      </span>
+    </button>
   );
 };

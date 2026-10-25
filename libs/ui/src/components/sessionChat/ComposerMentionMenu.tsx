@@ -1,9 +1,4 @@
 /** Composer `@` filesystem mention menu — virtualized over the full fzf result set. */
-import Box from '@mui/material/Box';
-import List from '@mui/material/List';
-import Paper from '@mui/material/Paper';
-import Skeleton from '@mui/material/Skeleton';
-import Typography from '@mui/material/Typography';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLayoutEffect, useRef } from 'react';
 import type { FC } from 'react';
@@ -11,6 +6,7 @@ import type { FC } from 'react';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingPathBoldFrom } from '../../host/fdListing.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
+import { Skeleton } from '../ui/skeleton.tsx';
 
 import { ComposerMenuRow } from './ComposerMenuShell.tsx';
 import { ListingEntryIcon } from './FileChipIconView.tsx';
@@ -64,29 +60,21 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   }
 
   return (
-    <Paper
-      elevation={8}
+    <div
+      className="max-h-80 overflow-auto rounded-md border border-border bg-card shadow-lg"
       ref={parentRef}
-      sx={{
-        bgcolor: 'background.paper',
-        border: 1,
-        borderColor: 'divider',
-        maxHeight: MENU_MAX_HEIGHT_PX,
-        overflow: 'auto',
-      }}
+      style={{ maxHeight: MENU_MAX_HEIGHT_PX }}
     >
       {loading ? (
-        <Box sx={{ px: 1.5, py: 1 }}>
+        <div className="flex flex-col gap-1 px-3 py-2">
           {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton height={28} key={index} sx={{ mb: 0.5 }} variant="rounded" />
+            <Skeleton className="h-7" key={index} />
           ))}
-        </Box>
+        </div>
       ) : matches.length === 0 ? (
-        <Typography color="text.secondary" sx={{ px: 1.5, py: 1 }} variant="body2">
-          No matches
-        </Typography>
+        <p className="px-3 py-2 text-sm text-muted-foreground">No matches</p>
       ) : (
-        <List dense disablePadding sx={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
           {rowVirtualizer.getVirtualItems().map(virtualRow => {
             const match = matches.at(virtualRow.index);
             if (match == null) {
@@ -94,11 +82,11 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
             }
             const { boldFrom, path } = listingPathBoldFrom(match.entry);
             return (
-              <Box
+              <div
                 data-index={virtualRow.index}
                 key={virtualRow.key}
                 ref={rowVirtualizer.measureElement}
-                sx={{
+                style={{
                   left: 0,
                   position: 'absolute',
                   top: 0,
@@ -113,20 +101,20 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
                     onSelect(match.entry);
                   }}
                   primary={
-                    <Box component="span" sx={{ alignItems: 'center', display: 'inline-flex', gap: 0.75, minWidth: 0 }}>
-                      <ListingEntryIcon entry={match.entry} sx={{ fontSize: '1rem', height: '1rem', width: '1rem' }} />
-                      <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <ListingEntryIcon className="size-4" entry={match.entry} />
+                      <span className="min-w-0 truncate">
                         <HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />
-                      </Box>
-                    </Box>
+                      </span>
+                    </span>
                   }
                   selected={virtualRow.index === focusedIndex}
                 />
-              </Box>
+              </div>
             );
           })}
-        </List>
+        </div>
       )}
-    </Paper>
+    </div>
   );
 };

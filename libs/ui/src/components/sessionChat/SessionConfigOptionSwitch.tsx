@@ -1,9 +1,7 @@
-import Box from '@mui/material/Box';
-import Switch from '@mui/material/Switch';
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { NormalizedBooleanConfigOption } from '../../host/acpSessionBootstrap.ts';
+import { Switch } from '../ui/switch.tsx';
 
 export const SessionConfigOptionSwitch: FC<{
   readonly disabled: boolean;
@@ -13,30 +11,21 @@ export const SessionConfigOptionSwitch: FC<{
   const id = `acp-config-${option.id}`;
 
   return (
-    <Box
-      component="label"
-      htmlFor={id}
-      sx={{
-        alignItems: 'center',
-        cursor: disabled ? 'default' : 'pointer',
-        display: 'inline-flex',
-        gap: 0.75,
-        userSelect: 'none',
-      }}
+    <span
+      className={`inline-flex items-center gap-1.5 select-none ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
       title={option.description}
     >
       <Switch
+        aria-labelledby={id}
         checked={option.currentValue === true}
         disabled={disabled}
-        id={id}
-        onChange={event => {
-          onChange(option.id, event.target.checked);
+        onCheckedChange={checked => {
+          onChange(option.id, checked);
         }}
-        sx={{ m: 0 }}
       />
-      <Typography color={disabled ? 'text.disabled' : 'text.primary'} variant="body2">
+      <span className={disabled ? 'text-sm text-muted-foreground' : 'text-sm'} id={id}>
         {option.name}
-      </Typography>
-    </Box>
+      </span>
+    </span>
   );
 };

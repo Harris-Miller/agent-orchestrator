@@ -1,14 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import ArrowUpward from '@mui/icons-material/ArrowUpward';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import Stop from '@mui/icons-material/Stop';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
-import CircularProgress from '@mui/material/CircularProgress';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import Paper from '@mui/material/Paper';
+import { ArrowUpIcon, ChevronDownIcon, SquareIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -36,7 +27,8 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
 import { Alert, AlertDescription } from '../ui/alert.tsx';
-import { Button as VegaButton } from '../ui/button.tsx';
+import { Button } from '../ui/button.tsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu.tsx';
 import { Spinner } from '../ui/spinner.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
@@ -126,7 +118,6 @@ export const SessionChatBody: FC<{
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
-  const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
   const [composerTrigger, setComposerTrigger] = useState<ComposerTrigger | null>(null);
   const [commandFocusIndex, setCommandFocusIndex] = useState(0);
@@ -428,7 +419,7 @@ export const SessionChatBody: FC<{
             <AlertDescription>
               Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
             </AlertDescription>
-            <VegaButton
+            <Button
               onClick={() => {
                 activateSession({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId }).catch(
                   onClientError,
@@ -438,7 +429,7 @@ export const SessionChatBody: FC<{
               variant="outline"
             >
               Retry
-            </VegaButton>
+            </Button>
           </Alert>
         );
       }
@@ -461,28 +452,15 @@ export const SessionChatBody: FC<{
   }, [chatItems, selectedSession?.pendingElicitation, selectedSession?.pendingPermission]);
 
   return (
-    <Box
-      component="main"
-      sx={{
-        bgcolor: 'background.default',
-        display: 'flex',
-        flex: 1,
-        flexDirection: 'column',
-        gap: 0.5,
-        minHeight: 0,
-        minWidth: 0,
-        overflow: 'hidden',
-        p: 0.5,
-      }}
-    >
-      <Box
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden bg-background p-1">
+      <div
+        className="min-h-0 flex-1 overflow-auto p-1"
         onScroll={event => {
           const target = event.currentTarget;
           pinnedToBottomRef.current =
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <div>
           {chatItems.length === 0 && !hasPendingInteraction ? (
@@ -538,45 +516,21 @@ export const SessionChatBody: FC<{
             </div>
           ) : null}
         </div>
-      </Box>
+      </div>
 
-      <Box sx={{ flexShrink: 0, position: 'relative' }}>
+      <div className="relative shrink-0">
         {backendSnapshot?.error !== undefined ? (
           <Alert className="mb-2" variant="destructive">
             <AlertDescription>{backendSnapshot.error}</AlertDescription>
           </Alert>
         ) : null}
-        <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <form className="flex flex-col" onSubmit={onSubmit}>
           {aboveComposer !== undefined && aboveComposer !== null ? (
-            <Box
-              sx={{
-                bgcolor: 'action.hover',
-                borderRadius: '14px 14px 0 0',
-                color: 'text.secondary',
-                fontSize: 12,
-                mb: '-10px',
-                mx: 1.5,
-                pb: 1.75,
-                pt: 1,
-                px: 1.5,
-              }}
-            >
+            <div className="mx-3 -mb-2.5 rounded-t-[14px] bg-muted px-3 pt-2 pb-3.5 text-xs text-muted-foreground">
               {aboveComposer}
-            </Box>
+            </div>
           ) : null}
-          <Paper
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 3,
-              boxShadow: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              p: 1.5,
-              position: 'relative',
-            }}
-          >
+          <div className="relative flex flex-col gap-2 rounded-xl border border-border p-3 shadow-md">
             <ComposerCommandMenu
               focusedIndex={clampedCommandFocus}
               matches={filteredCommandMatches}
@@ -611,7 +565,7 @@ export const SessionChatBody: FC<{
               syncCursorRef={syncCursorRef}
               value={draft}
             />
-            <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            <div className="flex flex-wrap items-center gap-1">
               <SessionAgentChip
                 disabled={chromeLocked}
                 interactive={isVirtual}
@@ -646,9 +600,9 @@ export const SessionChatBody: FC<{
                   unavailableModelIds={unavailableModelIds}
                 />
               ))}
-              <Box sx={{ flexGrow: 1 }} />
+              <div className="flex-1" />
               {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
-              <ButtonGroup variant="contained">
+              <div className="inline-flex">
                 <Button
                   aria-label={
                     canCancelPromptTurn
@@ -657,6 +611,7 @@ export const SessionChatBody: FC<{
                         ? 'Pending client request'
                         : 'Send'
                   }
+                  className="rounded-r-none px-3"
                   disabled={canCancelPromptTurn ? false : !canSend}
                   onClick={
                     canCancelPromptTurn
@@ -666,62 +621,47 @@ export const SessionChatBody: FC<{
                         }
                       : undefined
                   }
-                  sx={{ minWidth: 40, px: 1.5 }}
                   type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
                   {canCancelPromptTurn ? (
-                    <Stop fontSize="small" />
+                    <SquareIcon />
                   ) : pendingClientRequest || virtualLifecycleInFlight ? (
-                    <CircularProgress color="inherit" size={18} />
+                    <Spinner className="size-[18px]" />
                   ) : (
-                    <ArrowUpward fontSize="small" />
+                    <ArrowUpIcon />
                   )}
                 </Button>
-                <Button
-                  aria-controls={splitMenuAnchor !== null ? 'send-split-menu' : undefined}
-                  aria-expanded={splitMenuAnchor !== null ? 'true' : undefined}
-                  aria-haspopup="menu"
-                  aria-label="Open send options"
-                  disabled={isVirtual || chromeLocked || selectedLaunchTarget === undefined}
-                  onClick={event => {
-                    setSplitMenuAnchor(event.currentTarget);
-                  }}
-                  sx={{ minWidth: 36, px: 0.75 }}
-                >
-                  <KeyboardArrowDown fontSize="small" />
-                </Button>
-              </ButtonGroup>
-              <Menu
-                anchorEl={splitMenuAnchor}
-                id="send-split-menu"
-                onClose={() => {
-                  setSplitMenuAnchor(null);
-                }}
-                open={splitMenuAnchor !== null}
-              >
-                <MenuItem
-                  disabled={!canHandoff}
-                  onClick={() => {
-                    setSplitMenuAnchor(null);
-                    setHandoffModalOpen(true);
-                  }}
-                >
-                  Handoff
-                </MenuItem>
-                <MenuItem
-                  disabled={!canFork}
-                  onClick={() => {
-                    setSplitMenuAnchor(null);
-                    requestFork()?.catch(onClientError);
-                  }}
-                >
-                  Fork
-                </MenuItem>
-              </Menu>
-            </Box>
-          </Paper>
-        </Box>
-      </Box>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    disabled={isVirtual || chromeLocked || selectedLaunchTarget === undefined}
+                    render={<Button aria-label="Open send options" className="rounded-l-none border-l px-2" />}
+                  >
+                    <ChevronDownIcon />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      disabled={!canHandoff}
+                      onClick={() => {
+                        setHandoffModalOpen(true);
+                      }}
+                    >
+                      Handoff
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!canFork}
+                      onClick={() => {
+                        requestFork()?.catch(onClientError);
+                      }}
+                    >
+                      Fork
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
 
       {!isVirtual && selectedLaunchTarget !== undefined && handoffModalOpen ? (
         <HandoffModal
@@ -747,6 +687,6 @@ export const SessionChatBody: FC<{
           sourceLaunchTarget={selectedLaunchTarget}
         />
       ) : null}
-    </Box>
+    </main>
   );
 };

@@ -74,7 +74,7 @@ export const FsMentionListingTab: FC = () => {
                   key={virtualRow.key}
                   style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}
                 >
-                  <ListingEntryIcon entry={match.entry} sx={{ fontSize: '1rem', height: '1rem', width: '1rem' }} />
+                  <ListingEntryIcon className="size-4" entry={match.entry} />
                   <div className="min-w-0 flex-1 truncate font-mono text-xs leading-9">
                     <HighlightFzfChars boldFrom={boldFrom} positions={match.positions} text={path} />
                   </div>

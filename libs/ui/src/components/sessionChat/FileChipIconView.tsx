@@ -1,7 +1,7 @@
 /** Theme-aware file/folder/link icon used by chips and FS listing rows. */
 import { useAtomValue } from '@effect/atom-react';
-import Box from '@mui/material/Box';
-import type { SxProps, Theme } from '@mui/material/styles';
+import { cn } from 'cn';
+import { Link2Icon } from 'lucide-react';
 import type { FC } from 'react';
 
 import { themeAtom } from '../../atoms/boundHarnessAtoms.ts';
@@ -10,37 +10,27 @@ import { listingBasename } from '../../host/fdListing.ts';
 
 import { resolveFileChipIcon } from './fileChipIcons/resolveFileChipIcon.ts';
 
-const defaultIconSx = {
-  display: 'inline-block',
-  flexShrink: 0,
-  fontSize: '0.875em',
-  height: '0.875em',
-  verticalAlign: 'middle',
-  width: '0.875em',
-} as const;
-
 export type FileChipIconViewProps = {
+  readonly className?: string;
   readonly href?: string;
   readonly label: string;
-  readonly sx?: SxProps<Theme>;
 };
 
-export const FileChipIconView: FC<FileChipIconViewProps> = ({ href, label, sx }) => {
+export const FileChipIconView: FC<FileChipIconViewProps> = ({ className, href, label }) => {
   const themeId = useAtomValue(themeAtom);
   const icon = resolveFileChipIcon({ href, label }, themeId);
-  const mergedSx = sx === undefined ? defaultIconSx : ([defaultIconSx, sx] as SxProps<Theme>);
-  if (icon.kind === 'mui') {
-    const { Icon } = icon;
-    return <Icon sx={mergedSx} />;
+  const classes = cn('inline-block size-[0.875em] shrink-0 align-middle', className);
+  if (icon.kind === 'lucide') {
+    return <Link2Icon aria-hidden className={classes} />;
   }
-  return <Box alt="" component="img" src={icon.url} sx={mergedSx} />;
+  return <img alt="" className={classes} src={icon.url} />;
 };
 
 /** Icon for a cached `@` FS listing entry (dirs keep trailing `/` for folder glyph). */
 export const ListingEntryIcon: FC<{
+  readonly className?: string;
   readonly entry: FdListingEntry;
-  readonly sx?: SxProps<Theme>;
-}> = ({ entry, sx }) => {
+}> = ({ className, entry }) => {
   const name = listingBasename(entry.path);
-  return <FileChipIconView href={entry.path} label={`@${name}`} sx={sx} />;
+  return <FileChipIconView className={className} href={entry.path} label={`@${name}`} />;
 };

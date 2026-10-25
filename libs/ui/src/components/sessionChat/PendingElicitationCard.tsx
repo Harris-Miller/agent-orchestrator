@@ -7,20 +7,14 @@ import {
   ElicitationStringProperty,
 } from '@libs/effect-acp';
 import type { CreateElicitationRequestBody, ElicitationContent, ElicitationPropertySchema } from '@libs/effect-acp';
-import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Paper from '@mui/material/Paper';
-import Select from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { FC } from 'react';
+
+import { LabeledSelect } from '../LabeledSelect.tsx';
+import { Button } from '../ui/button.tsx';
+import { Checkbox } from '../ui/checkbox.tsx';
+import { Input } from '../ui/input.tsx';
 
 const SupportedFormProperty = Schema.Union([
   ElicitationStringProperty,
@@ -61,6 +55,8 @@ const unsupportedTypeLabel = (property: ElicitationPropertySchema): string => {
   return 'unknown';
 };
 
+const cardClass = 'rounded-md border border-border bg-muted p-4';
+
 export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
   readonly onAccept: (content: ElicitationContent) => void;
@@ -83,37 +79,31 @@ export const PendingElicitationCard: FC<{
 
   if (formRequest === undefined) {
     return (
-      <Paper sx={{ bgcolor: 'action.hover', p: 2 }} variant="outlined">
-        <Typography gutterBottom variant="subtitle2">
-          Unsupported elicitation from {agentTitle}
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button onClick={onDecline} size="small" variant="outlined">
+      <div className={cardClass}>
+        <p className="mb-2 text-sm font-medium">Unsupported elicitation from {agentTitle}</p>
+        <div className="flex gap-2">
+          <Button onClick={onDecline} size="sm" variant="outline">
             Decline
           </Button>
-          <Button onClick={onCancel} size="small">
+          <Button onClick={onCancel} size="sm" variant="ghost">
             Cancel
           </Button>
-        </Stack>
-      </Paper>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Paper sx={{ bgcolor: 'action.hover', p: 2 }} variant="outlined">
-      <Typography color="text.secondary" variant="caption">
-        {agentTitle} asks
-      </Typography>
-      <Typography gutterBottom variant="subtitle1">
-        {formRequest.message}
-      </Typography>
-      <Stack spacing={1.5} sx={{ mb: 2, mt: 1 }}>
+    <div className={cardClass}>
+      <p className="text-xs text-muted-foreground">{agentTitle} asks</p>
+      <p className="mb-2 text-base font-medium">{formRequest.message}</p>
+      <div className="mt-2 mb-4 flex flex-col gap-3">
         {entries.map(([name, property]) => {
           if (!Schema.is(SupportedFormProperty)(property)) {
             return (
-              <Typography color="text.secondary" key={name} variant="body2">
+              <p className="text-sm text-muted-foreground" key={name}>
                 Unsupported field “{name}” (type {unsupportedTypeLabel(property)}) — decline or cancel.
-              </Typography>
+              </p>
             );
           }
 
@@ -122,86 +112,80 @@ export const PendingElicitationCard: FC<{
 
           if (Schema.is(ElicitationBooleanProperty)(property)) {
             return (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={values[name] === true}
-                    onChange={event => {
-                      setValues(current => ({ ...current, [name]: event.target.checked }));
-                    }}
-                  />
-                }
-                key={name}
-                label={title}
-              />
+              <div className="flex items-center gap-2 text-sm" key={name}>
+                <Checkbox
+                  aria-labelledby={`elicit-${name}-label`}
+                  checked={values[name] === true}
+                  onCheckedChange={checked => {
+                    setValues(current => ({ ...current, [name]: checked }));
+                  }}
+                />
+                <span id={`elicit-${name}-label`}>{title}</span>
+              </div>
             );
           }
 
           if (Schema.is(ElicitationStringProperty)(property) && property.enum != null) {
+            const current = typeof values[name] === 'string' ? values[name] : '';
             return (
-              <FormControl fullWidth key={name} size="small">
-                <InputLabel id={`elicit-${name}`}>{title}</InputLabel>
-                <Select
-                  label={title}
-                  labelId={`elicit-${name}`}
-                  onChange={event => {
-                    setValues(current => ({ ...current, [name]: event.target.value }));
-                  }}
-                  value={typeof values[name] === 'string' ? values[name] : ''}
-                >
-                  {property.enum.map(option => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <LabeledSelect
+                id={`elicit-${name}`}
+                key={name}
+                label={title}
+                labelClassName="text-sm font-medium text-foreground"
+                onValueChange={value => {
+                  setValues(currentValues => ({ ...currentValues, [name]: value }));
+                }}
+                options={property.enum.map(option => ({ label: option, value: option }))}
+                value={current}
+              />
             );
           }
 
+          const numeric =
+            Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property);
+
           return (
-            <TextField
-              fullWidth
-              helperText={description}
-              key={name}
-              label={title}
-              onChange={event => {
-                const raw = event.target.value;
-                if (Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)) {
-                  const parsed = Number(raw);
-                  setValues(current => ({ ...current, [name]: Number.isFinite(parsed) ? parsed : 0 }));
-                  return;
-                }
-                setValues(current => ({ ...current, [name]: raw }));
-              }}
-              size="small"
-              type={
-                Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)
-                  ? 'number'
-                  : 'text'
-              }
-              value={values[name] ?? ''}
-            />
+            <div key={name}>
+              <span className="text-sm font-medium" id={`elicit-${name}-label`}>
+                {title}
+              </span>
+              <Input
+                aria-labelledby={`elicit-${name}-label`}
+                className="mt-1.5"
+                onChange={event => {
+                  const raw = event.target.value;
+                  if (numeric) {
+                    const parsed = Number(raw);
+                    setValues(currentValues => ({ ...currentValues, [name]: Number.isFinite(parsed) ? parsed : 0 }));
+                    return;
+                  }
+                  setValues(currentValues => ({ ...currentValues, [name]: raw }));
+                }}
+                type={numeric ? 'number' : 'text'}
+                value={typeof values[name] === 'boolean' ? '' : (values[name] ?? '')}
+              />
+              {description !== undefined ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
+            </div>
           );
         })}
-      </Stack>
-      <Stack direction="row" spacing={1}>
+      </div>
+      <div className="flex gap-2">
         <Button
           onClick={() => {
             onAccept(values);
           }}
-          size="small"
-          variant="contained"
+          size="sm"
         >
           Accept
         </Button>
-        <Button onClick={onDecline} size="small" variant="outlined">
+        <Button onClick={onDecline} size="sm" variant="outline">
           Decline
         </Button>
-        <Button onClick={onCancel} size="small">
+        <Button onClick={onCancel} size="sm" variant="ghost">
           Cancel
         </Button>
-      </Stack>
-    </Paper>
+      </div>
+    </div>
   );
 };

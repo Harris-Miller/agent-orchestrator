@@ -231,6 +231,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Preflight is off, so unstyled buttons keep the UA gray face on every theme. */
+  button {
+    background-color: transparent;
+    color: inherit;
+  }
 }
 
 .ao-allotment {

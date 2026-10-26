@@ -119,13 +119,13 @@ export const AgentChatWorkbench: FC<{
 
   return (
     <Box
-      sx={theme => ({
-        ...allotmentSashSx(theme),
+      sx={{
+        ...allotmentSashSx,
         bgcolor: 'background.default',
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
-      })}
+      }}
     >
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}

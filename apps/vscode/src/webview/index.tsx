@@ -1,3 +1,5 @@
+import './styles.css';
+
 import './bindHostRuntime.ts';
 
 import { createRoot } from 'react-dom/client';

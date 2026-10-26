@@ -7,7 +7,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@12.10.1",
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
     "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' 'apps/*/acp-adapter-resources'",
     "lint": "turbo run lint",

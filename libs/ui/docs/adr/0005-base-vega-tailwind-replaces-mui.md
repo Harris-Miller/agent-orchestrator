@@ -1,6 +1,6 @@
 # base-vega, Base UI, and Tailwind replace MUI
 
-The Harness UI is leaving MUI for shadcn **base-vega**: components copied into `@lib/ui`, headless behavior from Base UI (`@base-ui/react`), and layout from Tailwind CSS v4. Theme preference `original` stays the default id and uses base-vega's stock light `:root` palette; latte, frappe, macchiato, and mocha override those same semantic tokens. MUI still paints current screens until they move over.
+The Harness UI is leaving MUI for shadcn **base-vega**: components copied into `@lib/ui`, headless behavior from Base UI (`@base-ui/react`), and layout from Tailwind CSS v4. Theme preference `original` stays the default id and uses the MUI Original palette (custom dark). Latte, Frappé, Macchiato, and Mocha override those same semantic tokens. Stock base-vega colors are not used. MUI still paints current screens until they move over.
 
 ## Considered options
 
@@ -10,5 +10,5 @@ The Harness UI is leaving MUI for shadcn **base-vega**: components copied into `
 
 ## Consequences
 
-- No separate light/dark control. The three dark Catppuccin preferences also set the `dark` class so copied components' `dark:` variants follow that palette.
+- No separate light/dark control. `original` and the three dark Catppuccin preferences set the `dark` class so copied components' `dark:` variants follow that palette. `latte` stays light.
 - Preflight stays off so Allotment and the VS Code webview shell keep their box model.

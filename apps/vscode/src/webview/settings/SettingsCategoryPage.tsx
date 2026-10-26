@@ -1,11 +1,11 @@
-import { isSettingsCategoryId, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
+import { isSettingsCategoryId, LucideIcon, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
@@ -37,7 +37,7 @@ export const SettingsCategoryPage: FC = () => {
           }}
           size="small"
         >
-          <ArrowBack fontSize="small" />
+          <LucideIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {settingsCategoryLabel(categoryParam)}

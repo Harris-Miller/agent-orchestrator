@@ -45,7 +45,7 @@ catalog:
   react-markdown: ^10.1.0
   lexical: ^0.52.0
   '@lexical/react': ^0.52.0
-  '@mui/icons-material': ^9.5.0
+  lucide-react: ^1.61.0
   fzf: ^0.5.2
   tsdown: ^0.23.1
   tsx: ^4.20.5

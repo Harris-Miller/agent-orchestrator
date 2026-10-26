@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
+  LucideIcon,
   OpenDeveloperPanelButton,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
@@ -11,13 +12,13 @@ import {
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { Settings } from 'lucide-react';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
@@ -69,7 +70,7 @@ export const SessionHistory: FC = () => {
           }}
           size="small"
         >
-          <SettingsOutlined fontSize="small" />
+          <LucideIcon fontSize="small" icon={Settings} />
         </IconButton>
       </Stack>
 

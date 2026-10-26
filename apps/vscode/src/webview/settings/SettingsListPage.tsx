@@ -1,6 +1,9 @@
-import { filterSettingsCategories, RestoreUserSettingsDefaultsControl, UserSettingsLoadFailureAlert } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import Search from '@mui/icons-material/Search';
+import {
+  filterSettingsCategories,
+  LucideIcon,
+  RestoreUserSettingsDefaultsControl,
+  UserSettingsLoadFailureAlert,
+} from '@lib/ui';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -10,6 +13,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
@@ -29,7 +33,7 @@ export const SettingsListPage: FC = () => {
           }}
           size="small"
         >
-          <ArrowBack fontSize="small" />
+          <LucideIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Settings
@@ -50,7 +54,7 @@ export const SettingsListPage: FC = () => {
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <Search fontSize="small" />
+                <LucideIcon fontSize="small" icon={Search} />
               </InputAdornment>
             ),
           },

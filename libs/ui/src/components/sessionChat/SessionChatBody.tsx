@@ -1,7 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import ArrowUpward from '@mui/icons-material/ArrowUpward';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import Stop from '@mui/icons-material/Stop';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -14,6 +11,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { ArrowUp, ChevronDown, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -40,6 +38,7 @@ import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
+import { LucideIcon } from '../LucideIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
@@ -664,11 +663,11 @@ export const SessionChatBody: FC<{
                   type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
                   {canCancelPromptTurn ? (
-                    <Stop fontSize="small" />
+                    <LucideIcon fontSize="small" icon={Square} />
                   ) : pendingClientRequest || virtualLifecycleInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
-                    <ArrowUpward fontSize="small" />
+                    <LucideIcon fontSize="small" icon={ArrowUp} />
                   )}
                 </Button>
                 <Button
@@ -682,7 +681,7 @@ export const SessionChatBody: FC<{
                   }}
                   sx={{ minWidth: 36, px: 0.75 }}
                 >
-                  <KeyboardArrowDown fontSize="small" />
+                  <LucideIcon fontSize="small" icon={ChevronDown} />
                 </Button>
               </ButtonGroup>
               <Menu

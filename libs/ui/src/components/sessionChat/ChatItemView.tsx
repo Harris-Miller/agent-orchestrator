@@ -1,5 +1,3 @@
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -8,10 +6,12 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
+import { LucideIcon } from '../LucideIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
@@ -221,7 +221,11 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
           }}
           size="small"
         >
-          {expanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+          {expanded ? (
+            <LucideIcon fontSize="small" icon={ChevronUp} />
+          ) : (
+            <LucideIcon fontSize="small" icon={ChevronDown} />
+          )}
         </IconButton>
       </Box>
     </Stack>

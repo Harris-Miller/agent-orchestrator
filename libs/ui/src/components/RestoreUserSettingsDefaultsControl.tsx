@@ -1,17 +1,19 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { defaultSettings } from '@lib/ao-home';
-import RestartAlt from '@mui/icons-material/RestartAlt';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+
+import { LucideIcon } from './LucideIcon.tsx';
 
 /** Restore-defaults button + confirm dialog shared by host Settings shells. */
 export const RestoreUserSettingsDefaultsControl: FC<{
@@ -30,7 +32,7 @@ export const RestoreUserSettingsDefaultsControl: FC<{
           setConfirmOpen(true);
         }}
         size="small"
-        startIcon={<RestartAlt fontSize={iconFontSize} />}
+        startIcon={<LucideIcon fontSize={iconFontSize} icon={RotateCcw} />}
       >
         Restore defaults
       </Button>

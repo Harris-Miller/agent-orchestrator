@@ -1,7 +1,9 @@
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import { styled } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
+import { ChevronDown } from 'lucide-react';
 import type { FC, MouseEvent, ReactNode } from 'react';
+
+import { LucideIcon } from '../LucideIcon.tsx';
 
 type ChipStyleProps = {
   readonly active?: boolean;
@@ -61,7 +63,7 @@ export const ComposerChromeChip: FC<{
       type="button"
     >
       {children}
-      <KeyboardArrowDown sx={{ fontSize: 16, opacity: 0.7 }} />
+      <LucideIcon icon={ChevronDown} sx={{ fontSize: 16, opacity: 0.7 }} />
     </ComposerChromeChipButton>
   );
 };

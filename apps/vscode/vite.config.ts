@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -37,7 +36,7 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     entries: ['src/webview/index.tsx'],
   },
-  plugins: [tailwindcss(), react()],
+  plugins: [react()],
   server: {
     cors: true,
     origin: WEBVIEW_VITE_ORIGIN,

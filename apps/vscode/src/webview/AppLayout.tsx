@@ -108,12 +108,12 @@ export const AppLayout: FC = () => {
 
   return (
     <Box
-      sx={{
-        ...allotmentSashSx,
+      sx={theme => ({
+        ...allotmentSashSx(theme),
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
-      }}
+      })}
     >
       <Allotment
         defaultSizes={layout.verticalSizes === undefined ? undefined : [...layout.verticalSizes]}

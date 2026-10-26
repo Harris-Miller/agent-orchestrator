@@ -1,7 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Archive from '@mui/icons-material/Archive';
-import Delete from '@mui/icons-material/Delete';
-import MoreHoriz from '@mui/icons-material/MoreHoriz';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -11,6 +8,7 @@ import Paper from '@mui/material/Paper';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { Archive, Ellipsis, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -19,6 +17,7 @@ import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHa
 import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
 
@@ -106,7 +105,7 @@ export const SessionRosterRow: FC<{
             size="small"
             sx={{ flexShrink: 0, mr: -0.5 }}
           >
-            <MoreHoriz fontSize="small" />
+            <LucideMuiIcon fontSize="small" icon={Ellipsis} />
           </IconButton>
         </Stack>
       </Paper>
@@ -126,7 +125,7 @@ export const SessionRosterRow: FC<{
                 archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
               }}
               size="small"
-              startIcon={<Archive />}
+              startIcon={<LucideMuiIcon icon={Archive} />}
               variant="outlined"
             >
               Archive
@@ -139,7 +138,7 @@ export const SessionRosterRow: FC<{
               onDeleteRequest(entry);
             }}
             size="small"
-            startIcon={<Delete />}
+            startIcon={<LucideMuiIcon icon={Trash2} />}
             variant="outlined"
           >
             Delete

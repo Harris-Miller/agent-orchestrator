@@ -4,6 +4,7 @@ import {
   AgentLaunchTargetIcon,
   clearSelectedAtomFn,
   isSessionActiveOrActivating,
+  LucideMuiIcon,
   OpenDeveloperPanelButton,
   selectedAtom,
   selectedSessionAtom,
@@ -16,13 +17,12 @@ import {
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, Settings } from 'lucide-react';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
@@ -100,7 +100,7 @@ export const SessionChatPage: FC = () => {
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
         <IconButton aria-label="Back to Session History" disabled={inFlight} onClick={onBack} size="small">
-          <ArrowBack fontSize="small" />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
@@ -116,7 +116,7 @@ export const SessionChatPage: FC = () => {
           }}
           size="small"
         >
-          <SettingsOutlined fontSize="small" />
+          <LucideMuiIcon fontSize="small" icon={Settings} />
         </IconButton>
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>

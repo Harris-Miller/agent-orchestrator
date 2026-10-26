@@ -4,6 +4,7 @@ import {
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
+  LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
   refreshAllSessionRostersAtomFn,
@@ -13,10 +14,6 @@ import {
   unifiedSessionRosterAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
-import Add from '@mui/icons-material/Add';
-import FolderOpenOutlined from '@mui/icons-material/FolderOpenOutlined';
-import FolderOutlined from '@mui/icons-material/FolderOutlined';
-import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -30,6 +27,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
+import { Folder, FolderOpen, Plus, Settings } from 'lucide-react';
 import type { FC } from 'react';
 
 import { directoryBasename } from '../../directoryBasename.ts';
@@ -160,8 +158,12 @@ export const WorkbenchNavRail: FC<{
                         py: 1,
                       }}
                     >
-                      <FolderOutlined className="folder-closed" sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                      <FolderOpenOutlined className="folder-open" sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <LucideMuiIcon className="folder-closed" icon={Folder} sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <LucideMuiIcon
+                        className="folder-open"
+                        icon={FolderOpen}
+                        sx={{ flexShrink: 0, fontSize: '1rem' }}
+                      />
                       <Tooltip title={presentation.tooltip}>
                         <Box
                           component="span"
@@ -185,7 +187,7 @@ export const WorkbenchNavRail: FC<{
                           size="small"
                           sx={{ flexShrink: 0, ml: 'auto' }}
                         >
-                          <Add fontSize="small" />
+                          <LucideMuiIcon fontSize="small" icon={Plus} />
                         </IconButton>
                       ) : null}
                     </AccordionSummary>
@@ -214,7 +216,7 @@ export const WorkbenchNavRail: FC<{
             sx={{ borderRadius: 1 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
-              <SettingsOutlined fontSize="small" />
+              <LucideMuiIcon fontSize="small" icon={Settings} />
             </ListItemIcon>
             <ListItemText primary="Settings" />
           </ListItemButton>

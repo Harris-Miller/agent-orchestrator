@@ -7,6 +7,7 @@ import type { FC } from 'react';
 import { themeAtom } from '../../atoms/boundHarnessAtoms.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { listingBasename } from '../../host/fdListing.ts';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { resolveFileChipIcon } from './fileChipIcons/resolveFileChipIcon.ts';
 
@@ -29,9 +30,8 @@ export const FileChipIconView: FC<FileChipIconViewProps> = ({ href, label, sx })
   const themeId = useAtomValue(themeAtom);
   const icon = resolveFileChipIcon({ href, label }, themeId);
   const mergedSx = sx === undefined ? defaultIconSx : ([defaultIconSx, sx] as SxProps<Theme>);
-  if (icon.kind === 'mui') {
-    const { Icon } = icon;
-    return <Icon sx={mergedSx} />;
+  if (icon.kind === 'lucide') {
+    return <LucideMuiIcon icon={icon.Icon} sx={mergedSx} />;
   }
   return <Box alt="" component="img" src={icon.url} sx={mergedSx} />;
 };

@@ -23,12 +23,12 @@
     "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@libs/effect-acp": "workspace:^",
-    "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
     "@tanstack/react-virtual": "catalog:",
     "effect": "catalog:",
     "fzf": "catalog:",
     "lexical": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-markdown": "catalog:"
   },

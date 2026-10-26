@@ -38,12 +38,12 @@
     "@emotion/styled": "catalog:",
     "@lib/context-services-vscode-webview": "workspace:^",
     "@lib/ui": "workspace:^",
-    "@mui/icons-material": "catalog:",
     "@mui/material": "catalog:",
     "@tanstack/react-router": "catalog:",
     "allotment": "catalog:",
     "dotenv": "catalog:",
     "effect": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

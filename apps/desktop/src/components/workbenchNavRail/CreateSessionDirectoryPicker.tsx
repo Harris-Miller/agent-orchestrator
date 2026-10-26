@@ -1,12 +1,7 @@
 import { useAtomValue } from '@effect/atom-react';
-import { alwaysHiddenGlobsAtom } from '@lib/ui';
+import { alwaysHiddenGlobsAtom, LucideMuiIcon } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import FolderOutlined from '@mui/icons-material/FolderOutlined';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
-import SubdirectoryArrowLeft from '@mui/icons-material/SubdirectoryArrowLeft';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -22,6 +17,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { open as openDirectoryDialog } from '@tauri-apps/plugin-dialog';
 import { Fzf } from 'fzf';
+import { ArrowLeft, ChevronDown, ChevronUp, CornerDownLeft, Folder } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, KeyboardEvent } from 'react';
 
@@ -292,7 +288,7 @@ export const CreateSessionDirectoryPicker: FC<{
           }}
           size="small"
         >
-          <ArrowBack fontSize="small" />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <InputBase
           fullWidth
@@ -358,7 +354,11 @@ export const CreateSessionDirectoryPicker: FC<{
                 sx={{ borderRadius: 1, mb: 0.25 }}
               >
                 <ListItemIcon sx={{ color: 'text.secondary', minWidth: 36 }}>
-                  {isParent ? <SubdirectoryArrowLeft fontSize="small" /> : <FolderOutlined fontSize="small" />}
+                  {isParent ? (
+                    <LucideMuiIcon fontSize="small" icon={CornerDownLeft} />
+                  ) : (
+                    <LucideMuiIcon fontSize="small" icon={Folder} />
+                  )}
                 </ListItemIcon>
                 <ListItemText
                   primary={name}
@@ -392,8 +392,8 @@ export const CreateSessionDirectoryPicker: FC<{
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <KeyboardArrowUp fontSize="inherit" sx={{ fontSize: '1rem' }} />
-            <KeyboardArrowDown fontSize="inherit" sx={{ fontSize: '1rem' }} />
+            <LucideMuiIcon fontSize="inherit" icon={ChevronUp} sx={{ fontSize: '1rem' }} />
+            <LucideMuiIcon fontSize="inherit" icon={ChevronDown} sx={{ fontSize: '1rem' }} />
             <Typography variant="caption">Navigate</Typography>
           </Stack>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>

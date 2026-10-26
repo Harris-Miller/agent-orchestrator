@@ -1,13 +1,14 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  LucideMuiIcon,
   patchVirtualSessionAtomFn,
   selectedAtom,
   selectedSessionAtom,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
-import FolderOpen from '@mui/icons-material/FolderOpen';
 import Box from '@mui/material/Box';
+import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -62,7 +63,7 @@ export const SessionCwdStrip: FC = () => {
         }}
         type={canPick ? 'button' : undefined}
       >
-        <FolderOpen sx={{ fontSize: 14 }} />
+        <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
         <span>{label}</span>
       </Box>
       {pickerOpen && isVirtual ? (

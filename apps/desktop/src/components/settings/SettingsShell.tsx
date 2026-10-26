@@ -1,12 +1,11 @@
 import {
   filterSettingsCategories,
   isSettingsCategoryId,
+  LucideMuiIcon,
   RestoreUserSettingsDefaultsControl,
   settingsCategoryLabel,
   UserSettingsLoadFailureAlert,
 } from '@lib/ui';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import Search from '@mui/icons-material/Search';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -16,6 +15,7 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Outlet, useMatch, useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 
@@ -26,7 +26,7 @@ const BackToApp: FC = () => {
       onClick={() => {
         navigate({ to: '/' }).catch(() => undefined);
       }}
-      startIcon={<ArrowBack />}
+      startIcon={<LucideMuiIcon icon={ArrowLeft} />}
       sx={{ justifyContent: 'flex-start' }}
       variant="text"
     >
@@ -70,7 +70,7 @@ export const SettingsShell: FC = () => {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search fontSize="small" />
+                    <LucideMuiIcon fontSize="small" icon={Search} />
                   </InputAdornment>
                 ),
               },

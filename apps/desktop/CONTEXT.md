@@ -17,8 +17,8 @@ Full-page Harness UI route (`/settings/$category`, default entry `/settings/gene
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:
-The User settings palette id for the Harness UI. One of `original` (the default), `latte`, `frappe`, `macchiato`, or `mocha`. The same id on both hosts.
-_Avoid_: color mode, appearance mode, light/dark toggle, MUI theme
+User-chosen Harness UI theme id stored in User settings.
+_Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
 
 **Session delete confirmation**:
 Whether deleting a session shows the confirm dialog; stored in User settings; on when unset.

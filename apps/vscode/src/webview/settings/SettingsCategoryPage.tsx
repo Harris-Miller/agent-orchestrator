@@ -1,4 +1,4 @@
-import { isSettingsCategoryId, LucideIcon, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
+import { isSettingsCategoryId, LucideMuiIcon, SettingsCategoryContent, settingsCategoryLabel } from '@lib/ui';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -37,7 +37,7 @@ export const SettingsCategoryPage: FC = () => {
           }}
           size="small"
         >
-          <LucideIcon fontSize="small" icon={ArrowLeft} />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {settingsCategoryLabel(categoryParam)}

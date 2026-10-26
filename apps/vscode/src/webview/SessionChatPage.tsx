@@ -4,7 +4,7 @@ import {
   AgentLaunchTargetIcon,
   clearSelectedAtomFn,
   isSessionActiveOrActivating,
-  LucideIcon,
+  LucideMuiIcon,
   OpenDeveloperPanelButton,
   selectedAtom,
   selectedSessionAtom,
@@ -100,7 +100,7 @@ export const SessionChatPage: FC = () => {
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
         <IconButton aria-label="Back to Session History" disabled={inFlight} onClick={onBack} size="small">
-          <LucideIcon fontSize="small" icon={ArrowLeft} />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
@@ -116,7 +116,7 @@ export const SessionChatPage: FC = () => {
           }}
           size="small"
         >
-          <LucideIcon fontSize="small" icon={Settings} />
+          <LucideMuiIcon fontSize="small" icon={Settings} />
         </IconButton>
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>

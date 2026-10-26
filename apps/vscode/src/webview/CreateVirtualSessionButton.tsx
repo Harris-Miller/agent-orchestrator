@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { ensureVirtualSessionAtomFn, LucideIcon } from '@lib/ui';
+import { ensureVirtualSessionAtomFn, LucideMuiIcon } from '@lib/ui';
 import IconButton from '@mui/material/IconButton';
 import { Plus } from 'lucide-react';
 import { useContext } from 'react';
@@ -26,7 +26,7 @@ export const CreateVirtualSessionButton: FC<{ readonly disabled?: boolean }> = (
       }}
       size="small"
     >
-      <LucideIcon fontSize="small" icon={Plus} />
+      <LucideMuiIcon fontSize="small" icon={Plus} />
     </IconButton>
   );
 };

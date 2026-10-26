@@ -1,7 +1,7 @@
 import {
   filterSettingsCategories,
   isSettingsCategoryId,
-  LucideIcon,
+  LucideMuiIcon,
   RestoreUserSettingsDefaultsControl,
   settingsCategoryLabel,
   UserSettingsLoadFailureAlert,
@@ -26,7 +26,7 @@ const BackToApp: FC = () => {
       onClick={() => {
         navigate({ to: '/' }).catch(() => undefined);
       }}
-      startIcon={<LucideIcon icon={ArrowLeft} />}
+      startIcon={<LucideMuiIcon icon={ArrowLeft} />}
       sx={{ justifyContent: 'flex-start' }}
       variant="text"
     >
@@ -70,7 +70,7 @@ export const SettingsShell: FC = () => {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <LucideIcon fontSize="small" icon={Search} />
+                    <LucideMuiIcon fontSize="small" icon={Search} />
                   </InputAdornment>
                 ),
               },

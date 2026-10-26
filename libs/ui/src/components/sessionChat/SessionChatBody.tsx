@@ -38,7 +38,7 @@ import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
-import { LucideIcon } from '../LucideIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
@@ -663,11 +663,11 @@ export const SessionChatBody: FC<{
                   type={canCancelPromptTurn ? 'button' : 'submit'}
                 >
                   {canCancelPromptTurn ? (
-                    <LucideIcon fontSize="small" icon={Square} />
+                    <LucideMuiIcon fontSize="small" icon={Square} />
                   ) : pendingClientRequest || virtualLifecycleInFlight ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
-                    <LucideIcon fontSize="small" icon={ArrowUp} />
+                    <LucideMuiIcon fontSize="small" icon={ArrowUp} />
                   )}
                 </Button>
                 <Button
@@ -681,7 +681,7 @@ export const SessionChatBody: FC<{
                   }}
                   sx={{ minWidth: 36, px: 0.75 }}
                 >
-                  <LucideIcon fontSize="small" icon={ChevronDown} />
+                  <LucideMuiIcon fontSize="small" icon={ChevronDown} />
                 </Button>
               </ButtonGroup>
               <Menu

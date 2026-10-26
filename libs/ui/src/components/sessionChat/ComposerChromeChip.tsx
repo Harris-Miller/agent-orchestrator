@@ -3,7 +3,7 @@ import type { Theme } from '@mui/material/styles';
 import { ChevronDown } from 'lucide-react';
 import type { FC, MouseEvent, ReactNode } from 'react';
 
-import { LucideIcon } from '../LucideIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 type ChipStyleProps = {
   readonly active?: boolean;
@@ -63,7 +63,7 @@ export const ComposerChromeChip: FC<{
       type="button"
     >
       {children}
-      <LucideIcon icon={ChevronDown} sx={{ fontSize: 16, opacity: 0.7 }} />
+      <LucideMuiIcon icon={ChevronDown} sx={{ fontSize: 16, opacity: 0.7 }} />
     </ComposerChromeChipButton>
   );
 };

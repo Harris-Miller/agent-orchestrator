@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
-  LucideIcon,
+  LucideMuiIcon,
   patchVirtualSessionAtomFn,
   selectedAtom,
   selectedSessionAtom,
@@ -63,7 +63,7 @@ export const SessionCwdStrip: FC = () => {
         }}
         type={canPick ? 'button' : undefined}
       >
-        <LucideIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
+        <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
         <span>{label}</span>
       </Box>
       {pickerOpen && isVirtual ? (

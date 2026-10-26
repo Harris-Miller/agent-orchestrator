@@ -11,7 +11,7 @@ import { useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
-import { LucideIcon } from '../LucideIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
@@ -222,9 +222,9 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
           size="small"
         >
           {expanded ? (
-            <LucideIcon fontSize="small" icon={ChevronUp} />
+            <LucideMuiIcon fontSize="small" icon={ChevronUp} />
           ) : (
-            <LucideIcon fontSize="small" icon={ChevronDown} />
+            <LucideMuiIcon fontSize="small" icon={ChevronDown} />
           )}
         </IconButton>
       </Box>

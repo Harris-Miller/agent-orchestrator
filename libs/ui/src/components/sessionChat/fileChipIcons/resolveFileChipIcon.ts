@@ -1,5 +1,5 @@
 import { Link } from 'lucide-react';
-import type { LucideIcon as LucideGlyph } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import type { ThemeId } from '../../../theme/themeId.ts';
 
@@ -7,7 +7,7 @@ import type { FileIconPackId } from './packId.ts';
 import { getPackSvg, svgToDataUrl } from './packs.ts';
 
 export type FileChipIcon =
-  { readonly Icon: LucideGlyph; readonly kind: 'lucide' } | { readonly kind: 'svg'; readonly url: string };
+  { readonly Icon: LucideIcon; readonly kind: 'lucide' } | { readonly kind: 'svg'; readonly url: string };
 
 const EXT_TO_KEY: Readonly<Record<string, string>> = {
   bash: 'sh',

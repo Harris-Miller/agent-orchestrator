@@ -1,6 +1,6 @@
 import {
   filterSettingsCategories,
-  LucideIcon,
+  LucideMuiIcon,
   RestoreUserSettingsDefaultsControl,
   UserSettingsLoadFailureAlert,
 } from '@lib/ui';
@@ -33,7 +33,7 @@ export const SettingsListPage: FC = () => {
           }}
           size="small"
         >
-          <LucideIcon fontSize="small" icon={ArrowLeft} />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Settings
@@ -54,7 +54,7 @@ export const SettingsListPage: FC = () => {
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <LucideIcon fontSize="small" icon={Search} />
+                <LucideMuiIcon fontSize="small" icon={Search} />
               </InputAdornment>
             ),
           },

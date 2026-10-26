@@ -4,7 +4,7 @@ import {
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
-  LucideIcon,
+  LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
   refreshAllSessionRostersAtomFn,
@@ -158,8 +158,12 @@ export const WorkbenchNavRail: FC<{
                         py: 1,
                       }}
                     >
-                      <LucideIcon className="folder-closed" icon={Folder} sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                      <LucideIcon className="folder-open" icon={FolderOpen} sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <LucideMuiIcon className="folder-closed" icon={Folder} sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                      <LucideMuiIcon
+                        className="folder-open"
+                        icon={FolderOpen}
+                        sx={{ flexShrink: 0, fontSize: '1rem' }}
+                      />
                       <Tooltip title={presentation.tooltip}>
                         <Box
                           component="span"
@@ -183,7 +187,7 @@ export const WorkbenchNavRail: FC<{
                           size="small"
                           sx={{ flexShrink: 0, ml: 'auto' }}
                         >
-                          <LucideIcon fontSize="small" icon={Plus} />
+                          <LucideMuiIcon fontSize="small" icon={Plus} />
                         </IconButton>
                       ) : null}
                     </AccordionSummary>
@@ -212,7 +216,7 @@ export const WorkbenchNavRail: FC<{
             sx={{ borderRadius: 1 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
-              <LucideIcon fontSize="small" icon={Settings} />
+              <LucideMuiIcon fontSize="small" icon={Settings} />
             </ListItemIcon>
             <ListItemText primary="Settings" />
           </ListItemButton>

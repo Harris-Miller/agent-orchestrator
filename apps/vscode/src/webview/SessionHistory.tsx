@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allLaunchTargetPhasesAtom,
   ConfirmSessionDeleteDialog,
-  LucideIcon,
+  LucideMuiIcon,
   OpenDeveloperPanelButton,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
@@ -70,7 +70,7 @@ export const SessionHistory: FC = () => {
           }}
           size="small"
         >
-          <LucideIcon fontSize="small" icon={Settings} />
+          <LucideMuiIcon fontSize="small" icon={Settings} />
         </IconButton>
       </Stack>
 

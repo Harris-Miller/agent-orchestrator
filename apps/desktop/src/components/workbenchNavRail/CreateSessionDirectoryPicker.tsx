@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { alwaysHiddenGlobsAtom, LucideIcon } from '@lib/ui';
+import { alwaysHiddenGlobsAtom, LucideMuiIcon } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import Box from '@mui/material/Box';
@@ -288,7 +288,7 @@ export const CreateSessionDirectoryPicker: FC<{
           }}
           size="small"
         >
-          <LucideIcon fontSize="small" icon={ArrowLeft} />
+          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         <InputBase
           fullWidth
@@ -355,9 +355,9 @@ export const CreateSessionDirectoryPicker: FC<{
               >
                 <ListItemIcon sx={{ color: 'text.secondary', minWidth: 36 }}>
                   {isParent ? (
-                    <LucideIcon fontSize="small" icon={CornerDownLeft} />
+                    <LucideMuiIcon fontSize="small" icon={CornerDownLeft} />
                   ) : (
-                    <LucideIcon fontSize="small" icon={Folder} />
+                    <LucideMuiIcon fontSize="small" icon={Folder} />
                   )}
                 </ListItemIcon>
                 <ListItemText
@@ -392,8 +392,8 @@ export const CreateSessionDirectoryPicker: FC<{
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <LucideIcon fontSize="inherit" icon={ChevronUp} sx={{ fontSize: '1rem' }} />
-            <LucideIcon fontSize="inherit" icon={ChevronDown} sx={{ fontSize: '1rem' }} />
+            <LucideMuiIcon fontSize="inherit" icon={ChevronUp} sx={{ fontSize: '1rem' }} />
+            <LucideMuiIcon fontSize="inherit" icon={ChevronDown} sx={{ fontSize: '1rem' }} />
             <Typography variant="caption">Navigate</Typography>
           </Stack>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>

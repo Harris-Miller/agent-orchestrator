@@ -13,7 +13,7 @@ import type { FC } from 'react';
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 
-import { LucideIcon } from './LucideIcon.tsx';
+import { LucideMuiIcon } from './LucideMuiIcon.tsx';
 
 /** Restore-defaults button + confirm dialog shared by host Settings shells. */
 export const RestoreUserSettingsDefaultsControl: FC<{
@@ -32,7 +32,7 @@ export const RestoreUserSettingsDefaultsControl: FC<{
           setConfirmOpen(true);
         }}
         size="small"
-        startIcon={<LucideIcon fontSize={iconFontSize} icon={RotateCcw} />}
+        startIcon={<LucideMuiIcon fontSize={iconFontSize} icon={RotateCcw} />}
       >
         Restore defaults
       </Button>

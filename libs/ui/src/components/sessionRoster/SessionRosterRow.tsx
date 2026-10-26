@@ -17,7 +17,7 @@ import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHa
 import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
-import { LucideIcon } from '../LucideIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
 
@@ -105,7 +105,7 @@ export const SessionRosterRow: FC<{
             size="small"
             sx={{ flexShrink: 0, mr: -0.5 }}
           >
-            <LucideIcon fontSize="small" icon={Ellipsis} />
+            <LucideMuiIcon fontSize="small" icon={Ellipsis} />
           </IconButton>
         </Stack>
       </Paper>
@@ -125,7 +125,7 @@ export const SessionRosterRow: FC<{
                 archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
               }}
               size="small"
-              startIcon={<LucideIcon icon={Archive} />}
+              startIcon={<LucideMuiIcon icon={Archive} />}
               variant="outlined"
             >
               Archive
@@ -138,7 +138,7 @@ export const SessionRosterRow: FC<{
               onDeleteRequest(entry);
             }}
             size="small"
-            startIcon={<LucideIcon icon={Trash2} />}
+            startIcon={<LucideMuiIcon icon={Trash2} />}
             variant="outlined"
           >
             Delete

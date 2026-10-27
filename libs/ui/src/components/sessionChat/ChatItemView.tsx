@@ -44,13 +44,16 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
   const label = image.name ?? `Image ${String(index + 1)}`;
   const { previewDataUrl, uri } = image;
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
-  const src = previewDataUrl ?? hydratedSrc;
+  const src = previewDataUrl ?? (uri?.startsWith('data:') === true ? uri : undefined) ?? hydratedSrc;
 
   useEffect(() => {
     if (previewDataUrl !== undefined) {
       return;
     }
     if (uri === undefined) {
+      return;
+    }
+    if (uri.startsWith('data:')) {
       return;
     }
     if (!uri.startsWith('file://')) {

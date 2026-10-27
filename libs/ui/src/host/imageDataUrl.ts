@@ -7,3 +7,11 @@ export const imageBytesToDataUrl = (bytes: Uint8Array, mimeType: string): string
   }
   return `data:${mimeType};base64,${btoa(binary)}`;
 };
+
+const DATA_URL_BASE64_RE = /^data:([^;,]+);base64,(.+)$/s;
+
+/** Strip `data:<mime>;base64,<payload>` → base64 payload, or `undefined` if not that shape. */
+export const base64FromDataUrl = (dataUrl: string): string | undefined => {
+  const match = DATA_URL_BASE64_RE.exec(dataUrl);
+  return match?.[2];
+};

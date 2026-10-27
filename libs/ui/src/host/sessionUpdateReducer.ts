@@ -4,7 +4,13 @@ import type { SessionUsageDocument } from '@lib/ao-home';
 
 import { isRecord } from '../isRecord.ts';
 
-import { IMAGE_EXT_RE, isImageLikeResourceLink, mimeTypeForImagePath } from './composerImageAttachment.ts';
+import {
+  IMAGE_EXT_RE,
+  isAllowedImageMimeType,
+  isImageLikeResourceLink,
+  mimeTypeForDataImageHref,
+  mimeTypeForImagePath,
+} from './composerImageAttachment.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
 
 export type PlanEntry = {
@@ -106,10 +112,36 @@ const resourceLinkToImageRef = (block: unknown): undefined | UserMessageImageRef
   return { mimeType, name, uri };
 };
 
+/** ACP `type: "image"` ContentBlock → transcript ref with inline preview. */
+const imageContentToImageRef = (block: unknown): undefined | UserMessageImageRef => {
+  if (!isRecord(block) || block.type !== 'image') {
+    return undefined;
+  }
+  if (typeof block.data !== 'string' || typeof block.mimeType !== 'string') {
+    return undefined;
+  }
+  if (!isAllowedImageMimeType(block.mimeType)) {
+    return undefined;
+  }
+  const uri = typeof block.uri === 'string' ? block.uri : undefined;
+  const basename = uri?.split(/[/\\]/).pop()?.split('?')[0];
+  const name = basename !== undefined && basename.length > 0 ? basename : undefined;
+  const previewDataUrl = `data:${block.mimeType};base64,${block.data}`;
+  return {
+    mimeType: block.mimeType,
+    previewDataUrl,
+    ...(name !== undefined ? { name } : {}),
+    ...(uri !== undefined ? { uri } : {}),
+  };
+};
+
+const contentBlockToImageRef = (block: unknown): undefined | UserMessageImageRef =>
+  imageContentToImageRef(block) ?? resourceLinkToImageRef(block);
+
 export const extractImageRefsFromContent = (content: unknown): readonly UserMessageImageRef[] => {
-  if (isImageLikeResourceLink(content)) {
-    const ref = resourceLinkToImageRef(content);
-    return ref === undefined ? [] : [ref];
+  const single = contentBlockToImageRef(content);
+  if (single !== undefined) {
+    return [single];
   }
 
   if (!Array.isArray(content)) {
@@ -117,14 +149,15 @@ export const extractImageRefsFromContent = (content: unknown): readonly UserMess
   }
 
   return content.flatMap(block => {
-    const ref = resourceLinkToImageRef(block);
+    const ref = contentBlockToImageRef(block);
     return ref === undefined ? [] : [ref];
   });
 };
 
 /**
- * Agents often rewrite image `resource_link` attaches as `[@name](file://…)` text on
- * `session/load`. Lift those into image refs and strip them from transcript text.
+ * Agents often rewrite image attaches as markdown on `session/load`:
+ * `[@name](file://…ext)` or `[@name](data:image/…;base64,…)`.
+ * Lift those into image refs and strip them from transcript text.
  */
 const liftImageFileMarkdownLinks = (
   text: string,
@@ -134,7 +167,11 @@ const liftImageFileMarkdownLinks = (
     return { images: [], text };
   }
 
-  const imageLinks = links.filter(link => link.href.startsWith('file://') && IMAGE_EXT_RE.test(link.href));
+  const imageLinks = links.filter(
+    link =>
+      (link.href.startsWith('file://') && IMAGE_EXT_RE.test(link.href)) ||
+      mimeTypeForDataImageHref(link.href) !== undefined,
+  );
   if (imageLinks.length === 0) {
     return { images: [], text };
   }
@@ -145,9 +182,13 @@ const liftImageFileMarkdownLinks = (
   }
 
   const images = imageLinks.map(link => {
-    const mimeType = mimeTypeForImagePath(link.href) ?? 'image/png';
+    const dataMime = mimeTypeForDataImageHref(link.href);
+    const mimeType = dataMime ?? mimeTypeForImagePath(link.href) ?? 'image/png';
     const label = link.label.startsWith('@') ? link.label.slice(1) : link.label;
     const name = label.length > 0 ? label : undefined;
+    if (dataMime !== undefined) {
+      return { mimeType, name, previewDataUrl: link.href, uri: link.href };
+    }
     return { mimeType, name, uri: link.href };
   });
 

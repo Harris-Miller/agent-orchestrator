@@ -2,7 +2,8 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
- * Image `resource_link`s (attachments and image FS links) are moved to the front and de-duplicated by uri.
+ * Image attachments / image-like `resource_link`s are moved to the front and de-duplicated by uri.
+ * With `promptCapabilities.image`, attachments become `type: "image"`; otherwise `resource_link`.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option } from 'effect';
@@ -13,6 +14,7 @@ import { isRecord } from '../isRecord.ts';
 
 import { normalizeInitialize } from './acpSessionBootstrap.ts';
 import {
+  attachmentToImageBlock,
   attachmentToResourceLinkBlock,
   isImageLikeResourceLink,
   validateImageAttachments,
@@ -69,14 +71,29 @@ const hasPromptCapability = (initializeResult: unknown, path: string, rawKey: st
 export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean =>
   hasPromptCapability(initializeResult, 'promptCapabilities.embeddedContext', 'embeddedContext');
 
-/** Drop later `resource_link` blocks that share a `uri` with an earlier one (first wins). */
+/** True when initialize advertises `promptCapabilities.image`. */
+export const hasImagePromptCapability = (initializeResult: unknown): boolean =>
+  hasPromptCapability(initializeResult, 'promptCapabilities.image', 'image');
+
+const uriOfImageOrResourceLink = (block: ContentBlock): string | undefined => {
+  if (block.type === 'resource_link') {
+    return block.uri;
+  }
+  if (block.type === 'image' && typeof block.uri === 'string') {
+    return block.uri;
+  }
+  return undefined;
+};
+
+/** Drop later `resource_link` / `image` blocks that share a `uri` with an earlier one (first wins). */
 export const dedupeResourceLinksByUri = (blocks: readonly ContentBlock[]): ContentBlock[] => {
   const seen = new Set<string>();
   const out: ContentBlock[] = [];
   for (const block of blocks) {
-    if (block.type === 'resource_link') {
-      if (!seen.has(block.uri)) {
-        seen.add(block.uri);
+    const uri = uriOfImageOrResourceLink(block);
+    if (uri !== undefined) {
+      if (!seen.has(uri)) {
+        seen.add(uri);
         out.push(block);
       }
     } else {
@@ -269,8 +286,8 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
  * No cwd → plain text block (send cannot resolve FS links); image attaches still prepend when present.
- * Image `resource_link`s (draft markdown or attachments) always go at the front; all `resource_link`s
- * are de-duplicated by `uri` (first wins). Empty text + images → resource_link-only (no empty text).
+ * Attachment / draft image blocks always go at the front; `resource_link` and `image` share uri
+ * de-duplication (first wins). Empty text + images → image/resource_link-only (no empty text).
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
   text: string,
@@ -303,14 +320,19 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
     }
   }
 
-  const frontImageLinks = [...attachments.map(attachmentToResourceLinkBlock), ...draftImageLinks];
-  if (frontImageLinks.length === 0) {
+  const sendAsImage = hasImagePromptCapability(options.initializeResult);
+  const attachmentBlocks: ContentBlock[] = sendAsImage
+    ? yield* Effect.forEach(attachments, attachmentToImageBlock)
+    : attachments.map(attachmentToResourceLinkBlock);
+
+  const frontImageBlocks = [...attachmentBlocks, ...draftImageLinks];
+  if (frontImageBlocks.length === 0) {
     return dedupeResourceLinksByUri(draftBlocks);
   }
 
   const trimmedEmpty = text.trim().length === 0;
   const onlyEmptyText = trimmedEmpty && body.length === 1 && body[0]?.type === 'text' && body[0].text === '';
 
-  const combined = onlyEmptyText ? frontImageLinks : [...frontImageLinks, ...body];
+  const combined = onlyEmptyText ? frontImageBlocks : [...frontImageBlocks, ...body];
   return dedupeResourceLinksByUri(combined);
 });

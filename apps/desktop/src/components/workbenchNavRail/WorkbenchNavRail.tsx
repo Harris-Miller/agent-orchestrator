@@ -137,7 +137,6 @@ export const WorkbenchNavRail: FC<{
                         '&.Mui-expanded .folder-closed': { display: 'none' },
                         '&.Mui-expanded .folder-open': { display: 'inline-flex' },
                         '& .MuiAccordionSummary-content': {
-                          alignItems: 'center',
                           gap: 0.75,
                           m: 0,
                           width: '100%',

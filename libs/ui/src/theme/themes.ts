@@ -117,7 +117,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
       },
       MuiAccordionSummary: {
         styleOverrides: {
-          content: { margin: 0 },
+          content: { alignItems: 'center', margin: '4px 0' },
           root: { minHeight: 32, paddingLeft: 8, paddingRight: 8 },
         },
       },

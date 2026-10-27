@@ -1,18 +1,19 @@
 /**
- * Host FileSystem read of a `file://` URI → Jimp JPEG thumbnail data URL.
+ * Host FileSystem read of a `file://` URI → base64 image data URL for `<img>`.
  */
 import { Effect, Option, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { makeImageThumbnail } from './makeImageThumbnail.ts';
+import { mimeTypeForImagePath } from './draftToContentBlocks.ts';
+import { imageBytesToDataUrl } from './imageDataUrl.ts';
 
 export class FileUriThumbnailFailed extends Schema.TaggedError<FileUriThumbnailFailed>()('FileUriThumbnailFailed', {
   cause: Schema.optional(Schema.Unknown),
   message: Schema.String,
 }) {}
 
-/** Resolve `file://…` → absolute path → read bytes → thumbnail data URL. */
+/** Resolve `file://…` → absolute path → read bytes → data URL. */
 export const loadFileUriThumbnail = Effect.fn('loadFileUriThumbnail')(function* (fileUri: string) {
   if (!fileUri.startsWith('file://')) {
     return yield* new FileUriThumbnailFailed({ message: `Not a file:// URI: ${fileUri}` });
@@ -26,12 +27,17 @@ export const loadFileUriThumbnail = Effect.fn('loadFileUriThumbnail')(function* 
     return yield* new FileUriThumbnailFailed({ message: `Could not resolve path for ${fileUri}` });
   }
 
+  const mimeType = mimeTypeForImagePath(absolute.value);
+  if (mimeType === undefined) {
+    return yield* new FileUriThumbnailFailed({ message: `Unsupported image file: ${fileUri}` });
+  }
+
   const bytes = yield* fs
     .readFile(absolute.value)
     .pipe(Effect.mapError(cause => new FileUriThumbnailFailed({ cause, message: `Could not read ${fileUri}` })));
 
-  return yield* Effect.tryPromise({
-    catch: cause => new FileUriThumbnailFailed({ cause, message: `Could not thumbnail ${fileUri}` }),
-    try: () => makeImageThumbnail(bytes),
+  return yield* Effect.try({
+    catch: cause => new FileUriThumbnailFailed({ cause, message: `Could not encode ${fileUri}` }),
+    try: () => imageBytesToDataUrl(bytes, mimeType),
   });
 });

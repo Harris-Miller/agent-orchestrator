@@ -30,17 +30,18 @@ export const IMAGE_ATTACH_MAX_BYTES_TOTAL = 15 * 1024 * 1024;
 
 export const IMAGE_DIALOG_FILTERS = [{ extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'], name: 'Images' }] as const;
 
-/** Draft-side image held for send (thumbnail + metadata; full bytes not retained). */
+/** Draft-side image held for send (preview data URL + metadata; raw bytes not retained). */
 export type ComposerImageAttachment = {
   readonly byteLength: number;
   readonly id: string;
   readonly mimeType: string;
   readonly name: string;
+  /** `data:<mime>;base64,…` for composer / transcript `<img>` previews. */
   readonly thumbnailDataUrl: string;
   readonly uri: string;
 };
 
-/** Attachments rejected (MIME / size / count / read / thumbnail failure). */
+/** Attachments rejected (MIME / size / count / read / encode failure). */
 export class ImageAttachmentRejected extends Schema.TaggedError<ImageAttachmentRejected>()('ImageAttachmentRejected', {
   cause: Schema.optional(Schema.Unknown),
   message: Schema.String,

@@ -1,5 +1,5 @@
 /**
- * Native FileDialog → FileSystem.readFile → Jimp thumbnail → ComposerImageAttachment[].
+ * Native FileDialog → FileSystem.readFile → base64 data URL → ComposerImageAttachment[].
  */
 import { FileDialog } from '@lib/context-services';
 import { Effect, Option } from 'effect';
@@ -15,7 +15,7 @@ import {
   validateImageAttachments,
 } from './draftToContentBlocks.ts';
 import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
-import { makeImageThumbnail } from './makeImageThumbnail.ts';
+import { imageBytesToDataUrl } from './imageDataUrl.ts';
 
 const basenameForName = (pathApi: Path, absolutePath: string): string => {
   const trimmed = absolutePath.replace(/[/\\]+$/, '');
@@ -57,13 +57,13 @@ const readPathAsAttachment = Effect.fn('pickComposerImages.readPathAsAttachment'
     });
   }
 
-  const thumbnailDataUrl = yield* Effect.tryPromise({
+  const thumbnailDataUrl = yield* Effect.try({
     catch: cause =>
       new ImageAttachmentRejected({
         cause,
-        message: `Could not create thumbnail for ${basenameForName(pathApi, absolutePath)}`,
+        message: `Could not encode ${basenameForName(pathApi, absolutePath)}`,
       }),
-    try: () => makeImageThumbnail(bytes),
+    try: () => imageBytesToDataUrl(bytes, mimeType),
   });
 
   return {
@@ -78,7 +78,7 @@ const readPathAsAttachment = Effect.fn('pickComposerImages.readPathAsAttachment'
 
 /**
  * Open host file dialog, read selected paths, return attachments to append after `existing`.
- * Cancel → empty list. Cap/MIME/thumbnail failures → ImageAttachmentRejected.
+ * Cancel → empty list. Cap/MIME/encode failures → ImageAttachmentRejected.
  */
 export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
   existing: readonly ComposerImageAttachment[],

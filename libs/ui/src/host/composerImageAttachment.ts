@@ -7,6 +7,8 @@ import { Effect, Schema } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
 
+import { base64FromDataUrl, parseDataUrlBase64 } from './imageDataUrl.ts';
+
 /** MIME allowlist for composer image attachments (decoded bytes before base64). */
 export const IMAGE_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   'image/gif',
@@ -63,6 +65,16 @@ export const mimeTypeForImagePath = (path: string): string | undefined => {
 };
 
 export const isAllowedImageMimeType = (mimeType: string): boolean => IMAGE_MIME_ALLOWLIST.has(mimeType);
+
+/** MIME from a `data:<mime>;base64,…` href when that mime is in the image allowlist. */
+export const mimeTypeForDataImageHref = (href: string): string | undefined => {
+  const parsed = parseDataUrlBase64(href);
+  if (parsed === undefined) {
+    return undefined;
+  }
+  const mimeType = parsed.mimeType.toLowerCase();
+  return isAllowedImageMimeType(mimeType) ? mimeType : undefined;
+};
 
 /** True when a resource_link looks like an image (mime allowlist or image extension). */
 export const isImageLikeResourceLink = (block: unknown): boolean => {
@@ -127,3 +139,26 @@ export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachmen
   type: 'resource_link',
   uri: attachment.uri,
 });
+
+/**
+ * ACP `type: "image"` from a composer attachment. Always includes `uri` (Composer send contract);
+ * schema keeps `uri` optional for inbound/history.
+ */
+export const attachmentToImageBlock = (
+  attachment: ComposerImageAttachment,
+): Effect.Effect<ContentBlock, ImageAttachmentRejected> => {
+  const data = base64FromDataUrl(attachment.previewDataUrl);
+  if (data === undefined) {
+    return Effect.fail(
+      new ImageAttachmentRejected({
+        message: `Image ${attachment.name} has no base64 preview data`,
+      }),
+    );
+  }
+  return Effect.succeed({
+    data,
+    mimeType: attachment.mimeType,
+    type: 'image' as const,
+    uri: attachment.uri,
+  });
+};

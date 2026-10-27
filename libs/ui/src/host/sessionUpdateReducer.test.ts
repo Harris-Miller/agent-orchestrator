@@ -171,6 +171,51 @@ describe('user_message_chunk image resource_link', () => {
   });
 });
 
+describe('user_message_chunk type image ContentBlock', () => {
+  it('ingests type image into user_message with previewDataUrl', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        data: '/9j/4AAQ',
+        mimeType: 'image/jpeg',
+        type: 'image',
+        uri: 'file:///tmp/couch.jpg',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, '');
+    assert.deepStrictEqual(item.images, [
+      {
+        mimeType: 'image/jpeg',
+        name: 'couch.jpg',
+        previewDataUrl: 'data:image/jpeg;base64,/9j/4AAQ',
+        uri: 'file:///tmp/couch.jpg',
+      },
+    ]);
+  });
+
+  it('ingests type image alongside text in content array', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: [
+        { text: 'see this', type: 'text' },
+        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image' },
+      ],
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'see this');
+    assert.deepStrictEqual(item.images, [
+      {
+        mimeType: 'image/png',
+        previewDataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    ]);
+  });
+});
+
 describe('user_message_chunk image file:// markdown (session/load rewrite)', () => {
   it('lifts image-only text markdown into images and clears text', () => {
     const next = reduceSessionUpdate(emptySessionTranscript(), {
@@ -202,6 +247,38 @@ describe('user_message_chunk image file:// markdown (session/load rewrite)', () 
     const item = expectUserMessage(next.items[0]);
     assert.strictEqual(item.text, 'see and [@notes.md](file:///tmp/notes.md)');
     assert.deepStrictEqual(item.images, [{ mimeType: 'image/png', name: 'shot.png', uri: 'file:///tmp/shot.png' }]);
+  });
+
+  it('lifts data:image markdown into images with previewDataUrl', () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: `[@media image](${dataUrl})`,
+        type: 'text',
+      },
+      messageId: 'msg-data',
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, '');
+    assert.deepStrictEqual(item.images, [
+      { mimeType: 'image/png', name: 'media image', previewDataUrl: dataUrl, uri: dataUrl },
+    ]);
+  });
+
+  it('ignores non-image data: markdown links', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: 'keep [doc](data:text/plain;base64,YQ==) please',
+        type: 'text',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'keep [doc](data:text/plain;base64,YQ==) please');
+    assert.strictEqual(item.images, undefined);
   });
 });
 

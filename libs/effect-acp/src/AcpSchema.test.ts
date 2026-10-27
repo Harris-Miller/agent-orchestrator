@@ -1,10 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Schema } from 'effect';
 
 import {
   AgentNotificationRpcs,
   AgentRequestRpcs,
   ClientNotificationRpcs,
   ClientRequestRpcs,
+  ContentBlock,
   ProtocolNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
@@ -93,5 +95,39 @@ describe('AcpSchema stable v1 allowlist', () => {
   it('_session/archive stays off the stable AgentRequestRpcs allowlist', () => {
     assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_ARCHIVE_METHOD), false);
     assertExactTags(UnstableSessionArchiveRpcs, [SESSION_ARCHIVE_METHOD]);
+  });
+});
+
+describe('ContentBlock image', () => {
+  it('decodes image with optional uri omitted', () => {
+    assert.deepStrictEqual(
+      Schema.decodeSync(ContentBlock)({
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        type: 'image',
+      }),
+      {
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        type: 'image',
+      },
+    );
+  });
+
+  it('decodes image with uri present', () => {
+    assert.deepStrictEqual(
+      Schema.decodeSync(ContentBlock)({
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        type: 'image',
+        uri: 'file:///tmp/a.png',
+      }),
+      {
+        data: 'iVBORw0KGgo=',
+        mimeType: 'image/png',
+        type: 'image',
+        uri: 'file:///tmp/a.png',
+      },
+    );
   });
 });

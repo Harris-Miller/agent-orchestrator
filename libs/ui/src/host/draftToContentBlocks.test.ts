@@ -250,6 +250,66 @@ describe('promptBlocksFromComposerDraft images', () => {
   );
 });
 
+describe('promptBlocksFromComposerDraft images with promptCapabilities.image', () => {
+  const initImage = { agentCapabilities: { promptCapabilities: { embeddedContext: false, image: true } } };
+
+  it.effect('attachments → type image with data/mimeType/uri', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('hi', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: initImage,
+      });
+      assert.deepStrictEqual(blocks, [
+        {
+          data: 'thumb',
+          mimeType: 'image/png',
+          type: 'image',
+          uri: 'file:///tmp/a.png',
+        },
+        { text: 'hi', type: 'text' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('image-only → only image blocks, no forced text', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: initImage,
+      });
+      assert.deepStrictEqual(blocks, [
+        {
+          data: 'thumb',
+          mimeType: 'image/png',
+          type: 'image',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('duplicate draft image markdown + attachment → one image block', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('see [@a.png](file:///tmp/a.png)', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: initImage,
+      });
+      assert.deepStrictEqual(blocks, [
+        {
+          data: 'thumb',
+          mimeType: 'image/png',
+          type: 'image',
+          uri: 'file:///tmp/a.png',
+        },
+        { text: 'see ', type: 'text' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/tmp/a.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]])))),
+  );
+});
+
 describe('draftToContentBlocks', () => {
   it.effect('plain text only → single text block', () =>
     Effect.gen(function* () {

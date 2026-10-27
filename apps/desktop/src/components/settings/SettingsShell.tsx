@@ -2,6 +2,7 @@ import {
   filterSettingsCategories,
   isSettingsCategoryId,
   LucideMuiIcon,
+  PANEL_HEADER_HEIGHT,
   RestoreUserSettingsDefaultsControl,
   settingsCategoryLabel,
   UserSettingsLoadFailureAlert,
@@ -95,13 +96,24 @@ export const SettingsShell: FC = () => {
       </Box>
 
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minWidth: 0 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, px: 3, py: 2 }}>
-          <Box sx={{ alignItems: 'center', display: 'flex', gap: 2, justifyContent: 'space-between' }}>
-            <Typography sx={{ flex: 1 }} variant="h5">
-              {category !== undefined ? settingsCategoryLabel(category) : 'Settings'}
-            </Typography>
-            <RestoreUserSettingsDefaultsControl />
-          </Box>
+        <Box
+          sx={{
+            alignItems: 'center',
+            borderBottom: 1,
+            borderColor: 'divider',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexShrink: 0,
+            gap: 2,
+            justifyContent: 'space-between',
+            minHeight: PANEL_HEADER_HEIGHT,
+            px: 2,
+          }}
+        >
+          <Typography noWrap sx={{ flex: 1 }} variant="h6">
+            {category !== undefined ? settingsCategoryLabel(category) : 'Settings'}
+          </Typography>
+          <RestoreUserSettingsDefaultsControl />
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
           <UserSettingsLoadFailureAlert sx={{ mb: 2 }} />

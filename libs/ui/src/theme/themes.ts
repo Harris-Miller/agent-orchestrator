@@ -117,7 +117,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
       },
       MuiAccordionSummary: {
         styleOverrides: {
-          content: { alignItems: 'center', margin: '4px 0' },
+          content: { alignItems: 'center', gap: 8, margin: '4px 0' },
           root: { minHeight: 32, paddingLeft: 8, paddingRight: 8 },
         },
       },
@@ -157,66 +157,27 @@ const createAppTheme = (c: ThemeColors): Theme =>
                   color: c.errorLight,
                 },
               },
-              {
-                props: { severity: 'info', variant: 'filled' },
-                style: {
-                  backgroundColor: c.infoMain,
-                  color: c.onAccent,
+              ...(
+                [
+                  { main: c.infoMain, outlined: c.infoMain, severity: 'info' as const },
+                  { main: c.successMain, outlined: c.successLight, severity: 'success' as const },
+                  { main: c.warningMain, outlined: c.warningLight, severity: 'warning' as const },
+                  { main: c.errorMain, outlined: c.errorLight, severity: 'error' as const },
+                ] as const
+              ).flatMap(({ main, outlined, severity }) => [
+                {
+                  props: { severity, variant: 'filled' as const },
+                  style: { backgroundColor: main, color: c.onAccent },
                 },
-              },
-              {
-                props: { severity: 'success', variant: 'filled' },
-                style: {
-                  backgroundColor: c.successMain,
-                  color: c.onAccent,
+                {
+                  props: { severity, variant: 'outlined' as const },
+                  style: {
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${main}`,
+                    color: outlined,
+                  },
                 },
-              },
-              {
-                props: { severity: 'warning', variant: 'filled' },
-                style: {
-                  backgroundColor: c.warningMain,
-                  color: c.onAccent,
-                },
-              },
-              {
-                props: { severity: 'error', variant: 'filled' },
-                style: {
-                  backgroundColor: c.errorMain,
-                  color: c.onAccent,
-                },
-              },
-              {
-                props: { severity: 'info', variant: 'outlined' },
-                style: {
-                  backgroundColor: 'transparent',
-                  border: `1px solid ${c.infoMain}`,
-                  color: c.infoMain,
-                },
-              },
-              {
-                props: { severity: 'success', variant: 'outlined' },
-                style: {
-                  backgroundColor: 'transparent',
-                  border: `1px solid ${c.successMain}`,
-                  color: c.successLight,
-                },
-              },
-              {
-                props: { severity: 'warning', variant: 'outlined' },
-                style: {
-                  backgroundColor: 'transparent',
-                  border: `1px solid ${c.warningMain}`,
-                  color: c.warningLight,
-                },
-              },
-              {
-                props: { severity: 'error', variant: 'outlined' },
-                style: {
-                  backgroundColor: 'transparent',
-                  border: `1px solid ${c.errorMain}`,
-                  color: c.errorLight,
-                },
-              },
+              ]),
             ],
           },
         },
@@ -379,59 +340,31 @@ const createAppTheme = (c: ThemeColors): Theme =>
                   height: 20,
                 },
               },
-              {
-                props: { color: 'primary', variant: 'filled' },
+              ...(
+                [
+                  { color: 'primary' as const, fill: c.primaryContained },
+                  { color: 'success' as const, fill: c.successMain },
+                  { color: 'warning' as const, fill: c.warningMain },
+                  { color: 'error' as const, fill: c.errorMain },
+                ] as const
+              ).map(({ color, fill }) => ({
+                props: { color, variant: 'filled' as const },
                 style: {
-                  backgroundColor: c.primaryContained,
-                  borderColor: c.primaryContained,
+                  backgroundColor: fill,
+                  borderColor: fill,
                   color: c.onAccent,
                 },
-              },
-              {
-                props: { color: 'success', variant: 'filled' },
-                style: {
-                  backgroundColor: c.successMain,
-                  borderColor: c.successMain,
-                  color: c.onAccent,
-                },
-              },
-              {
-                props: { color: 'warning', variant: 'filled' },
-                style: {
-                  backgroundColor: c.warningMain,
-                  borderColor: c.warningMain,
-                  color: c.onAccent,
-                },
-              },
-              {
-                props: { color: 'error', variant: 'filled' },
-                style: {
-                  backgroundColor: c.errorMain,
-                  borderColor: c.errorMain,
-                  color: c.onAccent,
-                },
-              },
-              {
-                props: { color: 'success', variant: 'outlined' },
-                style: {
-                  borderColor: c.successMain,
-                  color: c.successLight,
-                },
-              },
-              {
-                props: { color: 'warning', variant: 'outlined' },
-                style: {
-                  borderColor: c.warningMain,
-                  color: c.warningLight,
-                },
-              },
-              {
-                props: { color: 'error', variant: 'outlined' },
-                style: {
-                  borderColor: c.errorMain,
-                  color: c.errorLight,
-                },
-              },
+              })),
+              ...(
+                [
+                  { border: c.successMain, color: 'success' as const, text: c.successLight },
+                  { border: c.warningMain, color: 'warning' as const, text: c.warningLight },
+                  { border: c.errorMain, color: 'error' as const, text: c.errorLight },
+                ] as const
+              ).map(({ border, color, text }) => ({
+                props: { color, variant: 'outlined' as const },
+                style: { borderColor: border, color: text },
+              })),
             ],
           },
         },
@@ -574,9 +507,6 @@ const createAppTheme = (c: ThemeColors): Theme =>
               borderColor: c.primaryMain,
               boxShadow: `0 0 0 1px ${alpha(c.primaryMain, 0.22)}`,
             },
-            '&.MuiInputBase-adornedStart': {
-              paddingLeft: 6,
-            },
             '&.MuiInputBase-sizeSmall': {
               minHeight: 24,
             },
@@ -657,9 +587,6 @@ const createAppTheme = (c: ThemeColors): Theme =>
             border: 0,
           },
           root: {
-            '&.MuiInputBase-adornedStart': {
-              paddingLeft: 6,
-            },
             '& .MuiOutlinedInput-inputAdornedStart': {
               paddingLeft: 0,
             },

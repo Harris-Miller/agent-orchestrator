@@ -71,7 +71,7 @@ export const ProvidersSettingsPane: FC = () => {
               />
               {errorText !== undefined ? (
                 <Accordion sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}>
-                  <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { gap: 1 } }}>
+                  <AccordionSummary>
                     <Typography
                       component="span"
                       sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }}

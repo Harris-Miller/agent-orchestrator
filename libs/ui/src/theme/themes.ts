@@ -506,7 +506,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
       },
       MuiFormControlLabel: {
         styleOverrides: {
-          root: { marginLeft: 0, marginRight: 8 },
+          // Switch/Checkbox padding is 0 in this theme — restore label gap (matches Stack spacing={1}).
+          root: { columnGap: 8, marginLeft: 0, marginRight: 8 },
         },
       },
       MuiFormHelperText: {

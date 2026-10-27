@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -41,44 +42,44 @@ export const GeneralSettingsPane: FC = () => {
         Session delete confirmation, No Folder group visibility, Developer mode, and Always-hidden globs live in User
         settings.
       </Typography>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={confirmSessionDelete}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setConfirmSessionDelete(checked);
-            }}
-          />
-        }
-        label="Confirm before deleting a session"
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={showNoFolderGroup}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setShowNoFolderGroup(checked);
-            }}
-          />
-        }
-        label="Show No Folder group in Sessions"
-        sx={{ display: 'block', mt: 1 }}
-      />
-      <FormControlLabel
-        control={
-          <Switch
-            checked={developerMode}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setDeveloperMode(checked);
-            }}
-          />
-        }
-        label="Developer mode"
-        sx={{ display: 'block', mt: 1 }}
-      />
+      <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={confirmSessionDelete}
+              disabled={editsDisabled}
+              onChange={(_event, checked) => {
+                setConfirmSessionDelete(checked);
+              }}
+            />
+          }
+          label="Confirm before deleting a session"
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showNoFolderGroup}
+              disabled={editsDisabled}
+              onChange={(_event, checked) => {
+                setShowNoFolderGroup(checked);
+              }}
+            />
+          }
+          label="Show No Folder group in Sessions"
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={developerMode}
+              disabled={editsDisabled}
+              onChange={(_event, checked) => {
+                setDeveloperMode(checked);
+              }}
+            />
+          }
+          label="Developer mode"
+        />
+      </Stack>
       <Box sx={{ mt: 2 }}>
         <FieldLabel fullWidth htmlFor="always-hidden-globs" label="Always-hidden globs">
           <TextField

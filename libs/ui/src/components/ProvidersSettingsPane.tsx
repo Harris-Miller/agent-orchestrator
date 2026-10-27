@@ -14,6 +14,7 @@ import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
+import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
@@ -69,23 +70,13 @@ export const ProvidersSettingsPane: FC = () => {
                 variant="outlined"
               />
               {errorText !== undefined ? (
-                <Accordion
-                  disableGutters
-                  elevation={0}
-                  sx={{
-                    '&::before': { display: 'none' },
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    mt: 0.75,
-                  }}
-                >
-                  <AccordionSummary
-                    sx={{
-                      '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 },
-                      minHeight: 36,
-                    }}
-                  >
-                    <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+                <Accordion sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}>
+                  <AccordionSummary>
+                    <Typography
+                      component="span"
+                      sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }}
+                      variant="body2"
+                    >
                       Expand to view error message
                     </Typography>
                     <Button
@@ -104,7 +95,7 @@ export const ProvidersSettingsPane: FC = () => {
                     <Box
                       component="pre"
                       sx={{
-                        fontFamily: 'monospace',
+                        fontFamily: FONT_FAMILY_MONO,
                         fontSize: '0.75rem',
                         m: 0,
                         overflow: 'auto',

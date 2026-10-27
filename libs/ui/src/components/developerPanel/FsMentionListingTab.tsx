@@ -8,6 +8,7 @@ import type { FC } from 'react';
 
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { listingPathBoldFrom } from '../../host/fdListing.ts';
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { ListingEntryIcon } from '../sessionChat/FileChipIconView.tsx';
 import { filterFsListingMatches } from '../sessionChat/filterFsListingEntries.ts';
@@ -95,7 +96,7 @@ export const FsMentionListingTab: FC = () => {
                     noWrap
                     sx={{
                       flex: 1,
-                      fontFamily: 'monospace',
+                      fontFamily: FONT_FAMILY_MONO,
                       fontSize: '0.75rem',
                       lineHeight: `${ROW_HEIGHT_PX}px`,
                       minWidth: 0,

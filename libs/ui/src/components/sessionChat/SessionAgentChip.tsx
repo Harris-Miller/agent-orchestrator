@@ -42,7 +42,7 @@ export const SessionAgentChip: FC<{
               }}
               selected={value === launchTarget}
             >
-              <ListItemIcon sx={{ minWidth: 28 }}>
+              <ListItemIcon>
                 <AgentLaunchTargetIcon launchTarget={launchTarget} />
               </ListItemIcon>
               <ListItemText>{agentLaunchTargetLabel(launchTarget)}</ListItemText>

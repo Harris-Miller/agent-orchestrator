@@ -5,7 +5,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
@@ -23,9 +23,12 @@ import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/age
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
+import { FieldLabel } from '../FieldLabel.tsx';
 
 import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
+import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 import {
   cascadedWireIds,
@@ -46,6 +49,7 @@ const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
 const SESSION_STATE_TAB = 'session-state' as const;
 const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
 const COMPOSER_TAB = 'composer' as const;
+const MUI_THEME_PLAYGROUND_TAB = 'mui-theme-playground' as const;
 
 export type DeveloperPanelExtraTab = {
   readonly content: ReactNode;
@@ -129,127 +133,128 @@ const RpcWireLogBody: FC<{
   return (
     <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }} useFlexGap>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Switch
-            checked={activeSessionOnly}
-            onChange={(_event, checked) => {
-              setActiveSessionOnly(checked);
-              setWireIdFilter(RPC_WIRE_FILTER_ALL);
-            }}
-            slotProps={{ input: { 'aria-label': 'Active session' } }}
-          />
-          <Typography variant="body2">Active session</Typography>
-        </Stack>
-        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="rpc-wire-launch-target">Launch target</InputLabel>
-          <Select
-            label="Launch target"
-            labelId="rpc-wire-launch-target"
-            onChange={event => {
-              const nextLaunchTarget = event.target.value;
-              setLaunchTargetFilter(nextLaunchTarget);
-              setSessionFilter(RPC_WIRE_FILTER_ALL);
-              setWireIdFilter(current =>
-                coerceWireIdForCascade(
-                  {
-                    launchTarget: nextLaunchTarget,
-                    sessionKey: RPC_WIRE_FILTER_ALL,
-                    tag: tagFilter,
-                  },
-                  current,
-                ),
-              );
-            }}
-            value={launchTargetFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
-              <MenuItem key={launchTarget} value={launchTarget}>
-                {agentLaunchTargetLabel(launchTarget)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="rpc-wire-session">Session</InputLabel>
-          <Select
-            label="Session"
-            labelId="rpc-wire-session"
-            onChange={event => {
-              const nextSession = event.target.value;
-              setSessionFilter(nextSession);
-              setWireIdFilter(current =>
-                coerceWireIdForCascade(
-                  {
-                    launchTarget: launchTargetFilter,
-                    sessionKey: nextSession,
-                    tag: tagFilter,
-                  },
-                  current,
-                ),
-              );
-            }}
-            value={sessionFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {sessionOptions.map(sessionKey => (
-              <MenuItem key={sessionKey} value={sessionKey}>
-                {sessionKey}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel id="rpc-wire-tag">Tag</InputLabel>
-          <Select
-            label="Tag"
-            labelId="rpc-wire-tag"
-            onChange={event => {
-              const nextTag = event.target.value;
-              setTagFilter(nextTag);
-              setWireIdFilter(current => {
-                if (resolvedSessionFilter === null) {
-                  return RPC_WIRE_FILTER_ALL;
-                }
-                return coerceWireIdForCascade(
-                  {
-                    launchTarget: launchTargetForFilters,
-                    sessionKey: resolvedSessionFilter,
-                    tag: nextTag,
-                  },
-                  current,
+        <FormControlLabel
+          control={
+            <Switch
+              checked={activeSessionOnly}
+              onChange={(_event, checked) => {
+                setActiveSessionOnly(checked);
+                setWireIdFilter(RPC_WIRE_FILTER_ALL);
+              }}
+            />
+          }
+          label="Active session"
+        />
+        <FieldLabel id="rpc-wire-launch-target" label="Launch target">
+          <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
+            <Select
+              aria-labelledby="rpc-wire-launch-target"
+              onChange={event => {
+                const nextLaunchTarget = event.target.value;
+                setLaunchTargetFilter(nextLaunchTarget);
+                setSessionFilter(RPC_WIRE_FILTER_ALL);
+                setWireIdFilter(current =>
+                  coerceWireIdForCascade(
+                    {
+                      launchTarget: nextLaunchTarget,
+                      sessionKey: RPC_WIRE_FILTER_ALL,
+                      tag: tagFilter,
+                    },
+                    current,
+                  ),
                 );
-              });
-            }}
-            value={tagFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {classification.tags.map(tag => (
-              <MenuItem key={tag} value={tag}>
-                {tag}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel id="rpc-wire-id">Id</InputLabel>
-          <Select
-            displayEmpty
-            label="Id"
-            labelId="rpc-wire-id"
-            onChange={event => {
-              setWireIdFilter(event.target.value);
-            }}
-            value={effectiveWireIdFilter}
-          >
-            <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-            {idOptions.map(wireId => (
-              <MenuItem key={wireId === '' ? 'empty-id' : wireId} value={wireId}>
-                {wireIdMenuLabel(wireId)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              }}
+              value={launchTargetFilter}
+            >
+              <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+              {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
+                <MenuItem key={launchTarget} value={launchTarget}>
+                  {agentLaunchTargetLabel(launchTarget)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FieldLabel>
+        <FieldLabel id="rpc-wire-session" label="Session">
+          <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
+            <Select
+              aria-labelledby="rpc-wire-session"
+              onChange={event => {
+                const nextSession = event.target.value;
+                setSessionFilter(nextSession);
+                setWireIdFilter(current =>
+                  coerceWireIdForCascade(
+                    {
+                      launchTarget: launchTargetFilter,
+                      sessionKey: nextSession,
+                      tag: tagFilter,
+                    },
+                    current,
+                  ),
+                );
+              }}
+              value={sessionFilter}
+            >
+              <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+              {sessionOptions.map(sessionKey => (
+                <MenuItem key={sessionKey} value={sessionKey}>
+                  {sessionKey}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FieldLabel>
+        <FieldLabel id="rpc-wire-tag" label="Tag">
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              aria-labelledby="rpc-wire-tag"
+              onChange={event => {
+                const nextTag = event.target.value;
+                setTagFilter(nextTag);
+                setWireIdFilter(current => {
+                  if (resolvedSessionFilter === null) {
+                    return RPC_WIRE_FILTER_ALL;
+                  }
+                  return coerceWireIdForCascade(
+                    {
+                      launchTarget: launchTargetForFilters,
+                      sessionKey: resolvedSessionFilter,
+                      tag: nextTag,
+                    },
+                    current,
+                  );
+                });
+              }}
+              value={tagFilter}
+            >
+              <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+              {classification.tags.map(tag => (
+                <MenuItem key={tag} value={tag}>
+                  {tag}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FieldLabel>
+        <FieldLabel id="rpc-wire-id" label="Id">
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              aria-labelledby="rpc-wire-id"
+              displayEmpty
+              onChange={event => {
+                setWireIdFilter(event.target.value);
+              }}
+              value={effectiveWireIdFilter}
+            >
+              <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
+              {idOptions.map(wireId => (
+                <MenuItem key={wireId === '' ? 'empty-id' : wireId} value={wireId}>
+                  {wireIdMenuLabel(wireId)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FieldLabel>
         <Typography color="text.secondary" variant="caption">
           {filtered.length} / {entryCount} shown
         </Typography>
@@ -261,20 +266,9 @@ const RpcWireLogBody: FC<{
           </Typography>
         ) : (
           filtered.map(({ entry, launchTarget, meta }) => (
-            <Accordion
-              disableGutters
-              elevation={0}
-              key={entry.id}
-              sx={{
-                '&::before': { display: 'none' },
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-              }}
-            >
-              <AccordionSummary
-                sx={{ '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 1, my: 0.5 }, minHeight: 36 }}
-              >
-                <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} variant="body2">
+            <Accordion key={entry.id} sx={{ bgcolor: 'action.hover', borderRadius: 1 }}>
+              <AccordionSummary>
+                <Typography component="span" sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }} variant="body2">
                   [{agentLaunchTargetLabel(launchTarget)}] {meta.title}
                 </Typography>
                 <Button
@@ -295,7 +289,7 @@ const RpcWireLogBody: FC<{
                 <Box
                   component="pre"
                   sx={{
-                    fontFamily: 'monospace',
+                    fontFamily: FONT_FAMILY_MONO,
                     fontSize: '0.75rem',
                     m: 0,
                     overflow: 'auto',
@@ -323,9 +317,10 @@ export const DeveloperPanelShell: FC<{
   const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(RPC_WIRE_LOG_TAB);
   const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
+  const isMuiThemePlaygroundTab = activeTab === MUI_THEME_PLAYGROUND_TAB;
   const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
   const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
-  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB ? 2 : 0;
+  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB || isMuiThemePlaygroundTab ? 2 : 0;
 
   return (
     <Box
@@ -343,20 +338,17 @@ export const DeveloperPanelShell: FC<{
         onChange={(_event: SyntheticEvent, value: DeveloperPanelTab) => {
           setActiveTab(value);
         }}
-        sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0, minHeight: 36 }}
+        sx={{ flexShrink: 0 }}
         value={activeTab}
         variant="scrollable"
       >
-        <Tab label="RPC wire" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={RPC_WIRE_LOG_TAB} />
-        <Tab label="Session State" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={SESSION_STATE_TAB} />
-        <Tab
-          label="@ FS listing"
-          sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }}
-          value={FS_MENTION_LISTING_TAB}
-        />
-        <Tab label="Composer" sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={COMPOSER_TAB} />
+        <Tab label="RPC wire" value={RPC_WIRE_LOG_TAB} />
+        <Tab label="Session State" value={SESSION_STATE_TAB} />
+        <Tab label="@ FS listing" value={FS_MENTION_LISTING_TAB} />
+        <Tab label="Composer" value={COMPOSER_TAB} />
+        <Tab label="MUI playground" value={MUI_THEME_PLAYGROUND_TAB} />
         {extraTabs.map(tab => (
-          <Tab key={tab.id} label={tab.label} sx={{ minHeight: 36, py: 0.5, textTransform: 'none' }} value={tab.id} />
+          <Tab key={tab.id} label={tab.label} value={tab.id} />
         ))}
       </Tabs>
       <Box
@@ -377,6 +369,8 @@ export const DeveloperPanelShell: FC<{
           <FsMentionListingTab />
         ) : activeTab === COMPOSER_TAB ? (
           <ComposerTab />
+        ) : isMuiThemePlaygroundTab ? (
+          <MuiThemePlaygroundTab />
         ) : (
           (activeExtraTab?.content ?? null)
         )}

@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import { createContext, useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
+
 const menuShellSx = {
   bgcolor: 'background.paper',
   border: 1,
@@ -118,7 +120,7 @@ export const ComposerMenuRow: FC<ComposerMenuRowProps> = ({
       sx={{ py: 0.75 }}
     >
       <Typography component="div" noWrap sx={{ width: '100%' }} variant="body2">
-        <Box component="span" sx={{ fontFamily: 'monospace', mr: hasSecondary ? 1 : 0 }}>
+        <Box component="span" sx={{ fontFamily: FONT_FAMILY_MONO, mr: hasSecondary ? 1 : 0 }}>
           {primary}
         </Box>
         {hasSecondary ? (

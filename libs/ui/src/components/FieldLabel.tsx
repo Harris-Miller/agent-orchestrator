@@ -14,10 +14,10 @@ export const FieldLabel: FC<{
   <Stack
     direction="row"
     spacing={1}
-    sx={{ alignItems: 'flex-start', ...(fullWidth ? { width: '100%' } : null) }}
+    sx={{ alignItems: 'center', ...(fullWidth ? { width: '100%' } : null) }}
     useFlexGap
   >
-    <Typography component="label" htmlFor={htmlFor} id={id} sx={{ flexShrink: 0, minWidth: 96 }} variant="body2">
+    <Typography component="label" htmlFor={htmlFor} id={id} sx={{ flexShrink: 0 }} variant="body2">
       {label}
     </Typography>
     {fullWidth ? <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box> : children}

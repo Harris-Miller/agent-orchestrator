@@ -22,6 +22,28 @@ describe('withUserChatMessage', () => {
     });
     assert.notStrictEqual(next.transcript, session.transcript);
   });
+
+  it('lifts mid-draft image file:// markdown into images (composer @ mention)', () => {
+    const session = initialSessionSnapshot('s1', 'active');
+    const next = withUserChatMessage(
+      session,
+      'Testing what happens [@laios_portrait.jpeg](file:///tmp/laios_portrait.jpeg) in the middle',
+    );
+    assert.deepStrictEqual(next.transcript.items, [
+      {
+        id: next.transcript.items[0]?.id,
+        images: [
+          {
+            mimeType: 'image/jpeg',
+            name: 'laios_portrait.jpeg',
+            uri: 'file:///tmp/laios_portrait.jpeg',
+          },
+        ],
+        kind: 'user_message',
+        text: 'Testing what happens in the middle',
+      },
+    ]);
+  });
 });
 
 describe('applySessionUpdate', () => {

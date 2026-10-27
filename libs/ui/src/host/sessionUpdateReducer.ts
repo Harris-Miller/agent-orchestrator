@@ -4,7 +4,7 @@ import type { SessionUsageDocument } from '@lib/ao-home';
 
 import { isRecord } from '../isRecord.ts';
 
-import { IMAGE_MIME_ALLOWLIST, mimeTypeForImagePath } from './draftToContentBlocks.ts';
+import { findMarkdownLinks, IMAGE_MIME_ALLOWLIST, mimeTypeForImagePath } from './draftToContentBlocks.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -135,6 +135,44 @@ export const extractImageRefsFromContent = (content: unknown): readonly UserMess
     const ref = resourceLinkToImageRef(block);
     return ref === undefined ? [] : [ref];
   });
+};
+
+/**
+ * Agents often rewrite image `resource_link` attaches as `[@name](file://…)` text on
+ * `session/load`. Lift those into image refs and strip them from transcript text.
+ */
+const liftImageFileMarkdownLinks = (
+  text: string,
+): { readonly images: readonly UserMessageImageRef[]; readonly text: string } => {
+  const links = findMarkdownLinks(text);
+  if (links.length === 0) {
+    return { images: [], text };
+  }
+
+  const imageLinks = links.filter(link => link.href.startsWith('file://') && IMAGE_EXT_RE.test(link.href));
+  if (imageLinks.length === 0) {
+    return { images: [], text };
+  }
+
+  let nextText = text;
+  for (const link of [...imageLinks].reverse()) {
+    nextText = `${nextText.slice(0, link.start)}${nextText.slice(link.end)}`;
+  }
+
+  const images = imageLinks.map(link => {
+    const mimeType = mimeTypeForImagePath(link.href) ?? 'image/png';
+    const label = link.label.startsWith('@') ? link.label.slice(1) : link.label;
+    const name = label.length > 0 ? label : undefined;
+    return { mimeType, name, uri: link.href };
+  });
+
+  return {
+    images,
+    text: nextText
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+  };
 };
 
 const appendUserMessageChunk = (
@@ -344,13 +382,16 @@ export const appendUserChatMessage = (
   text: string,
   images?: readonly UserMessageImageRef[],
 ): SessionTranscript => {
-  if (images === undefined || images.length === 0) {
-    return appendMessageChunk(transcript, 'user_message', undefined, text);
+  // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
+  const lifted = liftImageFileMarkdownLinks(text);
+  const mergedImages = [...(images ?? []), ...lifted.images];
+  if (mergedImages.length === 0) {
+    return appendMessageChunk(transcript, 'user_message', undefined, lifted.text);
   }
   const id = crypto.randomUUID();
   return {
     ...transcript,
-    items: [...transcript.items, { id, images, kind: 'user_message', text }],
+    items: [...transcript.items, { id, images: mergedImages, kind: 'user_message', text: lifted.text }],
   };
 };
 
@@ -466,13 +507,15 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
     }
 
     case 'user_message_chunk': {
-      const text = extractTextFromContent(update.content);
-      const images = extractImageRefsFromContent(update.content);
+      const rawText = extractTextFromContent(update.content);
+      const blockImages = extractImageRefsFromContent(update.content);
+      const lifted =
+        rawText === undefined ? { images: [] as const, text: undefined } : liftImageFileMarkdownLinks(rawText);
       return appendUserMessageChunk(
         transcript,
         typeof update.messageId === 'string' ? update.messageId : undefined,
-        text,
-        images,
+        lifted.text,
+        [...blockImages, ...lifted.images],
       );
     }
 

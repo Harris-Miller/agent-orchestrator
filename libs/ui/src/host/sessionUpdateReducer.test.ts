@@ -171,6 +171,40 @@ describe('user_message_chunk image resource_link', () => {
   });
 });
 
+describe('user_message_chunk image file:// markdown (session/load rewrite)', () => {
+  it('lifts image-only text markdown into images and clears text', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: '[@bad_couch.png](file:///Users/harris/Pictures/bad_couch.png)',
+        type: 'text',
+      },
+      messageId: 'msg-1',
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, '');
+    assert.deepStrictEqual(item.images, [
+      { mimeType: 'image/png', name: 'bad_couch.png', uri: 'file:///Users/harris/Pictures/bad_couch.png' },
+    ]);
+  });
+
+  it('lifts image markdown and keeps surrounding text + non-image file links', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: 'see [@shot.png](file:///tmp/shot.png) and [@notes.md](file:///tmp/notes.md)',
+        type: 'text',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'see and [@notes.md](file:///tmp/notes.md)');
+    assert.deepStrictEqual(item.images, [{ mimeType: 'image/png', name: 'shot.png', uri: 'file:///tmp/shot.png' }]);
+  });
+});
+
 describe('markNonFinishedToolCallsCancelled', () => {
   it('marks pending and in_progress tool calls cancelled; leaves completed and failed', () => {
     let transcript = emptySessionTranscript();

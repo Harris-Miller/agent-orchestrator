@@ -86,7 +86,7 @@ const uriOfImageOrResourceLink = (block: ContentBlock): string | undefined => {
 };
 
 /** Drop later `resource_link` / `image` blocks that share a `uri` with an earlier one (first wins). */
-export const dedupeResourceLinksByUri = (blocks: readonly ContentBlock[]): ContentBlock[] => {
+export const dedupeImageOrResourceLinksByUri = (blocks: readonly ContentBlock[]): ContentBlock[] => {
   const seen = new Set<string>();
   const out: ContentBlock[] = [];
   for (const block of blocks) {
@@ -327,12 +327,12 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
 
   const frontImageBlocks = [...attachmentBlocks, ...draftImageLinks];
   if (frontImageBlocks.length === 0) {
-    return dedupeResourceLinksByUri(draftBlocks);
+    return dedupeImageOrResourceLinksByUri(draftBlocks);
   }
 
   const trimmedEmpty = text.trim().length === 0;
   const onlyEmptyText = trimmedEmpty && body.length === 1 && body[0]?.type === 'text' && body[0].text === '';
 
   const combined = onlyEmptyText ? frontImageBlocks : [...frontImageBlocks, ...body];
-  return dedupeResourceLinksByUri(combined);
+  return dedupeImageOrResourceLinksByUri(combined);
 });

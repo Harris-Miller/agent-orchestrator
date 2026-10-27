@@ -159,7 +159,7 @@ export const extractImageRefsFromContent = (content: unknown): readonly UserMess
  * `[@name](file://…ext)` or `[@name](data:image/…;base64,…)`.
  * Lift those into image refs and strip them from transcript text.
  */
-const liftImageFileMarkdownLinks = (
+const liftImageMarkdownLinks = (
   text: string,
 ): { readonly images: readonly UserMessageImageRef[]; readonly text: string } => {
   const links = findMarkdownLinks(text);
@@ -409,7 +409,7 @@ export const appendUserChatMessage = (
   images?: readonly UserMessageImageRef[],
 ): SessionTranscript => {
   // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
-  const lifted = liftImageFileMarkdownLinks(text);
+  const lifted = liftImageMarkdownLinks(text);
   const mergedImages = [...(images ?? []), ...lifted.images];
   if (mergedImages.length === 0) {
     return appendMessageChunk(transcript, 'user_message', undefined, lifted.text);
@@ -535,8 +535,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
     case 'user_message_chunk': {
       const rawText = extractTextFromContent(update.content);
       const blockImages = extractImageRefsFromContent(update.content);
-      const lifted =
-        rawText === undefined ? { images: [] as const, text: undefined } : liftImageFileMarkdownLinks(rawText);
+      const lifted = rawText === undefined ? { images: [] as const, text: undefined } : liftImageMarkdownLinks(rawText);
       return appendUserMessageChunk(
         transcript,
         typeof update.messageId === 'string' ? update.messageId : undefined,

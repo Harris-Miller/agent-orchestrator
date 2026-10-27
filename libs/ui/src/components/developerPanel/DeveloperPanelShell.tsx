@@ -5,6 +5,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
@@ -132,17 +133,18 @@ const RpcWireLogBody: FC<{
   return (
     <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }} useFlexGap>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Switch
-            checked={activeSessionOnly}
-            onChange={(_event, checked) => {
-              setActiveSessionOnly(checked);
-              setWireIdFilter(RPC_WIRE_FILTER_ALL);
-            }}
-            slotProps={{ input: { 'aria-label': 'Active session' } }}
-          />
-          <Typography variant="body2">Active session</Typography>
-        </Stack>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={activeSessionOnly}
+              onChange={(_event, checked) => {
+                setActiveSessionOnly(checked);
+                setWireIdFilter(RPC_WIRE_FILTER_ALL);
+              }}
+            />
+          }
+          label="Active session"
+        />
         <FieldLabel id="rpc-wire-launch-target" label="Launch target">
           <FormControl disabled={activeSessionOnly} size="small" sx={{ minWidth: 140 }}>
             <Select

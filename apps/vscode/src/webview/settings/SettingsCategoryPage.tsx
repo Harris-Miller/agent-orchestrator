@@ -43,8 +43,7 @@ export const SettingsCategoryPage: FC = () => {
           {settingsCategoryLabel(categoryParam)}
         </Typography>
       </Stack>
-      {/* Extra inset: MUI FormControlLabel applies a negative left margin on Switch. */}
-      <Box sx={{ minWidth: 0, px: 1.5 }}>
+      <Box sx={{ minWidth: 0 }}>
         <SettingsCategoryContent category={categoryParam} />
       </Box>
     </Box>

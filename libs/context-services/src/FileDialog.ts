@@ -18,6 +18,15 @@ export type PickFilesOptions = {
   readonly multiple?: boolean;
 };
 
+/** Mutable filter copy for host dialog APIs that take owned `extensions` arrays. */
+export const cloneFileDialogFilters = (
+  filters: readonly FileDialogFilter[],
+): { extensions: string[]; name: string }[] =>
+  filters.map(filter => ({
+    extensions: [...filter.extensions],
+    name: filter.name,
+  }));
+
 /**
  * Portable native open-file dialog — returns absolute filesystem paths.
  * Cancel → empty list. Does not read bytes (caller uses FileSystem).

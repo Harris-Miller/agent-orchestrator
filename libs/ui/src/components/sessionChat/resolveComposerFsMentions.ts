@@ -7,7 +7,8 @@ import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { findMarkdownLinks, isFileSystemHref, mimeTypeForImagePath } from '../../host/draftToContentBlocks.ts';
+import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
+import { findMarkdownLinks, isFileSystemHref } from '../../host/draftToContentBlocks.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 
 import { isWhitespace } from './composerCommandTokens.ts';

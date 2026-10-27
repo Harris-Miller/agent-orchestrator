@@ -4,9 +4,9 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
-import type { ComposerImageAttachment } from '../host/draftToContentBlocks.ts';
 
 import { configOptionIndexAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';

@@ -42,12 +42,12 @@ const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
 
 const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
   const label = image.name ?? `Image ${String(index + 1)}`;
-  const { thumbnailDataUrl, uri } = image;
+  const { previewDataUrl, uri } = image;
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
-  const src = thumbnailDataUrl ?? hydratedSrc;
+  const src = previewDataUrl ?? hydratedSrc;
 
   useEffect(() => {
-    if (thumbnailDataUrl !== undefined) {
+    if (previewDataUrl !== undefined) {
       return;
     }
     if (uri === undefined) {
@@ -70,7 +70,7 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
     return () => {
       cancelled = true;
     };
-  }, [thumbnailDataUrl, uri]);
+  }, [previewDataUrl, uri]);
 
   if (src !== undefined) {
     return (

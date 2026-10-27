@@ -4,7 +4,8 @@ import type { SessionUsageDocument } from '@lib/ao-home';
 
 import { isRecord } from '../isRecord.ts';
 
-import { findMarkdownLinks, IMAGE_MIME_ALLOWLIST, mimeTypeForImagePath } from './draftToContentBlocks.ts';
+import { IMAGE_EXT_RE, isImageLikeResourceLink, mimeTypeForImagePath } from './composerImageAttachment.ts';
+import { findMarkdownLinks } from './draftToContentBlocks.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -28,7 +29,7 @@ export type ConfigOption = {
 export type UserMessageImageRef = {
   readonly mimeType: string;
   readonly name?: string;
-  readonly thumbnailDataUrl?: string;
+  readonly previewDataUrl?: string;
   readonly uri?: string;
 };
 
@@ -88,22 +89,6 @@ const extractTextFromContent = (content: unknown): string | undefined => {
     .filter((text): text is string => text !== undefined);
 
   return parts.length > 0 ? parts.join('\n') : undefined;
-};
-
-const IMAGE_EXT_RE = /\.(gif|jpe?g|png|webp)(?:$|[?#])/i;
-
-/** True when a resource_link looks like an image attach (mime allowlist or image extension). */
-export const isImageLikeResourceLink = (block: unknown): boolean => {
-  if (!isRecord(block) || block.type !== 'resource_link') {
-    return false;
-  }
-  if (typeof block.uri !== 'string' || typeof block.name !== 'string') {
-    return false;
-  }
-  if (typeof block.mimeType === 'string' && IMAGE_MIME_ALLOWLIST.has(block.mimeType)) {
-    return true;
-  }
-  return IMAGE_EXT_RE.test(block.name) || IMAGE_EXT_RE.test(block.uri);
 };
 
 const resourceLinkToImageRef = (block: unknown): undefined | UserMessageImageRef => {

@@ -1,4 +1,4 @@
-import { FileDialog, FileDialogFailed } from '@lib/context-services';
+import { cloneFileDialogFilters, FileDialog, FileDialogFailed } from '@lib/context-services';
 import type { PickFilesOptions } from '@lib/context-services';
 import { open } from '@tauri-apps/plugin-dialog';
 import { Effect, Layer } from 'effect';
@@ -22,13 +22,7 @@ export const FileDialogLive = Layer.succeed(FileDialog, {
       try: async () => {
         const selected = await open({
           directory: false,
-          filters:
-            options?.filters === undefined
-              ? undefined
-              : options.filters.map(filter => ({
-                  extensions: [...filter.extensions],
-                  name: filter.name,
-                })),
+          filters: options?.filters === undefined ? undefined : cloneFileDialogFilters(options.filters),
           multiple: options?.multiple === true,
         });
         return normalizePaths(selected);

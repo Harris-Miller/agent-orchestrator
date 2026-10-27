@@ -4,7 +4,7 @@ import type { Atom } from 'effect/reactivity';
 
 import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import type { ComposerImageAttachment } from '../host/draftToContentBlocks.ts';
+import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { beginClientRequest, endClientRequest } from '../host/harnessStateTransitions.ts';
 import { sendPrompt } from '../host/sessionRpc.ts';

@@ -6,25 +6,27 @@ import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 
 import {
+  IMAGE_ATTACH_MAX_BYTES_PER,
+  IMAGE_ATTACH_MAX_COUNT,
+  ImageAttachmentRejected,
+  validateImageAttachments,
+} from './composerImageAttachment.ts';
+import type { ComposerImageAttachment } from './composerImageAttachment.ts';
+import {
   BLOB_EMBED_MAX_BYTES,
   draftToContentBlocks,
   findMarkdownLinks,
   hasEmbeddedContextCapability,
-  IMAGE_ATTACH_MAX_BYTES_PER,
-  IMAGE_ATTACH_MAX_COUNT,
-  ImageAttachmentRejected,
   promptBlocksFromComposerDraft,
   TEXT_EMBED_MAX_BYTES,
-  validateImageAttachments,
 } from './draftToContentBlocks.ts';
-import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
 
 const pngAttachment = (overrides: Partial<ComposerImageAttachment> = {}): ComposerImageAttachment => ({
   byteLength: 4,
   id: 'a1',
   mimeType: 'image/png',
   name: 'a.png',
-  thumbnailDataUrl: 'data:image/jpeg;base64,thumb',
+  previewDataUrl: 'data:image/png;base64,thumb',
   uri: 'file:///tmp/a.png',
   ...overrides,
 });

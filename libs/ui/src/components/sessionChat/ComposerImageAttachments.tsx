@@ -6,7 +6,7 @@ import { alpha } from '@mui/material/styles';
 import { X } from 'lucide-react';
 import type { FC } from 'react';
 
-import type { ComposerImageAttachment } from '../../host/draftToContentBlocks.ts';
+import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 const THUMB_PX = 56;
@@ -38,7 +38,7 @@ export const ComposerImageAttachments: FC<{
           <Box
             alt={attachment.name}
             component="img"
-            src={attachment.thumbnailDataUrl}
+            src={attachment.previewDataUrl}
             sx={{
               display: 'block',
               height: '100%',

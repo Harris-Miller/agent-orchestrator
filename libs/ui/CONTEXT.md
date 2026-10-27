@@ -61,7 +61,7 @@ A display pill whose underlying text is a markdown link `[label](href)` (filesys
 _Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
 
 **Composer Image Attachment**:
-A draft-side image picked via Host FileDialog, held in-memory as a Jimp thumbnail plus metadata, and sent as an ACP `type: "resource_link"` ContentBlock (baseline prompt content — not gated by `promptCapabilities.image`, not `type: "image"`, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/thumbnail); after `session/load`, image-like `resource_link` chunks hydrate thumbnails from `file://` when possible.
+A draft-side image picked via Host FileDialog, held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing), and sent as an ACP `type: "resource_link"` ContentBlock (baseline prompt content — not gated by `promptCapabilities.image`, not `type: "image"`, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load`, image-like `resource_link` chunks hydrate previews from `file://` when possible.
 _Avoid_: embedded resource, ACP image ContentBlock, clipboard image, paste/drop attach (follow-ups)
 
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md). Session and Settings domain terms live primarily in [`../../apps/desktop/CONTEXT.md`](../../apps/desktop/CONTEXT.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/CONTEXT.md`](../../apps/vscode/CONTEXT.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.

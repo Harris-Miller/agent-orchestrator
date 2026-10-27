@@ -5,7 +5,7 @@ import { Effect, Option, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { mimeTypeForImagePath } from './draftToContentBlocks.ts';
+import { mimeTypeForImagePath } from './composerImageAttachment.ts';
 import { imageBytesToDataUrl } from './imageDataUrl.ts';
 
 export class FileUriThumbnailFailed extends Schema.TaggedError<FileUriThumbnailFailed>()('FileUriThumbnailFailed', {

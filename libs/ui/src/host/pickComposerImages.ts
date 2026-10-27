@@ -13,8 +13,8 @@ import {
   ImageAttachmentRejected,
   mimeTypeForImagePath,
   validateImageAttachments,
-} from './draftToContentBlocks.ts';
-import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
+} from './composerImageAttachment.ts';
+import type { ComposerImageAttachment } from './composerImageAttachment.ts';
 import { imageBytesToDataUrl } from './imageDataUrl.ts';
 
 const basenameForName = (pathApi: Path, absolutePath: string): string => {
@@ -23,7 +23,7 @@ const basenameForName = (pathApi: Path, absolutePath: string): string => {
   return base.length > 0 ? base : trimmed;
 };
 
-/** Read one absolute image path into a composer attachment (thumbnail data URL). */
+/** Read one absolute image path into a composer attachment (preview data URL). */
 export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmentFromPath')(function* (
   absolutePath: string,
 ) {
@@ -60,7 +60,7 @@ export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmen
     });
   }
 
-  const thumbnailDataUrl = yield* Effect.try({
+  const previewDataUrl = yield* Effect.try({
     catch: cause =>
       new ImageAttachmentRejected({
         cause,
@@ -74,7 +74,7 @@ export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmen
     id: crypto.randomUUID(),
     mimeType,
     name: basenameForName(pathApi, absolutePath),
-    thumbnailDataUrl,
+    previewDataUrl,
     uri: fileUrl.value.href,
   } satisfies ComposerImageAttachment;
 });
@@ -96,8 +96,31 @@ export const appendUniqueComposerAttachments = (
 };
 
 /**
- * Open host file dialog, read selected paths, return attachments to append after `existing`.
- * Cancel → empty list. Cap/MIME/encode failures → ImageAttachmentRejected.
+ * Read absolute paths into attachments, merge with `existing` by uri, validate.
+ * Returns `undefined` when every path was already attached (nothing new).
+ */
+export const mergeComposerAttachmentsFromPaths = Effect.fn('mergeComposerAttachmentsFromPaths')(function* (
+  existing: readonly ComposerImageAttachment[],
+  absolutePaths: readonly string[],
+) {
+  if (absolutePaths.length === 0) {
+    return undefined;
+  }
+
+  const picked = yield* Effect.forEach(absolutePaths, composerImageAttachmentFromPath, {
+    concurrency: 'unbounded',
+  });
+  const merged = appendUniqueComposerAttachments(existing, picked);
+  if (merged.length === existing.length) {
+    return undefined;
+  }
+  yield* validateImageAttachments(merged);
+  return merged;
+});
+
+/**
+ * Open host file dialog, read selected paths, return merged attachments (or undefined on cancel / no new).
+ * Cap/MIME/encode failures → ImageAttachmentRejected.
  */
 export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
   existing: readonly ComposerImageAttachment[],
@@ -108,7 +131,7 @@ export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
     multiple: true,
   });
   if (paths.length === 0) {
-    return [] as const;
+    return undefined;
   }
 
   if (existing.length + paths.length > IMAGE_ATTACH_MAX_COUNT) {
@@ -117,11 +140,5 @@ export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
     });
   }
 
-  const picked: ComposerImageAttachment[] = [];
-  for (const path of paths) {
-    picked.push(yield* composerImageAttachmentFromPath(path));
-  }
-
-  yield* validateImageAttachments(appendUniqueComposerAttachments(existing, picked));
-  return picked;
+  return yield* mergeComposerAttachmentsFromPaths(existing, paths);
 });

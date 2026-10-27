@@ -28,8 +28,8 @@ import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsLis
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
-import type { ComposerImageAttachment } from '../../host/draftToContentBlocks.ts';
 
 export const useSessionChatSurface = () => {
   const selected = useAtomValue(selectedAtom);

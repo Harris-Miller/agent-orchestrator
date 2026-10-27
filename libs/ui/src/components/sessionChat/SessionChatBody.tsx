@@ -12,7 +12,6 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { Effect } from 'effect';
 import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
@@ -33,15 +32,11 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
-import { mimeTypeForImagePath, validateImageAttachments } from '../../host/draftToContentBlocks.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
-import {
-  appendUniqueComposerAttachments,
-  composerImageAttachmentFromPath,
-  pickComposerImages,
-} from '../../host/pickComposerImages.ts';
+import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -230,17 +225,7 @@ export const SessionChatBody: FC<{
         setDraft(next.text);
         setComposerTrigger(null);
         hostRuntime
-          .runPromise(
-            Effect.gen(function* () {
-              const attachment = yield* composerImageAttachmentFromPath(absolute);
-              const merged = appendUniqueComposerAttachments(attachments, [attachment]);
-              if (merged.length === attachments.length) {
-                return undefined;
-              }
-              yield* validateImageAttachments(merged);
-              return merged;
-            }),
-          )
+          .runPromise(mergeComposerAttachmentsFromPaths(attachments, [absolute]))
           .then(merged => {
             if (merged !== undefined) {
               setAttachments(merged);
@@ -359,19 +344,7 @@ export const SessionChatBody: FC<{
           return;
         }
         return hostRuntime
-          .runPromise(
-            Effect.gen(function* () {
-              const picked = yield* Effect.forEach(resolved.imageAbsolutePaths, composerImageAttachmentFromPath, {
-                concurrency: 'unbounded',
-              });
-              const merged = appendUniqueComposerAttachments(attachments, picked);
-              if (merged.length === attachments.length) {
-                return undefined;
-              }
-              yield* validateImageAttachments(merged);
-              return merged;
-            }),
-          )
+          .runPromise(mergeComposerAttachmentsFromPaths(attachments, resolved.imageAbsolutePaths))
           .then(merged => {
             if (!cancelled && merged !== undefined) {
               setAttachments(merged);
@@ -390,9 +363,9 @@ export const SessionChatBody: FC<{
     }
     hostRuntime
       .runPromise(pickComposerImages(attachments))
-      .then(picked => {
-        if (picked.length > 0) {
-          setAttachments(appendUniqueComposerAttachments(attachments, picked));
+      .then(merged => {
+        if (merged !== undefined) {
+          setAttachments(merged);
         }
       })
       .catch(onClientError);

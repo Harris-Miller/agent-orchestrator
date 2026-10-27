@@ -12,9 +12,9 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { rowForModel } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
-import type { ComposerImageAttachment } from '../host/draftToContentBlocks.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
@@ -46,7 +46,7 @@ export const slimImageRefsFromAttachments = (
   attachments.map(attachment => ({
     mimeType: attachment.mimeType,
     name: attachment.name,
-    thumbnailDataUrl: attachment.thumbnailDataUrl,
+    previewDataUrl: attachment.previewDataUrl,
     uri: attachment.uri,
   }));
 

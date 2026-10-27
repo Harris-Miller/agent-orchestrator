@@ -1,4 +1,4 @@
-import { FileDialog, FileDialogFailed } from '@lib/context-services';
+import { cloneFileDialogFilters, FileDialog, FileDialogFailed } from '@lib/context-services';
 import type { PickFilesOptions } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 
@@ -11,13 +11,7 @@ export const makeFileDialogLive = (client: IpcClient): Layer.Layer<FileDialog> =
       const response = yield* client
         .request(id => ({
           _tag: 'FileDialogPickFiles' as const,
-          filters:
-            options?.filters === undefined
-              ? undefined
-              : options.filters.map(filter => ({
-                  extensions: [...filter.extensions],
-                  name: filter.name,
-                })),
+          filters: options?.filters === undefined ? undefined : cloneFileDialogFilters(options.filters),
           id,
           multiple: options?.multiple === true ? true : undefined,
         }))

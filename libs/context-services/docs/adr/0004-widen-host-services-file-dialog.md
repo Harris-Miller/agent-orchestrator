@@ -1,0 +1,3 @@
+# Widen Host services with FileDialog
+
+Host services include FileDialog alongside BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path so shared React and Agent Harness code can open a native file picker without importing a host dialog SDK. Surface for this change is `pickFiles` only (absolute paths; cancel → `[]`); `pickDirectory` and migrating the cwd directory picker stay out. Live Adapters stay in host packages (`@lib/context-services-tauri`, `@lib/context-services-vscode-webview`); only host apps compose those Live Layers into the Host runtime. Dialog returns paths — callers read bytes via FileSystem.

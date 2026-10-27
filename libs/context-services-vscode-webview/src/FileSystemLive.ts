@@ -113,7 +113,30 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       makeTempFileScoped: () => unsupported('makeTempFileScoped'),
       open: path => unsupported(`open(${path})`),
       readDirectory: path => unsupported(`readDirectory(${path})`),
-      readFile: path => unsupported(`readFile(${path})`),
+      readFile: Effect.fn('FileSystem.readFile')(function* (path: string) {
+        return yield* fsIpc({
+          build: id => ({ _tag: 'FsReadFile', id, path }),
+          client,
+          decode: response => {
+            if (response._tag !== 'FsReadFileResult') {
+              return undefined;
+            }
+            const { bytes } = response;
+            if (bytes instanceof Uint8Array) {
+              return bytes;
+            }
+            if (bytes instanceof ArrayBuffer) {
+              return new Uint8Array(bytes);
+            }
+            if (ArrayBuffer.isView(bytes)) {
+              return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            }
+            return undefined;
+          },
+          method: 'readFile',
+          path,
+        });
+      }),
       readFileString: Effect.fn('FileSystem.readFileString')(function* (path: string) {
         return yield* fsIpc({
           build: id => ({ _tag: 'FsReadFileString', id, path }),

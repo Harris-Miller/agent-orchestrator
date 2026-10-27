@@ -10,8 +10,26 @@ import {
   draftToContentBlocks,
   findMarkdownLinks,
   hasEmbeddedContextCapability,
+  hasImageCapability,
+  IMAGE_ATTACH_MAX_BYTES_PER,
+  IMAGE_ATTACH_MAX_COUNT,
+  ImageAttachmentRejected,
+  ImageAttachmentsNotSupported,
+  promptBlocksFromComposerDraft,
   TEXT_EMBED_MAX_BYTES,
+  validateImageAttachments,
 } from './draftToContentBlocks.ts';
+import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
+
+const pngAttachment = (overrides: Partial<ComposerImageAttachment> = {}): ComposerImageAttachment => ({
+  byteLength: 4,
+  data: 'iVBORw0KGgo=',
+  id: 'a1',
+  mimeType: 'image/png',
+  name: 'a.png',
+  uri: 'file:///tmp/a.png',
+  ...overrides,
+});
 
 type MockEntry = { readonly bytes: Uint8Array; readonly type: 'File' } | { readonly type: 'Directory' };
 
@@ -91,6 +109,122 @@ describe('hasEmbeddedContextCapability', () => {
     );
     assert.isFalse(hasEmbeddedContextCapability({}));
   });
+});
+
+describe('hasImageCapability', () => {
+  it('true / false / absent', () => {
+    assert.isTrue(
+      hasImageCapability({
+        agentCapabilities: { promptCapabilities: { image: true } },
+      }),
+    );
+    assert.isFalse(
+      hasImageCapability({
+        agentCapabilities: { promptCapabilities: { image: false } },
+      }),
+    );
+    assert.isFalse(hasImageCapability({}));
+  });
+});
+
+describe('validateImageAttachments', () => {
+  it.effect('rejects unsupported MIME', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(validateImageAttachments([pngAttachment({ mimeType: 'image/heic' })]));
+      assert.strictEqual(error._tag, 'ImageAttachmentRejected');
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+
+  it.effect('rejects over-count', () =>
+    Effect.gen(function* () {
+      const many = Array.from({ length: IMAGE_ATTACH_MAX_COUNT + 1 }, (_, index) =>
+        pngAttachment({ id: String(index), name: `${String(index)}.png`, uri: `file:///tmp/${String(index)}.png` }),
+      );
+      const error = yield* Effect.flip(validateImageAttachments(many));
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+
+  it.effect('rejects oversize per image', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        validateImageAttachments([pngAttachment({ byteLength: IMAGE_ATTACH_MAX_BYTES_PER + 1 })]),
+      );
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+});
+
+describe('promptBlocksFromComposerDraft images', () => {
+  const imageInit = { agentCapabilities: { promptCapabilities: { image: true } } };
+
+  it.effect('capability true → image blocks with uri', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('hi', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: imageInit,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'hi', type: 'text' },
+        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('capability false + attachments → fail (not silent omit)', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        promptBlocksFromComposerDraft('hi', {
+          attachments: [pngAttachment()],
+          cwd: '/session',
+          initializeResult: {},
+        }),
+      );
+      assert.ok(error instanceof ImageAttachmentsNotSupported);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('mixed text + FS mention + images → draft blocks then images', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('see [a](/session/a.txt)', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: {
+          agentCapabilities: { promptCapabilities: { embeddedContext: false, image: true } },
+        },
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'see ', type: 'text' },
+        { name: 'a.txt', type: 'resource_link', uri: 'file:///session/a.txt' },
+        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/session/a.txt', { bytes: encoder.encode('hi'), type: 'File' }]])))),
+  );
+
+  it.effect('image-only → only image blocks, no forced text', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: imageInit,
+      });
+      assert.deepStrictEqual(blocks, [
+        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('empty text + no images → empty text sentinel', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('', {
+        cwd: '/session',
+        initializeResult: imageInit,
+      });
+      assert.deepStrictEqual(blocks, [{ text: '', type: 'text' }]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
 });
 
 describe('draftToContentBlocks', () => {

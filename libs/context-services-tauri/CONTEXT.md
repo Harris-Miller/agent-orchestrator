@@ -1,6 +1,6 @@
 # context-services-tauri
 
-Tauri live layers for `@lib/context-services` and Effect platform primitives (Path, FileSystem, ChildProcessSpawner, BundledResource, Clipboard) — analogous to `@effect/platform-node`'s `NodeServices.layer`.
+Tauri live layers for `@lib/context-services` and Effect platform primitives (Path, FileSystem, ChildProcessSpawner, BundledResource, Clipboard, FileDialog) — analogous to `@effect/platform-node`'s `NodeServices.layer`.
 
 ## Language
 
@@ -16,8 +16,12 @@ _Avoid_: resolveResource (when you mean the portable Seam)
 The Tauri implementation of Clipboard (`ClipboardLive`), wrapping `@tauri-apps/plugin-clipboard-manager` text APIs.
 _Avoid_: clipboard-manager (when you mean the portable Seam)
 
+**FileDialog live layer**:
+The Tauri implementation of FileDialog (`FileDialogLive`), wrapping `@tauri-apps/plugin-dialog` `open` for file picks.
+_Avoid_: plugin-dialog (when you mean the portable Seam)
+
 **Tauri services**:
-The desktop Live Adapter of portable **Host services** (`TauriServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path on top of Tauri. Desktop composition may also install host ConfigProvider and optional OTLP observability; those extras are not part of the Host services type.
+The desktop Live Adapter of portable **Host services** (`TauriServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, OS, and Path on top of Tauri. Desktop composition may also install host ConfigProvider and optional OTLP observability; those extras are not part of the Host services type.
 _Avoid_: Platform layer, adapters, Host services (when you mean the desktop Adapter specifically)
 
-For host vocabulary (`OS`, `BundledResource`, `Clipboard`, `Host`, `Host services`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).
+For host vocabulary (`OS`, `BundledResource`, `Clipboard`, `FileDialog`, `Host`, `Host services`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).

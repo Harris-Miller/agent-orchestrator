@@ -15,7 +15,7 @@ import { useSessionChatSurface } from '../sessionChat/useSessionChatSurface.ts';
 const FALLBACK_LAUNCH_TARGET = 'claude-agent-acp' as const;
 
 export const ComposerTab: FC = () => {
-  const { draft, isVirtual, selectedLaunchTarget, selectedSession } = useSessionChatSurface();
+  const { attachments, draft, isVirtual, selectedLaunchTarget, selectedSession } = useSessionChatSurface();
   const virtualSession = useAtomValue(virtualSessionAtom);
   const harness = useAtomValue(backendHarnessStateAtom(selectedLaunchTarget ?? FALLBACK_LAUNCH_TARGET));
 
@@ -29,6 +29,7 @@ export const ComposerTab: FC = () => {
     let cancelled = false;
     hostRunPromise(
       promptBlocksFromComposerDraft(text, {
+        attachments,
         cwd,
         initializeResult,
       }),
@@ -46,7 +47,7 @@ export const ComposerTab: FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [cwd, initializeResult, text]);
+  }, [attachments, cwd, initializeResult, text]);
 
   return (
     <Box

@@ -5,7 +5,7 @@ VS Code webview Host services Live and Host IPC codec for portable Host services
 Owns:
 
 - Protocol codec (custom tagged JSON + correlation ids) shared with the extension host (types/codec only)
-- `makeHostServicesLive()` — IPC clients + OS snapshot + Path + `ClipboardLive` (`navigator.clipboard`, `acquireVsCodeApi` inside the package)
+- `makeHostServicesLive()` — IPC clients + OS snapshot + Path + FileDialog + `ClipboardLive` (`navigator.clipboard`, `acquireVsCodeApi` inside the package)
 
 See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary. App mount / Providers UI live in `apps/vscode` + `@lib/ui` (issue #83).
 

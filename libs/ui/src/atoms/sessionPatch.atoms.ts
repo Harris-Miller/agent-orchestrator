@@ -4,6 +4,7 @@ import type { Atom } from 'effect/reactivity';
 
 import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { ComposerImageAttachment } from '../host/draftToContentBlocks.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { beginClientRequest, endClientRequest } from '../host/harnessStateTransitions.ts';
 import { sendPrompt } from '../host/sessionRpc.ts';
@@ -19,10 +20,12 @@ export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* 
   get: Atom.FnContext,
   sessionId: string,
   text: string,
+  attachments: readonly ComposerImageAttachment[] = [],
 ) {
   const snapshot = get(backendHarnessStateAtom(launchTarget));
   const session = snapshot.sessions[sessionId];
   const prompt = yield* promptBlocksFromComposerDraft(text, {
+    attachments,
     cwd: session.cwd,
     initializeResult: snapshot.initializeResult,
   });

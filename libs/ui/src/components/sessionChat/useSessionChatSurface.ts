@@ -18,7 +18,7 @@ import {
   patchVirtualSessionAtomFn,
   setVirtualLaunchTargetAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { draftAtom } from '../../atoms/chat.atoms.ts';
+import { composerAttachmentsAtom, draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import {
   selectedActiveSessionAtom,
@@ -29,6 +29,8 @@ import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import type { ComposerImageAttachment } from '../../host/draftToContentBlocks.ts';
+import { hasImageCapability } from '../../host/draftToContentBlocks.ts';
 
 export const useSessionChatSurface = () => {
   const selected = useAtomValue(selectedAtom);
@@ -40,6 +42,7 @@ export const useSessionChatSurface = () => {
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const draftSessionId = selectedSessionId ?? '';
   const [sessionDraft, setSessionDraft] = useAtom(draftAtom(draftSessionId));
+  const [sessionAttachments, setSessionAttachments] = useAtom(composerAttachmentsAtom(draftSessionId));
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
@@ -55,6 +58,9 @@ export const useSessionChatSurface = () => {
 
   const selectedLaunchTarget = isVirtual ? virtualSession?.launchTarget : selectedLaunchTargetFromSession;
   const activeBackendSnapshot = useAtomValue(backendHarnessStateAtom(activeSession?.launchTarget ?? 'codex-acp'));
+  const selectedLaunchHarness = useAtomValue(
+    backendHarnessStateAtom(selectedLaunchTarget ?? activeSession?.launchTarget ?? 'codex-acp'),
+  );
   const boundVirtualSession =
     isVirtual && activeSession !== undefined ? activeBackendSnapshot.sessions[activeSession.sessionId] : undefined;
 
@@ -83,6 +89,21 @@ export const useSessionChatSurface = () => {
     },
     [isVirtual, patchVirtualSession, setSessionDraft],
   );
+
+  const attachments: readonly ComposerImageAttachment[] = isVirtual
+    ? (virtualSession?.attachments ?? [])
+    : sessionAttachments;
+  const setAttachments = useCallback(
+    (next: readonly ComposerImageAttachment[]) => {
+      if (isVirtual) {
+        patchVirtualSession({ attachments: next }).catch(() => undefined);
+        return;
+      }
+      setSessionAttachments(next);
+    },
+    [isVirtual, patchVirtualSession, setSessionAttachments],
+  );
+  const imageCapable = selectedLaunchTarget !== undefined && hasImageCapability(selectedLaunchHarness.initializeResult);
 
   const chatItems = useMemo(
     () => (isVirtual ? [] : (selectedSession?.transcript.items ?? [])),
@@ -114,9 +135,10 @@ export const useSessionChatSurface = () => {
     selectedLaunchTarget !== undefined &&
     readyLaunchTargets.includes(selectedLaunchTarget) &&
     virtualSession?.cwd !== undefined;
+  const hasSendableContent = draft.trim().length > 0 || attachments.length > 0;
   const canSend = isVirtual
-    ? controlsEnabled && virtualReady && draft.trim().length > 0
-    : controlsEnabled && selectedLaunchTarget !== undefined && draft.trim().length > 0;
+    ? controlsEnabled && virtualReady && hasSendableContent
+    : controlsEnabled && selectedLaunchTarget !== undefined && hasSendableContent;
   const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
   const canHandoffBase =
     !isVirtual &&
@@ -150,6 +172,7 @@ export const useSessionChatSurface = () => {
   }, [canForkBase, forkSession, selectedLaunchTarget, selectedSessionId, sessionCwd]);
 
   return {
+    attachments,
     availableCommands,
     canCancelPromptTurn,
     canForkBase,
@@ -162,6 +185,8 @@ export const useSessionChatSurface = () => {
     draft,
     getConfigOptionIndex,
     hasPendingInteraction,
+    imageCapable,
+    initializeResult: selectedLaunchTarget !== undefined ? selectedLaunchHarness.initializeResult : undefined,
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
@@ -169,6 +194,7 @@ export const useSessionChatSurface = () => {
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
+    setAttachments,
     setDraft,
     setVirtualLaunchTarget,
     virtualBoundSessionId,

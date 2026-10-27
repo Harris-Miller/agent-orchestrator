@@ -1,6 +1,6 @@
 /**
- * Typed ACP ContentBlock union (text / resource_link / resource text|blob).
- * Opaque placeholders remain for image/audio until those prompt capabilities are wired.
+ * Typed ACP ContentBlock union (text / image / resource_link / resource text|blob).
+ * Audio remains unwired until that prompt capability is needed.
  */
 import { Schema } from 'effect';
 
@@ -12,6 +12,17 @@ export class TextContentBlock extends Schema.Opaque<TextContentBlock>()(
     annotations: optional(Schema.Unknown),
     text: Schema.String,
     type: Schema.Literal('text'),
+  }),
+) {}
+
+export class ImageContentBlock extends Schema.Opaque<ImageContentBlock>()(
+  Schema.Struct({
+    _meta: MetaField,
+    annotations: optional(Schema.Unknown),
+    data: Schema.String,
+    mimeType: Schema.String,
+    type: Schema.Literal('image'),
+    uri: optional(Schema.String),
   }),
 ) {}
 
@@ -56,6 +67,11 @@ export class ResourceContentBlock extends Schema.Opaque<ResourceContentBlock>()(
   }),
 ) {}
 
-/** ACP ContentBlock — text, resource_link, and embedded resource (text/blob). */
-export const ContentBlock = Schema.Union([TextContentBlock, ResourceLinkContentBlock, ResourceContentBlock]);
+/** ACP ContentBlock — text, image, resource_link, and embedded resource (text/blob). */
+export const ContentBlock = Schema.Union([
+  TextContentBlock,
+  ImageContentBlock,
+  ResourceLinkContentBlock,
+  ResourceContentBlock,
+]);
 export type ContentBlock = typeof ContentBlock.Type;

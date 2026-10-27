@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -46,6 +46,9 @@ const mockHostLayer = Layer.mergeAll(
   Layer.succeed(Clipboard, {
     readText: () => Effect.succeed(''),
     writeText: () => Effect.void,
+  }),
+  Layer.succeed(FileDialog, {
+    pickFiles: () => Effect.succeed([]),
   }),
   Layer.succeed(OS, {
     cwd: () => '/home/operator',
@@ -142,6 +145,7 @@ const seedReadyVirtual = (
   });
   registry.set(selectedAtom, { _tag: 'Virtual' });
   registry.set(virtualSessionAtom, {
+    attachments: [],
     configValues: overrides.configValues ?? {},
     cwd: overrides.cwd ?? '/proj',
     draft: overrides.draft ?? '',

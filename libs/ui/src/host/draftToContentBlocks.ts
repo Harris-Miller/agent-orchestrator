@@ -2,9 +2,10 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
+ * Image attachments append as `type: "image"` blocks after draft-derived blocks.
  */
 import type { ContentBlock } from '@libs/effect-acp';
-import { ByteSize, Effect, Option } from 'effect';
+import { ByteSize, Effect, Option, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
@@ -14,6 +15,44 @@ import { normalizeInitialize } from './acpSessionBootstrap.ts';
 
 export const TEXT_EMBED_MAX_BYTES = 256 * 1024;
 export const BLOB_EMBED_MAX_BYTES = 1024 * 1024;
+
+/** MIME allowlist for composer image attachments (decoded bytes before base64). */
+export const IMAGE_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+export const IMAGE_ATTACH_MAX_COUNT = 10;
+export const IMAGE_ATTACH_MAX_BYTES_PER = 5 * 1024 * 1024;
+export const IMAGE_ATTACH_MAX_BYTES_TOTAL = 15 * 1024 * 1024;
+
+export const IMAGE_DIALOG_FILTERS = [{ extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'], name: 'Images' }] as const;
+
+/** Draft-side image held for send (base64 + metadata). */
+export type ComposerImageAttachment = {
+  readonly byteLength: number;
+  readonly data: string;
+  readonly id: string;
+  readonly mimeType: string;
+  readonly name: string;
+  readonly uri: string;
+};
+
+/** Attachments rejected (MIME / size / count / read failure). */
+export class ImageAttachmentRejected extends Schema.TaggedError<ImageAttachmentRejected>()('ImageAttachmentRejected', {
+  cause: Schema.optional(Schema.Unknown),
+  message: Schema.String,
+}) {}
+
+/** Attachments present but agent did not advertise `promptCapabilities.image`. */
+export class ImageAttachmentsNotSupported extends Schema.TaggedError<ImageAttachmentsNotSupported>()(
+  'ImageAttachmentsNotSupported',
+  {
+    message: Schema.String,
+  },
+) {}
 
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
 const WINDOWS_ABS_RE = /^[A-Za-z]:[\\/]/;
@@ -45,14 +84,9 @@ export const findMarkdownLinks = (text: string): readonly MarkdownLinkMatch[] =>
   return matches;
 };
 
-/** True when initialize advertises `promptCapabilities.embeddedContext`. */
-export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean => {
+const hasPromptCapability = (initializeResult: unknown, path: string, rawKey: string): boolean => {
   const normalized = normalizeInitialize(initializeResult);
-  if (
-    normalized?.capabilities.some(
-      capability => capability.path === 'promptCapabilities.embeddedContext' && capability.enabled,
-    ) === true
-  ) {
+  if (normalized?.capabilities.some(capability => capability.path === path && capability.enabled) === true) {
     return true;
   }
 
@@ -60,8 +94,88 @@ export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean
     return false;
   }
   const { promptCapabilities } = initializeResult.agentCapabilities;
-  return isRecord(promptCapabilities) && promptCapabilities.embeddedContext === true;
+  return isRecord(promptCapabilities) && promptCapabilities[rawKey] === true;
 };
+
+/** True when initialize advertises `promptCapabilities.embeddedContext`. */
+export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean =>
+  hasPromptCapability(initializeResult, 'promptCapabilities.embeddedContext', 'embeddedContext');
+
+/** True when initialize advertises `promptCapabilities.image`. */
+export const hasImageCapability = (initializeResult: unknown): boolean =>
+  hasPromptCapability(initializeResult, 'promptCapabilities.image', 'image');
+
+export const mimeTypeForImagePath = (path: string): string | undefined => {
+  const lower = path.toLowerCase();
+  const dot = lower.lastIndexOf('.');
+  if (dot < 0) {
+    return undefined;
+  }
+  switch (lower.slice(dot + 1)) {
+    case 'gif':
+      return 'image/gif';
+    case 'jpeg':
+    case 'jpg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return undefined;
+  }
+};
+
+export const isAllowedImageMimeType = (mimeType: string): boolean => IMAGE_MIME_ALLOWLIST.has(mimeType);
+
+/** Validate count / per-image / total decoded byte caps. Fail closed with {@link ImageAttachmentRejected}. */
+export const validateImageAttachments = (
+  attachments: readonly ComposerImageAttachment[],
+): Effect.Effect<readonly ComposerImageAttachment[], ImageAttachmentRejected> => {
+  if (attachments.length > IMAGE_ATTACH_MAX_COUNT) {
+    return Effect.fail(
+      new ImageAttachmentRejected({
+        message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
+      }),
+    );
+  }
+
+  let total = 0;
+  for (const attachment of attachments) {
+    if (!isAllowedImageMimeType(attachment.mimeType)) {
+      return Effect.fail(
+        new ImageAttachmentRejected({
+          message: `Unsupported image type: ${attachment.mimeType}`,
+        }),
+      );
+    }
+    if (attachment.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
+      return Effect.fail(
+        new ImageAttachmentRejected({
+          message: `Image ${attachment.name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
+        }),
+      );
+    }
+    total += attachment.byteLength;
+  }
+
+  if (total > IMAGE_ATTACH_MAX_BYTES_TOTAL) {
+    return Effect.fail(
+      new ImageAttachmentRejected({
+        message: `Attached images exceed ${String(IMAGE_ATTACH_MAX_BYTES_TOTAL / (1024 * 1024))} MiB total`,
+      }),
+    );
+  }
+
+  return Effect.succeed(attachments);
+};
+
+export const attachmentToImageBlock = (attachment: ComposerImageAttachment): ContentBlock => ({
+  data: attachment.data,
+  mimeType: attachment.mimeType,
+  type: 'image',
+  uri: attachment.uri,
+});
 
 const textBlock = (text: string): ContentBlock => ({ text, type: 'text' });
 
@@ -245,17 +359,43 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
- * No cwd → plain text block (send cannot resolve FS links).
+ * No cwd → plain text block (send cannot resolve FS links); images still append when present.
+ * Empty text + images → image-only (no empty text sentinel). Capability false + attachments → fail.
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
   text: string,
-  options: { readonly cwd: string | undefined; readonly initializeResult: unknown },
+  options: {
+    readonly attachments?: readonly ComposerImageAttachment[];
+    readonly cwd: string | undefined;
+    readonly initializeResult: unknown;
+  },
 ) {
-  if (options.cwd === undefined) {
-    return [textBlock(text)];
+  const attachments = options.attachments ?? [];
+  if (attachments.length > 0) {
+    if (!hasImageCapability(options.initializeResult)) {
+      return yield* new ImageAttachmentsNotSupported({
+        message: 'This agent does not support image prompts',
+      });
+    }
+    yield* validateImageAttachments(attachments);
   }
-  return yield* draftToContentBlocks(text, {
-    cwd: options.cwd,
-    embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
-  });
+
+  const draftBlocks =
+    options.cwd === undefined
+      ? [textBlock(text)]
+      : yield* draftToContentBlocks(text, {
+          cwd: options.cwd,
+          embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
+        });
+
+  if (attachments.length === 0) {
+    return draftBlocks;
+  }
+
+  const imageBlocks = attachments.map(attachmentToImageBlock);
+  const trimmedEmpty = text.trim().length === 0;
+  const onlyEmptyText =
+    trimmedEmpty && draftBlocks.length === 1 && draftBlocks[0]?.type === 'text' && draftBlocks[0].text === '';
+
+  return onlyEmptyText ? imageBlocks : [...draftBlocks, ...imageBlocks];
 });

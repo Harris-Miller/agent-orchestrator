@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -11,7 +12,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ArrowUp, ChevronDown, Square } from 'lucide-react';
+import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -34,6 +35,7 @@ import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
+import { pickComposerImages } from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -44,6 +46,7 @@ import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
 import { commandInvocation, replaceComposerTriggerRange } from './composerCommandTokens.ts';
+import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
 import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
@@ -85,6 +88,7 @@ export const SessionChatBody: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ aboveComposer, onClientError }) => {
   const {
+    attachments,
     availableCommands,
     canCancelPromptTurn,
     canForkBase: canFork,
@@ -97,6 +101,7 @@ export const SessionChatBody: FC<{
     draft,
     getConfigOptionIndex,
     hasPendingInteraction,
+    imageCapable,
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
@@ -104,6 +109,7 @@ export const SessionChatBody: FC<{
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
+    setAttachments,
     setDraft,
     setVirtualLaunchTarget,
     virtualBoundSessionId,
@@ -321,6 +327,30 @@ export const SessionChatBody: FC<{
     };
   }, [composerTrigger, draft, sessionCwd, setDraft]);
 
+  // Capability / launch-target flip: clear attachments + snackbar (fail-closed).
+  const prevImageCapableRef = useRef(imageCapable);
+  useEffect(() => {
+    if (prevImageCapableRef.current && !imageCapable && attachments.length > 0) {
+      setAttachments([]);
+      onClientError(new Error('Image attachments cleared — this agent does not support image prompts'));
+    }
+    prevImageCapableRef.current = imageCapable;
+  }, [attachments.length, imageCapable, onClientError, setAttachments]);
+
+  const onAttachImages = () => {
+    if (!imageCapable || !controlsEnabled) {
+      return;
+    }
+    hostRuntime
+      .runPromise(pickComposerImages(attachments))
+      .then(picked => {
+        if (picked.length > 0) {
+          setAttachments([...attachments, ...picked]);
+        }
+      })
+      .catch(onClientError);
+  };
+
   const sendDraft = () => {
     if (!canSend) {
       return;
@@ -335,8 +365,10 @@ export const SessionChatBody: FC<{
       return;
     }
     const text = draft;
+    const toSend = attachments;
     setDraft('');
-    sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
+    setAttachments([]);
+    sendChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
   const onCancelPrompt = () => {
@@ -585,6 +617,13 @@ export const SessionChatBody: FC<{
               onSelect={selectMention}
               open={mentionTrigger !== null}
             />
+            <ComposerImageAttachments
+              attachments={attachments}
+              disabled={!controlsEnabled}
+              onRemove={id => {
+                setAttachments(attachments.filter(attachment => attachment.id !== id));
+              }}
+            />
             <ComposerPromptEditor
               availableCommands={availableCommands}
               commandMenu={commandMenu}
@@ -605,6 +644,16 @@ export const SessionChatBody: FC<{
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {imageCapable ? (
+                <IconButton
+                  aria-label="Attach images"
+                  disabled={!controlsEnabled}
+                  onClick={onAttachImages}
+                  size="small"
+                >
+                  <LucideMuiIcon fontSize="small" icon={Paperclip} />
+                </IconButton>
+              ) : null}
               <SessionAgentChip
                 disabled={chromeLocked}
                 interactive={isVirtual}

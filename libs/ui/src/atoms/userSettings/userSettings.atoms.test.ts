@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -34,6 +34,10 @@ const bundledResourceLayer = Layer.succeed(BundledResource, {
 const clipboardLayer = Layer.succeed(Clipboard, {
   readText: () => Effect.succeed(''),
   writeText: () => Effect.void,
+});
+
+const fileDialogLayer = Layer.succeed(FileDialog, {
+  pickFiles: () => Effect.succeed([]),
 });
 
 const notFound = (method: string, path: string) =>
@@ -84,6 +88,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
   Layer.mergeAll(
     bundledResourceLayer,
     clipboardLayer,
+    fileDialogLayer,
     osLayer,
     mapFsLayer(store, overrides),
     posixPathLayer,

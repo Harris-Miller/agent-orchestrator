@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -24,6 +24,10 @@ const mockClipboardLayer = Layer.succeed(Clipboard, {
   writeText: () => Effect.void,
 });
 
+const mockFileDialogLayer = Layer.succeed(FileDialog, {
+  pickFiles: () => Effect.succeed([]),
+});
+
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in createHostRuntime smoke test'))),
@@ -32,6 +36,7 @@ const mockSpawnerLayer = Layer.succeed(
 const mockHostLayer = Layer.mergeAll(
   mockBundledResourceLayer,
   mockClipboardLayer,
+  mockFileDialogLayer,
   mockOsLayer,
   layerNoop({}),
   posixPathLayer,

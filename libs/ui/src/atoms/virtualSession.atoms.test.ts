@@ -28,6 +28,7 @@ describe('ensureVirtualSession', () => {
     ensureVirtualSession(rw);
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
     assert.deepStrictEqual(registry.get(virtualSessionAtom), {
+      attachments: [],
       configValues: {},
       cwd: undefined,
       draft: '',
@@ -40,6 +41,7 @@ describe('ensureVirtualSession', () => {
     const rw = rwFromRegistry(registry);
     ensureVirtualSession(rw, { cwd: '/a' });
     registry.set(virtualSessionAtom, {
+      attachments: [],
       configValues: { model: 'x' },
       cwd: '/a',
       draft: 'hello',
@@ -160,6 +162,7 @@ describe('setVirtualLaunchTarget', () => {
       launchTarget: 'codex-acp',
     });
     registry.set(virtualSessionAtom, {
+      attachments: [],
       configValues: { model: 'other' },
       cwd: '/proj',
       draft: 'keep me',
@@ -179,6 +182,7 @@ describe('applyVirtualSessionFolderChurn', () => {
     const registry = AtomRegistry.make();
     const rw = rwFromRegistry(registry);
     registry.set(virtualSessionAtom, {
+      attachments: [],
       configValues: { model: 'x' },
       cwd: '/old',
       draft: 'd',

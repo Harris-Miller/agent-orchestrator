@@ -22,6 +22,14 @@ export type ConfigOption = {
   readonly type?: string;
 };
 
+/** Slim image ref on a local/optimistic user_message (not full Prompt base64). */
+export type UserMessageImageRef = {
+  readonly mimeType: string;
+  readonly name?: string;
+  readonly thumbnailDataUrl?: string;
+  readonly uri?: string;
+};
+
 export type ChatItem =
   | {
       readonly command?: string;
@@ -34,9 +42,14 @@ export type ChatItem =
       readonly toolKind?: string;
     }
   | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
+  | {
+      readonly id: string;
+      readonly images?: readonly UserMessageImageRef[];
+      readonly kind: 'user_message';
+      readonly text: string;
+    }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
-  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
-  | { readonly id: string; readonly kind: 'user_message'; readonly text: string };
+  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
 
 export type SessionTranscript = {
   readonly items: readonly ChatItem[];
@@ -218,8 +231,20 @@ export const markNonFinishedToolCallsCancelled = (transcript: SessionTranscript)
   }),
 });
 
-export const appendUserChatMessage = (transcript: SessionTranscript, text: string): SessionTranscript =>
-  appendMessageChunk(transcript, 'user_message', undefined, text);
+export const appendUserChatMessage = (
+  transcript: SessionTranscript,
+  text: string,
+  images?: readonly UserMessageImageRef[],
+): SessionTranscript => {
+  if (images === undefined || images.length === 0) {
+    return appendMessageChunk(transcript, 'user_message', undefined, text);
+  }
+  const id = crypto.randomUUID();
+  return {
+    ...transcript,
+    items: [...transcript.items, { id, images, kind: 'user_message', text }],
+  };
+};
 
 export const reduceSessionUpdate = (transcript: SessionTranscript, update: unknown): SessionTranscript => {
   if (!isRecord(update) || typeof update.sessionUpdate !== 'string') {

@@ -6,6 +6,7 @@ import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
+import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
@@ -19,7 +20,7 @@ type HostServicesOptions = { readonly client: IpcClient } | { readonly port: Ipc
 /**
  * Build the Host services Live for the VS Code webview.
  *
- * Provides the portable six-tag Host seam, plus ConfigProvider / Observability
+ * Provides the portable Host seam, plus ConfigProvider / Observability
  * composition extras (outside the portable Seam) when host `OTEL_*` enables export.
  *
  * Calls {@link acquireVsCodeApi} unless a port or shared client is injected.
@@ -44,6 +45,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     makeChildProcessSpawnerLive(client),
     ClipboardLive,
     ConfigProviderLive,
+    makeFileDialogLive(client),
     makeFileSystemLive(client),
     PathLive,
   ).pipe(

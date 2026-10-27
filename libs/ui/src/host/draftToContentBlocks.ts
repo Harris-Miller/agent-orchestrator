@@ -2,7 +2,7 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
- * Image `resource_link`s (attachments and image FS links) are moved to the end and de-duplicated by uri.
+ * Image `resource_link`s (attachments and image FS links) are moved to the front and de-duplicated by uri.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option } from 'effect';
@@ -268,8 +268,8 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
- * No cwd → plain text block (send cannot resolve FS links); image attaches still append when present.
- * Image `resource_link`s (draft markdown or attachments) always go at the end; all `resource_link`s
+ * No cwd → plain text block (send cannot resolve FS links); image attaches still prepend when present.
+ * Image `resource_link`s (draft markdown or attachments) always go at the front; all `resource_link`s
  * are de-duplicated by `uri` (first wins). Empty text + images → resource_link-only (no empty text).
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
@@ -303,14 +303,14 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
     }
   }
 
-  const endImageLinks = [...attachments.map(attachmentToResourceLinkBlock), ...draftImageLinks];
-  if (endImageLinks.length === 0) {
+  const frontImageLinks = [...attachments.map(attachmentToResourceLinkBlock), ...draftImageLinks];
+  if (frontImageLinks.length === 0) {
     return dedupeResourceLinksByUri(draftBlocks);
   }
 
   const trimmedEmpty = text.trim().length === 0;
   const onlyEmptyText = trimmedEmpty && body.length === 1 && body[0]?.type === 'text' && body[0].text === '';
 
-  const combined = onlyEmptyText ? endImageLinks : [...body, ...endImageLinks];
+  const combined = onlyEmptyText ? frontImageLinks : [...frontImageLinks, ...body];
   return dedupeResourceLinksByUri(combined);
 });

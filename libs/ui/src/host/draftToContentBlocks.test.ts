@@ -151,7 +151,6 @@ describe('promptBlocksFromComposerDraft images', () => {
         initializeResult: {},
       });
       assert.deepStrictEqual(blocks, [
-        { text: 'hi', type: 'text' },
         {
           mimeType: 'image/png',
           name: 'a.png',
@@ -159,11 +158,12 @@ describe('promptBlocksFromComposerDraft images', () => {
           type: 'resource_link',
           uri: 'file:///tmp/a.png',
         },
+        { text: 'hi', type: 'text' },
       ]);
     }).pipe(Effect.provide(withFs(new Map()))),
   );
 
-  it.effect('mixed text + FS mention + images → draft blocks then resource_links', () =>
+  it.effect('mixed text + FS mention + images → image resource_links then draft blocks', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('see [a](/session/a.txt)', {
         attachments: [pngAttachment()],
@@ -171,8 +171,6 @@ describe('promptBlocksFromComposerDraft images', () => {
         initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [
-        { text: 'see ', type: 'text' },
-        { name: 'a.txt', type: 'resource_link', uri: 'file:///session/a.txt' },
         {
           mimeType: 'image/png',
           name: 'a.png',
@@ -180,6 +178,8 @@ describe('promptBlocksFromComposerDraft images', () => {
           type: 'resource_link',
           uri: 'file:///tmp/a.png',
         },
+        { text: 'see ', type: 'text' },
+        { name: 'a.txt', type: 'resource_link', uri: 'file:///session/a.txt' },
       ]);
     }).pipe(Effect.provide(withFs(new Map([['/session/a.txt', { bytes: encoder.encode('hi'), type: 'File' }]])))),
   );
@@ -213,16 +213,16 @@ describe('promptBlocksFromComposerDraft images', () => {
     }).pipe(Effect.provide(withFs(new Map()))),
   );
 
-  it.effect('image markdown mid-draft → resource_link at end (not mid-array)', () =>
+  it.effect('image markdown mid-draft → resource_link at front (not mid-array)', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('before [@shot.png](file:///session/shot.png) after', {
         cwd: '/session',
         initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [
+        { name: 'shot.png', type: 'resource_link', uri: 'file:///session/shot.png' },
         { text: 'before ', type: 'text' },
         { text: ' after', type: 'text' },
-        { name: 'shot.png', type: 'resource_link', uri: 'file:///session/shot.png' },
       ]);
     }).pipe(
       Effect.provide(withFs(new Map([['/session/shot.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]]))),
@@ -237,7 +237,6 @@ describe('promptBlocksFromComposerDraft images', () => {
         initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [
-        { text: 'see ', type: 'text' },
         {
           mimeType: 'image/png',
           name: 'a.png',
@@ -245,6 +244,7 @@ describe('promptBlocksFromComposerDraft images', () => {
           type: 'resource_link',
           uri: 'file:///tmp/a.png',
         },
+        { text: 'see ', type: 'text' },
       ]);
     }).pipe(Effect.provide(withFs(new Map([['/tmp/a.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]])))),
   );

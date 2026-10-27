@@ -139,6 +139,7 @@ export const SessionChatBody: FC<{
   const [commandFocusIndex, setCommandFocusIndex] = useState(0);
   const composerCursorRef = useRef(0);
   const syncCursorRef = useRef<null | number>(null);
+  const focusComposerEndRef = useRef<(() => void) | null>(null);
 
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
 
@@ -368,7 +369,10 @@ export const SessionChatBody: FC<{
           setAttachments(merged);
         }
       })
-      .catch(onClientError);
+      .catch(onClientError)
+      .finally(() => {
+        focusComposerEndRef.current?.();
+      });
   };
 
   const sendDraft = () => {
@@ -648,6 +652,7 @@ export const SessionChatBody: FC<{
               availableCommands={availableCommands}
               commandMenu={commandMenu}
               disabled={!controlsEnabled}
+              focusEndRef={focusComposerEndRef}
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onSubmit={sendDraft}

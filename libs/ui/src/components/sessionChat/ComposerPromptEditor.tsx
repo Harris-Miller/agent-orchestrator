@@ -143,6 +143,8 @@ export type ComposerPromptEditorProps = {
   readonly availableCommands?: readonly AvailableCommand[];
   readonly commandMenu?: ComposerCommandMenuKeyHandlers;
   readonly disabled: boolean;
+  /** Parent assigns `() => void` that focuses the editor with the caret at root end. */
+  readonly focusEndRef?: RefObject<(() => void) | null>;
   readonly onChange: (next: ComposerPromptChange) => void;
   readonly onSubmit: () => void;
   readonly placeholder: string;
@@ -390,6 +392,21 @@ const EditablePlugin: FC<{ readonly disabled: boolean }> = ({ disabled }) => {
   return null;
 };
 
+const FocusEndApiPlugin: FC<{ readonly focusEndRef: RefObject<(() => void) | null> }> = ({ focusEndRef }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    focusEndRef.current = () => {
+      editor.focus(undefined, { defaultSelection: 'rootEnd' });
+    };
+    return () => {
+      focusEndRef.current = null;
+    };
+  }, [editor, focusEndRef]);
+
+  return null;
+};
+
 const ExternalValuePlugin: FC<{
   readonly availableCommands: readonly AvailableCommand[];
   readonly lastEmittedRef: RefObject<string>;
@@ -605,6 +622,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   availableCommands = [],
   commandMenu,
   disabled,
+  focusEndRef,
   onChange,
   onSubmit,
   placeholder,
@@ -705,6 +723,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         value={value}
       />
       <EditablePlugin disabled={disabled} />
+      {focusEndRef === undefined ? null : <FocusEndApiPlugin focusEndRef={focusEndRef} />}
       <ChipifyPlugin availableCommands={availableCommands} />
       <ChipDeletePlugin />
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />

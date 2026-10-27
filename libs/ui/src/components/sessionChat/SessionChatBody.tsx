@@ -12,6 +12,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { Effect } from 'effect';
 import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
@@ -34,8 +35,13 @@ import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsLis
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
+import { mimeTypeForImagePath, validateImageAttachments } from '../../host/draftToContentBlocks.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
-import { pickComposerImages } from '../../host/pickComposerImages.ts';
+import {
+  appendUniqueComposerAttachments,
+  composerImageAttachmentFromPath,
+  pickComposerImages,
+} from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -54,7 +60,7 @@ import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
-import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
+import { absolutePathForMentionEntry, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
@@ -216,13 +222,40 @@ export const SessionChatBody: FC<{
         setComposerTrigger(null);
         return;
       }
+      const absolute = absolutePathForMentionEntry(sessionCwd, entry);
+      if (entry.kind === 'file' && mimeTypeForImagePath(absolute) !== undefined) {
+        const next = replaceComposerTriggerRange(draft, liveTrigger, '');
+        syncCursorRef.current = next.cursor;
+        composerCursorRef.current = next.cursor;
+        setDraft(next.text);
+        setComposerTrigger(null);
+        hostRuntime
+          .runPromise(
+            Effect.gen(function* () {
+              const attachment = yield* composerImageAttachmentFromPath(absolute);
+              const merged = appendUniqueComposerAttachments(attachments, [attachment]);
+              if (merged.length === attachments.length) {
+                return undefined;
+              }
+              yield* validateImageAttachments(merged);
+              return merged;
+            }),
+          )
+          .then(merged => {
+            if (merged !== undefined) {
+              setAttachments(merged);
+            }
+          })
+          .catch(onClientError);
+        return;
+      }
       const next = replaceComposerTriggerRange(draft, liveTrigger, mentionMarkdownForEntry(sessionCwd, entry));
       syncCursorRef.current = next.cursor;
       composerCursorRef.current = next.cursor;
       setDraft(next.text);
       setComposerTrigger(null);
     },
-    [draft, selectedLaunchTarget, sessionCwd, setDraft],
+    [attachments, draft, onClientError, selectedLaunchTarget, sessionCwd, setAttachments, setDraft],
   );
 
   const onComposerChange = useCallback(
@@ -305,7 +338,7 @@ export const SessionChatBody: FC<{
   }, [alwaysHiddenGlobs, fsListingSessionId, refreshSessionFsListing, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
-  // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.
+  // Image hits become attachments (same as paperclip / @-menu); skip while trigger menu open.
   useEffect(() => {
     if (sessionCwd === undefined || draft.length === 0 || composerTrigger !== null) {
       return;
@@ -314,17 +347,42 @@ export const SessionChatBody: FC<{
     const cursor = composerCursorRef.current;
     hostRuntime
       .runPromise(resolveComposerFsMentions(draft, sessionCwd))
-      .then(next => {
-        if (!cancelled && next !== draft) {
-          syncCursorRef.current = cursor;
-          setDraft(next);
+      .then(resolved => {
+        if (cancelled) {
+          return;
         }
+        if (resolved.draft !== draft) {
+          syncCursorRef.current = cursor;
+          setDraft(resolved.draft);
+        }
+        if (resolved.imageAbsolutePaths.length === 0) {
+          return;
+        }
+        return hostRuntime
+          .runPromise(
+            Effect.gen(function* () {
+              const picked = yield* Effect.forEach(resolved.imageAbsolutePaths, composerImageAttachmentFromPath, {
+                concurrency: 'unbounded',
+              });
+              const merged = appendUniqueComposerAttachments(attachments, picked);
+              if (merged.length === attachments.length) {
+                return undefined;
+              }
+              yield* validateImageAttachments(merged);
+              return merged;
+            }),
+          )
+          .then(merged => {
+            if (!cancelled && merged !== undefined) {
+              setAttachments(merged);
+            }
+          });
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [composerTrigger, draft, sessionCwd, setDraft]);
+  }, [attachments, composerTrigger, draft, sessionCwd, setAttachments, setDraft]);
 
   const onAttachImages = () => {
     if (!controlsEnabled) {
@@ -334,7 +392,7 @@ export const SessionChatBody: FC<{
       .runPromise(pickComposerImages(attachments))
       .then(picked => {
         if (picked.length > 0) {
-          setAttachments([...attachments, ...picked]);
+          setAttachments(appendUniqueComposerAttachments(attachments, picked));
         }
       })
       .catch(onClientError);

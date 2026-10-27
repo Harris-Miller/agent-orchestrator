@@ -2,7 +2,7 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
- * Image attachments append as `type: "resource_link"` blocks after draft-derived blocks.
+ * Image `resource_link`s (attachments and image FS links) are moved to the end and de-duplicated by uri.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option, Schema } from 'effect';
@@ -166,6 +166,36 @@ export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachmen
   type: 'resource_link',
   uri: attachment.uri,
 });
+
+const IMAGE_EXT_RE = /\.(gif|jpe?g|png|webp)(?:$|[?#])/i;
+
+/** True when a content block is an image-like `resource_link` (mime allowlist or image extension). */
+export const isImageResourceLinkBlock = (block: ContentBlock): boolean => {
+  if (block.type !== 'resource_link') {
+    return false;
+  }
+  if (typeof block.mimeType === 'string' && IMAGE_MIME_ALLOWLIST.has(block.mimeType)) {
+    return true;
+  }
+  return IMAGE_EXT_RE.test(block.uri) || IMAGE_EXT_RE.test(block.name);
+};
+
+/** Drop later `resource_link` blocks that share a `uri` with an earlier one (first wins). */
+export const dedupeResourceLinksByUri = (blocks: readonly ContentBlock[]): ContentBlock[] => {
+  const seen = new Set<string>();
+  const out: ContentBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === 'resource_link') {
+      if (!seen.has(block.uri)) {
+        seen.add(block.uri);
+        out.push(block);
+      }
+    } else {
+      out.push(block);
+    }
+  }
+  return out;
+};
 
 const textBlock = (text: string): ContentBlock => ({ text, type: 'text' });
 
@@ -350,7 +380,8 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
  * No cwd → plain text block (send cannot resolve FS links); image attaches still append when present.
- * Empty text + attaches → resource_link-only (no empty text sentinel).
+ * Image `resource_link`s (draft markdown or attachments) always go at the end; all `resource_link`s
+ * are de-duplicated by `uri` (first wins). Empty text + images → resource_link-only (no empty text).
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
   text: string,
@@ -373,14 +404,24 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
           embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
         });
 
-  if (attachments.length === 0) {
-    return draftBlocks;
+  const body: ContentBlock[] = [];
+  const draftImageLinks: ContentBlock[] = [];
+  for (const block of draftBlocks) {
+    if (isImageResourceLinkBlock(block)) {
+      draftImageLinks.push(block);
+    } else {
+      body.push(block);
+    }
   }
 
-  const linkBlocks = attachments.map(attachmentToResourceLinkBlock);
-  const trimmedEmpty = text.trim().length === 0;
-  const onlyEmptyText =
-    trimmedEmpty && draftBlocks.length === 1 && draftBlocks[0]?.type === 'text' && draftBlocks[0].text === '';
+  const endImageLinks = [...attachments.map(attachmentToResourceLinkBlock), ...draftImageLinks];
+  if (endImageLinks.length === 0) {
+    return dedupeResourceLinksByUri(draftBlocks);
+  }
 
-  return onlyEmptyText ? linkBlocks : [...draftBlocks, ...linkBlocks];
+  const trimmedEmpty = text.trim().length === 0;
+  const onlyEmptyText = trimmedEmpty && body.length === 1 && body[0]?.type === 'text' && body[0].text === '';
+
+  const combined = onlyEmptyText ? endImageLinks : [...body, ...endImageLinks];
+  return dedupeResourceLinksByUri(combined);
 });

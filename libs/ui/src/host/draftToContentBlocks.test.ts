@@ -210,6 +210,42 @@ describe('promptBlocksFromComposerDraft images', () => {
       assert.deepStrictEqual(blocks, [{ text: '', type: 'text' }]);
     }).pipe(Effect.provide(withFs(new Map()))),
   );
+
+  it.effect('image markdown mid-draft → resource_link at end (not mid-array)', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('before [@shot.png](file:///session/shot.png) after', {
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'before ', type: 'text' },
+        { text: ' after', type: 'text' },
+        { name: 'shot.png', type: 'resource_link', uri: 'file:///session/shot.png' },
+      ]);
+    }).pipe(
+      Effect.provide(withFs(new Map([['/session/shot.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]]))),
+    ),
+  );
+
+  it.effect('duplicate resource_link uris are de-duplicated (attachment wins over draft)', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('see [@a.png](file:///tmp/a.png)', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'see ', type: 'text' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/tmp/a.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]])))),
+  );
 });
 
 describe('draftToContentBlocks', () => {

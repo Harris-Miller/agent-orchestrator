@@ -23,7 +23,10 @@ const basenameForName = (pathApi: Path, absolutePath: string): string => {
   return base.length > 0 ? base : trimmed;
 };
 
-const readPathAsAttachment = Effect.fn('pickComposerImages.readPathAsAttachment')(function* (absolutePath: string) {
+/** Read one absolute image path into a composer attachment (thumbnail data URL). */
+export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmentFromPath')(function* (
+  absolutePath: string,
+) {
   const pathApi = yield* Path;
   const fs = yield* FileSystem;
 
@@ -76,6 +79,22 @@ const readPathAsAttachment = Effect.fn('pickComposerImages.readPathAsAttachment'
   } satisfies ComposerImageAttachment;
 });
 
+/** Append attachments that are not already present by `uri` (first wins). */
+export const appendUniqueComposerAttachments = (
+  existing: readonly ComposerImageAttachment[],
+  next: readonly ComposerImageAttachment[],
+): readonly ComposerImageAttachment[] => {
+  const seen = new Set(existing.map(attachment => attachment.uri));
+  const out = [...existing];
+  for (const attachment of next) {
+    if (!seen.has(attachment.uri)) {
+      seen.add(attachment.uri);
+      out.push(attachment);
+    }
+  }
+  return out;
+};
+
 /**
  * Open host file dialog, read selected paths, return attachments to append after `existing`.
  * Cancel → empty list. Cap/MIME/encode failures → ImageAttachmentRejected.
@@ -100,9 +119,9 @@ export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
 
   const picked: ComposerImageAttachment[] = [];
   for (const path of paths) {
-    picked.push(yield* readPathAsAttachment(path));
+    picked.push(yield* composerImageAttachmentFromPath(path));
   }
 
-  yield* validateImageAttachments([...existing, ...picked]);
+  yield* validateImageAttachments(appendUniqueComposerAttachments(existing, picked));
   return picked;
 });

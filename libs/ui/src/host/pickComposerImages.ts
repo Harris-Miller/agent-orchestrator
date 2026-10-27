@@ -1,5 +1,5 @@
 /**
- * Native FileDialog → FileSystem.readFile → validated ComposerImageAttachment[].
+ * Native FileDialog → FileSystem.readFile → Jimp thumbnail → ComposerImageAttachment[].
  */
 import { FileDialog } from '@lib/context-services';
 import { Effect, Option } from 'effect';
@@ -15,15 +15,7 @@ import {
   validateImageAttachments,
 } from './draftToContentBlocks.ts';
 import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
-
-const bytesToBase64 = (bytes: Uint8Array): string => {
-  const chunk = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-};
+import { makeImageThumbnail } from './makeImageThumbnail.ts';
 
 const basenameForName = (pathApi: Path, absolutePath: string): string => {
   const trimmed = absolutePath.replace(/[/\\]+$/, '');
@@ -65,19 +57,28 @@ const readPathAsAttachment = Effect.fn('pickComposerImages.readPathAsAttachment'
     });
   }
 
+  const thumbnailDataUrl = yield* Effect.tryPromise({
+    catch: cause =>
+      new ImageAttachmentRejected({
+        cause,
+        message: `Could not create thumbnail for ${basenameForName(pathApi, absolutePath)}`,
+      }),
+    try: () => makeImageThumbnail(bytes),
+  });
+
   return {
     byteLength: bytes.byteLength,
-    data: bytesToBase64(bytes),
     id: crypto.randomUUID(),
     mimeType,
     name: basenameForName(pathApi, absolutePath),
+    thumbnailDataUrl,
     uri: fileUrl.value.href,
   } satisfies ComposerImageAttachment;
 });
 
 /**
  * Open host file dialog, read selected paths, return attachments to append after `existing`.
- * Cancel → empty list. Cap/MIME failures → ImageAttachmentRejected.
+ * Cancel → empty list. Cap/MIME/thumbnail failures → ImageAttachmentRejected.
  */
 export const pickComposerImages = Effect.fn('pickComposerImages')(function* (
   existing: readonly ComposerImageAttachment[],

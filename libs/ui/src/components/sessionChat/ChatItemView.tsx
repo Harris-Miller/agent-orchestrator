@@ -6,11 +6,13 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
+import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
 import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
+import { hostRuntime } from '../../hostRuntime.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
@@ -19,29 +21,80 @@ import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
 
+const THUMB_PX = 72;
+
+const thumbBoxSx = {
+  alignItems: 'center',
+  bgcolor: 'action.hover',
+  borderRadius: 1,
+  display: 'flex',
+  height: THUMB_PX,
+  justifyContent: 'center',
+  overflow: 'hidden',
+  width: THUMB_PX,
+} as const;
+
+const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
+  <Box aria-label={label} role="img" sx={thumbBoxSx}>
+    <LucideMuiIcon icon={ImageOff} sx={{ color: 'text.disabled', fontSize: 28 }} />
+  </Box>
+);
+
+const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
+  const label = image.name ?? `Image ${String(index + 1)}`;
+  const { thumbnailDataUrl, uri } = image;
+  const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
+  const src = thumbnailDataUrl ?? hydratedSrc;
+
+  useEffect(() => {
+    if (thumbnailDataUrl !== undefined) {
+      return;
+    }
+    if (uri === undefined) {
+      return;
+    }
+    if (!uri.startsWith('file://')) {
+      return;
+    }
+    let cancelled = false;
+    hostRuntime
+      .runPromise(loadFileUriThumbnail(uri))
+      .then(dataUrl => {
+        if (!cancelled) {
+          setHydratedSrc(dataUrl);
+        }
+      })
+      .catch(() => {
+        /* leave hydratedSrc undefined → broken placeholder */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [thumbnailDataUrl, uri]);
+
+  if (src !== undefined) {
+    return (
+      <Box
+        alt={label}
+        component="img"
+        src={src}
+        sx={{
+          ...thumbBoxSx,
+          display: 'block',
+          objectFit: 'cover',
+        }}
+      />
+    );
+  }
+
+  return <BrokenImagePlaceholder label={`Broken image: ${label}`} />;
+};
+
 const TranscriptImageStrip: FC<{ readonly images: readonly UserMessageImageRef[] }> = ({ images }) => (
   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-    {images.map((image, index) => {
-      const src = image.thumbnailDataUrl;
-      if (src === undefined) {
-        return null;
-      }
-      return (
-        <Box
-          alt={image.name ?? `Image ${String(index + 1)}`}
-          component="img"
-          key={`${image.uri ?? image.name ?? 'img'}-${String(index)}`}
-          src={src}
-          sx={{
-            borderRadius: 1,
-            display: 'block',
-            height: 72,
-            objectFit: 'cover',
-            width: 72,
-          }}
-        />
-      );
-    })}
+    {images.map((image, index) => (
+      <TranscriptImageTile image={image} index={index} key={`${image.uri ?? image.name ?? 'img'}-${String(index)}`} />
+    ))}
   </Stack>
 );
 

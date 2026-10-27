@@ -22,60 +22,57 @@ export const ComposerImageAttachments: FC<{
 
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, pb: 0.5 }}>
-      {attachments.map(attachment => {
-        const src = `data:${attachment.mimeType};base64,${attachment.data}`;
-        return (
+      {attachments.map(attachment => (
+        <Box
+          key={attachment.id}
+          sx={{
+            '&:hover .composer-image-remove': { opacity: 1 },
+            borderRadius: 1,
+            flexShrink: 0,
+            height: THUMB_PX,
+            overflow: 'hidden',
+            position: 'relative',
+            width: THUMB_PX,
+          }}
+        >
           <Box
-            key={attachment.id}
+            alt={attachment.name}
+            component="img"
+            src={attachment.thumbnailDataUrl}
             sx={{
-              '&:hover .composer-image-remove': { opacity: 1 },
-              borderRadius: 1,
-              flexShrink: 0,
-              height: THUMB_PX,
-              overflow: 'hidden',
-              position: 'relative',
-              width: THUMB_PX,
+              display: 'block',
+              height: '100%',
+              objectFit: 'cover',
+              width: '100%',
+            }}
+          />
+          <IconButton
+            aria-label={`Remove ${attachment.name}`}
+            className="composer-image-remove"
+            disabled={disabled}
+            onClick={() => {
+              onRemove(attachment.id);
+            }}
+            size="small"
+            sx={{
+              '&:hover': {
+                bgcolor: theme => alpha(theme.palette.common.black, 0.88),
+              },
+              bgcolor: theme => alpha(theme.palette.common.black, 0.72),
+              color: 'common.white',
+              height: 22,
+              opacity: 0,
+              position: 'absolute',
+              right: 2,
+              top: 2,
+              transition: theme => theme.transitions.create('opacity'),
+              width: 22,
             }}
           >
-            <Box
-              alt={attachment.name}
-              component="img"
-              src={src}
-              sx={{
-                display: 'block',
-                height: '100%',
-                objectFit: 'cover',
-                width: '100%',
-              }}
-            />
-            <IconButton
-              aria-label={`Remove ${attachment.name}`}
-              className="composer-image-remove"
-              disabled={disabled}
-              onClick={() => {
-                onRemove(attachment.id);
-              }}
-              size="small"
-              sx={{
-                '&:hover': {
-                  bgcolor: theme => alpha(theme.palette.common.black, 0.88),
-                },
-                bgcolor: theme => alpha(theme.palette.common.black, 0.72),
-                color: 'common.white',
-                height: 22,
-                opacity: 0,
-                position: 'absolute',
-                right: 2,
-                top: 2,
-                transition: theme => theme.transitions.create('opacity'),
-                width: 22,
-              }}
-            >
-              <LucideMuiIcon icon={X} sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Box>
-        );
-      })}
+            <LucideMuiIcon icon={X} sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Box>
+      ))}
     </Stack>
   );
 };

@@ -2,7 +2,7 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
- * Image attachments append as `type: "image"` blocks after draft-derived blocks.
+ * Image attachments append as `type: "resource_link"` blocks after draft-derived blocks.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option, Schema } from 'effect';
@@ -30,29 +30,21 @@ export const IMAGE_ATTACH_MAX_BYTES_TOTAL = 15 * 1024 * 1024;
 
 export const IMAGE_DIALOG_FILTERS = [{ extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'], name: 'Images' }] as const;
 
-/** Draft-side image held for send (base64 + metadata). */
+/** Draft-side image held for send (thumbnail + metadata; full bytes not retained). */
 export type ComposerImageAttachment = {
   readonly byteLength: number;
-  readonly data: string;
   readonly id: string;
   readonly mimeType: string;
   readonly name: string;
+  readonly thumbnailDataUrl: string;
   readonly uri: string;
 };
 
-/** Attachments rejected (MIME / size / count / read failure). */
+/** Attachments rejected (MIME / size / count / read / thumbnail failure). */
 export class ImageAttachmentRejected extends Schema.TaggedError<ImageAttachmentRejected>()('ImageAttachmentRejected', {
   cause: Schema.optional(Schema.Unknown),
   message: Schema.String,
 }) {}
-
-/** Attachments present but agent did not advertise `promptCapabilities.image`. */
-export class ImageAttachmentsNotSupported extends Schema.TaggedError<ImageAttachmentsNotSupported>()(
-  'ImageAttachmentsNotSupported',
-  {
-    message: Schema.String,
-  },
-) {}
 
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
 const WINDOWS_ABS_RE = /^[A-Za-z]:[\\/]/;
@@ -100,10 +92,6 @@ const hasPromptCapability = (initializeResult: unknown, path: string, rawKey: st
 /** True when initialize advertises `promptCapabilities.embeddedContext`. */
 export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean =>
   hasPromptCapability(initializeResult, 'promptCapabilities.embeddedContext', 'embeddedContext');
-
-/** True when initialize advertises `promptCapabilities.image`. */
-export const hasImageCapability = (initializeResult: unknown): boolean =>
-  hasPromptCapability(initializeResult, 'promptCapabilities.image', 'image');
 
 export const mimeTypeForImagePath = (path: string): string | undefined => {
   const lower = path.toLowerCase();
@@ -170,10 +158,11 @@ export const validateImageAttachments = (
   return Effect.succeed(attachments);
 };
 
-export const attachmentToImageBlock = (attachment: ComposerImageAttachment): ContentBlock => ({
-  data: attachment.data,
+export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachment): ContentBlock => ({
   mimeType: attachment.mimeType,
-  type: 'image',
+  name: attachment.name,
+  size: attachment.byteLength,
+  type: 'resource_link',
   uri: attachment.uri,
 });
 
@@ -359,8 +348,8 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
- * No cwd → plain text block (send cannot resolve FS links); images still append when present.
- * Empty text + images → image-only (no empty text sentinel). Capability false + attachments → fail.
+ * No cwd → plain text block (send cannot resolve FS links); image attaches still append when present.
+ * Empty text + attaches → resource_link-only (no empty text sentinel).
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
   text: string,
@@ -372,11 +361,6 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
 ) {
   const attachments = options.attachments ?? [];
   if (attachments.length > 0) {
-    if (!hasImageCapability(options.initializeResult)) {
-      return yield* new ImageAttachmentsNotSupported({
-        message: 'This agent does not support image prompts',
-      });
-    }
     yield* validateImageAttachments(attachments);
   }
 
@@ -392,10 +376,10 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
     return draftBlocks;
   }
 
-  const imageBlocks = attachments.map(attachmentToImageBlock);
+  const linkBlocks = attachments.map(attachmentToResourceLinkBlock);
   const trimmedEmpty = text.trim().length === 0;
   const onlyEmptyText =
     trimmedEmpty && draftBlocks.length === 1 && draftBlocks[0]?.type === 'text' && draftBlocks[0].text === '';
 
-  return onlyEmptyText ? imageBlocks : [...draftBlocks, ...imageBlocks];
+  return onlyEmptyText ? linkBlocks : [...draftBlocks, ...linkBlocks];
 });

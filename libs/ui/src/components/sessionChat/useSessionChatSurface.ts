@@ -30,7 +30,6 @@ import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acp
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 import type { ComposerImageAttachment } from '../../host/draftToContentBlocks.ts';
-import { hasImageCapability } from '../../host/draftToContentBlocks.ts';
 
 export const useSessionChatSurface = () => {
   const selected = useAtomValue(selectedAtom);
@@ -103,8 +102,6 @@ export const useSessionChatSurface = () => {
     },
     [isVirtual, patchVirtualSession, setSessionAttachments],
   );
-  const imageCapable = selectedLaunchTarget !== undefined && hasImageCapability(selectedLaunchHarness.initializeResult);
-
   const chatItems = useMemo(
     () => (isVirtual ? [] : (selectedSession?.transcript.items ?? [])),
     [isVirtual, selectedSession?.transcript],
@@ -185,7 +182,6 @@ export const useSessionChatSurface = () => {
     draft,
     getConfigOptionIndex,
     hasPendingInteraction,
-    imageCapable,
     initializeResult: selectedLaunchTarget !== undefined ? selectedLaunchHarness.initializeResult : undefined,
     isVirtual,
     pendingClientRequest,

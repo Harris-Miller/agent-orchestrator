@@ -46,7 +46,7 @@ export const slimImageRefsFromAttachments = (
   attachments.map(attachment => ({
     mimeType: attachment.mimeType,
     name: attachment.name,
-    thumbnailDataUrl: `data:${attachment.mimeType};base64,${attachment.data}`,
+    thumbnailDataUrl: attachment.thumbnailDataUrl,
     uri: attachment.uri,
   }));
 

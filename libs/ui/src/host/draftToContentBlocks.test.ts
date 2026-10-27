@@ -10,11 +10,9 @@ import {
   draftToContentBlocks,
   findMarkdownLinks,
   hasEmbeddedContextCapability,
-  hasImageCapability,
   IMAGE_ATTACH_MAX_BYTES_PER,
   IMAGE_ATTACH_MAX_COUNT,
   ImageAttachmentRejected,
-  ImageAttachmentsNotSupported,
   promptBlocksFromComposerDraft,
   TEXT_EMBED_MAX_BYTES,
   validateImageAttachments,
@@ -23,10 +21,10 @@ import type { ComposerImageAttachment } from './draftToContentBlocks.ts';
 
 const pngAttachment = (overrides: Partial<ComposerImageAttachment> = {}): ComposerImageAttachment => ({
   byteLength: 4,
-  data: 'iVBORw0KGgo=',
   id: 'a1',
   mimeType: 'image/png',
   name: 'a.png',
+  thumbnailDataUrl: 'data:image/jpeg;base64,thumb',
   uri: 'file:///tmp/a.png',
   ...overrides,
 });
@@ -111,22 +109,6 @@ describe('hasEmbeddedContextCapability', () => {
   });
 });
 
-describe('hasImageCapability', () => {
-  it('true / false / absent', () => {
-    assert.isTrue(
-      hasImageCapability({
-        agentCapabilities: { promptCapabilities: { image: true } },
-      }),
-    );
-    assert.isFalse(
-      hasImageCapability({
-        agentCapabilities: { promptCapabilities: { image: false } },
-      }),
-    );
-    assert.isFalse(hasImageCapability({}));
-  });
-});
-
 describe('validateImageAttachments', () => {
   it.effect('rejects unsupported MIME', () =>
     Effect.gen(function* () {
@@ -157,61 +139,64 @@ describe('validateImageAttachments', () => {
 });
 
 describe('promptBlocksFromComposerDraft images', () => {
-  const imageInit = { agentCapabilities: { promptCapabilities: { image: true } } };
+  const init = { agentCapabilities: { promptCapabilities: { embeddedContext: false } } };
 
-  it.effect('capability true → image blocks with uri', () =>
+  it.effect('attachments → resource_link with mime/size/uri/name (no capability gate)', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('hi', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: imageInit,
+        initializeResult: {},
       });
       assert.deepStrictEqual(blocks, [
         { text: 'hi', type: 'text' },
-        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
       ]);
     }).pipe(Effect.provide(withFs(new Map()))),
   );
 
-  it.effect('capability false + attachments → fail (not silent omit)', () =>
-    Effect.gen(function* () {
-      const error = yield* Effect.flip(
-        promptBlocksFromComposerDraft('hi', {
-          attachments: [pngAttachment()],
-          cwd: '/session',
-          initializeResult: {},
-        }),
-      );
-      assert.ok(error instanceof ImageAttachmentsNotSupported);
-    }).pipe(Effect.provide(withFs(new Map()))),
-  );
-
-  it.effect('mixed text + FS mention + images → draft blocks then images', () =>
+  it.effect('mixed text + FS mention + images → draft blocks then resource_links', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('see [a](/session/a.txt)', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: {
-          agentCapabilities: { promptCapabilities: { embeddedContext: false, image: true } },
-        },
+        initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [
         { text: 'see ', type: 'text' },
         { name: 'a.txt', type: 'resource_link', uri: 'file:///session/a.txt' },
-        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
       ]);
     }).pipe(Effect.provide(withFs(new Map([['/session/a.txt', { bytes: encoder.encode('hi'), type: 'File' }]])))),
   );
 
-  it.effect('image-only → only image blocks, no forced text', () =>
+  it.effect('image-only → only resource_link blocks, no forced text', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: imageInit,
+        initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [
-        { data: 'iVBORw0KGgo=', mimeType: 'image/png', type: 'image', uri: 'file:///tmp/a.png' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
       ]);
     }).pipe(Effect.provide(withFs(new Map()))),
   );
@@ -220,7 +205,7 @@ describe('promptBlocksFromComposerDraft images', () => {
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('', {
         cwd: '/session',
-        initializeResult: imageInit,
+        initializeResult: init,
       });
       assert.deepStrictEqual(blocks, [{ text: '', type: 'text' }]);
     }).pipe(Effect.provide(withFs(new Map()))),

@@ -4,6 +4,8 @@ import type { SessionUsageDocument } from '@lib/ao-home';
 
 import { isRecord } from '../isRecord.ts';
 
+import { IMAGE_MIME_ALLOWLIST, mimeTypeForImagePath } from './draftToContentBlocks.ts';
+
 export type PlanEntry = {
   readonly content: string;
   readonly priority?: string;
@@ -86,6 +88,112 @@ const extractTextFromContent = (content: unknown): string | undefined => {
     .filter((text): text is string => text !== undefined);
 
   return parts.length > 0 ? parts.join('\n') : undefined;
+};
+
+const IMAGE_EXT_RE = /\.(gif|jpe?g|png|webp)(?:$|[?#])/i;
+
+/** True when a resource_link looks like an image attach (mime allowlist or image extension). */
+export const isImageLikeResourceLink = (block: unknown): boolean => {
+  if (!isRecord(block) || block.type !== 'resource_link') {
+    return false;
+  }
+  if (typeof block.uri !== 'string' || typeof block.name !== 'string') {
+    return false;
+  }
+  if (typeof block.mimeType === 'string' && IMAGE_MIME_ALLOWLIST.has(block.mimeType)) {
+    return true;
+  }
+  return IMAGE_EXT_RE.test(block.name) || IMAGE_EXT_RE.test(block.uri);
+};
+
+const resourceLinkToImageRef = (block: unknown): undefined | UserMessageImageRef => {
+  if (!isImageLikeResourceLink(block) || !isRecord(block)) {
+    return undefined;
+  }
+  const uri = typeof block.uri === 'string' ? block.uri : undefined;
+  const name = typeof block.name === 'string' ? block.name : undefined;
+  const mimeFromField = typeof block.mimeType === 'string' ? block.mimeType : undefined;
+  const mimeType =
+    mimeFromField ??
+    (name !== undefined ? mimeTypeForImagePath(name) : undefined) ??
+    (uri !== undefined ? mimeTypeForImagePath(uri) : undefined) ??
+    'image/png';
+  return { mimeType, name, uri };
+};
+
+export const extractImageRefsFromContent = (content: unknown): readonly UserMessageImageRef[] => {
+  if (isImageLikeResourceLink(content)) {
+    const ref = resourceLinkToImageRef(content);
+    return ref === undefined ? [] : [ref];
+  }
+
+  if (!Array.isArray(content)) {
+    return [];
+  }
+
+  return content.flatMap(block => {
+    const ref = resourceLinkToImageRef(block);
+    return ref === undefined ? [] : [ref];
+  });
+};
+
+const appendUserMessageChunk = (
+  transcript: SessionTranscript,
+  messageId: string | undefined,
+  text: string | undefined,
+  images: readonly UserMessageImageRef[],
+): SessionTranscript => {
+  const hasText = text !== undefined && text.length > 0;
+  const hasImages = images.length > 0;
+  if (!hasText && !hasImages) {
+    return transcript;
+  }
+
+  if (messageId !== undefined) {
+    const existingIndex = transcript.messageIndices.get(messageId);
+    if (existingIndex !== undefined) {
+      const existing = transcript.items[existingIndex];
+      if (existing.kind === 'user_message') {
+        const items = [...transcript.items];
+        items[existingIndex] = {
+          ...existing,
+          images: hasImages ? [...(existing.images ?? []), ...images] : existing.images,
+          text: hasText ? `${existing.text}${text}` : existing.text,
+        };
+        return { ...transcript, items };
+      }
+    }
+  }
+
+  // Image-only follow-up without messageId (session/load): merge onto trailing user_message.
+  if (!hasText && hasImages) {
+    const last = transcript.items.at(-1);
+    if (last?.kind === 'user_message') {
+      const items = [...transcript.items];
+      items[items.length - 1] = {
+        ...last,
+        images: [...(last.images ?? []), ...images],
+      };
+      return { ...transcript, items };
+    }
+  }
+
+  const id = messageId ?? crypto.randomUUID();
+  const items = [
+    ...transcript.items,
+    {
+      id,
+      kind: 'user_message' as const,
+      text: text ?? '',
+      ...(hasImages ? { images } : {}),
+    },
+  ];
+  const messageIndices =
+    messageId === undefined
+      ? transcript.messageIndices
+      : new Map(transcript.messageIndices).set(messageId, items.length - 1);
+
+  return { ...transcript, items, messageIndices };
 };
 
 const extractRawInputCommand = (rawInput: unknown): string | undefined => {
@@ -359,14 +467,13 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
 
     case 'user_message_chunk': {
       const text = extractTextFromContent(update.content);
-      return text === undefined
-        ? transcript
-        : appendMessageChunk(
-            transcript,
-            'user_message',
-            typeof update.messageId === 'string' ? update.messageId : undefined,
-            text,
-          );
+      const images = extractImageRefsFromContent(update.content);
+      return appendUserMessageChunk(
+        transcript,
+        typeof update.messageId === 'string' ? update.messageId : undefined,
+        text,
+        images,
+      );
     }
 
     default:

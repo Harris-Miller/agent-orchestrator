@@ -101,7 +101,6 @@ export const SessionChatBody: FC<{
     draft,
     getConfigOptionIndex,
     hasPendingInteraction,
-    imageCapable,
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
@@ -327,18 +326,8 @@ export const SessionChatBody: FC<{
     };
   }, [composerTrigger, draft, sessionCwd, setDraft]);
 
-  // Capability / launch-target flip: clear attachments + snackbar (fail-closed).
-  const prevImageCapableRef = useRef(imageCapable);
-  useEffect(() => {
-    if (prevImageCapableRef.current && !imageCapable && attachments.length > 0) {
-      setAttachments([]);
-      onClientError(new Error('Image attachments cleared — this agent does not support image prompts'));
-    }
-    prevImageCapableRef.current = imageCapable;
-  }, [attachments.length, imageCapable, onClientError, setAttachments]);
-
   const onAttachImages = () => {
-    if (!imageCapable || !controlsEnabled) {
+    if (!controlsEnabled) {
       return;
     }
     hostRuntime
@@ -644,16 +633,9 @@ export const SessionChatBody: FC<{
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {imageCapable ? (
-                <IconButton
-                  aria-label="Attach images"
-                  disabled={!controlsEnabled}
-                  onClick={onAttachImages}
-                  size="small"
-                >
-                  <LucideMuiIcon fontSize="small" icon={Paperclip} />
-                </IconButton>
-              ) : null}
+              <IconButton aria-label="Attach images" disabled={!controlsEnabled} onClick={onAttachImages} size="small">
+                <LucideMuiIcon fontSize="small" icon={Paperclip} />
+              </IconButton>
               <SessionAgentChip
                 disabled={chromeLocked}
                 interactive={isVirtual}

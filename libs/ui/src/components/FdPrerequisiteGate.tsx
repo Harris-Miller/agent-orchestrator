@@ -19,6 +19,7 @@ import type { FdInstallCommand } from '../host/fdInstallCommands.ts';
 import { resolveFdBinary } from '../host/resolveFdBinary.ts';
 import { runFdInstallCommand } from '../host/runFdInstallCommand.ts';
 import { hostRuntime } from '../hostRuntime.ts';
+import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 
 type GatePhase =
   | { readonly _tag: 'checking' }
@@ -132,7 +133,7 @@ export const FdPrerequisiteGate: FC<FdPrerequisiteGateProps> = ({ children, onEx
           {isLinux ? (
             <Box component="ul" sx={{ m: 0, pl: 2 }}>
               {linuxFdInstallHintLines().map(line => (
-                <Typography component="li" key={line} sx={{ fontFamily: 'monospace' }} variant="body2">
+                <Typography component="li" key={line} sx={{ fontFamily: FONT_FAMILY_MONO }} variant="body2">
                   {line}
                 </Typography>
               ))}

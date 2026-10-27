@@ -82,17 +82,11 @@ export const SettingsShell: FC = () => {
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', pb: 2, px: 1 }}>
           {filteredItems.map(item => (
             <ListItemButton
-              dense
               key={item.id}
               onClick={() => {
                 navigate({ params: { category: item.id }, to: '/settings/$category' }).catch(() => undefined);
               }}
               selected={category === item.id}
-              sx={{
-                borderRadius: 1,
-                minHeight: 28,
-                py: 0.25,
-              }}
             >
               <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
             </ListItemButton>

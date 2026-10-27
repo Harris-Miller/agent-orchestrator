@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { alwaysHiddenGlobsAtom, LucideMuiIcon } from '@lib/ui';
+import { alwaysHiddenGlobsAtom, FONT_FAMILY_MONO, LucideMuiIcon } from '@lib/ui';
 import { listShallowDirectories } from '@lib/ui/fd-listing';
 import { hostRunPromise } from '@lib/ui/host-runtime';
 import Box from '@mui/material/Box';
@@ -51,7 +51,7 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
       borderColor: 'divider',
       borderRadius: 0.75,
       color: 'text.secondary',
-      fontFamily: 'monospace',
+      fontFamily: FONT_FAMILY_MONO,
       fontSize: '0.7rem',
       lineHeight: 1.4,
       px: 0.75,
@@ -299,7 +299,7 @@ export const CreateSessionDirectoryPicker: FC<{
           placeholder="~/…"
           sx={{
             flex: 1,
-            fontFamily: 'monospace',
+            fontFamily: FONT_FAMILY_MONO,
             fontSize: '0.9rem',
             minWidth: 0,
           }}
@@ -365,7 +365,7 @@ export const CreateSessionDirectoryPicker: FC<{
                   slotProps={{
                     primary: {
                       noWrap: true,
-                      sx: { fontFamily: 'monospace', fontSize: '0.875rem' },
+                      sx: { fontFamily: FONT_FAMILY_MONO, fontSize: '0.875rem' },
                     },
                   }}
                 />

@@ -1,9 +1,7 @@
 /**
- * PROTOTYPE (throwaway) — Radix-style MUI specimen catalog for issue #163.
- * Question: can we judge shared desktop-chrome restyles outside product screens?
- * Single page (no variant switcher). Fold into developer-panel tab later.
+ * MUI specimen catalog for visual theme review (issue #163).
+ * Renders under the active Theme preference — no in-tab theme switcher.
  */
-import { LucideMuiIcon } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -51,7 +49,9 @@ import { ChevronDown, Search, Settings } from 'lucide-react';
 import { useState } from 'react';
 import type { FC, MouseEvent, ReactNode } from 'react';
 
-import { PROTOTYPE_MONO_FONT } from './createPrototypeDesktopChromeTheme.ts';
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
+import { FieldLabel } from '../FieldLabel.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 const Section: FC<{ readonly children: ReactNode; readonly title: string }> = ({ children, title }) => (
   <Box component="section" sx={{ mb: 4 }}>
@@ -73,18 +73,7 @@ const SpecimenRow: FC<{ readonly children: ReactNode; readonly label?: string }>
   </Stack>
 );
 
-/** Left-of-control label (issue preference: not floating InputLabel). */
-const FieldLabel: FC<{ readonly children: ReactNode; readonly htmlFor?: string; readonly id?: string }> = ({
-  children,
-  htmlFor,
-  id,
-}) => (
-  <Typography component="label" htmlFor={htmlFor} id={id} sx={{ flexShrink: 0, minWidth: 96 }} variant="body2">
-    {children}
-  </Typography>
-);
-
-export const MuiComponentPlayground: FC = () => {
+export const MuiThemePlaygroundTab: FC = () => {
   const [selectValue, setSelectValue] = useState('all');
   const [tab, setTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,8 +88,8 @@ export const MuiComponentPlayground: FC = () => {
   return (
     <Box sx={{ maxWidth: 960, mx: 'auto', px: 2, py: 3 }}>
       <Alert severity="info" sx={{ mb: 3 }} variant="standard">
-        PROTOTYPE — issue #163 MUI specimen catalog under draft desktop chrome. Palette follows active Theme preference;
-        metrics/fonts are the draft override. No in-page theme switcher.
+        MUI specimen catalog under shared desktop chrome. Palette follows active Theme preference. No in-page theme
+        switcher.
       </Alert>
 
       <Section title="Typography">
@@ -110,7 +99,7 @@ export const MuiComponentPlayground: FC = () => {
         <Typography variant="body1">Body1 — The quick brown fox jumps over the lazy dog.</Typography>
         <Typography variant="body2">Body2 — secondary density copy.</Typography>
         <Typography variant="caption">Caption</Typography>
-        <Typography sx={{ fontFamily: PROTOTYPE_MONO_FONT, mt: 1 }} variant="body2">
+        <Typography sx={{ fontFamily: FONT_FAMILY_MONO, mt: 1 }} variant="body2">
           monospace — SF Mono / Menlo / Consolas
         </Typography>
       </Section>
@@ -187,14 +176,12 @@ export const MuiComponentPlayground: FC = () => {
 
       <Section title="TextField / Select (left labels)">
         <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <FieldLabel htmlFor="proto-text">Name</FieldLabel>
-            <TextField id="proto-text" placeholder="Placeholder" size="small" sx={{ minWidth: 200 }} />
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <FieldLabel htmlFor="proto-search">Search</FieldLabel>
+          <FieldLabel htmlFor="theme-playground-text" label="Name">
+            <TextField id="theme-playground-text" placeholder="Placeholder" size="small" sx={{ minWidth: 200 }} />
+          </FieldLabel>
+          <FieldLabel htmlFor="theme-playground-search" label="Search">
             <TextField
-              id="proto-search"
+              id="theme-playground-search"
               placeholder="Filter…"
               size="small"
               slotProps={{
@@ -208,21 +195,19 @@ export const MuiComponentPlayground: FC = () => {
               }}
               sx={{ minWidth: 200 }}
             />
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-            <FieldLabel htmlFor="proto-helper">With help</FieldLabel>
+          </FieldLabel>
+          <FieldLabel htmlFor="theme-playground-helper" label="With help">
             <TextField
               helperText="Helper sits under the control"
-              id="proto-helper"
+              id="theme-playground-helper"
               size="small"
               sx={{ minWidth: 200 }}
             />
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <FieldLabel id="proto-select-label">Launch target</FieldLabel>
+          </FieldLabel>
+          <FieldLabel id="theme-playground-select-label" label="Launch target">
             <FormControl size="small" sx={{ minWidth: 160 }}>
               <Select
-                aria-labelledby="proto-select-label"
+                aria-labelledby="theme-playground-select-label"
                 onChange={event => {
                   setSelectValue(event.target.value);
                 }}
@@ -233,7 +218,7 @@ export const MuiComponentPlayground: FC = () => {
                 <MenuItem value="claude">Claude</MenuItem>
               </Select>
             </FormControl>
-          </Stack>
+          </FieldLabel>
         </Stack>
       </Section>
 
@@ -343,7 +328,7 @@ export const MuiComponentPlayground: FC = () => {
           </AccordionSummary>
           <AccordionDetails>
             <Typography color="text.secondary" variant="body2">
-              Theme should supply gutters / elevation / divider defaults so call sites drop local sx.
+              Theme supplies gutters / elevation / divider defaults so call sites drop local sx.
             </Typography>
           </AccordionDetails>
         </Accordion>

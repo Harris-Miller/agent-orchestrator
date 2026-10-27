@@ -18,6 +18,7 @@ import type {
 } from '../../host/acpSessionBootstrap.ts';
 import { normalizeInitialize, normalizeSession } from '../../host/acpSessionBootstrap.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { UsageCard } from '../sessionChat/UsageCard.tsx';
 
 const sectionCardSx = {
@@ -106,7 +107,7 @@ const OptionChips: FC<{
                   </Typography>
                 ) : null}
               </Stack>
-              <Typography color="text.secondary" sx={{ fontFamily: 'monospace' }} variant="caption">
+              <Typography color="text.secondary" sx={{ fontFamily: FONT_FAMILY_MONO }} variant="caption">
                 {option.id}
               </Typography>
               {option.description !== undefined ? (
@@ -197,7 +198,7 @@ export const SessionStateContent: FC<{
                   <Typography sx={{ fontWeight: 600 }} variant="body1">
                     {initialize.agentInfo.title ?? initialize.agentInfo.name}
                   </Typography>
-                  <Typography color="text.secondary" sx={{ fontFamily: 'monospace' }} variant="caption">
+                  <Typography color="text.secondary" sx={{ fontFamily: FONT_FAMILY_MONO }} variant="caption">
                     {initialize.agentInfo.name} · v{initialize.agentInfo.version}
                   </Typography>
                   {initialize.protocolVersion !== undefined ? (
@@ -286,7 +287,7 @@ export const SessionStateContent: FC<{
                   <Chip
                     label={session.sessionId}
                     size="small"
-                    sx={{ alignSelf: 'flex-start', fontFamily: 'monospace' }}
+                    sx={{ alignSelf: 'flex-start', fontFamily: FONT_FAMILY_MONO }}
                   />
                 ) : null}
 
@@ -355,7 +356,7 @@ export const SessionStateContent: FC<{
                         primary={command.name}
                         secondary={command.description}
                         slotProps={{
-                          primary: { sx: { fontFamily: 'monospace', fontWeight: 600 } },
+                          primary: { sx: { fontFamily: FONT_FAMILY_MONO, fontWeight: 600 } },
                           secondary: { sx: { color: 'text.secondary' } },
                         }}
                       />

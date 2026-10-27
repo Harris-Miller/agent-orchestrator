@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Box from '@mui/material/Box';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -14,6 +15,8 @@ import {
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+
+import { FieldLabel } from './FieldLabel.tsx';
 
 /** Settings → General: User settings toggles shared across hosts. */
 export const GeneralSettingsPane: FC = () => {
@@ -49,7 +52,6 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Confirm before deleting a session"
-        sx={{ ml: 0 }}
       />
       <FormControlLabel
         control={
@@ -62,7 +64,7 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Show No Folder group in Sessions"
-        sx={{ display: 'block', ml: 0, mt: 1 }}
+        sx={{ display: 'block', mt: 1 }}
       />
       <FormControlLabel
         control={
@@ -75,25 +77,28 @@ export const GeneralSettingsPane: FC = () => {
           />
         }
         label="Developer mode"
-        sx={{ display: 'block', ml: 0, mt: 1 }}
+        sx={{ display: 'block', mt: 1 }}
       />
-      <TextField
-        disabled={editsDisabled}
-        fullWidth
-        helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
-        label="Always-hidden globs"
-        minRows={3}
-        multiline
-        onBlur={() => {
-          setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
-          setAlwaysHiddenGlobsDraft(undefined);
-        }}
-        onChange={event => {
-          setAlwaysHiddenGlobsDraft(event.target.value);
-        }}
-        sx={{ display: 'block', mt: 2 }}
-        value={alwaysHiddenGlobsText}
-      />
+      <Box sx={{ mt: 2 }}>
+        <FieldLabel fullWidth htmlFor="always-hidden-globs" label="Always-hidden globs">
+          <TextField
+            disabled={editsDisabled}
+            fullWidth
+            helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
+            id="always-hidden-globs"
+            minRows={3}
+            multiline
+            onBlur={() => {
+              setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
+              setAlwaysHiddenGlobsDraft(undefined);
+            }}
+            onChange={event => {
+              setAlwaysHiddenGlobsDraft(event.target.value);
+            }}
+            value={alwaysHiddenGlobsText}
+          />
+        </FieldLabel>
+      </Box>
     </>
   );
 };

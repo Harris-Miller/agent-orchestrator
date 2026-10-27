@@ -4,6 +4,8 @@ import type { FC, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
+
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 
 /** Look like a link; never emit a real <a href> (Tauri navigates absolute paths and breaks the shell). */
@@ -27,7 +29,7 @@ const baseSx = {
   '& code': {
     bgcolor: 'action.hover',
     borderRadius: 0.5,
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontFamily: FONT_FAMILY_MONO,
     fontSize: '1em',
     px: 0.5,
     py: 0.125,

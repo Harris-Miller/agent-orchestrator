@@ -2,7 +2,7 @@ import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
 import type { ThemeId } from './themeId.ts';
-import { PANEL_HEADER_HEIGHT } from './tokens.ts';
+import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT } from './tokens.ts';
 
 type ThemeColors = {
   readonly alertInfoBg: string;
@@ -65,16 +65,69 @@ type CatppuccinFlavor = {
   readonly yellow: string;
 };
 
+const flatShadows = [
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+  'none',
+] as Theme['shadows'];
+
 const createAppTheme = (c: ThemeColors): Theme =>
   createTheme({
     components: {
+      MuiAccordion: {
+        defaultProps: {
+          disableGutters: true,
+          elevation: 0,
+          square: true,
+        },
+        styleOverrides: {
+          root: {
+            '&::before': { display: 'none' },
+            backgroundColor: 'transparent',
+            borderBottom: `1px solid ${c.divider}`,
+          },
+        },
+      },
+      MuiAccordionDetails: {
+        styleOverrides: {
+          root: { padding: '4px 8px 8px' },
+        },
+      },
+      MuiAccordionSummary: {
+        styleOverrides: {
+          content: { margin: 0 },
+          root: { minHeight: 32, paddingLeft: 8, paddingRight: 8 },
+        },
+      },
       MuiAlert: {
         styleOverrides: {
           root: {
-            borderRadius: '12px',
-            fontSize: '14px',
-            lineHeight: 1.5,
-            padding: '5px 14px',
+            borderRadius: 4,
+            fontSize: 13,
+            lineHeight: 1.45,
+            padding: '4px 10px',
             variants: [
               {
                 props: { severity: 'info', variant: 'standard' },
@@ -104,6 +157,66 @@ const createAppTheme = (c: ThemeColors): Theme =>
                   color: c.errorLight,
                 },
               },
+              {
+                props: { severity: 'info', variant: 'filled' },
+                style: {
+                  backgroundColor: c.infoMain,
+                  color: c.onAccent,
+                },
+              },
+              {
+                props: { severity: 'success', variant: 'filled' },
+                style: {
+                  backgroundColor: c.successMain,
+                  color: c.onAccent,
+                },
+              },
+              {
+                props: { severity: 'warning', variant: 'filled' },
+                style: {
+                  backgroundColor: c.warningMain,
+                  color: c.onAccent,
+                },
+              },
+              {
+                props: { severity: 'error', variant: 'filled' },
+                style: {
+                  backgroundColor: c.errorMain,
+                  color: c.onAccent,
+                },
+              },
+              {
+                props: { severity: 'info', variant: 'outlined' },
+                style: {
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${c.infoMain}`,
+                  color: c.infoMain,
+                },
+              },
+              {
+                props: { severity: 'success', variant: 'outlined' },
+                style: {
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${c.successMain}`,
+                  color: c.successLight,
+                },
+              },
+              {
+                props: { severity: 'warning', variant: 'outlined' },
+                style: {
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${c.warningMain}`,
+                  color: c.warningLight,
+                },
+              },
+              {
+                props: { severity: 'error', variant: 'outlined' },
+                style: {
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${c.errorMain}`,
+                  color: c.errorLight,
+                },
+              },
             ],
           },
         },
@@ -128,20 +241,20 @@ const createAppTheme = (c: ThemeColors): Theme =>
       MuiAutocomplete: {
         styleOverrides: {
           inputRoot: {
-            padding: '0 30px 0 8px',
+            padding: '0 28px 0 8px',
           },
           option: {
             '&[aria-selected="true"]': {
               backgroundColor: alpha(c.primaryMain, 0.08),
             },
-            fontSize: '14px',
-            minHeight: '35px',
+            fontSize: 13,
+            minHeight: 32,
           },
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
         },
       },
@@ -151,20 +264,26 @@ const createAppTheme = (c: ThemeColors): Theme =>
         },
         styleOverrides: {
           root: {
-            '&.MuiButton-sizeSmall': {
-              borderRadius: '999px',
-              fontSize: '12px',
-              minHeight: '28px',
+            '&.MuiButton-sizeLarge': {
+              borderRadius: 4,
+              fontSize: 13,
+              minHeight: 32,
               padding: '0 12px',
             },
-            borderRadius: '999px',
-            fontSize: '14px',
+            '&.MuiButton-sizeSmall': {
+              borderRadius: 4,
+              fontSize: 12,
+              minHeight: 24,
+              padding: '0 8px',
+            },
+            borderRadius: 4,
+            fontSize: 13,
             fontWeight: 500,
             letterSpacing: 0,
-            lineHeight: 1.5,
-            minHeight: '35px',
+            lineHeight: 1.45,
+            minHeight: 28,
             minWidth: 0,
-            padding: '0 16px',
+            padding: '0 10px',
             textTransform: 'none',
             variants: [
               {
@@ -211,14 +330,14 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
         },
       },
-      // Beat MuiButton's pill borderRadius so split/grouped buttons join flush.
+      // Beat MuiButton borderRadius so split/grouped buttons join flush.
       MuiButtonGroup: {
         styleOverrides: {
           grouped: {
             borderRadius: 0,
           },
           root: {
-            borderRadius: 12,
+            borderRadius: 4,
           },
         },
       },
@@ -228,31 +347,36 @@ const createAppTheme = (c: ThemeColors): Theme =>
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 1px 0 rgba(0, 0, 0, 0.04)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
+        },
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: { padding: 4 },
         },
       },
       MuiChip: {
         styleOverrides: {
           label: {
-            paddingLeft: '6px',
-            paddingRight: '6px',
+            paddingLeft: 6,
+            paddingRight: 6,
           },
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '12px',
+            borderRadius: 4,
             color: c.textPrimary,
-            fontSize: '14px',
+            fontSize: 12,
             fontWeight: 400,
-            height: '28px',
+            height: 22,
             variants: [
               {
                 props: { size: 'small' },
                 style: {
-                  fontSize: '13px',
-                  height: '22px',
+                  fontSize: 11,
+                  height: 20,
                 },
               },
               {
@@ -312,6 +436,12 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
         },
       },
+      MuiCircularProgress: {
+        defaultProps: {
+          size: 20,
+          thickness: 4,
+        },
+      },
       MuiCssBaseline: {
         styleOverrides: {
           '::selection': {
@@ -324,7 +454,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           body: {
             backgroundColor: c.bgDefault,
             color: c.textPrimary,
-            fontSize: '14px',
+            fontSize: 13,
           },
           'html, body, #root': {
             minHeight: '100%',
@@ -336,9 +466,24 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.26)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: { padding: '8px 12px' },
+        },
+      },
+      MuiDialogContent: {
+        styleOverrides: {
+          root: { padding: '8px 12px' },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: { fontSize: 14, fontWeight: 600, padding: '10px 12px' },
         },
       },
       MuiDivider: {
@@ -355,8 +500,18 @@ const createAppTheme = (c: ThemeColors): Theme =>
             backgroundImage: 'none',
             borderRight: `1px solid ${c.divider}`,
             color: c.textPrimary,
-            paddingTop: '8px',
+            paddingTop: 8,
           },
+        },
+      },
+      MuiFormControlLabel: {
+        styleOverrides: {
+          root: { marginLeft: 0, marginRight: 8 },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: { fontSize: 11, marginLeft: 0, marginTop: 4 },
         },
       },
       MuiIconButton: {
@@ -367,15 +522,15 @@ const createAppTheme = (c: ThemeColors): Theme =>
               color: c.primaryMain,
             },
             '&.MuiIconButton-sizeSmall': {
-              height: '28px',
+              height: 24,
               padding: 0,
-              width: '28px',
+              width: 24,
             },
-            borderRadius: '12px',
+            borderRadius: 4,
             color: c.textMuted,
-            height: '35px',
-            padding: '4px',
-            width: '35px',
+            height: 28,
+            padding: 4,
+            width: 28,
           },
         },
       },
@@ -384,16 +539,27 @@ const createAppTheme = (c: ThemeColors): Theme =>
           disableUnderline: true,
         },
       },
+      MuiInputAdornment: {
+        styleOverrides: {
+          positionStart: {
+            marginLeft: 0,
+            marginRight: 4,
+          },
+        },
+      },
       MuiInputBase: {
         styleOverrides: {
+          adornedStart: {
+            paddingLeft: 6,
+          },
           input: {
             '&::placeholder': {
               color: c.textMuted,
               opacity: 1,
             },
             boxSizing: 'border-box',
-            height: '29px',
-            padding: '10px 8px',
+            height: 20,
+            padding: '4px 8px',
           },
           root: {
             '&:hover': {
@@ -407,16 +573,24 @@ const createAppTheme = (c: ThemeColors): Theme =>
               borderColor: c.primaryMain,
               boxShadow: `0 0 0 1px ${alpha(c.primaryMain, 0.22)}`,
             },
+            '&.MuiInputBase-adornedStart': {
+              paddingLeft: 6,
+            },
             '&.MuiInputBase-sizeSmall': {
-              minHeight: '28px',
+              minHeight: 24,
             },
             backgroundColor: 'transparent',
             border: `1px solid ${c.divider}`,
-            borderRadius: '12px',
+            borderRadius: 4,
             color: c.textPrimary,
-            fontSize: '14px',
-            minHeight: '39px',
+            fontSize: 13,
+            minHeight: 28,
           },
+        },
+      },
+      MuiLinearProgress: {
+        styleOverrides: {
+          root: { borderRadius: 2, height: 4 },
         },
       },
       MuiLink: {
@@ -443,38 +617,65 @@ const createAppTheme = (c: ThemeColors): Theme =>
               backgroundColor: alpha(c.primaryMain, 0.08),
               color: c.primaryMain,
             },
-            borderRadius: '12px',
-            minHeight: '42px',
+            borderRadius: 4,
+            minHeight: 32,
           },
+        },
+      },
+      MuiListItemIcon: {
+        styleOverrides: {
+          root: { minWidth: 28 },
         },
       },
       MuiMenu: {
         styleOverrides: {
           list: {
-            padding: '4px',
+            padding: 2,
           },
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: { fontSize: 13, minHeight: 32 },
         },
       },
       MuiOutlinedInput: {
         styleOverrides: {
+          input: {
+            boxSizing: 'border-box',
+            height: 20,
+            padding: '4px 8px',
+          },
           notchedOutline: {
             border: 0,
+          },
+          root: {
+            '&.MuiInputBase-adornedStart': {
+              paddingLeft: 6,
+            },
+            '& .MuiOutlinedInput-inputAdornedStart': {
+              paddingLeft: 0,
+            },
           },
         },
       },
       MuiPaper: {
         styleOverrides: {
+          outlined: {
+            borderColor: c.divider,
+          },
           root: {
+            backgroundColor: c.bgPaper,
             backgroundImage: 'none',
           },
           rounded: {
-            borderRadius: '16px',
+            borderRadius: 6,
           },
         },
       },
@@ -483,7 +684,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
         },
       },
@@ -495,9 +697,14 @@ const createAppTheme = (c: ThemeColors): Theme =>
           select: {
             alignItems: 'center',
             display: 'flex',
-            minHeight: '20px',
-            padding: '0 30px 0 8px',
+            minHeight: 20,
+            padding: '0 28px 0 8px',
           },
+        },
+      },
+      MuiSkeleton: {
+        styleOverrides: {
+          root: { borderRadius: 4 },
         },
       },
       MuiSnackbarContent: {
@@ -505,19 +712,19 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 16px 38px rgba(0, 0, 0, 0.24)',
+            borderRadius: 6,
+            boxShadow: 'none',
             color: c.textPrimary,
-            fontSize: '14px',
+            fontSize: 13,
           },
         },
       },
       MuiSwitch: {
         styleOverrides: {
           root: {
-            height: '20px',
+            height: 20,
             padding: 0,
-            width: '34px',
+            width: 34,
           },
           switchBase: {
             '&.Mui-checked': {
@@ -529,16 +736,19 @@ const createAppTheme = (c: ThemeColors): Theme =>
               transform: 'translateX(14px)',
             },
             color: c.textPrimary,
-            padding: '2px',
+            padding: 2,
+            top: 0,
           },
           thumb: {
             boxShadow: 'none',
-            height: '16px',
-            width: '16px',
+            height: 16,
+            width: 16,
           },
           track: {
             backgroundColor: c.switchTrackOff,
-            borderRadius: '10px',
+            borderRadius: 10,
+            boxSizing: 'border-box',
+            height: 20,
             opacity: 1,
           },
         },
@@ -550,13 +760,13 @@ const createAppTheme = (c: ThemeColors): Theme =>
               color: c.primaryMain,
             },
             color: c.textSecondary,
-            fontSize: '14px',
-            fontWeight: 700,
+            fontSize: 13,
+            fontWeight: 600,
             letterSpacing: 0,
             lineHeight: 1.15,
-            minHeight: '42px',
+            minHeight: 32,
             minWidth: 0,
-            padding: '0 12px',
+            padding: '0 10px',
             textTransform: 'none',
           },
         },
@@ -575,10 +785,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             borderBottom: `1px solid ${c.divider}`,
             color: c.textPrimary,
-            fontSize: '14px',
+            fontSize: 13,
             fontWeight: 400,
-            lineHeight: 1.5,
-            padding: '11px 14px',
+            lineHeight: 1.45,
+            padding: '6px 10px',
           },
           stickyHeader: {
             backgroundColor: c.bgPaper,
@@ -590,8 +800,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: '16px',
-            boxShadow: '0 1px 0 rgba(0, 0, 0, 0.04)',
+            borderRadius: 6,
+            boxShadow: 'none',
           },
         },
       },
@@ -611,11 +821,11 @@ const createAppTheme = (c: ThemeColors): Theme =>
         styleOverrides: {
           indicator: {
             backgroundColor: c.primaryMain,
-            height: '2px',
+            height: 2,
           },
           root: {
             borderBottom: `1px solid ${c.divider}`,
-            minHeight: '43px',
+            minHeight: 32,
           },
         },
       },
@@ -627,8 +837,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
               minHeight: PANEL_HEADER_HEIGHT,
             },
             minHeight: PANEL_HEADER_HEIGHT,
-            paddingLeft: '18px',
-            paddingRight: '18px',
+            paddingLeft: 12,
+            paddingRight: 12,
           },
         },
       },
@@ -640,10 +850,10 @@ const createAppTheme = (c: ThemeColors): Theme =>
           tooltip: {
             backgroundColor: alpha(c.bgPaper, 0.98),
             border: `1px solid ${c.divider}`,
-            borderRadius: '12px',
-            boxShadow: '0 10px 24px rgba(0, 0, 0, 0.20)',
+            borderRadius: 4,
+            boxShadow: 'none',
             color: c.textPrimary,
-            fontSize: '13px',
+            fontSize: 12,
           },
         },
       },
@@ -705,109 +915,82 @@ const createAppTheme = (c: ThemeColors): Theme =>
         main: c.warningMain,
       },
     },
-    shadows: [
-      'none',
-      '0 1px 0 rgba(0, 0, 0, 0.04)',
-      '0 1px 0 rgba(0, 0, 0, 0.12)',
-      '0 2px 6px rgba(0, 0, 0, 0.18)',
-      '0 4px 12px rgba(0, 0, 0, 0.20)',
-      '0 8px 20px rgba(0, 0, 0, 0.22)',
-      '0 10px 24px rgba(0, 0, 0, 0.20)',
-      '0 12px 28px rgba(0, 0, 0, 0.22)',
-      '0 14px 32px rgba(0, 0, 0, 0.22)',
-      '0 16px 38px rgba(0, 0, 0, 0.24)',
-      '0 18px 42px rgba(0, 0, 0, 0.24)',
-      '0 20px 48px rgba(0, 0, 0, 0.24)',
-      '0 22px 52px rgba(0, 0, 0, 0.25)',
-      '0 24px 56px rgba(0, 0, 0, 0.25)',
-      '0 24px 60px rgba(0, 0, 0, 0.26)',
-      '0 26px 64px rgba(0, 0, 0, 0.26)',
-      '0 28px 68px rgba(0, 0, 0, 0.27)',
-      '0 30px 72px rgba(0, 0, 0, 0.27)',
-      '0 32px 76px rgba(0, 0, 0, 0.28)',
-      '0 34px 80px rgba(0, 0, 0, 0.28)',
-      '0 36px 84px rgba(0, 0, 0, 0.29)',
-      '0 38px 88px rgba(0, 0, 0, 0.29)',
-      '0 40px 92px rgba(0, 0, 0, 0.30)',
-      '0 42px 96px rgba(0, 0, 0, 0.30)',
-      '0 44px 100px rgba(0, 0, 0, 0.32)',
-    ],
+    shadows: flatShadows,
     shape: {
-      borderRadius: 12,
+      borderRadius: 4,
     },
     typography: {
       body1: {
-        fontSize: '14px',
+        fontSize: 13,
         fontWeight: 400,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
       },
       body2: {
-        fontSize: '13px',
+        fontSize: 12,
         fontWeight: 400,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
       },
       button: {
-        fontSize: '14px',
+        fontSize: 13,
         fontWeight: 500,
         letterSpacing: 0,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
         textTransform: 'none',
       },
       caption: {
-        fontSize: '12px',
+        fontSize: 11,
         fontWeight: 400,
-        lineHeight: 1.4,
+        lineHeight: 1.35,
       },
-      fontFamily:
-        'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
-      fontSize: 14,
+      fontFamily: FONT_FAMILY_UI,
+      fontSize: 13,
       fontWeightMedium: 600,
       h1: {
-        fontSize: '26px',
+        fontSize: 22,
         fontWeight: 700,
         lineHeight: 1.25,
       },
       h2: {
-        fontSize: '20px',
+        fontSize: 18,
         fontWeight: 700,
         lineHeight: 1.3,
       },
       h3: {
-        fontSize: '16px',
+        fontSize: 15,
         fontWeight: 700,
         lineHeight: 1.35,
       },
       h4: {
-        fontSize: '14px',
+        fontSize: 13,
         fontWeight: 700,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
       },
       h5: {
-        fontSize: '13px',
+        fontSize: 12,
         fontWeight: 700,
         lineHeight: 1.4,
       },
       h6: {
-        fontSize: '13px',
+        fontSize: 12,
         fontWeight: 700,
         lineHeight: 1.4,
       },
       overline: {
-        fontSize: '10px',
+        fontSize: 10,
         fontWeight: 700,
         letterSpacing: '0.04em',
         lineHeight: 1.5,
         textTransform: 'uppercase',
       },
       subtitle1: {
-        fontSize: '16px',
+        fontSize: 14,
         fontWeight: 400,
         lineHeight: 1.4,
       },
       subtitle2: {
-        fontSize: '14px',
+        fontSize: 13,
         fontWeight: 600,
-        lineHeight: 1.5,
+        lineHeight: 1.45,
       },
     },
   });

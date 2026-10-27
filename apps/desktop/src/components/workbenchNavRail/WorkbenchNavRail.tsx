@@ -127,17 +127,7 @@ export const WorkbenchNavRail: FC<{
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;
                 return (
-                  <Accordion
-                    defaultExpanded
-                    disableGutters
-                    elevation={0}
-                    key={presentation.key}
-                    square
-                    sx={{
-                      '&::before': { display: 'none' },
-                      bgcolor: 'transparent',
-                    }}
-                  >
+                  <Accordion defaultExpanded key={presentation.key} sx={{ bgcolor: 'transparent' }}>
                     <AccordionSummary
                       sx={{
                         '&:hover': {
@@ -215,7 +205,7 @@ export const WorkbenchNavRail: FC<{
             }}
             sx={{ borderRadius: 1 }}
           >
-            <ListItemIcon sx={{ minWidth: 36 }}>
+            <ListItemIcon>
               <LucideMuiIcon fontSize="small" icon={Settings} />
             </ListItemIcon>
             <ListItemText primary="Settings" />

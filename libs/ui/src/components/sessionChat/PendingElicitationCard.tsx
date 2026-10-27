@@ -11,7 +11,6 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
@@ -21,6 +20,8 @@ import Typography from '@mui/material/Typography';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { FC } from 'react';
+
+import { FieldLabel } from '../FieldLabel.tsx';
 
 const SupportedFormProperty = Schema.Union([
   ElicitationStringProperty,
@@ -138,50 +139,56 @@ export const PendingElicitationCard: FC<{
           }
 
           if (Schema.is(ElicitationStringProperty)(property) && property.enum != null) {
+            const labelId = `elicit-${name}`;
             return (
-              <FormControl fullWidth key={name} size="small">
-                <InputLabel id={`elicit-${name}`}>{title}</InputLabel>
-                <Select
-                  label={title}
-                  labelId={`elicit-${name}`}
-                  onChange={event => {
-                    setValues(current => ({ ...current, [name]: event.target.value }));
-                  }}
-                  value={typeof values[name] === 'string' ? values[name] : ''}
-                >
-                  {property.enum.map(option => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <FieldLabel fullWidth id={labelId} key={name} label={title}>
+                <FormControl fullWidth size="small">
+                  <Select
+                    aria-labelledby={labelId}
+                    onChange={event => {
+                      setValues(current => ({ ...current, [name]: event.target.value }));
+                    }}
+                    value={typeof values[name] === 'string' ? values[name] : ''}
+                  >
+                    {property.enum.map(option => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </FieldLabel>
             );
           }
 
+          const fieldId = `elicit-field-${name}`;
           return (
-            <TextField
-              fullWidth
-              helperText={description}
-              key={name}
-              label={title}
-              onChange={event => {
-                const raw = event.target.value;
-                if (Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)) {
-                  const parsed = Number(raw);
-                  setValues(current => ({ ...current, [name]: Number.isFinite(parsed) ? parsed : 0 }));
-                  return;
+            <FieldLabel fullWidth htmlFor={fieldId} key={name} label={title}>
+              <TextField
+                fullWidth
+                helperText={description}
+                id={fieldId}
+                onChange={event => {
+                  const raw = event.target.value;
+                  if (
+                    Schema.is(ElicitationNumberProperty)(property) ||
+                    Schema.is(ElicitationIntegerProperty)(property)
+                  ) {
+                    const parsed = Number(raw);
+                    setValues(current => ({ ...current, [name]: Number.isFinite(parsed) ? parsed : 0 }));
+                    return;
+                  }
+                  setValues(current => ({ ...current, [name]: raw }));
+                }}
+                size="small"
+                type={
+                  Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)
+                    ? 'number'
+                    : 'text'
                 }
-                setValues(current => ({ ...current, [name]: raw }));
-              }}
-              size="small"
-              type={
-                Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)
-                  ? 'number'
-                  : 'text'
-              }
-              value={values[name] ?? ''}
-            />
+                value={values[name] ?? ''}
+              />
+            </FieldLabel>
           );
         })}
       </Stack>

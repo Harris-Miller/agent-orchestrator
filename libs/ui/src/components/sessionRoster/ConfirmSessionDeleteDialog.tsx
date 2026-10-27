@@ -10,6 +10,7 @@ import type { FC } from 'react';
 
 import { deleteSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
+import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 
 import { noopClientError } from './noopClientError.ts';
 import { truncateSessionId } from './truncateSessionId.ts';
@@ -27,7 +28,7 @@ export const ConfirmSessionDeleteDialog: FC<{
       <DialogContent>
         <DialogContentText>
           This will permanently delete session{' '}
-          <Typography component="span" sx={{ fontFamily: 'monospace' }}>
+          <Typography component="span" sx={{ fontFamily: FONT_FAMILY_MONO }}>
             {target !== undefined ? truncateSessionId(target.sessionId) : ''}
           </Typography>
           . This action cannot be undone.

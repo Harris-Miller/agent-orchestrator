@@ -64,6 +64,22 @@ export const IpcMessage = Schema.TaggedUnion({
     code: Schema.Number,
     handleId: HandleId,
   },
+  FileDialogPickFiles: {
+    filters: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          extensions: Schema.Array(Schema.String),
+          name: Schema.String,
+        }),
+      ),
+    ),
+    id: CorrelationId,
+    multiple: Schema.optional(Schema.Boolean),
+  },
+  FileDialogPickFilesResult: {
+    id: CorrelationId,
+    paths: Schema.Array(Schema.String),
+  },
   FsExists: {
     id: CorrelationId,
     path: Schema.String,
@@ -87,6 +103,15 @@ export const IpcMessage = Schema.TaggedUnion({
   FsMakeTempDirectoryResult: {
     id: CorrelationId,
     path: Schema.String,
+  },
+  FsReadFile: {
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  FsReadFileResult: {
+    /** Binary file payload (`ArrayBuffer`); may be transferred via postMessage. */
+    bytes: Schema.Unknown,
+    id: CorrelationId,
   },
   FsReadFileString: {
     id: CorrelationId,
@@ -217,6 +242,9 @@ export const getIpcTransferList = (message: IpcMessage): ArrayBuffer[] | undefin
   }
   if ((message._tag === 'HttpFetch' || message._tag === 'HttpFetchResult') && message.body instanceof ArrayBuffer) {
     return [message.body];
+  }
+  if (message._tag === 'FsReadFileResult' && message.bytes instanceof ArrayBuffer) {
+    return [message.bytes];
   }
   return undefined;
 };

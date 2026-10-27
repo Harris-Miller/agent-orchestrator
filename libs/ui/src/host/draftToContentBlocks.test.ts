@@ -6,12 +6,30 @@ import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 
 import {
+  IMAGE_ATTACH_MAX_BYTES_PER,
+  IMAGE_ATTACH_MAX_COUNT,
+  ImageAttachmentRejected,
+  validateImageAttachments,
+} from './composerImageAttachment.ts';
+import type { ComposerImageAttachment } from './composerImageAttachment.ts';
+import {
   BLOB_EMBED_MAX_BYTES,
   draftToContentBlocks,
   findMarkdownLinks,
   hasEmbeddedContextCapability,
+  promptBlocksFromComposerDraft,
   TEXT_EMBED_MAX_BYTES,
 } from './draftToContentBlocks.ts';
+
+const pngAttachment = (overrides: Partial<ComposerImageAttachment> = {}): ComposerImageAttachment => ({
+  byteLength: 4,
+  id: 'a1',
+  mimeType: 'image/png',
+  name: 'a.png',
+  previewDataUrl: 'data:image/png;base64,thumb',
+  uri: 'file:///tmp/a.png',
+  ...overrides,
+});
 
 type MockEntry = { readonly bytes: Uint8Array; readonly type: 'File' } | { readonly type: 'Directory' };
 
@@ -91,6 +109,145 @@ describe('hasEmbeddedContextCapability', () => {
     );
     assert.isFalse(hasEmbeddedContextCapability({}));
   });
+});
+
+describe('validateImageAttachments', () => {
+  it.effect('rejects unsupported MIME', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(validateImageAttachments([pngAttachment({ mimeType: 'image/heic' })]));
+      assert.strictEqual(error._tag, 'ImageAttachmentRejected');
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+
+  it.effect('rejects over-count', () =>
+    Effect.gen(function* () {
+      const many = Array.from({ length: IMAGE_ATTACH_MAX_COUNT + 1 }, (_, index) =>
+        pngAttachment({ id: String(index), name: `${String(index)}.png`, uri: `file:///tmp/${String(index)}.png` }),
+      );
+      const error = yield* Effect.flip(validateImageAttachments(many));
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+
+  it.effect('rejects oversize per image', () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        validateImageAttachments([pngAttachment({ byteLength: IMAGE_ATTACH_MAX_BYTES_PER + 1 })]),
+      );
+      assert.ok(error instanceof ImageAttachmentRejected);
+    }),
+  );
+});
+
+describe('promptBlocksFromComposerDraft images', () => {
+  const init = { agentCapabilities: { promptCapabilities: { embeddedContext: false } } };
+
+  it.effect('attachments → resource_link with mime/size/uri/name (no capability gate)', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('hi', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: {},
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'hi', type: 'text' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('mixed text + FS mention + images → draft blocks then resource_links', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('see [a](/session/a.txt)', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'see ', type: 'text' },
+        { name: 'a.txt', type: 'resource_link', uri: 'file:///session/a.txt' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/session/a.txt', { bytes: encoder.encode('hi'), type: 'File' }]])))),
+  );
+
+  it.effect('image-only → only resource_link blocks, no forced text', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('empty text + no images → empty text sentinel', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('', {
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [{ text: '', type: 'text' }]);
+    }).pipe(Effect.provide(withFs(new Map()))),
+  );
+
+  it.effect('image markdown mid-draft → resource_link at end (not mid-array)', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('before [@shot.png](file:///session/shot.png) after', {
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'before ', type: 'text' },
+        { text: ' after', type: 'text' },
+        { name: 'shot.png', type: 'resource_link', uri: 'file:///session/shot.png' },
+      ]);
+    }).pipe(
+      Effect.provide(withFs(new Map([['/session/shot.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]]))),
+    ),
+  );
+
+  it.effect('duplicate resource_link uris are de-duplicated (attachment wins over draft)', () =>
+    Effect.gen(function* () {
+      const blocks = yield* promptBlocksFromComposerDraft('see [@a.png](file:///tmp/a.png)', {
+        attachments: [pngAttachment()],
+        cwd: '/session',
+        initializeResult: init,
+      });
+      assert.deepStrictEqual(blocks, [
+        { text: 'see ', type: 'text' },
+        {
+          mimeType: 'image/png',
+          name: 'a.png',
+          size: 4,
+          type: 'resource_link',
+          uri: 'file:///tmp/a.png',
+        },
+      ]);
+    }).pipe(Effect.provide(withFs(new Map([['/tmp/a.png', { bytes: encoder.encode('\x89PNG'), type: 'File' }]])))),
+  );
 });
 
 describe('draftToContentBlocks', () => {

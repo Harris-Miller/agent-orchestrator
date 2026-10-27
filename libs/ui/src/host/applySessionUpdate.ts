@@ -9,6 +9,7 @@ import {
   parseUsageUpdate,
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
+import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
 
 export type ApplySessionUpdateResult =
   | { readonly kind: 'noop' }
@@ -20,9 +21,13 @@ export type ApplySessionUpdateResult =
     };
 
 /** Append a local user prompt to the session transcript; other snapshot fields unchanged. */
-export const withUserChatMessage = (session: SessionSnapshot, text: string): SessionSnapshot => ({
+export const withUserChatMessage = (
+  session: SessionSnapshot,
+  text: string,
+  images?: readonly UserMessageImageRef[],
+): SessionSnapshot => ({
   ...session,
-  transcript: appendUserChatMessage(session.transcript, text),
+  transcript: appendUserChatMessage(session.transcript, text, images),
 });
 
 /**

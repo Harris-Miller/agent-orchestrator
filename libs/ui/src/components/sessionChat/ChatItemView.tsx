@@ -6,11 +6,13 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
-import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
+import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
+import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
+import { hostRuntime } from '../../hostRuntime.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
@@ -18,6 +20,83 @@ import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
+
+const THUMB_PX = 72;
+
+const thumbBoxSx = {
+  alignItems: 'center',
+  bgcolor: 'action.hover',
+  borderRadius: 1,
+  display: 'flex',
+  height: THUMB_PX,
+  justifyContent: 'center',
+  overflow: 'hidden',
+  width: THUMB_PX,
+} as const;
+
+const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
+  <Box aria-label={label} role="img" sx={thumbBoxSx}>
+    <LucideMuiIcon icon={ImageOff} sx={{ color: 'text.disabled', fontSize: 28 }} />
+  </Box>
+);
+
+const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
+  const label = image.name ?? `Image ${String(index + 1)}`;
+  const { previewDataUrl, uri } = image;
+  const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
+  const src = previewDataUrl ?? hydratedSrc;
+
+  useEffect(() => {
+    if (previewDataUrl !== undefined) {
+      return;
+    }
+    if (uri === undefined) {
+      return;
+    }
+    if (!uri.startsWith('file://')) {
+      return;
+    }
+    let cancelled = false;
+    hostRuntime
+      .runPromise(loadFileUriThumbnail(uri))
+      .then(dataUrl => {
+        if (!cancelled) {
+          setHydratedSrc(dataUrl);
+        }
+      })
+      .catch(() => {
+        /* leave hydratedSrc undefined → broken placeholder */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [previewDataUrl, uri]);
+
+  if (src !== undefined) {
+    return (
+      <Box
+        alt={label}
+        component="img"
+        src={src}
+        sx={{
+          ...thumbBoxSx,
+          display: 'block',
+          objectFit: 'cover',
+        }}
+      />
+    );
+  }
+
+  return <BrokenImagePlaceholder label={`Broken image: ${label}`} />;
+};
+
+const TranscriptImageStrip: FC<{ readonly images: readonly UserMessageImageRef[] }> = ({ images }) => (
+  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+    {images.map((image, index) => (
+      <TranscriptImageTile image={image} index={index} key={`${image.uri ?? image.name ?? 'img'}-${String(index)}`} />
+    ))}
+  </Stack>
+);
 
 const userFragmentMarkdownSx = {
   '& p': { display: 'inline', m: 0 },
@@ -133,11 +212,14 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
 
 const MessageRow: FC<{
   availableCommands?: readonly AvailableCommand[];
+  images?: readonly UserMessageImageRef[];
   text: string;
   tone: 'agent' | 'user';
-}> = ({ availableCommands = [], text, tone }) => {
+}> = ({ availableCommands = [], images, text, tone }) => {
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
+    const hasText = text.length > 0;
+    const hasImages = images !== undefined && images.length > 0;
     return (
       <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
         <Box
@@ -149,36 +231,44 @@ const MessageRow: FC<{
             py: 1.25,
           }}
         >
-          <Box onCopy={onUserMessageCopy} sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {segments.map((segment, index) => {
-              const key = `${segment.kind}-${String(index)}`;
-              const copyText = segmentCopyText(segment);
-              if (segment.kind === 'command') {
-                return (
-                  <TranscriptChip
-                    copyText={copyText}
-                    key={key}
-                    kind="command"
-                    label={segment.value}
-                    testId="transcript-command-chip"
-                  />
-                );
-              }
-              if (segment.kind === 'markdownLink') {
-                return (
-                  <TranscriptChip
-                    copyText={copyText}
-                    href={segment.href}
-                    key={key}
-                    kind="markdownLink"
-                    label={segment.label}
-                    testId="transcript-markdown-link-chip"
-                  />
-                );
-              }
-              return <UserTextFragment key={key} text={segment.value} />;
-            })}
-          </Box>
+          <Stack spacing={1}>
+            {hasImages ? <TranscriptImageStrip images={images} /> : null}
+            {hasText ? (
+              <Box
+                onCopy={onUserMessageCopy}
+                sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {segments.map((segment, index) => {
+                  const key = `${segment.kind}-${String(index)}`;
+                  const copyText = segmentCopyText(segment);
+                  if (segment.kind === 'command') {
+                    return (
+                      <TranscriptChip
+                        copyText={copyText}
+                        key={key}
+                        kind="command"
+                        label={segment.value}
+                        testId="transcript-command-chip"
+                      />
+                    );
+                  }
+                  if (segment.kind === 'markdownLink') {
+                    return (
+                      <TranscriptChip
+                        copyText={copyText}
+                        href={segment.href}
+                        key={key}
+                        kind="markdownLink"
+                        label={segment.label}
+                        testId="transcript-markdown-link-chip"
+                      />
+                    );
+                  }
+                  return <UserTextFragment key={key} text={segment.value} />;
+                })}
+              </Box>
+            ) : null}
+          </Stack>
         </Box>
       </ListItem>
     );
@@ -309,7 +399,7 @@ export const ChatItemView: FC<{
       );
 
     case 'user_message':
-      return <MessageRow availableCommands={availableCommands} text={item.text} tone="user" />;
+      return <MessageRow availableCommands={availableCommands} images={item.images} text={item.text} tone="user" />;
 
     default:
       return null;

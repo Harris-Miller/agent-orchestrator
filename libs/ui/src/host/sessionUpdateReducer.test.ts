@@ -1,10 +1,17 @@
 import { assert, describe, it } from '@effect/vitest';
 
+import type { ChatItem } from './sessionUpdateReducer.ts';
 import {
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
   reduceSessionUpdate,
 } from './sessionUpdateReducer.ts';
+
+const expectUserMessage = (item: ChatItem | undefined) => {
+  assert.ok(item !== undefined);
+  assert.strictEqual(item.kind, 'user_message');
+  return item as Extract<ChatItem, { readonly kind: 'user_message' }>;
+};
 
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
@@ -88,6 +95,113 @@ describe('reduceSessionUpdate', () => {
         toolKind: undefined,
       },
     ]);
+  });
+});
+
+describe('user_message_chunk image resource_link', () => {
+  it('ingests image-like resource_link into user_message images', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: [
+        { text: 'see this', type: 'text' },
+        {
+          mimeType: 'image/png',
+          name: 'shot.png',
+          type: 'resource_link',
+          uri: 'file:///tmp/shot.png',
+        },
+      ],
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'see this');
+    assert.deepStrictEqual(item.images, [{ mimeType: 'image/png', name: 'shot.png', uri: 'file:///tmp/shot.png' }]);
+  });
+
+  it('keeps image-only chunk (no text)', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        name: 'a.png',
+        type: 'resource_link',
+        uri: 'file:///tmp/a.png',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, '');
+    assert.deepStrictEqual(item.images, [{ mimeType: 'image/png', name: 'a.png', uri: 'file:///tmp/a.png' }]);
+  });
+
+  it('ignores non-image resource_link', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: [
+        { text: 'hi', type: 'text' },
+        { name: 'a.txt', type: 'resource_link', uri: 'file:///tmp/a.txt' },
+      ],
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'hi');
+    assert.strictEqual(item.images, undefined);
+  });
+
+  it('merges image-only follow-up onto trailing user_message', () => {
+    let transcript = reduceSessionUpdate(emptySessionTranscript(), {
+      content: { text: 'caption', type: 'text' },
+      sessionUpdate: 'user_message_chunk',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      content: {
+        name: 'b.webp',
+        type: 'resource_link',
+        uri: 'file:///tmp/b.webp',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(transcript.items.length, 1);
+    const item = expectUserMessage(transcript.items[0]);
+    assert.strictEqual(item.text, 'caption');
+    assert.deepStrictEqual(item.images, [{ mimeType: 'image/webp', name: 'b.webp', uri: 'file:///tmp/b.webp' }]);
+  });
+});
+
+describe('user_message_chunk image file:// markdown (session/load rewrite)', () => {
+  it('lifts image-only text markdown into images and clears text', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: '[@bad_couch.png](file:///Users/harris/Pictures/bad_couch.png)',
+        type: 'text',
+      },
+      messageId: 'msg-1',
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    assert.strictEqual(next.items.length, 1);
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, '');
+    assert.deepStrictEqual(item.images, [
+      { mimeType: 'image/png', name: 'bad_couch.png', uri: 'file:///Users/harris/Pictures/bad_couch.png' },
+    ]);
+  });
+
+  it('lifts image markdown and keeps surrounding text + non-image file links', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), {
+      content: {
+        text: 'see [@shot.png](file:///tmp/shot.png) and [@notes.md](file:///tmp/notes.md)',
+        type: 'text',
+      },
+      sessionUpdate: 'user_message_chunk',
+    });
+
+    const item = expectUserMessage(next.items[0]);
+    assert.strictEqual(item.text, 'see and [@notes.md](file:///tmp/notes.md)');
+    assert.deepStrictEqual(item.images, [{ mimeType: 'image/png', name: 'shot.png', uri: 'file:///tmp/shot.png' }]);
   });
 });
 

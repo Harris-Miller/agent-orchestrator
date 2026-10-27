@@ -76,9 +76,11 @@ type ExtensionInbound = Extract<
     readonly _tag:
       | 'AppExit'
       | 'BundledResolve'
+      | 'FileDialogPickFiles'
       | 'FsExists'
       | 'FsMakeDirectory'
       | 'FsMakeTempDirectory'
+      | 'FsReadFile'
       | 'FsReadFileString'
       | 'FsRemove'
       | 'FsStat'
@@ -96,9 +98,11 @@ type ExtensionInbound = Extract<
 const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'AppExit',
   'BundledResolve',
+  'FileDialogPickFiles',
   'FsExists',
   'FsMakeDirectory',
   'FsMakeTempDirectory',
+  'FsReadFile',
   'FsReadFileString',
   'FsRemove',
   'FsStat',
@@ -154,6 +158,25 @@ export const handleHostIpcMessage = async (args: {
         post(webview, { _tag: 'BundledResolveResult', id: message.id, path: absolute });
         return;
       }
+      case 'FileDialogPickFiles': {
+        const filters =
+          message.filters === undefined
+            ? undefined
+            : Object.fromEntries(message.filters.map(filter => [filter.name, [...filter.extensions]]));
+        const uris = await vscode.window.showOpenDialog({
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: message.multiple === true,
+          filters,
+          openLabel: 'Attach',
+        });
+        post(webview, {
+          _tag: 'FileDialogPickFilesResult',
+          id: message.id,
+          paths: uris === undefined ? [] : uris.map(uri => uri.fsPath),
+        });
+        return;
+      }
       case 'FsExists': {
         try {
           await access(message.path, fsConstants.F_OK);
@@ -173,6 +196,12 @@ export const handleHostIpcMessage = async (args: {
         const prefix = message.options?.prefix ?? 'ao-';
         const path = await mkdtemp(join(base, prefix));
         post(webview, { _tag: 'FsMakeTempDirectoryResult', id: message.id, path });
+        return;
+      }
+      case 'FsReadFile': {
+        const buffer = await readFile(message.path);
+        const bytes = bytesToArrayBuffer(new Uint8Array(buffer));
+        post(webview, { _tag: 'FsReadFileResult', bytes, id: message.id }, [bytes]);
         return;
       }
       case 'FsReadFileString': {

@@ -12,6 +12,7 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
+import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { rowForModel } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
@@ -20,6 +21,7 @@ import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
+import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
   backendHarnessStateAtom,
@@ -34,16 +36,31 @@ import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.ato
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
+export const composerAttachmentsAtom = Atom.family((_sessionId: string) =>
+  Atom.make<readonly ComposerImageAttachment[]>([]).pipe(Atom.keepAlive),
+);
+
+export const slimImageRefsFromAttachments = (
+  attachments: readonly ComposerImageAttachment[],
+): readonly UserMessageImageRef[] =>
+  attachments.map(attachment => ({
+    mimeType: attachment.mimeType,
+    name: attachment.name,
+    previewDataUrl: attachment.previewDataUrl,
+    uri: attachment.uri,
+  }));
+
 const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
-  arg: { launchTarget: AgentLaunchTarget; text: string },
+  arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
   get: Atom.FnContext,
 ) {
   const trimmed = arg.text.trim();
+  const attachments = arg.attachments ?? [];
   const sessionId = get(selectedSessionIdAtom);
   const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
   const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
-  if (trimmed.length === 0 || session?.status !== 'active') {
+  if ((trimmed.length === 0 && attachments.length === 0) || session?.status !== 'active') {
     return;
   }
 
@@ -52,9 +69,12 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
     'acp.sessionId': session.sessionId,
   });
 
+  const images = slimImageRefsFromAttachments(attachments);
   get.set(backendHarnessStateAtom(arg.launchTarget), {
     ...snapshot,
-    sessions: patchSession(snapshot.sessions, session.sessionId, current => withUserChatMessage(current, trimmed)),
+    sessions: patchSession(snapshot.sessions, session.sessionId, current =>
+      withUserChatMessage(current, trimmed, images.length > 0 ? images : undefined),
+    ),
   });
 
   yield* withSessionClientRequest(
@@ -62,7 +82,7 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
     get,
     session.sessionId,
     'prompt',
-    sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed),
+    sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed, attachments),
   );
 });
 
@@ -72,7 +92,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const sendChatItemAtomFn = atomRuntime
     .fn(
       Effect.fn('sendChatItemAtomFn', { root: true })(function* (
-        arg: { launchTarget: AgentLaunchTarget; text: string },
+        arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
         get: Atom.FnContext,
       ) {
         yield* sendChatItemEffect(arg, get);
@@ -97,9 +117,13 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         if (selected?._tag !== 'Virtual' || virtual?.sessionId === undefined || virtual.launchTarget === undefined) {
           return;
         }
-        const { cwd, draft, launchTarget, sessionId } = virtual;
+        const { attachments, cwd, draft, launchTarget, sessionId } = virtual;
         const trimmed = draft.trim();
-        if (trimmed.length === 0 || cwd === undefined || get(backendHarnessStateAtom(launchTarget)).phase !== 'ready') {
+        if (
+          (trimmed.length === 0 && attachments.length === 0) ||
+          cwd === undefined ||
+          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
+        ) {
           return;
         }
 
@@ -153,10 +177,11 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
 
           get.set(lastCreateDefaultsAtom, { configValues: virtual.configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
+          get.set(composerAttachmentsAtom(sessionId), attachments);
           get.set(virtualSessionAtom, null);
           // Bypass in-flight guard while we still hold the virtual lifecycle lock.
           get.set(selectedAtom, { _tag: 'Session', sessionId });
-          return { draft, launchTarget } as const;
+          return { attachments, draft, launchTarget, sessionId } as const;
         }).pipe(
           Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
           Effect.ensuring(
@@ -170,7 +195,16 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
 
-        yield* sendChatItemEffect({ launchTarget: materialized.launchTarget, text: materialized.draft }, get);
+        yield* sendChatItemEffect(
+          {
+            attachments: materialized.attachments,
+            launchTarget: materialized.launchTarget,
+            text: materialized.draft,
+          },
+          get,
+        );
+        get.set(composerAttachmentsAtom(materialized.sessionId), []);
+        get.set(draftAtom(materialized.sessionId), '');
       }),
     )
     .pipe(Atom.keepAlive);

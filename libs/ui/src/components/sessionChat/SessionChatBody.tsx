@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -11,7 +12,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ArrowUp, ChevronDown, Square } from 'lucide-react';
+import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -31,9 +32,11 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
+import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -44,6 +47,7 @@ import { ChatItemView } from './ChatItemView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
 import { commandInvocation, replaceComposerTriggerRange } from './composerCommandTokens.ts';
+import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
 import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
@@ -51,7 +55,7 @@ import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
-import { mentionMarkdownForEntry } from './mentionMarkdown.ts';
+import { absolutePathForMentionEntry, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
@@ -85,6 +89,7 @@ export const SessionChatBody: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ aboveComposer, onClientError }) => {
   const {
+    attachments,
     availableCommands,
     canCancelPromptTurn,
     canForkBase: canFork,
@@ -104,6 +109,7 @@ export const SessionChatBody: FC<{
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
+    setAttachments,
     setDraft,
     setVirtualLaunchTarget,
     virtualBoundSessionId,
@@ -211,13 +217,30 @@ export const SessionChatBody: FC<{
         setComposerTrigger(null);
         return;
       }
+      const absolute = absolutePathForMentionEntry(sessionCwd, entry);
+      if (entry.kind === 'file' && mimeTypeForImagePath(absolute) !== undefined) {
+        const next = replaceComposerTriggerRange(draft, liveTrigger, '');
+        syncCursorRef.current = next.cursor;
+        composerCursorRef.current = next.cursor;
+        setDraft(next.text);
+        setComposerTrigger(null);
+        hostRuntime
+          .runPromise(mergeComposerAttachmentsFromPaths(attachments, [absolute]))
+          .then(merged => {
+            if (merged !== undefined) {
+              setAttachments(merged);
+            }
+          })
+          .catch(onClientError);
+        return;
+      }
       const next = replaceComposerTriggerRange(draft, liveTrigger, mentionMarkdownForEntry(sessionCwd, entry));
       syncCursorRef.current = next.cursor;
       composerCursorRef.current = next.cursor;
       setDraft(next.text);
       setComposerTrigger(null);
     },
-    [draft, selectedLaunchTarget, sessionCwd, setDraft],
+    [attachments, draft, onClientError, selectedLaunchTarget, sessionCwd, setAttachments, setDraft],
   );
 
   const onComposerChange = useCallback(
@@ -300,7 +323,7 @@ export const SessionChatBody: FC<{
   }, [alwaysHiddenGlobs, fsListingSessionId, refreshSessionFsListing, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
-  // Skip while a composer trigger menu is open so typing `@query` does not rewrite mid-edit.
+  // Image hits become attachments (same as paperclip / @-menu); skip while trigger menu open.
   useEffect(() => {
     if (sessionCwd === undefined || draft.length === 0 || composerTrigger !== null) {
       return;
@@ -309,17 +332,44 @@ export const SessionChatBody: FC<{
     const cursor = composerCursorRef.current;
     hostRuntime
       .runPromise(resolveComposerFsMentions(draft, sessionCwd))
-      .then(next => {
-        if (!cancelled && next !== draft) {
-          syncCursorRef.current = cursor;
-          setDraft(next);
+      .then(resolved => {
+        if (cancelled) {
+          return;
         }
+        if (resolved.draft !== draft) {
+          syncCursorRef.current = cursor;
+          setDraft(resolved.draft);
+        }
+        if (resolved.imageAbsolutePaths.length === 0) {
+          return;
+        }
+        return hostRuntime
+          .runPromise(mergeComposerAttachmentsFromPaths(attachments, resolved.imageAbsolutePaths))
+          .then(merged => {
+            if (!cancelled && merged !== undefined) {
+              setAttachments(merged);
+            }
+          });
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [composerTrigger, draft, sessionCwd, setDraft]);
+  }, [attachments, composerTrigger, draft, sessionCwd, setAttachments, setDraft]);
+
+  const onAttachImages = () => {
+    if (!controlsEnabled) {
+      return;
+    }
+    hostRuntime
+      .runPromise(pickComposerImages(attachments))
+      .then(merged => {
+        if (merged !== undefined) {
+          setAttachments(merged);
+        }
+      })
+      .catch(onClientError);
+  };
 
   const sendDraft = () => {
     if (!canSend) {
@@ -335,8 +385,10 @@ export const SessionChatBody: FC<{
       return;
     }
     const text = draft;
+    const toSend = attachments;
     setDraft('');
-    sendChatItem({ launchTarget: selectedLaunchTarget, text }).catch(onClientError);
+    setAttachments([]);
+    sendChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
   const onCancelPrompt = () => {
@@ -585,6 +637,13 @@ export const SessionChatBody: FC<{
               onSelect={selectMention}
               open={mentionTrigger !== null}
             />
+            <ComposerImageAttachments
+              attachments={attachments}
+              disabled={!controlsEnabled}
+              onRemove={id => {
+                setAttachments(attachments.filter(attachment => attachment.id !== id));
+              }}
+            />
             <ComposerPromptEditor
               availableCommands={availableCommands}
               commandMenu={commandMenu}
@@ -640,6 +699,9 @@ export const SessionChatBody: FC<{
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />
+              <IconButton aria-label="Attach images" disabled={!controlsEnabled} onClick={onAttachImages} size="small">
+                <LucideMuiIcon fontSize="small" icon={Paperclip} />
+              </IconButton>
               {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
               <ButtonGroup variant="contained">
                 <Button

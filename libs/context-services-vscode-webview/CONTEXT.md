@@ -16,8 +16,12 @@ _Avoid_: live process env, workspace folder (when you mean `OS.cwd`)
 The webview implementation of Clipboard (`ClipboardLive`), wrapping `navigator.clipboard` text APIs — not carried over Host IPC.
 _Avoid_: navigator.clipboard (when you mean the portable Seam)
 
+**FileDialog live layer**:
+The webview implementation of FileDialog (`makeFileDialogLive`), Host IPC round-trip to extension `showOpenDialog`.
+_Avoid_: showOpenDialog (when you mean the portable Seam)
+
 **VS Code Host services Live**:
-The webview Live Adapter of portable **Host services** (`makeHostServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path over Host IPC (plus local Clipboard/Path). Composition may also install host ConfigProvider and optional OTLP observability (OTLP HTTP via Host-IPC fetch); those extras are not part of the Host services type.
+The webview Live Adapter of portable **Host services** (`makeHostServicesLive`) — BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, OS, and Path over Host IPC (plus local Clipboard/Path). Composition may also install host ConfigProvider and optional OTLP observability (OTLP HTTP via Host-IPC fetch); those extras are not part of the Host services type.
 _Avoid_: Platform layer, adapters, Host services (when you mean this webview Adapter specifically)
 
-For host vocabulary (`Clipboard`, `Host`, `Host services`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).
+For host vocabulary (`Clipboard`, `FileDialog`, `Host`, `Host services`), see [`../context-services/CONTEXT.md`](../context-services/CONTEXT.md).

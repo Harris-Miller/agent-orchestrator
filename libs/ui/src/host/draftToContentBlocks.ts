@@ -2,6 +2,7 @@
  * Map a composer draft string to an ordered ACP `prompt` ContentBlock list.
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
+ * Image `resource_link`s (attachments and image FS links) are moved to the end and de-duplicated by uri.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option } from 'effect';
@@ -11,6 +12,12 @@ import { Path } from 'effect/Path';
 import { isRecord } from '../isRecord.ts';
 
 import { normalizeInitialize } from './acpSessionBootstrap.ts';
+import {
+  attachmentToResourceLinkBlock,
+  isImageLikeResourceLink,
+  validateImageAttachments,
+} from './composerImageAttachment.ts';
+import type { ComposerImageAttachment } from './composerImageAttachment.ts';
 
 export const TEXT_EMBED_MAX_BYTES = 256 * 1024;
 export const BLOB_EMBED_MAX_BYTES = 1024 * 1024;
@@ -45,14 +52,9 @@ export const findMarkdownLinks = (text: string): readonly MarkdownLinkMatch[] =>
   return matches;
 };
 
-/** True when initialize advertises `promptCapabilities.embeddedContext`. */
-export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean => {
+const hasPromptCapability = (initializeResult: unknown, path: string, rawKey: string): boolean => {
   const normalized = normalizeInitialize(initializeResult);
-  if (
-    normalized?.capabilities.some(
-      capability => capability.path === 'promptCapabilities.embeddedContext' && capability.enabled,
-    ) === true
-  ) {
+  if (normalized?.capabilities.some(capability => capability.path === path && capability.enabled) === true) {
     return true;
   }
 
@@ -60,7 +62,28 @@ export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean
     return false;
   }
   const { promptCapabilities } = initializeResult.agentCapabilities;
-  return isRecord(promptCapabilities) && promptCapabilities.embeddedContext === true;
+  return isRecord(promptCapabilities) && promptCapabilities[rawKey] === true;
+};
+
+/** True when initialize advertises `promptCapabilities.embeddedContext`. */
+export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean =>
+  hasPromptCapability(initializeResult, 'promptCapabilities.embeddedContext', 'embeddedContext');
+
+/** Drop later `resource_link` blocks that share a `uri` with an earlier one (first wins). */
+export const dedupeResourceLinksByUri = (blocks: readonly ContentBlock[]): ContentBlock[] => {
+  const seen = new Set<string>();
+  const out: ContentBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === 'resource_link') {
+      if (!seen.has(block.uri)) {
+        seen.add(block.uri);
+        out.push(block);
+      }
+    } else {
+      out.push(block);
+    }
+  }
+  return out;
 };
 
 const textBlock = (text: string): ContentBlock => ({ text, type: 'text' });
@@ -245,17 +268,49 @@ export const draftToContentBlocks = Effect.fn('draftToContentBlocks')(function* 
 
 /**
  * ContentBlock[] for `session/prompt` from composer draft — same path as send.
- * No cwd → plain text block (send cannot resolve FS links).
+ * No cwd → plain text block (send cannot resolve FS links); image attaches still append when present.
+ * Image `resource_link`s (draft markdown or attachments) always go at the end; all `resource_link`s
+ * are de-duplicated by `uri` (first wins). Empty text + images → resource_link-only (no empty text).
  */
 export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposerDraft')(function* (
   text: string,
-  options: { readonly cwd: string | undefined; readonly initializeResult: unknown },
+  options: {
+    readonly attachments?: readonly ComposerImageAttachment[];
+    readonly cwd: string | undefined;
+    readonly initializeResult: unknown;
+  },
 ) {
-  if (options.cwd === undefined) {
-    return [textBlock(text)];
+  const attachments = options.attachments ?? [];
+  if (attachments.length > 0) {
+    yield* validateImageAttachments(attachments);
   }
-  return yield* draftToContentBlocks(text, {
-    cwd: options.cwd,
-    embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
-  });
+
+  const draftBlocks =
+    options.cwd === undefined
+      ? [textBlock(text)]
+      : yield* draftToContentBlocks(text, {
+          cwd: options.cwd,
+          embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
+        });
+
+  const body: ContentBlock[] = [];
+  const draftImageLinks: ContentBlock[] = [];
+  for (const block of draftBlocks) {
+    if (isImageLikeResourceLink(block)) {
+      draftImageLinks.push(block);
+    } else {
+      body.push(block);
+    }
+  }
+
+  const endImageLinks = [...attachments.map(attachmentToResourceLinkBlock), ...draftImageLinks];
+  if (endImageLinks.length === 0) {
+    return dedupeResourceLinksByUri(draftBlocks);
+  }
+
+  const trimmedEmpty = text.trim().length === 0;
+  const onlyEmptyText = trimmedEmpty && body.length === 1 && body[0]?.type === 'text' && body[0].text === '';
+
+  const combined = onlyEmptyText ? endImageLinks : [...body, ...endImageLinks];
+  return dedupeResourceLinksByUri(combined);
 });

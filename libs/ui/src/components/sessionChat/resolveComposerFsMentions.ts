@@ -1,21 +1,22 @@
 /**
  * Resolve whitespace-committed `@path` tokens and FS markdown links against session cwd.
- * Successful FS paths become `[@basename](file:///absolutePath)` (dirs with trailing `/`).
+ * Non-image FS paths become `[@basename](file:///absolutePath)` (dirs with trailing `/`).
+ * Image files are stripped from the draft; absolute paths returned for composer attachments.
  */
 import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
+import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import { findMarkdownLinks, isFileSystemHref } from '../../host/draftToContentBlocks.ts';
 import { listingBasename } from '../../host/fdListing.ts';
 
 import { isWhitespace } from './composerCommandTokens.ts';
 import { fsMentionMarkdownLink } from './mentionMarkdown.ts';
 
-type Replacement = {
-  readonly end: number;
-  readonly replacement: string;
-  readonly start: number;
+export type ResolveComposerFsMentionsResult = {
+  readonly draft: string;
+  readonly imageAbsolutePaths: readonly string[];
 };
 
 const resolvePathExists = Effect.fn('resolvePathExists')(function* (cwd: string, rawHref: string) {
@@ -43,9 +44,12 @@ const resolvePathExists = Effect.fn('resolvePathExists')(function* (cwd: string,
     }
     isDir = info.value.type === 'Directory';
   }
+  if (!isDir && mimeTypeForImagePath(absolute) !== undefined) {
+    return { absolutePath: absolute, kind: 'image' as const };
+  }
   const name = listingBasename(absolute);
   const hrefOut = isDir ? (absolute.endsWith('/') || absolute.endsWith('\\') ? absolute : `${absolute}/`) : absolute;
-  return fsMentionMarkdownLink(name, hrefOut);
+  return { kind: 'mention' as const, markdown: fsMentionMarkdownLink(name, hrefOut) };
 });
 
 const collectAtPathCandidates = (
@@ -71,10 +75,10 @@ const collectAtPathCandidates = (
   return candidates;
 };
 
-/** Rewrite draft so FS-valid `@path` / markdown links become `[@basename](file://…)` chips. */
+/** Rewrite draft: non-image FS hits → chips; image hits → strip + collect absolute paths. */
 export const resolveComposerFsMentions = Effect.fn('resolveComposerFsMentions')(function* (draft: string, cwd: string) {
   if (draft.length === 0 || cwd.length === 0) {
-    return draft;
+    return { draft, imageAbsolutePaths: [] } satisfies ResolveComposerFsMentionsResult;
   }
 
   const candidates = [
@@ -85,26 +89,42 @@ export const resolveComposerFsMentions = Effect.fn('resolveComposerFsMentions')(
   ];
 
   if (candidates.length === 0) {
-    return draft;
+    return { draft, imageAbsolutePaths: [] } satisfies ResolveComposerFsMentionsResult;
   }
 
   const resolved = yield* Effect.all(
     candidates.map(candidate =>
       resolvePathExists(cwd, candidate.href).pipe(
-        Effect.map(replacement =>
-          replacement === undefined
-            ? undefined
-            : ({ end: candidate.end, replacement, start: candidate.start } satisfies Replacement),
-        ),
+        Effect.map(result => {
+          if (result === undefined) {
+            return undefined;
+          }
+          if (result.kind === 'image') {
+            return {
+              absolutePath: result.absolutePath,
+              end: candidate.end,
+              replacement: '',
+              start: candidate.start,
+            };
+          }
+          return {
+            absolutePath: undefined,
+            end: candidate.end,
+            replacement: result.markdown,
+            start: candidate.start,
+          };
+        }),
       ),
     ),
     { concurrency: 'unbounded' },
   );
 
   const replacements = resolved
-    .filter((item): item is Replacement => item !== undefined)
+    .filter((item): item is NonNullable<typeof item> => item !== undefined)
     .sort((a, b) => b.start - a.start);
 
+  const imageAbsolutePaths: string[] = [];
+  const seenImages = new Set<string>();
   let next = draft;
   for (const item of replacements) {
     const inBounds = item.end <= next.length && item.start <= item.end;
@@ -112,8 +132,16 @@ export const resolveComposerFsMentions = Effect.fn('resolveComposerFsMentions')(
     const shouldReplace =
       inBounds && current !== item.replacement && (current.startsWith('@') || current.startsWith('['));
     if (shouldReplace) {
+      if (item.absolutePath !== undefined && !seenImages.has(item.absolutePath)) {
+        seenImages.add(item.absolutePath);
+        imageAbsolutePaths.unshift(item.absolutePath);
+      }
       next = next.slice(0, item.start) + item.replacement + next.slice(item.end);
     }
   }
-  return next;
+
+  return {
+    draft: next.replace(/[^\S\n]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n'),
+    imageAbsolutePaths,
+  } satisfies ResolveComposerFsMentionsResult;
 });

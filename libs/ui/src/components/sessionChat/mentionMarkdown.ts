@@ -25,8 +25,8 @@ export const fsMentionMarkdownLink = (basename: string, absolutePath: string): s
   return markdownLinkText(label, absolutePathToFileUrlHref(absolutePath));
 };
 
-/** Absolute `[@basename](file://path)` for a listing hit under session cwd (dirs keep trailing `/`). */
-export const mentionMarkdownForEntry = (cwd: string, entry: FdListingEntry): string => {
+/** Absolute path for a listing hit under session cwd (dirs keep trailing `/`). */
+export const absolutePathForMentionEntry = (cwd: string, entry: FdListingEntry): string => {
   const relative = entry.path.endsWith('/') ? entry.path.slice(0, -1) : entry.path;
   const cwdNormalized = cwd.endsWith('/') || cwd.endsWith('\\') ? cwd.slice(0, -1) : cwd;
   const sep = cwdNormalized.includes('\\') && !cwdNormalized.includes('/') ? '\\' : '/';
@@ -34,7 +34,12 @@ export const mentionMarkdownForEntry = (cwd: string, entry: FdListingEntry): str
     relative.startsWith('/') || /^[A-Za-z]:[\\/]/.test(relative)
       ? relative
       : `${cwdNormalized}${sep}${relative.replaceAll('/', sep)}`;
-  const href =
-    entry.kind === 'dir' ? (absolute.endsWith('/') || absolute.endsWith('\\') ? absolute : `${absolute}/`) : absolute;
-  return fsMentionMarkdownLink(listingBasename(entry.path), href);
+  if (entry.kind !== 'dir') {
+    return absolute;
+  }
+  return absolute.endsWith('/') || absolute.endsWith('\\') ? absolute : `${absolute}/`;
 };
+
+/** Absolute `[@basename](file://path)` for a listing hit under session cwd (dirs keep trailing `/`). */
+export const mentionMarkdownForEntry = (cwd: string, entry: FdListingEntry): string =>
+  fsMentionMarkdownLink(listingBasename(entry.path), absolutePathForMentionEntry(cwd, entry));

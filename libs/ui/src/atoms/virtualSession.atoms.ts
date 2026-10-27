@@ -4,6 +4,7 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 
@@ -15,6 +16,7 @@ import { mutateVirtualThenRebind, refreshFsListingViaRegistry, rwFromFnContext }
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
 export type VirtualSession = {
+  readonly attachments: readonly ComposerImageAttachment[];
   readonly configValues: ConfigOptionValues;
   readonly cwd: string | undefined;
   readonly draft: string;
@@ -43,6 +45,7 @@ export const virtualSessionAtom = Atom.make<null | VirtualSession>(null).pipe(At
 export const lastCreateDefaultsAtom = Atom.make<LastCreateDefaults | null>(null).pipe(Atom.keepAlive);
 
 const emptyVirtual = (): VirtualSession => ({
+  attachments: [],
   configValues: {},
   cwd: undefined,
   draft: '',

@@ -633,9 +633,6 @@ export const SessionChatBody: FC<{
               value={draft}
             />
             <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              <IconButton aria-label="Attach images" disabled={!controlsEnabled} onClick={onAttachImages} size="small">
-                <LucideMuiIcon fontSize="small" icon={Paperclip} />
-              </IconButton>
               <SessionAgentChip
                 disabled={chromeLocked}
                 interactive={isVirtual}
@@ -671,6 +668,9 @@ export const SessionChatBody: FC<{
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />
+              <IconButton aria-label="Attach images" disabled={!controlsEnabled} onClick={onAttachImages} size="small">
+                <LucideMuiIcon fontSize="small" icon={Paperclip} />
+              </IconButton>
               {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
               <ButtonGroup variant="contained">
                 <Button

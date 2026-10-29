@@ -254,16 +254,32 @@ describe('makeAcpAdapterCommand', () => {
     ),
   );
 
-  it.effect('builds cursor-agent acp when CURSOR_API_KEY is set without status probe', () =>
+  it.effect('builds cursor-agent --api-key … acp when CURSOR_API_KEY is set without status probe', () =>
     Effect.gen(function* () {
       const command = yield* makeAcpAdapterCommand('cursor-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'cursor-agent');
-      assert.deepStrictEqual(command.args, ['acp']);
+      assert.deepStrictEqual(command.args, ['--api-key', 'test-key', 'acp']);
     }).pipe(
       Effect.provide(
         adapterServices(
           { CURSOR_API_KEY: 'test-key', PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/local/bin/cursor-agent']),
+          authFailSpawnerLayer,
+        ),
+      ),
+    ),
+  );
+
+  it.effect('builds cursor-agent --auth-token … acp when CURSOR_AUTH_TOKEN is set', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpAdapterCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.deepStrictEqual(command.args, ['--auth-token', 'test-token', 'acp']);
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { CURSOR_AUTH_TOKEN: 'test-token', PATH: '/usr/local/bin:/usr/bin' },
           new Set(['/usr/local/bin/cursor-agent']),
           authFailSpawnerLayer,
         ),

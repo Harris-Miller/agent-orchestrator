@@ -2,7 +2,7 @@
  * Provider launch for ACP adapters from the host adapter resource tree,
  * or native Vendor CLI ACP (`cursor-agent acp`).
  */
-import { BundledResource } from '@lib/context-services';
+import { BundledResource, OS } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/process';
 
@@ -16,6 +16,21 @@ const pipedSpawnOptions = {
   stderr: 'inherit' as const,
   stdin: 'pipe' as const,
   stdout: 'pipe' as const,
+};
+
+/** Root CLI auth flags before `acp` — docs: `agent --api-key "$CURSOR_API_KEY" acp`. */
+const cursorAcpArgs = (env: Readonly<Record<string, string | undefined>>): readonly string[] => {
+  const args: string[] = [];
+  const apiKey = env.CURSOR_API_KEY;
+  if (apiKey !== undefined && apiKey.length > 0) {
+    args.push('--api-key', apiKey);
+  }
+  const authToken = env.CURSOR_AUTH_TOKEN;
+  if (authToken !== undefined && authToken.length > 0) {
+    args.push('--auth-token', authToken);
+  }
+  args.push('acp');
+  return args;
 };
 
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
@@ -60,7 +75,8 @@ const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(fun
 const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* () {
   const vendorPath = yield* requireExecutableOnPath('cursor-agent');
   yield* requireVendorCliAuthenticated('cursor-acp', vendorPath);
-  return ChildProcess.make('cursor-agent', ['acp'], pipedSpawnOptions);
+  const os = yield* OS;
+  return ChildProcess.make('cursor-agent', [...cursorAcpArgs(os.env())], pipedSpawnOptions);
 });
 
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */

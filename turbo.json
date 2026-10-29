@@ -42,6 +42,7 @@
     },
     "tauri:dev": {
       "cache": false,
+      "passThroughEnv": ["CURSOR_API_KEY", "CURSOR_AUTH_TOKEN"],
       "persistent": true
     },
     "tauri:build": {

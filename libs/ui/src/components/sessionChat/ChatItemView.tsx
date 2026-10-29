@@ -217,7 +217,7 @@ const MessageRow: FC<{
   availableCommands?: readonly AvailableCommand[];
   images?: readonly UserMessageImageRef[];
   text: string;
-  tone: 'agent' | 'user';
+  tone: 'agent' | 'thought' | 'user';
 }> = ({ availableCommands = [], images, text, tone }) => {
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
@@ -279,7 +279,7 @@ const MessageRow: FC<{
 
   return (
     <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 1 }}>
-      <ChatMarkdown text={text} />
+      <ChatMarkdown sx={tone === 'thought' ? { color: 'text.secondary' } : undefined} text={text} />
     </ListItem>
   );
 };
@@ -332,6 +332,9 @@ export const ChatItemView: FC<{
   switch (item.kind) {
     case 'agent_message':
       return <MessageRow text={item.text} tone="agent" />;
+
+    case 'agent_thought':
+      return <MessageRow text={item.text} tone="thought" />;
 
     case 'config_options':
       return (

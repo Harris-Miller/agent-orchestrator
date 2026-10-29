@@ -58,6 +58,7 @@ export type ChatItem =
       readonly text: string;
     }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
+  | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
 
 export type SessionTranscript = {
@@ -280,7 +281,7 @@ const extractClaudeCodeToolName = (meta: unknown): string | undefined => {
 
 const appendMessageChunk = (
   transcript: SessionTranscript,
-  kind: 'agent_message' | 'user_message',
+  kind: 'agent_message' | 'agent_thought' | 'user_message',
   messageId: string | undefined,
   text: string,
 ): SessionTranscript => {
@@ -293,6 +294,16 @@ const appendMessageChunk = (
         items[existingIndex] = { ...existing, text: `${existing.text}${text}` };
         return { ...transcript, items };
       }
+    }
+  }
+
+  // v1 messageId is optional: consecutive agent/thought stream chunks append to the trailing item.
+  if (kind !== 'user_message') {
+    const last = transcript.items.at(-1);
+    if (last?.kind === kind) {
+      const items = [...transcript.items];
+      items[items.length - 1] = { ...last, text: `${last.text}${text}` };
+      return { ...transcript, items };
     }
   }
 
@@ -434,6 +445,18 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
         : appendMessageChunk(
             transcript,
             'agent_message',
+            typeof update.messageId === 'string' ? update.messageId : undefined,
+            text,
+          );
+    }
+
+    case 'agent_thought_chunk': {
+      const text = extractTextFromContent(update.content);
+      return text === undefined
+        ? transcript
+        : appendMessageChunk(
+            transcript,
+            'agent_thought',
             typeof update.messageId === 'string' ? update.messageId : undefined,
             text,
           );

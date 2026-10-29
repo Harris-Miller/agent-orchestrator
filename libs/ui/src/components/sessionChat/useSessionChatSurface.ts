@@ -139,7 +139,9 @@ export const useSessionChatSurface = () => {
   const canSend = isVirtual
     ? controlsEnabled && virtualReady && hasSendableContent
     : controlsEnabled && selectedLaunchTarget !== undefined && hasSendableContent;
-  const hasTranscriptMessage = chatItems.some(item => item.kind === 'user_message' || item.kind === 'agent_message');
+  const hasTranscriptMessage = chatItems.some(
+    item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
+  );
   const canHandoffBase =
     !isVirtual &&
     controlsEnabled &&

@@ -24,6 +24,39 @@ describe('reduceSessionUpdate', () => {
     assert.deepStrictEqual(next.items, []);
   });
 
+  it('coalesces consecutive agent_thought_chunk updates into one agent_thought', () => {
+    let transcript = reduceSessionUpdate(emptySessionTranscript(), {
+      content: { text: 'Hmm, ', type: 'text' },
+      sessionUpdate: 'agent_thought_chunk',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      content: { text: 'maybe files.', type: 'text' },
+      sessionUpdate: 'agent_thought_chunk',
+    });
+
+    assert.strictEqual(transcript.items.length, 1);
+    assert.deepStrictEqual(transcript.items[0], {
+      id: transcript.items[0]?.id,
+      kind: 'agent_thought',
+      text: 'Hmm, maybe files.',
+    });
+  });
+
+  it('keeps agent_thought separate from following agent_message', () => {
+    let transcript = reduceSessionUpdate(emptySessionTranscript(), {
+      content: { text: 'thinking', type: 'text' },
+      sessionUpdate: 'agent_thought_chunk',
+    });
+    transcript = reduceSessionUpdate(transcript, {
+      content: { text: 'answer', type: 'text' },
+      sessionUpdate: 'agent_message_chunk',
+    });
+
+    assert.strictEqual(transcript.items.length, 2);
+    assert.strictEqual(transcript.items[0]?.kind, 'agent_thought');
+    assert.strictEqual(transcript.items[1]?.kind, 'agent_message');
+  });
+
   it('keeps rawInput.command from tool_call and content from tool_call_update', () => {
     const afterCall = reduceSessionUpdate(emptySessionTranscript(), {
       kind: 'execute',

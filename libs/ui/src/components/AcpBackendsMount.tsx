@@ -7,5 +7,6 @@ export const AcpBackendsMount: FC = () => {
   useAtomMount(backendHarnessAtom('codex-acp'));
   useAtomMount(backendHarnessAtom('claude-agent-acp'));
   useAtomMount(backendHarnessAtom('gemini-acp'));
+  useAtomMount(backendHarnessAtom('cursor-acp'));
   return null;
 };

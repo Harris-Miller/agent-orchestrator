@@ -1,12 +1,13 @@
 /**
- * Provider launch for ACP adapters from the host adapter resource tree.
+ * Provider launch for ACP adapters from the host adapter resource tree,
+ * or native Vendor CLI ACP (`cursor-agent acp`).
  */
 import { BundledResource } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/process';
 
-import type { AgentLaunchTarget } from './acpAdapterEntryResource.ts';
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
+import type { AcpAdapterLaunchTarget, AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
@@ -18,7 +19,7 @@ const pipedSpawnOptions = {
 };
 
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
-  function* (launchTarget: AgentLaunchTarget) {
+  function* (launchTarget: AcpAdapterLaunchTarget) {
     const resourcePath = ACP_ADAPTER_ENTRY_RESOURCE[launchTarget];
     yield* Effect.logDebug('Resolving ACP adapter resource', launchTarget, resourcePath);
     const bundled = yield* BundledResource;
@@ -56,10 +57,21 @@ const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(fun
   });
 });
 
+const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* () {
+  const vendorPath = yield* requireExecutableOnPath('cursor-agent');
+  yield* requireVendorCliAuthenticated('cursor-acp', vendorPath);
+  return ChildProcess.make('cursor-agent', ['acp'], pipedSpawnOptions);
+});
+
 /** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
 export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
   function* (launchTarget: AgentLaunchTarget) {
     yield* Effect.logInfo('Building ACP adapter command', launchTarget);
+
+    if (launchTarget === 'cursor-acp') {
+      return yield* makeCursorNativeCommand();
+    }
+
     yield* requireExecutableOnPath('node');
     const entry = yield* resolveAdapterEntry(launchTarget);
 

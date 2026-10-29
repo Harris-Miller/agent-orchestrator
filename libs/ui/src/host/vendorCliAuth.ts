@@ -1,6 +1,7 @@
 /**
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
+import { OS } from '@lib/context-services';
 import { Effect, Ref, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
@@ -12,7 +13,7 @@ const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
 /** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
 const POST_EXIT_STDOUT_DRAIN_MS = 100;
 
-type AuthProbeLaunchTarget = 'claude-agent-acp' | 'codex-acp';
+type AuthProbeLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'cursor-acp';
 
 const executableName = (launchTarget: AuthProbeLaunchTarget): string => {
   switch (launchTarget) {
@@ -20,6 +21,8 @@ const executableName = (launchTarget: AuthProbeLaunchTarget): string => {
       return 'claude';
     case 'codex-acp':
       return 'codex';
+    case 'cursor-acp':
+      return 'cursor-agent';
   }
 };
 
@@ -29,10 +32,17 @@ const notAuthenticatedMessage = (launchTarget: AuthProbeLaunchTarget): string =>
       return '`claude` is not authenticated — run `claude auth login`';
     case 'codex-acp':
       return '`codex` is not authenticated — run `codex login`';
+    case 'cursor-acp':
+      return '`cursor-agent` is not authenticated — run `cursor-agent login`';
   }
 };
 
 const couldNotVerifyMessage = (name: string): string => `Could not verify authentication for \`${name}\``;
+
+const hasNonEmptyEnv = (env: Readonly<Record<string, string | undefined>>, key: string): boolean => {
+  const value = env[key];
+  return value !== undefined && value.length > 0;
+};
 
 const parseClaudeLoggedIn = (stdout: string): boolean | undefined => {
   try {
@@ -41,6 +51,18 @@ const parseClaudeLoggedIn = (stdout: string): boolean | undefined => {
       return undefined;
     }
     return parsed.loggedIn;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseCursorAuthenticated = (stdout: string): boolean | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (!isRecord(parsed) || typeof parsed.isAuthenticated !== 'boolean') {
+      return undefined;
+    }
+    return parsed.isAuthenticated;
   } catch {
     return undefined;
   }
@@ -66,6 +88,26 @@ const wallSleep = (ms: number): Effect.Effect<void> =>
       }),
   );
 
+const collectStdoutAfterExit = Effect.fn('collectStdoutAfterExit')(function* (
+  command: ReturnType<typeof ChildProcess.make>,
+) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  // Tauri ChildProcessSpawnerLive never ends stdout Queue on process close, so
+  // spawner.string() hangs. Fork a collector, await exit, then drain briefly.
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const handle = yield* spawner.spawn(command);
+      const chunksRef = yield* Ref.make<readonly Uint8Array[]>([]);
+      yield* Effect.forkScoped(
+        handle.stdout.pipe(Stream.runForEach(chunk => Ref.update(chunksRef, chunks => [...chunks, chunk]))),
+      );
+      yield* handle.exitCode;
+      yield* wallSleep(POST_EXIT_STDOUT_DRAIN_MS);
+      return mergeChunks(yield* Ref.get(chunksRef));
+    }),
+  );
+});
+
 const runCodexAuthProbe = Effect.fn('runCodexAuthProbe')(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   // Spawn by shell-scope name (not absolute PATH path) — Tauri only allows configured cmds.
@@ -80,24 +122,9 @@ const runCodexAuthProbe = Effect.fn('runCodexAuthProbe')(function* () {
 });
 
 const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   // Spawn by shell-scope name (not absolute PATH path) — Tauri only allows configured cmds.
   const command = ChildProcess.make('claude', ['auth', 'status'], { extendEnv: true });
-
-  // Tauri ChildProcessSpawnerLive never ends stdout Queue on process close, so
-  // spawner.string() hangs. Fork a collector, await exit, then drain briefly.
-  const stdout = yield* Effect.scoped(
-    Effect.gen(function* () {
-      const handle = yield* spawner.spawn(command);
-      const chunksRef = yield* Ref.make<readonly Uint8Array[]>([]);
-      yield* Effect.forkScoped(
-        handle.stdout.pipe(Stream.runForEach(chunk => Ref.update(chunksRef, chunks => [...chunks, chunk]))),
-      );
-      yield* handle.exitCode;
-      yield* wallSleep(POST_EXIT_STDOUT_DRAIN_MS);
-      return mergeChunks(yield* Ref.get(chunksRef));
-    }),
-  );
+  const stdout = yield* collectStdoutAfterExit(command);
 
   const loggedIn = parseClaudeLoggedIn(stdout.trim());
   if (loggedIn === undefined) {
@@ -114,15 +141,50 @@ const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
   }
 });
 
+const runCursorAuthProbe = Effect.fn('runCursorAuthProbe')(function* () {
+  const os = yield* OS;
+  const env = os.env();
+  if (hasNonEmptyEnv(env, 'CURSOR_API_KEY') || hasNonEmptyEnv(env, 'CURSOR_AUTH_TOKEN')) {
+    return;
+  }
+
+  // Spawn by shell-scope name (not absolute PATH path) — Tauri only allows configured cmds.
+  const command = ChildProcess.make('cursor-agent', ['status', '--format', 'json'], { extendEnv: true });
+  const stdout = yield* collectStdoutAfterExit(command);
+
+  const authenticated = parseCursorAuthenticated(stdout.trim());
+  if (authenticated === undefined) {
+    return yield* new MissingLaunchPrerequisite({
+      executable: 'cursor-agent',
+      message: couldNotVerifyMessage('cursor-agent'),
+    });
+  }
+  if (!authenticated) {
+    return yield* new MissingLaunchPrerequisite({
+      executable: 'cursor-agent',
+      message: notAuthenticatedMessage('cursor-acp'),
+    });
+  }
+});
+
+const authProbeFor = (launchTarget: AuthProbeLaunchTarget) => {
+  switch (launchTarget) {
+    case 'claude-agent-acp':
+      return runClaudeAuthProbe();
+    case 'codex-acp':
+      return runCodexAuthProbe();
+    case 'cursor-acp':
+      return runCursorAuthProbe();
+  }
+};
+
 /** After PATH resolves, verify the vendor CLI appears authenticated. */
 export const requireVendorCliAuthenticated = Effect.fn('requireVendorCliAuthenticated')(
   function* (launchTarget: AuthProbeLaunchTarget, executablePath: string) {
     const name = executableName(launchTarget);
     yield* Effect.logDebug('Probing vendor CLI auth', launchTarget, executablePath);
 
-    const probe = launchTarget === 'codex-acp' ? runCodexAuthProbe() : runClaudeAuthProbe();
-
-    return yield* probe.pipe(
+    return yield* authProbeFor(launchTarget).pipe(
       Effect.timeout(AUTH_PROBE_TIMEOUT),
       Effect.mapError(error => {
         if (error._tag === 'MissingLaunchPrerequisite') {

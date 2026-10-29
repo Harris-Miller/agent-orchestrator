@@ -76,6 +76,11 @@
         },
         {
           "args": true,
+          "cmd": "cursor-agent",
+          "name": "cursor-agent"
+        },
+        {
+          "args": true,
           "cmd": "fd",
           "name": "fd"
         },
@@ -138,6 +143,11 @@
           "args": true,
           "cmd": "codex",
           "name": "codex"
+        },
+        {
+          "args": true,
+          "cmd": "cursor-agent",
+          "name": "cursor-agent"
         },
         {
           "args": true,

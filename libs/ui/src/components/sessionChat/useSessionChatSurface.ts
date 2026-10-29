@@ -50,6 +50,7 @@ export const useSessionChatSurface = () => {
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
+  const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
   const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
@@ -70,11 +71,13 @@ export const useSessionChatSurface = () => {
           return claudeConfigIndex;
         case 'codex-acp':
           return codexConfigIndex;
+        case 'cursor-acp':
+          return cursorConfigIndex;
         case 'gemini-acp':
           return geminiConfigIndex;
       }
     },
-    [claudeConfigIndex, codexConfigIndex, geminiConfigIndex],
+    [claudeConfigIndex, codexConfigIndex, cursorConfigIndex, geminiConfigIndex],
   );
 
   const draft = isVirtual ? (virtualSession?.draft ?? '') : sessionDraft;

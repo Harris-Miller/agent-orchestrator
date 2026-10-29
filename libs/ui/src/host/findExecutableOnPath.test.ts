@@ -30,10 +30,14 @@ const bundledResourceLayer = Layer.succeed(BundledResource, {
 const authOkSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(command => {
-    const isClaude = command._tag === 'StandardCommand' && command.args.includes('auth');
+    const args = command._tag === 'StandardCommand' ? command.args : [];
+    const isClaude = args.includes('auth');
+    const isCursor = args.includes('status') && args.includes('--format');
     const stdout = isClaude
       ? new TextEncoder().encode(JSON.stringify({ loggedIn: true }))
-      : new TextEncoder().encode('Logged in\n');
+      : isCursor
+        ? new TextEncoder().encode(JSON.stringify({ isAuthenticated: true }))
+        : new TextEncoder().encode('Logged in\n');
     return Effect.succeed(
       ChildProcessSpawner.makeHandle({
         all: Stream.make(stdout),
@@ -237,5 +241,41 @@ describe('makeAcpAdapterCommand', () => {
         ),
       ),
     ),
+  );
+
+  it.effect('builds cursor-agent acp when prerequisites exist', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpAdapterCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.strictEqual(command.command, 'cursor-agent');
+      assert.deepStrictEqual(command.args, ['acp']);
+    }).pipe(
+      Effect.provide(adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/cursor-agent']))),
+    ),
+  );
+
+  it.effect('builds cursor-agent acp when CURSOR_API_KEY is set without status probe', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpAdapterCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.strictEqual(command.command, 'cursor-agent');
+      assert.deepStrictEqual(command.args, ['acp']);
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { CURSOR_API_KEY: 'test-key', PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/local/bin/cursor-agent']),
+          authFailSpawnerLayer,
+        ),
+      ),
+    ),
+  );
+
+  it.effect('fails without spawning when cursor-agent is missing', () =>
+    Effect.gen(function* () {
+      const error = yield* makeAcpAdapterCommand('cursor-acp').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.executable, 'cursor-agent');
+    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
 });

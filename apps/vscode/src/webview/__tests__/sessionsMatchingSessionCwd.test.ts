@@ -6,7 +6,7 @@ const emptySnapshot = { sessionRoster: [], sessions: {} };
 
 describe('sessionsMatchingSessionCwd', () => {
   it('matches active and activating by resolved cwd; skips inactive', () => {
-    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'gemini-acp') => {
+    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'gemini-acp') => {
       if (launchTarget !== 'codex-acp') {
         return emptySnapshot;
       }
@@ -34,7 +34,7 @@ describe('sessionsMatchingSessionCwd', () => {
   });
 
   it('uses roster cwd when snapshot cwd missing', () => {
-    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'gemini-acp') => {
+    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'gemini-acp') => {
       if (launchTarget !== 'codex-acp') {
         return emptySnapshot;
       }
@@ -51,7 +51,7 @@ describe('sessionsMatchingSessionCwd', () => {
   });
 
   it('matches undefined previous cwd when session cwd unresolved', () => {
-    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'gemini-acp') => {
+    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'gemini-acp') => {
       if (launchTarget !== 'codex-acp') {
         return emptySnapshot;
       }

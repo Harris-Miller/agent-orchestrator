@@ -7,7 +7,7 @@ import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 
-import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
+import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';
 
 const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
@@ -30,10 +30,14 @@ const bundledResourceLayer = Layer.succeed(BundledResource, {
 const authOkSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(command => {
-    const isClaude = command._tag === 'StandardCommand' && command.args.includes('auth');
+    const args = command._tag === 'StandardCommand' ? command.args : [];
+    const isClaude = args.includes('auth');
+    const isCursor = args.includes('status') && args.includes('--format');
     const stdout = isClaude
       ? new TextEncoder().encode(JSON.stringify({ loggedIn: true }))
-      : new TextEncoder().encode('Logged in\n');
+      : isCursor
+        ? new TextEncoder().encode(JSON.stringify({ isAuthenticated: true }))
+        : new TextEncoder().encode('Logged in\n');
     return Effect.succeed(
       ChildProcessSpawner.makeHandle({
         all: Stream.make(stdout),
@@ -148,10 +152,10 @@ describe('findExecutableOnPath', () => {
   );
 });
 
-describe('makeAcpAdapterCommand', () => {
+describe('makeAcpLaunchCommand', () => {
   it.effect('builds node + entry with CODEX_PATH when prerequisites exist', () =>
     Effect.gen(function* () {
-      const command = yield* makeAcpAdapterCommand('codex-acp');
+      const command = yield* makeAcpLaunchCommand('codex-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
       assert.deepStrictEqual(command.args, [
@@ -170,7 +174,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('builds node + entry with CLAUDE_CODE_EXECUTABLE when prerequisites exist', () =>
     Effect.gen(function* () {
-      const command = yield* makeAcpAdapterCommand('claude-agent-acp');
+      const command = yield* makeAcpLaunchCommand('claude-agent-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
       assert.strictEqual(command.options.env?.CLAUDE_CODE_EXECUTABLE, '/usr/local/bin/claude');
@@ -183,7 +187,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('builds node + gemini-acp entry when node and gemini exist', () =>
     Effect.gen(function* () {
-      const command = yield* makeAcpAdapterCommand('gemini-acp');
+      const command = yield* makeAcpLaunchCommand('gemini-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
       assert.deepStrictEqual(command.args, [
@@ -200,7 +204,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('fails without spawning when gemini is missing', () =>
     Effect.gen(function* () {
-      const error = yield* makeAcpAdapterCommand('gemini-acp').pipe(Effect.flip);
+      const error = yield* makeAcpLaunchCommand('gemini-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'gemini');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
@@ -208,7 +212,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('fails without spawning when vendor CLI is missing', () =>
     Effect.gen(function* () {
-      const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
+      const error = yield* makeAcpLaunchCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'codex');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
@@ -216,7 +220,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('fails when node is missing', () =>
     Effect.gen(function* () {
-      const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
+      const error = yield* makeAcpLaunchCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'node');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/codex'])))),
@@ -224,7 +228,7 @@ describe('makeAcpAdapterCommand', () => {
 
   it.effect('fails when vendor CLI is present but unauthenticated', () =>
     Effect.gen(function* () {
-      const error = yield* makeAcpAdapterCommand('codex-acp').pipe(Effect.flip);
+      const error = yield* makeAcpLaunchCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'codex');
       assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
@@ -237,5 +241,57 @@ describe('makeAcpAdapterCommand', () => {
         ),
       ),
     ),
+  );
+
+  it.effect('builds cursor-agent acp when prerequisites exist', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpLaunchCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.strictEqual(command.command, 'cursor-agent');
+      assert.deepStrictEqual(command.args, ['acp']);
+    }).pipe(
+      Effect.provide(adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/cursor-agent']))),
+    ),
+  );
+
+  it.effect('builds cursor-agent --api-key … acp when CURSOR_API_KEY is set without status probe', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpLaunchCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.strictEqual(command.command, 'cursor-agent');
+      assert.deepStrictEqual(command.args, ['--api-key', 'test-key', 'acp']);
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { CURSOR_API_KEY: 'test-key', PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/local/bin/cursor-agent']),
+          authFailSpawnerLayer,
+        ),
+      ),
+    ),
+  );
+
+  it.effect('builds cursor-agent --auth-token … acp when CURSOR_AUTH_TOKEN is set', () =>
+    Effect.gen(function* () {
+      const command = yield* makeAcpLaunchCommand('cursor-acp');
+      assert.strictEqual(command._tag, 'StandardCommand');
+      assert.deepStrictEqual(command.args, ['--auth-token', 'test-token', 'acp']);
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { CURSOR_AUTH_TOKEN: 'test-token', PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/local/bin/cursor-agent']),
+          authFailSpawnerLayer,
+        ),
+      ),
+    ),
+  );
+
+  it.effect('fails without spawning when cursor-agent is missing', () =>
+    Effect.gen(function* () {
+      const error = yield* makeAcpLaunchCommand('cursor-acp').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error.executable, 'cursor-agent');
+    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
 });

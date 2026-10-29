@@ -145,11 +145,11 @@ _Avoid_: Open session, live session
 ## Agent backends
 
 **Agent provider**:
-An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, and **Gemini** (via the `gemini-acp` adapter). Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
+An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, **Gemini** (via the `gemini-acp` adapter), and **Cursor**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`, `gemini-acp`). Distinct from the agent provider name (Codex, Claude, Gemini).
+The spawn identity for a selectable harness connection — either an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`, `gemini-acp`) or a native Vendor CLI ACP process (`cursor-acp` → `cursor-agent acp`). Distinct from the agent provider name (Codex, Claude, Gemini, Cursor).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **ACP adapter**:
@@ -161,15 +161,15 @@ Isolated ACP adapter install at repo-root `acp-adapter-resources/` (own lockfile
 _Avoid_: node_modules, Vite assets, sidecar, bundled adapters (ambiguous with Vite)
 
 **Vendor CLI**:
-User-installed agent CLI on PATH (`codex`, `claude`, `gemini`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.
+User-installed agent CLI on PATH (`codex`, `claude`, `gemini`, `cursor-agent`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.
 _Avoid_: Agent binary, provider CLI, global install
 
 **Native ACP agent**:
-A vendor CLI that implements ACP directly. The Harness may still reach it through an ACP adapter when the native agent omits required session lifecycle capabilities (Gemini CLI via `gemini-acp`).
+A vendor CLI that implements ACP directly. Cursor CLI (`cursor-agent acp`) is the first harness target that is native **without** an adapter in front. The Harness may still reach a native agent through an ACP adapter when the vendor omits required session lifecycle capabilities (Gemini CLI via `gemini-acp`).
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:
-How the Harness starts a provider subprocess: executable, arguments, working directory, and environment from the adapter resource tree, yielding a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
+How the Harness starts a provider subprocess: executable, arguments, working directory, and environment — from the adapter resource tree for Node shims, or by spawning a Vendor CLI ACP mode directly (`cursor-agent acp`) — yielding a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
 _Avoid_: Spawn config, agent command, connection string
 
 ## Desktop host

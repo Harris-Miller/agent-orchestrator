@@ -1,6 +1,6 @@
 /**
- * Provider launch for ACP adapters from the host adapter resource tree,
- * or native Vendor CLI ACP (`cursor-agent acp`).
+ * Provider ACP launch command: adapter resource entry (`node` + shim) or
+ * native Vendor CLI (`cursor-agent acp`).
  */
 import { BundledResource, OS } from '@lib/context-services';
 import { Effect } from 'effect';
@@ -50,7 +50,7 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
       Effect.tapError(error => Effect.logError('ACP adapter resource missing', launchTarget, error.message)),
     );
   },
-  Effect.annotateLogs({ module: 'acpAdapterCommand' }),
+  Effect.annotateLogs({ module: 'acpLaunchCommand' }),
 );
 
 type VendorCliAdapter = {
@@ -79,10 +79,10 @@ const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* (
   return ChildProcess.make('cursor-agent', [...cursorAcpArgs(os.env())], pipedSpawnOptions);
 });
 
-/** Detect Node + vendor CLI, resolve adapter entry, return spawn command. */
-export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
+/** Resolve PATH/auth prerequisites and return the ACP spawn command for a launch target. */
+export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
   function* (launchTarget: AgentLaunchTarget) {
-    yield* Effect.logInfo('Building ACP adapter command', launchTarget);
+    yield* Effect.logInfo('Building ACP launch command', launchTarget);
 
     if (launchTarget === 'cursor-acp') {
       return yield* makeCursorNativeCommand();
@@ -105,6 +105,6 @@ export const makeAcpAdapterCommand = Effect.fn('makeAcpAdapterCommand')(
       }
     }
   },
-  Effect.annotateLogs({ module: 'acpAdapterCommand' }),
-  Effect.tapError(error => Effect.logError('makeAcpAdapterCommand failed', error)),
+  Effect.annotateLogs({ module: 'acpLaunchCommand' }),
+  Effect.tapError(error => Effect.logError('makeAcpLaunchCommand failed', error)),
 );

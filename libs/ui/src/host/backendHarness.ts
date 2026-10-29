@@ -12,7 +12,7 @@ import type {
 } from '@libs/effect-acp';
 import { Effect, Exit, Ref } from 'effect';
 
-import { makeAcpAdapterCommand } from './acpAdapterCommand.ts';
+import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { airCapability, airMeta } from './airMeta.ts';
@@ -94,7 +94,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('connecting');
     clearPromptSpansForLaunchTarget(launchTarget);
 
-    const command = yield* makeAcpAdapterCommand(launchTarget);
+    const command = yield* makeAcpLaunchCommand(launchTarget);
     const connection = yield* connectAcpAgent(
       command,
       makeClientHandlers(

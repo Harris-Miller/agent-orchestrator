@@ -70,6 +70,15 @@ const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   }
 });
 
+/** Cursor: best-effort close. Other providers: fail-closed. */
+const closeSessionForLaunchTarget = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, sessionId: string) {
+  if (launchTarget === 'cursor-acp') {
+    yield* Effect.exit(closeSession(launchTarget, sessionId));
+    return;
+  }
+  yield* closeSession(launchTarget, sessionId);
+});
+
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
   refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
@@ -361,12 +370,7 @@ export const createSessionLifecycleAtoms = (
           }
 
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
-          // Cursor: best-effort close, then still mark inactive. Other providers fail-closed.
-          if (arg.launchTarget === 'cursor-acp') {
-            yield* Effect.exit(closeSession(arg.launchTarget, arg.sessionId));
-          } else {
-            yield* closeSession(arg.launchTarget, arg.sessionId);
-          }
+          yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
 
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
@@ -427,12 +431,7 @@ export const createSessionLifecycleAtoms = (
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           if (session !== undefined && session.status !== 'inactive') {
             yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
-            // Cursor: best-effort close, then still delete + local drop. Other providers fail-closed.
-            if (arg.launchTarget === 'cursor-acp') {
-              yield* Effect.exit(closeSession(arg.launchTarget, arg.sessionId));
-            } else {
-              yield* closeSession(arg.launchTarget, arg.sessionId);
-            }
+            yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
           }
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);

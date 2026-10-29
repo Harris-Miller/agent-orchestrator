@@ -70,7 +70,7 @@ export * from './components/ThemeSelect.tsx';
 export * from './components/UserSettingsLoadFailureAlert.tsx';
 export * from './components/UserSettingsMount.tsx';
 export * from './createHostRuntime.ts';
-export * from './host/acpAdapterCommand.ts';
+export * from './host/acpLaunchCommand.ts';
 export * from './host/acpSessionBootstrap.ts';
 export * from './host/agentLaunchTarget.ts';
 export * from './host/applySessionUpdate.ts';

@@ -44,25 +44,14 @@ const hasNonEmptyEnv = (env: Readonly<Record<string, string | undefined>>, key: 
   return value !== undefined && value.length > 0;
 };
 
-const parseClaudeLoggedIn = (stdout: string): boolean | undefined => {
+const parseJsonBooleanField = (stdout: string, field: string): boolean | undefined => {
   try {
     const parsed: unknown = JSON.parse(stdout);
-    if (!isRecord(parsed) || typeof parsed.loggedIn !== 'boolean') {
+    if (!isRecord(parsed)) {
       return undefined;
     }
-    return parsed.loggedIn;
-  } catch {
-    return undefined;
-  }
-};
-
-const parseCursorAuthenticated = (stdout: string): boolean | undefined => {
-  try {
-    const parsed: unknown = JSON.parse(stdout);
-    if (!isRecord(parsed) || typeof parsed.isAuthenticated !== 'boolean') {
-      return undefined;
-    }
-    return parsed.isAuthenticated;
+    const value = parsed[field];
+    return typeof value === 'boolean' ? value : undefined;
   } catch {
     return undefined;
   }
@@ -126,7 +115,7 @@ const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
   const command = ChildProcess.make('claude', ['auth', 'status'], { extendEnv: true });
   const stdout = yield* collectStdoutAfterExit(command);
 
-  const loggedIn = parseClaudeLoggedIn(stdout.trim());
+  const loggedIn = parseJsonBooleanField(stdout.trim(), 'loggedIn');
   if (loggedIn === undefined) {
     return yield* new MissingLaunchPrerequisite({
       executable: 'claude',
@@ -152,7 +141,7 @@ const runCursorAuthProbe = Effect.fn('runCursorAuthProbe')(function* () {
   const command = ChildProcess.make('cursor-agent', ['status', '--format', 'json'], { extendEnv: true });
   const stdout = yield* collectStdoutAfterExit(command);
 
-  const authenticated = parseCursorAuthenticated(stdout.trim());
+  const authenticated = parseJsonBooleanField(stdout.trim(), 'isAuthenticated');
   if (authenticated === undefined) {
     return yield* new MissingLaunchPrerequisite({
       executable: 'cursor-agent',

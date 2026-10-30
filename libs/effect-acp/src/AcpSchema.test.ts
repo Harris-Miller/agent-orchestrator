@@ -11,7 +11,7 @@ import {
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
 } from './AcpSchema.ts';
-import { SESSION_ARCHIVE_METHOD, SESSION_FORK_METHOD } from './schema/agent.ts';
+import { ListSessionsRequest, SESSION_ARCHIVE_METHOD, SESSION_FORK_METHOD } from './schema/agent.ts';
 
 const STABLE_AGENT_REQUESTS = [
   'initialize',
@@ -129,5 +129,25 @@ describe('ContentBlock image', () => {
         uri: 'file:///tmp/a.png',
       },
     );
+  });
+});
+
+describe('ListSessionsRequest metadata', () => {
+  it('allows omitted metadata and validates AIR archived filters', () => {
+    assert.deepStrictEqual(Schema.decodeSync(ListSessionsRequest)({}), {});
+
+    for (const archived of ['unarchived', 'archived', 'all'] as const) {
+      assert.deepStrictEqual(
+        Schema.decodeSync(ListSessionsRequest)({
+          _meta: { jetbrains: { air: { list: { archived }, version: 1 } } },
+        }),
+        { _meta: { jetbrains: { air: { list: { archived }, version: 1 } } } },
+      );
+    }
+
+    const invalidRequest: unknown = {
+      _meta: { jetbrains: { air: { list: { archived: 'not-archived' }, version: 1 } } },
+    };
+    assert.throws(() => Schema.decodeUnknownSync(ListSessionsRequest)(invalidRequest));
   });
 });

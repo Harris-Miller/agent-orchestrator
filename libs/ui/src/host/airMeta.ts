@@ -7,10 +7,6 @@ export const airCapability = {
 
 export type AirCapability = (typeof airCapability)[keyof typeof airCapability];
 
-export const airListArchivedAll = 'all' as const;
-
-export type AirListArchived = typeof airListArchivedAll;
-
 export const airMeta = <Body extends object>(body: Body) => ({
   jetbrains: {
     air: {

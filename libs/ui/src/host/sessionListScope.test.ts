@@ -9,11 +9,11 @@ describe('sessionListScope', () => {
   });
 
   it('listSessionsPayload covers Unscoped / Cwd / Skip', () => {
-    const archivedAll = {
-      _meta: { jetbrains: { air: { list: { archived: 'all' as const }, version: 1 as const } } },
+    const activeSessions = {
+      _meta: { jetbrains: { air: { list: { archived: 'unarchived' as const }, version: 1 as const } } },
     };
-    assert.deepStrictEqual(listSessionsPayload(unscopedSessionListScope), archivedAll);
-    assert.deepStrictEqual(listSessionsPayload({ _tag: 'Cwd', cwd: '/ws' }), { ...archivedAll, cwd: '/ws' });
+    assert.deepStrictEqual(listSessionsPayload(unscopedSessionListScope), activeSessions);
+    assert.deepStrictEqual(listSessionsPayload({ _tag: 'Cwd', cwd: '/ws' }), { ...activeSessions, cwd: '/ws' });
     assert.strictEqual(listSessionsPayload({ _tag: 'Skip' }), undefined);
   });
 });

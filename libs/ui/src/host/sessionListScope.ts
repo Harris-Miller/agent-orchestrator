@@ -1,4 +1,4 @@
-import { airListArchivedAll, airMeta } from './airMeta.ts';
+import type { ListSessionsRequest } from '@libs/effect-acp';
 
 /** How bootstrap/refresh call `session/list`. Desktop stays Unscoped; vscode sets Cwd/Skip. */
 export type SessionListScope =
@@ -8,12 +8,17 @@ export type SessionListScope =
 
 export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
 
-/** AIR session index list filter. `"all"` includes archived sessions. */
-const sessionListArchivedAll = {
-  _meta: airMeta({
-    list: { archived: airListArchivedAll },
-  }),
-};
+/** AIR session index list filter for active sessions. */
+const sessionListArchivedActive = {
+  _meta: {
+    jetbrains: {
+      air: {
+        list: { archived: 'unarchived' },
+        version: 1,
+      },
+    },
+  },
+} satisfies { readonly _meta: NonNullable<ListSessionsRequest['_meta']> };
 
 export const sessionListScopeFromPaths = (paths: readonly string[]): SessionListScope => {
   if (paths.length === 0) {
@@ -26,14 +31,14 @@ export const sessionListScopeFromPaths = (paths: readonly string[]): SessionList
 /** Payload for `session/list` given current scope, or undefined when Skip (no RPC). */
 export const listSessionsPayload = (
   scope: SessionListScope,
-): { readonly _meta: (typeof sessionListArchivedAll)['_meta']; readonly cwd?: string } | undefined => {
+): { readonly _meta: (typeof sessionListArchivedActive)['_meta']; readonly cwd?: string } | undefined => {
   switch (scope._tag) {
     case 'Cwd':
-      return { ...sessionListArchivedAll, cwd: scope.cwd };
+      return { ...sessionListArchivedActive, cwd: scope.cwd };
     case 'Skip':
       return undefined;
     case 'Unscoped':
-      return sessionListArchivedAll;
+      return sessionListArchivedActive;
   }
 };
 

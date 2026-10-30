@@ -41,6 +41,21 @@ const AGENT_METHODS = {
   session_set_mode: 'session/set_mode',
 } as const;
 
+const ListSessionsMetaField = optional(
+  Schema.NullOr(
+    Schema.Struct({
+      jetbrains: Schema.Struct({
+        air: Schema.Struct({
+          list: Schema.Struct({
+            archived: Schema.Literals(['unarchived', 'archived', 'all']),
+          }),
+          version: Schema.Literal(1),
+        }),
+      }),
+    }),
+  ),
+);
+
 /** Unstable ACP model switch (Gemini `unstable_setSessionModel`). Not in stable AgentRpcs. */
 export const SESSION_SET_MODEL_METHOD = 'session/set_model' as const;
 
@@ -150,7 +165,7 @@ export class ForkSessionResponse extends Schema.Opaque<ForkSessionResponse>()(
 
 export class ListSessionsRequest extends Schema.Opaque<ListSessionsRequest>()(
   Schema.Struct({
-    _meta: MetaField,
+    _meta: ListSessionsMetaField,
     cursor: optional(Schema.NullOr(Schema.String)),
     cwd: optional(Schema.NullOr(Schema.String)),
   }),

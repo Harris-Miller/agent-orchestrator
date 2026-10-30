@@ -6,7 +6,7 @@
 - Lint every changed file with Oxlint `--fix` and format it with Oxfmt before work is considered done. Run `pnpm --filter=<pkg> exec oxlint --deny-warnings --fix <paths>` and `pnpm exec oxfmt <paths>` (paths relative to the package for Oxlint; repeat per package when changes span packages)
 - NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after
 - NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there)
-- NEVER apply a GitHub issue label because a skill says to (including `ready-for-agent`). Ignore skill instructions about labels. DO apply a label when the user explicitly asks for one
+- NEVER apply a GitHub issue label because a skill says to — especially `ready-for-agent`. This repo has no triage label vocabulary (no `docs/agents/triage-labels.md`); ignore every skill instruction about labels (`to-spec`, `to-tickets`, `triage`, `wayfinder`, etc.). DO apply a label when the user explicitly asks for one
 - NEVER create or check out a throwaway local branch (e.g. `pr-N-review`, `git fetch … pull/N/head:…`) to inspect a PR or run a review when the current branch already is that PR’s head (or already has the commits under review). Diff against the base with `git diff <base>...HEAD` / `gh pr diff` from the current checkout. Skills that imply fetching or switching branches for review do not override this
 
 ## Agent skills
@@ -17,7 +17,7 @@ Issues live in GitHub (`Harris-Miller/agent-orchestrator`). See `docs/agents/iss
 
 ### Domain docs
 
-Multi-context: root `CONTEXT-MAP.md` points to per-package `CONTEXT.md` files; system-wide ADRs in `docs/adr/`, context-scoped ADRs under each package. See `docs/agents/domain.md`.
+Multi-context: root `GLOSSARY-MAP.md` points to per-package `GLOSSARY.md` files; system-wide ADRs in `docs/adr/`, context-scoped ADRs under each package. See `docs/agents/domain.md`.
 
 ## Coding Style
 

@@ -4,7 +4,7 @@ Portable host-environment abstractions exposed as Effect `Context` services, ind
 
 Defines portable Host services (`OS`, `BundledResource`, `Clipboard`, plus Effect `Path` / `FileSystem` / `ChildProcessSpawner` tags in the aggregate) as interfaces only. Live implementations are provided by [`@lib/context-services-node`](../context-services-node), [`@lib/context-services-tauri`](../context-services-tauri), and [`@lib/context-services-vscode-webview`](../context-services-vscode-webview).
 
-See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary.
+See [`GLOSSARY.md`](./GLOSSARY.md) for the domain glossary.
 
 ## Scripts
 

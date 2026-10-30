@@ -11,7 +11,7 @@ Tauri + React desktop app that hosts the **Agent Harness** — an [ACP](https://
 - [`libs/context-services-tauri`](./libs/context-services-tauri) — Tauri live layers for `context-services`
 - [`tooling/`](./tooling) — shared ESLint, tsconfig, and Vitest config packages
 
-See [`CONTEXT-MAP.md`](./CONTEXT-MAP.md) for per-package glossaries and how the packages relate.
+See [`GLOSSARY-MAP.md`](./GLOSSARY-MAP.md) for per-package glossaries and how the packages relate.
 
 ## Getting started
 

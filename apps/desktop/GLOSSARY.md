@@ -207,7 +207,7 @@ The Tauri host process current working directory from the OS service. Used for p
 _Avoid_: Session cwd
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path — see [`libs/context-services/CONTEXT.md`](../../libs/context-services/CONTEXT.md). Injected once at desktop Host + Atom runtime composition; desktop fulfills it with Tauri services.
+Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileSystem, OS, and Path — see [`libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md). Injected once at desktop Host + Atom runtime composition; desktop fulfills it with Tauri services.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)
 
 **Tauri services**:

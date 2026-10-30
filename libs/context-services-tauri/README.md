@@ -4,7 +4,7 @@ Tauri live layers for the `OS` service defined in [`@lib/context-services`](../c
 
 Used by [`@apps/desktop`](../../apps/desktop) to run the Agent Harness against the real host OS from inside a Tauri webview.
 
-See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary.
+See [`GLOSSARY.md`](./GLOSSARY.md) for the domain glossary.
 
 ## Exports
 

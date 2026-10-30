@@ -4,7 +4,7 @@ Tauri + React desktop application that hosts the **Agent Harness** — an ACP Cl
 
 The Harness spawns ACP Agent subprocesses (adapters from repo-root [`acp-adapter-resources`](../../acp-adapter-resources), or native ACP CLIs like Gemini), negotiates capabilities, runs sessions, and fulfills Agent-initiated requests (filesystem, terminal, permissions) on the user's behalf. The React UI presents sessions, agent output, and permission prompts, driven by the Harness's domain state.
 
-See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary and [`docs/adr/`](./docs/adr/) for architecture decisions.
+See [`GLOSSARY.md`](./GLOSSARY.md) for the domain glossary and [`docs/adr/`](./docs/adr/) for architecture decisions.
 
 ## Scripts
 

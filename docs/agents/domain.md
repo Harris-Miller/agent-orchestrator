@@ -4,11 +4,11 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Layout for this repo
 
-**Multi-context.** Root `CONTEXT-MAP.md` indexes per-package glossaries; each package under `apps/*` and `libs/*` may have its own `CONTEXT.md` and `docs/adr/`. System-wide decisions live in `docs/adr/` at the repo root.
+**Multi-context.** Root `GLOSSARY-MAP.md` indexes per-package glossaries; each package under `apps/*` and `libs/*` may have its own `GLOSSARY.md` and `docs/adr/`. System-wide decisions live in `docs/adr/` at the repo root.
 
 ## Before exploring, read these
 
-- **`CONTEXT-MAP.md`** at the repo root: indexes one `CONTEXT.md` per package under `apps/*` and `libs/*`. Read each glossary relevant to the topic.
+- **`GLOSSARY-MAP.md`** at the repo root: indexes one `GLOSSARY.md` per package under `apps/*` and `libs/*`. Read each glossary relevant to the topic.
 - **`docs/adr/`**: read ADRs that touch the area you're about to work in. In multi-context repos, also check `<package>/docs/adr/` for context-scoped decisions.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
@@ -19,7 +19,7 @@ Single-context repo (most repos):
 
 ```
 /
-├── CONTEXT.md
+├── GLOSSARY.md
 ├── docs/adr/
 │   ├── 0001-event-sourced-orders.md
 │   └── 0002-postgres-for-write-model.md
@@ -30,21 +30,21 @@ Multi-context repo (this repo):
 
 ```
 /
-├── CONTEXT-MAP.md
+├── GLOSSARY-MAP.md
 ├── docs/adr/                          ← system-wide decisions
 ├── apps/
 │   └── desktop/
-│       ├── CONTEXT.md
-│       └── docs/adr/
+│       ├── GLOSSARY.md
+│       └── docs/adr/                  ← context-specific decisions
 └── libs/
     └── effect-acp/
-        ├── CONTEXT.md
+        ├── GLOSSARY.md
         └── docs/adr/
 ```
 
 ## Use the glossary's vocabulary
 
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
+When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly avoids.
 
 When a glossary term names state held on a domain object (for example a flag on a session snapshot), use the glossary term's camelCase form for the property name in code (`Pending client request` → `pendingClientRequest`). Do not use synonyms listed under `_Avoid_`.
 

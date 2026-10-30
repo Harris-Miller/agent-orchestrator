@@ -1,6 +1,6 @@
 # No `node:*` imports in `apps/desktop/src`
 
-Code under `apps/desktop/src` runs in the **WebView runtime** (see `CONTEXT.md`), not Node.js. Imports such as `node:path`, `node:url`, or `node:fs` assume a Node host that is not present at runtime and blur the boundary between the WebView bundle and the Tauri host.
+Code under `apps/desktop/src` runs in the **WebView runtime** (see `GLOSSARY.md`), not Node.js. Imports such as `node:path`, `node:url`, or `node:fs` assume a Node host that is not present at runtime and blur the boundary between the WebView bundle and the Tauri host.
 
 Host capabilities (cwd, env, paths, filesystem, child processes) must go through **Tauri services** — portable `@lib/context-services` abstractions with live layers in `@lib/context-services-tauri` backed by Tauri plugins — or through explicit Tauri IPC where no portable service exists yet. Path resolution uses `OS` + `Path` + `FileSystem`, not `import.meta.url` translated via Node URL helpers.
 

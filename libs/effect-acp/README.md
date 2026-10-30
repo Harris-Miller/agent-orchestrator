@@ -4,7 +4,7 @@ Effect library for the [Agent Client Protocol](https://agentclientprotocol.com/)
 
 Provides the schema, transport, and connection lifecycle used to act as an ACP **Client** — spawning an Agent subprocess, calling `initialize`/`session/*`, and handling Agent-initiated requests. Used by [`@apps/desktop`](../../apps/desktop)'s Agent Harness.
 
-See [`CONTEXT.md`](./CONTEXT.md) for the domain glossary and [`docs/adr/`](./docs/adr/) for architecture decisions.
+See [`GLOSSARY.md`](./GLOSSARY.md) for the domain glossary and [`docs/adr/`](./docs/adr/) for architecture decisions.
 
 ## Exports
 

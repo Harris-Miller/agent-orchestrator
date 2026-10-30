@@ -11,6 +11,7 @@ import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
 import { makeOpenUrlLive } from './OpenUrlLive.ts';
+import { makeOpenFileLive } from './OpenFileLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
 import { PathLive } from './PathLive.ts';
 import { IpcClient } from './protocol/ipcClient.ts';
@@ -52,6 +53,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     makeFileDialogLive(client),
     makeFileSystemLive(client),
     makeOpenUrlLive(client),
+    makeOpenFileLive(client),
     PathLive,
     FetchHttpClient.layer.pipe(Layer.provide(fetchLive)),
   ).pipe(

@@ -74,6 +74,9 @@ _Avoid_: Markdown Link Chip, skill pill, autocomplete token, mention chip (when 
 A display pill whose underlying text is a markdown link `[label](href)` (filesystem path or URL); shows the label only (not clickable) and may show a leading file-type or link glyph. In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. The draft/transcript markdown string is the source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments. A Filesystem Mention is one way such a link enters the draft.
 _Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
 
+**Chat Markdown Link**:
+Inline link in rendered chat markdown from agent text, thoughts, or tool results. Only `http(s)` and Host-supported `file://` links are clickable; clicks never navigate the webview. Markdown Link Chips remain non-clickable.
+
 **Composer Image Attachment**:
 A draft-side image picked via Host FileDialog, held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing). On `session/prompt`, when the Agent advertises `promptCapabilities.image`, it is sent as an ACP Image ContentBlock (`data` + `mimeType` + `uri`); otherwise as a baseline `type: "resource_link"` (not UI-gated, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load` / `user_message_chunk`, image-like `resource_link`s, ACP `type: "image"` blocks, `file://` image markdown links, or allowlisted `data:image/…;base64,…` markdown links lift into those refs (inline data / image blocks keep the preview; `file://` hydrates when possible).
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)

@@ -1,0 +1,86 @@
+import { assert, describe, it } from '@effect/vitest';
+import { OpenFile, OpenFileFailed, OpenUrl, OpenUrlFailed } from '@lib/context-services';
+import { Effect, Layer } from 'effect';
+import { layer as posixPathLayer } from 'effect/Path';
+import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
+
+import { chatLinkUrlTransform, classifyChatLinkHref, openChatLink } from './openChatLink.ts';
+
+const unsafeScriptHref = ['java', 'script:alert(1)'].join('');
+
+describe('classifyChatLinkHref', () => {
+  it('allows only supported URL and file links', () => {
+    assert.deepStrictEqual(classifyChatLinkHref('https://example.com', false), {
+      kind: 'url',
+      url: 'https://example.com/',
+    });
+    assert.deepStrictEqual(classifyChatLinkHref('http://example.com', false), {
+      kind: 'url',
+      url: 'http://example.com/',
+    });
+    assert.strictEqual(classifyChatLinkHref('file:///a/b.ts', true).kind, 'file');
+    assert.strictEqual(classifyChatLinkHref('file:relative.ts', true).kind, 'inert');
+    for (const href of [
+      'file:///a',
+      'file://server/x',
+      unsafeScriptHref,
+      'data:text/html,x',
+      'vscode://x',
+      'mailto:a@b',
+      './x',
+      '#frag',
+      'bad %',
+    ]) {
+      assert.strictEqual(classifyChatLinkHref(href, false).kind, 'inert', href);
+    }
+  });
+
+  it('keeps file hrefs but not file image sources', () => {
+    assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'href'), 'file:///tmp/a.png');
+    assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'src'), '');
+    assert.strictEqual(chatLinkUrlTransform(unsafeScriptHref, 'href'), '');
+  });
+});
+
+describe('openChatLink', () => {
+  it.effect('dispatches URL and decoded file path through Host services', () =>
+    Effect.gen(function* () {
+      const opened: string[] = [];
+      const layer = Layer.mergeAll(
+        Layer.succeed(OpenUrl, { open: url => Effect.sync(() => opened.push(url)) }),
+        Layer.succeed(OpenFile, { supported: true, open: path => Effect.sync(() => opened.push(path)) }),
+        posixPathLayer,
+      );
+      yield* openChatLink({ kind: 'url', url: 'https://example.com/' }).pipe(
+        Effect.provide(layer),
+        Effect.provide(mockHostLayer),
+      );
+      yield* openChatLink({ kind: 'file', url: new URL('file:///tmp/a%20b.ts#L3') }).pipe(
+        Effect.provide(layer),
+        Effect.provide(mockHostLayer),
+      );
+      assert.deepStrictEqual(opened, ['https://example.com/', '/tmp/a b.ts']);
+    }),
+  );
+
+  it.effect('swallows Host failures', () =>
+    Effect.gen(function* () {
+      const layer = Layer.mergeAll(
+        Layer.succeed(OpenUrl, { open: () => Effect.fail(new OpenUrlFailed({ message: 'failed' })) }),
+        Layer.succeed(OpenFile, {
+          supported: true,
+          open: () => Effect.fail(new OpenFileFailed({ message: 'failed' })),
+        }),
+        posixPathLayer,
+      );
+      yield* openChatLink({ kind: 'url', url: 'https://example.com/' }).pipe(
+        Effect.provide(layer),
+        Effect.provide(mockHostLayer),
+      );
+      yield* openChatLink({ kind: 'file', url: new URL('file:///tmp/example') }).pipe(
+        Effect.provide(layer),
+        Effect.provide(mockHostLayer),
+      );
+    }),
+  );
+});

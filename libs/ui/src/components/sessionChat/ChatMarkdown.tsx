@@ -1,19 +1,51 @@
 import Box from '@mui/material/Box';
+import { useAtomValue } from '@effect/atom-react';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { FC, ReactNode } from 'react';
+import type { FC, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
+import { AsyncResult } from 'effect/reactivity';
 
+import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
+import { hostRunPromise } from '../../hostRuntime.ts';
+import { chatLinkUrlTransform, classifyChatLinkHref, openChatLink } from '../../host/openChatLink.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 
 /** Look like a link; never emit a real <a href> (Tauri navigates absolute paths and breaks the shell). */
-const MarkdownLink: FC<{ children?: ReactNode }> = ({ children }) => (
-  <Box component="span" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
-    {children}
-  </Box>
-);
+const MarkdownLink: FC<{ children?: ReactNode; href?: string }> = ({ children, href = '' }) => {
+  const supported = useAtomValue(openFileSupportedAtom);
+  const link = classifyChatLinkHref(
+    href,
+    AsyncResult.getOrElse(supported, () => false),
+  );
+  if (link.kind === 'inert') {
+    return (
+      <Box component="span" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
+        {children}
+      </Box>
+    );
+  }
+  const open = (event: MouseEvent<HTMLSpanElement> | KeyboardEvent<HTMLSpanElement>) => {
+    if ('key' in event && event.key !== 'Enter') return;
+    event.preventDefault();
+    if ('button' in event && window.getSelection()?.isCollapsed === false) return;
+    hostRunPromise(openChatLink(link)).catch(() => undefined);
+  };
+  return (
+    <Box
+      component="span"
+      onClick={open}
+      onKeyDown={open}
+      role="link"
+      sx={{ color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }}
+      tabIndex={0}
+    >
+      {children}
+    </Box>
+  );
+};
 
 const markdownComponents = { a: MarkdownLink } satisfies Components;
 
@@ -66,7 +98,7 @@ const baseSx = {
 
 export const ChatMarkdown: FC<{ sx?: SxProps<Theme>; text: string }> = ({ sx, text }) => (
   <Box sx={[baseSx, sx] as SxProps<Theme>}>
-    <Markdown components={markdownComponents} skipHtml>
+    <Markdown components={markdownComponents} skipHtml urlTransform={chatLinkUrlTransform}>
       {prepareChatMarkdownText(text)}
     </Markdown>
   </Box>

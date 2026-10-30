@@ -1,4 +1,4 @@
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -19,6 +19,7 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(OpenUrl, {
     open: () => Effect.void,
   }),
+  Layer.succeed(OpenFile, { supported: false, open: () => Effect.void }),
   Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => '/home/operator',

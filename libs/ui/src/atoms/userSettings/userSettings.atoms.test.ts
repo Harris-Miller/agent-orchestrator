@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -45,6 +45,7 @@ const fileDialogLayer = Layer.succeed(FileDialog, {
 const openUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
 });
+const openFileLayer = Layer.succeed(OpenFile, { supported: false, open: () => Effect.void });
 
 const notFound = (method: string, path: string) =>
   PlatformError.systemError({
@@ -96,6 +97,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     clipboardLayer,
     fileDialogLayer,
     openUrlLayer,
+    openFileLayer,
     osLayer,
     mapFsLayer(store, overrides),
     posixPathLayer,

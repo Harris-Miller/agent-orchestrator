@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -33,6 +33,7 @@ const mockFileDialogLayer = Layer.succeed(FileDialog, {
 const mockOpenUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
 });
+const mockOpenFileLayer = Layer.succeed(OpenFile, { supported: false, open: () => Effect.void });
 
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
@@ -44,6 +45,7 @@ const mockHostLayer = Layer.mergeAll(
   mockClipboardLayer,
   mockFileDialogLayer,
   mockOpenUrlLayer,
+  mockOpenFileLayer,
   mockOsLayer,
   layerNoop({}),
   posixPathLayer,

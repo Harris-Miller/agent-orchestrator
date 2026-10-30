@@ -89,6 +89,7 @@ type ExtensionInbound = Extract<
       | 'HttpFetch'
       | 'Kill'
       | 'OpenUrl'
+      | 'OpenFile'
       | 'OsSnapshot'
       | 'Spawn'
       | 'StdinChunk'
@@ -112,6 +113,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'HttpFetch',
   'Kill',
   'OpenUrl',
+  'OpenFile',
   'OsSnapshot',
   'Spawn',
   'StdinChunk',
@@ -278,6 +280,16 @@ export const handleHostIpcMessage = async (args: {
           throw new Error(`openExternal declined: ${message.url}`);
         }
         post(webview, { _tag: 'OpenUrlResult', id: message.id });
+        return;
+      }
+      case 'OpenFile': {
+        const uri = vscode.Uri.file(message.path);
+        const fileStat = await vscode.workspace.fs.stat(uri);
+        await vscode.commands.executeCommand(
+          fileStat.type === vscode.FileType.Directory ? 'revealInExplorer' : 'vscode.open',
+          uri,
+        );
+        post(webview, { _tag: 'OpenFileResult', id: message.id });
         return;
       }
       case 'OsSnapshot': {

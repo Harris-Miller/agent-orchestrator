@@ -3,6 +3,8 @@
  * Load only after the app calls bind (desktop: import `./bindHostRuntime.ts` first).
  */
 import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, hostRuntime } from '../hostRuntime.ts';
+import { Effect } from 'effect';
+import { OpenFile } from '@lib/context-services';
 
 import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
@@ -20,6 +22,8 @@ const hostBag = {
   hostRunPromiseExit,
   hostRuntime,
 };
+
+export const openFileSupportedAtom = atomRuntime.fn(() => Effect.map(OpenFile, service => service.supported));
 
 export const {
   alwaysHiddenGlobsAtom,

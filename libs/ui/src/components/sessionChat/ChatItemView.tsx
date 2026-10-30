@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import { useAtomValue } from '@effect/atom-react';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
@@ -12,7 +13,10 @@ import type { ClipboardEventHandler, FC } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
 import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
-import { hostRuntime } from '../../hostRuntime.ts';
+import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
+import { AsyncResult } from 'effect/reactivity';
+import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
+import { classifyChatLinkHref, openChatLink } from '../../host/openChatLink.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
@@ -41,6 +45,7 @@ const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
 );
 
 const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
+  const supported = useAtomValue(openFileSupportedAtom);
   const label = image.name ?? `Image ${String(index + 1)}`;
   const { previewDataUrl, uri } = image;
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
@@ -75,8 +80,8 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
     };
   }, [previewDataUrl, uri]);
 
-  if (src !== undefined) {
-    return (
+  const tile =
+    src !== undefined ? (
       <Box
         alt={label}
         component="img"
@@ -87,10 +92,34 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
           objectFit: 'cover',
         }}
       />
+    ) : (
+      <BrokenImagePlaceholder label={`Broken image: ${label}`} />
     );
-  }
-
-  return <BrokenImagePlaceholder label={`Broken image: ${label}`} />;
+  const link =
+    uri === undefined
+      ? { kind: 'inert' as const }
+      : classifyChatLinkHref(
+          uri,
+          AsyncResult.getOrElse(supported, () => false),
+        );
+  if (link.kind !== 'file') return tile;
+  const open = () => hostRunPromise(openChatLink(link)).catch(() => undefined);
+  return (
+    <Box
+      onClick={open}
+      onKeyDown={event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          open();
+        }
+      }}
+      role="button"
+      sx={{ cursor: 'pointer' }}
+      tabIndex={0}
+    >
+      {tile}
+    </Box>
+  );
 };
 
 const TranscriptImageStrip: FC<{ readonly images: readonly UserMessageImageRef[] }> = ({ images }) => (

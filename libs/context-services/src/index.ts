@@ -4,4 +4,5 @@ export * from './FileDialog.ts';
 export * from './HostServices.ts';
 export * from './openQueuedChildProcessStdio.ts';
 export * from './OpenUrl.ts';
+export * from './OpenFile.ts';
 export * from './OS.ts';

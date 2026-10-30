@@ -179,6 +179,13 @@ export const IpcMessage = Schema.TaggedUnion({
   OpenUrlResult: {
     id: CorrelationId,
   },
+  OpenFile: {
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  OpenFileResult: {
+    id: CorrelationId,
+  },
   OsSnapshot: {
     id: CorrelationId,
   },

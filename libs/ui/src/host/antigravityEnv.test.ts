@@ -5,6 +5,7 @@ import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv
 describe('buildAntigravitySpawnEnv', () => {
   it('scrubs ambient Google / AGY / BROWSER keys and sets controlled BROWSER', () => {
     const env = buildAntigravitySpawnEnv({
+      antigravityAcpHome: '/home/operator/.ao/antigravity-acp/home',
       baseEnv: {
         AGY_ACP_ENABLE_OAUTH: '1',
         BROWSER: 'chrome',
@@ -15,7 +16,6 @@ describe('buildAntigravitySpawnEnv', () => {
         PATH: '/usr/bin',
       },
       browserHelperPath: '/home/operator/.ao/antigravity-acp/browser-helper',
-      geminiHome: '/home/operator/.ao/antigravity-acp/home',
       harnessPath: '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
       platform: 'darwin',
     });

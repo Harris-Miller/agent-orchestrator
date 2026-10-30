@@ -92,12 +92,12 @@ const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () 
   yield* ensureAntigravityAcpInstalled();
   const browserHelperPath = yield* ensureAntigravityBrowserHelper();
   const os = yield* OS;
-  const geminiHome = yield* antigravityAcpHomeDir();
+  const antigravityAcpHome = yield* antigravityAcpHomeDir();
   const harnessPath = yield* antigravityAcpHarnessPath();
   const env = buildAntigravitySpawnEnv({
+    antigravityAcpHome,
     baseEnv: os.env(),
     browserHelperPath,
-    geminiHome,
     harnessPath,
     platform: os.platform(),
   });

@@ -29,9 +29,9 @@ const shouldScrubKey = (key: string): boolean => {
 };
 
 export type AntigravitySpawnEnvInput = {
+  readonly antigravityAcpHome: string;
   readonly baseEnv: Readonly<Record<string, string | undefined>>;
   readonly browserHelperPath: string;
-  readonly geminiHome: string;
   readonly harnessPath: string;
   readonly platform: string;
   readonly runtimeTempDirectory?: string;
@@ -61,7 +61,7 @@ export const buildAntigravitySpawnEnv = (input: AntigravitySpawnEnvInput): Recor
     ANTIGRAVITY_HARNESS_PATH: input.harnessPath,
     BROWSER: input.browserHelperPath,
     ELECTRON_RUN_AS_NODE: '1',
-    GEMINI_HOME: input.geminiHome,
+    GEMINI_HOME: input.antigravityAcpHome,
     PYTHONUNBUFFERED: '1',
   };
 };

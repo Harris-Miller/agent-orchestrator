@@ -7,6 +7,7 @@ import type { BundledResource } from './BundledResource.ts';
 import type { Clipboard } from './Clipboard.ts';
 import type { FileDialog } from './FileDialog.ts';
 import type { OpenUrl } from './OpenUrl.ts';
+import type { OpenFile } from './OpenFile.ts';
 import type { OS } from './OS.ts';
 
 /** Portable host-capability aggregate (desktop: Tauri services; VS Code: IPC Live). */
@@ -18,5 +19,6 @@ export type HostServices =
   | FileSystem
   | HttpClient
   | OpenUrl
+  | OpenFile
   | OS
   | Path;

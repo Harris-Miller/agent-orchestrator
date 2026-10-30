@@ -7,6 +7,7 @@ import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, 
 import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
+import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
@@ -20,6 +21,8 @@ const hostBag = {
   hostRunPromiseExit,
   hostRuntime,
 };
+
+export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 
 export const {
   alwaysHiddenGlobsAtom,

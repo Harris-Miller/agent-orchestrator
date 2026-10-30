@@ -1,3 +1,4 @@
+import { Base64Image } from '@lib/context-services';
 import { Schema } from 'effect';
 
 /** Correlation id for request/response control messages. */
@@ -177,6 +178,20 @@ export const IpcMessage = Schema.TaggedUnion({
     url: Schema.String,
   },
   OpenUrlResult: {
+    id: CorrelationId,
+  },
+  OpenFile: {
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  OpenImageData: {
+    ...Base64Image.fields,
+    id: CorrelationId,
+  },
+  OpenImageDataResult: {
+    id: CorrelationId,
+  },
+  OpenFileResult: {
     id: CorrelationId,
   },
   OsSnapshot: {

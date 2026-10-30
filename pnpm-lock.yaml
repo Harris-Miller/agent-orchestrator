@@ -470,6 +470,9 @@ importers:
       '@lib/ao-home':
         specifier: workspace:^
         version: link:../../libs/ao-home
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../../libs/context-services
       '@lib/context-services-vscode-webview':
         specifier: workspace:^
         version: link:../../libs/context-services-vscode-webview

@@ -1,4 +1,5 @@
 import Box from '@mui/material/Box';
+import { useAtomValue } from '@effect/atom-react';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
@@ -12,11 +13,20 @@ import type { ClipboardEventHandler, FC } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
 import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
-import { hostRuntime } from '../../hostRuntime.ts';
+import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
+import { AsyncResult } from 'effect/reactivity';
+import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
+import {
+  base64ImageFromDataUrl,
+  classifyChatLinkHref,
+  openChatImageData,
+  openChatLink,
+} from '../../host/openChatLink.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
+import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
@@ -41,6 +51,7 @@ const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
 );
 
 const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
+  const supported = useAtomValue(openFileSupportedAtom);
   const label = image.name ?? `Image ${String(index + 1)}`;
   const { previewDataUrl, uri } = image;
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
@@ -75,8 +86,8 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
     };
   }, [previewDataUrl, uri]);
 
-  if (src !== undefined) {
-    return (
+  const tile =
+    src !== undefined ? (
       <Box
         alt={label}
         component="img"
@@ -87,10 +98,25 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
           objectFit: 'cover',
         }}
       />
+    ) : (
+      <BrokenImagePlaceholder label={`Broken image: ${label}`} />
     );
-  }
-
-  return <BrokenImagePlaceholder label={`Broken image: ${label}`} />;
+  const openSupported = AsyncResult.getOrElse(supported, () => false);
+  const link = uri === undefined ? { kind: 'inert' as const } : classifyChatLinkHref(uri, openSupported);
+  const imageData = openSupported && src !== undefined ? base64ImageFromDataUrl(src) : undefined;
+  const openEffect =
+    link.kind === 'file' ? openChatLink(link) : imageData === undefined ? undefined : openChatImageData(imageData);
+  if (openEffect === undefined) return tile;
+  return (
+    <Box
+      {...chatLinkHandlers(() => {
+        hostRunPromise(openEffect).catch(() => undefined);
+      })}
+      sx={{ cursor: 'pointer' }}
+    >
+      {tile}
+    </Box>
+  );
 };
 
 const TranscriptImageStrip: FC<{ readonly images: readonly UserMessageImageRef[] }> = ({ images }) => (
@@ -115,8 +141,15 @@ type TranscriptChipProps = {
 
 const TranscriptChip: FC<TranscriptChipProps> = props => {
   const { copyText, testId } = props;
+  const linkProps = useChatLinkProps(props.kind === 'markdownLink' ? (props.href ?? '') : '');
   return (
-    <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
+    <Box
+      component="span"
+      data-copy-text={copyText}
+      data-testid={testId}
+      sx={{ display: 'inline', ...(linkProps && { cursor: 'pointer' }) }}
+      {...linkProps}
+    >
       {props.kind === 'command' ? (
         <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
       ) : (

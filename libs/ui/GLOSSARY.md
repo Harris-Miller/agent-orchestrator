@@ -67,12 +67,15 @@ Choosing a filesystem path from the `@` Composer Menu; the draft receives a mark
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:
-A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. Label stays the raw invocation (no leading kind glyph). In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
+A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. Label stays the raw invocation (no leading kind glyph). In the composer it is a Lexical decorator; in user transcript bubbles it is an inert span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
 _Avoid_: Markdown Link Chip, skill pill, autocomplete token, mention chip (when you mean this pill)
 
 **Markdown Link Chip**:
-A display pill whose underlying text is a markdown link `[label](href)` (filesystem path or URL); shows the label only (not clickable) and may show a leading file-type or link glyph. In the composer it is a Lexical decorator; in user transcript bubbles it is a display-only span. The draft/transcript markdown string is the source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments. A Filesystem Mention is one way such a link enters the draft.
+A display pill whose underlying text is a markdown link `[label](href)` (filesystem path or URL); shows the label only and may show a leading file-type or link glyph. In the composer it is a Lexical decorator; in user transcript bubbles it is a span that follows the Chat Markdown Link click rules. The draft/transcript markdown string is the source of truth; on send, filesystem links become ACP ContentBlocks while non-filesystem links stay inside text segments. A Filesystem Mention is one way such a link enters the draft.
 _Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
+
+**Chat Markdown Link**:
+Inline link in rendered chat markdown from agent text, thoughts, or tool results. Only `http(s)` and Host-supported `file://` or workspace-path links are clickable; clicks never navigate the webview. Transcript Markdown Link Chips (user `resource` / `resource_link` prompts) follow the same rules. Scheme-less workspace paths resolve against the session cwd.
 
 **Composer Image Attachment**:
 A draft-side image picked via Host FileDialog, held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing). On `session/prompt`, when the Agent advertises `promptCapabilities.image`, it is sent as an ACP Image ContentBlock (`data` + `mimeType` + `uri`); otherwise as a baseline `type: "resource_link"` (not UI-gated, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load` / `user_message_chunk`, image-like `resource_link`s, ACP `type: "image"` blocks, `file://` image markdown links, or allowlisted `data:image/…;base64,…` markdown links lift into those refs (inline data / image blocks keep the preview; `file://` hydrates when possible).

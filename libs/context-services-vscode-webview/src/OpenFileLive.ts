@@ -1,0 +1,28 @@
+import type { Base64Image } from '@lib/context-services';
+import { OpenFile, OpenFileFailed } from '@lib/context-services';
+import { Effect, Layer } from 'effect';
+
+import type { IpcClient } from './protocol/ipcClient.ts';
+
+/** VS Code webview Live for {@link OpenFile}: Host IPC → extension `vscode.open` / `revealInExplorer`. */
+export const makeOpenFileLive = (client: IpcClient): Layer.Layer<OpenFile> => {
+  const request = Effect.fn('OpenFile.request')(function* (
+    message: { readonly _tag: 'OpenFile'; readonly path: string } | ({ readonly _tag: 'OpenImageData' } & Base64Image),
+  ) {
+    const response = yield* client
+      .request(id => ({ ...message, id }))
+      .pipe(
+        Effect.mapError(
+          cause => new OpenFileFailed({ cause, message: cause instanceof Error ? cause.message : String(cause) }),
+        ),
+      );
+    if (response._tag !== `${message._tag}Result`) {
+      return yield* new OpenFileFailed({ message: `Unexpected ${message._tag} response: ${response._tag}` });
+    }
+  });
+  return Layer.succeed(OpenFile, {
+    open: (path: string) => request({ _tag: 'OpenFile', path }),
+    openImageData: (image: Base64Image) => request({ _tag: 'OpenImageData', ...image }),
+    supported: true,
+  });
+};

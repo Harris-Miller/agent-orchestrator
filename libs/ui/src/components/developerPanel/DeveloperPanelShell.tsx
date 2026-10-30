@@ -19,7 +19,7 @@ import type { FC, ReactNode, SyntheticEvent } from 'react';
 import { allRpcWireCallsAtom, selectedSessionIdAtom } from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
@@ -167,7 +167,7 @@ const RpcWireLogBody: FC<{
               value={launchTargetFilter}
             >
               <MenuItem value={RPC_WIRE_FILTER_ALL}>All</MenuItem>
-              {ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => (
+              {MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => (
                 <MenuItem key={launchTarget} value={launchTarget}>
                   {agentLaunchTargetLabel(launchTarget)}
                 </MenuItem>

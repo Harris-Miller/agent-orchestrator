@@ -11,7 +11,7 @@ import {
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
   dropSession,
@@ -138,7 +138,7 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
         const listPayload = listSessionsPayload(get(sessionListScopeAtom));
         yield* Effect.forEach(
-          ALL_AGENT_LAUNCH_TARGETS,
+          MOUNTED_AGENT_LAUNCH_TARGETS,
           launchTarget =>
             Effect.gen(function* () {
               const snapshot = get(backendHarnessStateAtom(launchTarget));

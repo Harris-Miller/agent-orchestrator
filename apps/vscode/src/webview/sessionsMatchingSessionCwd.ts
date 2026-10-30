@@ -1,4 +1,6 @@
 import { resolveSessionCwd } from '@lib/ui/acp-session-bootstrap';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '@lib/ui/agent-launch-target';
+import type { AgentLaunchTarget } from '@lib/ui/agent-launch-target';
 
 type SessionLike = {
   readonly cwd?: string;
@@ -12,11 +14,8 @@ type SnapshotLike = {
   readonly sessions: Readonly<Record<string, SessionLike>>;
 };
 
-/** Launch targets the vscode webview mounts (keep in sync with AcpBackendsMount). */
-const MOUNTED_LAUNCH_TARGETS = ['codex-acp', 'claude-agent-acp', 'antigravity-acp', 'cursor-acp'] as const;
-
 export type MatchedSession = {
-  readonly launchTarget: (typeof MOUNTED_LAUNCH_TARGETS)[number];
+  readonly launchTarget: AgentLaunchTarget;
   readonly pendingClientRequest: 'config' | 'prompt' | undefined;
   readonly sessionId: string;
 };
@@ -26,11 +25,11 @@ export type MatchedSession = {
  * (exact equality, including both undefined).
  */
 export const sessionsMatchingSessionCwd = (
-  getSnapshot: (launchTarget: (typeof MOUNTED_LAUNCH_TARGETS)[number]) => SnapshotLike,
+  getSnapshot: (launchTarget: AgentLaunchTarget) => SnapshotLike,
   previousSessionCwd: string | undefined,
 ): readonly MatchedSession[] => {
   const matches: MatchedSession[] = [];
-  for (const launchTarget of MOUNTED_LAUNCH_TARGETS) {
+  for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
     for (const session of Object.values(snapshot.sessions)) {
       if (session.status === 'active' || session.status === 'activating') {

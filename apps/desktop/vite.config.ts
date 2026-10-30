@@ -1,32 +1,44 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(() => ({
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
-  clearScreen: false,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, rootDir, '');
+  return {
+    // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
+    //
+    // 1. prevent Vite from obscuring rust errors
+    clearScreen: false,
 
-  plugins: [react()],
-  // 2. tauri expects a fixed port, fail if that port is not available
-  server: {
-    hmr:
-      host != null
-        ? {
-            host,
-            port: 1421,
-            protocol: 'ws',
-          }
-        : undefined,
-    host: host ?? false,
-    port: 1420,
-    strictPort: true,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri` and the ACP adapter resource tree
-      ignored: ['**/src-tauri/**', '**/acp-adapter-resources/**'],
+    define: {
+      'process.env.AO_ANTIGRAVITY_BETA': JSON.stringify(env.AO_ANTIGRAVITY_BETA || ''),
+      'process.env.AO_CURSOR_BETA': JSON.stringify(env.AO_CURSOR_BETA || ''),
     },
-  },
-}));
+
+    plugins: [react()],
+    // 2. tauri expects a fixed port, fail if that port is not available
+    server: {
+      hmr:
+        host != null
+          ? {
+              host,
+              port: 1421,
+              protocol: 'ws',
+            }
+          : undefined,
+      host: host ?? false,
+      port: 1420,
+      strictPort: true,
+      watch: {
+        // 3. tell Vite to ignore watching `src-tauri` and the ACP adapter resource tree
+        ignored: ['**/src-tauri/**', '**/acp-adapter-resources/**'],
+      },
+    },
+  };
+});

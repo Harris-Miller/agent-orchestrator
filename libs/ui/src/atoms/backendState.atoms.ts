@@ -3,7 +3,7 @@ import { Atom } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../host/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
@@ -37,7 +37,7 @@ export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTar
 
 export const unifiedSessionRosterAtom = Atom.make(get => {
   const entries: UnifiedRosterEntry[] = [];
-  for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
+  for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     for (const entry of get(backendHarnessStateAtom(launchTarget)).sessionRoster) {
       entries.push({ ...entry, launchTarget });
     }
@@ -49,7 +49,7 @@ export const findLaunchTargetForSessionId = (
   getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot,
   sessionId: string,
 ): AgentLaunchTarget | undefined => {
-  for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
+  for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
     if (sessionId in snapshot.sessions || snapshot.sessionRoster.some(entry => entry.sessionId === sessionId)) {
       return launchTarget;
@@ -85,14 +85,14 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
 
 /** RPC wire logs for every mounted launch target (unified Developer panel wire tab). */
 export const allRpcWireCallsAtom = Atom.make(get =>
-  ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+  MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
     entries: get(backendHarnessStateAtom(launchTarget)).rpcCalls,
     launchTarget,
   })),
 ).pipe(Atom.keepAlive);
 
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
-  ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+  MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
     antigravityAuthUrl: get(backendHarnessStateAtom(launchTarget)).antigravityAuthUrl,
     error: get(backendHarnessStateAtom(launchTarget)).error,
     label: agentLaunchTargetLabel(launchTarget),
@@ -103,7 +103,7 @@ export const allLaunchTargetPhasesAtom = Atom.make(get =>
 
 /** Launch targets that completed Config probe with a nonempty index. */
 export const readyLaunchTargetsAtom = Atom.make(get =>
-  ALL_AGENT_LAUNCH_TARGETS.filter(
+  MOUNTED_AGENT_LAUNCH_TARGETS.filter(
     launchTarget =>
       get(backendHarnessStateAtom(launchTarget)).phase === 'ready' &&
       configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),

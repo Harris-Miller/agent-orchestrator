@@ -1,9 +1,9 @@
 import {
-  ALL_AGENT_LAUNCH_TARGETS,
   applyVirtualSessionFolderChurnEffect,
   backendHarnessStateAtom,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
+  MOUNTED_AGENT_LAUNCH_TARGETS,
   refreshAllSessionRostersAtomFn,
   rwFromRegistry,
   selectedAtom,
@@ -55,7 +55,7 @@ const clearSelectedIfMatched = (
 };
 
 const anyBackendReady = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
-  ALL_AGENT_LAUNCH_TARGETS.some(launchTarget => getSnapshot(launchTarget).phase === 'ready');
+  MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => getSnapshot(launchTarget).phase === 'ready');
 
 /** Apply folder paths + list scope (boot and non-first-path churn). */
 export const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {

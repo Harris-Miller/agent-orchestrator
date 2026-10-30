@@ -6,7 +6,7 @@
   "type": "module",
   "license": "ISC",
   "dependencies": {
-    "@agentclientprotocol/claude-agent-acp": "0.94.0",
-    "@agentclientprotocol/codex-acp": "2.2.2"
+    "@agentclientprotocol/claude-agent-acp": "0.99.0",
+    "@agentclientprotocol/codex-acp": "2.3.0"
   }
 }

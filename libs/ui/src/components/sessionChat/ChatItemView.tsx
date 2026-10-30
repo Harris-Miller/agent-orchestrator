@@ -16,7 +16,7 @@ import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host
 import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
 import { AsyncResult } from 'effect/reactivity';
 import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
-import { classifyChatLinkHref, openChatLink } from '../../host/openChatLink.ts';
+import { classifyChatLinkHref, openChatImageData, openChatLink } from '../../host/openChatLink.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
@@ -96,6 +96,7 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
     ) : (
       <BrokenImagePlaceholder label={`Broken image: ${label}`} />
     );
+  const openSupported = AsyncResult.getOrElse(supported, () => false);
   const link =
     uri === undefined
       ? { kind: 'inert' as const }
@@ -103,8 +104,10 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
           uri,
           AsyncResult.getOrElse(supported, () => false),
         );
-  if (link.kind !== 'file') return tile;
-  const open = () => hostRunPromise(openChatLink(link)).catch(() => undefined);
+  const canOpenData = link.kind !== 'file' && src?.startsWith('data:') === true && openSupported;
+  if (link.kind !== 'file' && !canOpenData) return tile;
+  const open = () =>
+    hostRunPromise(link.kind === 'file' ? openChatLink(link) : openChatImageData(src ?? '')).catch(() => undefined);
   return (
     <Box
       onClick={open}

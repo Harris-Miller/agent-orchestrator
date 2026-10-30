@@ -10,6 +10,7 @@ import type { IpcMessage, StdioMode } from '@lib/context-services-vscode-webview
 import * as vscode from 'vscode';
 
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir as osHomedir, tmpdir } from 'node:os';
@@ -19,6 +20,13 @@ import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import type { ProcessTracker } from './processTracker';
 
 export { fileWorkspaceFolderPaths };
+
+const IMAGE_TEMP_EXTENSIONS: Readonly<Record<string, string | undefined>> = {
+  'image/gif': 'gif',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 const post = (webview: vscode.Webview, message: IpcMessage, transfer?: ArrayBuffer[]): void => {
   const encoded = encodeIpcMessage(message);
@@ -90,6 +98,7 @@ type ExtensionInbound = Extract<
       | 'Kill'
       | 'OpenUrl'
       | 'OpenFile'
+      | 'OpenImageData'
       | 'OsSnapshot'
       | 'Spawn'
       | 'StdinChunk'
@@ -114,6 +123,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'Kill',
   'OpenUrl',
   'OpenFile',
+  'OpenImageData',
   'OsSnapshot',
   'Spawn',
   'StdinChunk',
@@ -290,6 +300,20 @@ export const handleHostIpcMessage = async (args: {
           uri,
         );
         post(webview, { _tag: 'OpenFileResult', id: message.id });
+        return;
+      }
+      case 'OpenImageData': {
+        const ext = IMAGE_TEMP_EXTENSIONS[message.mimeType];
+        if (ext === undefined) {
+          throw new Error(`Unsupported image type: ${message.mimeType}`);
+        }
+        const bytes = Buffer.from(message.base64, 'base64');
+        const dir = join(tmpdir(), 'agent-orchestrator-images');
+        await mkdir(dir, { recursive: true });
+        const file = join(dir, `${createHash('sha256').update(bytes).digest('hex').slice(0, 24)}.${ext}`);
+        await writeFile(file, bytes);
+        await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file));
+        post(webview, { _tag: 'OpenImageDataResult', id: message.id });
         return;
       }
       case 'OsSnapshot': {

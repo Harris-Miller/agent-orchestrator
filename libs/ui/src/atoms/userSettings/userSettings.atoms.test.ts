@@ -45,7 +45,11 @@ const fileDialogLayer = Layer.succeed(FileDialog, {
 const openUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
 });
-const openFileLayer = Layer.succeed(OpenFile, { supported: false, open: () => Effect.void });
+const openFileLayer = Layer.succeed(OpenFile, {
+  open: () => Effect.void,
+  openImageData: () => Effect.void,
+  supported: false,
+});
 
 const notFound = (method: string, path: string) =>
   PlatformError.systemError({

@@ -19,7 +19,7 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(OpenUrl, {
     open: () => Effect.void,
   }),
-  Layer.succeed(OpenFile, { supported: false, open: () => Effect.void }),
+  Layer.succeed(OpenFile, { open: () => Effect.void, openImageData: () => Effect.void, supported: false }),
   Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => '/home/operator',

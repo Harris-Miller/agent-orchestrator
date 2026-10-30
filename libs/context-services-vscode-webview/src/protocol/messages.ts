@@ -183,6 +183,14 @@ export const IpcMessage = Schema.TaggedUnion({
     id: CorrelationId,
     path: Schema.String,
   },
+  OpenImageData: {
+    base64: Schema.String,
+    id: CorrelationId,
+    mimeType: Schema.String,
+  },
+  OpenImageDataResult: {
+    id: CorrelationId,
+  },
   OpenFileResult: {
     id: CorrelationId,
   },

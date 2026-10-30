@@ -4,6 +4,8 @@ import { Effect, Option } from 'effect';
 import { Path } from 'effect/Path';
 import { defaultUrlTransform } from 'react-markdown';
 
+import { parseDataUrlBase64 } from './imageDataUrl.ts';
+
 export type ChatLink =
   | { readonly kind: 'url'; readonly url: string }
   | { readonly kind: 'file'; readonly url: URL }
@@ -53,6 +55,17 @@ export const classifyChatLinkHref = (
   }
   return { kind: 'inert' };
 };
+
+/** Open a data-URL image (replayed thumbnails have no file uri) via the Host's temp-file opener. */
+export const openChatImageData = (dataUrl: string): Effect.Effect<void, never, HostServices> =>
+  Effect.gen(function* () {
+    const parsed = parseDataUrlBase64(dataUrl);
+    if (parsed === undefined) return;
+    const service = yield* OpenFile;
+    yield* service
+      .openImageData(parsed.mimeType, parsed.data)
+      .pipe(Effect.tapError(error => Effect.logWarning('OpenFile.openImageData failed', error.message)));
+  }).pipe(Effect.ignore);
 
 export const chatLinkUrlTransform = (value: string, key: string) =>
   key === 'href' && value.startsWith('file:') ? value : defaultUrlTransform(value);

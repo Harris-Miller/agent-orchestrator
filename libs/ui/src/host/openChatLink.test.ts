@@ -61,7 +61,11 @@ describe('openChatLink', () => {
       const opened: string[] = [];
       const layer = Layer.mergeAll(
         Layer.succeed(OpenUrl, { open: url => Effect.sync(() => opened.push(url)) }),
-        Layer.succeed(OpenFile, { supported: true, open: path => Effect.sync(() => opened.push(path)) }),
+        Layer.succeed(OpenFile, {
+          open: path => Effect.sync(() => opened.push(path)),
+          openImageData: () => Effect.void,
+          supported: true,
+        }),
         posixPathLayer,
       );
       yield* openChatLink({ kind: 'url', url: 'https://example.com/' }).pipe(
@@ -81,8 +85,9 @@ describe('openChatLink', () => {
       const layer = Layer.mergeAll(
         Layer.succeed(OpenUrl, { open: () => Effect.fail(new OpenUrlFailed({ message: 'failed' })) }),
         Layer.succeed(OpenFile, {
-          supported: true,
           open: () => Effect.fail(new OpenFileFailed({ message: 'failed' })),
+          openImageData: () => Effect.fail(new OpenFileFailed({ message: 'failed' })),
+          supported: true,
         }),
         posixPathLayer,
       );

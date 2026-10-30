@@ -39,4 +39,21 @@ describe('makeOpenFileLive', () => {
       assert.match(error.message, /Unexpected OpenFile response/);
     }),
   );
+
+  it.effect('opens image bytes via Host IPC', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const seen: unknown[] = [];
+      extension.onMessage(raw => {
+        const message = decodeIpcMessage(raw);
+        if (message._tag === 'OpenImageData') {
+          seen.push({ base64: message.base64, mimeType: message.mimeType });
+          extension.postMessage(encodeIpcMessage({ _tag: 'OpenImageDataResult', id: message.id }));
+        }
+      });
+      const openFile = yield* OpenFile.pipe(Effect.provide(makeOpenFileLive(new IpcClient(webview))));
+      yield* openFile.openImageData('image/png', 'AAAA');
+      assert.deepStrictEqual(seen, [{ base64: 'AAAA', mimeType: 'image/png' }]);
+    }),
+  );
 });

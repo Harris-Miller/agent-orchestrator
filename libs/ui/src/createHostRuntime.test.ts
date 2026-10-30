@@ -33,7 +33,11 @@ const mockFileDialogLayer = Layer.succeed(FileDialog, {
 const mockOpenUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
 });
-const mockOpenFileLayer = Layer.succeed(OpenFile, { supported: false, open: () => Effect.void });
+const mockOpenFileLayer = Layer.succeed(OpenFile, {
+  open: () => Effect.void,
+  openImageData: () => Effect.void,
+  supported: false,
+});
 
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,

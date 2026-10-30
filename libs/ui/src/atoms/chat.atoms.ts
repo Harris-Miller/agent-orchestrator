@@ -195,6 +195,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
 
+        get.set(composerAttachmentsAtom(materialized.sessionId), []);
+        get.set(draftAtom(materialized.sessionId), '');
         yield* sendChatItemEffect(
           {
             attachments: materialized.attachments,
@@ -203,8 +205,6 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           },
           get,
         );
-        get.set(composerAttachmentsAtom(materialized.sessionId), []);
-        get.set(draftAtom(materialized.sessionId), '');
       }),
     )
     .pipe(Atom.keepAlive);

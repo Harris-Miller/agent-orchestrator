@@ -110,6 +110,14 @@ export const readyLaunchTargetsAtom = Atom.make(get =>
   ),
 ).pipe(Atom.keepAlive);
 
+export const selectableLaunchTargetsAtom = Atom.make(get =>
+  MOUNTED_AGENT_LAUNCH_TARGETS.filter(
+    launchTarget =>
+      get(backendHarnessStateAtom(launchTarget)).phase !== 'error' &&
+      configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
+  ),
+).pipe(Atom.keepAlive);
+
 export const selectSession = (get: Atom.FnContext, sessionId: string) => {
   if (get(virtualLifecycleInFlightAtom)) {
     return;

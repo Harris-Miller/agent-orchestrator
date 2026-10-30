@@ -7,6 +7,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   defectsFromActivationFailure,
   isSessionActiveOrActivating,
+  normalizeConfigOptions,
   normalizeSessionRoster,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
@@ -16,11 +17,14 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
   dropSession,
   markSessionInactive,
+  reconcileRoster,
   replaceSessionRoster,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { configValuesFromOptions } from '../host/configProbe.ts';
+import { reconcileConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
   closeSession,
@@ -30,9 +34,15 @@ import {
   listSessions,
   loadSession,
   resumeSession,
+  setConfigOption,
 } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, clearSelectedSessionIfMissing, selectedAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  clearSelectedSessionIfMissing,
+  configOptionIndexAtom,
+  selectedAtom,
+} from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
@@ -106,11 +116,9 @@ export const createSessionLifecycleAtoms = (
             return;
           }
 
-          const listPayload = listSessionsPayload(get(sessionListScopeAtom));
+          const scope = get(sessionListScopeAtom);
+          const listPayload = listSessionsPayload(scope);
           if (listPayload === undefined) {
-            const current = get(backendHarnessStateAtom(launchTarget));
-            get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
-            clearSelectedSessionIfMissing(get);
             return;
           }
 
@@ -122,7 +130,11 @@ export const createSessionLifecycleAtoms = (
             backendHarnessStateAtom(launchTarget),
             replaceSessionRoster(
               current,
-              excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+              reconcileRoster(
+                current.sessionRoster,
+                excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                scope,
+              ),
             ),
           );
           clearSelectedSessionIfMissing(get);
@@ -136,7 +148,8 @@ export const createSessionLifecycleAtoms = (
   const refreshAllSessionRostersAtomFn = atomRuntime
     .fn(
       Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        const listPayload = listSessionsPayload(get(sessionListScopeAtom));
+        const scope = get(sessionListScopeAtom);
+        const listPayload = listSessionsPayload(scope);
         yield* Effect.forEach(
           MOUNTED_AGENT_LAUNCH_TARGETS,
           launchTarget =>
@@ -146,8 +159,6 @@ export const createSessionLifecycleAtoms = (
                 return;
               }
               if (listPayload === undefined) {
-                const current = get(backendHarnessStateAtom(launchTarget));
-                get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
                 return;
               }
               const listResult = yield* listSessions(launchTarget, listPayload);
@@ -157,7 +168,11 @@ export const createSessionLifecycleAtoms = (
                 backendHarnessStateAtom(launchTarget),
                 replaceSessionRoster(
                   current,
-                  excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                  reconcileRoster(
+                    current.sessionRoster,
+                    excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                    scope,
+                  ),
                 ),
               );
             }),
@@ -287,10 +302,29 @@ export const createSessionLifecycleAtoms = (
         }
 
         const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
+        const activatedSession = buildActivatedSession(
+          arg.sessionId,
+          exit.value,
+          get(backendHarnessStateAtom(arg.launchTarget)).sessions[arg.sessionId],
+        );
+        const liveValues = configValuesFromOptions(normalizeConfigOptions(activatedSession.sessionConfiguration));
+        const reconciledValues = reconcileConfigValues(get(configOptionIndexAtom(arg.launchTarget)), liveValues);
+        const reconciledConfiguration = yield* applyConfigDiffs(
+          activatedSession.sessionConfiguration,
+          reconciledValues,
+          diff => setConfigOption(arg.launchTarget, arg.sessionId, diff.configId, diff),
+        ).pipe(
+          Effect.catchCause(cause =>
+            Effect.as(Effect.logWarning('Session config reconciliation failed during activation', cause), {
+              sessionConfiguration: activatedSession.sessionConfiguration,
+            }),
+          ),
+        );
         get.set(backendHarnessStateAtom(arg.launchTarget), {
           ...get(backendHarnessStateAtom(arg.launchTarget)),
           sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({
             ...buildActivatedSession(arg.sessionId, exit.value, session),
+            sessionConfiguration: reconciledConfiguration.sessionConfiguration,
             usage: persistedUsage,
           })),
         });

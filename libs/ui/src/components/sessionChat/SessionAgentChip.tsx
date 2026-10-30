@@ -17,9 +17,9 @@ export const SessionAgentChip: FC<{
   readonly disabled?: boolean;
   readonly interactive: boolean;
   readonly onChange?: (launchTarget: AgentLaunchTarget) => void;
-  readonly readyLaunchTargets: readonly AgentLaunchTarget[];
+  readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
   readonly value: AgentLaunchTarget | undefined;
-}> = ({ disabled = false, interactive, onChange, readyLaunchTargets, value }) => {
+}> = ({ disabled = false, interactive, onChange, selectableLaunchTargets, value }) => {
   const menu = useComposerChromeMenu();
   const label = value === undefined ? 'Agent' : agentLaunchTargetLabel(value);
 
@@ -33,7 +33,7 @@ export const SessionAgentChip: FC<{
       </ComposerChromeChip>
       {interactive ? (
         <Menu {...menu.menuProps}>
-          {readyLaunchTargets.map(launchTarget => (
+          {selectableLaunchTargets.map(launchTarget => (
             <MenuItem
               key={launchTarget}
               onClick={() => {

@@ -59,7 +59,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session roster**:
-Cached `session/list` results across mounted backend harnesses; shown in the Harness UI grouped by session cwd except sessions classified into the No Folder group (each row carries its agent launch target). Can be refreshed with another `session/list` without restarting the backend harnesses.
+Cached `session/list` results across mounted backend harnesses; hydrated from ao-home before startup and grouped by session cwd except sessions classified into the No Folder group. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target.
 _Avoid_: Session list, session catalog, session drawer
 
 **No Folder group**:
@@ -103,7 +103,7 @@ Harness step on first Send that promotes a Bound Virtual session into a Roster e
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
-Ephemeral State Atom per agent launch target: `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Filled by Config probe during Bootstrap; consumed by Handoff. Not Session configuration, User settings, or ao-home.
+Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache and refreshed by Config probe during Bootstrap; consumed by Handoff. Not Session configuration or User settings.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:

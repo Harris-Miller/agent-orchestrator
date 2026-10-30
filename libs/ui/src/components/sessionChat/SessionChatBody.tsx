@@ -106,6 +106,7 @@ export const SessionChatBody: FC<{
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    selectableLaunchTargets,
     requestFork,
     selectedLaunchTarget,
     selectedSession,
@@ -685,7 +686,7 @@ export const SessionChatBody: FC<{
                 onChange={launchTarget => {
                   setVirtualLaunchTarget(launchTarget).catch(() => undefined);
                 }}
-                readyLaunchTargets={readyLaunchTargets}
+                selectableLaunchTargets={selectableLaunchTargets}
                 value={selectedLaunchTarget}
               />
               {partitionedConfig.modelEffort !== undefined ? (
@@ -814,6 +815,7 @@ export const SessionChatBody: FC<{
           }}
           open
           readyLaunchTargets={readyLaunchTargets}
+          selectableLaunchTargets={selectableLaunchTargets}
           sourceLaunchTarget={selectedLaunchTarget}
         />
       ) : null}

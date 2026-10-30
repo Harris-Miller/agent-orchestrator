@@ -50,8 +50,10 @@ export const SessionRosterRow: FC<{
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
+  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
 
   const activateRosterEntry = () => {
+    if (unavailable) return;
     // activateSession selects + no-ops when already active/activating (Codex-safe).
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
@@ -64,6 +66,7 @@ export const SessionRosterRow: FC<{
     <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
       <Paper
         elevation={0}
+        aria-disabled={unavailable}
         onClick={activateRosterEntry}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -72,7 +75,7 @@ export const SessionRosterRow: FC<{
           }
         }}
         role="button"
-        sx={sessionCardSx(selected)}
+        sx={{ ...sessionCardSx(selected), ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}) }}
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
@@ -120,6 +123,7 @@ export const SessionRosterRow: FC<{
         <Stack spacing={1} sx={{ p: 1 }}>
           {hasSessionArchiveCapability(snapshot.initializeResult) ? (
             <Button
+              disabled={unavailable}
               onClick={() => {
                 closeMenu();
                 archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
@@ -133,6 +137,7 @@ export const SessionRosterRow: FC<{
           ) : null}
           <Button
             color="error"
+            disabled={unavailable}
             onClick={() => {
               closeMenu();
               onDeleteRequest(entry);

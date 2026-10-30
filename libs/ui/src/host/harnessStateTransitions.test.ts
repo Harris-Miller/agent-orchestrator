@@ -6,11 +6,39 @@ import {
   beginClientRequest,
   dropSession,
   endClientRequest,
+  markRosterUnavailable,
   markSessionInactive,
+  reconcileRoster,
   replaceSessionRoster,
   stripSessionPendings,
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
+
+describe('reconcileRoster', () => {
+  const current = [
+    { cwd: '/a', sessionId: 'a' },
+    { cwd: '/b', sessionId: 'b' },
+  ];
+  it('replaces unscoped results, including empty results', () => {
+    assert.deepStrictEqual(reconcileRoster(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
+      { cwd: '/c', sessionId: 'c' },
+    ]);
+    assert.deepStrictEqual(reconcileRoster(current, [], { _tag: 'Unscoped' }), []);
+  });
+  it('replaces only matching cwd and preserves Skip', () => {
+    assert.deepStrictEqual(reconcileRoster(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
+      { cwd: '/b', sessionId: 'b' },
+      { cwd: '/a', sessionId: 'c' },
+    ]);
+    assert.deepStrictEqual(reconcileRoster(current, [], { _tag: 'Skip' }), current);
+  });
+  it('marks hydrated entries unavailable', () => {
+    assert.deepStrictEqual(
+      markRosterUnavailable(current),
+      current.map(entry => ({ ...entry, unavailable: true })),
+    );
+  });
+});
 
 const readySnapshot = (sessions: Readonly<Record<string, SessionSnapshot>> = {}): BackendHarnessSnapshot => ({
   ...initialBackendHarnessSnapshot(),

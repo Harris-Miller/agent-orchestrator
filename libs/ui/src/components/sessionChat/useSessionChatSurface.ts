@@ -6,6 +6,7 @@ import {
   backendHarnessStateAtom,
   configOptionIndexAtom,
   readyLaunchTargetsAtom,
+  selectableLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -48,6 +49,7 @@ export const useSessionChatSurface = () => {
   const virtualLifecycleInFlight = useAtomValue(virtualLifecycleInFlightAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
+  const selectableLaunchTargets = useAtomValue(selectableLaunchTargetsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
   const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
@@ -191,6 +193,7 @@ export const useSessionChatSurface = () => {
     isVirtual,
     pendingClientRequest,
     readyLaunchTargets,
+    selectableLaunchTargets,
     requestFork,
     selectedLaunchTarget,
     selectedSession,

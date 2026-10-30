@@ -20,6 +20,14 @@ _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User set
 Per agent launch target durable session list under `adapters/<launchTarget>/roster.json` inside the Agent Orchestrator home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness in-memory session roster cache.
 _Avoid_: session roster (Harness term), user settings, session snapshot
 
+**Application session index**:
+Harness-owned durable view of listed sessions under `harness/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup; distinct from the Adapter roster document, which belongs to an ACP adapter.
+_Avoid_: Adapter roster document, live session list
+
+**Config option index cache**:
+Durable per-launch-target copy of the Config option index under `harness/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
+_Avoid_: Provider catalog, session configuration
+
 **Adapter roster lock**:
 Cross-process lockfile at `adapters/<launchTarget>/roster.lock` (next to `roster.json`) guarding read-modify-write of an adapter roster document so multiple adapter processes do not corrupt shared durable state. Acquire needs a `FileSystem` that supports `open` with `"wx"` (Node adapter process; not the host webview FS). If a crash leaves the lock wedged, delete `roster.lock` manually.
 _Avoid_: file lock (generic), mutex

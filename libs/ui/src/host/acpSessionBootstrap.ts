@@ -104,6 +104,7 @@ export type NormalizedSessionInfo = {
   readonly sessionId: string;
   readonly title?: string;
   readonly updatedAt?: string;
+  readonly unavailable?: true;
 };
 
 export type UnifiedRosterEntry = {

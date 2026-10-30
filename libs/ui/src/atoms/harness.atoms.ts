@@ -1,5 +1,6 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
-import { writeSessionUsage } from '@lib/ao-home';
+import { writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
+import type { LaunchTarget } from '@lib/ao-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
@@ -8,6 +9,8 @@ import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/a
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
+import { reconcileConfigValues } from '../host/configOptionIndexUi.ts';
+import { markRosterUnavailable, reconcileRoster } from '../host/harnessStateTransitions.ts';
 import {
   requestAntigravitySignIn,
   resetBackendHarnessState,
@@ -51,11 +54,22 @@ export const createHarnessAtoms = (
                 antigravityAuthUrl: url,
               }));
             },
-            onConfigOptionIndexClear: () => {
-              get.registry.set(configOptionIndexAtom(launchTarget), undefined);
-            },
             onConfigOptionIndexPublish: index => {
               get.registry.set(configOptionIndexAtom(launchTarget), index);
+              const virtual = get.registry.get(virtualSessionAtom);
+              if (virtual?.launchTarget === launchTarget) {
+                get.registry.set(virtualSessionAtom, {
+                  ...virtual,
+                  configValues: reconcileConfigValues(index, virtual.configValues),
+                });
+              }
+              hostRunFork(
+                writeConfigOptionIndexCache(launchTarget as LaunchTarget, index).pipe(
+                  Effect.catchCause(cause =>
+                    Effect.logWarning('config option index persist failed', launchTarget, cause),
+                  ),
+                ),
+              );
             },
             onElicitationCreate: (sessionId, request, resolve) => {
               updateState(current => ({
@@ -118,11 +132,15 @@ export const createHarnessAtoms = (
                 ],
               }));
             },
-            onSessionRosterResult: listResult => {
+            onSessionRosterResult: (listResult, scope) => {
               const boundSessionId = get.registry.get(virtualSessionAtom)?.sessionId;
               updateState(current => ({
                 ...current,
-                sessionRoster: excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                sessionRoster: reconcileRoster(
+                  current.sessionRoster,
+                  excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                  scope,
+                ),
               }));
             },
             onSessionUpdate: (sessionId, update) => {
@@ -155,8 +173,11 @@ export const createHarnessAtoms = (
 
   const resetAndRefreshHarness = (launchTarget: AgentLaunchTarget, get: Atom.FnContext): void => {
     resetBackendHarnessState(launchTarget);
-    get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
-    get.set(configOptionIndexAtom(launchTarget), undefined);
+    const current = get.registry.get(backendHarnessStateAtom(launchTarget));
+    get.set(backendHarnessStateAtom(launchTarget), {
+      ...initialBackendHarnessSnapshot(),
+      sessionRoster: markRosterUnavailable(current.sessionRoster),
+    });
     clearSelectedSessionIfMissing(get);
     get.refresh(backendHarnessAtom(launchTarget));
   };

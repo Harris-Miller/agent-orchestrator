@@ -7,6 +7,24 @@ import type {
 } from './acpSessionBootstrap.ts';
 import { upsertRosterEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
+import type { SessionListScope } from './sessionListScope.ts';
+
+export const markRosterUnavailable = (roster: readonly NormalizedSessionInfo[]): readonly NormalizedSessionInfo[] =>
+  roster.map(entry => ({ ...entry, unavailable: true }));
+
+export const reconcileRoster = (
+  current: readonly NormalizedSessionInfo[],
+  listed: readonly NormalizedSessionInfo[],
+  scope: SessionListScope,
+): readonly NormalizedSessionInfo[] => {
+  if (scope._tag === 'Unscoped') return listed;
+  if (scope._tag === 'Skip') return current;
+  const ids = new Set(listed.map(entry => entry.sessionId));
+  const kept = current.filter(entry => entry.cwd !== scope.cwd && !ids.has(entry.sessionId));
+  const byId = new Map(kept.map(entry => [entry.sessionId, entry]));
+  for (const entry of listed) byId.set(entry.sessionId, entry);
+  return [...byId.values()];
+};
 
 /** Clear pending client request / elicitation / permission on the listed sessions. */
 export const stripSessionPendings = (

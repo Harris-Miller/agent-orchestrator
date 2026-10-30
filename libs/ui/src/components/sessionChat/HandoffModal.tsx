@@ -31,13 +31,22 @@ export const HandoffModal: FC<{
   readonly onConfirm: (arg: { configValues: ConfigOptionValues; targetLaunchTarget: AgentLaunchTarget }) => void;
   readonly open: boolean;
   readonly readyLaunchTargets: readonly AgentLaunchTarget[];
+  readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
   readonly sourceLaunchTarget: AgentLaunchTarget;
-}> = ({ getConfigOptionIndex, onCancel, onConfirm, open, readyLaunchTargets, sourceLaunchTarget }) => {
+}> = ({
+  getConfigOptionIndex,
+  onCancel,
+  onConfirm,
+  open,
+  readyLaunchTargets,
+  selectableLaunchTargets,
+  sourceLaunchTarget,
+}) => {
   const [targetLaunchTarget, setTargetLaunchTarget] = useState<AgentLaunchTarget | undefined>(() =>
-    initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget),
+    initialLaunchTarget(selectableLaunchTargets, sourceLaunchTarget),
   );
   const [configValues, setConfigValues] = useState<ConfigOptionValues>(() => {
-    const launchTarget = initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget);
+    const launchTarget = initialLaunchTarget(selectableLaunchTargets, sourceLaunchTarget);
     return hardResetForAgent(launchTarget === undefined ? undefined : getConfigOptionIndex(launchTarget)).values;
   });
 
@@ -72,7 +81,7 @@ export const HandoffModal: FC<{
               setTargetLaunchTarget(next);
               setConfigValues(hardResetForAgent(getConfigOptionIndex(next)).values);
             }}
-            readyLaunchTargets={readyLaunchTargets}
+            selectableLaunchTargets={selectableLaunchTargets}
             value={targetLaunchTarget}
           />
           {partitioned.modelEffort !== undefined ? (

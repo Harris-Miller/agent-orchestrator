@@ -35,8 +35,12 @@ OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in 
 _Avoid_: elicitation URL
 
 **Config option index**:
-Ephemeral per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models.
+Per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, then refreshed and persisted after a successful probe.
 _Avoid_: Provider catalog, harness defaults, config catalog
+
+**Session roster**:
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces.
+_Avoid_: Adapter roster document, session snapshot
 
 **Unavailable model**:
 A model id advertised on `session/new` whose probe `session/set_config_option` soft-failed; kept visible in model selects as disabled `(unavailable)`, not present in the probed per-model rows.

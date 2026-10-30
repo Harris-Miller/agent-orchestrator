@@ -47,6 +47,7 @@ export {
 } from './atoms/virtualSession.atoms.ts';
 export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
+export * from './components/HarnessCacheGate.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
 export * from './components/developerPanel/OpenDeveloperPanelButton.tsx';

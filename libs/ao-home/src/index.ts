@@ -14,6 +14,25 @@ export {
   AdapterRosterEntrySchema,
   emptyAdapterRoster,
 } from './AdapterRosterDocument.ts';
+export { harnessDirPath, readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
+export {
+  emptySessionIndex,
+  SessionIndexDocumentJsonString,
+  SessionIndexDocumentSchema,
+  type SessionIndexDocument,
+  SessionIndexEntrySchema,
+  type SessionIndexEntry,
+} from './SessionIndexDocument.ts';
+export {
+  configOptionIndexCachePath,
+  readConfigOptionIndexCache,
+  writeConfigOptionIndexCache,
+} from './configOptionIndexCache.ts';
+export {
+  ConfigOptionIndexDocumentJsonString,
+  ConfigOptionIndexDocumentSchema,
+  type ConfigOptionIndexDocument,
+} from './ConfigOptionIndexDocument.ts';
 export {
   ANTIGRAVITY_ACP_BROWSER_HELPER_NAME,
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,

@@ -1,0 +1,15 @@
+[mcp_servers.tauri]
+command = "npx"
+args = ["-y", "@hypothesi/tauri-mcp-server"]
+
+[mcp_servers.grafana]
+command = "uvx"
+args = ["mcp-grafana"]
+env = { GRAFANA_URL = "http://localhost:3000" }
+
+[mcp_servers.tempo]
+url = "http://localhost:3200/api/mcp"
+
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9222", "--experimental-include-all-pages"]

@@ -15,7 +15,7 @@ export const ALL_AGENT_LAUNCH_TARGETS = [
 export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string => {
   switch (launchTarget) {
     case 'antigravity-acp':
-      return 'Antigravity';
+      return 'Antigravity (beta)';
     case 'claude-agent-acp':
       return 'Claude';
     case 'codex-acp':

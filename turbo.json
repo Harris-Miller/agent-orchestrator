@@ -8,19 +8,9 @@
     },
     "lint": {},
     "//#format:check": {
-      "inputs": [
-        "$TURBO_ROOT$/.oxfmtrc.json",
-        "$TURBO_ROOT$/**/*",
-        "!$TURBO_ROOT$/.git/**",
-        "!$TURBO_ROOT$/node_modules/**",
-        "!$TURBO_ROOT$/**/node_modules/**",
-        "!$TURBO_ROOT$/**/dist/**",
-        "!$TURBO_ROOT$/**/.turbo/**",
-        "!$TURBO_ROOT$/**/coverage/**",
-        "!$TURBO_ROOT$/.agents/**",
-        "!$TURBO_ROOT$/graphify-out/**",
-        "!$TURBO_ROOT$/pnpm-lock.yaml"
-      ]
+      // caching everything that oxfmt touches takes significantly longer that running format:check
+      // so just don't cache
+      "cache": false
     },
     "//#install-acp-adapter-deps": {
       "inputs": ["acp-adapter-resources/package.json", "acp-adapter-resources/pnpm-lock.yaml"],

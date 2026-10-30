@@ -1,6 +1,6 @@
 # desktop
 
-Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex, Claude, Antigravity, and Cursor) without embedding vendor LLM SDKs.
+Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex, Claude, and optionally Antigravity / Cursor when beta flags are on) without embedding vendor LLM SDKs.
 
 ## Application
 
@@ -153,7 +153,7 @@ _Avoid_: Open session, live session
 ## Agent backends
 
 **Agent provider**:
-An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, **Antigravity**, and **Cursor**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
+An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, and (when compile-time beta flags enable them) **Antigravity** and **Cursor**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:

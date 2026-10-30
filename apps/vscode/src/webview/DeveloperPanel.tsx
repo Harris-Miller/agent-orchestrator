@@ -1,11 +1,9 @@
 import { useAtomValue } from '@effect/atom-react';
 import type { SessionSnapshot } from '@lib/ui';
-import { DeveloperPanelShell, sessionListScopeAtom } from '@lib/ui';
+import { DeveloperPanelShell, sessionCwdAtom, sessionListScopeAtom, workspaceFolderPathsAtom } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
-
-import { sessionCwdAtom, workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
 const WORKSPACE_CWD_TAB = 'workspace-cwd' as const;
 

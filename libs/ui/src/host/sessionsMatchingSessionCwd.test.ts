@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { firstFolderPath, sessionsMatchingSessionCwd } from '../sessionsMatchingSessionCwd.ts';
+import { firstFolderPath, sessionsMatchingSessionCwd } from './sessionsMatchingSessionCwd.ts';
 
 const emptySnapshot = { sessionRoster: [], sessions: {} };
 

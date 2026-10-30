@@ -1,12 +1,11 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { ensureVirtualSessionAtomFn, LucideMuiIcon } from '@lib/ui';
+import { ensureVirtualSessionAtomFn, LucideMuiIcon, sessionCwdAtom } from '@lib/ui';
 import IconButton from '@mui/material/IconButton';
 import { Plus } from 'lucide-react';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
 import { OnClientErrorContext } from './onClientError.tsx';
-import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
 /** Shared Create (+) that ensures the one Virtual session with Workspace cwd. */
 export const CreateVirtualSessionButton: FC<{ readonly disabled?: boolean }> = ({ disabled = false }) => {

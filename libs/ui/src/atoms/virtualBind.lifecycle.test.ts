@@ -5,7 +5,6 @@ import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
-import type { AsyncResult, Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -19,6 +18,7 @@ import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import {
   ensureVirtualAcpBound,
   excludeBoundVirtualFromRoster,
+  runAtomFn,
   rwFromRegistry,
   teardownVirtualAcpBind,
 } from './virtualBind.ts';
@@ -29,16 +29,6 @@ import {
   setVirtualLaunchTarget,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
-
-const runAtomFn = <A, E, W>(
-  registry: AtomRegistry.AtomRegistry,
-  atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
-  arg: W,
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    registry.set(atom, arg);
-    return yield* AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true });
-  });
 
 const mockHostLayer = Layer.mergeAll(
   Layer.succeed(BundledResource, {

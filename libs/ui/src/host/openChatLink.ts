@@ -57,21 +57,25 @@ export const classifyChatLinkHref = (
 };
 
 /** Open a data-URL image (replayed thumbnails have no file uri) via the Host's temp-file opener. */
-export const openChatImageData = (dataUrl: string): Effect.Effect<void, never, HostServices> =>
-  Effect.gen(function* () {
+export const openChatImageData: (dataUrl: string) => Effect.Effect<void, never, HostServices> = Effect.fn(
+  'openChatImageData',
+)(
+  function* (dataUrl: string) {
     const parsed = parseDataUrlBase64(dataUrl);
     if (parsed === undefined) return;
     const service = yield* OpenFile;
     yield* service
       .openImageData(parsed.mimeType, parsed.data)
       .pipe(Effect.tapError(error => Effect.logWarning('OpenFile.openImageData failed', error.message)));
-  }).pipe(Effect.ignore);
+  },
+  effect => Effect.ignore(effect),
+);
 
 export const chatLinkUrlTransform = (value: string, key: string) =>
   key === 'href' && value.startsWith('file:') ? value : defaultUrlTransform(value);
 
-export const openChatLink = (link: ChatLink): Effect.Effect<void, never, HostServices> =>
-  Effect.gen(function* () {
+export const openChatLink: (link: ChatLink) => Effect.Effect<void, never, HostServices> = Effect.fn('openChatLink')(
+  function* (link: ChatLink) {
     if (link.kind === 'url') {
       const service = yield* OpenUrl;
       yield* service.open(link.url).pipe(Effect.tapError(error => Effect.logWarning('OpenUrl failed', error.message)));
@@ -88,7 +92,7 @@ export const openChatLink = (link: ChatLink): Effect.Effect<void, never, HostSer
         .open(absolute.value)
         .pipe(Effect.tapError(error => Effect.logWarning('OpenFile failed', error.message)));
     }
-  }).pipe(
-    Effect.tapError(error => Effect.logWarning('Chat link open failed', error)),
-    Effect.ignore,
-  );
+  },
+  effect => effect.pipe(Effect.tapError(error => Effect.logWarning('Chat link open failed', error))),
+  effect => Effect.ignore(effect),
+);

@@ -67,7 +67,7 @@ Choosing a filesystem path from the `@` Composer Menu; the draft receives a mark
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:
-A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. Label stays the raw invocation (no leading kind glyph). In the composer it is a Lexical decorator; in user transcript bubbles it is a span that follows the Chat Markdown Link click rules. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
+A display pill for a completed invocation token (`/name` or `$name`) that exact-matches a current Available Command. Label stays the raw invocation (no leading kind glyph). In the composer it is a Lexical decorator; in user transcript bubbles it is an inert span. Commands remain plain text in the draft, in stored user-message text, and in `session/prompt` text segments; chips re-evaluate against the current Available Commands list.
 _Avoid_: Markdown Link Chip, skill pill, autocomplete token, mention chip (when you mean this pill)
 
 **Markdown Link Chip**:

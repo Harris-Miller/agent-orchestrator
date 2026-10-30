@@ -2,6 +2,7 @@
  * Composer image attachment model: MIME allowlist, caps, validation, and
  * image-like `resource_link` detection. Prompt assembly lives in draftToContentBlocks.
  */
+import { OpenableImageMimeType } from '@lib/context-services';
 import type { ContentBlock } from '@libs/effect-acp';
 import { Effect, Schema } from 'effect';
 
@@ -10,12 +11,7 @@ import { isRecord } from '../isRecord.ts';
 import { base64FromDataUrl, parseDataUrlBase64 } from './imageDataUrl.ts';
 
 /** MIME allowlist for composer image attachments (decoded bytes before base64). */
-export const IMAGE_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
-  'image/gif',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+export const IMAGE_MIME_ALLOWLIST: ReadonlySet<string> = new Set(OpenableImageMimeType.literals);
 
 export const IMAGE_ATTACH_MAX_COUNT = 10;
 export const IMAGE_ATTACH_MAX_BYTES_PER = 5 * 1024 * 1024;

@@ -16,12 +16,17 @@ import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host
 import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
 import { AsyncResult } from 'effect/reactivity';
 import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
-import { classifyChatLinkHref, openChatImageData, openChatLink } from '../../host/openChatLink.ts';
+import {
+  base64ImageFromDataUrl,
+  classifyChatLinkHref,
+  openChatImageData,
+  openChatLink,
+} from '../../host/openChatLink.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
-import { useChatLinkProps } from './useChatLinkProps.ts';
+import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
@@ -97,29 +102,17 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
       <BrokenImagePlaceholder label={`Broken image: ${label}`} />
     );
   const openSupported = AsyncResult.getOrElse(supported, () => false);
-  const link =
-    uri === undefined
-      ? { kind: 'inert' as const }
-      : classifyChatLinkHref(
-          uri,
-          AsyncResult.getOrElse(supported, () => false),
-        );
-  const canOpenData = link.kind !== 'file' && src?.startsWith('data:') === true && openSupported;
-  if (link.kind !== 'file' && !canOpenData) return tile;
-  const open = () =>
-    hostRunPromise(link.kind === 'file' ? openChatLink(link) : openChatImageData(src ?? '')).catch(() => undefined);
+  const link = uri === undefined ? { kind: 'inert' as const } : classifyChatLinkHref(uri, openSupported);
+  const imageData = openSupported && src !== undefined ? base64ImageFromDataUrl(src) : undefined;
+  const openEffect =
+    link.kind === 'file' ? openChatLink(link) : imageData === undefined ? undefined : openChatImageData(imageData);
+  if (openEffect === undefined) return tile;
   return (
     <Box
-      onClick={open}
-      onKeyDown={event => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          open();
-        }
-      }}
-      role="button"
+      {...chatLinkHandlers(() => {
+        hostRunPromise(openEffect).catch(() => undefined);
+      })}
       sx={{ cursor: 'pointer' }}
-      tabIndex={0}
     >
       {tile}
     </Box>

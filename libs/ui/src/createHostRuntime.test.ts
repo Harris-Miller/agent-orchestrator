@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -7,6 +7,7 @@ import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
+import { mockOpenFileLayer } from './atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from './createHostRuntime.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
@@ -32,11 +33,6 @@ const mockFileDialogLayer = Layer.succeed(FileDialog, {
 
 const mockOpenUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
-});
-const mockOpenFileLayer = Layer.succeed(OpenFile, {
-  open: () => Effect.void,
-  openImageData: () => Effect.void,
-  supported: false,
 });
 
 const mockSpawnerLayer = Layer.succeed(

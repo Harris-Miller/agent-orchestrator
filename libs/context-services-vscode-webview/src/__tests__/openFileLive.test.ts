@@ -52,7 +52,7 @@ describe('makeOpenFileLive', () => {
         }
       });
       const openFile = yield* OpenFile.pipe(Effect.provide(makeOpenFileLive(new IpcClient(webview))));
-      yield* openFile.openImageData('image/png', 'AAAA');
+      yield* openFile.openImageData({ base64: 'AAAA', mimeType: 'image/png' });
       assert.deepStrictEqual(seen, [{ base64: 'AAAA', mimeType: 'image/png' }]);
     }),
   );

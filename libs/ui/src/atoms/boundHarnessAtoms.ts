@@ -3,12 +3,11 @@
  * Load only after the app calls bind (desktop: import `./bindHostRuntime.ts` first).
  */
 import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, hostRuntime } from '../hostRuntime.ts';
-import { Effect } from 'effect';
-import { OpenFile } from '@lib/context-services';
 
 import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
+import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
@@ -23,7 +22,7 @@ const hostBag = {
   hostRuntime,
 };
 
-export const openFileSupportedAtom = atomRuntime.atom(Effect.map(OpenFile, service => service.supported));
+export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 
 export const {
   alwaysHiddenGlobsAtom,

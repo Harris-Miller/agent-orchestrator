@@ -5,6 +5,13 @@ import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 
+/** Host without editor support: file links render inert. */
+export const mockOpenFileLayer = Layer.succeed(OpenFile, {
+  open: () => Effect.void,
+  openImageData: () => Effect.void,
+  supported: false,
+});
+
 export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(BundledResource, {
     resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
@@ -19,7 +26,7 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(OpenUrl, {
     open: () => Effect.void,
   }),
-  Layer.succeed(OpenFile, { open: () => Effect.void, openImageData: () => Effect.void, supported: false }),
+  mockOpenFileLayer,
   Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => '/home/operator',

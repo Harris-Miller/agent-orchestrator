@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -12,6 +12,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
+import { mockOpenFileLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -44,11 +45,6 @@ const fileDialogLayer = Layer.succeed(FileDialog, {
 
 const openUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
-});
-const openFileLayer = Layer.succeed(OpenFile, {
-  open: () => Effect.void,
-  openImageData: () => Effect.void,
-  supported: false,
 });
 
 const notFound = (method: string, path: string) =>
@@ -101,7 +97,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     clipboardLayer,
     fileDialogLayer,
     openUrlLayer,
-    openFileLayer,
+    mockOpenFileLayer,
     osLayer,
     mapFsLayer(store, overrides),
     posixPathLayer,

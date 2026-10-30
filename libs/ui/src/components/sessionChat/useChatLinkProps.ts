@@ -14,6 +14,17 @@ export type ChatLinkProps = {
   readonly tabIndex: 0;
 };
 
+/** Click/Enter props that run `open` without navigating the webview; clicks that end a text selection are ignored. */
+export const chatLinkHandlers = (open: () => void): ChatLinkProps => {
+  const handle = (event: KeyboardEvent<HTMLElement> | MouseEvent<HTMLElement>) => {
+    if ('key' in event && event.key !== 'Enter') return;
+    event.preventDefault();
+    if ('button' in event && window.getSelection()?.isCollapsed === false) return;
+    open();
+  };
+  return { onClick: handle, onKeyDown: handle, role: 'link', tabIndex: 0 };
+};
+
 /** Click/keyboard props for a clickable Chat link, or `undefined` when the href is inert. Never navigates the webview. */
 export const useChatLinkProps = (href: string): ChatLinkProps | undefined => {
   const supported = useAtomValue(openFileSupportedAtom);
@@ -24,11 +35,7 @@ export const useChatLinkProps = (href: string): ChatLinkProps | undefined => {
     sessionCwd,
   );
   if (link.kind === 'inert') return undefined;
-  const open = (event: KeyboardEvent<HTMLElement> | MouseEvent<HTMLElement>) => {
-    if ('key' in event && event.key !== 'Enter') return;
-    event.preventDefault();
-    if ('button' in event && window.getSelection()?.isCollapsed === false) return;
+  return chatLinkHandlers(() => {
     hostRunPromise(openChatLink(link)).catch(() => undefined);
-  };
-  return { onClick: open, onKeyDown: open, role: 'link', tabIndex: 0 };
+  });
 };

@@ -1,5 +1,6 @@
-import { OpenFile, OpenUrl } from '@lib/context-services';
-import { Effect, Option } from 'effect';
+import type { Base64Image } from '@lib/context-services';
+import { OpenableImageMimeType, OpenFile, OpenUrl } from '@lib/context-services';
+import { Effect, Option, Schema } from 'effect';
 import { Path } from 'effect/Path';
 import { defaultUrlTransform } from 'react-markdown';
 
@@ -27,19 +28,22 @@ const classifyPathHref = (href: string, cwd: string): ChatLink | undefined => {
   return path === '' ? undefined : { cwd, kind: 'path', path };
 };
 
+const parseUrl = (href: string): URL | undefined => {
+  try {
+    return new URL(href);
+  } catch {
+    return undefined;
+  }
+};
+
 export const classifyChatLinkHref = (
   href: string,
   openFileSupported: boolean,
   cwd?: string,
 ): ChatLink | { readonly kind: 'inert' } => {
-  let url: URL;
-  try {
-    url = new URL(href);
-  } catch {
-    const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(href, cwd) : undefined;
-    return pathLink ?? { kind: 'inert' };
-  }
-  if (WINDOWS_DRIVE.test(href)) {
+  // `C:/x` parses as a URL with protocol `c:`, so drive paths take the path branch too.
+  const url = WINDOWS_DRIVE.test(href) ? undefined : parseUrl(href);
+  if (url === undefined) {
     const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(href, cwd) : undefined;
     return pathLink ?? { kind: 'inert' };
   }
@@ -55,16 +59,22 @@ export const classifyChatLinkHref = (
   return { kind: 'inert' };
 };
 
-/** Open a data-URL image (replayed thumbnails have no file uri) via the Host's temp-file opener. */
-export const openChatImageData: (dataUrl: string) => Effect.Effect<void, never, OpenFile> = Effect.fn(
+/** Openable image in a `data:<mime>;base64,…` URL (replayed thumbnails have no file uri), or `undefined`. */
+export const base64ImageFromDataUrl = (dataUrl: string): Base64Image | undefined => {
+  const parsed = parseDataUrlBase64(dataUrl);
+  return parsed !== undefined && Schema.is(OpenableImageMimeType)(parsed.mimeType)
+    ? { base64: parsed.data, mimeType: parsed.mimeType }
+    : undefined;
+};
+
+/** Open an in-memory image via the Host's temp-file opener. */
+export const openChatImageData: (image: Base64Image) => Effect.Effect<void, never, OpenFile> = Effect.fn(
   'openChatImageData',
 )(
-  function* (dataUrl: string) {
-    const parsed = parseDataUrlBase64(dataUrl);
-    if (parsed === undefined) return;
+  function* (image: Base64Image) {
     const service = yield* OpenFile;
     yield* service
-      .openImageData(parsed.mimeType, parsed.data)
+      .openImageData(image)
       .pipe(Effect.tapError(error => Effect.logWarning('OpenFile.openImageData failed', error.message)));
   },
   effect => Effect.ignore(effect),

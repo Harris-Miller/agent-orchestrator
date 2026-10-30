@@ -33,6 +33,7 @@
     "@emotion/react": "catalog:",
     "@emotion/styled": "catalog:",
     "@lib/ao-home": "workspace:^",
+    "@lib/context-services": "workspace:^",
     "@lib/context-services-vscode-webview": "workspace:^",
     "@lib/ui": "workspace:^",
     "@mui/material": "catalog:",

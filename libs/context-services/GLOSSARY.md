@@ -25,7 +25,7 @@ The host capability to open an absolute http(s) URL in the system default browse
 _Avoid_: BROWSER helper, window.open, openExternal (when you mean the portable Seam)
 
 **OpenFile** (service):
-The host capability to open an absolute filesystem path in the Host editor; directories are revealed in Explorer. `openImageData` opens base64 image bytes (png, jpeg, gif, webp) by writing them to a Host temp file first, for thumbnails with no file uri. The `supported` flag reports availability. Desktop does not support it until #169.
+The host capability to open an absolute filesystem path in the Host editor; directories are revealed in Explorer. `openImageData` opens a Base64Image (base64 payload plus an OpenableImageMimeType: png, jpeg, gif, webp) by writing it to a Host temp file first, for thumbnails with no file uri. The `supported` flag reports availability. Desktop does not support it until #169.
 _Avoid_: showTextDocument, vscode.open (when you mean the portable Seam)
 
 **Host**:

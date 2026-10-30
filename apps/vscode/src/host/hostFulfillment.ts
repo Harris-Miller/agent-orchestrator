@@ -6,6 +6,7 @@ import {
   getIpcTransferList,
   unknownBytesToUint8Array,
 } from '@lib/context-services-vscode-webview/protocol';
+import { openableImageExtension } from '@lib/context-services';
 import type { IpcMessage, StdioMode } from '@lib/context-services-vscode-webview/protocol';
 import * as vscode from 'vscode';
 
@@ -20,13 +21,6 @@ import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
 import type { ProcessTracker } from './processTracker';
 
 export { fileWorkspaceFolderPaths };
-
-const IMAGE_TEMP_EXTENSIONS: Readonly<Record<string, string | undefined>> = {
-  'image/gif': 'gif',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
 
 const post = (webview: vscode.Webview, message: IpcMessage, transfer?: ArrayBuffer[]): void => {
   const encoded = encodeIpcMessage(message);
@@ -303,10 +297,7 @@ export const handleHostIpcMessage = async (args: {
         return;
       }
       case 'OpenImageData': {
-        const ext = IMAGE_TEMP_EXTENSIONS[message.mimeType];
-        if (ext === undefined) {
-          throw new Error(`Unsupported image type: ${message.mimeType}`);
-        }
+        const ext = openableImageExtension[message.mimeType];
         const bytes = Buffer.from(message.base64, 'base64');
         const dir = join(tmpdir(), 'agent-orchestrator-images');
         await mkdir(dir, { recursive: true });

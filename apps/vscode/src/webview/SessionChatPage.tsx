@@ -29,6 +29,7 @@ import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
+import { RecentSessions } from './RecentSessions.tsx';
 
 /**
  * Chat chrome for Virtual or Selected Session. Parent mounts when Selected is set;
@@ -120,7 +121,7 @@ export const SessionChatPage: FC = () => {
         </IconButton>
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <SessionChatBody onClientError={onClientError} />
+        <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
     </Box>
   );

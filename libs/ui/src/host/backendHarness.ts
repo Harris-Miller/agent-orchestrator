@@ -3,7 +3,6 @@
  * Live agent handles are registered with sessionRpc; atoms never see them.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
-import { OpenUrl } from '@lib/context-services';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
   CreateElicitationRequestBody,
@@ -11,13 +10,20 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect, Exit, Ref, Schema, Stream } from 'effect';
+import { Effect, Exit, Ref } from 'effect';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { airCapability, airMeta } from './airMeta.ts';
-import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
+import {
+  ANTIGRAVITY_NOT_SIGNED_IN,
+  ANTIGRAVITY_OAUTH_PERSONAL,
+  ANTIGRAVITY_SIGN_IN_TIMEOUT,
+  AntigravitySignInTimedOut,
+  consumeAntigravityAuthStderr,
+  formatBootstrapError,
+} from './antigravityAuth.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
@@ -27,37 +33,7 @@ import type { SessionListScope } from './sessionListScope.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
-/** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
-export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
-  'AntigravitySignInTimedOut',
-  {
-    message: Schema.String,
-  },
-) {}
-
-const formatError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return JSON.stringify(error);
-};
-
-/** User-facing bootstrap error when Antigravity needs Sign in. */
-export const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
-
-const ANTIGRAVITY_SIGN_IN_TIMEOUT = '5 minutes' as const;
-const ANTIGRAVITY_OAUTH_PERSONAL = 'oauth-personal';
-
-const looksLikeAntigravityAuthFailure = (message: string): boolean =>
-  /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
-
-const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unknown): string => {
-  const message = formatError(error);
-  if (launchTarget === 'antigravity-acp' && looksLikeAntigravityAuthFailure(message)) {
-    return ANTIGRAVITY_NOT_SIGNED_IN;
-  }
-  return message;
-};
+export { ANTIGRAVITY_NOT_SIGNED_IN, AntigravitySignInTimedOut };
 
 export type RpcWireEntry = {
   readonly direction: 'in' | 'out';
@@ -90,25 +66,16 @@ export type BackendHarnessCallbacks = {
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 const pendingSignInRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 
-const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
-  const existing = stoppedRefs.get(launchTarget);
+const getOrCreateBoolRef = (
+  map: Map<AgentLaunchTarget, Ref.Ref<boolean>>,
+  launchTarget: AgentLaunchTarget,
+): Ref.Ref<boolean> => {
+  const existing = map.get(launchTarget);
   if (existing !== undefined) {
     return existing;
   }
-
   const created = Ref.makeUnsafe(false);
-  stoppedRefs.set(launchTarget, created);
-  return created;
-};
-
-const getPendingSignInRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
-  const existing = pendingSignInRefs.get(launchTarget);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const created = Ref.makeUnsafe(false);
-  pendingSignInRefs.set(launchTarget, created);
+  map.set(launchTarget, created);
   return created;
 };
 
@@ -119,34 +86,10 @@ export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void 
 
 /** Mark Antigravity harness to run Sign in (`authenticate`) on the next bootstrap. */
 export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(function* () {
-  yield* Ref.set(getPendingSignInRef('antigravity-acp'), true);
+  yield* Ref.set(getOrCreateBoolRef(pendingSignInRefs, 'antigravity-acp'), true);
 });
 
 const MAX_CONNECT_ATTEMPTS = 3;
-
-const consumeAntigravityAuthStderr = Effect.fn('consumeAntigravityAuthStderr')(function* (
-  stderr: Stream.Stream<Uint8Array, unknown>,
-  onAuthUrl: ((url: string) => void) | undefined,
-) {
-  const openUrl = yield* OpenUrl;
-  const opened = { value: false };
-  yield* stderr.pipe(
-    Stream.decodeText(),
-    Stream.splitLines,
-    Stream.runForEach(line => {
-      const url = parseAntigravityAuthUrlMarker(line);
-      if (url === undefined || opened.value) {
-        return Effect.void;
-      }
-      opened.value = true;
-      onAuthUrl?.(url);
-      return openUrl.open(url).pipe(
-        Effect.tapError(error => Effect.logWarning('OpenUrl failed during Antigravity Sign in', error.message)),
-        Effect.ignore,
-      );
-    }),
-  );
-});
 
 /** Connect + initialize + optional Sign in + Config probe + buffered roster list through ready. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
@@ -200,7 +143,8 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.logInfo('ACP harness initialized', launchTarget);
 
     const pendingSignIn =
-      launchTarget === 'antigravity-acp' && (yield* Ref.getAndSet(getPendingSignInRef(launchTarget), false));
+      launchTarget === 'antigravity-acp' &&
+      (yield* Ref.getAndSet(getOrCreateBoolRef(pendingSignInRefs, launchTarget), false));
     if (pendingSignIn) {
       handlers.onPhase('signing-in');
       yield* Effect.logInfo('ACP harness Antigravity Sign in', launchTarget);
@@ -241,7 +185,7 @@ export const runBackendHarness = Effect.fnUntraced(
     handlers: BackendHarnessCallbacks,
     resolveListScope: () => SessionListScope,
   ) {
-    const stoppedRef = getStoppedRef(launchTarget);
+    const stoppedRef = getOrCreateBoolRef(stoppedRefs, launchTarget);
     yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
     yield* Effect.logInfo('ACP harness started', launchTarget);
@@ -297,7 +241,7 @@ export const runBackendHarness = Effect.fnUntraced(
 
 export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (launchTarget: AgentLaunchTarget) {
   yield* Effect.logInfo('Stopping ACP harness', launchTarget);
-  yield* Ref.set(getStoppedRef(launchTarget), true);
+  yield* Ref.set(getOrCreateBoolRef(stoppedRefs, launchTarget), true);
   clearConnectedAgent(launchTarget);
   clearPromptSpansForLaunchTarget(launchTarget);
 });

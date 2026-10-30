@@ -4,9 +4,7 @@
 import {
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,
   ANTIGRAVITY_ACP_HARNESS_NAME,
-  ANTIGRAVITY_ACP_SPAWN_NAME,
   antigravityAcpHarnessPath,
-  antigravityAcpHomeDir,
   ensureAntigravityAcpDirs,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
@@ -17,16 +15,12 @@ import { FileSystem } from 'effect/FileSystem';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { Path } from 'effect/Path';
 import type * as PlatformError from 'effect/PlatformError';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { resolveAntigravityReleaseAsset } from './antigravityRelease.ts';
-import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
+import { asAntigravityMissingPrerequisite, runAntigravityShell } from './antigravityShell.ts';
+import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 
-const asMissingPrerequisite = (message: string) =>
-  new MissingLaunchPrerequisite({
-    executable: ANTIGRAVITY_ACP_SPAWN_NAME,
-    message,
-  });
+const asMissingPrerequisite = asAntigravityMissingPrerequisite;
 
 const mapFs = <A, R>(
   effect: Effect.Effect<A, PlatformError.PlatformError, R>,
@@ -39,24 +33,6 @@ const sha256Hex = (bytes: ArrayBuffer): Effect.Effect<string> =>
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
   });
-
-const runShell = Effect.fn('runAntigravityShell')(function* (
-  name: string,
-  args: readonly string[],
-  failMessage: string,
-) {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const exitCode = yield* spawner
-    .exitCode(ChildProcess.make(name, [...args], { extendEnv: true }))
-    .pipe(
-      Effect.mapError(error =>
-        asMissingPrerequisite(`${failMessage} (spawn: ${error instanceof Error ? error.message : String(error)})`),
-      ),
-    );
-  if (exitCode !== 0) {
-    return yield* asMissingPrerequisite(failMessage);
-  }
-});
 
 /** Ensure pin 1.4.1 is on disk under ~/.ao/antigravity-acp/runtime/; idempotent. */
 export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInstalled')(
@@ -115,7 +91,11 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
     yield* mapFs(fs.makeDirectory(extractDir, { recursive: true }), 'Antigravity extract directory failed');
     yield* mapFs(fs.writeFile(archivePath, new Uint8Array(body)), 'Antigravity archive write failed');
 
-    yield* runShell('unzip', ['-o', archivePath, '-d', extractDir], 'Antigravity archive extract failed (`unzip`)');
+    yield* runAntigravityShell(
+      'unzip',
+      ['-o', archivePath, '-d', extractDir],
+      'Antigravity archive extract failed (`unzip`)',
+    );
 
     const executableSource = path.join(extractDir, ANTIGRAVITY_ACP_EXECUTABLE_NAME);
     const harnessSource = path.join(extractDir, ANTIGRAVITY_ACP_HARNESS_NAME);
@@ -137,11 +117,9 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
     const { runtimeDir } = yield* mapFs(ensureAntigravityAcpDirs(asset.version), 'Antigravity runtime dirs failed');
     const executableDest = path.join(runtimeDir, ANTIGRAVITY_ACP_EXECUTABLE_NAME);
     const harnessDest = yield* mapFs(antigravityAcpHarnessPath(asset.version), 'Antigravity harness path failed');
-    yield* runShell('chmod', ['+x', executableDest, harnessDest], 'Antigravity runtime chmod failed');
+    yield* runAntigravityShell('chmod', ['+x', executableDest, harnessDest], 'Antigravity runtime chmod failed');
 
     yield* Effect.logInfo('Antigravity ACP runtime ready', asset.version);
   },
   Effect.annotateLogs({ module: 'antigravityInstall' }),
 );
-
-export const antigravityGeminiHomePath = antigravityAcpHomeDir;

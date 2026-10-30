@@ -51,12 +51,22 @@ export const antigravityAcpRuntimeDir = Effect.fn('antigravityAcpRuntimeDir')(fu
   return path.join(root, 'runtime', version);
 });
 
+/** Path segments under AO home to the pinned executable (sync hosts / allowlists). */
+export const antigravityAcpExecutableRelativeSegments = (
+  version: string = ANTIGRAVITY_ACP_VERSION,
+): readonly [string, string, string, string] => [
+  'antigravity-acp',
+  'runtime',
+  version,
+  ANTIGRAVITY_ACP_EXECUTABLE_NAME,
+];
+
 export const antigravityAcpExecutablePath = Effect.fn('antigravityAcpExecutablePath')(function* (
   version: string = ANTIGRAVITY_ACP_VERSION,
 ) {
   const path = yield* Path;
-  const dir = yield* antigravityAcpRuntimeDir(version);
-  return path.join(dir, ANTIGRAVITY_ACP_EXECUTABLE_NAME);
+  const home = yield* resolveHome();
+  return path.join(home, ...antigravityAcpExecutableRelativeSegments(version));
 });
 
 export const antigravityAcpHarnessPath = Effect.fn('antigravityAcpHarnessPath')(function* (

@@ -151,6 +151,14 @@ export const createHarnessAtoms = (
       .pipe(Atom.keepAlive),
   );
 
+  const resetAndRefreshHarness = (launchTarget: AgentLaunchTarget, get: Atom.FnContext): void => {
+    resetBackendHarnessState(launchTarget);
+    get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
+    get.set(configOptionIndexAtom(launchTarget), undefined);
+    clearSelectedSessionIfMissing(get);
+    get.refresh(backendHarnessAtom(launchTarget));
+  };
+
   const restartBackendAtomFn = atomRuntime
     .fn(
       Effect.fn('restartBackendAtomFn', { root: true })(function* (
@@ -162,11 +170,7 @@ export const createHarnessAtoms = (
         });
         yield* Effect.logWarning('Restarting ACP backend harness', launchTarget);
         yield* stopBackendHarness(launchTarget);
-        resetBackendHarnessState(launchTarget);
-        get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
-        get.set(configOptionIndexAtom(launchTarget), undefined);
-        clearSelectedSessionIfMissing(get);
-        get.refresh(backendHarnessAtom(launchTarget));
+        resetAndRefreshHarness(launchTarget, get);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -181,11 +185,7 @@ export const createHarnessAtoms = (
         yield* Effect.logWarning('Antigravity Sign in requested');
         yield* stopBackendHarness(launchTarget);
         yield* requestAntigravitySignIn();
-        resetBackendHarnessState(launchTarget);
-        get.set(backendHarnessStateAtom(launchTarget), initialBackendHarnessSnapshot());
-        get.set(configOptionIndexAtom(launchTarget), undefined);
-        clearSelectedSessionIfMissing(get);
-        get.refresh(backendHarnessAtom(launchTarget));
+        resetAndRefreshHarness(launchTarget, get);
       }),
     )
     .pipe(Atom.keepAlive);

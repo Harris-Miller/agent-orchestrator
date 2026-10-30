@@ -9,11 +9,13 @@ import {
   ANTIGRAVITY_ACP_VERSION,
   antigravityAcpBrowserHelperPath,
   antigravityAcpExecutablePath,
+  antigravityAcpExecutableRelativeSegments,
   antigravityAcpHomeDir,
   antigravityAcpRuntimeDir,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';
+import { AO_HOME_DIRNAME } from './home.ts';
 import { mapFsTestServices } from './testing/mapFsTestServices.ts';
 import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
@@ -37,6 +39,13 @@ describe('antigravity ao-home paths', () => {
       assert.strictEqual(runtime, `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}`);
       assert.strictEqual(executable, `${runtime}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`);
       assert.strictEqual(browserHelper, `${ROOT}/${ANTIGRAVITY_ACP_BROWSER_HELPER_NAME}`);
+      assert.deepStrictEqual(antigravityAcpExecutableRelativeSegments(), [
+        'antigravity-acp',
+        'runtime',
+        ANTIGRAVITY_ACP_VERSION,
+        ANTIGRAVITY_ACP_EXECUTABLE_NAME,
+      ]);
+      assert.strictEqual(`${HOMEDIR}/${AO_HOME_DIRNAME}/antigravity-acp`, ROOT);
     }).pipe(Effect.provide(mapFsTestServices(store))),
   );
 

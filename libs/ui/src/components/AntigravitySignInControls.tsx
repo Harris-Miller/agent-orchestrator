@@ -6,7 +6,8 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { signInAntigravityAtomFn } from '../atoms/boundHarnessAtoms.ts';
-import { isAntigravitySignInError } from '../host/antigravitySignIn.ts';
+import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
+import { ANTIGRAVITY_NOT_SIGNED_IN } from '../host/antigravityAuth.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
@@ -14,13 +15,13 @@ import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 type AntigravitySignInControlsProps = {
   readonly authUrl?: string;
   readonly error?: string;
-  readonly phase: string;
+  readonly phase: AcpBootstrapPhase;
 };
 
 /** Sign in CTA + auth URL for Antigravity when unsigned or mid Sign in. */
 export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ authUrl, error, phase }) => {
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
-  const showSignIn = isAntigravitySignInError(error);
+  const showSignIn = error === ANTIGRAVITY_NOT_SIGNED_IN;
   const signingIn = phase === 'signing-in';
 
   if (!showSignIn && !signingIn && authUrl === undefined) {

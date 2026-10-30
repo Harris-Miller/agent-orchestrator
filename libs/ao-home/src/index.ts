@@ -22,6 +22,7 @@ export {
   ANTIGRAVITY_ACP_VERSION,
   antigravityAcpBrowserHelperPath,
   antigravityAcpExecutablePath,
+  antigravityAcpExecutableRelativeSegments,
   antigravityAcpHarnessPath,
   antigravityAcpHomeDir,
   antigravityAcpRootDir,
@@ -31,7 +32,7 @@ export {
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';
-export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
+export { AO_HOME_DIRNAME, ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {

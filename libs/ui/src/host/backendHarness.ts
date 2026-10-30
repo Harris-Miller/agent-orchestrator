@@ -156,7 +156,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       yield* agent.authenticate({ methodId: ANTIGRAVITY_OAUTH_PERSONAL }).pipe(
         Effect.timeoutOrElse({
           duration: ANTIGRAVITY_SIGN_IN_TIMEOUT,
-          orElse: () => Effect.fail(new AntigravitySignInTimedOut({ message: 'Antigravity sign-in timed out' })),
+          orElse: () => Effect.fail(new AntigravitySignInTimedOut({ message: 'Antigravity Sign in timed out' })),
         }),
       );
       yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);

@@ -4,8 +4,6 @@
 import {
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,
   ANTIGRAVITY_ACP_HARNESS_NAME,
-  antigravityAcpHarnessPath,
-  ensureAntigravityAcpDirs,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from '@lib/ao-home';
@@ -14,19 +12,9 @@ import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { Path } from 'effect/Path';
-import type * as PlatformError from 'effect/PlatformError';
 
 import { resolveAntigravityReleaseAsset } from './antigravityRelease.ts';
-import { asAntigravityMissingPrerequisite, runAntigravityShell } from './antigravityShell.ts';
-import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
-
-const asMissingPrerequisite = asAntigravityMissingPrerequisite;
-
-const mapFs = <A, R>(
-  effect: Effect.Effect<A, PlatformError.PlatformError, R>,
-  detail: string,
-): Effect.Effect<A, MissingLaunchPrerequisite, R> =>
-  effect.pipe(Effect.mapError(error => asMissingPrerequisite(`${detail}: ${error.message}`)));
+import { asAntigravityMissingPrerequisite, mapAntigravityFs, runAntigravityShell } from './antigravityShell.ts';
 
 const sha256Hex = (bytes: ArrayBuffer): Effect.Effect<string> =>
   Effect.promise(async () => {
@@ -42,14 +30,14 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
     const arch = os.arch();
     const asset = resolveAntigravityReleaseAsset(platform, arch);
     if (asset === undefined) {
-      return yield* asMissingPrerequisite(
+      return yield* asAntigravityMissingPrerequisite(
         platform === 'win32'
           ? 'Antigravity ACP is not supported on Windows yet'
           : `Antigravity ACP has no pinned build for ${platform}-${arch}`,
       );
     }
 
-    if (yield* mapFs(isAntigravityAcpRuntimePresent(asset.version), 'Antigravity runtime check failed')) {
+    if (yield* mapAntigravityFs(isAntigravityAcpRuntimePresent(asset.version), 'Antigravity runtime check failed')) {
       return;
     }
 
@@ -58,38 +46,40 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
     const response = yield* http.get(asset.url).pipe(
       Effect.flatMap(HttpClientResponse.filterStatusOk),
       Effect.mapError(error =>
-        asMissingPrerequisite(`Antigravity download failed: ${error instanceof Error ? error.message : String(error)}`),
+        asAntigravityMissingPrerequisite(
+          `Antigravity download failed: ${error instanceof Error ? error.message : String(error)}`,
+        ),
       ),
     );
     const body = yield* response.arrayBuffer.pipe(
       Effect.mapError(error =>
-        asMissingPrerequisite(
+        asAntigravityMissingPrerequisite(
           `Antigravity download body failed: ${error instanceof Error ? error.message : String(error)}`,
         ),
       ),
     );
 
     if (body.byteLength !== asset.archiveBytes) {
-      return yield* asMissingPrerequisite(
+      return yield* asAntigravityMissingPrerequisite(
         `Antigravity download size mismatch (got ${body.byteLength}, expected ${asset.archiveBytes})`,
       );
     }
 
     const digest = yield* sha256Hex(body);
     if (digest !== asset.sha256) {
-      return yield* asMissingPrerequisite('Antigravity download failed its SHA-256 check');
+      return yield* asAntigravityMissingPrerequisite('Antigravity download failed its SHA-256 check');
     }
 
     const fs = yield* FileSystem;
     const path = yield* Path;
-    const stagingRoot = yield* mapFs(
+    const stagingRoot = yield* mapAntigravityFs(
       fs.makeTempDirectory({ prefix: 'ao-antigravity-' }),
       'Antigravity staging directory failed',
     );
     const archivePath = path.join(stagingRoot, 'download.zip');
     const extractDir = path.join(stagingRoot, 'extract');
-    yield* mapFs(fs.makeDirectory(extractDir, { recursive: true }), 'Antigravity extract directory failed');
-    yield* mapFs(fs.writeFile(archivePath, new Uint8Array(body)), 'Antigravity archive write failed');
+    yield* mapAntigravityFs(fs.makeDirectory(extractDir, { recursive: true }), 'Antigravity extract directory failed');
+    yield* mapAntigravityFs(fs.writeFile(archivePath, new Uint8Array(body)), 'Antigravity archive write failed');
 
     yield* runAntigravityShell(
       'unzip',
@@ -99,13 +89,13 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
 
     const executableSource = path.join(extractDir, ANTIGRAVITY_ACP_EXECUTABLE_NAME);
     const harnessSource = path.join(extractDir, ANTIGRAVITY_ACP_HARNESS_NAME);
-    const hasExecutable = yield* mapFs(fs.exists(executableSource), 'Antigravity executable check failed');
-    const hasHarness = yield* mapFs(fs.exists(harnessSource), 'Antigravity harness check failed');
+    const hasExecutable = yield* mapAntigravityFs(fs.exists(executableSource), 'Antigravity executable check failed');
+    const hasHarness = yield* mapAntigravityFs(fs.exists(harnessSource), 'Antigravity harness check failed');
     if (!hasExecutable || !hasHarness) {
-      return yield* asMissingPrerequisite('Antigravity archive did not contain the expected binaries');
+      return yield* asAntigravityMissingPrerequisite('Antigravity archive did not contain the expected binaries');
     }
 
-    yield* mapFs(
+    const { executablePath, harnessPath } = yield* mapAntigravityFs(
       materializeAntigravityAcpRuntime({
         executableSourcePath: executableSource,
         harnessSourcePath: harnessSource,
@@ -114,10 +104,7 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
       'Antigravity materialize failed',
     );
 
-    const { runtimeDir } = yield* mapFs(ensureAntigravityAcpDirs(asset.version), 'Antigravity runtime dirs failed');
-    const executableDest = path.join(runtimeDir, ANTIGRAVITY_ACP_EXECUTABLE_NAME);
-    const harnessDest = yield* mapFs(antigravityAcpHarnessPath(asset.version), 'Antigravity harness path failed');
-    yield* runAntigravityShell('chmod', ['+x', executableDest, harnessDest], 'Antigravity runtime chmod failed');
+    yield* runAntigravityShell('chmod', ['+x', executablePath, harnessPath], 'Antigravity runtime chmod failed');
 
     yield* Effect.logInfo('Antigravity ACP runtime ready', asset.version);
   },

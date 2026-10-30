@@ -5,30 +5,26 @@ import { antigravityAcpBrowserHelperPath, antigravityAcpRootDir, ensureHome } fr
 import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
-import { antigravityBrowserHelperScript } from './antigravityAuthUrl.ts';
-import { asAntigravityMissingPrerequisite, runAntigravityShell } from './antigravityShell.ts';
+import { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX } from './antigravityAuthUrl.ts';
+import { mapAntigravityFs, runAntigravityShell } from './antigravityShell.ts';
+
+/** Shell script body for the capture-only `BROWSER` helper (prints marker, does not open). */
+export const antigravityBrowserHelperScript = `#!/bin/sh
+printf '%s%s\\n' '${ANTIGRAVITY_AUTH_URL_MARKER_PREFIX}' "$1" >&2
+`;
 
 /** Ensure `~/.ao/antigravity-acp/browser-helper` exists and is executable. */
 export const ensureAntigravityBrowserHelper = Effect.fn('ensureAntigravityBrowserHelper')(
   function* () {
     const fs = yield* FileSystem;
-    yield* ensureHome().pipe(
-      Effect.mapError(error => asAntigravityMissingPrerequisite(`Antigravity home ensure failed: ${String(error)}`)),
-    );
+    yield* mapAntigravityFs(ensureHome(), 'Antigravity home ensure failed');
     const root = yield* antigravityAcpRootDir();
-    yield* fs
-      .makeDirectory(root, { recursive: true })
-      .pipe(
-        Effect.mapError(error => asAntigravityMissingPrerequisite(`Antigravity root mkdir failed: ${String(error)}`)),
-      );
+    yield* mapAntigravityFs(fs.makeDirectory(root, { recursive: true }), 'Antigravity root mkdir failed');
     const helperPath = yield* antigravityAcpBrowserHelperPath();
-    yield* fs
-      .writeFileString(helperPath, antigravityBrowserHelperScript)
-      .pipe(
-        Effect.mapError(error =>
-          asAntigravityMissingPrerequisite(`Antigravity BROWSER helper write failed: ${String(error)}`),
-        ),
-      );
+    yield* mapAntigravityFs(
+      fs.writeFileString(helperPath, antigravityBrowserHelperScript),
+      'Antigravity BROWSER helper write failed',
+    );
     yield* runAntigravityShell('chmod', ['+x', helperPath], 'Antigravity BROWSER helper chmod failed');
     return helperPath;
   },

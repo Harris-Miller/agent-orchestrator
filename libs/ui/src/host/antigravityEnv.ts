@@ -34,7 +34,6 @@ export type AntigravitySpawnEnvInput = {
   readonly browserHelperPath: string;
   readonly harnessPath: string;
   readonly platform: string;
-  readonly runtimeTempDirectory?: string;
 };
 
 /** Scrub ambient keys, then set controlled GEMINI_HOME / BROWSER / force-file-storage / harness path. */
@@ -43,15 +42,6 @@ export const buildAntigravitySpawnEnv = (input: AntigravitySpawnEnvInput): Recor
   for (const [key, value] of Object.entries(input.baseEnv)) {
     if (value !== undefined && !shouldScrubKey(key)) {
       environment[key] = value;
-    }
-  }
-
-  if (input.runtimeTempDirectory !== undefined) {
-    if (input.platform === 'win32') {
-      environment.TEMP = input.runtimeTempDirectory;
-      environment.TMP = input.runtimeTempDirectory;
-    } else {
-      environment.TMPDIR = input.runtimeTempDirectory;
     }
   }
 

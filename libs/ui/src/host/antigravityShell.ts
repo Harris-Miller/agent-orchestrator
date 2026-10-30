@@ -3,6 +3,7 @@
  */
 import { ANTIGRAVITY_ACP_SPAWN_NAME } from '@lib/ao-home';
 import { Effect } from 'effect';
+import type * as PlatformError from 'effect/PlatformError';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
@@ -12,6 +13,13 @@ export const asAntigravityMissingPrerequisite = (message: string) =>
     executable: ANTIGRAVITY_ACP_SPAWN_NAME,
     message,
   });
+
+/** Map PlatformError → MissingLaunchPrerequisite with a detail prefix. */
+export const mapAntigravityFs = <A, R>(
+  effect: Effect.Effect<A, PlatformError.PlatformError, R>,
+  detail: string,
+): Effect.Effect<A, MissingLaunchPrerequisite, R> =>
+  effect.pipe(Effect.mapError(error => asAntigravityMissingPrerequisite(`${detail}: ${error.message}`)));
 
 /** Run a short shell command; non-zero exit → MissingLaunchPrerequisite. */
 export const runAntigravityShell = Effect.fn('runAntigravityShell')(function* (

@@ -1,4 +1,4 @@
-import { assert, describe, it } from '@effect/vitest';
+import { assert, describe, layer } from '@effect/vitest';
 import { Effect } from 'effect';
 import { beforeEach } from 'vitest';
 
@@ -29,53 +29,55 @@ describe('antigravity ao-home paths', () => {
     store.clear();
   });
 
-  it.effect('resolves home and runtime dirs under ~/.ao/antigravity-acp', () =>
-    Effect.gen(function* () {
-      const home = yield* antigravityAcpHomeDir();
-      const runtime = yield* antigravityAcpRuntimeDir();
-      const executable = yield* antigravityAcpExecutablePath();
-      const browserHelper = yield* antigravityAcpBrowserHelperPath();
-      assert.strictEqual(home, `${ROOT}/home`);
-      assert.strictEqual(runtime, `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}`);
-      assert.strictEqual(executable, `${runtime}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`);
-      assert.strictEqual(browserHelper, `${ROOT}/${ANTIGRAVITY_ACP_BROWSER_HELPER_NAME}`);
-      assert.deepStrictEqual(antigravityAcpExecutableRelativeSegments(), [
-        'antigravity-acp',
-        'runtime',
-        ANTIGRAVITY_ACP_VERSION,
-        ANTIGRAVITY_ACP_EXECUTABLE_NAME,
-      ]);
-      assert.strictEqual(`${HOMEDIR}/${AO_HOME_DIRNAME}/antigravity-acp`, ROOT);
-    }).pipe(Effect.provide(mapFsTestServices(store))),
-  );
+  layer(mapFsTestServices(store))(layeredIt => {
+    layeredIt.effect('resolves home and runtime dirs under ~/.ao/antigravity-acp', () =>
+      Effect.gen(function* () {
+        const home = yield* antigravityAcpHomeDir();
+        const runtime = yield* antigravityAcpRuntimeDir();
+        const executable = yield* antigravityAcpExecutablePath();
+        const browserHelper = yield* antigravityAcpBrowserHelperPath();
+        assert.strictEqual(home, `${ROOT}/home`);
+        assert.strictEqual(runtime, `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}`);
+        assert.strictEqual(executable, `${runtime}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`);
+        assert.strictEqual(browserHelper, `${ROOT}/${ANTIGRAVITY_ACP_BROWSER_HELPER_NAME}`);
+        assert.deepStrictEqual(antigravityAcpExecutableRelativeSegments(), [
+          'antigravity-acp',
+          'runtime',
+          ANTIGRAVITY_ACP_VERSION,
+          ANTIGRAVITY_ACP_EXECUTABLE_NAME,
+        ]);
+        assert.strictEqual(`${HOMEDIR}/${AO_HOME_DIRNAME}/antigravity-acp`, ROOT);
+      }),
+    );
 
-  it.effect('materialize copies verified members into the runtime dir', () =>
-    Effect.gen(function* () {
-      store.set('/staging/agy_acp_server.par', { content: 'exe', kind: 'file' });
-      store.set('/staging/localharness_external', { content: 'harness', kind: 'file' });
+    layeredIt.effect('materialize copies verified members into the runtime dir', () =>
+      Effect.gen(function* () {
+        store.set('/staging/agy_acp_server.par', { content: 'exe', kind: 'file' });
+        store.set('/staging/localharness_external', { content: 'harness', kind: 'file' });
 
-      const result = yield* materializeAntigravityAcpRuntime({
-        executableSourcePath: '/staging/agy_acp_server.par',
-        harnessSourcePath: '/staging/localharness_external',
-      });
+        const result = yield* materializeAntigravityAcpRuntime({
+          executableSourcePath: '/staging/agy_acp_server.par',
+          harnessSourcePath: '/staging/localharness_external',
+        });
 
-      assert.strictEqual(
-        result.executablePath,
-        `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`,
-      );
-      assert.strictEqual(
-        result.harnessPath,
-        `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}/${ANTIGRAVITY_ACP_HARNESS_NAME}`,
-      );
-      assert.strictEqual(store.get(result.executablePath)?.kind, 'file');
-      assert.strictEqual(store.get(result.harnessPath)?.kind, 'file');
-      assert.isTrue(yield* isAntigravityAcpRuntimePresent());
-    }).pipe(Effect.provide(mapFsTestServices(store))),
-  );
+        assert.strictEqual(
+          result.executablePath,
+          `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`,
+        );
+        assert.strictEqual(
+          result.harnessPath,
+          `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}/${ANTIGRAVITY_ACP_HARNESS_NAME}`,
+        );
+        assert.strictEqual(store.get(result.executablePath)?.kind, 'file');
+        assert.strictEqual(store.get(result.harnessPath)?.kind, 'file');
+        assert.isTrue(yield* isAntigravityAcpRuntimePresent());
+      }),
+    );
 
-  it.effect('isAntigravityAcpRuntimePresent is false when missing', () =>
-    Effect.gen(function* () {
-      assert.isFalse(yield* isAntigravityAcpRuntimePresent());
-    }).pipe(Effect.provide(mapFsTestServices(store))),
-  );
+    layeredIt.effect('isAntigravityAcpRuntimePresent is false when missing', () =>
+      Effect.gen(function* () {
+        assert.isFalse(yield* isAntigravityAcpRuntimePresent());
+      }),
+    );
+  });
 });

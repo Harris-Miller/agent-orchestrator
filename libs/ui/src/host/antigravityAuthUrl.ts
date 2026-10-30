@@ -11,8 +11,3 @@ export const parseAntigravityAuthUrlMarker = (line: string): string | undefined 
   const url = trimmed.slice(ANTIGRAVITY_AUTH_URL_MARKER_PREFIX.length).trim();
   return url.length > 0 ? url : undefined;
 };
-
-/** Shell script body for the capture-only `BROWSER` helper (prints marker, does not open). */
-export const antigravityBrowserHelperScript = `#!/bin/sh
-printf '%s%s\\n' '${ANTIGRAVITY_AUTH_URL_MARKER_PREFIX}' "$1" >&2
-`;

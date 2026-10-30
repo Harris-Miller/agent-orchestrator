@@ -1,5 +1,4 @@
 import { OpenFile, OpenUrl } from '@lib/context-services';
-import type { HostServices } from '@lib/context-services';
 import { Effect, Option } from 'effect';
 import { Path } from 'effect/Path';
 import { defaultUrlTransform } from 'react-markdown';
@@ -57,7 +56,7 @@ export const classifyChatLinkHref = (
 };
 
 /** Open a data-URL image (replayed thumbnails have no file uri) via the Host's temp-file opener. */
-export const openChatImageData: (dataUrl: string) => Effect.Effect<void, never, HostServices> = Effect.fn(
+export const openChatImageData: (dataUrl: string) => Effect.Effect<void, never, OpenFile> = Effect.fn(
   'openChatImageData',
 )(
   function* (dataUrl: string) {
@@ -74,7 +73,9 @@ export const openChatImageData: (dataUrl: string) => Effect.Effect<void, never, 
 export const chatLinkUrlTransform = (value: string, key: string) =>
   key === 'href' && value.startsWith('file:') ? value : defaultUrlTransform(value);
 
-export const openChatLink: (link: ChatLink) => Effect.Effect<void, never, HostServices> = Effect.fn('openChatLink')(
+export const openChatLink: (link: ChatLink) => Effect.Effect<void, never, OpenFile | OpenUrl | Path> = Effect.fn(
+  'openChatLink',
+)(
   function* (link: ChatLink) {
     if (link.kind === 'url') {
       const service = yield* OpenUrl;

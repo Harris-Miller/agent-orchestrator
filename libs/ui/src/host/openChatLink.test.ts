@@ -2,7 +2,6 @@ import { assert, describe, it } from '@effect/vitest';
 import { OpenFile, OpenFileFailed, OpenUrl, OpenUrlFailed } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layer as posixPathLayer } from 'effect/Path';
-import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 
 import { chatLinkUrlTransform, classifyChatLinkHref, openChatLink } from './openChatLink.ts';
 
@@ -68,14 +67,10 @@ describe('openChatLink', () => {
         }),
         posixPathLayer,
       );
-      yield* openChatLink({ kind: 'url', url: 'https://example.com/' }).pipe(
-        Effect.provide(layer),
-        Effect.provide(mockHostLayer),
-      );
-      yield* openChatLink({ kind: 'file', url: new URL('file:///tmp/a%20b.ts#L3') }).pipe(
-        Effect.provide(layer),
-        Effect.provide(mockHostLayer),
-      );
+      yield* Effect.all([
+        openChatLink({ kind: 'url', url: 'https://example.com/' }),
+        openChatLink({ kind: 'file', url: new URL('file:///tmp/a%20b.ts#L3') }),
+      ]).pipe(Effect.provide(layer));
       assert.deepStrictEqual(opened, ['https://example.com/', '/tmp/a b.ts']);
     }),
   );
@@ -91,14 +86,10 @@ describe('openChatLink', () => {
         }),
         posixPathLayer,
       );
-      yield* openChatLink({ kind: 'url', url: 'https://example.com/' }).pipe(
-        Effect.provide(layer),
-        Effect.provide(mockHostLayer),
-      );
-      yield* openChatLink({ kind: 'file', url: new URL('file:///tmp/example') }).pipe(
-        Effect.provide(layer),
-        Effect.provide(mockHostLayer),
-      );
+      yield* Effect.all([
+        openChatLink({ kind: 'url', url: 'https://example.com/' }),
+        openChatLink({ kind: 'file', url: new URL('file:///tmp/example') }),
+      ]).pipe(Effect.provide(layer));
     }),
   );
 });

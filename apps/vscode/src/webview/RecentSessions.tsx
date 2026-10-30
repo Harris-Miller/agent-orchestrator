@@ -6,7 +6,7 @@ import {
   sessionsForCwd,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializeInFlightAtom,
 } from '@lib/ui';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
@@ -19,7 +19,7 @@ const RECENT_LIMIT = 5;
 
 /** Empty Virtual Chat slot: newest Sessions for this Workspace cwd. Renders inside a `List`. */
 export const RecentSessions: FC = () => {
-  const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
+  const materializing = useAtomValue(virtualMaterializeInFlightAtom);
   const sessions = sessionsForCwd(useAtomValue(unifiedSessionHistoryAtom), useAtomValue(sessionCwdAtom)).slice(
     0,
     RECENT_LIMIT,
@@ -27,7 +27,7 @@ export const RecentSessions: FC = () => {
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
-  if (sessions.length === 0) {
+  if (materializing || sessions.length === 0) {
     return null;
   }
 
@@ -40,7 +40,6 @@ export const RecentSessions: FC = () => {
       </ListItem>
       {sessions.map(entry => (
         <SessionHistoryRow
-          disabled={inFlight}
           entry={entry}
           key={`${entry.launchTarget}:${entry.sessionId}`}
           onClientError={onClientError}

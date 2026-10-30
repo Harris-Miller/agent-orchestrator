@@ -18,6 +18,9 @@ export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom
  */
 export const virtualLifecycleInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
 
+/** True only while Materialize holds the lifecycle lock (not Bind). */
+export const virtualMaterializeInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
+
 /** Session arm sessionId only; undefined when Virtual or no Selected. */
 export const selectedSessionIdAtom = Atom.make(get => {
   const selected = get(selectedAtom);

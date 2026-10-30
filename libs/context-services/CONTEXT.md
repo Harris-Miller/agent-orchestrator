@@ -29,5 +29,5 @@ The runtime environment that supplies a live implementation of Host services to 
 _Avoid_: Node, machine, runtime (when you mean the Seam consumer)
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, OpenUrl, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
+Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, OpenUrl, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

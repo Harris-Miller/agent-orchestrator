@@ -27,7 +27,7 @@ export const RecentSessions: FC = () => {
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
-  if (inFlight || sessions.length === 0) {
+  if (sessions.length === 0) {
     return null;
   }
 
@@ -40,6 +40,7 @@ export const RecentSessions: FC = () => {
       </ListItem>
       {sessions.map(entry => (
         <SessionHistoryRow
+          disabled={inFlight}
           entry={entry}
           key={`${entry.launchTarget}:${entry.sessionId}`}
           onClientError={onClientError}

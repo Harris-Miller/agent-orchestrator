@@ -36,11 +36,12 @@ const sessionCardSx = (selected: boolean) =>
   }) as const;
 
 export const SessionHistoryRow: FC<{
+  readonly disabled?: boolean;
   readonly entry: UnifiedHistoryEntry;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly selected: boolean;
-}> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
+}> = ({ disabled = false, entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
@@ -50,7 +51,7 @@ export const SessionHistoryRow: FC<{
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
-  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
+  const unavailable = disabled || entry.unavailable === true || snapshot.phase !== 'ready';
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
@@ -101,6 +102,7 @@ export const SessionHistoryRow: FC<{
           ) : null}
           <IconButton
             aria-label="Session actions"
+            disabled={disabled}
             onClick={event => {
               event.stopPropagation();
               setMenuAnchor(event.currentTarget);

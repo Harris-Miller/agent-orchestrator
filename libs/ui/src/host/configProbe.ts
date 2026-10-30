@@ -1,16 +1,13 @@
 /** Config probe: disposable-cwd session → Config option index (per-model config options). */
+import type { ConfigOptionIndexDocument } from '@lib/ao-home';
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { CONFIG_PROBE_CWD_PREFIX, normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
 
-export type ConfigOptionIndex = {
-  readonly byModel: Readonly<Record<string, readonly NormalizedConfigOption[]>>;
-  readonly defaultModelId: string;
-  /** Unavailable models: advertised on session/new but soft-failed during Config probe. */
-  readonly unavailableModelIds: readonly string[];
-};
+/** Shape is owned by the on-disk cache document; `unavailableModelIds` = advertised on session/new but soft-failed in Config probe. */
+export type ConfigOptionIndex = ConfigOptionIndexDocument;
 
 export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
 

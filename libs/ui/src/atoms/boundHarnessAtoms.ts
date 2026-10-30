@@ -55,8 +55,8 @@ export const {
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   forkSessionAtomFn,
-  refreshAllSessionRostersAtomFn,
-  refreshSessionRosterAtomFn,
+  refreshAllSessionHistoriesAtomFn,
+  refreshSessionHistoryAtomFn,
   selectSessionAtomFn,
 } = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn);
 

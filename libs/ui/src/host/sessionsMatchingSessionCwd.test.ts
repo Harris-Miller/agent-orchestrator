@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import { firstFolderPath, sessionsMatchingSessionCwd } from './sessionsMatchingSessionCwd.ts';
 
-const emptySnapshot = { sessionRoster: [], sessions: {} };
+const emptySnapshot = { sessionHistory: [], sessions: {} };
 
 describe('sessionsMatchingSessionCwd', () => {
   it('matches active and activating by resolved cwd; skips inactive', () => {
@@ -11,7 +11,7 @@ describe('sessionsMatchingSessionCwd', () => {
         return emptySnapshot;
       }
       return {
-        sessionRoster: [
+        sessionHistory: [
           { cwd: '/ws', sessionId: 'a' },
           { cwd: '/ws', sessionId: 'b' },
           { cwd: '/ws', sessionId: 'c' },
@@ -30,20 +30,20 @@ describe('sessionsMatchingSessionCwd', () => {
     assert.deepStrictEqual(matches.map(m => m.sessionId).sort(), ['a', 'b']);
   });
 
-  it('uses roster cwd when snapshot cwd missing', () => {
+  it('uses history cwd when snapshot cwd missing', () => {
     const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'antigravity-acp') => {
       if (launchTarget !== 'codex-acp') {
         return emptySnapshot;
       }
       return {
-        sessionRoster: [{ cwd: '/from-roster', sessionId: 'a' }],
+        sessionHistory: [{ cwd: '/from-history', sessionId: 'a' }],
         sessions: {
           a: { sessionId: 'a', status: 'active' as const },
         },
       };
     };
 
-    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, '/from-roster').length, 1);
+    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, '/from-history').length, 1);
     assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, undefined).length, 0);
   });
 
@@ -53,7 +53,7 @@ describe('sessionsMatchingSessionCwd', () => {
         return emptySnapshot;
       }
       return {
-        sessionRoster: [],
+        sessionHistory: [],
         sessions: {
           a: { sessionId: 'a', status: 'active' as const },
         },

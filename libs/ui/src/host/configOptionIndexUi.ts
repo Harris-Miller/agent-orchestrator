@@ -58,3 +58,27 @@ export const sanitizeConfigValuesForIndex = (
   const row = rowForModel(index, effectiveModel);
   return preserveConfigValuesOnModelChange({ ...values, model: effectiveModel }, row);
 };
+
+export const resetUnsupportedConfigValues = (
+  index: ConfigOptionIndex | undefined,
+  values: ConfigOptionValues,
+): ConfigOptionValues => {
+  if (index === undefined) return values;
+  const modelId = values.model;
+  if (typeof modelId !== 'string' || !(modelId in index.byModel) || index.unavailableModelIds.includes(modelId)) {
+    return hardResetForAgent(index).values;
+  }
+  const next: Record<string, boolean | string> = { model: modelId };
+  for (const option of index.byModel[modelId]) {
+    const value = values[option.id];
+    if (option.type === 'select') {
+      next[option.id] =
+        typeof value === 'string' && option.choices.some(choice => choice.id === value)
+          ? value
+          : (option.currentValue ?? '');
+    } else {
+      next[option.id] = typeof value === 'boolean' ? value : (option.currentValue ?? false);
+    }
+  }
+  return next;
+};

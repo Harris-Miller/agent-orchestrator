@@ -1,4 +1,4 @@
-/** Staged Materialize helpers: roster entry, config diffs, activated session snapshot. */
+/** Staged Materialize helpers: history entry, config diffs, activated session snapshot. */
 
 import { Effect, Exit } from 'effect';
 
@@ -54,8 +54,8 @@ export const configValueDiffs = (
     return [{ configId: option.id, type: 'boolean', value: desired }];
   });
 
-/** Roster entry from a successful `session/new` result (handoff early upsert). */
-export const rosterEntryFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined =>
+/** History entry from a successful `session/new` result (handoff early upsert). */
+export const historyEntryFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined =>
   normalizeSessionInfoFromNew(result, cwd);
 
 /**

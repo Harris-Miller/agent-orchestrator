@@ -1,7 +1,7 @@
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from './agentLaunchTarget.ts';
 
-/** Header title for Virtual New Session or a roster Session row. */
+/** Header title for Virtual New Session or a history Session row. */
 export const sessionChatTitle = (
   isVirtual: boolean,
   entry: { readonly title?: string } | undefined,

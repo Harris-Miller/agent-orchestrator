@@ -25,7 +25,7 @@ export {
 export type { RefreshSessionFsListing } from './atoms/virtualBind.ts';
 export {
   ensureVirtualAcpBound,
-  excludeBoundVirtualFromRoster,
+  excludeBoundVirtualFromHistory,
   mutateVirtualThenRebind,
   rwFromFnContext,
   rwFromRegistry,
@@ -47,6 +47,7 @@ export {
 } from './atoms/virtualSession.atoms.ts';
 export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
+export * from './components/HarnessCacheGate.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
 export * from './components/developerPanel/OpenDeveloperPanelButton.tsx';
@@ -61,11 +62,11 @@ export * from './components/ProvidersSettingsPane.tsx';
 export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
-export * from './components/sessionRoster/AgentLaunchTargetMenu.tsx';
+export * from './components/sessionHistory/AgentLaunchTargetMenu.tsx';
 
-export * from './components/sessionRoster/ConfirmSessionDeleteDialog.tsx';
-export * from './components/sessionRoster/SessionRosterRow.tsx';
-export * from './components/sessionRoster/useSessionDeleteRequest.ts';
+export * from './components/sessionHistory/ConfirmSessionDeleteDialog.tsx';
+export * from './components/sessionHistory/SessionHistoryRow.tsx';
+export * from './components/sessionHistory/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';
 export * from './components/UserSettingsLoadFailureAlert.tsx';

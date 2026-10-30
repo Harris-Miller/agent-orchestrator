@@ -3,9 +3,11 @@ import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
-import type { NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
+import { normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import type { HistoryEntry, NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { dropSession, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { dropSession, mergeListedHistory, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import type { SessionListScope } from '../host/sessionListScope.ts';
 import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
@@ -54,12 +56,25 @@ export const rwFromRegistry = (registry: AtomRegistry.AtomRegistry): AtomRw => (
   },
 });
 
-/** Publish-policy filter: drop Bound Virtual id from roster until Materialize. */
-export const excludeBoundVirtualFromRoster = (
-  roster: readonly NormalizedSessionInfo[],
+/** Publish-policy filter: drop Bound Virtual id from history until Materialize. */
+export const excludeBoundVirtualFromHistory = (
+  history: readonly NormalizedSessionInfo[],
   boundSessionId: string | undefined,
 ): readonly NormalizedSessionInfo[] =>
-  boundSessionId === undefined ? roster : roster.filter(entry => entry.sessionId !== boundSessionId);
+  boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
+
+/** Next history after a successful `session/list`: normalize, hide Bound Virtual, merge by scope. */
+export const historyAfterList = (
+  current: readonly HistoryEntry[],
+  listResult: unknown,
+  scope: SessionListScope,
+  boundSessionId: string | undefined,
+): readonly HistoryEntry[] =>
+  mergeListedHistory(
+    current,
+    excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
+    scope,
+  );
 
 /** ACP v1 cwd must be absolute; no post-create cwd mutator (teardown + Bind on change). */
 const isAbsoluteCwd = (cwd: string): boolean =>
@@ -85,7 +100,7 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
   yield* Effect.exit(deleteSession(bound.launchTarget, bound.sessionId));
 
   const after = rw.get(backendHarnessStateAtom(bound.launchTarget));
-  if (bound.sessionId in after.sessions || after.sessionRoster.some(entry => entry.sessionId === bound.sessionId)) {
+  if (bound.sessionId in after.sessions || after.sessionHistory.some(entry => entry.sessionId === bound.sessionId)) {
     rw.set(backendHarnessStateAtom(bound.launchTarget), dropSession(after, bound.sessionId));
   }
 
@@ -96,7 +111,7 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
 });
 
 /**
- * Sole Virtual Bind entry: `session/new` + sessions-map upsert + Virtual.sessionId; no roster, no Config.
+ * Sole Virtual Bind entry: `session/new` + sessions-map upsert + Virtual.sessionId; no history, no Config.
  * Callers: {@link mutateVirtualThenRebind} after Virtual mutates, and Ready `onPhase`. Not Materialize.
  * Config stays on the Virtual blob until live Bound `setConfigOption` or Materialize.
  * After Bind, optional `refreshFsListing` preloads `@` composer paths.
@@ -153,7 +168,7 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
     const afterCreate = rw.get(backendHarnessStateAtom(launchTarget));
     rw.set(
       backendHarnessStateAtom(launchTarget),
-      // Sessions-map upsert only (no roster) — not Materialize.
+      // Sessions-map upsert only (no history) — not Materialize.
       upsertIntoSnapshot(afterCreate, {
         session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
       }),

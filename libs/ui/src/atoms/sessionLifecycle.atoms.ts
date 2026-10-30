@@ -1,4 +1,4 @@
-/** Session roster / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
+/** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -7,7 +7,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   defectsFromActivationFailure,
   isSessionActiveOrActivating,
-  normalizeSessionRoster,
+  normalizeConfigOptions,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -16,11 +16,14 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
   dropSession,
   markSessionInactive,
-  replaceSessionRoster,
+  replaceSessionHistory,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { configValuesFromOptions } from '../host/configProbe.ts';
+import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
   closeSession,
@@ -30,14 +33,40 @@ import {
   listSessions,
   loadSession,
   resumeSession,
+  setConfigOption,
 } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, clearSelectedSessionIfMissing, selectedAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  clearSelectedSessionIfMissing,
+  configOptionIndexAtom,
+  selectedAtom,
+} from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
-import { excludeBoundVirtualFromRoster, rwFromFnContext } from './virtualBind.ts';
+import { historyAfterList, rwFromFnContext } from './virtualBind.ts';
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
+
+/** Reset an activated session's model/options the Config option index no longer offers; soft-fails to the live configuration. */
+const resetActivatedConfiguration = Effect.fn('resetActivatedConfiguration')(function* (
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+  sessionConfiguration: unknown,
+  index: ConfigOptionIndex | undefined,
+) {
+  const liveValues = configValuesFromOptions(normalizeConfigOptions(sessionConfiguration));
+  const reconciled = yield* applyConfigDiffs(
+    sessionConfiguration,
+    resetUnsupportedConfigValues(index, liveValues),
+    diff => setConfigOption(launchTarget, sessionId, diff.configId, diff),
+  ).pipe(
+    Effect.catchCause(cause =>
+      Effect.as(Effect.logWarning('Session config reset failed during activation', cause), { sessionConfiguration }),
+    ),
+  );
+  return reconciled.sessionConfiguration;
+});
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
@@ -93,50 +122,46 @@ export const createSessionLifecycleAtoms = (
     .fn((_arg: undefined, get: Atom.FnContext) => clearSelectedEffect(rwFromFnContext(get)))
     .pipe(Atom.keepAlive);
 
-  const refreshSessionRosterAtomFn = atomRuntime
+  const refreshSessionHistoryAtomFn = atomRuntime
     .fn(
-      Effect.fn('refreshSessionRosterAtomFn', { root: true })(
+      Effect.fn('refreshSessionHistoryAtomFn', { root: true })(
         function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
           yield* Effect.annotateCurrentSpan({
             'acp.agent': launchTarget,
           });
           const snapshot = get(backendHarnessStateAtom(launchTarget));
           if (snapshot.phase !== 'ready') {
-            yield* Effect.logDebug('refreshSessionRoster skipped; backend not ready', launchTarget);
+            yield* Effect.logDebug('refreshSessionHistory skipped; backend not ready', launchTarget);
             return;
           }
 
-          const listPayload = listSessionsPayload(get(sessionListScopeAtom));
+          const scope = get(sessionListScopeAtom);
+          const listPayload = listSessionsPayload(scope);
           if (listPayload === undefined) {
-            const current = get(backendHarnessStateAtom(launchTarget));
-            get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
-            clearSelectedSessionIfMissing(get);
             return;
           }
 
-          yield* Effect.logDebug('Refreshing session roster', launchTarget);
+          yield* Effect.logDebug('Refreshing session history', launchTarget);
           const listResult = yield* listSessions(launchTarget, listPayload);
           const current = get(backendHarnessStateAtom(launchTarget));
           const boundSessionId = get(virtualSessionAtom)?.sessionId;
           get.set(
             backendHarnessStateAtom(launchTarget),
-            replaceSessionRoster(
-              current,
-              excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
-            ),
+            replaceSessionHistory(current, historyAfterList(current.sessionHistory, listResult, scope, boundSessionId)),
           );
           clearSelectedSessionIfMissing(get);
         },
         (effect, launchTarget) =>
-          effect.pipe(Effect.tapError(error => Effect.logError('refreshSessionRoster failed', launchTarget, error))),
+          effect.pipe(Effect.tapError(error => Effect.logError('refreshSessionHistory failed', launchTarget, error))),
       ),
     )
     .pipe(Atom.keepAlive);
 
-  const refreshAllSessionRostersAtomFn = atomRuntime
+  const refreshAllSessionHistoriesAtomFn = atomRuntime
     .fn(
-      Effect.fn('refreshAllSessionRostersAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        const listPayload = listSessionsPayload(get(sessionListScopeAtom));
+      Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        const scope = get(sessionListScopeAtom);
+        const listPayload = listSessionsPayload(scope);
         yield* Effect.forEach(
           MOUNTED_AGENT_LAUNCH_TARGETS,
           launchTarget =>
@@ -146,8 +171,6 @@ export const createSessionLifecycleAtoms = (
                 return;
               }
               if (listPayload === undefined) {
-                const current = get(backendHarnessStateAtom(launchTarget));
-                get.set(backendHarnessStateAtom(launchTarget), replaceSessionRoster(current, []));
                 return;
               }
               const listResult = yield* listSessions(launchTarget, listPayload);
@@ -155,9 +178,9 @@ export const createSessionLifecycleAtoms = (
               const boundSessionId = get(virtualSessionAtom)?.sessionId;
               get.set(
                 backendHarnessStateAtom(launchTarget),
-                replaceSessionRoster(
+                replaceSessionHistory(
                   current,
-                  excludeBoundVirtualFromRoster(normalizeSessionRoster(listResult), boundSessionId),
+                  historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
                 ),
               );
             }),
@@ -187,12 +210,12 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
 
           const session = buildActivatedSession(sessionId, result, { cwd });
-          const rosterEntry = rosterEntryFromNew(result, cwd);
+          const historyEntry = historyEntryFromNew(result, cwd);
           const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
 
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
-            upsertIntoSnapshot(nextSnapshot, { rosterEntry, session }),
+            upsertIntoSnapshot(nextSnapshot, { historyEntry, session }),
           );
           yield* selectSessionEffect(rwFromFnContext(get), sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
@@ -222,8 +245,8 @@ export const createSessionLifecycleAtoms = (
 
         const hasLocalSnapshot = arg.sessionId in snapshot.sessions;
         const existingSession = hasLocalSnapshot ? snapshot.sessions[arg.sessionId] : undefined;
-        const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
-        const cwd = resolveSessionCwd(existingSession?.cwd, rosterEntry?.cwd);
+        const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
+        const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
 
         yield* selectSessionEffect(rwFromFnContext(get), arg.sessionId);
 
@@ -240,7 +263,7 @@ export const createSessionLifecycleAtoms = (
             ...snapshot,
             sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
               ...session,
-              defects: [{ message: 'Session cwd missing from snapshot and roster' }],
+              defects: [{ message: 'Session cwd missing from snapshot and history' }],
               status: 'inactive',
             })),
           });
@@ -287,10 +310,22 @@ export const createSessionLifecycleAtoms = (
         }
 
         const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
+        const activatedSession = buildActivatedSession(
+          arg.sessionId,
+          exit.value,
+          get(backendHarnessStateAtom(arg.launchTarget)).sessions[arg.sessionId],
+        );
+        const sessionConfiguration = yield* resetActivatedConfiguration(
+          arg.launchTarget,
+          arg.sessionId,
+          activatedSession.sessionConfiguration,
+          get(configOptionIndexAtom(arg.launchTarget)),
+        );
         get.set(backendHarnessStateAtom(arg.launchTarget), {
           ...get(backendHarnessStateAtom(arg.launchTarget)),
           sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({
             ...buildActivatedSession(arg.sessionId, exit.value, session),
+            sessionConfiguration,
             usage: persistedUsage,
           })),
         });
@@ -301,7 +336,7 @@ export const createSessionLifecycleAtoms = (
     .pipe(Atom.keepAlive);
 
   /**
-   * `session/fork` then treat the result like a `session/list` row (roster only, not active).
+   * `session/fork` then treat the result like a `session/list` row (history only, not active).
    * Activate via the normal activate path (empty local transcript ⇒ `session/load`) so the
    * agent hydrates/replays — vendors' fork may not leave the new id live the way the unstable
    * spec implies.
@@ -324,17 +359,17 @@ export const createSessionLifecycleAtoms = (
           const forkedSessionId = result.sessionId;
           yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
 
-          const parentRoster = snapshot.sessionRoster.find(entry => entry.sessionId === arg.sessionId);
-          const createdRoster = rosterEntryFromNew(result, arg.cwd);
-          if (createdRoster === undefined) {
+          const parentEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
+          const createdEntry = historyEntryFromNew(result, arg.cwd);
+          if (createdEntry === undefined) {
             yield* Effect.logError('forkSession skipped; fork result missing sessionId', arg.launchTarget);
             return;
           }
-          const rosterEntry =
-            parentRoster?.title !== undefined ? { ...createdRoster, title: parentRoster.title } : createdRoster;
+          const historyEntry =
+            parentEntry?.title !== undefined ? { ...createdEntry, title: parentEntry.title } : createdEntry;
 
           const nextSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          get.set(backendHarnessStateAtom(arg.launchTarget), upsertIntoSnapshot(nextSnapshot, { rosterEntry }));
+          get.set(backendHarnessStateAtom(arg.launchTarget), upsertIntoSnapshot(nextSnapshot, { historyEntry }));
 
           yield* get.setResult(activateSessionAtomFn, {
             launchTarget: arg.launchTarget,
@@ -462,8 +497,8 @@ export const createSessionLifecycleAtoms = (
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
     forkSessionAtomFn,
-    refreshAllSessionRostersAtomFn,
-    refreshSessionRosterAtomFn,
+    refreshAllSessionHistoriesAtomFn,
+    refreshSessionHistoryAtomFn,
     selectSessionAtomFn,
   };
 };

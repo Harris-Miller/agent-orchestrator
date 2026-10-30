@@ -1,19 +1,39 @@
 export {
   adapterDirPath,
-  adapterRosterLockPath,
-  adapterRosterPath,
-  readAdapterRoster,
-  withAdapterRosterLock,
-  writeAdapterRoster,
-} from './adapterRoster.ts';
+  adapterHistoryLockPath,
+  adapterHistoryPath,
+  readAdapterHistory,
+  withAdapterHistoryLock,
+  writeAdapterHistory,
+} from './adapterHistory.ts';
 export {
-  type AdapterRosterDocument,
-  AdapterRosterDocumentJsonString,
-  AdapterRosterDocumentSchema,
-  type AdapterRosterEntry,
-  AdapterRosterEntrySchema,
-  emptyAdapterRoster,
-} from './AdapterRosterDocument.ts';
+  type AdapterHistoryDocument,
+  AdapterHistoryDocumentJsonString,
+  AdapterHistoryDocumentSchema,
+  type AdapterHistoryEntry,
+  AdapterHistoryEntrySchema,
+  emptyAdapterHistory,
+} from './AdapterHistoryDocument.ts';
+export { harnessDirPath } from './harnessFiles.ts';
+export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
+export {
+  emptySessionIndex,
+  SessionIndexDocumentJsonString,
+  SessionIndexDocumentSchema,
+  type SessionIndexDocument,
+  SessionIndexEntrySchema,
+  type SessionIndexEntry,
+} from './SessionIndexDocument.ts';
+export {
+  configOptionIndexCachePath,
+  readConfigOptionIndexCache,
+  writeConfigOptionIndexCache,
+} from './configOptionIndexCache.ts';
+export {
+  ConfigOptionIndexDocumentJsonString,
+  ConfigOptionIndexDocumentSchema,
+  type ConfigOptionIndexDocument,
+} from './ConfigOptionIndexDocument.ts';
 export {
   ANTIGRAVITY_ACP_BROWSER_HELPER_NAME,
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,

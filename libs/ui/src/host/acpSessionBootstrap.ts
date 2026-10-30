@@ -53,11 +53,13 @@ const nonEmptyCwd = (cwd: string | undefined): string | undefined => {
 };
 
 /**
- * ADR 0005 activate resolve: prefer snapshot cwd, else roster cwd.
+ * ADR 0005 activate resolve: prefer snapshot cwd, else history cwd.
  * Absent entry / empty / whitespace count as missing.
  */
-export const resolveSessionCwd = (snapshotCwd: string | undefined, rosterCwd: string | undefined): string | undefined =>
-  nonEmptyCwd(snapshotCwd) ?? nonEmptyCwd(rosterCwd);
+export const resolveSessionCwd = (
+  snapshotCwd: string | undefined,
+  historyCwd: string | undefined,
+): string | undefined => nonEmptyCwd(snapshotCwd) ?? nonEmptyCwd(historyCwd);
 
 /** Collects `cause.reasons[].defect` values from Die reasons. */
 export const defectsFromCause = <E>(cause: Cause.Cause<E>): readonly unknown[] =>
@@ -100,13 +102,17 @@ export const defectsFromActivationFailure = <E>(
 };
 
 export type NormalizedSessionInfo = {
+  readonly [key: string]: unknown;
   readonly cwd: string;
   readonly sessionId: string;
   readonly title?: string;
   readonly updatedAt?: string;
 };
 
-export type UnifiedRosterEntry = {
+/** Cached `session/list` row; `unavailable` until its provider confirms it with a successful list. */
+export type HistoryEntry = NormalizedSessionInfo & { readonly unavailable?: true };
+
+export type UnifiedHistoryEntry = {
   readonly launchTarget: AgentLaunchTarget;
 } & NormalizedSessionInfo;
 
@@ -117,7 +123,7 @@ export type BackendHarnessSnapshot = {
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];
-  readonly sessionRoster: readonly NormalizedSessionInfo[];
+  readonly sessionHistory: readonly HistoryEntry[];
   readonly sessions: Readonly<Record<string, SessionSnapshot>>;
 };
 
@@ -203,7 +209,7 @@ export type NormalizedSessionState = {
 export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
   phase: 'connecting',
   rpcCalls: [],
-  sessionRoster: [],
+  sessionHistory: [],
   sessions: {},
 });
 
@@ -213,7 +219,7 @@ export const initialSessionSnapshot = (sessionId: string, status: SessionStatus 
   transcript: emptySessionTranscript(),
 });
 
-/** Temp-cwd prefix for Config probe sessions — never shown as roster entries. */
+/** Temp-cwd prefix for Config probe sessions — never shown as history entries. */
 export const CONFIG_PROBE_CWD_PREFIX = 'ao-config-probe-';
 
 export const isConfigProbeCwd = (cwd: string): boolean => {
@@ -230,6 +236,7 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
   }
 
   return {
+    ...entry,
     cwd: entry.cwd,
     sessionId: entry.sessionId,
     title: typeof entry.title === 'string' ? entry.title : undefined,
@@ -243,6 +250,7 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
   }
 
   return {
+    ...result,
     cwd,
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,
@@ -250,20 +258,20 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
   };
 };
 
-export const upsertRosterEntry = (
-  roster: readonly NormalizedSessionInfo[],
+export const upsertHistoryEntry = (
+  history: readonly NormalizedSessionInfo[],
   entry: NormalizedSessionInfo,
-): readonly NormalizedSessionInfo[] => [entry, ...roster.filter(item => item.sessionId !== entry.sessionId)];
+): readonly NormalizedSessionInfo[] => [entry, ...history.filter(item => item.sessionId !== entry.sessionId)];
 
-/** Apply `session_info_update.title` onto the matching roster row (same field as `session/list`). */
+/** Apply `session_info_update.title` onto the matching history row (same field as `session/list`). */
 export const applySessionInfoTitle = (
-  roster: readonly NormalizedSessionInfo[],
+  history: readonly NormalizedSessionInfo[],
   sessionId: string,
   title: string,
 ): readonly NormalizedSessionInfo[] =>
-  roster.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
+  history.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
 
-export const normalizeSessionRoster = (listResult: unknown): readonly NormalizedSessionInfo[] => {
+export const normalizeSessionHistory = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];
   }
@@ -275,7 +283,7 @@ export const normalizeSessionRoster = (listResult: unknown): readonly Normalized
 };
 
 /** Missing `updatedAt` sorts last (oldest). Equal timestamps tie-break by `sessionId`. */
-export const compareRosterEntriesByUpdatedAtDesc = (
+export const compareHistoryEntriesByUpdatedAtDesc = (
   left: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
   right: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
 ): number => {
@@ -303,10 +311,10 @@ export const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'u
 };
 
 export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
-  roster: readonly T[],
+  history: readonly T[],
 ): readonly { cwd: string; sessions: readonly T[] }[] => {
   const groups = new Map<string, T[]>();
-  for (const entry of roster) {
+  for (const entry of history) {
     const existing = groups.get(entry.cwd);
     if (existing === undefined) {
       groups.set(entry.cwd, [entry]);
@@ -318,7 +326,7 @@ export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
   return [...groups.entries()]
     .map(([cwd, sessions]) => ({
       cwd,
-      sessions: [...sessions].sort(compareRosterEntriesByUpdatedAtDesc),
+      sessions: [...sessions].sort(compareHistoryEntriesByUpdatedAtDesc),
     }))
     .sort((left, right) => {
       const leftMax = maxUpdatedAtMs(left.sessions);
@@ -330,15 +338,15 @@ export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
     });
 };
 
-/** Same group/sort as the desktop roster; keep only the group for `cwd` (empty if none). */
+/** Same group/sort as the desktop history; keep only the group for `cwd` (empty if none). */
 export const sessionsForCwd = <T extends NormalizedSessionInfo>(
-  roster: readonly T[],
+  history: readonly T[],
   cwd: string | undefined,
 ): readonly T[] => {
   if (cwd === undefined) {
     return [];
   }
-  return groupAndSortSessionsByCwd(roster).find(group => group.cwd === cwd)?.sessions ?? [];
+  return groupAndSortSessionsByCwd(history).find(group => group.cwd === cwd)?.sessions ?? [];
 };
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {

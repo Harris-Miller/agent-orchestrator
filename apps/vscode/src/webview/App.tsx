@@ -6,6 +6,7 @@ import {
   bootWorkspaceFolders,
   FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
+  HarnessCacheGate,
   PersistUserSettingsToast,
   UserSettingsMount,
 } from '@lib/ui';
@@ -79,7 +80,9 @@ const WorkspaceFoldersGate: FC = () => {
 
   return (
     <OnClientErrorContext.Provider value={onClientError}>
-      <AcpBackendsMount />
+      <HarnessCacheGate>
+        <AcpBackendsMount />
+      </HarnessCacheGate>
       <Box
         sx={{
           flex: 1,

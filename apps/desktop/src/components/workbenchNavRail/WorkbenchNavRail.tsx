@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { NavSessionGroup, UnifiedRosterEntry } from '@lib/ui';
+import type { NavSessionGroup, UnifiedHistoryEntry } from '@lib/ui';
 import {
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
@@ -7,11 +7,11 @@ import {
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
-  refreshAllSessionRostersAtomFn,
+  refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
-  SessionRosterRow,
+  SessionHistoryRow,
   showNoFolderGroupAtom,
-  unifiedSessionRosterAtom,
+  unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -43,7 +43,7 @@ type NavGroupPresentation = {
   readonly tooltip: string;
 };
 
-const navGroupPresentation = (group: NavSessionGroup<UnifiedRosterEntry>): NavGroupPresentation => {
+const navGroupPresentation = (group: NavSessionGroup<UnifiedHistoryEntry>): NavGroupPresentation => {
   if (group.kind === 'cwd') {
     return {
       createCwd: group.cwd,
@@ -63,15 +63,15 @@ const navGroupPresentation = (group: NavSessionGroup<UnifiedRosterEntry>): NavGr
 export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClose }) => {
-  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const history = useAtomValue(unifiedSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
-  const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
+  const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest();
   const navigate = useNavigate();
 
-  const navGroups = groupAndSortSessionsForNav(roster).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
+  const navGroups = groupAndSortSessionsForNav(history).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
 
   return (
     <>
@@ -86,7 +86,7 @@ export const WorkbenchNavRail: FC<{
         }}
       >
         <PanelHeader
-          closeAriaLabel="Close session roster panel"
+          closeAriaLabel="Close session history panel"
           closeGlyph="‹"
           onClose={onClose}
           title="Sessions"
@@ -94,7 +94,7 @@ export const WorkbenchNavRail: FC<{
             <IconButton
               aria-label="Reload sessions"
               onClick={() => {
-                refreshAllSessionRosters(undefined).catch(() => undefined);
+                refreshAllSessionHistories(undefined).catch(() => undefined);
               }}
               size="small"
             >
@@ -117,7 +117,7 @@ export const WorkbenchNavRail: FC<{
         </Box>
         <Divider />
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          {roster.length === 0 ? (
+          {history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.
             </Typography>
@@ -182,7 +182,7 @@ export const WorkbenchNavRail: FC<{
                     </AccordionSummary>
                     <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
                       {group.sessions.map(entry => (
-                        <SessionRosterRow
+                        <SessionHistoryRow
                           entry={entry}
                           key={`${entry.launchTarget}:${entry.sessionId}`}
                           onDeleteRequest={requestDelete}

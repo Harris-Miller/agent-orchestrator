@@ -1,4 +1,4 @@
-/** Session update apply: one inbound session/update → next snapshot (+ roster title). */
+/** Session update apply: one inbound session/update → next snapshot (+ history title). */
 import { isRecord } from '../isRecord.ts';
 
 import { applySessionInfoTitle, applySetConfigOptionResult, initialSessionSnapshot } from './acpSessionBootstrap.ts';
@@ -16,7 +16,7 @@ export type ApplySessionUpdateResult =
   | {
       readonly kind: 'patch';
       readonly session: SessionSnapshot;
-      readonly sessionRoster?: readonly NormalizedSessionInfo[];
+      readonly sessionHistory?: readonly NormalizedSessionInfo[];
       readonly usageChanged: boolean;
     };
 
@@ -31,13 +31,13 @@ export const withUserChatMessage = (
 });
 
 /**
- * Fold one raw session/update into the next session snapshot (and roster title when needed).
+ * Fold one raw session/update into the next session snapshot (and history title when needed).
  * Seeds a missing session from `initialSessionSnapshot`. Pure — no disk, no atoms.
  */
 export const applySessionUpdate = (
   session: SessionSnapshot | undefined,
   sessionId: string,
-  roster: readonly NormalizedSessionInfo[],
+  history: readonly NormalizedSessionInfo[],
   update: unknown,
 ): ApplySessionUpdateResult => {
   const base = session ?? initialSessionSnapshot(sessionId);
@@ -47,7 +47,7 @@ export const applySessionUpdate = (
   let next: SessionSnapshot = transcriptChanged ? { ...base, transcript: nextTranscript } : base;
   let sessionChanged = transcriptChanged;
   let usageChanged = false;
-  let sessionRoster: readonly NormalizedSessionInfo[] | undefined;
+  let sessionHistory: readonly NormalizedSessionInfo[] | undefined;
 
   if (isRecord(update) && typeof update.sessionUpdate === 'string') {
     switch (update.sessionUpdate) {
@@ -74,8 +74,8 @@ export const applySessionUpdate = (
       }
       case 'session_info_update': {
         if (typeof update.title === 'string') {
-          sessionRoster = applySessionInfoTitle(roster, sessionId, update.title);
-          // Roster patch alone is enough for a non-noop result when transcript unchanged.
+          sessionHistory = applySessionInfoTitle(history, sessionId, update.title);
+          // History patch alone is enough for a non-noop result when transcript unchanged.
         }
         break;
       }
@@ -93,14 +93,14 @@ export const applySessionUpdate = (
     }
   }
 
-  if (!sessionChanged && sessionRoster === undefined && !usageChanged) {
+  if (!sessionChanged && sessionHistory === undefined && !usageChanged) {
     return { kind: 'noop' };
   }
 
   return {
     kind: 'patch',
     session: next,
-    sessionRoster,
+    sessionHistory,
     usageChanged,
   };
 };

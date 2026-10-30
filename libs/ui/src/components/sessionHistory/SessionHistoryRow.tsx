@@ -15,7 +15,7 @@ import type { FC } from 'react';
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
-import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
+import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -35,10 +35,10 @@ const sessionCardSx = (selected: boolean) =>
     },
   }) as const;
 
-export const SessionRosterRow: FC<{
-  readonly entry: UnifiedRosterEntry;
+export const SessionHistoryRow: FC<{
+  readonly entry: UnifiedHistoryEntry;
   readonly onClientError?: (error: unknown) => void;
-  readonly onDeleteRequest: (entry: UnifiedRosterEntry) => void;
+  readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly selected: boolean;
 }> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
@@ -50,8 +50,10 @@ export const SessionRosterRow: FC<{
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const menuOpen = menuAnchor !== null;
+  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
 
-  const activateRosterEntry = () => {
+  const activateHistoryEntry = () => {
+    if (unavailable) return;
     // activateSession selects + no-ops when already active/activating (Codex-safe).
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
@@ -64,15 +66,16 @@ export const SessionRosterRow: FC<{
     <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
       <Paper
         elevation={0}
-        onClick={activateRosterEntry}
+        aria-disabled={unavailable}
+        onClick={activateHistoryEntry}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            activateRosterEntry();
+            activateHistoryEntry();
           }
         }}
         role="button"
-        sx={sessionCardSx(selected)}
+        sx={{ ...sessionCardSx(selected), ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}) }}
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
@@ -120,6 +123,7 @@ export const SessionRosterRow: FC<{
         <Stack spacing={1} sx={{ p: 1 }}>
           {hasSessionArchiveCapability(snapshot.initializeResult) ? (
             <Button
+              disabled={unavailable}
               onClick={() => {
                 closeMenu();
                 archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
@@ -133,6 +137,7 @@ export const SessionRosterRow: FC<{
           ) : null}
           <Button
             color="error"
+            disabled={unavailable}
             onClick={() => {
               closeMenu();
               onDeleteRequest(entry);

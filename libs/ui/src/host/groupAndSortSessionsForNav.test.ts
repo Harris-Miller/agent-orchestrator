@@ -1,11 +1,11 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
+import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';
 import { groupAndSortSessionsForNav } from './groupAndSortSessionsForNav.ts';
 
 describe('groupAndSortSessionsForNav', () => {
   it('merges multi-scratch Claude and Codex into one No Folder group', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       {
         cwd: '/Users/me/Library/Claude/scratch-workspaces/scratch-2026-03-15-a1b2c3',
         launchTarget: 'claude-agent-acp',
@@ -32,7 +32,7 @@ describe('groupAndSortSessionsForNav', () => {
       },
     ];
 
-    const groups = groupAndSortSessionsForNav(roster);
+    const groups = groupAndSortSessionsForNav(history);
     assert.strictEqual(groups.length, 2);
     assert.strictEqual(groups[0]?.kind, 'noFolder');
     if (groups[0]?.kind !== 'noFolder') {
@@ -49,12 +49,12 @@ describe('groupAndSortSessionsForNav', () => {
   });
 
   it('keeps normal cwd grouping and does not create empty No Folder', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
     ];
 
-    const groups = groupAndSortSessionsForNav(roster);
+    const groups = groupAndSortSessionsForNav(history);
     assert.deepStrictEqual(
       groups.map(group => (group.kind === 'cwd' ? group.cwd : group.kind)),
       ['/new', '/old'],
@@ -62,7 +62,7 @@ describe('groupAndSortSessionsForNav', () => {
   });
 
   it('does not create a per-leaf accordion for Claude scratch basenames', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       {
         cwd: '/tmp/scratch-workspaces/scratch-2026-03-15-a1b2c3',
         launchTarget: 'claude-agent-acp',
@@ -77,13 +77,13 @@ describe('groupAndSortSessionsForNav', () => {
       },
     ];
 
-    const groups = groupAndSortSessionsForNav(roster);
+    const groups = groupAndSortSessionsForNav(history);
     assert.strictEqual(groups.length, 1);
     assert.strictEqual(groups[0]?.kind, 'noFolder');
   });
 
   it('classifies case-insensitive Windows-shaped No Folder paths', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       {
         cwd: 'C:\\Users\\me\\Documents\\Codex',
         launchTarget: 'codex-acp',
@@ -104,7 +104,7 @@ describe('groupAndSortSessionsForNav', () => {
       },
     ];
 
-    const groups = groupAndSortSessionsForNav(roster);
+    const groups = groupAndSortSessionsForNav(history);
     assert.strictEqual(groups.length, 2);
     assert.strictEqual(groups[0]?.kind, 'cwd');
     assert.strictEqual(groups[1]?.kind, 'noFolder');

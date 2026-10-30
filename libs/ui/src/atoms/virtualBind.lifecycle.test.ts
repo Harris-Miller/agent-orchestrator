@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
-import { initialBackendHarnessSnapshot, normalizeSessionRoster } from '../host/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
@@ -14,7 +14,7 @@ import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import {
   ensureVirtualAcpBound,
-  excludeBoundVirtualFromRoster,
+  excludeBoundVirtualFromHistory,
   rwFromRegistry,
   teardownVirtualAcpBind,
 } from './virtualBind.ts';
@@ -116,17 +116,17 @@ const seedReadyVirtual = (
   });
 };
 
-describe('excludeBoundVirtualFromRoster', () => {
-  it('filters Bound id; normalizeSessionRoster still returns it', () => {
+describe('excludeBoundVirtualFromHistory', () => {
+  it('filters Bound id; normalizeSessionHistory still returns it', () => {
     const listResult = {
       sessions: [
         { cwd: '/proj', sessionId: 'bound-1' },
         { cwd: '/other', sessionId: 'real-1' },
       ],
     };
-    const normalized = normalizeSessionRoster(listResult);
+    const normalized = normalizeSessionHistory(listResult);
     assert.strictEqual(normalized.length, 2);
-    const published = excludeBoundVirtualFromRoster(normalized, 'bound-1');
+    const published = excludeBoundVirtualFromHistory(normalized, 'bound-1');
     assert.deepStrictEqual(
       published.map(entry => entry.sessionId),
       ['real-1'],
@@ -135,7 +135,7 @@ describe('excludeBoundVirtualFromRoster', () => {
 });
 
 describe('ensureVirtualAcpBound', () => {
-  it.effect('cwd+LT+Ready → session/new once; Virtual gains sessionId; sessions map has row; roster lacks id', () =>
+  it.effect('cwd+LT+Ready → session/new once; Virtual gains sessionId; sessions map has row; history lacks id', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       const fsListingRefreshArgs: { cwd: string; sessionId: string }[] = [];
@@ -154,7 +154,7 @@ describe('ensureVirtualAcpBound', () => {
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
       const snapshot = registry.get(backendHarnessStateAtom('codex-acp'));
       assert.strictEqual(snapshot.sessions['bound-1'].status, 'active');
-      assert.strictEqual(snapshot.sessionRoster.length, 0);
+      assert.strictEqual(snapshot.sessionHistory.length, 0);
       // `@` FS listing keys off active session (Bound Virtual), not Session-arm Selected.
       assert.deepStrictEqual(registry.get(selectedActiveSessionAtom), {
         cwd: '/proj',
@@ -372,7 +372,7 @@ describe('ensureVirtualAcpBound', () => {
     }),
   );
 
-  it.effect('discard Bound → delete + clear Virtual + Selected unset; no roster row', () =>
+  it.effect('discard Bound → delete + clear Virtual + Selected unset; no history row', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
@@ -399,7 +399,7 @@ describe('ensureVirtualAcpBound', () => {
       assert.ok(calls.includes('delete:bound-1'));
       assert.isNull(registry.get(virtualSessionAtom));
       assert.isUndefined(registry.get(selectedAtom));
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessionRoster.length, 0);
+      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.length, 0);
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -478,7 +478,7 @@ describe('setConfigOptionAtomFn Bound Virtual', () => {
 });
 
 describe('materializeVirtualThenSendAtomFn', () => {
-  it.effect('first Send Bound → no second session/new; roster gains id; Selected Session', () =>
+  it.effect('first Send Bound → no second session/new; history gains id; Selected Session', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
@@ -509,7 +509,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
       assert.isNull(registry.get(virtualSessionAtom));
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
       assert.strictEqual(
-        registry.get(backendHarnessStateAtom('codex-acp')).sessionRoster.some(entry => entry.sessionId === 'bound-1'),
+        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.some(entry => entry.sessionId === 'bound-1'),
         true,
       );
       clearConnectedAgent('codex-acp');

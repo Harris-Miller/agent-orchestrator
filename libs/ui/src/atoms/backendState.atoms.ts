@@ -2,7 +2,7 @@
 import { Atom } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import type { BackendHarnessSnapshot, UnifiedRosterEntry } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
@@ -35,10 +35,10 @@ export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTar
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
 );
 
-export const unifiedSessionRosterAtom = Atom.make(get => {
-  const entries: UnifiedRosterEntry[] = [];
+export const unifiedSessionHistoryAtom = Atom.make(get => {
+  const entries: UnifiedHistoryEntry[] = [];
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
-    for (const entry of get(backendHarnessStateAtom(launchTarget)).sessionRoster) {
+    for (const entry of get(backendHarnessStateAtom(launchTarget)).sessionHistory) {
       entries.push({ ...entry, launchTarget });
     }
   }
@@ -51,7 +51,7 @@ export const findLaunchTargetForSessionId = (
 ): AgentLaunchTarget | undefined => {
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
-    if (sessionId in snapshot.sessions || snapshot.sessionRoster.some(entry => entry.sessionId === sessionId)) {
+    if (sessionId in snapshot.sessions || snapshot.sessionHistory.some(entry => entry.sessionId === sessionId)) {
       return launchTarget;
     }
   }

@@ -5,14 +5,14 @@ import type {
   PendingClientRequestKind,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
-import { upsertRosterEntry } from './acpSessionBootstrap.ts';
+import { upsertHistoryEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
-export const markRosterUnavailable = (roster: readonly NormalizedSessionInfo[]): readonly NormalizedSessionInfo[] =>
-  roster.map(entry => ({ ...entry, unavailable: true }));
+export const markHistoryUnavailable = (history: readonly NormalizedSessionInfo[]): readonly NormalizedSessionInfo[] =>
+  history.map(entry => ({ ...entry, unavailable: true }));
 
-export const reconcileRoster = (
+export const reconcileHistory = (
   current: readonly NormalizedSessionInfo[],
   listed: readonly NormalizedSessionInfo[],
   scope: SessionListScope,
@@ -64,40 +64,40 @@ export const markSessionInactive = (snapshot: BackendHarnessSnapshot, sessionId:
   })),
 });
 
-/** Remove session map entry and roster row. Caller clears selection when selected === sessionId. */
+/** Remove session map entry and history row. Caller clears selection when selected === sessionId. */
 export const dropSession = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => {
   const { [sessionId]: _removed, ...remainingSessions } = snapshot.sessions;
   return {
     ...snapshot,
-    sessionRoster: snapshot.sessionRoster.filter(entry => entry.sessionId !== sessionId),
+    sessionHistory: snapshot.sessionHistory.filter(entry => entry.sessionId !== sessionId),
     sessions: remainingSessions,
   };
 };
 
-/** Replace the session roster (refresh / Skip-empty). */
-export const replaceSessionRoster = (
+/** Replace the session history (refresh / Skip-empty). */
+export const replaceSessionHistory = (
   snapshot: BackendHarnessSnapshot,
-  roster: readonly NormalizedSessionInfo[],
+  history: readonly NormalizedSessionInfo[],
 ): BackendHarnessSnapshot => ({
   ...snapshot,
-  sessionRoster: roster,
+  sessionHistory: history,
 });
 
-/** At least one of session or rosterEntry required. */
+/** At least one of session or historyEntry required. */
 export type UpsertIntoSnapshotArgs =
-  | { readonly rosterEntry: NormalizedSessionInfo; readonly session?: undefined }
-  | { readonly rosterEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
+  | { readonly historyEntry: NormalizedSessionInfo; readonly session?: undefined }
+  | { readonly historyEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
 
-/** Upsert a session snapshot and/or roster entry into the Backend harness snapshot (Bind or Materialize). */
+/** Upsert a session snapshot and/or history entry into the Backend harness snapshot (Bind or Materialize). */
 export const upsertIntoSnapshot = (
   snapshot: BackendHarnessSnapshot,
   args: UpsertIntoSnapshotArgs,
 ): BackendHarnessSnapshot => {
-  const { rosterEntry, session } = args;
+  const { historyEntry, session } = args;
   return {
     ...snapshot,
-    sessionRoster:
-      rosterEntry === undefined ? snapshot.sessionRoster : upsertRosterEntry(snapshot.sessionRoster, rosterEntry),
+    sessionHistory:
+      historyEntry === undefined ? snapshot.sessionHistory : upsertHistoryEntry(snapshot.sessionHistory, historyEntry),
     sessions: session === undefined ? snapshot.sessions : upsertSession(snapshot.sessions, session),
   };
 };

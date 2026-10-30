@@ -13,11 +13,11 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
-import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, unifiedSessionRosterAtom } from './backendState.atoms.ts';
+import { backendHarnessStateAtom, unifiedSessionHistoryAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
 import { selectSessionEffect } from './virtualSession.atoms.ts';
@@ -103,11 +103,11 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             sourceSessionId: arg.sourceSessionId,
             targetLaunchTarget: arg.targetLaunchTarget,
           });
-          const sourceEntry = get(unifiedSessionRosterAtom).find(
+          const sourceEntry = get(unifiedSessionHistoryAtom).find(
             entry => entry.launchTarget === arg.sourceLaunchTarget && entry.sessionId === arg.sourceSessionId,
           );
           if (sourceEntry === undefined) {
-            return yield* new HandoffError({ message: 'Source session cwd not found on roster' });
+            return yield* new HandoffError({ message: 'Source session cwd not found on history' });
           }
 
           // Source handoff prompt is the only hard gate: failure means no target session.
@@ -134,12 +134,12 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const { cwd, result } = createExit.value;
           const { sessionId: targetSessionId } = result;
 
-          const rosterEntry = rosterEntryFromNew(result, cwd);
-          if (rosterEntry !== undefined) {
+          const historyEntry = historyEntryFromNew(result, cwd);
+          if (historyEntry !== undefined) {
             const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
             get.set(
               backendHarnessStateAtom(arg.targetLaunchTarget),
-              upsertIntoSnapshot(createdSnapshot, { rosterEntry }),
+              upsertIntoSnapshot(createdSnapshot, { historyEntry }),
             );
           }
           yield* selectSessionEffect(rwFromFnContext(get), targetSessionId);

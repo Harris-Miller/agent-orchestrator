@@ -1,19 +1,19 @@
 export {
   adapterDirPath,
-  adapterRosterLockPath,
-  adapterRosterPath,
-  readAdapterRoster,
-  withAdapterRosterLock,
-  writeAdapterRoster,
-} from './adapterRoster.ts';
+  adapterHistoryLockPath,
+  adapterHistoryPath,
+  readAdapterHistory,
+  withAdapterHistoryLock,
+  writeAdapterHistory,
+} from './adapterHistory.ts';
 export {
-  type AdapterRosterDocument,
-  AdapterRosterDocumentJsonString,
-  AdapterRosterDocumentSchema,
-  type AdapterRosterEntry,
-  AdapterRosterEntrySchema,
-  emptyAdapterRoster,
-} from './AdapterRosterDocument.ts';
+  type AdapterHistoryDocument,
+  AdapterHistoryDocumentJsonString,
+  AdapterHistoryDocumentSchema,
+  type AdapterHistoryEntry,
+  AdapterHistoryEntrySchema,
+  emptyAdapterHistory,
+} from './AdapterHistoryDocument.ts';
 export { harnessDirPath, readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
 export {
   emptySessionIndex,

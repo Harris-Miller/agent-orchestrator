@@ -8,7 +8,7 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { backendHarnessStateAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
-import { markRosterUnavailable } from '../host/harnessStateTransitions.ts';
+import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
 export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ children }) => {
@@ -24,23 +24,23 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
           launchTarget =>
             Effect.gen(function* () {
               const target = launchTarget as LaunchTarget;
-              const rosterRead = yield* Effect.exit(readSessionIndex(target));
-              const roster = Exit.isSuccess(rosterRead) ? rosterRead.value : { sessions: [] };
-              if (Exit.isFailure(rosterRead)) {
-                yield* Effect.logWarning('session index hydrate failed', launchTarget, rosterRead.cause);
+              const historyRead = yield* Effect.exit(readSessionIndex(target));
+              const history = Exit.isSuccess(historyRead) ? historyRead.value : { sessions: [] };
+              if (Exit.isFailure(historyRead)) {
+                yield* Effect.logWarning('session index hydrate failed', launchTarget, historyRead.cause);
               }
               registry.update(backendHarnessStateAtom(launchTarget), current => ({
                 ...current,
-                sessionRoster: markRosterUnavailable(roster.sessions),
+                sessionHistory: markHistoryUnavailable(history.sessions),
               }));
-              if (Exit.isSuccess(rosterRead)) {
+              if (Exit.isSuccess(historyRead)) {
                 let writes = Promise.resolve();
-                let lastWritten = JSON.stringify(rosterRead.value.sessions);
+                let lastWritten = JSON.stringify(historyRead.value.sessions);
                 unsubscribers.push(
                   registry.subscribe(backendHarnessStateAtom(launchTarget), () => {
                     writes = writes.then(() => {
                       const current = registry.get(backendHarnessStateAtom(launchTarget));
-                      const sessions = current.sessionRoster.map(({ unavailable: _unavailable, ...entry }) => entry);
+                      const sessions = current.sessionHistory.map(({ unavailable: _unavailable, ...entry }) => entry);
                       const nextJson = JSON.stringify(sessions);
                       if (nextJson === lastWritten) return;
                       return hostRuntime

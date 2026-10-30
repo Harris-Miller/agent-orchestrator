@@ -17,7 +17,7 @@ import { rowForModel } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
-import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from '../host/sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
@@ -101,7 +101,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * First send on already-Bound Virtual: apply Virtual Config → roster Materialize →
+   * First send on already-Bound Virtual: apply Virtual Config → history Materialize →
    * draft copy → clear virtual + Select Session → sendChatItem.
    * Does not Bind (sole Bind triggers: mutateVirtualThenRebind + Ready). No-op if unbound / in-flight.
    * Materialize lock ends before session/prompt.
@@ -160,12 +160,12 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             );
           }
 
-          const rosterEntry = rosterEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
+          const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
           const configuredSnapshot = get(backendHarnessStateAtom(launchTarget));
           get.set(
             backendHarnessStateAtom(launchTarget),
             upsertIntoSnapshot(configuredSnapshot, {
-              rosterEntry,
+              historyEntry,
               session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
                 availableCommands: liveSession.availableCommands,
                 cwd: liveSession.cwd ?? cwd,

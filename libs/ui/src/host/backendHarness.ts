@@ -58,7 +58,7 @@ export type BackendHarnessCallbacks = {
   ) => void;
   readonly onPhase: (phase: AcpBootstrapPhase, error?: string) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
-  readonly onSessionRosterResult: (result: unknown, scope: SessionListScope) => void;
+  readonly onSessionHistoryResult: (result: unknown, scope: SessionListScope) => void;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
 };
 
@@ -90,7 +90,7 @@ export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(fu
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + optional Sign in + Config probe + buffered roster list through ready. */
+/** Connect + initialize + optional Sign in + Config probe + buffered history list through ready. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (
     launchTarget: AgentLaunchTarget,
@@ -169,7 +169,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     const listResult = listPayload === undefined ? { sessions: [] } : yield* agent['session/list'](listPayload);
     const index = yield* runConfigProbe(agent);
     handlers.onConfigOptionIndexPublish(index);
-    if (listPayload !== undefined) handlers.onSessionRosterResult(listResult, listScope);
+    if (listPayload !== undefined) handlers.onSessionHistoryResult(listResult, listScope);
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
     onReady();

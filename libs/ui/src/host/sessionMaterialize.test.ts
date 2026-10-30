@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
-import { applyConfigDiffs, buildActivatedSession, rosterEntryFromNew } from './sessionMaterialize.ts';
+import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from './sessionMaterialize.ts';
 import type { ConfigValueDiff } from './sessionMaterialize.ts';
 
 describe('buildActivatedSession cwd continuity', () => {
@@ -26,9 +26,9 @@ describe('buildActivatedSession cwd continuity', () => {
   });
 });
 
-describe('rosterEntryFromNew', () => {
-  it('builds roster entry from session/new result', () => {
-    const entry = rosterEntryFromNew({ sessionId: 's1' }, '/tmp/proj');
+describe('historyEntryFromNew', () => {
+  it('builds history entry from session/new result', () => {
+    const entry = historyEntryFromNew({ sessionId: 's1' }, '/tmp/proj');
     assert.strictEqual(entry?.sessionId, 's1');
     assert.strictEqual(entry?.cwd, '/tmp/proj');
   });

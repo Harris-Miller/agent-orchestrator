@@ -17,7 +17,7 @@ import {
   selectedSessionLaunchTargetAtom,
   SessionChatBody,
   sessionChatTitle,
-  unifiedSessionRosterAtom,
+  unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -38,13 +38,13 @@ const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
 
 type WorkbenchLayout = {
   readonly horizontalSizes?: readonly number[];
-  readonly sessionRosterOpen: boolean;
+  readonly sessionHistoryOpen: boolean;
   readonly sessionStateOpen: boolean;
   readonly verticalSizes?: readonly number[];
 };
 
 const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
-  sessionRosterOpen: true,
+  sessionHistoryOpen: true,
   sessionStateOpen: true,
 };
 
@@ -65,10 +65,10 @@ const loadWorkbenchLayout = (): WorkbenchLayout => {
     }
     return {
       horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
-      sessionRosterOpen:
-        typeof parsed.sessionRosterOpen === 'boolean'
-          ? parsed.sessionRosterOpen
-          : DEFAULT_WORKBENCH_LAYOUT.sessionRosterOpen,
+      sessionHistoryOpen:
+        typeof parsed.sessionHistoryOpen === 'boolean'
+          ? parsed.sessionHistoryOpen
+          : DEFAULT_WORKBENCH_LAYOUT.sessionHistoryOpen,
       sessionStateOpen:
         typeof parsed.sessionStateOpen === 'boolean'
           ? parsed.sessionStateOpen
@@ -96,12 +96,12 @@ export const AgentChatWorkbench: FC<{
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
-  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const history = useAtomValue(unifiedSessionHistoryAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
 
   const isVirtual = selected?._tag === 'Virtual';
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
-  const entry = selectedSessionId === undefined ? undefined : roster.find(row => row.sessionId === selectedSessionId);
+  const entry = selectedSessionId === undefined ? undefined : history.find(row => row.sessionId === selectedSessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
@@ -143,7 +143,7 @@ export const AgentChatWorkbench: FC<{
             }}
             onVisibleChange={(index, visible) => {
               if (index === 0) {
-                commitLayout({ sessionRosterOpen: visible });
+                commitLayout({ sessionHistoryOpen: visible });
               } else if (index === 2) {
                 commitLayout({ sessionStateOpen: visible });
               }
@@ -153,11 +153,11 @@ export const AgentChatWorkbench: FC<{
               minSize={200}
               preferredSize={WORKBENCH_NAV_RAIL_WIDTH}
               snap
-              visible={layout.sessionRosterOpen}
+              visible={layout.sessionHistoryOpen}
             >
               <WorkbenchNavRail
                 onClose={() => {
-                  commitLayout({ sessionRosterOpen: false });
+                  commitLayout({ sessionHistoryOpen: false });
                 }}
               />
             </Allotment.Pane>
@@ -178,10 +178,10 @@ export const AgentChatWorkbench: FC<{
                     px: 2,
                   }}
                 >
-                  {layout.sessionRosterOpen ? null : (
+                  {layout.sessionHistoryOpen ? null : (
                     <Button
                       onClick={() => {
-                        commitLayout({ sessionRosterOpen: true });
+                        commitLayout({ sessionHistoryOpen: true });
                       }}
                       size="small"
                       variant="outlined"

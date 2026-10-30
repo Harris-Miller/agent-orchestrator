@@ -10,7 +10,7 @@ type SessionLike = {
 };
 
 type SnapshotLike = {
-  readonly sessionRoster: readonly { readonly cwd: string; readonly sessionId: string }[];
+  readonly sessionHistory: readonly { readonly cwd: string; readonly sessionId: string }[];
   readonly sessions: Readonly<Record<string, SessionLike>>;
 };
 
@@ -33,8 +33,8 @@ export const sessionsMatchingSessionCwd = (
     const snapshot = getSnapshot(launchTarget);
     for (const session of Object.values(snapshot.sessions)) {
       if (session.status === 'active' || session.status === 'activating') {
-        const rosterEntry = snapshot.sessionRoster.find(entry => entry.sessionId === session.sessionId);
-        if (resolveSessionCwd(session.cwd, rosterEntry?.cwd) === previousSessionCwd) {
+        const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === session.sessionId);
+        if (resolveSessionCwd(session.cwd, historyEntry?.cwd) === previousSessionCwd) {
           matches.push({
             launchTarget,
             pendingClientRequest: session.pendingClientRequest,

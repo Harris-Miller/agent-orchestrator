@@ -19,15 +19,15 @@ import {
   normalizeModels,
   normalizeModes,
   normalizeSelectableConfigOptions,
+  normalizeSessionHistory,
   normalizeSessionInfo,
   normalizeSessionInfoFromNew,
-  normalizeSessionRoster,
   patchConfigOptionValue,
   resolveSessionCwd,
   selectionFromSessionConfiguration,
   sessionsForCwd,
 } from './acpSessionBootstrap.ts';
-import type { UnifiedRosterEntry } from './acpSessionBootstrap.ts';
+import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 
 const fixtureSessionValue = (fixture: unknown): unknown => {
@@ -274,12 +274,12 @@ describe('patchConfigOptionValue', () => {
 });
 
 describe('resolveSessionCwd', () => {
-  it('prefers non-empty snapshot cwd over roster', () => {
-    assert.strictEqual(resolveSessionCwd('/snap', '/roster'), '/snap');
+  it('prefers non-empty snapshot cwd over history', () => {
+    assert.strictEqual(resolveSessionCwd('/snap', '/history'), '/snap');
   });
 
-  it('falls back to roster cwd when snapshot missing', () => {
-    assert.strictEqual(resolveSessionCwd(undefined, '/roster'), '/roster');
+  it('falls back to history cwd when snapshot missing', () => {
+    assert.strictEqual(resolveSessionCwd(undefined, '/history'), '/history');
   });
 
   it('returns undefined when both missing', () => {
@@ -287,8 +287,8 @@ describe('resolveSessionCwd', () => {
   });
 
   it('treats empty and whitespace cwd as missing', () => {
-    assert.strictEqual(resolveSessionCwd('', '/roster'), '/roster');
-    assert.strictEqual(resolveSessionCwd('   ', '/roster'), '/roster');
+    assert.strictEqual(resolveSessionCwd('', '/history'), '/history');
+    assert.strictEqual(resolveSessionCwd('   ', '/history'), '/history');
     assert.strictEqual(resolveSessionCwd('/snap', ''), '/snap');
     assert.strictEqual(resolveSessionCwd('/snap', '  '), '/snap');
     assert.strictEqual(resolveSessionCwd('', ''), undefined);
@@ -298,19 +298,19 @@ describe('resolveSessionCwd', () => {
 
 describe('applySessionInfoTitle', () => {
   it('updates title on the matching sessionId only', () => {
-    const roster = [
+    const history = [
       { cwd: '/a', sessionId: 's1', title: 'Old' },
       { cwd: '/b', sessionId: 's2', title: 'Other' },
     ] as const;
 
-    assert.deepStrictEqual(applySessionInfoTitle(roster, 's1', 'Implement auth'), [
+    assert.deepStrictEqual(applySessionInfoTitle(history, 's1', 'Implement auth'), [
       { cwd: '/a', sessionId: 's1', title: 'Implement auth' },
       { cwd: '/b', sessionId: 's2', title: 'Other' },
     ]);
   });
 });
 
-describe('isConfigProbeCwd / normalizeSessionRoster', () => {
+describe('isConfigProbeCwd / normalizeSessionHistory', () => {
   it('detects Config probe temp cwd basename', () => {
     assert.isTrue(isConfigProbeCwd('/tmp/ao-config-probe-abc'));
     assert.isTrue(isConfigProbeCwd('C:\\Users\\x\\AppData\\Local\\Temp\\ao-config-probe-abc'));
@@ -318,10 +318,10 @@ describe('isConfigProbeCwd / normalizeSessionRoster', () => {
     assert.isFalse(isConfigProbeCwd('/tmp/ao-config-probe'));
   });
 
-  it('drops Config probe sessions from roster normalization', () => {
+  it('drops Config probe sessions from history normalization', () => {
     assert.strictEqual(normalizeSessionInfo({ cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' }), undefined);
     assert.deepStrictEqual(
-      normalizeSessionRoster({
+      normalizeSessionHistory({
         sessions: [
           { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
           {
@@ -370,7 +370,7 @@ describe('normalizeSessionInfoFromNew', () => {
 
 describe('groupAndSortSessionsByCwd', () => {
   it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
@@ -378,7 +378,7 @@ describe('groupAndSortSessionsByCwd', () => {
       { cwd: '/mid', launchTarget: 'antigravity-acp', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
     ];
 
-    const groups = groupAndSortSessionsByCwd(roster);
+    const groups = groupAndSortSessionsByCwd(history);
     assert.deepStrictEqual(
       groups.map(group => group.cwd),
       ['/new', '/mid', '/old'],
@@ -390,12 +390,12 @@ describe('groupAndSortSessionsByCwd', () => {
   });
 
   it('tie-breaks equal updatedAt by sessionId', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
     ];
 
-    const groups = groupAndSortSessionsByCwd(roster);
+    const groups = groupAndSortSessionsByCwd(history);
     assert.deepStrictEqual(
       groups[0].sessions.map(entry => entry.sessionId),
       ['a', 'z'],
@@ -405,7 +405,7 @@ describe('groupAndSortSessionsByCwd', () => {
 
 describe('sessionsForCwd', () => {
   it('returns the matching cwd group in groupAndSort order; empty when missing', () => {
-    const roster: readonly UnifiedRosterEntry[] = [
+    const history: readonly UnifiedHistoryEntry[] = [
       { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
@@ -413,11 +413,11 @@ describe('sessionsForCwd', () => {
     ];
 
     assert.deepStrictEqual(
-      sessionsForCwd(roster, '/new').map(entry => entry.sessionId),
+      sessionsForCwd(history, '/new').map(entry => entry.sessionId),
       ['b', 'c', 'd'],
     );
-    assert.deepStrictEqual(sessionsForCwd(roster, '/missing'), []);
-    assert.deepStrictEqual(sessionsForCwd(roster, undefined), []);
+    assert.deepStrictEqual(sessionsForCwd(history, '/missing'), []);
+    assert.deepStrictEqual(sessionsForCwd(history, undefined), []);
   });
 });
 

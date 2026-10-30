@@ -20,11 +20,11 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar view that lists Session roster rows for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
-_Avoid_: Session roster (the harness data), nav rail, chats list
+The sidebar presentation of Session History (see desktop glossary), filtered to History entries for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
+_Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:
-The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if the roster is nonempty. Back clears Selected (Virtual blob kept until process restart); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
+The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if Session History is nonempty. Back clears Selected (Virtual blob kept until process restart); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
-For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session roster / Virtual session / Selected / Active session, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).
+For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).

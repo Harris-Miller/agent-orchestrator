@@ -5,7 +5,7 @@ import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
 import { applySessionUpdate, withUserChatMessage } from './applySessionUpdate.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
-const emptyRoster: readonly NormalizedSessionInfo[] = [];
+const emptyHistory: readonly NormalizedSessionInfo[] = [];
 
 describe('withUserChatMessage', () => {
   it('appends a user_message and preserves other session fields', () => {
@@ -49,20 +49,20 @@ describe('withUserChatMessage', () => {
 describe('applySessionUpdate', () => {
   it('returns noop for unrecognized updates with no side effects', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, { sessionUpdate: 'unknown_kind' });
+    const result = applySessionUpdate(session, 's1', emptyHistory, { sessionUpdate: 'unknown_kind' });
     assert.strictEqual(result.kind, 'noop');
   });
 
   it('patches transcript for chat-mutating updates', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       content: { text: 'hello', type: 'text' },
       sessionUpdate: 'agent_message_chunk',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.strictEqual(result.usageChanged, false);
-      assert.strictEqual(result.sessionRoster, undefined);
+      assert.strictEqual(result.sessionHistory, undefined);
       assert.strictEqual(result.session.transcript.items.length, 1);
       assert.strictEqual(result.session.transcript.items[0]?.kind, 'agent_message');
     }
@@ -70,7 +70,7 @@ describe('applySessionUpdate', () => {
 
   it('sets availableCommands for available_commands_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       availableCommands: [{ description: 'Run tests', name: 'test' }],
       sessionUpdate: 'available_commands_update',
     });
@@ -83,7 +83,7 @@ describe('applySessionUpdate', () => {
 
   it('sets usage and usageChanged for usage_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       cost: { amount: 0.01, currency: 'USD' },
       sessionUpdate: 'usage_update',
       size: 100,
@@ -102,7 +102,7 @@ describe('applySessionUpdate', () => {
 
   it('returns noop for malformed usage_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       sessionUpdate: 'usage_update',
       size: 100,
     });
@@ -111,7 +111,7 @@ describe('applySessionUpdate', () => {
 
   it('applies config_option_update onto session configuration', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       configOptions: [{ id: 'mode', name: 'Mode' }],
       sessionUpdate: 'config_option_update',
     });
@@ -124,7 +124,7 @@ describe('applySessionUpdate', () => {
 
   it('applies config while activating', () => {
     const session = initialSessionSnapshot('s1', 'activating');
-    const result = applySessionUpdate(session, 's1', emptyRoster, {
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
       configOptions: [{ currentValue: 'ask', id: 'mode', name: 'Mode' }],
       sessionUpdate: 'config_option_update',
     });
@@ -134,23 +134,23 @@ describe('applySessionUpdate', () => {
     }
   });
 
-  it('patches roster title for session_info_update', () => {
+  it('patches history title for session_info_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
-    const roster: readonly NormalizedSessionInfo[] = [{ cwd: '/proj', sessionId: 's1', title: 'Old' }];
-    const result = applySessionUpdate(session, 's1', roster, {
+    const history: readonly NormalizedSessionInfo[] = [{ cwd: '/proj', sessionId: 's1', title: 'Old' }];
+    const result = applySessionUpdate(session, 's1', history, {
       sessionUpdate: 'session_info_update',
       title: 'New title',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.strictEqual(result.usageChanged, false);
-      assert.deepStrictEqual(result.sessionRoster, [{ cwd: '/proj', sessionId: 's1', title: 'New title' }]);
+      assert.deepStrictEqual(result.sessionHistory, [{ cwd: '/proj', sessionId: 's1', title: 'New title' }]);
       assert.strictEqual(result.session.transcript, session.transcript);
     }
   });
 
   it('seeds initialSessionSnapshot when session is undefined', () => {
-    const result = applySessionUpdate(undefined, 's1', emptyRoster, {
+    const result = applySessionUpdate(undefined, 's1', emptyHistory, {
       availableCommands: [{ name: 'help' }],
       sessionUpdate: 'available_commands_update',
     });
@@ -163,7 +163,7 @@ describe('applySessionUpdate', () => {
   });
 
   it('folds transcript from empty when session is undefined', () => {
-    const result = applySessionUpdate(undefined, 's1', emptyRoster, {
+    const result = applySessionUpdate(undefined, 's1', emptyHistory, {
       content: { text: 'hi', type: 'text' },
       sessionUpdate: 'user_message_chunk',
     });

@@ -14,7 +14,7 @@ import {
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
-  unifiedSessionRosterAtom,
+  unifiedSessionHistoryAtom,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -40,7 +40,7 @@ export const SessionChatPage: FC = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
-  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const history = useAtomValue(unifiedSessionHistoryAtom);
   const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
@@ -61,7 +61,7 @@ export const SessionChatPage: FC = () => {
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
-  const entry = sessionId === undefined ? undefined : roster.find(row => row.sessionId === sessionId);
+  const entry = sessionId === undefined ? undefined : history.find(row => row.sessionId === sessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {

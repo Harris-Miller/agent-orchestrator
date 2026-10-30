@@ -4,13 +4,13 @@ import {
   ConfirmSessionDeleteDialog,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
-  refreshAllSessionRostersAtomFn,
+  refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
+  SessionHistoryRow,
   sessionListScopeAtom,
-  SessionRosterRow,
   sessionsForCwd,
-  unifiedSessionRosterAtom,
+  unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -27,12 +27,12 @@ import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 
 export const SessionHistory: FC = () => {
-  const roster = useAtomValue(unifiedSessionRosterAtom);
+  const history = useAtomValue(unifiedSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
-  const refreshAllSessionRosters = useAtomSet(refreshAllSessionRostersAtomFn, { mode: 'promise' });
+  const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
@@ -40,7 +40,7 @@ export const SessionHistory: FC = () => {
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
-  const sessions = sessionsForCwd(roster, sessionCwd);
+  const sessions = sessionsForCwd(history, sessionCwd);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
@@ -52,7 +52,7 @@ export const SessionHistory: FC = () => {
           aria-label="Reload sessions"
           disabled={noFolder || !anyReady}
           onClick={() => {
-            refreshAllSessionRosters(undefined).catch(onClientError);
+            refreshAllSessionHistories(undefined).catch(onClientError);
           }}
           size="small"
         >
@@ -100,7 +100,7 @@ export const SessionHistory: FC = () => {
       ) : (
         <Box sx={{ overflow: 'auto', py: 0.5 }}>
           {sessions.map(entry => (
-            <SessionRosterRow
+            <SessionHistoryRow
               entry={entry}
               key={`${entry.launchTarget}:${entry.sessionId}`}
               onClientError={onClientError}

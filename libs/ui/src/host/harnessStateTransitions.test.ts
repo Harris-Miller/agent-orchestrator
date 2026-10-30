@@ -6,35 +6,35 @@ import {
   beginClientRequest,
   dropSession,
   endClientRequest,
-  markRosterUnavailable,
+  markHistoryUnavailable,
   markSessionInactive,
-  reconcileRoster,
-  replaceSessionRoster,
+  reconcileHistory,
+  replaceSessionHistory,
   stripSessionPendings,
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
 
-describe('reconcileRoster', () => {
+describe('reconcileHistory', () => {
   const current = [
     { cwd: '/a', sessionId: 'a' },
     { cwd: '/b', sessionId: 'b' },
   ];
   it('replaces unscoped results, including empty results', () => {
-    assert.deepStrictEqual(reconcileRoster(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
+    assert.deepStrictEqual(reconcileHistory(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
       { cwd: '/c', sessionId: 'c' },
     ]);
-    assert.deepStrictEqual(reconcileRoster(current, [], { _tag: 'Unscoped' }), []);
+    assert.deepStrictEqual(reconcileHistory(current, [], { _tag: 'Unscoped' }), []);
   });
   it('replaces only matching cwd and preserves Skip', () => {
-    assert.deepStrictEqual(reconcileRoster(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
+    assert.deepStrictEqual(reconcileHistory(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
       { cwd: '/b', sessionId: 'b' },
       { cwd: '/a', sessionId: 'c' },
     ]);
-    assert.deepStrictEqual(reconcileRoster(current, [], { _tag: 'Skip' }), current);
+    assert.deepStrictEqual(reconcileHistory(current, [], { _tag: 'Skip' }), current);
   });
   it('marks hydrated entries unavailable', () => {
     assert.deepStrictEqual(
-      markRosterUnavailable(current),
+      markHistoryUnavailable(current),
       current.map(entry => ({ ...entry, unavailable: true })),
     );
   });
@@ -124,10 +124,10 @@ describe('markSessionInactive', () => {
 });
 
 describe('dropSession', () => {
-  it('removes session and roster row', () => {
+  it('removes session and history row', () => {
     const snapshot: BackendHarnessSnapshot = {
       ...readySnapshot({ s1: activeSession('s1'), s2: activeSession('s2') }),
-      sessionRoster: [
+      sessionHistory: [
         { cwd: '/a', sessionId: 's1' },
         { cwd: '/b', sessionId: 's2' },
       ],
@@ -136,35 +136,35 @@ describe('dropSession', () => {
     assert.isUndefined(next.sessions.s1);
     assert.isDefined(next.sessions.s2);
     assert.deepStrictEqual(
-      next.sessionRoster.map(entry => entry.sessionId),
+      next.sessionHistory.map(entry => entry.sessionId),
       ['s2'],
     );
   });
 });
 
 describe('upsertIntoSnapshot', () => {
-  it('upserts session and optional roster entry', () => {
+  it('upserts session and optional history entry', () => {
     const session = activeSession('s1', { cwd: '/proj' });
-    const rosterEntry = { cwd: '/proj', sessionId: 's1', title: 'T' };
-    const next = upsertIntoSnapshot(readySnapshot(), { rosterEntry, session });
+    const historyEntry = { cwd: '/proj', sessionId: 's1', title: 'T' };
+    const next = upsertIntoSnapshot(readySnapshot(), { historyEntry, session });
     assert.strictEqual(next.sessions.s1.cwd, '/proj');
-    assert.strictEqual(next.sessionRoster[0]?.sessionId, 's1');
-    assert.strictEqual(next.sessionRoster[0]?.title, 'T');
+    assert.strictEqual(next.sessionHistory[0]?.sessionId, 's1');
+    assert.strictEqual(next.sessionHistory[0]?.title, 'T');
   });
 
-  it('upserts roster entry alone', () => {
-    const rosterEntry = { cwd: '/proj', sessionId: 's1' };
-    const next = upsertIntoSnapshot(readySnapshot(), { rosterEntry });
+  it('upserts history entry alone', () => {
+    const historyEntry = { cwd: '/proj', sessionId: 's1' };
+    const next = upsertIntoSnapshot(readySnapshot(), { historyEntry });
     assert.strictEqual(Object.keys(next.sessions).length, 0);
-    assert.strictEqual(next.sessionRoster[0]?.sessionId, 's1');
+    assert.strictEqual(next.sessionHistory[0]?.sessionId, 's1');
   });
 });
 
-describe('replaceSessionRoster', () => {
-  it('replaces roster only', () => {
+describe('replaceSessionHistory', () => {
+  it('replaces history only', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const next = replaceSessionRoster(snapshot, [{ cwd: '/x', sessionId: 's9' }]);
+    const next = replaceSessionHistory(snapshot, [{ cwd: '/x', sessionId: 's9' }]);
     assert.strictEqual(next.sessions.s1.sessionId, 's1');
-    assert.deepStrictEqual(next.sessionRoster, [{ cwd: '/x', sessionId: 's9' }]);
+    assert.deepStrictEqual(next.sessionHistory, [{ cwd: '/x', sessionId: 's9' }]);
   });
 });

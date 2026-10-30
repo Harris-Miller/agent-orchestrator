@@ -55,23 +55,23 @@ _Avoid_: Connection, provider instance, worker
 ## Sessions
 
 **Session cwd**:
-The absolute directory that is a session's primary filesystem context (ACP `cwd`). Chosen by the user when creating a session; carried on the roster entry; required on `session/new`, `session/load`, and `session/resume`. Distinct from the Tauri host process cwd.
+The absolute directory that is a session's primary filesystem context (ACP `cwd`). Chosen by the user when creating a session; carried on the History entry; required on `session/new`, `session/load`, and `session/resume`. Distinct from the Tauri host process cwd.
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
-**Session roster**:
-Cached `session/list` results across mounted backend harnesses; hydrated from ao-home before startup and grouped by session cwd except sessions classified into the No Folder group. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target.
-_Avoid_: Session list, session catalog, session drawer
+**Session History**:
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd except sessions classified into the No Folder group. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists sessions — not a session's transcript or ACP conversation replay.
+_Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **No Folder group**:
-Sessions roster display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the roster accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
+Session History display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the Session History accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
-**Roster entry**:
-One row in the session roster: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
-_Avoid_: Session (when you mean the full working copy)
+**History entry**:
+One row in Session History: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
+_Avoid_: Roster entry, Session (when you mean the full working copy)
 
 **Session snapshot**:
-The Harness working copy for one session: session transcript, status, session configuration, usage, pending client request state, and session cwd when known (stamped on create, handoff, or activate). One per `sessionId` per backend harness. Roster remains the agent-reported list source for cwd when a snapshot has none yet.
+The Harness working copy for one session: session transcript, status, session configuration, usage, pending client request state, and session cwd when known (stamped on create, handoff, or activate). One per `sessionId` per backend harness. Session History remains the agent-reported list source for cwd when a snapshot has none yet.
 _Avoid_: Session record, session object
 
 **Session transcript**:
@@ -79,7 +79,7 @@ The ordered chat items for one session snapshot, derived from session updates an
 _Avoid_: Chat log, message list, accumulator
 
 **Session update apply**:
-Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and roster title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — that stays at the atom seam.
+Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — that stays at the atom seam.
 _Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
 
 **Session status**:
@@ -95,11 +95,11 @@ Normalized config options from a `session/new`, `session/load`, or `session/resu
 _Avoid_: Session state, session/new result
 
 **Bind**:
-Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `ready` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Not a Roster entry; Selected stays Virtual. Distinct from Materialize.
+Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `ready` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Not a History entry; Selected stays Virtual. Distinct from Materialize.
 _Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
 
 **Materialize**:
-Harness step on first Send that promotes a Bound Virtual session into a Roster entry, Selects the Session arm, clears Virtual, and locks cwd/launch target — then prompts. Not the Bind RPC and not the sessions-map-only upsert helper used during Bind.
+Harness step on first Send that promotes a Bound Virtual session into a History entry, Selects the Session arm, clears Virtual, and locks cwd/launch target — then prompts. Not the Bind RPC and not the sessions-map-only upsert helper used during Bind.
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
@@ -107,7 +107,7 @@ Per-launch-target index of `defaultModelId` plus Config options keyed by model i
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
-Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe roster rows). Not an Active session; never Materialize; never a durable Roster entry the user should see.
+Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe History entries). Not an Active session; never Materialize; never a durable History entry the user should see.
 _Avoid_: Session create, materialize, activate
 
 **Usage**:
@@ -139,7 +139,7 @@ A pending elicitation or pending permission on a session snapshot. The Harness U
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:
-At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a Roster entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target + Ready are known.
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target + Ready are known.
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:
@@ -217,7 +217,7 @@ _Avoid_: Platform layer, context-services (the portable package name), adapters
 ## Observability
 
 **Action root**:
-A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap, roster refresh). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
+A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap, Session History refresh). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
 _Avoid_: Request, span (when you mean the product unit), operation
 
 **User action**:
@@ -225,7 +225,7 @@ An action root triggered from the Harness UI.
 _Avoid_: Background job, job, task
 
 **System action**:
-An action root that keeps a backend harness or roster coherent without a direct UI gesture for that work (bootstrap, roster refresh).
+An action root that keeps a backend harness or Session History coherent without a direct UI gesture for that work (bootstrap, Session History refresh).
 _Avoid_: Background job, job, task
 
 **Turn-correlated work**:
@@ -233,5 +233,5 @@ Agent→Client traffic that belongs to an open ACP **Turn** (see `@libs/effect-a
 _Avoid_: RPC child, notification, demux event, action root (for respond-while-turn-open)
 
 **Connection setup**:
-The short setup slice of bringing a backend harness online (spawn, connect, initialize, first roster list). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
+The short setup slice of bringing a backend harness online (spawn, connect, initialize, first Session History list). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
 _Avoid_: Connection span, live connection, session (when you mean setup)

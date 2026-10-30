@@ -8,7 +8,7 @@ import {
   findLaunchTargetForSessionId,
   selectedAtom,
   selectedSessionAtom,
-  unifiedSessionRosterAtom,
+  unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -53,11 +53,11 @@ export const selectedActiveSessionAtom = Atom.make(get => {
     return undefined;
   }
   const session = get(selectedSessionAtom);
-  const rosterCwd = get(unifiedSessionRosterAtom).find(
+  const historyCwd = get(unifiedSessionHistoryAtom).find(
     entry => entry.launchTarget === launchTarget && entry.sessionId === sessionId,
   )?.cwd;
   return {
-    cwd: session?.cwd ?? rosterCwd,
+    cwd: session?.cwd ?? historyCwd,
     launchTarget,
     sessionId,
   } satisfies SelectedActiveSession;

@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { deleteSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import type { UnifiedRosterEntry } from '../../host/acpSessionBootstrap.ts';
+import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 
 import { noopClientError } from './noopClientError.ts';
@@ -18,7 +18,7 @@ import { truncateSessionId } from './truncateSessionId.ts';
 export const ConfirmSessionDeleteDialog: FC<{
   readonly onCancel: () => void;
   readonly onClientError?: (error: unknown) => void;
-  readonly target: undefined | UnifiedRosterEntry;
+  readonly target: undefined | UnifiedHistoryEntry;
 }> = ({ onCancel, onClientError = noopClientError, target }) => {
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
 

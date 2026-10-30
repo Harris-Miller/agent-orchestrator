@@ -12,7 +12,7 @@ import {
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
   ensureVirtualSessionAtomFn,
-  refreshAllSessionRostersAtomFn,
+  refreshAllSessionHistoriesAtomFn,
 } from './boundHarnessAtoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rwFromRegistry } from './virtualBind.ts';
@@ -71,7 +71,7 @@ export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* 
  * - Same first folder: store paths only.
  * - First folder changed, no ready backend: apply paths and re-point Virtual.
  * - First folder changed, a backend ready: cancel prompts and deactivate sessions on the previous cwd,
- *   strip pendings, clear Selected, apply paths, re-point Virtual, refresh rosters.
+ *   strip pendings, clear Selected, apply paths, re-point Virtual, refresh histories.
  */
 export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersChanged')(function* (
   registry: AtomRegistry.AtomRegistry,
@@ -113,5 +113,5 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
   yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
-  yield* runAtomFn(registry, refreshAllSessionRostersAtomFn, undefined).pipe(Effect.ignore);
+  yield* runAtomFn(registry, refreshAllSessionHistoriesAtomFn, undefined).pipe(Effect.ignore);
 });

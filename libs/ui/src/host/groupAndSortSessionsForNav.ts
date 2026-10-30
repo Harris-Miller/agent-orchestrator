@@ -3,7 +3,7 @@
  * Does not replace {@link groupAndSortSessionsByCwd} (VS Code Session History).
  */
 
-import { compareRosterEntriesByUpdatedAtDesc, maxUpdatedAtMs } from './acpSessionBootstrap.ts';
+import { compareHistoryEntriesByUpdatedAtDesc, maxUpdatedAtMs } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
 import { isNoFolderSessionCwd } from './noFolderSessionCwd.ts';
 
@@ -15,16 +15,16 @@ export const navSessionGroupStableKey = <T extends NormalizedSessionInfo>(group:
   group.kind === 'cwd' ? group.cwd : 'noFolder';
 
 /**
- * Group roster for desktop nav: No Folder sessions collapse into one group; others by
+ * Group history for desktop nav: No Folder sessions collapse into one group; others by
  * exact cwd. Sort groups by max session `updatedAt` desc, then stable key.
  */
 export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
-  roster: readonly T[],
+  history: readonly T[],
 ): readonly NavSessionGroup<T>[] => {
   const noFolderSessions: T[] = [];
   const cwdGroups = new Map<string, T[]>();
 
-  for (const entry of roster) {
+  for (const entry of history) {
     if (isNoFolderSessionCwd(entry.cwd)) {
       noFolderSessions.push(entry);
     } else {
@@ -40,13 +40,13 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   const groups: NavSessionGroup<T>[] = [...cwdGroups.entries()].map(([cwd, sessions]) => ({
     cwd,
     kind: 'cwd' as const,
-    sessions: [...sessions].sort(compareRosterEntriesByUpdatedAtDesc),
+    sessions: [...sessions].sort(compareHistoryEntriesByUpdatedAtDesc),
   }));
 
   if (noFolderSessions.length > 0) {
     groups.push({
       kind: 'noFolder',
-      sessions: [...noFolderSessions].sort(compareRosterEntriesByUpdatedAtDesc),
+      sessions: [...noFolderSessions].sort(compareHistoryEntriesByUpdatedAtDesc),
     });
   }
 

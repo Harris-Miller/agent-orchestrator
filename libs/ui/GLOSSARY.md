@@ -11,11 +11,11 @@ The reactive Harness state shared across host webviews — backend harness phase
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Bind**:
-Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a Roster entry; no Config apply (blob + live `setConfigOption` / Materialize own that). Selected stays Virtual. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
+Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (blob + live `setConfigOption` / Materialize own that). Selected stays Virtual. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, roster replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Backend harness**:
@@ -38,9 +38,9 @@ _Avoid_: elicitation URL
 Per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, then refreshed and persisted after a successful probe.
 _Avoid_: Provider catalog, harness defaults, config catalog
 
-**Session roster**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces.
-_Avoid_: Adapter roster document, session snapshot
+**Session History**:
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Canonical definition in the desktop glossary.
+_Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
 A model id advertised on `session/new` whose probe `session/set_config_option` soft-failed; kept visible in model selects as disabled `(unavailable)`, not present in the probed per-model rows.

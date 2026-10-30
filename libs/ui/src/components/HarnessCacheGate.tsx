@@ -40,11 +40,7 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
                   registry.subscribe(backendHarnessStateAtom(launchTarget), () => {
                     writes = writes.then(() => {
                       const current = registry.get(backendHarnessStateAtom(launchTarget));
-                      const sessions = current.sessionRoster.map(({ cwd, sessionId, title }) => ({
-                        cwd,
-                        sessionId,
-                        title,
-                      }));
+                      const sessions = current.sessionRoster.map(({ unavailable: _unavailable, ...entry }) => entry);
                       const nextJson = JSON.stringify(sessions);
                       if (nextJson === lastWritten) return;
                       return hostRuntime

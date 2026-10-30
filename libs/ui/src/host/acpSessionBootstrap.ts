@@ -100,6 +100,7 @@ export const defectsFromActivationFailure = <E>(
 };
 
 export type NormalizedSessionInfo = {
+  readonly [key: string]: unknown;
   readonly cwd: string;
   readonly sessionId: string;
   readonly title?: string;
@@ -231,10 +232,12 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
   }
 
   return {
+    ...entry,
     cwd: entry.cwd,
     sessionId: entry.sessionId,
     title: typeof entry.title === 'string' ? entry.title : undefined,
     updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
+    unavailable: undefined,
   };
 };
 
@@ -244,10 +247,12 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
   }
 
   return {
+    ...result,
     cwd,
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,
     updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : new Date(Date.now()).toISOString(),
+    unavailable: undefined,
   };
 };
 

@@ -324,10 +324,25 @@ describe('isConfigProbeCwd / normalizeSessionRoster', () => {
       normalizeSessionRoster({
         sessions: [
           { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
-          { cwd: '/proj', sessionId: 'real', title: 'Real' },
+          {
+            _meta: { provider: { archived: false } },
+            cwd: '/proj',
+            sessionId: 'real',
+            title: 'Real',
+            updatedAt: '2026-10-30T12:00:00.000Z',
+          },
         ],
       }),
-      [{ cwd: '/proj', sessionId: 'real', title: 'Real', updatedAt: undefined }],
+      [
+        {
+          _meta: { provider: { archived: false } },
+          cwd: '/proj',
+          sessionId: 'real',
+          title: 'Real',
+          updatedAt: '2026-10-30T12:00:00.000Z',
+          unavailable: undefined,
+        },
+      ],
     );
   });
 });

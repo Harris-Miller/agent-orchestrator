@@ -1,19 +1,20 @@
-import { useAtomMount } from '@effect/atom-react';
+import { RegistryContext } from '@effect/atom-react';
+import { useContext, useEffect } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessAtom } from '../atoms/boundHarnessAtoms.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 
-const BackendHarnessMount: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
-  useAtomMount(backendHarnessAtom(launchTarget));
+/** Eagerly mounts backend harness atoms for every launch target in this build. */
+export const AcpBackendsMount: FC = () => {
+  const registry = useContext(RegistryContext);
+  useEffect(() => {
+    const unmounts = MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => registry.mount(backendHarnessAtom(launchTarget)));
+    return () => {
+      for (const unmount of unmounts) {
+        unmount();
+      }
+    };
+  }, [registry]);
   return null;
 };
-
-export const AcpBackendsMount: FC = () => (
-  <>
-    {MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => (
-      <BackendHarnessMount key={launchTarget} launchTarget={launchTarget} />
-    ))}
-  </>
-);

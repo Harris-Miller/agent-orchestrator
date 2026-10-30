@@ -71,7 +71,10 @@ describe('openChatLink', () => {
         openChatLink({ kind: 'url', url: 'https://example.com/' }),
         openChatLink({ kind: 'file', url: new URL('file:///tmp/a%20b.ts#L3') }),
       ]).pipe(Effect.provide(layer));
-      assert.deepStrictEqual(opened, ['https://example.com/', '/tmp/a b.ts']);
+      const localhost = classifyChatLinkHref('file://localhost/tmp/c.ts', true);
+      assert.strictEqual(localhost.kind, 'file');
+      if (localhost.kind === 'file') yield* openChatLink(localhost).pipe(Effect.provide(layer));
+      assert.deepStrictEqual(opened, ['https://example.com/', '/tmp/a b.ts', '/tmp/c.ts']);
     }),
   );
 

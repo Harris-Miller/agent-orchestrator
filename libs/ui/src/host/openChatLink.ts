@@ -54,7 +54,10 @@ export const classifyChatLinkHref = (
     openFileSupported &&
     (url.host === '' || url.host === 'localhost')
   ) {
-    return { kind: 'file', url };
+    // `file://localhost/x` means `file:///x`; POSIX `fromFileUrl` rejects any host.
+    const local = new URL(url);
+    local.host = '';
+    return { kind: 'file', url: local };
   }
   return { kind: 'inert' };
 };

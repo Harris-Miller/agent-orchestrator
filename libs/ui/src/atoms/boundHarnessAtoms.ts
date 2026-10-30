@@ -23,7 +23,7 @@ const hostBag = {
   hostRuntime,
 };
 
-export const openFileSupportedAtom = atomRuntime.fn(() => Effect.map(OpenFile, service => service.supported));
+export const openFileSupportedAtom = atomRuntime.atom(Effect.map(OpenFile, service => service.supported));
 
 export const {
   alwaysHiddenGlobsAtom,

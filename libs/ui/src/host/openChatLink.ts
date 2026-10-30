@@ -4,17 +4,43 @@ import { Effect, Option } from 'effect';
 import { Path } from 'effect/Path';
 import { defaultUrlTransform } from 'react-markdown';
 
-export type ChatLink = { readonly kind: 'url'; readonly url: string } | { readonly kind: 'file'; readonly url: URL };
+export type ChatLink =
+  | { readonly kind: 'url'; readonly url: string }
+  | { readonly kind: 'file'; readonly url: URL }
+  | { readonly kind: 'path'; readonly path: string; readonly cwd: string };
+
+const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const WINDOWS_DRIVE = /^[a-z]:[\\/]/i;
+
+/** Agents link workspace files as plain paths (`libs/x.ts#L3`, `/abs/dir`), not `file://` URIs. */
+const classifyPathHref = (href: string, cwd: string): ChatLink | undefined => {
+  if (href === '' || href.startsWith('#') || href.startsWith('//')) return undefined;
+  if (SCHEME.test(href) && !WINDOWS_DRIVE.test(href)) return undefined;
+  const raw = href.split(/[#?]/, 1)[0] ?? '';
+  let path: string;
+  try {
+    path = decodeURIComponent(raw);
+  } catch {
+    return undefined;
+  }
+  return path === '' ? undefined : { cwd, kind: 'path', path };
+};
 
 export const classifyChatLinkHref = (
   href: string,
   openFileSupported: boolean,
+  cwd?: string,
 ): ChatLink | { readonly kind: 'inert' } => {
   let url: URL;
   try {
     url = new URL(href);
   } catch {
-    return { kind: 'inert' };
+    const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(href, cwd) : undefined;
+    return pathLink ?? { kind: 'inert' };
+  }
+  if (WINDOWS_DRIVE.test(href)) {
+    const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(href, cwd) : undefined;
+    return pathLink ?? { kind: 'inert' };
   }
   if (url.protocol === 'http:' || url.protocol === 'https:') return { kind: 'url', url: url.href };
   if (
@@ -39,7 +65,10 @@ export const openChatLink = (link: ChatLink): Effect.Effect<void, never, HostSer
       return;
     }
     const path = yield* Path;
-    const absolute = yield* path.fromFileUrl(link.url).pipe(Effect.option);
+    const absolute =
+      link.kind === 'path'
+        ? Option.some(path.resolve(link.cwd, link.path))
+        : yield* path.fromFileUrl(link.url).pipe(Effect.option);
     if (Option.isSome(absolute)) {
       const service = yield* OpenFile;
       yield* service

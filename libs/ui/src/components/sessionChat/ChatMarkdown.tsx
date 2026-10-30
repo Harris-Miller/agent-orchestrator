@@ -7,6 +7,7 @@ import Markdown from 'react-markdown';
 import { AsyncResult } from 'effect/reactivity';
 
 import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
+import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
 import { chatLinkUrlTransform, classifyChatLinkHref, openChatLink } from '../../host/openChatLink.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
@@ -16,9 +17,11 @@ import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 /** Look like a link; never emit a real <a href> (Tauri navigates absolute paths and breaks the shell). */
 const MarkdownLink: FC<{ children?: ReactNode; href?: string }> = ({ children, href = '' }) => {
   const supported = useAtomValue(openFileSupportedAtom);
+  const { sessionCwd } = useSelectedSessionFsListing();
   const link = classifyChatLinkHref(
     href,
     AsyncResult.getOrElse(supported, () => false),
+    sessionCwd,
   );
   if (link.kind === 'inert') {
     return (

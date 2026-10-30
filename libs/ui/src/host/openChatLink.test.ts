@@ -35,6 +35,19 @@ describe('classifyChatLinkHref', () => {
     }
   });
 
+  it('resolves workspace paths against cwd only when supported', () => {
+    assert.deepStrictEqual(classifyChatLinkHref('libs/a.ts#L3', true, '/ws'), {
+      cwd: '/ws',
+      kind: 'path',
+      path: 'libs/a.ts',
+    });
+    assert.strictEqual(classifyChatLinkHref('/abs/dir', true, '/ws').kind, 'path');
+    assert.strictEqual(classifyChatLinkHref('libs/a.ts', false, '/ws').kind, 'inert');
+    assert.strictEqual(classifyChatLinkHref('libs/a.ts', true).kind, 'inert');
+    assert.strictEqual(classifyChatLinkHref('#frag', true, '/ws').kind, 'inert');
+    assert.strictEqual(classifyChatLinkHref('mailto:a@b', true, '/ws').kind, 'inert');
+  });
+
   it('keeps file hrefs but not file image sources', () => {
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'href'), 'file:///tmp/a.png');
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'src'), '');

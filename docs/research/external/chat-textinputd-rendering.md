@@ -14,26 +14,26 @@ User-facing attachment limits and UX live in [`docs/user/composer.md`](../user/c
 
 ## Key files
 
-| Path | Role |
-| --- | --- |
-| `apps/web/src/components/ChatView.tsx` | Mounts the composer; owns **OS file** drag-and-drop on the chat column |
-| `apps/web/src/components/chat/ChatComposer.tsx` | Composer shell: draft state, triggers, menus, attachments, send |
-| `apps/web/src/components/ComposerPromptEditor.tsx` | Lexical editor + inline chips (mentions, skills, citations, terminal context) |
-| `apps/web/src/composer-logic.ts` | Web trigger detection; collapsed/expanded cursor math for chips |
-| `apps/web/src/composer-editor-mentions.ts` | Prompt → Lexical segment model |
-| `apps/web/src/components/chat/ComposerCommandMenu.tsx` | Popover list UI for `@` / `/` / `$` |
-| `apps/web/src/components/chat/composerSlashCommandSearch.ts` | Slash menu filter/rank; position-gates provider commands |
-| `apps/web/src/components/chat/workspaceFileDrop.ts` | Finder / Explorer file-drop handlers |
-| `apps/web/src/components/chat/composerMentionDrag.ts` | In-app file-tree → mention drop handlers |
-| `apps/web/src/components/files/fileTreeDragMention.ts` | Tags file-tree drags with a custom MIME type |
-| `apps/web/src/components/chat/composerAttachmentFiles.ts` | Classify / validate pasted and dropped files |
-| `apps/web/src/composerDraftStore.ts` | Per-thread draft text and attachments |
-| `packages/shared/src/composerTrigger.ts` | Shared trigger detection + file-link serialization (mobile + helpers) |
-| `packages/shared/src/composerInlineTokens.ts` | Parses `@`, `$`, and `[label](path)` tokens in prompt text |
-| `packages/client-runtime/src/state/composerPathSearch.ts` | Shared path-search types |
-| `apps/mobile/src/features/threads/ThreadComposer.tsx` | Mobile composer shell |
-| `apps/mobile/src/features/threads/use-composer-command-menu.ts` | Mobile trigger + popover logic |
-| `apps/mobile/src/native/T3ComposerEditor.native.tsx` | Native text input + inline token chips |
+| Path                                                            | Role                                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `apps/web/src/components/ChatView.tsx`                          | Mounts the composer; owns **OS file** drag-and-drop on the chat column        |
+| `apps/web/src/components/chat/ChatComposer.tsx`                 | Composer shell: draft state, triggers, menus, attachments, send               |
+| `apps/web/src/components/ComposerPromptEditor.tsx`              | Lexical editor + inline chips (mentions, skills, citations, terminal context) |
+| `apps/web/src/composer-logic.ts`                                | Web trigger detection; collapsed/expanded cursor math for chips               |
+| `apps/web/src/composer-editor-mentions.ts`                      | Prompt → Lexical segment model                                                |
+| `apps/web/src/components/chat/ComposerCommandMenu.tsx`          | Popover list UI for `@` / `/` / `$`                                           |
+| `apps/web/src/components/chat/composerSlashCommandSearch.ts`    | Slash menu filter/rank; position-gates provider commands                      |
+| `apps/web/src/components/chat/workspaceFileDrop.ts`             | Finder / Explorer file-drop handlers                                          |
+| `apps/web/src/components/chat/composerMentionDrag.ts`           | In-app file-tree → mention drop handlers                                      |
+| `apps/web/src/components/files/fileTreeDragMention.ts`          | Tags file-tree drags with a custom MIME type                                  |
+| `apps/web/src/components/chat/composerAttachmentFiles.ts`       | Classify / validate pasted and dropped files                                  |
+| `apps/web/src/composerDraftStore.ts`                            | Per-thread draft text and attachments                                         |
+| `packages/shared/src/composerTrigger.ts`                        | Shared trigger detection + file-link serialization (mobile + helpers)         |
+| `packages/shared/src/composerInlineTokens.ts`                   | Parses `@`, `$`, and `[label](path)` tokens in prompt text                    |
+| `packages/client-runtime/src/state/composerPathSearch.ts`       | Shared path-search types                                                      |
+| `apps/mobile/src/features/threads/ThreadComposer.tsx`           | Mobile composer shell                                                         |
+| `apps/mobile/src/features/threads/use-composer-command-menu.ts` | Mobile trigger + popover logic                                                |
+| `apps/mobile/src/native/T3ComposerEditor.native.tsx`            | Native text input + inline token chips                                        |
 
 ## Component hierarchy (web / desktop)
 
@@ -89,9 +89,7 @@ prompt string  ──parse──►  Lexical nodes (text + DecoratorNodes)
 `ChatComposer.onPromptChange` stores the draft and recomputes the active trigger:
 
 ```ts
-setComposerTrigger(
-  cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor),
-);
+setComposerTrigger(cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor));
 ```
 
 ### Source of truth
@@ -129,11 +127,11 @@ Algorithm (web):
 Each trigger carries `query`, `rangeStart`, and `rangeEnd` so selection can replace exactly the
 in-progress token.
 
-| Trigger | When it fires | `kind` | Query |
-| --- | --- | --- | --- |
-| `/` | Only when the whole line prefix is `/` + non-whitespace (no spaces mid-command) | `slash-command` | text after `/` |
-| `$` | Current whitespace-delimited token starts with `$` | `skill` | text after `$` |
-| `@` | Current token starts with `@` | `path` | text after `@` |
+| Trigger | When it fires                                                                   | `kind`          | Query          |
+| ------- | ------------------------------------------------------------------------------- | --------------- | -------------- |
+| `/`     | Only when the whole line prefix is `/` + non-whitespace (no spaces mid-command) | `slash-command` | text after `/` |
+| `$`     | Current whitespace-delimited token starts with `$`                              | `skill`         | text after `$` |
+| `@`     | Current token starts with `@`                                                   | `path`          | text after `@` |
 
 `/` is checked before `$` / `@` and only when the line starts with `/`. Mid-line `/foo` does not
 open the slash menu.
@@ -146,11 +144,11 @@ When `composerTrigger !== null` (and the composer is not in an approval-blocking
 
 Menu contents by kind:
 
-| Kind | Data source | Notes |
-| --- | --- | --- |
-| `path` | `useComposerPathSearch` → server workspace entries | Loading state while pending |
+| Kind            | Data source                                                                           | Notes                                        |
+| --------------- | ------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `path`          | `useComposerPathSearch` → server workspace entries                                    | Loading state while pending                  |
 | `slash-command` | Built-ins (`model`, `plan`, `default`), provider slash commands, skills as `/skill:…` | Filtered/ranked by `searchSlashCommandItems` |
-| `skill` | `searchProviderSkills` over the selected provider’s skills | Inserts `$name` |
+| `skill`         | `searchProviderSkills` over the selected provider’s skills                            | Inserts `$name`                              |
 
 Provider slash commands are **position-gated**: offered only when `rangeStart === 0`. Elsewhere they
 would reach the agent as literal text, so
@@ -165,13 +163,13 @@ a newline on compact / mobile viewports).
 
 `onSelectComposerItem` resolves the live trigger range, then calls `applyPromptReplacement`:
 
-| Item | Replacement |
-| --- | --- |
-| path | `[basename](encoded-path) ` via `serializeComposerFileLink` |
-| skill | `$skillName ` |
-| slash `model` | clear trigger text; open `ProviderModelPicker` (does not insert `/model`) |
-| slash `plan` / `default` | clear trigger text; toggle interaction mode |
-| provider slash command | `/commandName ` |
+| Item                     | Replacement                                                               |
+| ------------------------ | ------------------------------------------------------------------------- |
+| path                     | `[basename](encoded-path) ` via `serializeComposerFileLink`               |
+| skill                    | `$skillName `                                                             |
+| slash `model`            | clear trigger text; open `ProviderModelPicker` (does not insert `/model`) |
+| slash `plan` / `default` | clear trigger text; toggle interaction mode                               |
+| provider slash command   | `/commandName `                                                           |
 
 Replacements use an `expectedText` check so a stale menu click cannot clobber a prompt that moved
 underneath. Trailing-space range extension avoids doubling spaces when the user already typed one.
@@ -255,14 +253,14 @@ file uploads. Send waits until uploads finish (see user composer docs).
 
 ## Mobile differences
 
-| Concern | Web / desktop | Mobile |
-| --- | --- | --- |
-| Text engine | Lexical `ComposerPromptEditor` | Native `T3ComposerEditor` module |
+| Concern           | Web / desktop                    | Mobile                                                               |
+| ----------------- | -------------------------------- | -------------------------------------------------------------------- |
+| Text engine       | Lexical `ComposerPromptEditor`   | Native `T3ComposerEditor` module                                     |
 | Trigger detection | `apps/web/src/composer-logic.ts` | `packages/shared/composerTrigger.ts` via `use-composer-command-menu` |
-| Popover | Portaled `ComposerCommandMenu` | `ComposerCommandPopover` above the card |
-| OS file DnD | Yes (chat column) | No — photo library, document picker, paste, share sheet |
-| File tree DnD | Mention text into composer | N/A |
-| Inline chips | Lexical decorator nodes | Controlled document JSON with token list |
+| Popover           | Portaled `ComposerCommandMenu`   | `ComposerCommandPopover` above the card                              |
+| OS file DnD       | Yes (chat column)                | No — photo library, document picker, paste, share sheet              |
+| File tree DnD     | Mention text into composer       | N/A                                                                  |
+| Inline chips      | Lexical decorator nodes          | Controlled document JSON with token list                             |
 
 ## Mental model
 

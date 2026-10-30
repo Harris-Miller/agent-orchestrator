@@ -632,7 +632,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   const lastEmittedRef = useRef(value);
 
   // Stable once: LexicalExtensionComposer recreates the editor if `extension` identity changes.
-  // eslint-disable-next-line react/hook-use-state -- setter unused; extension identity must stay fixed
+  // oxlint-disable-next-line react/hook-use-state -- setter unused; extension identity must stay fixed
   const [extension] = useState(() =>
     defineExtension({
       $initialEditorState: () => {

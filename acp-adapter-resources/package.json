@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "description": "Isolated ACP adapter install (own lockfile; not a monorepo workspace member). Hoisted node_modules for desktop Tauri resources and the VS Code extension package.",
-  "type": "module",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.99.0",
     "@agentclientprotocol/codex-acp": "2.3.0"

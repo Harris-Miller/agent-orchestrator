@@ -9,7 +9,7 @@ Scope: inventory and migration shape for `libs/ui` + `apps/desktop` + `apps/vsco
 
 **Do not** start a full MUI teardown just to “match other harnesses.” Both named harnesses use shadcn-style copy-in components + Tailwind v4 + Lucide + CVA, but they **disagree on the primitive**: Orca vendors Radix (`radix-ui` + style `new-york-v4`); t3code vendors Base UI (`@base-ui/react` + style `base-mira`). Official shadcn as of July 2026 **defaults new projects to Base UI** while keeping Radix fully supported via `init -b radix` / `radix-*` styles ([changelog](https://ui.shadcn.com/docs/changelog/2026-07-base-ui-default)). Chasing Radix specifically is optional extra work relative to the look; the visual language is Tailwind + CSS variables + CVA wrappers, not which headless library sits underneath.
 
-**Smallest path that gets the look:** adopt shadcn in `libs/ui` with **one** primitive (prefer **Base UI** — aligns with this repo’s Sept 2026 Base UI research *and* shadcn’s current default; or pin Radix if the goal is Orca parity). Wire Tailwind v4 once for both Vite hosts, replace theme tokens with CSS variables, then port screens. **Do not** run MUI + Radix + Base UI together beyond a short dual-theme cutover.
+**Smallest path that gets the look:** adopt shadcn in `libs/ui` with **one** primitive (prefer **Base UI** — aligns with this repo’s Sept 2026 Base UI research _and_ shadcn’s current default; or pin Radix if the goal is Orca parity). Wire Tailwind v4 once for both Vite hosts, replace theme tokens with CSS variables, then port screens. **Do not** run MUI + Radix + Base UI together beyond a short dual-theme cutover.
 
 **Biggest cost:** not Chip/List/AppBar gaps (shadcn covers most of those better than raw Base UI did in September). The cost is (1) ~61 production files of Emotion/`sx` layout → utility classes, (2) interactive remounts of Menu/Dialog/Select/Popover/Snackbar, (3) replacing the ~1000-line `createTheme` system and five `ThemeId` palettes, (4) VS Code webview CSS/CSP bundling for a global Tailwind stylesheet. Effect atoms, host IPC, and non-UI libs stay.
 
@@ -58,14 +58,14 @@ Method: re-inventory every `@mui/material` / `@mui/icons-material` import under 
 
 ## 0. What changed vs the 2026-09-04 Base UI note
 
-| Topic | Sept 4 note | Today (2026-10-21) |
-| --- | --- | --- |
-| UI location | Inventory of `apps/desktop/src` only | Shared `libs/ui` (44 MUI files) + desktop hosts (9) + vscode webview (8) |
-| Recommended headless | Raw **Base UI** + Tailwind | User asked for **Radix**/shadcn; official shadcn now **defaults to Base UI**, still supports Radix |
-| Hosts | Desktop-focused | Must plan for **Tauri Vite** *and* **VS Code webview IIFE + CSP** |
-| Gaps called out | Chip, circular Progress, Alert, List, AppBar missing from Base UI catalog | shadcn ships **Badge**, **Spinner**, **Alert**, **Item**, layout via HTML/Tailwind — see §5 |
-| Icon count | Five icons in one desktop file | **18** distinct `@mui/icons-material` icons across **15** files (desktop + vscode + libs/ui) |
-| Theme | `apps/desktop/src/theme/theme.ts` | `libs/ui/src/theme/themes.ts` (~997 lines) + `AppThemeProvider` + file-icon ADR |
+| Topic                | Sept 4 note                                                               | Today (2026-10-21)                                                                                 |
+| -------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| UI location          | Inventory of `apps/desktop/src` only                                      | Shared `libs/ui` (44 MUI files) + desktop hosts (9) + vscode webview (8)                           |
+| Recommended headless | Raw **Base UI** + Tailwind                                                | User asked for **Radix**/shadcn; official shadcn now **defaults to Base UI**, still supports Radix |
+| Hosts                | Desktop-focused                                                           | Must plan for **Tauri Vite** _and_ **VS Code webview IIFE + CSP**                                  |
+| Gaps called out      | Chip, circular Progress, Alert, List, AppBar missing from Base UI catalog | shadcn ships **Badge**, **Spinner**, **Alert**, **Item**, layout via HTML/Tailwind — see §5        |
+| Icon count           | Five icons in one desktop file                                            | **18** distinct `@mui/icons-material` icons across **15** files (desktop + vscode + libs/ui)       |
+| Theme                | `apps/desktop/src/theme/theme.ts`                                         | `libs/ui/src/theme/themes.ts` (~997 lines) + `AppThemeProvider` + file-icon ADR                    |
 
 Treat the Sept inventory as **historical**, not current.
 
@@ -75,12 +75,12 @@ Treat the Sept inventory as **historical**, not current.
 
 ### Packages and process
 
-| Package | Catalog pin (`pnpm-workspace.yaml`) | Direct deps |
-| --- | --- | --- |
-| `@mui/material` | `^9.5.0` | `libs/ui`, `apps/desktop`, `apps/vscode` |
-| `@mui/icons-material` | `^9.5.0` | same |
-| `@emotion/react` | `^11.14.0` | same |
-| `@emotion/styled` | `^11.14.1` | same |
+| Package               | Catalog pin (`pnpm-workspace.yaml`) | Direct deps                              |
+| --------------------- | ----------------------------------- | ---------------------------------------- |
+| `@mui/material`       | `^9.5.0`                            | `libs/ui`, `apps/desktop`, `apps/vscode` |
+| `@mui/icons-material` | `^9.5.0`                            | same                                     |
+| `@emotion/react`      | `^11.14.0`                          | same                                     |
+| `@emotion/styled`     | `^11.14.1`                          | same                                     |
 
 Installed `@mui/material@9.5.0` lists `@emotion/react` / `@emotion/styled` as **optional peerDependencies** (default styling path still Emotion when those peers are present). New catalog deps for a migration must go in `pnpm-workspace.yaml` catalog; **never** hand-edit `pnpm-lock.yaml` (repo AGENTS.md). This note does not run `pnpm i`.
 
@@ -97,45 +97,45 @@ Installed `@mui/material@9.5.0` lists `@emotion/react` / `@emotion/styled` as **
 
 Layout / chrome (easy restyle once tokens exist):
 
-| Import | Files |
-| --- | --- |
-| Box | 38 |
-| Typography | 31 |
-| Stack | 15 |
-| Paper | 10 |
-| Divider | 3 |
-| Container | 1 |
+| Import      | Files                                                             |
+| ----------- | ----------------------------------------------------------------- |
+| Box         | 38                                                                |
+| Typography  | 31                                                                |
+| Stack       | 15                                                                |
+| Paper       | 10                                                                |
+| Divider     | 3                                                                 |
+| Container   | 1                                                                 |
 | CssBaseline | 2 (`apps/desktop/src/App.tsx`, `apps/vscode/src/webview/App.tsx`) |
 
 Interactive / behavior ports (real work):
 
-| Import | Files | Notes |
-| --- | --- | --- |
-| Button | 16 | |
-| IconButton | 11 | |
-| Menu / MenuItem / MenuList | 6 / 9 / 1 | composer chips, roster, launch target |
-| Dialog\* | Dialog 5, Actions/Content/Title 4, ContentText 2 | delete confirm, fd gate, handoff, settings restore |
-| Select / FormControl / InputLabel | 3 each | `ThemeSelect`, elicitation, config |
-| Popover | 2 | usage popover, roster |
-| Snackbar | 3 | settings toast, desktop/vscode client errors |
-| Alert | 7 | snackbar bodies + inline session empty states |
-| Accordion\* | 3 files | developer panel, providers, nav rail |
-| Tabs / Tab | 1 | developer panel |
-| Switch / FormControlLabel | 3 / 3 | settings, config options |
-| TextField / InputBase / InputAdornment | 5 / 1 / 2 | settings, directory picker, search |
-| Checkbox | 2 | elicitation |
-| Tooltip | 3 | |
-| Skeleton | 2 | composer menus |
-| ButtonGroup | 1 | chat send chrome |
+| Import                                 | Files                                            | Notes                                              |
+| -------------------------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Button                                 | 16                                               |                                                    |
+| IconButton                             | 11                                               |                                                    |
+| Menu / MenuItem / MenuList             | 6 / 9 / 1                                        | composer chips, roster, launch target              |
+| Dialog\*                               | Dialog 5, Actions/Content/Title 4, ContentText 2 | delete confirm, fd gate, handoff, settings restore |
+| Select / FormControl / InputLabel      | 3 each                                           | `ThemeSelect`, elicitation, config                 |
+| Popover                                | 2                                                | usage popover, roster                              |
+| Snackbar                               | 3                                                | settings toast, desktop/vscode client errors       |
+| Alert                                  | 7                                                | snackbar bodies + inline session empty states      |
+| Accordion\*                            | 3 files                                          | developer panel, providers, nav rail               |
+| Tabs / Tab                             | 1                                                | developer panel                                    |
+| Switch / FormControlLabel              | 3 / 3                                            | settings, config options                           |
+| TextField / InputBase / InputAdornment | 5 / 1 / 2                                        | settings, directory picker, search                 |
+| Checkbox                               | 2                                                | elicitation                                        |
+| Tooltip                                | 3                                                |                                                    |
+| Skeleton                               | 2                                                | composer menus                                     |
+| ButtonGroup                            | 1                                                | chat send chrome                                   |
 
 Progress / feedback:
 
-| Import | Files |
-| --- | --- |
-| CircularProgress | 5 | loading gates + **determinate** usage ring |
-| LinearProgress | 1 | `UsageCard` |
-| Chip | 3 | labels; one clickable error phase chip |
-| List / ListItem / ListItemButton / ListItemIcon / ListItemText | 5 / 4 / 5 / 3 / 10 | chat, menus, settings lists |
+| Import                                                         | Files              |
+| -------------------------------------------------------------- | ------------------ |
+| CircularProgress                                               | 5                  | loading gates + **determinate** usage ring |
+| LinearProgress                                                 | 1                  | `UsageCard`                                |
+| Chip                                                           | 3                  | labels; one clickable error phase chip     |
+| List / ListItem / ListItemButton / ListItemIcon / ListItemText | 5 / 4 / 5 / 3 / 10 | chat, menus, settings lists                |
 
 Theme APIs (`@mui/material/styles`): `createTheme`, `ThemeProvider`, `alpha`, `darken`, `Theme` / `SxProps` types — **11** files import from `styles` (theme module + several `sx` typings).
 
@@ -156,14 +156,14 @@ Highest reuse: `ArrowBack` (5), `KeyboardArrowDown` (3), `SettingsOutlined` (3).
 
 ### CSS that is not MUI
 
-| Concern | Where | Migration note |
-| --- | --- | --- |
-| Allotment split panes | `apps/desktop` / `apps/vscode` import `allotment/dist/style.css`; sash themed via `allotmentSashSx(theme)` | Keep allotment; retarget sash styling to CSS variables / classes |
-| `react-markdown` | `ChatMarkdown.tsx` | Keep; restyle with Tailwind |
-| Lexical composer | `@lexical/react` in `libs/ui` | Keep |
-| File-chip SVG packs | `libs/ui/src/components/sessionChat/fileChipIcons/` | Keep |
-| xterm | **Not present** in this repo’s app/lib source or package graphs today | Risk only if added later (Orca already coexists xterm CSS with Tailwind) |
-| Global `.css` files | **None** under apps/libs today — styling is almost entirely MUI/`sx` + allotment CSS | Tailwind introduces the first real global stylesheet pipeline |
+| Concern               | Where                                                                                                      | Migration note                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Allotment split panes | `apps/desktop` / `apps/vscode` import `allotment/dist/style.css`; sash themed via `allotmentSashSx(theme)` | Keep allotment; retarget sash styling to CSS variables / classes         |
+| `react-markdown`      | `ChatMarkdown.tsx`                                                                                         | Keep; restyle with Tailwind                                              |
+| Lexical composer      | `@lexical/react` in `libs/ui`                                                                              | Keep                                                                     |
+| File-chip SVG packs   | `libs/ui/src/components/sessionChat/fileChipIcons/`                                                        | Keep                                                                     |
+| xterm                 | **Not present** in this repo’s app/lib source or package graphs today                                      | Risk only if added later (Orca already coexists xterm CSS with Tailwind) |
+| Global `.css` files   | **None** under apps/libs today — styling is almost entirely MUI/`sx` + allotment CSS                       | Tailwind introduces the first real global stylesheet pipeline            |
 
 ### Easy chrome vs real ports
 
@@ -220,32 +220,32 @@ Tiny helper for **type-safe variant → className** maps ([cva.style](https://cv
 
 ### Orca (`stablyai/orca`)
 
-| Item | Evidence |
-| --- | --- |
-| App shell | **Electron** + **electron-vite** / Vite (`electron`, `electron-vite`, `vite` ^8.3.4 in root `package.json`) — **not Tauri**, **not Next** |
-| Tailwind | **v4** — `tailwindcss` ^4.3.3, `@tailwindcss/vite` ^4.3.3 |
-| Primitive | **Radix** — dep `radix-ui` ^1.6.7; `components.json` `"style": "new-york-v4"`; `button.tsx` imports `radix-ui/slot` |
-| Base UI | **Not** in dependency set (search for `@base-ui/react` returned 0) |
-| shadcn | Vendored under `src/renderer/src/components/ui/` (~40 files: button, dialog, dropdown-menu, select, sonner, …) + root `components.json` |
-| CVA / cn | `class-variance-authority` ^0.7.1; `cn` = `clsx` + `extendTailwindMerge` |
-| Icons | `lucide-react` ^0.577.0 |
+| Item                     | Evidence                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| App shell                | **Electron** + **electron-vite** / Vite (`electron`, `electron-vite`, `vite` ^8.3.4 in root `package.json`) — **not Tauri**, **not Next** |
+| Tailwind                 | **v4** — `tailwindcss` ^4.3.3, `@tailwindcss/vite` ^4.3.3                                                                                 |
+| Primitive                | **Radix** — dep `radix-ui` ^1.6.7; `components.json` `"style": "new-york-v4"`; `button.tsx` imports `radix-ui/slot`                       |
+| Base UI                  | **Not** in dependency set (search for `@base-ui/react` returned 0)                                                                        |
+| shadcn                   | Vendored under `src/renderer/src/components/ui/` (~40 files: button, dialog, dropdown-menu, select, sonner, …) + root `components.json`   |
+| CVA / cn                 | `class-variance-authority` ^0.7.1; `cn` = `clsx` + `extendTailwindMerge`                                                                  |
+| Icons                    | `lucide-react` ^0.577.0                                                                                                                   |
 | Extra (beyond user list) | `cmdk`, `sonner`, `tw-animate-css`, KaTeX CSS, **xterm** CSS imported beside Tailwind in `main.css`, `@shadcn/lint`, Monaco, TipTap, etc. |
-| CSS entry | `src/renderer/src/assets/main.css`: `@import 'tailwindcss'`, `@source not` for tests, custom `dark` variant |
+| CSS entry                | `src/renderer/src/assets/main.css`: `@import 'tailwindcss'`, `@source not` for tests, custom `dark` variant                               |
 
 Transferable to this repo: Vite + Tailwind v4 + copy-in `components/ui` + Lucide + CVA. **Not** transferable without adaptation: Electron main process, Orca’s custom dark variant / fonts / xterm stack.
 
 ### t3code (`pingdotgg/t3code`)
 
-| Item | Evidence |
-| --- | --- |
+| Item      | Evidence                                                                                                                                                                                                                                                         |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | App shell | **`apps/web`**: Vite React UI. **`apps/desktop`**: **Electron** shell that `loadURL`s a custom protocol (`t3code://app` / `t3code-dev://app`) serving that web UI (`ElectronProtocol.ts`, `DesktopWindow.ts`). **Not Tauri**. Marketing/mobile exist separately. |
-| Tailwind | **v4** — `tailwindcss` ^4.0.0, `@tailwindcss/vite` ^4.0.0 in `apps/web` (desktop also lists `tailwindcss` ^4.0.0) |
-| Primitive | **Base UI** — `@base-ui/react` ^1.4.1; `components.json` `"style": "base-mira"`; `button.tsx` uses `@base-ui/react/merge-props` / `use-render` |
-| Radix | **Not** listed in `apps/web` package dependencies |
-| shadcn | Vendored under `apps/web/src/components/ui/` (alert, badge, button, dialog, menu, select, spinner, toast, sidebar, …) + `components.json` with extra registries `@coss`, `@spell` |
-| CVA / cn | `class-variance-authority` ^0.7.1; `cn` = CVA `cx` + `extendTailwindMerge` |
-| Icons | `lucide-react` ^0.564.0 (+ `lucide` ^0.564.0) |
-| Extra | `@formkit/auto-animate`, TipTap, Clerk, custom Electron CSP (`style-src 'self' 'unsafe-inline'`), extensive `index.css` theme/variants |
+| Tailwind  | **v4** — `tailwindcss` ^4.0.0, `@tailwindcss/vite` ^4.0.0 in `apps/web` (desktop also lists `tailwindcss` ^4.0.0)                                                                                                                                                |
+| Primitive | **Base UI** — `@base-ui/react` ^1.4.1; `components.json` `"style": "base-mira"`; `button.tsx` uses `@base-ui/react/merge-props` / `use-render`                                                                                                                   |
+| Radix     | **Not** listed in `apps/web` package dependencies                                                                                                                                                                                                                |
+| shadcn    | Vendored under `apps/web/src/components/ui/` (alert, badge, button, dialog, menu, select, spinner, toast, sidebar, …) + `components.json` with extra registries `@coss`, `@spell`                                                                                |
+| CVA / cn  | `class-variance-authority` ^0.7.1; `cn` = CVA `cx` + `extendTailwindMerge`                                                                                                                                                                                       |
+| Icons     | `lucide-react` ^0.564.0 (+ `lucide` ^0.564.0)                                                                                                                                                                                                                    |
+| Extra     | `@formkit/auto-animate`, TipTap, Clerk, custom Electron CSP (`style-src 'self' 'unsafe-inline'`), extensive `index.css` theme/variants                                                                                                                           |
 
 Transferable: same shadcn+Tailwind+CVA+Lucide pattern with **Base UI** primitives; monorepo “UI in web package, desktop embeds it” is closer to our `libs/ui` + hosts layout than Orca’s single Electron tree.
 
@@ -294,43 +294,43 @@ Add `tailwindcss`, `@tailwindcss/vite`, `class-variance-authority`, `lucide-reac
 
 Legend: difficulty for **observed usage** — trivial restyle / API port / custom.
 
-| MUI API used here | shadcn / stack equivalent | Difficulty |
-| --- | --- | --- |
-| Box, Stack, Container, Paper | `div` + Tailwind (`flex`, `gap`, `rounded`, `border`, `bg-card`, …) | trivial restyle |
-| Typography | Tailwind text utilities / optional typography block | trivial restyle |
-| Divider | `Separator` | trivial restyle |
-| Button, IconButton, ButtonGroup | `Button` / `ButtonGroup` + Lucide | API port |
-| IconButton | `Button size="icon"` | API port |
-| TextField, InputBase, InputAdornment | `Input` / `InputGroup` / `Textarea` | API port |
-| Checkbox, Switch, FormControlLabel | `Checkbox`, `Switch`, `Label` / `Field` | API port |
-| Select, FormControl, InputLabel, MenuItem (select) | `Select` | API port |
-| Menu, MenuItem, MenuList, ListItemIcon/Text in menus | `DropdownMenu` (Radix style) or Base UI `Menu` via shadcn | API port |
-| Dialog\* | `Dialog` / `AlertDialog` | API port |
-| Popover | `Popover` | API port |
-| Tooltip | `Tooltip` | API port |
-| Snackbar + Alert (toast) | `Sonner` / `Toast` | API port |
-| Alert (inline empty/error strips) | `Alert` | trivial–API port |
-| Accordion\* | `Accordion` | API port |
-| Tabs / Tab | `Tabs` | API port |
-| Skeleton | `Skeleton` | trivial restyle |
-| LinearProgress | `Progress` | API port |
-| CircularProgress (indeterminate) | `Spinner` | trivial restyle |
-| CircularProgress (**determinate** usage ring) | **No 1:1** — small custom SVG/`conic-gradient` (same as Sept Base UI note) | custom (easy) |
-| Chip | `Badge` (labels) or `Button` chip-size variant (clickable phase chip) | trivial–custom |
-| List / ListItem\* | HTML list / `Item` — **no MUI List clone required** | trivial restyle |
-| AppBar | **Not imported today**; layout `header` if needed | n/a / trivial |
-| CssBaseline, ThemeProvider, createTheme, `sx`, `styled` | CSS variables + Preflight/base layer + `className` | **main cost** |
-| SvgIcon type / Link fallback icon | Lucide `Link` or keep tiny SVG | trivial |
+| MUI API used here                                       | shadcn / stack equivalent                                                  | Difficulty       |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------- |
+| Box, Stack, Container, Paper                            | `div` + Tailwind (`flex`, `gap`, `rounded`, `border`, `bg-card`, …)        | trivial restyle  |
+| Typography                                              | Tailwind text utilities / optional typography block                        | trivial restyle  |
+| Divider                                                 | `Separator`                                                                | trivial restyle  |
+| Button, IconButton, ButtonGroup                         | `Button` / `ButtonGroup` + Lucide                                          | API port         |
+| IconButton                                              | `Button size="icon"`                                                       | API port         |
+| TextField, InputBase, InputAdornment                    | `Input` / `InputGroup` / `Textarea`                                        | API port         |
+| Checkbox, Switch, FormControlLabel                      | `Checkbox`, `Switch`, `Label` / `Field`                                    | API port         |
+| Select, FormControl, InputLabel, MenuItem (select)      | `Select`                                                                   | API port         |
+| Menu, MenuItem, MenuList, ListItemIcon/Text in menus    | `DropdownMenu` (Radix style) or Base UI `Menu` via shadcn                  | API port         |
+| Dialog\*                                                | `Dialog` / `AlertDialog`                                                   | API port         |
+| Popover                                                 | `Popover`                                                                  | API port         |
+| Tooltip                                                 | `Tooltip`                                                                  | API port         |
+| Snackbar + Alert (toast)                                | `Sonner` / `Toast`                                                         | API port         |
+| Alert (inline empty/error strips)                       | `Alert`                                                                    | trivial–API port |
+| Accordion\*                                             | `Accordion`                                                                | API port         |
+| Tabs / Tab                                              | `Tabs`                                                                     | API port         |
+| Skeleton                                                | `Skeleton`                                                                 | trivial restyle  |
+| LinearProgress                                          | `Progress`                                                                 | API port         |
+| CircularProgress (indeterminate)                        | `Spinner`                                                                  | trivial restyle  |
+| CircularProgress (**determinate** usage ring)           | **No 1:1** — small custom SVG/`conic-gradient` (same as Sept Base UI note) | custom (easy)    |
+| Chip                                                    | `Badge` (labels) or `Button` chip-size variant (clickable phase chip)      | trivial–custom   |
+| List / ListItem\*                                       | HTML list / `Item` — **no MUI List clone required**                        | trivial restyle  |
+| AppBar                                                  | **Not imported today**; layout `header` if needed                          | n/a / trivial    |
+| CssBaseline, ThemeProvider, createTheme, `sx`, `styled` | CSS variables + Preflight/base layer + `className`                         | **main cost**    |
+| SvgIcon type / Link fallback icon                       | Lucide `Link` or keep tiny SVG                                             | trivial          |
 
 ### Sept gaps vs shadcn
 
-| Sept Base UI gap | shadcn coverage |
-| --- | --- |
-| Chip | **Badge** (and button variants) — covered for label chips |
+| Sept Base UI gap  | shadcn coverage                                              |
+| ----------------- | ------------------------------------------------------------ |
+| Chip              | **Badge** (and button variants) — covered for label chips    |
 | Circular progress | **Spinner** for indeterminate; determinate ring still custom |
-| Alert | **Alert** component + Sonner for snackbars — covered |
-| List family | Still presentational — HTML/`Item`; not a blocker |
-| AppBar | Still layout; Sidebar exists if a rail is desired later |
+| Alert             | **Alert** component + Sonner for snackbars — covered         |
+| List family       | Still presentational — HTML/`Item`; not a blocker            |
+| AppBar            | Still layout; Sidebar exists if a rail is desired later      |
 
 ---
 
@@ -386,14 +386,14 @@ What stays: Effect atoms / harness, host IPC (`@lib/context-services*`), ACP lib
 
 ### Risks
 
-| Risk | Why |
-| --- | --- |
-| Preflight vs allotment (and future xterm) | Global reset; Orca imports xterm CSS explicitly after Tailwind — plan order / overrides |
-| Dual theme during migration | MUI ThemeProvider + CSS variables fighting; keep cutover short |
-| Bundle size | Temporary MUI+Radix/Base+Tailwind; finish removal |
-| a11y regressions | Menu/Dialog/Select focus traps — test keyboard paths on composer chips and directory picker |
-| VS Code CSS isolation | IIFE + single `main.css`; Preflight vs `vscode-*` / transparent body; CSP already allows bundled CSS |
-| Determinate usage ring | Easy custom, easy to forget |
+| Risk                                      | Why                                                                                                  |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Preflight vs allotment (and future xterm) | Global reset; Orca imports xterm CSS explicitly after Tailwind — plan order / overrides              |
+| Dual theme during migration               | MUI ThemeProvider + CSS variables fighting; keep cutover short                                       |
+| Bundle size                               | Temporary MUI+Radix/Base+Tailwind; finish removal                                                    |
+| a11y regressions                          | Menu/Dialog/Select focus traps — test keyboard paths on composer chips and directory picker          |
+| VS Code CSS isolation                     | IIFE + single `main.css`; Preflight vs `vscode-*` / transparent body; CSP already allows bundled CSS |
+| Determinate usage ring                    | Easy custom, easy to forget                                                                          |
 
 ---
 

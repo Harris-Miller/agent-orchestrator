@@ -11,4 +11,12 @@ import type { OS } from './OS.ts';
 
 /** Portable host-capability aggregate (desktop: Tauri services; VS Code: IPC Live). */
 export type HostServices =
-  BundledResource | ChildProcessSpawner | Clipboard | FileDialog | FileSystem | HttpClient | OpenUrl | OS | Path;
+  | BundledResource
+  | ChildProcessSpawner
+  | Clipboard
+  | FileDialog
+  | FileSystem
+  | HttpClient
+  | OpenUrl
+  | OS
+  | Path;

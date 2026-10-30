@@ -8,98 +8,94 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SettingsRouteRouteImport } from './routes/settings/route'
-import { Route as SettingsCategoryRouteImport } from './routes/settings/$category'
+import { Route as rootRouteImport } from './routes/__root';
+import { Route as IndexRouteImport } from './routes/index';
+import { Route as SettingsRouteRouteImport } from './routes/settings/route';
+import { Route as SettingsCategoryRouteImport } from './routes/settings/$category';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const SettingsRouteRoute = SettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const SettingsCategoryRoute = SettingsCategoryRouteImport.update({
   id: '/$category',
   path: '/$category',
   getParentRoute: () => SettingsRouteRoute,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/settings': typeof SettingsRouteRouteWithChildren
-  '/settings/$category': typeof SettingsCategoryRoute
+  '/': typeof IndexRoute;
+  '/settings': typeof SettingsRouteRouteWithChildren;
+  '/settings/$category': typeof SettingsCategoryRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/settings': typeof SettingsRouteRouteWithChildren
-  '/settings/$category': typeof SettingsCategoryRoute
+  '/': typeof IndexRoute;
+  '/settings': typeof SettingsRouteRouteWithChildren;
+  '/settings/$category': typeof SettingsCategoryRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/settings': typeof SettingsRouteRouteWithChildren
-  '/settings/$category': typeof SettingsCategoryRoute
+  __root__: typeof rootRouteImport;
+  '/': typeof IndexRoute;
+  '/settings': typeof SettingsRouteRouteWithChildren;
+  '/settings/$category': typeof SettingsCategoryRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/settings/$category'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/settings/$category'
-  id: '__root__' | '/' | '/settings' | '/settings/$category'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: '/' | '/settings' | '/settings/$category';
+  fileRoutesByTo: FileRoutesByTo;
+  to: '/' | '/settings' | '/settings/$category';
+  id: '__root__' | '/' | '/settings' | '/settings/$category';
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute;
+  SettingsRouteRoute: typeof SettingsRouteRouteWithChildren;
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/';
+      path: '/';
+      fullPath: '/';
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/settings';
+      path: '/settings';
+      fullPath: '/settings';
+      preLoaderRoute: typeof SettingsRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/settings/$category': {
-      id: '/settings/$category'
-      path: '/$category'
-      fullPath: '/settings/$category'
-      preLoaderRoute: typeof SettingsCategoryRouteImport
-      parentRoute: typeof SettingsRouteRoute
-    }
+      id: '/settings/$category';
+      path: '/$category';
+      fullPath: '/settings/$category';
+      preLoaderRoute: typeof SettingsCategoryRouteImport;
+      parentRoute: typeof SettingsRouteRoute;
+    };
   }
 }
 
 interface SettingsRouteRouteChildren {
-  SettingsCategoryRoute: typeof SettingsCategoryRoute
+  SettingsCategoryRoute: typeof SettingsCategoryRoute;
 }
 
 const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
   SettingsCategoryRoute: SettingsCategoryRoute,
-}
+};
 
-const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(
-  SettingsRouteRouteChildren,
-)
+const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(SettingsRouteRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRouteRoute: SettingsRouteRouteWithChildren,
-}
-export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+};
+export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>();

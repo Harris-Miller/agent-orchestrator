@@ -7,12 +7,12 @@ Question: Do VS Code extensions have filesystem (or equivalent) access suitable 
 
 **Yes — a future VS Code extension can persist a session roster across restarts**, using first-party `ExtensionContext` APIs. That is comparable in outcome to desktop in-app persistence, with two caveats: (1) prefer VS Code’s storage URIs + `vscode.workspace.fs` (not hard-coded `~/.vscode` paths) so remote/WSL/SSH keep working; (2) a **web** extension host has **no Node.js `fs`**, but still has Memento + storage URIs via `vscode.workspace.fs`.
 
-| Mechanism | Best for | Survives restart? | Workspace required? | Remote-safe? | Web extension? |
-| --- | --- | --- | --- | --- | --- |
-| `globalState` / `workspaceState` (Memento) | Small JSON-friendly key/value (roster metadata) | Yes (VS Code restores) | `workspaceState` is workspace-scoped; `globalState` is cross-workspace | Yes if you use these APIs | Yes (full VS Code API) |
-| `globalStorageUri` + `workspace.fs` | Larger / file-shaped data | Yes (files you write) | No (global) | Yes — “safe” URI; create dir yourself | Yes, but URI is on a **virtual** FS — must use `workspace.fs`, not Node `fs` |
-| `storageUri` + `workspace.fs` | Workspace-private files | Yes | **Yes** — `undefined` when no folder/workspace open | Same as above | Same as above |
-| Node `fs` / `path` against `*.fsPath` | Desktop/local Node host only | Yes if path exists | N/A | **Fragile** on remote/virtual; discouraged vs storage URIs | **No** — Node APIs unavailable |
+| Mechanism                                  | Best for                                        | Survives restart?      | Workspace required?                                                    | Remote-safe?                                               | Web extension?                                                               |
+| ------------------------------------------ | ----------------------------------------------- | ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `globalState` / `workspaceState` (Memento) | Small JSON-friendly key/value (roster metadata) | Yes (VS Code restores) | `workspaceState` is workspace-scoped; `globalState` is cross-workspace | Yes if you use these APIs                                  | Yes (full VS Code API)                                                       |
+| `globalStorageUri` + `workspace.fs`        | Larger / file-shaped data                       | Yes (files you write)  | No (global)                                                            | Yes — “safe” URI; create dir yourself                      | Yes, but URI is on a **virtual** FS — must use `workspace.fs`, not Node `fs` |
+| `storageUri` + `workspace.fs`              | Workspace-private files                         | Yes                    | **Yes** — `undefined` when no folder/workspace open                    | Same as above                                              | Same as above                                                                |
+| Node `fs` / `path` against `*.fsPath`      | Desktop/local Node host only                    | Yes if path exists     | N/A                                                                    | **Fragile** on remote/virtual; discouraged vs storage URIs | **No** — Node APIs unavailable                                               |
 
 **Verdict for ACP roster:** A thin JSON roster fits `globalState` (or `globalStorageUri` if it grows). Host-owned persistence is supported. If a shared ACP proxy owns the roster on disk, the VS Code host needs less of this.
 
@@ -87,10 +87,10 @@ VS Code for the Web (`vscode.dev` / `github.dev`) only has the web extension hos
 
 ## Design note: who owns the roster?
 
-| Ownership | Implication for VS Code |
-| --- | --- |
-| **Shared ACP proxy** persists roster (across proxy restarts) | Extension mostly talks to the proxy; host-side VS Code storage is optional (UI cache, not source of truth). |
-| **Host owns roster** | VS Code **can** persist via `globalState` and/or `globalStorageUri` + `workspace.fs`, comparable to desktop app-owned files, as long as the extension uses these APIs (and does not assume Node `fs` if web support matters). |
+| Ownership                                                    | Implication for VS Code                                                                                                                                                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shared ACP proxy** persists roster (across proxy restarts) | Extension mostly talks to the proxy; host-side VS Code storage is optional (UI cache, not source of truth).                                                                                                                   |
+| **Host owns roster**                                         | VS Code **can** persist via `globalState` and/or `globalStorageUri` + `workspace.fs`, comparable to desktop app-owned files, as long as the extension uses these APIs (and does not assume Node `fs` if web support matters). |
 
 Desktop (`apps/desktop`) can write app-managed files freely; VS Code’s equivalent first-class surface is `ExtensionContext` storage, not arbitrary OS paths under `~/.vscode`.
 

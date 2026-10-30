@@ -1,7 +1,7 @@
 # MUI → Base UI + Tailwind coverage for `apps/desktop`
 
 Date: 2026-09-04
-Question: If `apps/desktop` switched from MUI (`@mui/material`) to Base UI (`@base-ui/react`) + Tailwind CSS, which currently used MUI pieces lack Base UI equivalents, how hard are the named gaps given *this* app’s usage, and is Tailwind a sound pairing with Base UI?
+Question: If `apps/desktop` switched from MUI (`@mui/material`) to Base UI (`@base-ui/react`) + Tailwind CSS, which currently used MUI pieces lack Base UI equivalents, how hard are the named gaps given _this_ app’s usage, and is Tailwind a sound pairing with Base UI?
 
 ## Summary
 
@@ -37,11 +37,11 @@ Method: inventory every `@mui/material` / `@mui/icons-material` import under `ap
 
 ### Packages
 
-| Package | Role today |
-| --- | --- |
-| `@mui/material` | Components + `ThemeProvider` / `createTheme` / `CssBaseline` |
-| `@mui/icons-material` | Five icons in the directory picker only |
-| `@emotion/react`, `@emotion/styled` | MUI styling runtime |
+| Package                             | Role today                                                   |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `@mui/material`                     | Components + `ThemeProvider` / `createTheme` / `CssBaseline` |
+| `@mui/icons-material`               | Five icons in the directory picker only                      |
+| `@emotion/react`, `@emotion/styled` | MUI styling runtime                                          |
 
 No Tailwind dependency in `apps/desktop/package.json` today.
 
@@ -49,29 +49,29 @@ No Tailwind dependency in `apps/desktop/package.json` today.
 
 Unique import paths (source files only; excludes fixtures):
 
-| Import | Files (representative) |
-| --- | --- |
-| Accordion, AccordionDetails, AccordionSummary | `RpcWireLogPanel.tsx` |
-| Alert, Snackbar | `apps/desktop/src/routes/index.tsx` |
-| AppBar, Toolbar | `AgentChatWorkbench.tsx` |
-| Box | many |
-| Button | many |
-| Chip | `AgentChatWorkbench`, `BootstrapStatePanel`, `ChatItemView`, `SessionRosterPanel` |
-| CircularProgress, LinearProgress | `UsageCard.tsx` |
-| Container, CssBaseline, ThemeProvider (`@mui/material/styles`) | `App.tsx` |
-| createTheme | `theme.ts` |
-| Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle | `SessionRosterPanel.tsx` (+ Dialog in `CreateSessionDirectoryPicker.tsx`) |
-| Divider | `BootstrapStatePanel`, `PanelHeader`, `SessionRosterPanel` |
-| FormControl, InputLabel, Select, MenuItem | `SessionConfigOptionSelect.tsx` |
-| IconButton | `UsageCard`, `PanelHeader`, `SessionRosterPanel`, `CreateSessionDirectoryPicker` |
-| InputBase | `CreateSessionDirectoryPicker.tsx` |
-| List, ListItem, ListItemButton, ListItemIcon, ListItemText, ListSubheader | chat / roster / bootstrap / directory picker |
-| Menu, MenuItem | `CreateSessionDirectoryPicker.tsx` |
-| Paper | many |
-| Popover | `UsageCard.tsx` |
-| Stack | many |
-| Tab, Tabs | `RpcWireLogPanel.tsx` |
-| Typography | many |
+| Import                                                                    | Files (representative)                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Accordion, AccordionDetails, AccordionSummary                             | `RpcWireLogPanel.tsx`                                                             |
+| Alert, Snackbar                                                           | `apps/desktop/src/routes/index.tsx`                                               |
+| AppBar, Toolbar                                                           | `AgentChatWorkbench.tsx`                                                          |
+| Box                                                                       | many                                                                              |
+| Button                                                                    | many                                                                              |
+| Chip                                                                      | `AgentChatWorkbench`, `BootstrapStatePanel`, `ChatItemView`, `SessionRosterPanel` |
+| CircularProgress, LinearProgress                                          | `UsageCard.tsx`                                                                   |
+| Container, CssBaseline, ThemeProvider (`@mui/material/styles`)            | `App.tsx`                                                                         |
+| createTheme                                                               | `theme.ts`                                                                        |
+| Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle      | `SessionRosterPanel.tsx` (+ Dialog in `CreateSessionDirectoryPicker.tsx`)         |
+| Divider                                                                   | `BootstrapStatePanel`, `PanelHeader`, `SessionRosterPanel`                        |
+| FormControl, InputLabel, Select, MenuItem                                 | `SessionConfigOptionSelect.tsx`                                                   |
+| IconButton                                                                | `UsageCard`, `PanelHeader`, `SessionRosterPanel`, `CreateSessionDirectoryPicker`  |
+| InputBase                                                                 | `CreateSessionDirectoryPicker.tsx`                                                |
+| List, ListItem, ListItemButton, ListItemIcon, ListItemText, ListSubheader | chat / roster / bootstrap / directory picker                                      |
+| Menu, MenuItem                                                            | `CreateSessionDirectoryPicker.tsx`                                                |
+| Paper                                                                     | many                                                                              |
+| Popover                                                                   | `UsageCard.tsx`                                                                   |
+| Stack                                                                     | many                                                                              |
+| Tab, Tabs                                                                 | `RpcWireLogPanel.tsx`                                                             |
+| Typography                                                                | many                                                                              |
 
 ### `@mui/icons-material` (all in one file)
 
@@ -87,28 +87,28 @@ Icons are out of Base UI’s scope (Base UI does not ship an icon set). Swap to 
 
 Catalog of Base UI components from https://base-ui.com/llms.txt (Components section): Accordion, Alert Dialog, Autocomplete, Avatar, Button, Checkbox, Checkbox Group, Collapsible, Combobox, Context Menu, Dialog, Drawer, Field, Fieldset, Form, Input, Menu, Menubar, Meter, Navigation Menu, Number Field, OTP Field, Popover, Preview Card, Progress, Radio, Scroll Area, Select, Separator, Slider, Switch, Tabs, Toast, Toggle, Toggle Group, Toolbar, Tooltip.
 
-| MUI (used in desktop) | Base UI / disposition |
-| --- | --- |
-| Accordion\* | **Covered** — Accordion |
-| Button, IconButton | **Covered** — Button (icon buttons = Button + icon children) |
-| Dialog\* | **Covered** — Dialog; destructive confirm can use **Alert Dialog** |
-| Divider | **Covered** — Separator |
-| FormControl / InputLabel | **Covered** — Field (labeling/validation) |
-| InputBase | **Covered** — Input |
-| LinearProgress | **Covered** — Progress (linear Track/Indicator) |
-| Menu / MenuItem | **Covered** — Menu |
-| Popover | **Covered** — Popover |
-| Select / MenuItem (select) | **Covered** — Select |
-| Tabs / Tab | **Covered** — Tabs |
-| Snackbar | **Covered (behavior)** — Toast (`timeout` defaults to 5000ms; app uses 6000) |
-| Alert (inline / snackbar body) | **Gap as component**; **behavior covered by Toast** for current use |
-| Chip | **Gap** |
-| CircularProgress | **Gap** (Progress is linear bar only) |
-| List / ListItem / ListItemButton / ListItemIcon / ListItemText / ListSubheader | **Gap** (no List family) |
-| AppBar | **Gap** |
-| MUI `Toolbar` (inside AppBar) | **Not the same** as Base UI Toolbar (ARIA toolbar of controls). Treat AppBar chrome as layout, not a 1:1 Toolbar swap |
-| Box, Stack, Container, Paper, Typography | **Intentional non-gaps** — layout/typography; Base UI is styling-agnostic |
-| CssBaseline, ThemeProvider, createTheme | **Intentional non-gaps** — replace with CSS reset + Tailwind theme tokens / CSS variables |
+| MUI (used in desktop)                                                          | Base UI / disposition                                                                                                 |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Accordion\*                                                                    | **Covered** — Accordion                                                                                               |
+| Button, IconButton                                                             | **Covered** — Button (icon buttons = Button + icon children)                                                          |
+| Dialog\*                                                                       | **Covered** — Dialog; destructive confirm can use **Alert Dialog**                                                    |
+| Divider                                                                        | **Covered** — Separator                                                                                               |
+| FormControl / InputLabel                                                       | **Covered** — Field (labeling/validation)                                                                             |
+| InputBase                                                                      | **Covered** — Input                                                                                                   |
+| LinearProgress                                                                 | **Covered** — Progress (linear Track/Indicator)                                                                       |
+| Menu / MenuItem                                                                | **Covered** — Menu                                                                                                    |
+| Popover                                                                        | **Covered** — Popover                                                                                                 |
+| Select / MenuItem (select)                                                     | **Covered** — Select                                                                                                  |
+| Tabs / Tab                                                                     | **Covered** — Tabs                                                                                                    |
+| Snackbar                                                                       | **Covered (behavior)** — Toast (`timeout` defaults to 5000ms; app uses 6000)                                          |
+| Alert (inline / snackbar body)                                                 | **Gap as component**; **behavior covered by Toast** for current use                                                   |
+| Chip                                                                           | **Gap**                                                                                                               |
+| CircularProgress                                                               | **Gap** (Progress is linear bar only)                                                                                 |
+| List / ListItem / ListItemButton / ListItemIcon / ListItemText / ListSubheader | **Gap** (no List family)                                                                                              |
+| AppBar                                                                         | **Gap**                                                                                                               |
+| MUI `Toolbar` (inside AppBar)                                                  | **Not the same** as Base UI Toolbar (ARIA toolbar of controls). Treat AppBar chrome as layout, not a 1:1 Toolbar swap |
+| Box, Stack, Container, Paper, Typography                                       | **Intentional non-gaps** — layout/typography; Base UI is styling-agnostic                                             |
+| CssBaseline, ThemeProvider, createTheme                                        | **Intentional non-gaps** — replace with CSS reset + Tailwind theme tokens / CSS variables                             |
 
 Do **not** invent Base UI components outside the catalog above.
 
@@ -160,12 +160,12 @@ Destructive **session delete** already uses MUI Dialog confirm in `SessionRoster
 
 **How this app uses List:**
 
-| Site | Pattern |
-| --- | --- |
-| `AgentChatMain.tsx` + `ChatItemView.tsx` | Scrollable message feed: `List` + `ListItem` / `ListItemText` as layout wrappers around custom message UI |
-| `BootstrapStatePanel.tsx` | Dense command list: primary/secondary text rows |
-| `SessionRosterPanel.tsx` | Grouped roster: `List` + nested `<ul>`, `ListSubheader` for cwd, `ListItem` + `ListItemButton` for selection chrome around a `Paper` card |
-| `CreateSessionDirectoryPicker.tsx` | `List` + `ListItemButton` / Icon / Text for directory rows |
+| Site                                     | Pattern                                                                                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentChatMain.tsx` + `ChatItemView.tsx` | Scrollable message feed: `List` + `ListItem` / `ListItemText` as layout wrappers around custom message UI                                 |
+| `BootstrapStatePanel.tsx`                | Dense command list: primary/secondary text rows                                                                                           |
+| `SessionRosterPanel.tsx`                 | Grouped roster: `List` + nested `<ul>`, `ListSubheader` for cwd, `ListItem` + `ListItemButton` for selection chrome around a `Paper` card |
+| `CreateSessionDirectoryPicker.tsx`       | `List` + `ListItemButton` / Icon / Text for directory rows                                                                                |
 
 **Keyboard / a11y ownership:** Directory picker implements its **own** `onKeyDown` (ArrowUp/Down, Enter, Escape, etc.) on the Dialog — it does not rely on MUI List’s listbox keyboard model (`CreateSessionDirectoryPicker.tsx`). Roster/chat lists are click-to-select / static rows.
 
@@ -181,20 +181,20 @@ Single site: `AgentChatWorkbench.tsx` — `AppBar position="static"` wrapping MU
 
 Theme paints AppBar via `MuiAppBar` / `MuiToolbar` in `theme.ts` (dark bar, minHeight 60).
 
-**Verdict:** A `header` + flex row with Tailwind (or optionally Base UI Toolbar *if* you want toolbar keyboard semantics for the button group) replaces it. Difficulty is visual token port, not behavior.
+**Verdict:** A `header` + flex row with Tailwind (or optionally Base UI Toolbar _if_ you want toolbar keyboard semantics for the button group) replaces it. Difficulty is visual token port, not behavior.
 
 ## Migration difficulty reassessment
 
-| Work item | Difficulty for *this* app | Why |
-| --- | --- | --- |
-| Chip | Easy | Labels + colors + one onClick |
-| Circular determinate indicator | Easy | One 18px decorative ring |
-| Alert + Snackbar | Easy / delete Alert | Toast covers the only call site |
-| List\* / ListSubheader | Easy–moderate | Markup + styles; picker already owns keys |
-| AppBar + MUI Toolbar layout | Easy | One static header |
-| Interactive Base UI swaps (Dialog, Menu, Select, Tabs, Accordion, Popover, Progress, Button, Field) | **Main cost** | API/composition/`render` prop differences |
-| `sx` + `ThemeProvider` → Tailwind tokens | **Main cost** | Widespread layout; large `theme.ts` palette/typography |
-| Icons | Easy, separate | Five icons; pick any SVG source |
+| Work item                                                                                           | Difficulty for _this_ app | Why                                                    |
+| --------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------ |
+| Chip                                                                                                | Easy                      | Labels + colors + one onClick                          |
+| Circular determinate indicator                                                                      | Easy                      | One 18px decorative ring                               |
+| Alert + Snackbar                                                                                    | Easy / delete Alert       | Toast covers the only call site                        |
+| List\* / ListSubheader                                                                              | Easy–moderate             | Markup + styles; picker already owns keys              |
+| AppBar + MUI Toolbar layout                                                                         | Easy                      | One static header                                      |
+| Interactive Base UI swaps (Dialog, Menu, Select, Tabs, Accordion, Popover, Progress, Button, Field) | **Main cost**             | API/composition/`render` prop differences              |
+| `sx` + `ThemeProvider` → Tailwind tokens                                                            | **Main cost**             | Widespread layout; large `theme.ts` palette/typography |
+| Icons                                                                                               | Easy, separate            | Five icons; pick any SVG source                        |
 
 **Harder work is not rebuilding List/AppBar.** It is adopting Base UI part composition (see composition handbook) and replacing Emotion/`sx` with utility classes while preserving the existing dark UI tokens.
 

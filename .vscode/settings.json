@@ -1,20 +1,25 @@
 {
   "js/ts.tsdk.path": "./node_modules/typescript/lib",
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "[javascript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "editor.codeActionsOnSave": { "source.fixAll.oxc": "explicit" },
   "search.exclude": {
     "**/.agents": true,
     "**/.claude": true,
     "**/.cursor": true,
-    "**/.turbo": true,
+    "**/.turbo": true
   },
   "files.watcherExclude": {
     "**/.agents/**": true,
     "**/.claude/**": true,
     "**/.cursor/**": true,
-    "**/.turbo/**": true,
+    "**/.turbo/**": true
   },
   "files.associations": {
     ".mcp.json": "jsonc",
-    "turbo.json": "jsonc",
-  },
+    "turbo.json": "jsonc"
+  }
 }

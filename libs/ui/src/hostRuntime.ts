@@ -20,14 +20,14 @@ const requireBound = (): HostRuntimeBag => {
 /** Bound Atom runtime — Proxy so Atoms can close over it at module init after bind. */
 export const atomRuntime: HostRuntimeBag['atomRuntime'] = new Proxy({} as HostRuntimeBag['atomRuntime'], {
   get(_target, prop, receiver) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Reflect.get through Proxy
+    // oxlint-disable-next-line typescript/no-unsafe-return -- Reflect.get through Proxy
     return Reflect.get(requireBound().atomRuntime, prop, receiver);
   },
 });
 
 export const hostRuntime: HostRuntimeBag['hostRuntime'] = new Proxy({} as HostRuntimeBag['hostRuntime'], {
   get(_target, prop, receiver) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Reflect.get through Proxy
+    // oxlint-disable-next-line typescript/no-unsafe-return -- Reflect.get through Proxy
     return Reflect.get(requireBound().hostRuntime, prop, receiver);
   },
 });

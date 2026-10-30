@@ -31,7 +31,6 @@ export const FsMentionListingTab: FC = () => {
   const entryCount = selectedSessionId === undefined || listingKey === null ? 0 : fsListing.entries.length;
 
   // TanStack Virtual returns non-memoizable helpers; React Compiler skips this call site.
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer API
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
     estimateSize: () => ROW_HEIGHT_PX,

@@ -3,23 +3,28 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
     },
     "lint": {},
-    "//#install-acp-adapter-deps": {
+    "//#format:check": {
       "inputs": [
-        "acp-adapter-resources/package.json",
-        "acp-adapter-resources/pnpm-lock.yaml"
-      ],
-      "outputs": [
-        "acp-adapter-resources/node_modules/**",
-        "acp-adapter-resources/vendor/**"
+        "$TURBO_ROOT$/.oxfmtrc.json",
+        "$TURBO_ROOT$/**/*",
+        "!$TURBO_ROOT$/.git/**",
+        "!$TURBO_ROOT$/node_modules/**",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "!$TURBO_ROOT$/**/dist/**",
+        "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/coverage/**",
+        "!$TURBO_ROOT$/.agents/**",
+        "!$TURBO_ROOT$/graphify-out/**",
+        "!$TURBO_ROOT$/pnpm-lock.yaml"
       ]
+    },
+    "//#install-acp-adapter-deps": {
+      "inputs": ["acp-adapter-resources/package.json", "acp-adapter-resources/pnpm-lock.yaml"],
+      "outputs": ["acp-adapter-resources/node_modules/**", "acp-adapter-resources/vendor/**"]
     },
     "materialize-acp-adapters": {},
     "test": {},
@@ -38,10 +43,7 @@
     },
     "tauri:dev": {
       "cache": false,
-      "passThroughEnv": [
-        "CURSOR_API_KEY",
-        "CURSOR_AUTH_TOKEN"
-      ],
+      "passThroughEnv": ["CURSOR_API_KEY", "CURSOR_AUTH_TOKEN"],
       "persistent": true
     },
     "tauri:build": {

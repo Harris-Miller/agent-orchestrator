@@ -1,0 +1,19 @@
+{
+  "name": "@tooling/oxlint",
+  "version": "0.0.0",
+  "private": true,
+  "license": "ISC",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "dependencies": {
+    "oxlint-config-harris": "catalog:"
+  },
+  "peerDependencies": {
+    "oxlint": "catalog:"
+  }
+}

@@ -2,16 +2,11 @@
   "mcpServers": {
     "tauri": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@hypothesi/tauri-mcp-server"
-      ]
+      "args": ["-y", "@hypothesi/tauri-mcp-server"]
     },
     "grafana": {
       "command": "uvx",
-      "args": [
-        "mcp-grafana"
-      ],
+      "args": ["mcp-grafana"],
       "envFile": "${workspaceFolder}/.env",
       "env": {
         "GRAFANA_URL": "http://localhost:3000"

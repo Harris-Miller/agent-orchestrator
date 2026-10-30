@@ -2,7 +2,9 @@ import { airListArchivedAll, airMeta } from './airMeta.ts';
 
 /** How bootstrap/refresh call `session/list`. Desktop stays Unscoped; vscode sets Cwd/Skip. */
 export type SessionListScope =
-  { readonly _tag: 'Cwd'; readonly cwd: string } | { readonly _tag: 'Skip' } | { readonly _tag: 'Unscoped' };
+  | { readonly _tag: 'Cwd'; readonly cwd: string }
+  | { readonly _tag: 'Skip' }
+  | { readonly _tag: 'Unscoped' };
 
 export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
 

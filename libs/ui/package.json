@@ -1,8 +1,8 @@
 {
   "name": "@lib/ui",
   "private": true,
-  "type": "module",
   "license": "ISC",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./acp-adapter-entry": "./src/host/acpAdapterEntryResource.ts",
@@ -12,7 +12,7 @@
     "./host-runtime": "./src/hostRuntimeEntry.ts"
   },
   "scripts": {
-    "lint": "eslint . --max-warnings 0",
+    "lint": "oxlint . --deny-warnings",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -36,11 +36,12 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@lib/context-services-tauri": "workspace:^",
-    "@tooling/eslint": "workspace:^",
+    "@tooling/oxlint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/react": "catalog:",
-    "eslint": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

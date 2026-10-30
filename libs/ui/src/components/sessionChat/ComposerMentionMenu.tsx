@@ -39,7 +39,6 @@ export const ComposerMentionMenu: FC<ComposerMentionMenuProps> = ({
   const parentRef = useRef<HTMLDivElement>(null);
 
   // TanStack Virtual returns non-memoizable helpers; React Compiler skips this call site.
-  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer API
   const rowVirtualizer = useVirtualizer({
     count: matches.length,
     estimateSize: () => ROW_ESTIMATE_PX,

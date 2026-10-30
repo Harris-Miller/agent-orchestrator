@@ -27,11 +27,11 @@ type HostServicesOptions = { readonly client: IpcClient } | { readonly port: Ipc
  *
  * Calls {@link acquireVsCodeApi} unless a port or shared client is injected.
  */
-/* eslint-disable @typescript-eslint/unified-signatures -- AGENTS.md: exclusive port|client via overloads */
+/* oxlint-disable typescript/unified-signatures -- AGENTS.md: exclusive port|client via overloads */
 export function makeHostServicesLive(): Layer.Layer<HostServices>;
 export function makeHostServicesLive(options: { readonly port: IpcPort }): Layer.Layer<HostServices>;
 export function makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostServices>;
-/* eslint-enable @typescript-eslint/unified-signatures */
+/* oxlint-enable typescript/unified-signatures */
 export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer<HostServices> {
   const client =
     options === undefined

@@ -45,10 +45,7 @@
           "jetbrains": {
             "air": {
               "version": 1,
-              "capabilities": [
-                "sessionFailure",
-                "agentFileChangeReport"
-              ]
+              "capabilities": ["sessionFailure", "agentFileChangeReport"]
             }
           },
           "steering": {
@@ -57,10 +54,7 @@
           "goal": {
             "version": 1,
             "controlMethod": "_session/goal",
-            "actions": [
-              "set",
-              "clear"
-            ]
+            "actions": ["set", "clear"]
           }
         }
       }

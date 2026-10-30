@@ -2,21 +2,11 @@
   "extends": "@tooling/tsconfig/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": [
-      "DOM",
-      "ESNext"
-    ],
+    "lib": ["DOM", "ESNext"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true
   },
-  "include": [
-    "src/**/*",
-    "*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage"
-  ]
+  "include": ["src/**/*", "*.ts"],
+  "exclude": ["node_modules", "dist", "coverage"]
 }

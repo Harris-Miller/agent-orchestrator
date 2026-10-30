@@ -7,10 +7,10 @@ Question: How can an ACP client customize the initial system prompt for both [`c
 
 **ACP v1 has no first-class system-prompt / instructions field.** `session/new` takes `cwd`, `mcpServers`, optional `additionalDirectories`, and `_meta`. Extensibility is via `_meta` and underscore methods, not a protocol prompt API.
 
-| Backend | Per-session system/developer prompt over ACP? | Practical knob |
-| --- | --- | --- |
-| **Claude** (`claude-agent-acp`) | Yes — `_meta.systemPrompt` on `session/new` | Append to `claude_code` preset, or replace with a string; also CLAUDE.md via `settingSources` |
-| **Codex** (`codex-acp`) | No — adapter does not forward instruction fields | `AGENTS.md` under session `cwd`, and/or process-level `CODEX_CONFIG` (`instructions` / `developer_instructions`) |
+| Backend                         | Per-session system/developer prompt over ACP?    | Practical knob                                                                                                   |
+| ------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| **Claude** (`claude-agent-acp`) | Yes — `_meta.systemPrompt` on `session/new`      | Append to `claude_code` preset, or replace with a string; also CLAUDE.md via `settingSources`                    |
+| **Codex** (`codex-acp`)         | No — adapter does not forward instruction fields | `AGENTS.md` under session `cwd`, and/or process-level `CODEX_CONFIG` (`instructions` / `developer_instructions`) |
 
 **Recommended default (ponytail) for this repo’s desktop harness:** for Claude, pass `_meta.systemPrompt: { append: "…" }` on `session/new`. For Codex, put shared project instructions in `AGENTS.md` at the session cwd (already how Codex works). Do not invent a fake shared ACP field until codex-acp exposes `baseInstructions` / `developerInstructions`.
 
@@ -28,7 +28,7 @@ Primary sources:
 - Session config options (select/boolean selectors only): https://agentclientprotocol.com/protocol/v1/session-config-options.md
 - Prompt turn (user content blocks only; no system role): https://agentclientprotocol.com/protocol/v1/prompt-turn.md
 
-### What the protocol does *not* define
+### What the protocol does _not_ define
 
 - No `systemPrompt`, `instructions`, `developerInstructions`, or `baseInstructions` on `session/new`, `session/load`, `session/resume`, or `session/prompt`.
 - Config options are UX selectors (`mode`, `model`, `thought_level`, …), not arbitrary prompt strings.
@@ -48,30 +48,30 @@ Repos:
 If `_meta.systemPrompt` is omitted:
 
 ```ts
-systemPrompt = { type: "preset", preset: "claude_code" }
+systemPrompt = { type: 'preset', preset: 'claude_code' };
 ```
 
 The adapter also always sets `settingSources: ["user", "project", "local"]`, so CLAUDE.md / project settings under the session cwd load alongside the preset.
 
 ### Per-session customization: `_meta.systemPrompt`
 
-| Value | Effect (from adapter + tests) |
-| --- | --- |
-| omitted | `claude_code` preset |
-| string | **Replaces** the entire system prompt |
-| `{ append: "…" }` | Keep `claude_code` preset and append text |
-| `{ excludeDynamicSections: true }` | Forwarded on the preset (SDK cache-friendly env handling) |
+| Value                                | Effect (from adapter + tests)                                              |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| omitted                              | `claude_code` preset                                                       |
+| string                               | **Replaces** the entire system prompt                                      |
+| `{ append: "…" }`                    | Keep `claude_code` preset and append text                                  |
+| `{ excludeDynamicSections: true }`   | Forwarded on the preset (SDK cache-friendly env handling)                  |
 | object with caller `type` / `preset` | Those keys ignored; forced back to `type: "preset", preset: "claude_code"` |
 
 Example:
 
 ```ts
-await agent["session/new"]({
+await agent['session/new']({
   cwd: projectRoot,
   mcpServers: [],
   _meta: {
     systemPrompt: {
-      append: "You are the agent-orchestrator desktop harness…",
+      append: 'You are the agent-orchestrator desktop harness…',
       excludeDynamicSections: true,
     },
   },
@@ -137,20 +137,20 @@ Shortest real fix is in **codex-acp** (or a fork): map something like `_meta.bas
 
 ## Comparison matrix (client perspective)
 
-| Goal | Claude ACP | Codex ACP |
-| --- | --- | --- |
-| Per-session append | `_meta.systemPrompt: { append }` | Not exposed; use AGENTS.md or extend adapter |
-| Full replace | `_meta.systemPrompt: "…"` | Not exposed; config `instructions` ≈ base, process-wide |
-| Project defaults | CLAUDE.md + `settingSources` | AGENTS.md (cwd tree) |
-| Process-wide override | Claude settings / env | `CODEX_CONFIG` |
-| Protocol-standard field | None (uses `_meta`) | None |
+| Goal                    | Claude ACP                       | Codex ACP                                               |
+| ----------------------- | -------------------------------- | ------------------------------------------------------- |
+| Per-session append      | `_meta.systemPrompt: { append }` | Not exposed; use AGENTS.md or extend adapter            |
+| Full replace            | `_meta.systemPrompt: "…"`        | Not exposed; config `instructions` ≈ base, process-wide |
+| Project defaults        | CLAUDE.md + `settingSources`     | AGENTS.md (cwd tree)                                    |
+| Process-wide override   | Claude settings / env            | `CODEX_CONFIG`                                          |
+| Protocol-standard field | None (uses `_meta`)              | None                                                    |
 
 ## Implications for `apps/desktop` Agent Chat
 
 Current create path (`createSession` in `agentHarness.ts`):
 
 ```ts
-agent["session/new"]({ cwd, mcpServers: [] })
+agent['session/new']({ cwd, mcpServers: [] });
 ```
 
 To customize:
@@ -162,15 +162,15 @@ Avoid inventing a single shared ACP field in the client unless both adapters agr
 
 ## Sources checklist
 
-| Claim | Source |
-| --- | --- |
-| ACP `session/new` fields | https://agentclientprotocol.com/protocol/v1/session-setup.md , schema.md |
-| `_meta` extensibility | https://agentclientprotocol.com/protocol/v1/extensibility.md |
-| Modes affect system prompts (agent-defined) | https://agentclientprotocol.com/protocol/v1/session-modes.md |
-| Claude `_meta.systemPrompt` behavior | `claude-agent-acp` `src/acp-agent.ts`, `src/tests/create-session-options.test.ts` |
-| Claude SDK prompt customization | https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts |
-| Codex `CODEX_CONFIG` | `codex-acp` README, `src/index.ts` |
-| Codex `newSession` omits instruction fields | `codex-acp` `src/CodexAcpClient.ts` |
-| Codex App Server instruction fields exist | `codex-acp` `src/app-server/v2/ThreadStartParams.ts`; openai/codex app-server protocol |
-| Codex AGENTS.md injection | openai/codex protocol / agents_md_manager behavior |
-| This repo’s session create | `apps/desktop/src/acp/agentHarness.ts` |
+| Claim                                       | Source                                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ACP `session/new` fields                    | https://agentclientprotocol.com/protocol/v1/session-setup.md , schema.md               |
+| `_meta` extensibility                       | https://agentclientprotocol.com/protocol/v1/extensibility.md                           |
+| Modes affect system prompts (agent-defined) | https://agentclientprotocol.com/protocol/v1/session-modes.md                           |
+| Claude `_meta.systemPrompt` behavior        | `claude-agent-acp` `src/acp-agent.ts`, `src/tests/create-session-options.test.ts`      |
+| Claude SDK prompt customization             | https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts                     |
+| Codex `CODEX_CONFIG`                        | `codex-acp` README, `src/index.ts`                                                     |
+| Codex `newSession` omits instruction fields | `codex-acp` `src/CodexAcpClient.ts`                                                    |
+| Codex App Server instruction fields exist   | `codex-acp` `src/app-server/v2/ThreadStartParams.ts`; openai/codex app-server protocol |
+| Codex AGENTS.md injection                   | openai/codex protocol / agents_md_manager behavior                                     |
+| This repo’s session create                  | `apps/desktop/src/acp/agentHarness.ts`                                                 |

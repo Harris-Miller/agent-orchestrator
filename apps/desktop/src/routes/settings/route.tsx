@@ -7,7 +7,7 @@ export const Route = createFileRoute('/settings')({
   beforeLoad: ({ location }) => {
     if (location.pathname === '/settings' || location.pathname === '/settings/') {
       // TanStack Router control-flow: redirect is thrown, not an Error.
-      // eslint-disable-next-line @typescript-eslint/only-throw-error -- redirect()
+      // oxlint-disable-next-line typescript/only-throw-error -- redirect()
       throw redirect({ params: { category: 'general' }, to: '/settings/$category' });
     }
   },

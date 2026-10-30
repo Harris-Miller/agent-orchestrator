@@ -10,9 +10,9 @@ Primary sources (read in tree, not blogs):
 
 ## Summary
 
-| Product | Gemini | Antigravity |
-| --- | --- | --- |
-| **orca** | Present as a **TUI** agent (`gemini` binary). **Not** an ACP launch spec / structured ACP chat. | Dual: TUI via `agy`, **and** first-class **ACP** via managed `agy_acp_server.par` (pinned **1.3.0**, no Windows pin). |
+| Product    | Gemini                                                                                                                                                                                                | Antigravity                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **orca**   | Present as a **TUI** agent (`gemini` binary). **Not** an ACP launch spec / structured ACP chat.                                                                                                       | Dual: TUI via `agy`, **and** first-class **ACP** via managed `agy_acp_server.par` (pinned **1.3.0**, no Windows pin).                    |
 | **t3code** | **No** first-party `gemini` provider driver. Gemini CLI is addable only as a generic **ACP Registry** agent (`agentId: "gemini"`, e.g. `@google/gemini-cli`). First-party Google path is Antigravity. | First-party ACP provider (`driverKind: "antigravity"`), managed `agy_acp_server` **1.4.1**, multi-instance profiles under `GEMINI_HOME`. |
 
 Both projects treat Antigravity ACP as Google’s official `antigravity-acp` server (stdio JSON-RPC), not the interactive `agy` TUI. Neither injects non-empty `mcpServers` into Antigravity `session/new` in the paths inspected (both pass `[]`).
@@ -106,16 +106,16 @@ export const ANTIGRAVITY_LAUNCH_SPEC = {
 
 #### Registration / command / env / cwd / discovery
 
-| Concern | Behavior | Source |
-| --- | --- | --- |
-| Command | `agy_acp_server.par` (`ANTIGRAVITY_ACP_COMMAND`) | `antigravity-acp-runtime.ts` ~80–87 |
-| Install | Pinned zip from `dl.google.com/agy-extensions/releases`, version **1.3.0**; hashes for darwin/linux arm64+x64; **`pin()` returns null on Windows** | `antigravity-acp-runtime.ts` ~9–77 |
-| Args | Linux: `['--uid=']`; else `[]` | `acp-launch-specs.ts` ~312–313 |
-| Env forced | `AGY_ACP_FORCE_FILE_STORAGE=1`, custom `BROWSER` helper, `PYTHONUNBUFFERED=1` | `antigravity-acp-environment.ts` ~9–13 |
-| Env scrubbed | Drops `GEMINI_API_KEY`, `ANTIGRAVITY_HARNESS_PATH`, `GCLOUD_PROJECT`, `CLOUDSDK_CORE_PROJECT`, `GOOGLE_*`, other `AGY_ACP_*` | `antigravity-acp-environment.ts` ~16–34; test `acp-structured-antigravity.test.ts` ~83–106 |
-| Account / cwd home | Host folder binding `GEMINI_HOME` → `…/antigravity-chat` (+ `antigravity-acp` subdir mode 0700) | `antigravity-chat-account.ts` ~14; test ~107–112 |
-| Model discovery | Declared **unavailable** until signed-in session | `acp-launch-specs.ts` ~334–337 |
-| Command override | `ignoreAgentCommandSetting: true` so UI `agy` override does not replace ACP server binary | `acp-launch-specs.ts` ~310–311; test expects command still `ANTIGRAVITY.command` even with `agentCmdOverrides.antigravity` |
+| Concern            | Behavior                                                                                                                                           | Source                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Command            | `agy_acp_server.par` (`ANTIGRAVITY_ACP_COMMAND`)                                                                                                   | `antigravity-acp-runtime.ts` ~80–87                                                                                        |
+| Install            | Pinned zip from `dl.google.com/agy-extensions/releases`, version **1.3.0**; hashes for darwin/linux arm64+x64; **`pin()` returns null on Windows** | `antigravity-acp-runtime.ts` ~9–77                                                                                         |
+| Args               | Linux: `['--uid=']`; else `[]`                                                                                                                     | `acp-launch-specs.ts` ~312–313                                                                                             |
+| Env forced         | `AGY_ACP_FORCE_FILE_STORAGE=1`, custom `BROWSER` helper, `PYTHONUNBUFFERED=1`                                                                      | `antigravity-acp-environment.ts` ~9–13                                                                                     |
+| Env scrubbed       | Drops `GEMINI_API_KEY`, `ANTIGRAVITY_HARNESS_PATH`, `GCLOUD_PROJECT`, `CLOUDSDK_CORE_PROJECT`, `GOOGLE_*`, other `AGY_ACP_*`                       | `antigravity-acp-environment.ts` ~16–34; test `acp-structured-antigravity.test.ts` ~83–106                                 |
+| Account / cwd home | Host folder binding `GEMINI_HOME` → `…/antigravity-chat` (+ `antigravity-acp` subdir mode 0700)                                                    | `antigravity-chat-account.ts` ~14; test ~107–112                                                                           |
+| Model discovery    | Declared **unavailable** until signed-in session                                                                                                   | `acp-launch-specs.ts` ~334–337                                                                                             |
+| Command override   | `ignoreAgentCommandSetting: true` so UI `agy` override does not replace ACP server binary                                                          | `acp-launch-specs.ts` ~310–311; test expects command still `ANTIGRAVITY.command` even with `agentCmdOverrides.antigravity` |
 
 Probe validates install by spawning the server under throwaway `GEMINI_HOME` and calling **`initialize` only** (no session / no sign-in): expects `agentInfo.name === 'antigravity-acp'`, matching version, `protocolVersion === 1`, `loadSession`, `resume`, `auth.logout`, `oauth-personal` (`antigravity-acp-runtime-probe.ts` ~15–51).
 
@@ -199,15 +199,15 @@ User-facing: `docs/user/providers-antigravity.md` — “Google's official Antig
 
 #### Registration / command / args / env / discovery
 
-| Concern | Behavior | Source |
-| --- | --- | --- |
-| Driver | `AntigravityDriver` (`driverKind: "antigravity"`) | `Drivers/AntigravityDriver.ts` |
-| Executable | Managed install of `agy_acp_server.par` / `.exe` + `localharness_external`; version pin **1.4.1**; Windows included | `antigravityRelease.ts` ~1–86; `AntigravityInstallation.ts` |
-| Spawn | `command: executablePath`, Linux args `["--uid="]`, else `[]`; `extendEnv: false` | `buildAntigravityAcpSpawnInput` `antigravityAuthSupport.ts` ~422–447 |
-| Env | Private `GEMINI_HOME` = profile dir; `AGY_ACP_FORCE_FILE_STORAGE=1`; `BROWSER` = Node helper; `PYTHONUNBUFFERED=1`; `ELECTRON_RUN_AS_NODE=1`; temp dirs; optional `GEMINI_API_KEY` / `GOOGLE_API_KEY` from **settings auth**, not ambient; sets `ANTIGRAVITY_HARNESS_PATH` | `antigravityEnvironment` ~194–230; spawn ~437–445; internals `docs/internals/providers.md` ~39–44 |
-| Profiles | Per-instance hashed dirs under `providers/antigravity/<sha256(instanceId)>` | `resolveAntigravityInstanceDirectories` ~180–187 |
-| Skills | Symlink profile skill dirs to real `~/.gemini` skill paths | `linkAntigravityUserSkills` ~233–269 |
-| Settings | `authMethod` (`oauth-personal` / `oauth-business` / `gemini-api-key` / `agent-platform`), api key, GCP project/location, optional `binaryPath` | `contracts/src/settings.ts` ~776–850 |
+| Concern    | Behavior                                                                                                                                                                                                                                                                   | Source                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Driver     | `AntigravityDriver` (`driverKind: "antigravity"`)                                                                                                                                                                                                                          | `Drivers/AntigravityDriver.ts`                                                                    |
+| Executable | Managed install of `agy_acp_server.par` / `.exe` + `localharness_external`; version pin **1.4.1**; Windows included                                                                                                                                                        | `antigravityRelease.ts` ~1–86; `AntigravityInstallation.ts`                                       |
+| Spawn      | `command: executablePath`, Linux args `["--uid="]`, else `[]`; `extendEnv: false`                                                                                                                                                                                          | `buildAntigravityAcpSpawnInput` `antigravityAuthSupport.ts` ~422–447                              |
+| Env        | Private `GEMINI_HOME` = profile dir; `AGY_ACP_FORCE_FILE_STORAGE=1`; `BROWSER` = Node helper; `PYTHONUNBUFFERED=1`; `ELECTRON_RUN_AS_NODE=1`; temp dirs; optional `GEMINI_API_KEY` / `GOOGLE_API_KEY` from **settings auth**, not ambient; sets `ANTIGRAVITY_HARNESS_PATH` | `antigravityEnvironment` ~194–230; spawn ~437–445; internals `docs/internals/providers.md` ~39–44 |
+| Profiles   | Per-instance hashed dirs under `providers/antigravity/<sha256(instanceId)>`                                                                                                                                                                                                | `resolveAntigravityInstanceDirectories` ~180–187                                                  |
+| Skills     | Symlink profile skill dirs to real `~/.gemini` skill paths                                                                                                                                                                                                                 | `linkAntigravityUserSkills` ~233–269                                                              |
+| Settings   | `authMethod` (`oauth-personal` / `oauth-business` / `gemini-api-key` / `agent-platform`), api key, GCP project/location, optional `binaryPath`                                                                                                                             | `contracts/src/settings.ts` ~776–850                                                              |
 
 Validate install: spawn + `initialize`; require `agentInfo.name === "antigravity-acp"`, expected version, protocol 1 or 2, `loadSession`, etc. (`AntigravityInstallation.ts` ~402–408).
 
@@ -249,20 +249,20 @@ Permission modes map to Antigravity config values `default` / `auto_edit` / `yol
 
 ## Comparison
 
-| Topic | Orca | T3 Code |
-| --- | --- | --- |
-| **Gemini ACP** | **No** — Gemini is TUI (`gemini` CLI) only | **No first-party driver** — optional ACP Registry agent `gemini` / `@google/gemini-cli` |
-| **Antigravity ACP** | Yes — managed `agy_acp_server` **1.3.0** (darwin/linux; no Windows pin) | Yes — managed **1.4.1** including Windows |
-| **Antigravity TUI** | Yes (`agy`) alongside ACP | Product path is ACP; IDE/CLI mentioned as separate sign-in stores |
-| **Spawn** | stdio child; Linux `--uid=` | Same pattern; also sets `ANTIGRAVITY_HARNESS_PATH` |
-| **Home** | Shared host `GEMINI_HOME` folder `antigravity-chat` | Per-instance hashed profile as `GEMINI_HOME` |
-| **Auth** | Prefer `oauth-personal` after auth-required; BROWSER helper | Eager authenticate with configured method (incl. API key / Vertex); BROWSER helper + remote callback UX |
-| **Protocol init** | Client sends ACP **v1** (`ACP_PROTOCOL_VERSION = 1`) | Client prefers **v2** initialize; accepts agent 1/2 |
-| **clientInfo quirk** | Default / unspecified in Antigravity path reviewed | Spoofs **`zed`** to unlock non-Gemini models |
-| **mcpServers on session/new** | Always `[]` in handshake | `[]` for Antigravity driver sessions |
-| **Resume** | Prefer `session/resume` | Prefer `session/resume` |
-| **Dialect** | Dedicated `ANTIGRAVITY_ACP_DIALECT` (questions, warnings, tool normalize) | `normalizeAntigravitySessionUpdate` + permission/model helpers in Antigravity ACP support |
-| **Model catalog** | Unavailable until signed-in session | From signed-in session config options / account catalog |
+| Topic                         | Orca                                                                      | T3 Code                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Gemini ACP**                | **No** — Gemini is TUI (`gemini` CLI) only                                | **No first-party driver** — optional ACP Registry agent `gemini` / `@google/gemini-cli`                 |
+| **Antigravity ACP**           | Yes — managed `agy_acp_server` **1.3.0** (darwin/linux; no Windows pin)   | Yes — managed **1.4.1** including Windows                                                               |
+| **Antigravity TUI**           | Yes (`agy`) alongside ACP                                                 | Product path is ACP; IDE/CLI mentioned as separate sign-in stores                                       |
+| **Spawn**                     | stdio child; Linux `--uid=`                                               | Same pattern; also sets `ANTIGRAVITY_HARNESS_PATH`                                                      |
+| **Home**                      | Shared host `GEMINI_HOME` folder `antigravity-chat`                       | Per-instance hashed profile as `GEMINI_HOME`                                                            |
+| **Auth**                      | Prefer `oauth-personal` after auth-required; BROWSER helper               | Eager authenticate with configured method (incl. API key / Vertex); BROWSER helper + remote callback UX |
+| **Protocol init**             | Client sends ACP **v1** (`ACP_PROTOCOL_VERSION = 1`)                      | Client prefers **v2** initialize; accepts agent 1/2                                                     |
+| **clientInfo quirk**          | Default / unspecified in Antigravity path reviewed                        | Spoofs **`zed`** to unlock non-Gemini models                                                            |
+| **mcpServers on session/new** | Always `[]` in handshake                                                  | `[]` for Antigravity driver sessions                                                                    |
+| **Resume**                    | Prefer `session/resume`                                                   | Prefer `session/resume`                                                                                 |
+| **Dialect**                   | Dedicated `ANTIGRAVITY_ACP_DIALECT` (questions, warnings, tool normalize) | `normalizeAntigravitySessionUpdate` + permission/model helpers in Antigravity ACP support               |
+| **Model catalog**             | Unavailable until signed-in session                                       | From signed-in session config options / account catalog                                                 |
 
 Shared design ideas (independently implemented): force file credential storage (`AGY_ACP_FORCE_FILE_STORAGE`), scrub/override ambient Google env, private temp, Linux `--uid=`, capture OAuth URL via fake `BROWSER`, treat `agy` CLI login as **not** the ACP chat account.
 

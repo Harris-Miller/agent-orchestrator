@@ -27,10 +27,7 @@ describe('sessionsMatchingSessionCwd', () => {
     };
 
     const matches = sessionsMatchingSessionCwd(getSnapshot, '/ws');
-    assert.deepStrictEqual(
-      matches.map(m => m.sessionId).sort(),
-      ['a', 'b'],
-    );
+    assert.deepStrictEqual(matches.map(m => m.sessionId).sort(), ['a', 'b']);
   });
 
   it('uses roster cwd when snapshot cwd missing', () => {

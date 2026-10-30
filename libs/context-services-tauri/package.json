@@ -2,13 +2,13 @@
   "name": "@lib/context-services-tauri",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "license": "ISC",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "eslint . --max-warnings 0",
+    "lint": "oxlint . --deny-warnings",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -26,12 +26,13 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@tooling/eslint": "workspace:^",
+    "@tooling/oxlint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "eslint": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

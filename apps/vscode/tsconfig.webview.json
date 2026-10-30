@@ -5,21 +5,9 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "lib": [
-      "DOM",
-      "ESNext"
-    ],
-    "types": [
-      "vite/client",
-      "vscode-webview"
-    ]
+    "lib": ["DOM", "ESNext"],
+    "types": ["vite/client", "vscode-webview"]
   },
-  "include": [
-    "src/webview"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage"
-  ]
+  "include": ["src/webview"],
+  "exclude": ["node_modules", "dist", "coverage"]
 }

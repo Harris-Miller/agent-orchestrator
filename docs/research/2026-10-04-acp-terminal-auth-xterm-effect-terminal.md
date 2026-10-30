@@ -80,12 +80,12 @@ From the official README:
 
 Canonical byte bridge (documented via `onData` / `write` semantics on the API page):
 
-| Direction | API | Meaning |
-| --- | --- | --- |
-| User → process | `term.onData(data => …)` | “In a typical setup, this should be passed on to the backing pty.” |
-| Process → UI | `term.write(data)` / `writeln` | Feed PTY output (string or `Uint8Array` UTF-8) into the emulator |
-| Binary mouse reports etc. | `term.onBinary` | Pass to PTY as binary (`Buffer.from(data, 'binary')` in docs example) |
-| Resize | `term.onResize` + `term.resize` | Debounce; also resize the backing PTY |
+| Direction                 | API                             | Meaning                                                               |
+| ------------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| User → process            | `term.onData(data => …)`        | “In a typical setup, this should be passed on to the backing pty.”    |
+| Process → UI              | `term.write(data)` / `writeln`  | Feed PTY output (string or `Uint8Array` UTF-8) into the emulator      |
+| Binary mouse reports etc. | `term.onBinary`                 | Pass to PTY as binary (`Buffer.from(data, 'binary')` in docs example) |
+| Resize                    | `term.onResize` + `term.resize` | Debounce; also resize the backing PTY                                 |
 
 Host still must provide:
 
@@ -113,11 +113,11 @@ Installed Effect version observed under pnpm: `effect@4.0.0-rc.112`.
 
 ### Real module names
 
-| Piece | Module / package | Role |
-| --- | --- | --- |
-| Service definition | `effect/Terminal` (`node_modules/effect/src/Terminal.ts`) | Context service: `columns`, `rows`, `readInput`, `readLine`, `display` |
-| Node Live | `@effect/platform-node` → `NodeTerminal` (`export * as NodeTerminal from "./NodeTerminal.ts"`) | Adapts **this process** `stdin`/`stdout` + `readline` |
-| Shared impl | `@effect/platform-node-shared` `NodeTerminal.ts` | Implements TTY raw mode, keypress queue, readline line reading |
+| Piece              | Module / package                                                                               | Role                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Service definition | `effect/Terminal` (`node_modules/effect/src/Terminal.ts`)                                      | Context service: `columns`, `rows`, `readInput`, `readLine`, `display` |
+| Node Live          | `@effect/platform-node` → `NodeTerminal` (`export * as NodeTerminal from "./NodeTerminal.ts"`) | Adapts **this process** `stdin`/`stdout` + `readline`                  |
+| Shared impl        | `@effect/platform-node-shared` `NodeTerminal.ts`                                               | Implements TTY raw mode, keypress queue, readline line reading         |
 
 `@effect/platform-node` is a dependency of `libs/effect-acp` (catalog); not required by the desktop React app for UI.
 
@@ -147,7 +147,7 @@ APIs:
 
 **Poor.** Effect `Terminal` is for building Effect **CLI apps** that are themselves the interactive program. ACP terminal auth needs the Client to **host** someone else’s interactive program and observe its exit code. That is process+PTY+UI work, not `Terminal.readLine`.
 
-Related Effect APIs that *do* matter for ACP generally:
+Related Effect APIs that _do_ matter for ACP generally:
 
 - `effect/unstable/process` — `ChildProcess.make` / `ChildProcessSpawner` (pipes, cwd/env/shell options; no PTY flag in `CommandOptions` — see `ChildProcess.ts` `CommandOptions`).
 - This repo’s Lives: `libs/context-services-tauri/src/ChildProcessSpawnerLive.ts` → `@tauri-apps/plugin-shell` `Command.create` / `spawn` / stdin write / close code.
@@ -156,12 +156,12 @@ Related Effect APIs that *do* matter for ACP generally:
 
 ## 3. Combined use: xterm + Effect
 
-| Concern | Prefer |
-| --- | --- |
-| Render VT / keyboard in desktop WebView | `@xterm/xterm` (+ fit / web-links as needed) |
-| Allocate PTY + spawn Agent program | Host native (Rust pty plugin / custom commands), **not** Effect `Terminal` |
+| Concern                                          | Prefer                                                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Render VT / keyboard in desktop WebView          | `@xterm/xterm` (+ fit / web-links as needed)                                             |
+| Allocate PTY + spawn Agent program               | Host native (Rust pty plugin / custom commands), **not** Effect `Terminal`               |
 | Orchestrate “launch → wait exit → reconnect ACP” | Effect workflows already used for harness (`ChildProcessSpawner`, layers, scoped fibers) |
-| Pipe-based ACP stdio transport | Existing Effect `ChildProcess` Lives (unchanged) |
+| Pipe-based ACP stdio transport                   | Existing Effect `ChildProcess` Lives (unchanged)                                         |
 
 **When combination makes sense:** desktop in-app auth panel = xterm UI + host PTY + Effect-managed reconnect state machine.
 
@@ -226,11 +226,11 @@ Historical note: Extension Terminals replaced TerminalRenderer ([VS Code 1.37 re
 
 ### What this repo already uses
 
-| Layer | Source | Behavior |
-| --- | --- | --- |
-| Effect command | `effect/unstable/process` `ChildProcess.make` | cwd/env/extendEnv/shell; stdio pipe/inherit/ignore |
-| Tauri Live | `libs/context-services-tauri/src/ChildProcessSpawnerLive.ts` | `@tauri-apps/plugin-shell` `Command.create` + `spawn`, `encoding: 'raw'`, stdin `Child.write`, exit via `close` payload |
-| Capabilities | `apps/desktop/src-tauri/capabilities/default.json` | Scoped allow-lists for `bun`/`claude`/`codex`/`gemini`/`node`/…; `shell:allow-stdin-write`, `opener:default` |
+| Layer          | Source                                                       | Behavior                                                                                                                |
+| -------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Effect command | `effect/unstable/process` `ChildProcess.make`                | cwd/env/extendEnv/shell; stdio pipe/inherit/ignore                                                                      |
+| Tauri Live     | `libs/context-services-tauri/src/ChildProcessSpawnerLive.ts` | `@tauri-apps/plugin-shell` `Command.create` + `spawn`, `encoding: 'raw'`, stdin `Child.write`, exit via `close` payload |
+| Capabilities   | `apps/desktop/src-tauri/capabilities/default.json`           | Scoped allow-lists for `bun`/`claude`/`codex`/`gemini`/`node`/…; `shell:allow-stdin-write`, `opener:default`            |
 
 Official shell plugin docs: spawn child processes with stdout/stderr events and stdin write — **no PTY / winsize / TTY flags** in [`SpawnOptions`](https://v2.tauri.app/reference/javascript/shell/) (`cwd`, `env`, `encoding` only).
 
@@ -288,10 +288,10 @@ Feed `plugin-shell` stdout/stderr into xterm and stdin from `onData`. Lowest eff
 
 ### Split summary
 
-| Surface | UI | Process/TTY | Effect role |
-| --- | --- | --- | --- |
-| VS Code | Integrated terminal | VS Code PTY via `createTerminal` | Optional: reconnect/initialize Effects after exit |
-| Desktop | `@xterm/xterm` in WebView | Host PTY (new); not `plugin-shell` alone | Lifecycle + ACP reconnect; not `effect/Terminal` |
+| Surface | UI                        | Process/TTY                              | Effect role                                       |
+| ------- | ------------------------- | ---------------------------------------- | ------------------------------------------------- |
+| VS Code | Integrated terminal       | VS Code PTY via `createTerminal`         | Optional: reconnect/initialize Effects after exit |
+| Desktop | `@xterm/xterm` in WebView | Host PTY (new); not `plugin-shell` alone | Lifecycle + ACP reconnect; not `effect/Terminal`  |
 
 ---
 
@@ -308,19 +308,19 @@ Feed `plugin-shell` stdout/stderr into xterm and stdin from `onData`. Lowest eff
 
 ## Citations index
 
-| Claim area | Source |
-| --- | --- |
+| Claim area                                              | Source                                                                                                               |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Terminal auth flow, capability, must not `authenticate` | https://agentclientprotocol.com/rfds/auth-methods.md ; https://agentclientprotocol.com/protocol/v1/authentication.md |
-| Session `terminal/*` (distinct) | https://agentclientprotocol.com/protocol/v1/terminals.md |
-| xterm is renderer not process | https://www.npmjs.com/package/@xterm/xterm |
-| xterm `onData` / `write` / PTY wording | https://xtermjs.org/docs/api/terminal/classes/terminal/ |
-| Addons fit / attach / web-links | https://xtermjs.org/docs/guides/using-addons/ ; npm `@xterm/addon-*` pages |
-| Effect `Terminal` service | `node_modules/effect/src/Terminal.ts` |
-| Node `Terminal` Live | `@effect/platform-node` `NodeTerminal`; impl in `@effect/platform-node-shared` `NodeTerminal.ts` |
-| Effect child process options (no PTY) | `node_modules/effect/src/unstable/process/ChildProcess.ts` (`CommandOptions`) |
-| Tauri shell spawn (no PTY) | https://v2.tauri.app/plugin/shell/ ; https://v2.tauri.app/reference/javascript/shell/ |
-| Repo Tauri spawner | `libs/context-services-tauri/src/ChildProcessSpawnerLive.ts` |
-| VS Code `createTerminal` / exitStatus | https://code.visualstudio.com/api/references/vscode-api |
-| node-pty + xterm pairing | https://github.com/microsoft/node-pty (README) |
-| Community Tauri PTY + xterm example | https://github.com/Tnze/tauri-plugin-pty |
-| Opener (open path/url, not wait-exit) | https://v2.tauri.app/plugin/opener/ |
+| Session `terminal/*` (distinct)                         | https://agentclientprotocol.com/protocol/v1/terminals.md                                                             |
+| xterm is renderer not process                           | https://www.npmjs.com/package/@xterm/xterm                                                                           |
+| xterm `onData` / `write` / PTY wording                  | https://xtermjs.org/docs/api/terminal/classes/terminal/                                                              |
+| Addons fit / attach / web-links                         | https://xtermjs.org/docs/guides/using-addons/ ; npm `@xterm/addon-*` pages                                           |
+| Effect `Terminal` service                               | `node_modules/effect/src/Terminal.ts`                                                                                |
+| Node `Terminal` Live                                    | `@effect/platform-node` `NodeTerminal`; impl in `@effect/platform-node-shared` `NodeTerminal.ts`                     |
+| Effect child process options (no PTY)                   | `node_modules/effect/src/unstable/process/ChildProcess.ts` (`CommandOptions`)                                        |
+| Tauri shell spawn (no PTY)                              | https://v2.tauri.app/plugin/shell/ ; https://v2.tauri.app/reference/javascript/shell/                                |
+| Repo Tauri spawner                                      | `libs/context-services-tauri/src/ChildProcessSpawnerLive.ts`                                                         |
+| VS Code `createTerminal` / exitStatus                   | https://code.visualstudio.com/api/references/vscode-api                                                              |
+| node-pty + xterm pairing                                | https://github.com/microsoft/node-pty (README)                                                                       |
+| Community Tauri PTY + xterm example                     | https://github.com/Tnze/tauri-plugin-pty                                                                             |
+| Opener (open path/url, not wait-exit)                   | https://v2.tauri.app/plugin/opener/                                                                                  |

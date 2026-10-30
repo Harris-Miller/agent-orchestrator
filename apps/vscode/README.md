@@ -22,7 +22,7 @@ That installs at repo root and symlinks `acp-adapter-resources` into this packag
 
 ### 1. Extension Development Host (day-to-day)
 
-**F5 / Run Extension** (from Cursor or VS Code): starts watch, opens a **VS Code** Extension Development Host with `--inspect-brk-extensions=5870`, then attaches the Node debugger so host `.ts` breakpoints work. (`extensionHost` launch type always uses the *current* editor, so it is not used here.)
+**F5 / Run Extension** (from Cursor or VS Code): starts watch, opens a **VS Code** Extension Development Host with `--inspect-brk-extensions=5870`, then attaches the Node debugger so host `.ts` breakpoints work. (`extensionHost` launch type always uses the _current_ editor, so it is not used here.)
 
 1. F5 → **Run Extension**
 2. Or without debugger: `pnpm vscode:dev` then `pnpm vscode:open`

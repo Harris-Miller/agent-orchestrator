@@ -12,17 +12,17 @@ Issue #169 first-cut wants: hierarchical cwd-scoped tree, expand/collapse, name 
 
 ## Summary
 
-| Surface | Orca | T3 Code | #169 first cut |
-| --- | --- | --- | --- |
-| Panel shell | Right-sidebar **explorer** tab (`FileExplorer`); close lives on activity bar | Right-panel **Files** tab wraps `FilePreviewPanel` + optional tree (`FileBrowserPanel`) | Desktop right panel; keep close; no multi-tab Files chrome |
-| Tree UI | Custom virtualized rows (`FileExplorerVirtualRows` / `FileExplorerRow`) | `@pierre/trees` `FileTree` + `useFileTree` | Build or thin custom tree; do not require Pierre |
-| Name filter | “Find files” (Names mode); host listing + client token match | “Search files”; server `projects.searchEntries` via FileFinder | Name filter only; prefer client filter over recursive listing |
-| Contents / full-text | Separate **Contents** toggle + `files.search` | Separate content search APIs (`searchContents`); not tree chrome | **Out of scope** |
-| Listing | Lazy per-dir `files.readDir` / `fs:readDir` | Lazy per-dir `projects.listEntries` (`NodeFSP.readdir`) | Reuse `sessionFsListing` / `listRecursiveEntries` (fd) — different stack |
-| Always hide | Hard-filters `.git` + `node_modules` at entry map; dotfiles toggle | Hard-skips `.git` children; still lists gitignored (marked `ignored`) | Always-hidden globs + always `.git` (settings) |
-| Icons | Lucide via `FileTypeIcon` / extension+name tables | Pierre builtins + T3 sprite overrides (`pierre-icons.ts`) | Reuse theme file-chip icon packs |
-| Preview / open | Click opens workspace editor preview; drag/rename/delete full IDE | Click opens file in Files preview; drag → composer mention | Mention insert OK; **no** viewer |
-| Watch / refresh | FS watch reconcile + manual Refresh | Manual refresh + workspace mutation refresh hook | Refresh on cwd change; optional manual refresh |
+| Surface              | Orca                                                                         | T3 Code                                                                                 | #169 first cut                                                           |
+| -------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Panel shell          | Right-sidebar **explorer** tab (`FileExplorer`); close lives on activity bar | Right-panel **Files** tab wraps `FilePreviewPanel` + optional tree (`FileBrowserPanel`) | Desktop right panel; keep close; no multi-tab Files chrome               |
+| Tree UI              | Custom virtualized rows (`FileExplorerVirtualRows` / `FileExplorerRow`)      | `@pierre/trees` `FileTree` + `useFileTree`                                              | Build or thin custom tree; do not require Pierre                         |
+| Name filter          | “Find files” (Names mode); host listing + client token match                 | “Search files”; server `projects.searchEntries` via FileFinder                          | Name filter only; prefer client filter over recursive listing            |
+| Contents / full-text | Separate **Contents** toggle + `files.search`                                | Separate content search APIs (`searchContents`); not tree chrome                        | **Out of scope**                                                         |
+| Listing              | Lazy per-dir `files.readDir` / `fs:readDir`                                  | Lazy per-dir `projects.listEntries` (`NodeFSP.readdir`)                                 | Reuse `sessionFsListing` / `listRecursiveEntries` (fd) — different stack |
+| Always hide          | Hard-filters `.git` + `node_modules` at entry map; dotfiles toggle           | Hard-skips `.git` children; still lists gitignored (marked `ignored`)                   | Always-hidden globs + always `.git` (settings)                           |
+| Icons                | Lucide via `FileTypeIcon` / extension+name tables                            | Pierre builtins + T3 sprite overrides (`pierre-icons.ts`)                               | Reuse theme file-chip icon packs                                         |
+| Preview / open       | Click opens workspace editor preview; drag/rename/delete full IDE            | Click opens file in Files preview; drag → composer mention                              | Mention insert OK; **no** viewer                                         |
+| Watch / refresh      | FS watch reconcile + manual Refresh                                          | Manual refresh + workspace mutation refresh hook                                        | Refresh on cwd change; optional manual refresh                           |
 
 ---
 
@@ -152,11 +152,11 @@ export function pathMatchesFileNameFilterTokens(
 
 **Hidden / ignore:**
 
-| Rule | Behavior |
-| --- | --- |
-| `.git`, `node_modules` | Always omitted from tree mapping |
-| Dotfiles | Toggle per worktree (`showDotfiles`); filter uses `isDotfileRelativePath` |
-| Gitignored | Queried via `getRuntimeGitIgnoredPaths`; default **shown** (`showGitIgnoredFiles ?? true`); toggle in toolbar overflow; italic when shown |
+| Rule                   | Behavior                                                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `.git`, `node_modules` | Always omitted from tree mapping                                                                                                          |
+| Dotfiles               | Toggle per worktree (`showDotfiles`); filter uses `isDotfileRelativePath`                                                                 |
+| Gitignored             | Queried via `getRuntimeGitIgnoredPaths`; default **shown** (`showGitIgnoredFiles ?? true`); toggle in toolbar overflow; italic when shown |
 
 This is **not** the same model as agent-orchestrator “Always-hidden globs” settings — Orca hardcodes two basenames and separately toggles dots / gitignore.
 
@@ -173,13 +173,13 @@ This is **not** the same model as agent-orchestrator “Always-hidden globs” s
 
 **Deliberately do not copy (cite to know the boundary):**
 
-| Feature | Where it lives |
-| --- | --- |
-| Names / Contents toggle + content search | `FileExplorerViewSwitch.tsx`, `useFileSearchPanel.ts`, `SearchResultsPane.tsx`, RPC `files.search` |
-| Editor preview open / pin | `useFileExplorerHandlers.ts` (`openWorkspaceFile`, `makePreviewFilePermanent`) |
-| Rename / delete / undo / multi-drag | `FileExplorerRow`, `fileExplorerUndoRedo`, drag hooks |
-| Per-dir lazy cache + FS watch machinery | `useFileExplorerTree.ts`, `useFileExplorerWatch.ts` (only needed if not using recursive fd listing) |
-| Hardcoded `node_modules` hide | `file-explorer-entries.ts` — #169 should use Always-hidden globs instead |
+| Feature                                  | Where it lives                                                                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Names / Contents toggle + content search | `FileExplorerViewSwitch.tsx`, `useFileSearchPanel.ts`, `SearchResultsPane.tsx`, RPC `files.search`  |
+| Editor preview open / pin                | `useFileExplorerHandlers.ts` (`openWorkspaceFile`, `makePreviewFilePermanent`)                      |
+| Rename / delete / undo / multi-drag      | `FileExplorerRow`, `fileExplorerUndoRedo`, drag hooks                                               |
+| Per-dir lazy cache + FS watch machinery  | `useFileExplorerTree.ts`, `useFileExplorerWatch.ts` (only needed if not using recursive fd listing) |
+| Hardcoded `node_modules` hide            | `file-explorer-entries.ts` — #169 should use Always-hidden globs instead                            |
 
 ---
 
@@ -302,12 +302,12 @@ Pierre’s client search (`useFileTreeSearch`) is also wired; empty Pierre match
 
 **Hidden / ignore:**
 
-| Rule | Behavior |
-| --- | --- |
-| `.git` | Never listed as a child; cannot list inside `.git` |
-| Gitignored | Still listed; `ignored: true` + Pierre ignored status (dimmed) |
-| Dotfiles | Listed (no Orca-style show-dotfiles toggle in this panel) |
-| Always-hidden globs | Not the agent-orchestrator settings concept |
+| Rule                | Behavior                                                       |
+| ------------------- | -------------------------------------------------------------- |
+| `.git`              | Never listed as a child; cannot list inside `.git`             |
+| Gitignored          | Still listed; `ignored: true` + Pierre ignored status (dimmed) |
+| Dotfiles            | Listed (no Orca-style show-dotfiles toggle in this panel)      |
+| Always-hidden globs | Not the agent-orchestrator settings concept                    |
 
 **Refresh / invalidation:**
 
@@ -329,33 +329,33 @@ Separate **content** search: `useProjectContentSearch` / `WorkspaceEntries.searc
 
 **Deliberately do not copy:**
 
-| Feature | Where it lives |
-| --- | --- |
-| Preview pane + in-panel editors | `FilePreviewPanel.tsx`, office/pdf/markdown viewers under `components/files/` |
-| Multi-tab Files chrome | `RightPanelTabs.tsx`, `RightPanelSurfaceContent.tsx` |
-| Pierre dependency / shadow DOM tree | `FileBrowserPanel.tsx` `@pierre/trees` |
+| Feature                                 | Where it lives                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Preview pane + in-panel editors         | `FilePreviewPanel.tsx`, office/pdf/markdown viewers under `components/files/`                        |
+| Multi-tab Files chrome                  | `RightPanelTabs.tsx`, `RightPanelSurfaceContent.tsx`                                                 |
+| Pierre dependency / shadow DOM tree     | `FileBrowserPanel.tsx` `@pierre/trees`                                                               |
 | Server FileFinder index for name search | `WorkspaceSearchIndex.ts`, `useProjectPathSearch` — #169 should filter recursive listing client-side |
-| Content search | `useProjectContentSearch`, `WorkspaceEntries.searchContents` |
-| Sort menus | **Not present** on current Files tree chrome (do not invent to “match” T3) |
+| Content search                          | `useProjectContentSearch`, `WorkspaceEntries.searchContents`                                         |
+| Sort menus                              | **Not present** on current Files tree chrome (do not invent to “match” T3)                           |
 
 ---
 
 ## Comparison relevant to #169
 
-| Concern | Orca | T3 | #169 ask |
-| --- | --- | --- | --- |
-| Hierarchical expand/collapse | Yes (lazy + virtualized) | Yes (Pierre + lazy) | Yes |
-| Name filter | “Find files”; host listAll + client tokens on path | “Search files”; FileFinder server search + Pierre hide-non-matches | Name filter; reuse `sessionFsListing` → prefer **client filter of recursive entries**, closest to Orca projection / T3 `buildTreeEntries` |
-| Contents / full-text | First-class toggle | Separate APIs, not tree toggle | **Out** |
-| Icons | Lucide `FileTypeIcon` | Pierre + T3 sprites | Reuse agent-orchestrator file-chip / theme packs |
-| Header | Title + collapse + refresh + overflow | Refresh + search + expand/collapse | Title + close; optional refresh/collapse |
-| Close | Activity bar | Panel tab chrome | Keep existing panel close |
-| Exclude `.git` | Entry filter | Entry filter | Always |
-| Always-hidden globs | No (hardcoded `.git`/`node_modules` + toggles) | No (`.git` + gitignore markers) | Yes — same as `@` mentions / directory picker (`fdListing.ts` / Always-hidden settings) |
-| Listing stack | readDir + rg listAll | readdir + FileFinder | **`sessionFsListing` / `listRecursiveEntries` (fd)** — do not invent second stack |
-| Preview / open file | Editor preview | Files preview panel | **Out**; mention insert OK |
-| Multi-tab / sort / in-panel editor | N/A for explorer tab; heavy mutation | Files tabs + preview editors; no sort on tree | **Out** |
-| Watch | Yes | Mutation refresh | Cwd change refresh required; live watch optional |
+| Concern                            | Orca                                               | T3                                                                 | #169 ask                                                                                                                                  |
+| ---------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Hierarchical expand/collapse       | Yes (lazy + virtualized)                           | Yes (Pierre + lazy)                                                | Yes                                                                                                                                       |
+| Name filter                        | “Find files”; host listAll + client tokens on path | “Search files”; FileFinder server search + Pierre hide-non-matches | Name filter; reuse `sessionFsListing` → prefer **client filter of recursive entries**, closest to Orca projection / T3 `buildTreeEntries` |
+| Contents / full-text               | First-class toggle                                 | Separate APIs, not tree toggle                                     | **Out**                                                                                                                                   |
+| Icons                              | Lucide `FileTypeIcon`                              | Pierre + T3 sprites                                                | Reuse agent-orchestrator file-chip / theme packs                                                                                          |
+| Header                             | Title + collapse + refresh + overflow              | Refresh + search + expand/collapse                                 | Title + close; optional refresh/collapse                                                                                                  |
+| Close                              | Activity bar                                       | Panel tab chrome                                                   | Keep existing panel close                                                                                                                 |
+| Exclude `.git`                     | Entry filter                                       | Entry filter                                                       | Always                                                                                                                                    |
+| Always-hidden globs                | No (hardcoded `.git`/`node_modules` + toggles)     | No (`.git` + gitignore markers)                                    | Yes — same as `@` mentions / directory picker (`fdListing.ts` / Always-hidden settings)                                                   |
+| Listing stack                      | readDir + rg listAll                               | readdir + FileFinder                                               | **`sessionFsListing` / `listRecursiveEntries` (fd)** — do not invent second stack                                                         |
+| Preview / open file                | Editor preview                                     | Files preview panel                                                | **Out**; mention insert OK                                                                                                                |
+| Multi-tab / sort / in-panel editor | N/A for explorer tab; heavy mutation               | Files tabs + preview editors; no sort on tree                      | **Out**                                                                                                                                   |
+| Watch                              | Yes                                                | Mutation refresh                                                   | Cwd change refresh required; live watch optional                                                                                          |
 
 ### Sharpest takeaways for implementers
 

@@ -7,8 +7,8 @@ Scope: shallow depth-1 listing (cwd picker) and full recursive listing (fzf-styl
 
 ## Recommendations summary (ponytail)
 
-1. **Prefer `fd` on both macOS and Windows** — one flag matrix, files *and* directories, hidden + gitignore knobs, depth limit, null-delimited output. Officially cross-platform Rust binary (`fd.exe` on Windows).
-2. **Spawn the executable directly** via existing `ChildProcess.make('fd', args, { cwd })` → Tauri `Command.create` — **no shell**, so not locked into `cmd.exe` / PowerShell. (Effect *can* set `shell: true` → `cmd.exe` on Windows, but this app’s Tauri Live never passes `shell`.)
+1. **Prefer `fd` on both macOS and Windows** — one flag matrix, files _and_ directories, hidden + gitignore knobs, depth limit, null-delimited output. Officially cross-platform Rust binary (`fd.exe` on Windows).
+2. **Spawn the executable directly** via existing `ChildProcess.make('fd', args, { cwd })` → Tauri `Command.create` — **no shell**, so not locked into `cmd.exe` / PowerShell. (Effect _can_ set `shell: true` → `cmd.exe` on Windows, but this app’s Tauri Live never passes `shell`.)
 3. **macOS backup when `fd` missing:** stock BSD `find` for type/depth/hidden-by-name; **no** `.gitignore` parity. For gitignore-aware file lists inside a repo, use `git ls-files` (not `find`).
 4. **Windows backup when `fd` missing:** `dir /s /b` (cmd) or `Get-ChildItem` (PowerShell) for crude recursion — **no** gitignore. Optional: `rg --files` (files only, respects gitignore) or `git ls-files` in a repo. Do **not** chase WSL or Everything Search for this product path.
 5. **Ship/document `fd` as the supported path**; OS fallbacks are degraded and platform-specific. Also: Tauri shell capabilities today allow only `bun`/`claude`/`codex`/`gemini`/`node` — spawning `fd`/`find`/`git` needs capability entries (or a sidecar).
@@ -26,12 +26,12 @@ Scope: shallow depth-1 listing (cwd picker) and full recursive listing (fzf-styl
 
 ### How this app spawns processes
 
-| Layer | API | Shell? |
-| --- | --- | --- |
-| Call sites | `ChildProcess.make(cmd, args, options)` from `effect/unstable/process` | Optional `options.shell`; **call sites inspected do not set it** |
+| Layer        | API                                                                                                                              | Shell?                                                                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Call sites   | `ChildProcess.make(cmd, args, options)` from `effect/unstable/process`                                                           | Optional `options.shell`; **call sites inspected do not set it**                                                                       |
 | Desktop Live | [`libs/context-services-tauri/src/ChildProcessSpawnerLive.ts`](../../libs/context-services-tauri/src/ChildProcessSpawnerLive.ts) | Bridges to `@tauri-apps/plugin-shell` `Command.create(command, args, { cwd, encoding: 'raw', env? })` — **no `shell` field forwarded** |
-| Tauri plugin | [`@tauri-apps/plugin-shell` `Command.create`](https://v2.tauri.app/plugin/shell/) | Spawns the named program with args (scoped by capabilities) |
-| Capabilities | [`apps/desktop/src-tauri/capabilities/default.json`](../../apps/desktop/src-tauri/capabilities/default.json) | `shell:allow-execute` / `shell:allow-spawn` allow only `bun`, `claude`, `codex`, `gemini`, `node` today |
+| Tauri plugin | [`@tauri-apps/plugin-shell` `Command.create`](https://v2.tauri.app/plugin/shell/)                                                | Spawns the named program with args (scoped by capabilities)                                                                            |
+| Capabilities | [`apps/desktop/src-tauri/capabilities/default.json`](../../apps/desktop/src-tauri/capabilities/default.json)                     | `shell:allow-execute` / `shell:allow-spawn` allow only `bun`, `claude`, `codex`, `gemini`, `node` today                                |
 
 Example call sites (direct executable names, no shell):
 
@@ -55,14 +55,14 @@ Primary sources: [sharkdp/fd README](https://github.com/sharkdp/fd/blob/master/R
 
 ### Defaults
 
-| Behavior | Default | Override |
-| --- | --- | --- |
-| Hidden files/dirs (name starts with `.`) | **Skipped** | `-H` / `--hidden` (override with `--no-hidden`) |
-| Ignore files | **Honored** | `-I` / `--no-ignore` (or `-u` / `--unrestricted` = `--hidden --no-ignore`) |
-| Paths printed | **Relative** to search root (cwd if omitted) | `-a` / `--absolute-path` |
-| Record separator | Newline | `-0` / `--print0` (NUL) |
-| Depth | Unlimited | `-d` / `--max-depth <n>` |
-| Type | All matching entries | `-t` / `--type` (`f`/`file`, `d`/`dir`/`directory`, …) |
+| Behavior                                 | Default                                      | Override                                                                   |
+| ---------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| Hidden files/dirs (name starts with `.`) | **Skipped**                                  | `-H` / `--hidden` (override with `--no-hidden`)                            |
+| Ignore files                             | **Honored**                                  | `-I` / `--no-ignore` (or `-u` / `--unrestricted` = `--hidden --no-ignore`) |
+| Paths printed                            | **Relative** to search root (cwd if omitted) | `-a` / `--absolute-path`                                                   |
+| Record separator                         | Newline                                      | `-0` / `--print0` (NUL)                                                    |
+| Depth                                    | Unlimited                                    | `-d` / `--max-depth <n>`                                                   |
+| Type                                     | All matching entries                         | `-t` / `--type` (`f`/`file`, `d`/`dir`/`directory`, …)                     |
 
 ### Ignore sources (official)
 
@@ -77,7 +77,7 @@ From `man fd` (`--no-ignore` / `--no-ignore-vcs`):
 
 Also:
 
-- `--no-ignore-vcs` — disable *only* gitignore / git exclude / global gitignore (keep `.ignore` / `.fdignore` / global fd ignore)
+- `--no-ignore-vcs` — disable _only_ gitignore / git exclude / global gitignore (keep `.ignore` / `.fdignore` / global fd ignore)
 - `--no-ignore-parent` — ignore parent-dir ignore files
 - By default, gitignore rules apply only when searching inside a detected git repo (`--no-require-git` relaxes that)
 
@@ -183,13 +183,13 @@ Caveat: `! -name '.*'` only filters the current basename; pruning with `-name '.
 
 Practical options from Git’s own docs:
 
-| Approach | What you get | Citation |
-| --- | --- | --- |
-| `git ls-files` (default `--cached`) | Tracked files only | [git-ls-files](https://git-scm.com/docs/git-ls-files) |
-| `git ls-files -o --exclude-standard` | Untracked, applying standard excludes | `--exclude-standard` = `.git/info/exclude`, per-dir `.gitignore`, global excludes file |
-| `git ls-files -c -o --exclude-standard` | Tracked + untracked non-ignored files | Combine `-c`/`--cached` with `-o` |
-| `git ls-files -o --directory --exclude-standard` | Untracked dirs as `name/` (not contents) | `--directory` only with `-o` |
-| Manual `find` + home-grown ignore parser | Possible but **not** practical for full gitignore semantics | — |
+| Approach                                         | What you get                                                | Citation                                                                               |
+| ------------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `git ls-files` (default `--cached`)              | Tracked files only                                          | [git-ls-files](https://git-scm.com/docs/git-ls-files)                                  |
+| `git ls-files -o --exclude-standard`             | Untracked, applying standard excludes                       | `--exclude-standard` = `.git/info/exclude`, per-dir `.gitignore`, global excludes file |
+| `git ls-files -c -o --exclude-standard`          | Tracked + untracked non-ignored files                       | Combine `-c`/`--cached` with `-o`                                                      |
+| `git ls-files -o --directory --exclude-standard` | Untracked dirs as `name/` (not contents)                    | `--directory` only with `-o`                                                           |
+| Manual `find` + home-grown ignore parser         | Possible but **not** practical for full gitignore semantics | —                                                                                      |
 
 macOS **built-ins that honor gitignore:** none in stock `find`/`ls`/`mdfind`. Use **Git** (`git ls-files`) or a tool that embeds the ignore crate (`fd`, `rg`).
 
@@ -201,12 +201,12 @@ macOS **built-ins that honor gitignore:** none in stock `find`/`ls`/`mdfind`. Us
 
 ### A. Process spawning (Effect / Tauri / Node)
 
-| Mode | What runs | Primary source |
-| --- | --- | --- |
-| No shell (this app’s path) | Named executable + argv (`fd.exe`, `git.exe`, …) | Tauri `Command.create`; Effect `ChildProcess.make` without `shell`; Node `spawn` default `shell: false` |
-| `shell: true` / Effect default shell on Windows | **`cmd.exe`** (Effect docs say `cmd.exe`; Node uses `ComSpec` → typically `cmd.exe`) | Effect `ChildProcess.ts`; [Node child_process](https://nodejs.org/api/child_process.html) |
-| Explicit PowerShell | Spawn `powershell.exe` or `pwsh.exe` with args | Must name the executable; not automatic |
-| `cmd /c …` | Explicit `cmd.exe` + `/c` | Node docs example for `.bat`/`.cmd` |
+| Mode                                            | What runs                                                                            | Primary source                                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| No shell (this app’s path)                      | Named executable + argv (`fd.exe`, `git.exe`, …)                                     | Tauri `Command.create`; Effect `ChildProcess.make` without `shell`; Node `spawn` default `shell: false` |
+| `shell: true` / Effect default shell on Windows | **`cmd.exe`** (Effect docs say `cmd.exe`; Node uses `ComSpec` → typically `cmd.exe`) | Effect `ChildProcess.ts`; [Node child_process](https://nodejs.org/api/child_process.html)               |
+| Explicit PowerShell                             | Spawn `powershell.exe` or `pwsh.exe` with args                                       | Must name the executable; not automatic                                                                 |
+| `cmd /c …`                                      | Explicit `cmd.exe` + `/c`                                                            | Node docs example for `.bat`/`.cmd`                                                                     |
 
 **This repo:** Tauri Live does not pass `shell`. Call sites use direct program names. **Not locked into cmd** unless you choose shell mode or invoke `cmd.exe`/`dir` as the program.
 
@@ -218,15 +218,15 @@ To run built-in `dir`, you typically need `cmd.exe /c dir …` (or a shell), bec
 
 [Microsoft `dir`](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dir):
 
-| Need | Flag / note |
-| --- | --- |
-| Recursive | `/s` |
-| Bare paths | `/b` |
-| Dirs only | `/a:d` |
-| Files only | `/a:-d` |
+| Need                  | Flag / note                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| Recursive             | `/s`                                                                                             |
+| Bare paths            | `/b`                                                                                             |
+| Dirs only             | `/a:d`                                                                                           |
+| Files only            | `/a:-d`                                                                                          |
 | Include hidden/system | `/a` (no attrs = all, including hidden/system); default without `/a` **omits** hidden and system |
-| Depth limit | **None** documented |
-| `.gitignore` | **No** |
+| Depth limit           | **None** documented                                                                              |
+| `.gitignore`          | **No**                                                                                           |
 
 Example: `cmd.exe /c dir /s /b /a:d` (dirs, recursive, bare).
 
@@ -234,13 +234,13 @@ Example: `cmd.exe /c dir /s /b /a:d` (dirs, recursive, bare).
 
 [Microsoft `Get-ChildItem`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/get-childitem):
 
-| Need | Parameter |
-| --- | --- |
-| Recursive | `-Recurse` |
-| Depth limit | `-Depth <uint>` (PS 5.0+) |
-| Dirs / files | `-Directory` / `-File` (or `-Attributes`) |
-| Hidden | Default hides; `-Force` includes; `-Hidden` / `-Attributes Hidden` for hidden-only |
-| `.gitignore` | **No** (not in cmdlet surface) |
+| Need         | Parameter                                                                          |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Recursive    | `-Recurse`                                                                         |
+| Depth limit  | `-Depth <uint>` (PS 5.0+)                                                          |
+| Dirs / files | `-Directory` / `-File` (or `-Attributes`)                                          |
+| Hidden       | Default hides; `-Force` includes; `-Hidden` / `-Attributes Hidden` for hidden-only |
+| `.gitignore` | **No** (not in cmdlet surface)                                                     |
 
 Example: `Get-ChildItem -Recurse -Depth 0 -Directory` (shallow dirs; depth semantics: `0` = Path only’s children per docs’ “Depth 2 includes Path + two subdirectory levels” — verify desired depth off-by-one in implementation tests).
 
@@ -257,13 +257,13 @@ Example: `Get-ChildItem -Recurse -Depth 0 -Directory` (shallow dirs; depth seman
 
 ### D. Alternatives if `fd` not installed
 
-| Tool | Files | Dirs | gitignore | Notes |
-| --- | --- | --- | --- | --- |
-| `rg --files` | Yes | **No** (prints files that would be searched) | Yes (default) | [ripgrep GUIDE](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md); `rg --help` `--files` |
-| `git ls-files …` | Yes (tracked/untracked modes) | Limited (`--directory` with `-o`) | Via `--exclude-standard` | Repo-only; [git-ls-files](https://git-scm.com/docs/git-ls-files) |
-| `dir` / `Get-ChildItem` | Yes | Yes | **No** | Built-in |
-| WSL `find`/`fd` | — | — | — | Extra runtime; avoid for desktop product path |
-| Everything Search CLI | — | — | — | Not evaluated as a dependency; prefer `fd` |
+| Tool                    | Files                         | Dirs                                         | gitignore                | Notes                                                                                              |
+| ----------------------- | ----------------------------- | -------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `rg --files`            | Yes                           | **No** (prints files that would be searched) | Yes (default)            | [ripgrep GUIDE](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md); `rg --help` `--files` |
+| `git ls-files …`        | Yes (tracked/untracked modes) | Limited (`--directory` with `-o`)            | Via `--exclude-standard` | Repo-only; [git-ls-files](https://git-scm.com/docs/git-ls-files)                                   |
+| `dir` / `Get-ChildItem` | Yes                           | Yes                                          | **No**                   | Built-in                                                                                           |
+| WSL `find`/`fd`         | —                             | —                                            | —                        | Extra runtime; avoid for desktop product path                                                      |
+| Everything Search CLI   | —                             | —                                            | —                        | Not evaluated as a dependency; prefer `fd`                                                         |
 
 **Honest recommendation:** Prefer/require `fd` on macOS and Windows. Fallbacks: macOS `find` (+ `git ls-files` for ignore-aware files); Windows `dir`/`Get-ChildItem` or `rg --files`/`git ls-files` — all strictly weaker than `fd` for “files + dirs + hidden + gitignore + depth.”
 
@@ -273,21 +273,21 @@ Example: `Get-ChildItem -Recurse -Depth 0 -Directory` (shallow dirs; depth seman
 
 Rows assume spawn with `cwd` = session root. “Respect ignore” for `fd` = default ignore stack; for git = `--exclude-standard`.
 
-| Platform | Tool | Depth | Type | Hidden | Ignore | Example argv (program + args) |
-| --- | --- | --- | --- | --- | --- | --- |
-| macOS/Win | `fd` | full | dirs | off | on | `fd -t d` |
-| macOS/Win | `fd` | full | files | on | off | `fd -t f -H -I` |
-| macOS/Win | `fd` | 1 | dirs | off | on | `fd -t d -d 1` |
-| macOS/Win | `fd` | 1 | files | off | on | `fd -t f -d 1` |
-| macOS/Win | `fd` | full | both | off | on | `fd` or `fd -0` |
-| macOS | `find` | full | dirs | off* | **n/a** | `find . -name '.*' -prune -o -type d -print` |
-| macOS | `find` | 1 | dirs | off* | **n/a** | `find . -maxdepth 1 ! -name '.*' -type d` |
-| macOS | `find` | full | files | on | **n/a** | `find . -type f` |
-| any (git repo) | `git` | full | files | (git rules) | on | `git ls-files -c -o --exclude-standard -z` |
-| Win | `cmd` | full | dirs | on | **n/a** | `cmd.exe /c dir /s /b /a:d` |
-| Win | `cmd` | full | files | default† | **n/a** | `cmd.exe /c dir /s /b /a:-d` |
-| Win | `pwsh` | full/depth | dirs | Force | **n/a** | `Get-ChildItem -Recurse -Directory` (+ `-Depth`, `-Force`) |
-| Win/macOS | `rg` | full | files | `--hidden` | on (default) | `rg --files` / `rg --files --hidden` |
+| Platform       | Tool   | Depth      | Type  | Hidden      | Ignore       | Example argv (program + args)                              |
+| -------------- | ------ | ---------- | ----- | ----------- | ------------ | ---------------------------------------------------------- |
+| macOS/Win      | `fd`   | full       | dirs  | off         | on           | `fd -t d`                                                  |
+| macOS/Win      | `fd`   | full       | files | on          | off          | `fd -t f -H -I`                                            |
+| macOS/Win      | `fd`   | 1          | dirs  | off         | on           | `fd -t d -d 1`                                             |
+| macOS/Win      | `fd`   | 1          | files | off         | on           | `fd -t f -d 1`                                             |
+| macOS/Win      | `fd`   | full       | both  | off         | on           | `fd` or `fd -0`                                            |
+| macOS          | `find` | full       | dirs  | off*        | **n/a**      | `find . -name '.*' -prune -o -type d -print`               |
+| macOS          | `find` | 1          | dirs  | off*        | **n/a**      | `find . -maxdepth 1 ! -name '.*' -type d`                  |
+| macOS          | `find` | full       | files | on          | **n/a**      | `find . -type f`                                           |
+| any (git repo) | `git`  | full       | files | (git rules) | on           | `git ls-files -c -o --exclude-standard -z`                 |
+| Win            | `cmd`  | full       | dirs  | on          | **n/a**      | `cmd.exe /c dir /s /b /a:d`                                |
+| Win            | `cmd`  | full       | files | default†    | **n/a**      | `cmd.exe /c dir /s /b /a:-d`                               |
+| Win            | `pwsh` | full/depth | dirs  | Force       | **n/a**      | `Get-ChildItem -Recurse -Directory` (+ `-Depth`, `-Force`) |
+| Win/macOS      | `rg`   | full       | files | `--hidden`  | on (default) | `rg --files` / `rg --files --hidden`                       |
 
 \*Name-based dotfiles only, not Windows Hidden attribute.  
 †`dir` without `/a` skips hidden/system; add `/a` or `/a:h` as needed ([dir docs](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/dir)).

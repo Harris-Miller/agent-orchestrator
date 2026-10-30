@@ -1,13 +1,10 @@
 {
-  // "$schema": "./node_modules/@effect/language-service/schema.json",
-  "$schema": "@effect/language-service/schema.json",
+  "$schema": "@effect/tsgo/schema.json",
   "compilerOptions": {
     "target": "es2024",
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "lib": [
-      "esnext"
-    ],
+    "lib": ["esnext"],
     "strict": true,
     "noEmit": true,
     "rewriteRelativeImportExtensions": true,
@@ -19,7 +16,7 @@
     "types": [],
     "plugins": [
       {
-        "name": "@effect/language-service",
+        "name": "@effect/tsgo",
         "ignoreEffectSuggestionsInTscExitCode": false
       }
     ]

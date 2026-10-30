@@ -7,13 +7,13 @@ Scope: local Extension Development Host, CLI `--extensionDevelopmentPath`, and i
 
 ## Summary
 
-| Goal | Official path |
-| --- | --- |
-| Scaffold | `npx --package yo --package generator-code -- yo code` (TypeScript; bundler optional) |
-| Minimal runtime layout | `package.json` with `engines.vscode`, `main`, `contributes`; `src/extension.ts` → compiled JS |
-| Day-to-day debug | F5 / `extensionHost` launch with `--extensionDevelopmentPath=${workspaceFolder}` |
-| CLI load without install | `code --extensionDevelopmentPath=<extension-root>` |
-| Shareable local binary | `vsce package` → `.vsix`, then `code --install-extension path.vsix` (no Marketplace) |
+| Goal                     | Official path                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| Scaffold                 | `npx --package yo --package generator-code -- yo code` (TypeScript; bundler optional)         |
+| Minimal runtime layout   | `package.json` with `engines.vscode`, `main`, `contributes`; `src/extension.ts` → compiled JS |
+| Day-to-day debug         | F5 / `extensionHost` launch with `--extensionDevelopmentPath=${workspaceFolder}`              |
+| CLI load without install | `code --extensionDevelopmentPath=<extension-root>`                                            |
+| Shareable local binary   | `vsce package` → `.vsix`, then `code --install-extension path.vsix` (no Marketplace)          |
 
 **Verdict for this repo:** Put the extension at `apps/vscode` with its own manifest/`main`. Prefer **esbuild bundle** for monorepo packaging (`--no-dependencies` / ignore `node_modules`), or plain **tsc** like the official Hello World sample for the smallest start. Marketplace is optional; packaging alone is enough for local install.
 
@@ -48,13 +48,13 @@ From [Extension Anatomy](https://code.visualstudio.com/api/get-started/extension
 
 Required / core VS Code fields ([Extension Manifest](https://code.visualstudio.com/api/references/extension-manifest); Anatomy sample):
 
-| Field | Role |
-| --- | --- |
-| `name`, `publisher`, `version` | Identity; Marketplace ID is `publisher.name` |
-| `engines.vscode` | **Required**; min API version (cannot be `*`). Mismatch → extension may not load ([Your First Extension](https://code.visualstudio.com/api/get-started/your-first-extension)) |
-| `main` | Node extension host entry (e.g. `./out/extension.js`) ([Extension Host](https://code.visualstudio.com/api/advanced-topics/extension-host)) |
-| `contributes` | Static contributions (commands, views, …) |
-| `activationEvents` | When to activate; can be `[]` for command-only extensions on VS Code ≥ 1.74 |
+| Field                          | Role                                                                                                                                                                          |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`, `publisher`, `version` | Identity; Marketplace ID is `publisher.name`                                                                                                                                  |
+| `engines.vscode`               | **Required**; min API version (cannot be `*`). Mismatch → extension may not load ([Your First Extension](https://code.visualstudio.com/api/get-started/your-first-extension)) |
+| `main`                         | Node extension host entry (e.g. `./out/extension.js`) ([Extension Host](https://code.visualstudio.com/api/advanced-topics/extension-host))                                    |
+| `contributes`                  | Static contributions (commands, views, …)                                                                                                                                     |
+| `activationEvents`             | When to activate; can be `[]` for command-only extensions on VS Code ≥ 1.74                                                                                                   |
 
 Current official Hello World sample ([vscode-extension-samples/helloworld-sample/package.json](https://raw.githubusercontent.com/microsoft/vscode-extension-samples/main/helloworld-sample/package.json)):
 
@@ -67,11 +67,11 @@ Entry module must export `activate` (and optionally `deactivate`) ([Extension An
 
 ## 2. TypeScript build: `tsc` vs esbuild
 
-| Approach | Official stance | Typical `main` |
-| --- | --- | --- |
-| **Unbundled `tsc`** | Default Hello World / Anatomy sample | `./out/extension.js` |
-| **esbuild** | Recommended bundler guide; required for web/single-file load | `./dist/extension.js` |
-| **webpack** | Also documented | `./dist/extension.js` |
+| Approach            | Official stance                                              | Typical `main`        |
+| ------------------- | ------------------------------------------------------------ | --------------------- |
+| **Unbundled `tsc`** | Default Hello World / Anatomy sample                         | `./out/extension.js`  |
+| **esbuild**         | Recommended bundler guide; required for web/single-file load | `./dist/extension.js` |
+| **webpack**         | Also documented                                              | `./dist/extension.js` |
 
 **Hello World (unbundled):** ([Extension Anatomy](https://code.visualstudio.com/api/get-started/extension-anatomy); [helloworld-sample](https://github.com/microsoft/vscode-extension-samples/tree/main/helloworld-sample))
 
@@ -118,15 +118,17 @@ Official sample `launch.json` ([helloworld-sample/.vscode/launch.json](https://r
 ```json
 {
   "version": "0.2.0",
-  "configurations": [{
-    "name": "Run Extension",
-    "type": "extensionHost",
-    "request": "launch",
-    "runtimeExecutable": "${execPath}",
-    "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-    "outFiles": ["${workspaceFolder}/out/**/*.js"],
-    "preLaunchTask": "npm: watch"
-  }]
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "npm: watch"
+    }
+  ]
 }
 ```
 
@@ -182,12 +184,12 @@ Official packaging reasons ([Publishing Extensions — Packaging extensions](htt
 
 ## 5. Recommended scripts
 
-| Script | Unbundled (`tsc`) | Bundled (esbuild guide) |
-| --- | --- | --- |
-| `compile` | `tsc -p ./` | `check-types` + `esbuild.js` |
-| `watch` | `tsc -watch -p ./` | parallel esbuild watch + `tsc --noEmit --watch` |
-| `package` / `vscode:prepublish` | `npm run compile` | production esbuild (`--production`) |
-| CLI package | `vsce package` (invokes `vscode:prepublish`) | same |
+| Script                          | Unbundled (`tsc`)                            | Bundled (esbuild guide)                         |
+| ------------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `compile`                       | `tsc -p ./`                                  | `check-types` + `esbuild.js`                    |
+| `watch`                         | `tsc -watch -p ./`                           | parallel esbuild watch + `tsc --noEmit --watch` |
+| `package` / `vscode:prepublish` | `npm run compile`                            | production esbuild (`--production`)             |
+| CLI package                     | `vsce package` (invokes `vscode:prepublish`) | same                                            |
 
 Sources: [Extension Anatomy](https://code.visualstudio.com/api/get-started/extension-anatomy), [Bundling Extensions](https://code.visualstudio.com/api/working-with-extensions/bundling-extension), [Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
@@ -200,8 +202,8 @@ Claims below are from first-party docs / `@vscode/vsce` behavior — not Marketp
 1. **Package from the extension root**  
    `vsce package` must run in the folder that contains the extension `package.json` ([Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)). In a turborepo, that is `apps/vscode`, not the repo root.
 
-2. **`.vscodeignore` vs `package.json` `files`**  
-   - `.vscodeignore`: glob denylist; ignore non-runtime files (e.g. `**/*.ts`) ([Publishing Extensions — Using .vscodeignore](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)).  
+2. **`.vscodeignore` vs `package.json` `files`**
+   - `.vscodeignore`: glob denylist; ignore non-runtime files (e.g. `**/*.ts`) ([Publishing Extensions — Using .vscodeignore](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)).
    - Bundled extensions: exclude `node_modules`, `src/`, build configs; keep `dist/` ([Bundling Extensions — Publishing](https://code.visualstudio.com/api/working-with-extensions/bundling-extension)):
 
      ```

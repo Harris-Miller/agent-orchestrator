@@ -21,9 +21,6 @@ describe('fileWorkspaceFolderPaths', () => {
   });
 
   it('returns empty when only non-file schemes', () => {
-    assert.deepStrictEqual(
-      fileWorkspaceFolderPaths([{ uri: { fsPath: '/r', scheme: 'vscode-remote' } }]),
-      [],
-    );
+    assert.deepStrictEqual(fileWorkspaceFolderPaths([{ uri: { fsPath: '/r', scheme: 'vscode-remote' } }]), []);
   });
 });

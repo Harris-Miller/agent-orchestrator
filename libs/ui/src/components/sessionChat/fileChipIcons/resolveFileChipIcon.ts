@@ -7,7 +7,8 @@ import type { FileIconPackId } from './packId.ts';
 import { getPackSvg, svgToDataUrl } from './packs.ts';
 
 export type FileChipIcon =
-  { readonly Icon: LucideIcon; readonly kind: 'lucide' } | { readonly kind: 'svg'; readonly url: string };
+  | { readonly Icon: LucideIcon; readonly kind: 'lucide' }
+  | { readonly kind: 'svg'; readonly url: string };
 
 const EXT_TO_KEY: Readonly<Record<string, string>> = {
   bash: 'sh',

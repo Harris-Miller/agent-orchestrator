@@ -17,18 +17,18 @@ Sources live under the Cursor assets folder as attached research screenshots (fi
 
 ### Pattern table
 
-| Pattern | What it looks like | Seen in |
-| --- | --- | --- |
-| Top-level “Worked for Ns” | Single muted/pill header with chevron wrapping all process UI | Codex-style: `Screenshot_2026-09-02_at_10.32.15_PM-…png`, `…10.32.24…`, `…10.32.39…`, collapsed `…10.32.45…`; Cursor: `…10.35.40…` (collapsed 18s), `…10.36.09…` (expanded), `…10.35.48…`; T3-style: `…10.32.56…` / `…10.33.02…` / `…10.33.15…` (43s) |
-| Default collapsed when done | Only duration row (or pill) + answer; process hidden | `…10.32.45…`, `…10.35.40…`, `…10.32.56…` |
-| Default expanded while inspecting / mid-work | Full thought + tool tree visible under “Worked for Ns” | `…10.32.15…`, `…10.32.24…`, `…10.32.39…`, `…10.36.09…`, `…10.33.15…` |
-| Nested thought blocks | “Thought 1s” (+ optional nested chevron) with muted reasoning text | Codex-style: `…10.32.15…`, `…10.32.24…`, `…10.32.39…` |
-| Exploration / activity summary labels | “Explored 2 files, 2 searches”, “Explored 3 files”, “Loaded tools, read files, ran commands” | Codex: `…10.32.15…`, `…10.32.39…`; T3: `…10.33.02…`, `…10.33.15…` |
-| Compact tool rows + per-row expand | One-line “Tool call …” / “Command run …” with chevron; detail only when expanded | Cursor: `…10.36.09…`, `…10.35.48…` |
-| Truncation / “show fewer” | “Show fewer tool calls”, “+4 previous tool calls” | Cursor: `…10.36.09…`, `…10.35.48…` |
-| Terminal-card tool bodies | `>_` header + bordered output / error inside work group | Codex: `…10.32.15…`, `…10.32.24…`, `…10.32.39…` |
-| Answer outside the work collapse | Final markdown always sibling below work, never inside the accordion | All positive harness shots above |
-| Flat always-expanded “before” | Every tool is a full card: `Tool: …`, `kind: …`, `completed` chip; no chevron/group | `apps/desktop`: `…10.33.48…`, `…10.33.30…`, `…10.33.35…` |
+| Pattern                                      | What it looks like                                                                           | Seen in                                                                                                                                                                                                                                               |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top-level “Worked for Ns”                    | Single muted/pill header with chevron wrapping all process UI                                | Codex-style: `Screenshot_2026-09-02_at_10.32.15_PM-…png`, `…10.32.24…`, `…10.32.39…`, collapsed `…10.32.45…`; Cursor: `…10.35.40…` (collapsed 18s), `…10.36.09…` (expanded), `…10.35.48…`; T3-style: `…10.32.56…` / `…10.33.02…` / `…10.33.15…` (43s) |
+| Default collapsed when done                  | Only duration row (or pill) + answer; process hidden                                         | `…10.32.45…`, `…10.35.40…`, `…10.32.56…`                                                                                                                                                                                                              |
+| Default expanded while inspecting / mid-work | Full thought + tool tree visible under “Worked for Ns”                                       | `…10.32.15…`, `…10.32.24…`, `…10.32.39…`, `…10.36.09…`, `…10.33.15…`                                                                                                                                                                                  |
+| Nested thought blocks                        | “Thought 1s” (+ optional nested chevron) with muted reasoning text                           | Codex-style: `…10.32.15…`, `…10.32.24…`, `…10.32.39…`                                                                                                                                                                                                 |
+| Exploration / activity summary labels        | “Explored 2 files, 2 searches”, “Explored 3 files”, “Loaded tools, read files, ran commands” | Codex: `…10.32.15…`, `…10.32.39…`; T3: `…10.33.02…`, `…10.33.15…`                                                                                                                                                                                     |
+| Compact tool rows + per-row expand           | One-line “Tool call …” / “Command run …” with chevron; detail only when expanded             | Cursor: `…10.36.09…`, `…10.35.48…`                                                                                                                                                                                                                    |
+| Truncation / “show fewer”                    | “Show fewer tool calls”, “+4 previous tool calls”                                            | Cursor: `…10.36.09…`, `…10.35.48…`                                                                                                                                                                                                                    |
+| Terminal-card tool bodies                    | `>_` header + bordered output / error inside work group                                      | Codex: `…10.32.15…`, `…10.32.24…`, `…10.32.39…`                                                                                                                                                                                                       |
+| Answer outside the work collapse             | Final markdown always sibling below work, never inside the accordion                         | All positive harness shots above                                                                                                                                                                                                                      |
+| Flat always-expanded “before”                | Every tool is a full card: `Tool: …`, `kind: …`, `completed` chip; no chevron/group          | `apps/desktop`: `…10.33.48…`, `…10.33.30…`, `…10.33.35…`                                                                                                                                                                                              |
 
 ### Concrete observations from “before” (`apps/desktop`)
 
@@ -50,21 +50,21 @@ Primary sources:
 
 ### `sessionUpdate` kinds → meaning → desktop reducer
 
-| `sessionUpdate` | Meaning (protocol) | Handled by `reduceSessionUpdate`? | Becomes `ChatItem`? |
-| --- | --- | --- | --- |
-| `user_message_chunk` | Streamed user message chunk (`ContentChunk`) | Yes (`sessionUpdateReducer.ts` 319–328) | `user_message` |
-| `agent_message_chunk` | Streamed agent answer chunk | Yes (208–217) | `agent_message` |
-| `agent_thought_chunk` | Streamed **internal reasoning** chunk (schema const line ~5018; overview “thought” chunks) | **No** — falls through `default` (331–332) | **Dropped** |
-| `tool_call` | New tool invocation (`title`, `kind`, `status`, …) | Yes (259–278) | `tool_call` (always new row) |
-| `tool_call_update` | Patch status/content for existing `toolCallId` | Yes (281–316) | Updates existing `tool_call` (or inserts stub) |
-| `plan` | Full plan entry list replace | Yes (234–241) | `plan` (appends; does **not** replace prior plan item) |
-| `plan_update` / `plan_removed` | Unstable plan variants in schema (~5082–5098) | No | Dropped |
-| `available_commands_update` | Slash commands ready | Explicit no-op in reducer (220–222); side-parsed in `agentHarness.ts` 200–203 | Not a chat item |
-| `usage_update` | Context size / cost | Explicit no-op in reducer (220–222); side-parsed via `parseUsageUpdate` | Not a chat item (usage popover) |
-| `config_option_update` | Config selectors changed | Yes (224–231) | `config_options` |
-| `session_info_update` | Title / timestamps | Yes (244–256) | `session_info` |
-| `current_mode_update` | Mode change | No | Dropped |
-| `compaction_update` / `compaction_summary_chunk` | Unstable compaction | No | Dropped |
+| `sessionUpdate`                                  | Meaning (protocol)                                                                         | Handled by `reduceSessionUpdate`?                                             | Becomes `ChatItem`?                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `user_message_chunk`                             | Streamed user message chunk (`ContentChunk`)                                               | Yes (`sessionUpdateReducer.ts` 319–328)                                       | `user_message`                                         |
+| `agent_message_chunk`                            | Streamed agent answer chunk                                                                | Yes (208–217)                                                                 | `agent_message`                                        |
+| `agent_thought_chunk`                            | Streamed **internal reasoning** chunk (schema const line ~5018; overview “thought” chunks) | **No** — falls through `default` (331–332)                                    | **Dropped**                                            |
+| `tool_call`                                      | New tool invocation (`title`, `kind`, `status`, …)                                         | Yes (259–278)                                                                 | `tool_call` (always new row)                           |
+| `tool_call_update`                               | Patch status/content for existing `toolCallId`                                             | Yes (281–316)                                                                 | Updates existing `tool_call` (or inserts stub)         |
+| `plan`                                           | Full plan entry list replace                                                               | Yes (234–241)                                                                 | `plan` (appends; does **not** replace prior plan item) |
+| `plan_update` / `plan_removed`                   | Unstable plan variants in schema (~5082–5098)                                              | No                                                                            | Dropped                                                |
+| `available_commands_update`                      | Slash commands ready                                                                       | Explicit no-op in reducer (220–222); side-parsed in `agentHarness.ts` 200–203 | Not a chat item                                        |
+| `usage_update`                                   | Context size / cost                                                                        | Explicit no-op in reducer (220–222); side-parsed via `parseUsageUpdate`       | Not a chat item (usage popover)                        |
+| `config_option_update`                           | Config selectors changed                                                                   | Yes (224–231)                                                                 | `config_options`                                       |
+| `session_info_update`                            | Title / timestamps                                                                         | Yes (244–256)                                                                 | `session_info`                                         |
+| `current_mode_update`                            | Mode change                                                                                | No                                                                            | Dropped                                                |
+| `compaction_update` / `compaction_summary_chunk` | Unstable compaction                                                                        | No                                                                            | Dropped                                                |
 
 Notes:
 
@@ -130,31 +130,31 @@ There is **no** `thought` / `work_group` kind. Unknown `sessionUpdate` values (i
 
 Wrap each work run in one `Accordion` summary like `N tool calls` (or `Work` while any status ∈ {pending, in_progress}).
 
-| Pros | Cons |
-| --- | --- |
-| Smallest diff; no reducer/`ChatItem` churn | No true “Thought” rows until thoughts are reduced |
-| Reuses existing Accordion pattern in same package | “Worked for Ns” needs a client timer (not ACP) |
+| Pros                                               | Cons                                                                                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Smallest diff; no reducer/`ChatItem` churn         | No true “Thought” rows until thoughts are reduced                                                                                |
+| Reuses existing Accordion pattern in same package  | “Worked for Ns” needs a client timer (not ACP)                                                                                   |
 | Directly achieves “hide the work, show the answer” | Naive consecutive grouping mishandles interleaved agent_message-in-the-middle-of-tools (common in real turns — see `…10.33.30…`) |
 
-**Mitigation for interleaving:** treat `agent_message` as “answer” only when it is the **last** item of a turn *or* when followed only by non-work kinds; alternatively group **all** `tool_call`/`plan` between two user messages into one work accordion and leave mid-turn agent text outside (still visible). Good enough for v1.
+**Mitigation for interleaving:** treat `agent_message` as “answer” only when it is the **last** item of a turn _or_ when followed only by non-work kinds; alternatively group **all** `tool_call`/`plan` between two user messages into one work accordion and leave mid-turn agent text outside (still visible). Good enough for v1.
 
 ### B. Reducer / view-model `work_group` turn segment
 
 Introduce `ChatItem` kind `work_group` (or parallel view-model) that owns child tool/thought ids, duration, summary label.
 
-| Pros | Cons |
-| --- | --- |
-| Cleaner streaming rules, easier tests | Larger surface: reducer, harness callbacks, atoms, views |
-| Natural home for duration + “Explored…” later | YAGNI for “hide work” alone |
+| Pros                                          | Cons                                                     |
+| --------------------------------------------- | -------------------------------------------------------- |
+| Cleaner streaming rules, easier tests         | Larger surface: reducer, harness callbacks, atoms, views |
+| Natural home for duration + “Explored…” later | YAGNI for “hide work” alone                              |
 
 ### C. Richer per-item Accordion without grouping
 
 Each `tool_call` becomes its own Accordion (like RPC wire log rows).
 
-| Pros | Cons |
-| --- | --- |
+| Pros                | Cons                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
 | Trivial mapping 1:1 | Still a long list of headers — fails the harness “one Worked for Ns” bar |
-| | Does not match Cursor/T3 collapsed end-state |
+|                     | Does not match Cursor/T3 collapsed end-state                             |
 
 ### Recommendation
 
@@ -162,22 +162,22 @@ Ship **A**. Add **B** only if product needs nested thought groups, durable open/
 
 ## Concrete mapping (recommended)
 
-| Layer | Change? | Detail |
-| --- | --- | --- |
-| `sessionUpdateReducer.ts` | **No** (v1) | Keep flat items. Optional follow-up: handle `agent_thought_chunk` → `kind: 'agent_thought'` mirroring `agent_message` chunking. |
-| `agentHarness.ts` | **No** | Still feeds flat `chatItems`. Optional: stamp `Date.now()` on prompt send / last update for duration UI. |
-| `AgentChatMain.tsx` | **Yes** | Replace bare `map` with segmented render; one Accordion per work run. |
-| New tiny helper (optional) | **Yes** | `groupChatItems(items) → Array<ChatItem \| { kind: 'work_run'; items: ChatItem[] }>` — pure function, easy unit test. |
-| `ChatItemView.tsx` | **Minimal** | Keep item renderers; maybe denser tool row when nested under a work Accordion (title + chip only; put `resultText` behind nested Accordion **later**). |
-| `RpcWireLogPanel.tsx` | Reuse pattern | Copy Accordion styling (`disableGutters`, hide `::before`, dense summary) — already lines 94–102. |
+| Layer                      | Change?       | Detail                                                                                                                                                 |
+| -------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sessionUpdateReducer.ts`  | **No** (v1)   | Keep flat items. Optional follow-up: handle `agent_thought_chunk` → `kind: 'agent_thought'` mirroring `agent_message` chunking.                        |
+| `agentHarness.ts`          | **No**        | Still feeds flat `chatItems`. Optional: stamp `Date.now()` on prompt send / last update for duration UI.                                               |
+| `AgentChatMain.tsx`        | **Yes**       | Replace bare `map` with segmented render; one Accordion per work run.                                                                                  |
+| New tiny helper (optional) | **Yes**       | `groupChatItems(items) → Array<ChatItem \| { kind: 'work_run'; items: ChatItem[] }>` — pure function, easy unit test.                                  |
+| `ChatItemView.tsx`         | **Minimal**   | Keep item renderers; maybe denser tool row when nested under a work Accordion (title + chip only; put `resultText` behind nested Accordion **later**). |
+| `RpcWireLogPanel.tsx`      | Reuse pattern | Copy Accordion styling (`disableGutters`, hide `::before`, dense summary) — already lines 94–102.                                                      |
 
 ### Default open/closed behavior (product)
 
-| State | Suggested UI |
-| --- | --- |
-| Turn streaming / any tool `pending`/`in_progress` | Work Accordion **expanded** (or at least summary shows live “Working…”) |
-| All tools terminal (`completed`/`failed`/`cancelled`) and prompt returned | Work Accordion **collapsed** |
-| User toggled | Respect controlled `expanded` |
+| State                                                                     | Suggested UI                                                            |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Turn streaming / any tool `pending`/`in_progress`                         | Work Accordion **expanded** (or at least summary shows live “Working…”) |
+| All tools terminal (`completed`/`failed`/`cancelled`) and prompt returned | Work Accordion **collapsed**                                            |
+| User toggled                                                              | Respect controlled `expanded`                                           |
 
 MUI primitives: `Accordion` `defaultExpanded` / controlled `expanded` + `onChange` ([MUI Accordion docs](https://llms.mui.com/material-ui/9.4.0/react-accordion.md); API `defaultExpanded` default `false` in [Accordion API](https://llms.mui.com/material-ui/9.4.0/api/accordion.md)). For nested detail without full Accordion chrome, `Collapse` `in` prop ([Collapse API](https://llms.mui.com/material-ui/9.4.0/api/collapse.md)). Desktop already depends on `@mui/material` Accordion in-package.
 

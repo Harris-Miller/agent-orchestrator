@@ -145,7 +145,7 @@ export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarg
     return;
   }
   const defaults = rw.get(lastCreateDefaultsAtom);
-  if (defaults !== null && defaults.launchTarget === launchTarget) {
+  if (defaults?.launchTarget === launchTarget) {
     const index = rw.get(configOptionIndexAtom(launchTarget));
     rw.set(virtualSessionAtom, {
       ...current,

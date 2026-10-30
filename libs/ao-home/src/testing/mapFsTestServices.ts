@@ -78,6 +78,7 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
           }
           throw notFound('remove', path);
         }
+        // oxlint-disable-next-line unicorn/no-useless-spread -- Deleting during iteration requires a snapshot.
         for (const key of [...store.keys()]) {
           if (key === path || key.startsWith(`${path}/`)) {
             store.delete(key);

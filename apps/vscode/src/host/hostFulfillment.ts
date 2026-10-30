@@ -295,7 +295,7 @@ export const handleHostIpcMessage = async (args: {
       case 'Spawn': {
         const handleId = tracker.allocateHandleId();
         const opts = message.options ?? {};
-        const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...(opts.env ?? {}) };
+        const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...opts.env };
         const command =
           message.command === ANTIGRAVITY_ACP_SPAWN_NAME
             ? join(osHomedir(), AO_HOME_DIRNAME, ...antigravityAcpExecutableRelativeSegments())

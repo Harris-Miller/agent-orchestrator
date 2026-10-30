@@ -10,9 +10,7 @@
       "request": "attach",
       "port": 5870,
       "timeout": 60000,
-      "outFiles": [
-        "${workspaceFolder}/apps/vscode/dist/**/*.{js,cjs}"
-      ],
+      "outFiles": ["${workspaceFolder}/apps/vscode/dist/**/*.{js,cjs}"],
       "sourceMaps": true,
       "preLaunchTask": "vscode: debug"
     }

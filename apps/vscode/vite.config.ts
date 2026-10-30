@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       },
       minify: mode === 'production',
       outDir: 'dist/webview',
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           // Keep CSS name stable so sidebarViewProvider can link it.
           assetFileNames: 'main[extname]',

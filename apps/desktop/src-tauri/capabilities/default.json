@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window (app dirs via fs:default; recursive $HOME read/write for Agent Harness; exists on common PATH bins)",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "mcp-bridge:default",

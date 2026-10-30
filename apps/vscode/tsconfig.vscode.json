@@ -4,18 +4,8 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vscode.tsbuildinfo",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "vscode/webview",
-    "node_modules",
-    "dist",
-    "src/webview",
-    "src/**/__tests__"
-  ]
+  "include": ["src"],
+  "exclude": ["vscode/webview", "node_modules", "dist", "src/webview", "src/**/__tests__"]
 }

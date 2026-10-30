@@ -7,7 +7,7 @@
     "./tsconfig.base.json": "./tsconfig.base.json"
   },
   "dependencies": {
-    "@effect/language-service": "catalog:"
+    "@effect/tsgo": "catalog:"
   },
   "peerDependencies": {
     "typescript": "catalog:"

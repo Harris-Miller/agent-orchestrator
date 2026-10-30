@@ -1,19 +1,20 @@
 {
   "name": "agent-orchestrator",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
   "description": "",
   "keywords": [],
-  "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@12.15.0",
+  "author": "",
+  "type": "module",
   "scripts": {
     "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' 'apps/*/acp-adapter-resources'",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "lint": "turbo run lint",
-    "local-ci": "turbo run typecheck lint test",
+    "local-ci": "turbo run typecheck //#format:check lint test",
     "install-acp-adapter-deps": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
-    "prepare": "effect-language-service patch",
+    "prepare": "effect-tsgo patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
@@ -23,11 +24,13 @@
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {
-    "@effect/language-service": "catalog:",
+    "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",
+    "oxfmt": "catalog:",
     "rimraf": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"
-  }
+  },
+  "packageManager": "pnpm@12.15.0"
 }

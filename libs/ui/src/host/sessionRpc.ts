@@ -179,7 +179,8 @@ export const setConfigOption = Effect.fn('setConfigOption')(
     sessionId: string,
     configId: string,
     optionValue:
-      { readonly type: 'boolean'; readonly value: boolean } | { readonly type: 'select'; readonly value: string },
+      | { readonly type: 'boolean'; readonly value: boolean }
+      | { readonly type: 'select'; readonly value: string },
   ) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
     yield* Effect.logDebug('session/set_config_option', sessionId, configId, optionValue);

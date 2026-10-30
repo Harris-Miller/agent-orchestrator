@@ -7,12 +7,12 @@ Question: When an ACP client passes `mcpServers` on `session/new` (non-empty), d
 
 **ACP v1 does not define merge-vs-replace with agent-owned MCP config.** The protocol only says clients MAY list servers the agent should connect to, and agents SHOULD connect to all client-specified servers. Whether Claude Code / Codex still load their own config files is outside the protocol.
 
-| Layer | Non-empty client `mcpServers` | Empty `mcpServers: []` |
-| --- | --- | --- |
-| **Protocol** | Unspecified vs agent-local config | Unspecified; empty list = client specifies nothing extra |
-| **Claude** (`claude-agent-acp`) | **Additive** with agent settings (via `settingSources`); same-name collisions: ACP params override `_meta.claudeCode.options.mcpServers`; SDK programmatic servers coexist with filesystem MCP unless `strictMcpConfig` (adapter does **not** set it). Also may inject built-in SDK server `claude_agent_acp`. | Client contributes no entries; settings MCP still load |
-| **Codex Rust** (`zed-industries/codex-acp`) | **Additive**: clone base `config.mcp_servers`, then `HashMap::insert` per client server → same name **client wins** | Clone unchanged → agent-local MCP kept |
-| **Codex TS** (`@agentclientprotocol/codex-acp`, what this repo ships) | **Additive by default**, but collision policy differs: with default MCP filtering, **skips** client servers whose names already exist (agent wins); if filtering disabled, client names are written into a `mcp_servers` override (Codex deep-merges; client intended to win on collision). | Early-return; process/filesystem MCP unchanged |
+| Layer                                                                 | Non-empty client `mcpServers`                                                                                                                                                                                                                                                                                  | Empty `mcpServers: []`                                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Protocol**                                                          | Unspecified vs agent-local config                                                                                                                                                                                                                                                                              | Unspecified; empty list = client specifies nothing extra |
+| **Claude** (`claude-agent-acp`)                                       | **Additive** with agent settings (via `settingSources`); same-name collisions: ACP params override `_meta.claudeCode.options.mcpServers`; SDK programmatic servers coexist with filesystem MCP unless `strictMcpConfig` (adapter does **not** set it). Also may inject built-in SDK server `claude_agent_acp`. | Client contributes no entries; settings MCP still load   |
+| **Codex Rust** (`zed-industries/codex-acp`)                           | **Additive**: clone base `config.mcp_servers`, then `HashMap::insert` per client server → same name **client wins**                                                                                                                                                                                            | Clone unchanged → agent-local MCP kept                   |
+| **Codex TS** (`@agentclientprotocol/codex-acp`, what this repo ships) | **Additive by default**, but collision policy differs: with default MCP filtering, **skips** client servers whose names already exist (agent wins); if filtering disabled, client names are written into a `mcp_servers` override (Codex deep-merges; client intended to win on collision).                    | Early-return; process/filesystem MCP unchanged           |
 
 **Verdict for this app:** Passing non-empty `mcpServers` does **not** wipe Claude/Codex agent-local MCP. It **adds** (with name-collision rules that differ by adapter). Passing `[]` (current harness) adds nothing; agents still load their own configs — matching observed behavior.
 
@@ -38,7 +38,7 @@ From schema (`NewSessionRequest.mcpServers`):
 - Required field: “List of MCP (Model Context Protocol) servers the agent should connect to.”
 - Agent guidance for `session/new`: “Connect to any specified MCP servers.”
 
-### What the protocol does *not* say
+### What the protocol does _not_ say
 
 - No rule that client `mcpServers` replaces, merges with, or disables agent-local MCP configuration (Claude settings / `.mcp.json`, Codex `mcp_servers` in config.toml / layers, etc.).
 - No merge algorithm for duplicate `name` values between client list and agent-owned config.
@@ -126,21 +126,21 @@ So under default TS behavior: **additive for new names; on name collision the ag
 
 ## Comparison matrix
 
-| Question | Protocol | Claude ACP | Codex Rust | Codex TS (repo) |
-| --- | --- | --- | --- | --- |
-| Replace **all** agent MCP? | Not specified | No (`settingSources` on; no `strictMcpConfig`) | No (clone then insert) | No (`[]` noop; non-empty merges/overrides map) |
-| Add to list? | Client list only | Yes | Yes | Yes (new names) |
-| Same name collision | Unspecified | ACP params beat `_meta` options; settings vs programmatic not ACP-specified | Client wins (`insert`) | Agent wins by default (filter); client can win if filtering disabled |
-| `mcpServers: []` | Client specifies none | Settings MCP still load | Base MCP kept | Base MCP kept |
+| Question                   | Protocol              | Claude ACP                                                                  | Codex Rust             | Codex TS (repo)                                                      |
+| -------------------------- | --------------------- | --------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| Replace **all** agent MCP? | Not specified         | No (`settingSources` on; no `strictMcpConfig`)                              | No (clone then insert) | No (`[]` noop; non-empty merges/overrides map)                       |
+| Add to list?               | Client list only      | Yes                                                                         | Yes                    | Yes (new names)                                                      |
+| Same name collision        | Unspecified           | ACP params beat `_meta` options; settings vs programmatic not ACP-specified | Client wins (`insert`) | Agent wins by default (filter); client can win if filtering disabled |
+| `mcpServers: []`           | Client specifies none | Settings MCP still load                                                     | Base MCP kept          | Base MCP kept                                                        |
 
 ## Implications for `apps/desktop` Agent Chat
 
 Current create/load path (`agentHarness.ts`):
 
 ```ts
-agent['session/new']({ cwd, mcpServers: [] })
+agent['session/new']({ cwd, mcpServers: [] });
 // …
-agent['session/load']({ cwd, mcpServers: [], sessionId })
+agent['session/load']({ cwd, mcpServers: [], sessionId });
 ```
 
 Consequences:
@@ -151,15 +151,15 @@ Consequences:
 
 ## Sources checklist
 
-| Claim | Source |
-| --- | --- |
-| Clients MAY pass MCP servers; agents SHOULD connect to all specified | https://agentclientprotocol.com/protocol/v1/session-setup.md |
-| `NewSessionRequest.mcpServers` wording; connect to any specified | https://agentclientprotocol.com/protocol/v1/schema.md |
-| Protocol silent on agent-local merge/replace | Same two docs (no merge algorithm / replace language) |
-| Claude converts `params.mcpServers`, merges with `_meta` options, sets `settingSources` | `claude-agent-acp` `src/acp-agent.ts` |
-| Claude merge test (both ACP + `_meta` servers present) | `claude-agent-acp` `src/tests/create-session-options.test.ts` |
-| Built-in SDK MCP name `claude_agent_acp` | `claude-agent-acp` `src/file-change-audit.ts` |
-| `strictMcpConfig` ignores filesystem MCP; default is not strict | `@anthropic-ai/claude-agent-sdk` `sdk.d.ts`; https://code.claude.com/docs/en/agent-sdk/mcp |
-| Codex Rust clone + `insert` | `zed-industries/codex-acp` `src/codex_agent.rs` `build_session_config` |
-| Codex TS empty short-circuit + collision filtering | `agentclientprotocol/codex-acp` `src/CodexAcpClient.ts` `createSessionConfig` / `shouldDeduplicateMcpConflicts` |
-| This repo passes `mcpServers: []`; adapter package pins | `apps/desktop/src/acp/agentHarness.ts`; `apps/desktop/acp-adapter-resources/package.json` |
+| Claim                                                                                   | Source                                                                                                          |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Clients MAY pass MCP servers; agents SHOULD connect to all specified                    | https://agentclientprotocol.com/protocol/v1/session-setup.md                                                    |
+| `NewSessionRequest.mcpServers` wording; connect to any specified                        | https://agentclientprotocol.com/protocol/v1/schema.md                                                           |
+| Protocol silent on agent-local merge/replace                                            | Same two docs (no merge algorithm / replace language)                                                           |
+| Claude converts `params.mcpServers`, merges with `_meta` options, sets `settingSources` | `claude-agent-acp` `src/acp-agent.ts`                                                                           |
+| Claude merge test (both ACP + `_meta` servers present)                                  | `claude-agent-acp` `src/tests/create-session-options.test.ts`                                                   |
+| Built-in SDK MCP name `claude_agent_acp`                                                | `claude-agent-acp` `src/file-change-audit.ts`                                                                   |
+| `strictMcpConfig` ignores filesystem MCP; default is not strict                         | `@anthropic-ai/claude-agent-sdk` `sdk.d.ts`; https://code.claude.com/docs/en/agent-sdk/mcp                      |
+| Codex Rust clone + `insert`                                                             | `zed-industries/codex-acp` `src/codex_agent.rs` `build_session_config`                                          |
+| Codex TS empty short-circuit + collision filtering                                      | `agentclientprotocol/codex-acp` `src/CodexAcpClient.ts` `createSessionConfig` / `shouldDeduplicateMcpConflicts` |
+| This repo passes `mcpServers: []`; adapter package pins                                 | `apps/desktop/src/acp/agentHarness.ts`; `apps/desktop/acp-adapter-resources/package.json`                       |

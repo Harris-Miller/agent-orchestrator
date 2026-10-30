@@ -1,29 +1,25 @@
 {
   "name": "agent-orchestrator-vscode",
   "displayName": "Agent Orchestrator",
-  "description": "Agent Orchestrator VS Code extension (local development scaffold).",
   "version": "0.0.1",
-  "publisher": "harris-miller",
   "private": true,
+  "description": "Agent Orchestrator VS Code extension (local development scaffold).",
+  "categories": [
+    "Other"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Harris-Miller/agent-orchestrator.git"
   },
+  "publisher": "harris-miller",
   "type": "module",
-  "engines": {
-    "vscode": "^1.140.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
   "main": "./dist/extension.cjs",
   "scripts": {
     "vscode:prepublish": "pnpm run prepare-acp-adapters-for-package && pnpm run build",
     "build": "pnpm run build:main && pnpm run build:renderer",
     "build:main": "tsdown",
     "build:renderer": "vite build",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "oxlint . --deny-warnings",
     "materialize-acp-adapters": "node ./scripts/ensure-acp-adapter-symlink.js",
     "package": "pnpm run vscode:prepublish && vsce package --no-dependencies --allow-missing-repository",
     "prepare-acp-adapters-for-package": "pnpm --dir ../.. run install-acp-adapter-deps && node ./scripts/sync-acp-adapter-resources.js",
@@ -50,7 +46,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@tooling/eslint": "workspace:^",
+    "@tooling/oxlint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/node": "catalog:",
@@ -60,7 +56,8 @@
     "@types/vscode-webview": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vscode/vsce": "^3.7.1",
-    "eslint": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
@@ -91,5 +88,9 @@
         "title": "Agent Orchestrator: Hello World"
       }
     ]
+  },
+  "activationEvents": [],
+  "engines": {
+    "vscode": "^1.140.0"
   }
 }

@@ -7,10 +7,10 @@ Prior art: [`docs/research/2026-09-03-acp-system-prompt-customization.md`](./202
 
 **Vendored adapter versions** (`apps/desktop/acp-adapter-resources/package.json`):
 
-| Package | Version |
-| --- | --- |
+| Package                                 | Version  |
+| --------------------------------------- | -------- |
 | `@agentclientprotocol/claude-agent-acp` | `0.73.0` |
-| `@agentclientprotocol/codex-acp` | `1.8.0` |
+| `@agentclientprotocol/codex-acp`        | `1.8.0`  |
 
 Gemini is launched as PATH binary `gemini --acp` (no npm adapter in this tree).
 
@@ -18,35 +18,35 @@ Gemini is launched as PATH binary `gemini --acp` (no npm adapter in this tree).
 
 **ACP v1 still has no first-class system-prompt field.** Clients may attach agent-private data on `_meta` (allowed on `session/new` and almost every other type). Only Claude’s adapter among these three reads a prompt-related `_meta` key today.
 
-| Backend | True ACP path (`_meta` on `session/new`)? | What works for agent-orchestrator today |
-| --- | --- | --- |
-| **Claude** `0.73.0` | **Yes** — `_meta.systemPrompt` (**camelCase**) | Prefer `{ append: "…" }` on `session/new`. String = full replace. Also CLAUDE.md via adapter’s fixed `settingSources: ["user","project","local"]`. |
-| **Codex** `1.8.0` | **No** — `newSession` does not map prompt/`_meta` into `baseInstructions` / `developerInstructions` | Spawn-time `CODEX_CONFIG` JSON (process-wide), and/or `AGENTS.md` / `.codex/config.toml` under session `cwd` (and Codex home). |
-| **Gemini** (`gemini --acp`) | **No** — `newSession` only uses `cwd` + `mcpServers`; `_meta` not used for prompts | Process/env: `GEMINI_SYSTEM_MD` (full replace via markdown file). Project `.gemini/.env` can set it when `loadSettings(sessionCwd)` runs. **No** `_meta.systemPrompt`. |
+| Backend                     | True ACP path (`_meta` on `session/new`)?                                                           | What works for agent-orchestrator today                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Claude** `0.73.0`         | **Yes** — `_meta.systemPrompt` (**camelCase**)                                                      | Prefer `{ append: "…" }` on `session/new`. String = full replace. Also CLAUDE.md via adapter’s fixed `settingSources: ["user","project","local"]`.                     |
+| **Codex** `1.8.0`           | **No** — `newSession` does not map prompt/`_meta` into `baseInstructions` / `developerInstructions` | Spawn-time `CODEX_CONFIG` JSON (process-wide), and/or `AGENTS.md` / `.codex/config.toml` under session `cwd` (and Codex home).                                         |
+| **Gemini** (`gemini --acp`) | **No** — `newSession` only uses `cwd` + `mcpServers`; `_meta` not used for prompts                  | Process/env: `GEMINI_SYSTEM_MD` (full replace via markdown file). Project `.gemini/.env` can set it when `loadSettings(sessionCwd)` runs. **No** `_meta.systemPrompt`. |
 
 **This client today** (`apps/desktop/src/acp/sessionRpc.ts`):
 
 ```ts
-agent['session/new']({ cwd, mcpServers: [] })
+agent['session/new']({ cwd, mcpServers: [] });
 ```
 
 `NewSessionRequest` in `libs/effect-acp` already types optional `_meta` — no schema change required to send Claude’s extension. Desktop just does not pass it yet. Claude/Codex spawn via `acpAdapterCommand.ts` only sets `CLAUDE_CODE_EXECUTABLE` / `CODEX_PATH`. Gemini spawn (`backendHarness.ts`) is `gemini --acp` with `extendEnv: true` and no prompt env. `gemini-cli` is typed but commented out of `ALL_AGENT_LAUNCH_TARGETS`.
 
 ### Verdict table vs Untitled-1
 
-| Untitled-1 claim | Verdict |
-| --- | --- |
-| Gemini `GEMINI_SYSTEM_MD` completely swaps root system prompt | ✅ Right |
-| Point it at a custom markdown file before `gemini --acp` | ✅ Right (env at process start; absolute path safest) |
-| Persistent alternative: `.gemini/.env` with that var | ✅ Mostly right (CLI docs + `loadSettings`/`loadEnvironment`); ⚠️ process cwd vs session cwd caveat for relative `system.md` |
-| Claude instructions are **supplemented** (appended), not full replace | ❌ Oversimplified / wrong as blanket claim |
-| Claude method: `--append-system-prompt` OR workspace `CLAUDE.md` | ⚠️ Partial: CLAUDE.md yes via ACP adapter; `--append-system-prompt` is Claude Code **CLI**, not the ACP `_meta` path |
-| Claude advanced: `_meta` extension params during session init | ✅ Right if “session init” = `session/new` (`_meta.systemPrompt`) |
-| Codex override via `.codex/config.toml` `model_instructions_file` | ✅ Right as Codex **core** config (discouraged by Codex itself) |
-| Or `CODEX_CONFIG='{"model_instructions_file":"…"}'` when spawning npm adapter | ✅ Plausible / supported shape: `CODEX_CONFIG` is JSON merged into session config (`1.8.0`); same process-wide scope |
-| Protocol `_meta.system_prompt` belongs on `session/new` not `initialize` | ⚠️ Half-right: no protocol key at all; Claude reads prompt meta on **`session/new`**; `_meta` is allowed on both |
-| Snake_case `_meta.system_prompt` string works | ❌ Wrong for Claude `0.73.0` (key is **`systemPrompt`**) |
-| Object form `{ type: "preset", preset: "claude_code", append: "…" }` works on some adapters | ✅ Right for Claude; adapter forces `type`/`preset` back to `claude_code` and keeps `append` |
+| Untitled-1 claim                                                                            | Verdict                                                                                                                      |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Gemini `GEMINI_SYSTEM_MD` completely swaps root system prompt                               | ✅ Right                                                                                                                     |
+| Point it at a custom markdown file before `gemini --acp`                                    | ✅ Right (env at process start; absolute path safest)                                                                        |
+| Persistent alternative: `.gemini/.env` with that var                                        | ✅ Mostly right (CLI docs + `loadSettings`/`loadEnvironment`); ⚠️ process cwd vs session cwd caveat for relative `system.md` |
+| Claude instructions are **supplemented** (appended), not full replace                       | ❌ Oversimplified / wrong as blanket claim                                                                                   |
+| Claude method: `--append-system-prompt` OR workspace `CLAUDE.md`                            | ⚠️ Partial: CLAUDE.md yes via ACP adapter; `--append-system-prompt` is Claude Code **CLI**, not the ACP `_meta` path         |
+| Claude advanced: `_meta` extension params during session init                               | ✅ Right if “session init” = `session/new` (`_meta.systemPrompt`)                                                            |
+| Codex override via `.codex/config.toml` `model_instructions_file`                           | ✅ Right as Codex **core** config (discouraged by Codex itself)                                                              |
+| Or `CODEX_CONFIG='{"model_instructions_file":"…"}'` when spawning npm adapter               | ✅ Plausible / supported shape: `CODEX_CONFIG` is JSON merged into session config (`1.8.0`); same process-wide scope         |
+| Protocol `_meta.system_prompt` belongs on `session/new` not `initialize`                    | ⚠️ Half-right: no protocol key at all; Claude reads prompt meta on **`session/new`**; `_meta` is allowed on both             |
+| Snake_case `_meta.system_prompt` string works                                               | ❌ Wrong for Claude `0.73.0` (key is **`systemPrompt`**)                                                                     |
+| Object form `{ type: "preset", preset: "claude_code", append: "…" }` works on some adapters | ✅ Right for Claude; adapter forces `type`/`preset` back to `claude_code` and keeps `append`                                 |
 
 ## Validation of prior summary (claim-by-claim)
 
@@ -70,8 +70,8 @@ agent['session/new']({ cwd, mcpServers: [] })
 5. **System instructions are only supplemented (appended)** — ❌  
    Installed `dist/acp-agent.js`: default `{ type: "preset", preset: "claude_code" }`; if `_meta.systemPrompt` is a **string**, it **replaces** the entire system prompt; if it is a non-array **object**, it is spread with `type`/`preset` forced back to `claude_code` (so `append` / `excludeDynamicSections` work). CLAUDE.md is a **separate** SDK path (project context via `settingSources`), not the same as system-prompt append ([Claude Agent SDK: Modifying system prompts](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts)).
 
-6. **Method: `--append-system-prompt` OR workspace `CLAUDE.md`** — ⚠️  
-   - `CLAUDE.md`: ✅ adapter always sets `settingSources: ["user", "project", "local"]` when creating the SDK query options (`acp-agent.js`).  
+6. **Method: `--append-system-prompt` OR workspace `CLAUDE.md`** — ⚠️
+   - `CLAUDE.md`: ✅ adapter always sets `settingSources: ["user", "project", "local"]` when creating the SDK query options (`acp-agent.js`).
    - `--append-system-prompt`: Claude Code **CLI** flag — **not** what the ACP adapter documents or reads. ACP equivalent is `_meta.systemPrompt: { append: "…" }` on `session/new`.
 
 7. **Advanced: `_meta` during session init** — ✅  
@@ -106,33 +106,33 @@ Primary sources: [llms.txt](https://agentclientprotocol.com/llms.txt), [session-
 
 ### Claude — `@agentclientprotocol/claude-agent-acp@0.73.0`
 
-| Mechanism | Effect |
-| --- | --- |
-| omit `_meta.systemPrompt` | `{ type: "preset", preset: "claude_code" }` |
-| `_meta.systemPrompt: "…"` | **Full replace** |
-| `_meta.systemPrompt: { append: "…" }` (and/or other preset options) | Preset + append; caller `type`/`preset` overwritten to `claude_code` |
-| CLAUDE.md / settings | Loaded because adapter sets `settingSources: ["user","project","local"]` |
-| `_meta.claudeCode.options` | Separate SDK options forward path (not the primary prompt knob) |
+| Mechanism                                                           | Effect                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| omit `_meta.systemPrompt`                                           | `{ type: "preset", preset: "claude_code" }`                              |
+| `_meta.systemPrompt: "…"`                                           | **Full replace**                                                         |
+| `_meta.systemPrompt: { append: "…" }` (and/or other preset options) | Preset + append; caller `type`/`preset` overwritten to `claude_code`     |
+| CLAUDE.md / settings                                                | Loaded because adapter sets `settingSources: ["user","project","local"]` |
+| `_meta.claudeCode.options`                                          | Separate SDK options forward path (not the primary prompt knob)          |
 
 Key casing: **`systemPrompt`**, not `system_prompt`.
 
 ### Codex — `@agentclientprotocol/codex-acp@1.8.0`
 
-| Mechanism | Effect |
-| --- | --- |
-| `_meta.systemPrompt` / instruction fields on `session/new` | **Not wired** into `threadStart` |
-| `CODEX_CONFIG` env JSON | Merged into session `config` for every new thread (process-wide) |
-| `.codex/config.toml` / `model_instructions_file` | Codex core override of built-in instructions (discouraged) |
-| `AGENTS.md` under session cwd | Project developer-context path (see 09-03) |
+| Mechanism                                                  | Effect                                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `_meta.systemPrompt` / instruction fields on `session/new` | **Not wired** into `threadStart`                                 |
+| `CODEX_CONFIG` env JSON                                    | Merged into session `config` for every new thread (process-wide) |
+| `.codex/config.toml` / `model_instructions_file`           | Codex core override of built-in instructions (discouraged)       |
+| `AGENTS.md` under session cwd                              | Project developer-context path (see 09-03)                       |
 
 ### Gemini — `gemini --acp`
 
-| Mechanism | Effect |
-| --- | --- |
-| `GEMINI_SYSTEM_MD` | Full replace of core system prompt from markdown file |
-| `.gemini/.env` | Can set `GEMINI_SYSTEM_MD`; loaded via `loadSettings`/`loadEnvironment` from workspace dir |
-| `_meta` on `session/new` for prompts | **Not supported** (auth `_meta` only in observed ACP client) |
-| `GEMINI.md` | Project “strategy” guidance (docs contrast with `system.md` “firmware”); not ACP `_meta` |
+| Mechanism                            | Effect                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `GEMINI_SYSTEM_MD`                   | Full replace of core system prompt from markdown file                                      |
+| `.gemini/.env`                       | Can set `GEMINI_SYSTEM_MD`; loaded via `loadSettings`/`loadEnvironment` from workspace dir |
+| `_meta` on `session/new` for prompts | **Not supported** (auth `_meta` only in observed ACP client)                               |
+| `GEMINI.md`                          | Project “strategy” guidance (docs contrast with `system.md` “firmware”); not ACP `_meta`   |
 
 ## Injection via this repo’s ACP paradigm
 
@@ -142,20 +142,20 @@ Key casing: **`systemPrompt`**, not `system_prompt`.
 - Create session: `apps/desktop/src/acp/sessionRpc.ts` → `agent['session/new']({ cwd, mcpServers: [] })` — **no `_meta`**.
 - Schema: `libs/effect-acp/src/schema/agent.ts` `NewSessionRequest` includes `_meta: MetaField` (`Record<string, unknown> | null | omitted`). Encoding already allows Claude’s extension without schema changes.
 
-### Per-agent mapping for *this* harness
+### Per-agent mapping for _this_ harness
 
-| Agent | Preferred injection in-repo | Layer |
-| --- | --- | --- |
-| **Claude** | Extend `createSession` to pass `_meta: { systemPrompt: { append: "…" } }` | True ACP RPC on `session/new` |
-| **Codex** | (1) Ensure session `cwd` has desired `AGENTS.md`; and/or (2) pass `CODEX_CONFIG` in `makeAcpAdapterCommand` spawn `env` (today only `CODEX_PATH`) | Files under cwd / spawn env — **not** `_meta` |
-| **Gemini** | Pass `GEMINI_SYSTEM_MD=<absolute path>` in spawn `env` when enabling `gemini-cli`; optionally rely on session-cwd `.gemini/.env` after `loadSettings(cwd)` | Spawn env / Gemini files — **not** `_meta` |
+| Agent      | Preferred injection in-repo                                                                                                                                | Layer                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Claude** | Extend `createSession` to pass `_meta: { systemPrompt: { append: "…" } }`                                                                                  | True ACP RPC on `session/new`                 |
+| **Codex**  | (1) Ensure session `cwd` has desired `AGENTS.md`; and/or (2) pass `CODEX_CONFIG` in `makeAcpAdapterCommand` spawn `env` (today only `CODEX_PATH`)          | Files under cwd / spawn env — **not** `_meta` |
+| **Gemini** | Pass `GEMINI_SYSTEM_MD=<absolute path>` in spawn `env` when enabling `gemini-cli`; optionally rely on session-cwd `.gemini/.env` after `loadSettings(cwd)` | Spawn env / Gemini files — **not** `_meta`    |
 
 ### Correct key casing
 
-| Claimed | Actual (Claude 0.73.0) |
-| --- | --- |
-| `_meta.system_prompt` | ❌ ignored |
-| `_meta.systemPrompt` | ✅ |
+| Claimed               | Actual (Claude 0.73.0) |
+| --------------------- | ---------------------- |
+| `_meta.system_prompt` | ❌ ignored             |
+| `_meta.systemPrompt`  | ✅                     |
 
 Object form with `append` is valid; string form is replace, not append.
 
@@ -169,19 +169,19 @@ Object form with `append` is valid; string form is replace, not append.
 
 ## Sources checklist
 
-| Claim | Source |
-| --- | --- |
-| ACP `session/new` / no prompt field | https://agentclientprotocol.com/protocol/v1/session-setup.md , schema.md |
-| `_meta` extensibility | https://agentclientprotocol.com/protocol/v1/extensibility.md |
-| Claude `_meta.systemPrompt` runtime | vendored `…/claude-agent-acp/dist/acp-agent.js` (~5187–5311), package `0.73.0` |
-| Claude `NewSessionMeta` typedef gap | vendored `…/claude-agent-acp/dist/acp-agent.d.ts` |
-| Claude SDK append vs replace / CLAUDE.md | https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts |
-| Claude historical snake_case proposal | https://github.com/agentclientprotocol/claude-agent-acp/issues/90 |
-| Codex `CODEX_CONFIG` + `newSession` → `threadStart` | vendored `…/codex-acp/README.md`, `dist/index.js` (`1.8.0`) |
-| Codex `model_instructions_file` | https://github.com/openai/codex/blob/178c3d30/codex-rs/config/src/config_toml.rs |
-| Gemini `GEMINI_SYSTEM_MD` | https://github.com/google-gemini/gemini-cli/blob/f8541cf7/docs/cli/system-prompt.md ; `packages/core/src/core/prompts.ts` |
-| Gemini ACP `newSession` / no prompt `_meta` | https://github.com/google-gemini/gemini-cli/blob/07ab16db/packages/cli/src/acp/acpClient.ts ; acp-mode.md |
-| Gemini `.env` load from workspace | https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/settings.ts (`loadEnvironment` / `findEnvFile`) |
-| This repo session create / spawn | `apps/desktop/src/acp/sessionRpc.ts`, `acpAdapterCommand.ts`, `backendHarness.ts`, `agentLaunchTarget.ts` |
-| Effect `_meta` on SessionNew | `libs/effect-acp/src/schema/agent.ts`, `common.ts` |
-| Prior Claude/Codex research | `docs/research/2026-09-03-acp-system-prompt-customization.md` |
+| Claim                                               | Source                                                                                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| ACP `session/new` / no prompt field                 | https://agentclientprotocol.com/protocol/v1/session-setup.md , schema.md                                                      |
+| `_meta` extensibility                               | https://agentclientprotocol.com/protocol/v1/extensibility.md                                                                  |
+| Claude `_meta.systemPrompt` runtime                 | vendored `…/claude-agent-acp/dist/acp-agent.js` (~5187–5311), package `0.73.0`                                                |
+| Claude `NewSessionMeta` typedef gap                 | vendored `…/claude-agent-acp/dist/acp-agent.d.ts`                                                                             |
+| Claude SDK append vs replace / CLAUDE.md            | https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts                                                            |
+| Claude historical snake_case proposal               | https://github.com/agentclientprotocol/claude-agent-acp/issues/90                                                             |
+| Codex `CODEX_CONFIG` + `newSession` → `threadStart` | vendored `…/codex-acp/README.md`, `dist/index.js` (`1.8.0`)                                                                   |
+| Codex `model_instructions_file`                     | https://github.com/openai/codex/blob/178c3d30/codex-rs/config/src/config_toml.rs                                              |
+| Gemini `GEMINI_SYSTEM_MD`                           | https://github.com/google-gemini/gemini-cli/blob/f8541cf7/docs/cli/system-prompt.md ; `packages/core/src/core/prompts.ts`     |
+| Gemini ACP `newSession` / no prompt `_meta`         | https://github.com/google-gemini/gemini-cli/blob/07ab16db/packages/cli/src/acp/acpClient.ts ; acp-mode.md                     |
+| Gemini `.env` load from workspace                   | https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/config/settings.ts (`loadEnvironment` / `findEnvFile`) |
+| This repo session create / spawn                    | `apps/desktop/src/acp/sessionRpc.ts`, `acpAdapterCommand.ts`, `backendHarness.ts`, `agentLaunchTarget.ts`                     |
+| Effect `_meta` on SessionNew                        | `libs/effect-acp/src/schema/agent.ts`, `common.ts`                                                                            |
+| Prior Claude/Codex research                         | `docs/research/2026-09-03-acp-system-prompt-customization.md`                                                                 |

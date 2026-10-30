@@ -12,10 +12,10 @@ Live RPC wire logs from the desktop Harness UI (both agent launch targets activa
 
 No `_meta` appeared on `session/list` / `session/load` responses or on outbound requests in this capture.
 
-| Agent | Wire entries | `_meta` on | Private stream namespace |
-| --- | --- | --- | --- |
-| Codex (`@agentclientprotocol/codex-acp` 1.8.0) | 205 | `initialize` response; most `session/update` | `codex`, `terminal_*`, `goal` |
-| Claude (`@agentclientprotocol/claude-agent-acp` 0.73.0) | 94 | `initialize` response; tool-call `session/update` only | `claudeCode` |
+| Agent                                                   | Wire entries | `_meta` on                                             | Private stream namespace      |
+| ------------------------------------------------------- | ------------ | ------------------------------------------------------ | ----------------------------- |
+| Codex (`@agentclientprotocol/codex-acp` 1.8.0)          | 205          | `initialize` response; most `session/update`           | `codex`, `terminal_*`, `goal` |
+| Claude (`@agentclientprotocol/claude-agent-acp` 0.73.0) | 94           | `initialize` response; tool-call `session/update` only | `claudeCode`                  |
 
 ## Method
 
@@ -29,13 +29,13 @@ Message shape in the log is Effect RPC wire (outbound tagged requests with `tag`
 
 ### By message tag
 
-| Tag | `_meta`? | Location / props |
-| --- | --- | --- |
-| **Response:`initialize`** | yes | Result top-level: `goal`, `jetbrains`, `steering`. Nested on `authMethods[0]`: `api-key` |
-| **Response:`session/list`** | no | — |
-| **Response:`session/load`** | no | — |
-| **`session/update`** | often (151/181) | Usually on `payload.update`; nested on command entries for `available_commands_update` |
-| Requests (`initialize`, `session/list`, `session/load`) | no | — |
+| Tag                                                     | `_meta`?        | Location / props                                                                         |
+| ------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| **Response:`initialize`**                               | yes             | Result top-level: `goal`, `jetbrains`, `steering`. Nested on `authMethods[0]`: `api-key` |
+| **Response:`session/list`**                             | no              | —                                                                                        |
+| **Response:`session/load`**                             | no              | —                                                                                        |
+| **`session/update`**                                    | often (151/181) | Usually on `payload.update`; nested on command entries for `available_commands_update`   |
+| Requests (`initialize`, `session/list`, `session/load`) | no              | —                                                                                        |
 
 ### `initialize` response `_meta`
 
@@ -51,11 +51,7 @@ Top-level on the result value:
   "jetbrains": {
     "air": {
       "version": 1,
-      "capabilities": [
-        "sessionFailure",
-        "agentFileChangeReport",
-        "nativeSubagentSessions"
-      ]
+      "capabilities": ["sessionFailure", "agentFileChangeReport", "nativeSubagentSessions"]
     }
   },
   "steering": { "supported": true }
@@ -66,14 +62,14 @@ Nested: `authMethods[0]._meta` → `{ "api-key": { "provider": "openai" } }`.
 
 ### `session/update` by `sessionUpdate`
 
-| `sessionUpdate` | with `_meta` / total | Top-level `_meta` keys |
-| --- | --- | --- |
-| **`agent_message_chunk`** | 25/25 | `codex` → `{ phase }` (`commentary` ×11, `final_answer` ×14) |
-| **`session_info_update`** | 10/20 | `goal` (always `null` in this capture) |
-| **`tool_call`** | 53/57 | `terminal_info` → `{ cwd, terminal_id }` |
-| **`tool_call_update`** | 53/55 | Usually both `terminal_exit` + `terminal_output_delta`; once only `terminal_exit` |
+| `sessionUpdate`                 | with `_meta` / total      | Top-level `_meta` keys                                                                                                                                                                       |
+| ------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`agent_message_chunk`**       | 25/25                     | `codex` → `{ phase }` (`commentary` ×11, `final_answer` ×14)                                                                                                                                 |
+| **`session_info_update`**       | 10/20                     | `goal` (always `null` in this capture)                                                                                                                                                       |
+| **`tool_call`**                 | 53/57                     | `terminal_info` → `{ cwd, terminal_id }`                                                                                                                                                     |
+| **`tool_call_update`**          | 53/55                     | Usually both `terminal_exit` + `terminal_output_delta`; once only `terminal_exit`                                                                                                            |
 | **`available_commands_update`** | 0/10 on the update itself | Nested on `availableCommands[]`: `commandAction` → `{ configId, kind, presentation, resetValue, value }` (observed: `collaboration_mode` / `setConfigOption` / `state` / `default` / `plan`) |
-| **`user_message_chunk`** | 0/14 | — |
+| **`user_message_chunk`**        | 0/14                      | —                                                                                                                                                                                            |
 
 **`tool_call_update` detail:**
 
@@ -84,13 +80,13 @@ Nested: `authMethods[0]._meta` → `{ "api-key": { "provider": "openai" } }`.
 
 ### By message tag
 
-| Tag | `_meta`? | Location / props |
-| --- | --- | --- |
-| **Response:`initialize`** | yes | Result top-level: `goal`, `jetbrains`, `steering`. Nested on `agentCapabilities`: `claudeCode` |
-| **Response:`session/list`** | no | — |
-| **Response:`session/load`** | no | — |
-| **`session/update`** | 50/80 | Only on tool-call updates; always `claudeCode` on `payload.update` |
-| Requests | no | — |
+| Tag                         | `_meta`? | Location / props                                                                               |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| **Response:`initialize`**   | yes      | Result top-level: `goal`, `jetbrains`, `steering`. Nested on `agentCapabilities`: `claudeCode` |
+| **Response:`session/list`** | no       | —                                                                                              |
+| **Response:`session/load`** | no       | —                                                                                              |
+| **`session/update`**        | 50/80    | Only on tool-call updates; always `claudeCode` on `payload.update`                             |
+| Requests                    | no       | —                                                                                              |
 
 ### `initialize` response `_meta`
 
@@ -117,13 +113,13 @@ Nested: `agentCapabilities._meta` → `{ "claudeCode": { "promptQueueing": true 
 
 ### `session/update` by `sessionUpdate`
 
-| `sessionUpdate` | with `_meta` / total | Top-level `_meta` keys |
-| --- | --- | --- |
-| **`tool_call`** | 25/25 | `claudeCode` — variants below |
-| **`tool_call_update`** | 25/25 | `claudeCode` → `{ toolName }` only |
-| **`agent_message_chunk`** | 0/12 | — |
-| **`available_commands_update`** | 0/5 | — |
-| **`user_message_chunk`** | 0/13 | — |
+| `sessionUpdate`                 | with `_meta` / total | Top-level `_meta` keys             |
+| ------------------------------- | -------------------- | ---------------------------------- |
+| **`tool_call`**                 | 25/25                | `claudeCode` — variants below      |
+| **`tool_call_update`**          | 25/25                | `claudeCode` → `{ toolName }` only |
+| **`agent_message_chunk`**       | 0/12                 | —                                  |
+| **`available_commands_update`** | 0/5                  | —                                  |
+| **`user_message_chunk`**        | 0/13                 | —                                  |
 
 **`tool_call` `claudeCode` variants observed:**
 

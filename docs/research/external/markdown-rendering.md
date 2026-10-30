@@ -21,13 +21,13 @@ web/`ChatMarkdown` pipeline only.
 
 ## Dependencies
 
-| Package | Role |
-| --- | --- |
-| `react-markdown` | Owns the unified pipeline and React element mapping |
-| `remark-gfm` | GitHub Flavored Markdown syntax |
-| `remark-breaks` | Soft line breaks → hard breaks (optional) |
-| `rehype-raw` | Parse raw HTML embedded in Markdown (optional) |
-| `rehype-sanitize` | Strip unsafe HTML / protocols after raw parsing |
+| Package           | Role                                                |
+| ----------------- | --------------------------------------------------- |
+| `react-markdown`  | Owns the unified pipeline and React element mapping |
+| `remark-gfm`      | GitHub Flavored Markdown syntax                     |
+| `remark-breaks`   | Soft line breaks → hard breaks (optional)           |
+| `rehype-raw`      | Parse raw HTML embedded in Markdown (optional)      |
+| `rehype-sanitize` | Strip unsafe HTML / protocols after raw parsing     |
 
 In-repo remark/rehype helpers live beside the web app (`apps/web/src/markdown-*.ts`)
 or in `packages/client-runtime` (Codex directives shared with other clients).
@@ -92,11 +92,11 @@ Call site wiring (simplified):
 
 ### Flags that change the pipeline
 
-| Prop | Default | Effect |
-| --- | --- | --- |
-| `lineBreaks` | `false` | Inserts `remark-breaks` after Codex directives. Chat enables this for Codex “★ Insight” blocks and for several non-assistant surfaces that want literal newlines. |
-| `parseRawHtml` | `true` | When `false`, skips the entire rehype plugin list. Raw HTML tokens stay as escaped text (`skipHtml={false}`). Used for some timeline surfaces that must not interpret HTML. |
-| `extraRemarkPlugins` | `[]` | Appended after the fixed chat list. Pull request bodies pass `remarkPullRequestAutolinks`. |
+| Prop                 | Default | Effect                                                                                                                                                                      |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lineBreaks`         | `false` | Inserts `remark-breaks` after Codex directives. Chat enables this for Codex “★ Insight” blocks and for several non-assistant surfaces that want literal newlines.           |
+| `parseRawHtml`       | `true`  | When `false`, skips the entire rehype plugin list. Raw HTML tokens stay as escaped text (`skipHtml={false}`). Used for some timeline surfaces that must not interpret HTML. |
+| `extraRemarkPlugins` | `[]`    | Appended after the fixed chat list. Pull request bodies pass `remarkPullRequestAutolinks`.                                                                                  |
 
 Plugin **order is load-bearing**. Earlier remark plugins reshape the tree later ones see; rehype sanitize must run **after** plugins that attach custom `data-*` attributes so those attributes can be allowlisted.
 
@@ -115,9 +115,9 @@ strikethrough (`~~`), task lists, autolink literals, and footnotes.
 **On raw markdown:**
 
 ```markdown
-| Feature | Ok |
-| ------- | -- |
-| Tables  | ✓  |
+| Feature | Ok  |
+| ------- | --- |
+| Tables  | ✓   |
 
 ~~struck~~ and https://example.com
 
@@ -158,17 +158,19 @@ GitHub only treats a marker that owns its own line.
 indented code block. Agent output often uses accidental alignment like
 `-       text`, which would otherwise render every bullet as a code card. The
 plugin re-parses same-line, over-indented “code” children of list items back into
-paragraph/inline content. Explicit fences (`` ``` `` / `~~~`) and conventional
+paragraph/inline content. Explicit fences (` ``` ` / `~~~`) and conventional
 indented code that starts on a later line stay code.
 
 **On raw markdown:**
 
-```markdown
+````markdown
 -       accidentally spaced prose
 - ```ts
   const ok = true;
   ```
-```
+````
+
+````
 
 The first bullet becomes normal text; the fenced block remains a code fence.
 
@@ -195,7 +197,7 @@ anchors.
 Created :codex-file-citation{path="outputs/report.xlsx" purpose="output"}.
 
 ::artifact-template{skill_name="artifact-template-hello-world" skill_directory="/Users/test/.codex/skills/artifact-template-hello-world" display_name="Hello World" artifact_kind="document"}
-```
+````
 
 The citation becomes a file link chip in the React layer; the artifact becomes a
 card (`div` with Codex artifact properties), not a prose paragraph.
@@ -300,7 +302,7 @@ onto allowlisted `data-*` props:
 **On raw markdown:**
 
 ```markdown
-![diagram](C:\Users\dev\project\images\diagram.png "Architecture")
+![diagram](C:\Users\dev\project\images\diagram.png 'Architecture')
 ```
 
 Sanitize would otherwise drop or mangle pieces the image renderer needs; the
@@ -372,13 +374,13 @@ component with different flag / `extraRemarkPlugins` combinations.
 
 ## Mental model
 
-| Layer | Question it answers |
-| --- | --- |
-| micromark + remark syntax extensions | What tokens exist in the source? |
-| remark tree transforms | What does this Markdown *mean* as mdast? |
-| mdast → hast | What HTML-shaped tree represents that? |
-| rehype (raw + sanitize) | Which HTML is real and safe? |
-| `urlTransform` + `components` | How does each node look and behave in the chat UI? |
+| Layer                                | Question it answers                                |
+| ------------------------------------ | -------------------------------------------------- |
+| micromark + remark syntax extensions | What tokens exist in the source?                   |
+| remark tree transforms               | What does this Markdown _mean_ as mdast?           |
+| mdast → hast                         | What HTML-shaped tree represents that?             |
+| rehype (raw + sanitize)              | Which HTML is real and safe?                       |
+| `urlTransform` + `components`        | How does each node look and behave in the chat UI? |
 
 Add syntax or semantic rewrites as **remark** plugins. Add HTML shaping or
 security as **rehype** plugins. Add chrome, navigation, and theming in the React

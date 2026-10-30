@@ -2,22 +2,24 @@
   "name": "@tooling/vitest",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "license": "ISC",
+  "type": "module",
   "exports": {
     ".": "./shared.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint . --deny-warnings"
   },
   "dependencies": {
     "vitest": "catalog:"
   },
   "devDependencies": {
-    "@tooling/eslint": "workspace:^",
+    "@tooling/oxlint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@types/node": "catalog:",
-    "eslint": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:"
   },
   "peerDependencies": {

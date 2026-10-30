@@ -1,6 +1,7 @@
-/** Antigravity BROWSER helper stderr marker — Host OpenUrl opens the URL. */
+/** Parse Antigravity BROWSER helper stderr marker — Host OpenUrl opens the URL. */
+import { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX } from '@lib/ao-home';
 
-export const ANTIGRAVITY_AUTH_URL_MARKER_PREFIX = 'AO_ANTIGRAVITY_AUTH_URL:';
+export { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX };
 
 /** Parse one stderr line; return URL when it carries the auth marker. */
 export const parseAntigravityAuthUrlMarker = (line: string): string | undefined => {

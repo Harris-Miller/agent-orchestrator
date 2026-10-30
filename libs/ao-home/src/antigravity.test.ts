@@ -12,6 +12,8 @@ import {
   antigravityAcpExecutableRelativeSegments,
   antigravityAcpHomeDir,
   antigravityAcpRuntimeDir,
+  antigravityBrowserHelperScript,
+  ensureAntigravityBrowserHelper,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';
@@ -77,6 +79,17 @@ describe('antigravity ao-home paths', () => {
     layeredIt.effect('isAntigravityAcpRuntimePresent is false when missing', () =>
       Effect.gen(function* () {
         assert.isFalse(yield* isAntigravityAcpRuntimePresent());
+      }),
+    );
+
+    layeredIt.effect('ensureAntigravityBrowserHelper writes the capture script under AO home', () =>
+      Effect.gen(function* () {
+        const helperPath = yield* ensureAntigravityBrowserHelper();
+        assert.strictEqual(helperPath, `${ROOT}/${ANTIGRAVITY_ACP_BROWSER_HELPER_NAME}`);
+        assert.deepStrictEqual(store.get(helperPath), {
+          content: antigravityBrowserHelperScript,
+          kind: 'file',
+        });
       }),
     );
   });

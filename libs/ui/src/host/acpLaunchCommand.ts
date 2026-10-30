@@ -2,16 +2,21 @@
  * Provider ACP launch command: adapter resource entry (`node` + shim),
  * native Vendor CLI (`cursor-agent acp`), or managed Antigravity binary.
  */
-import { ANTIGRAVITY_ACP_SPAWN_NAME, antigravityAcpHarnessPath, antigravityAcpHomeDir } from '@lib/ao-home';
+import {
+  ANTIGRAVITY_ACP_SPAWN_NAME,
+  antigravityAcpHarnessPath,
+  antigravityAcpHomeDir,
+  ensureAntigravityBrowserHelper,
+} from '@lib/ao-home';
 import { BundledResource, OS } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import type { AcpAdapterLaunchTarget, AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { ensureAntigravityBrowserHelper } from './antigravityBrowserHelper.ts';
 import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
 import { ensureAntigravityAcpInstalled } from './antigravityInstall.ts';
+import { mapAntigravityFs } from './antigravityShell.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
@@ -90,7 +95,10 @@ const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* (
 
 const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () {
   yield* ensureAntigravityAcpInstalled();
-  const browserHelperPath = yield* ensureAntigravityBrowserHelper();
+  const browserHelperPath = yield* mapAntigravityFs(
+    ensureAntigravityBrowserHelper(),
+    'Antigravity BROWSER helper ensure failed',
+  );
   const os = yield* OS;
   const antigravityAcpHome = yield* antigravityAcpHomeDir();
   const harnessPath = yield* antigravityAcpHarnessPath();

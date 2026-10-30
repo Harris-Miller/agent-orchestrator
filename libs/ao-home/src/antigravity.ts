@@ -1,10 +1,12 @@
 /**
- * Antigravity ACP dirs under Agent Orchestrator home — paths + materialize only.
+ * Antigravity ACP dirs under Agent Orchestrator home — paths, materialize, BROWSER helper.
  * Pin / download / env live in `@lib/ui` host.
  */
 import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
+import * as PlatformError from 'effect/PlatformError';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { ensureHome, resolveHome } from './home.ts';
 
@@ -22,6 +24,42 @@ export const ANTIGRAVITY_ACP_HARNESS_NAME = 'localharness_external';
 
 /** Capture-only `BROWSER` helper under the Antigravity ACP root (not under home/runtime). */
 export const ANTIGRAVITY_ACP_BROWSER_HELPER_NAME = 'browser-helper';
+
+/** Stderr marker prefix for the capture-only `BROWSER` helper (Host OpenUrl opens the URL). */
+export const ANTIGRAVITY_AUTH_URL_MARKER_PREFIX = 'AO_ANTIGRAVITY_AUTH_URL:';
+
+/** Shell script body for the capture-only `BROWSER` helper (prints marker, does not open). */
+export const antigravityBrowserHelperScript = `#!/bin/sh
+printf '%s%s\\n' '${ANTIGRAVITY_AUTH_URL_MARKER_PREFIX}' "$1" >&2
+`;
+
+/** Host FS lacks chmod — set +x via shell under AO home. */
+const chmodPlusX = (...paths: string[]) =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const firstPath = paths[0] ?? '';
+    const exitCode = yield* spawner.exitCode(ChildProcess.make('chmod', ['+x', ...paths], { extendEnv: true })).pipe(
+      Effect.mapError(error =>
+        PlatformError.systemError({
+          _tag: 'Unknown',
+          cause: error,
+          description: error instanceof Error ? error.message : String(error),
+          method: 'chmod',
+          module: 'FileSystem',
+          pathOrDescriptor: firstPath,
+        }),
+      ),
+    );
+    if (exitCode !== 0) {
+      return yield* PlatformError.systemError({
+        _tag: 'Unknown',
+        description: `chmod exited ${String(exitCode)}`,
+        method: 'chmod',
+        module: 'FileSystem',
+        pathOrDescriptor: firstPath,
+      });
+    }
+  });
 
 export const antigravityAcpRootDir = Effect.fn('antigravityAcpRootDir')(function* () {
   const path = yield* Path;
@@ -106,7 +144,7 @@ export type AntigravityRuntimeSources = {
 };
 
 /**
- * Copy verified extracted members into `runtime/<version>/`.
+ * Copy verified extracted members into `runtime/<version>/` and mark them executable.
  * Callers own download / sha256 / extract outside AO home.
  */
 export const materializeAntigravityAcpRuntime = Effect.fn('materializeAntigravityAcpRuntime')(function* (
@@ -120,6 +158,19 @@ export const materializeAntigravityAcpRuntime = Effect.fn('materializeAntigravit
 
   yield* fs.copyFile(sources.executableSourcePath, executableDest);
   yield* fs.copyFile(sources.harnessSourcePath, harnessDest);
+  yield* chmodPlusX(executableDest, harnessDest);
 
   return { executablePath: executableDest, harnessPath: harnessDest, runtimeDir } as const;
+});
+
+/** Write capture-only `BROWSER` helper under AO home and mark it executable. */
+export const ensureAntigravityBrowserHelper = Effect.fn('ensureAntigravityBrowserHelper')(function* () {
+  const fs = yield* FileSystem;
+  yield* ensureHome();
+  const root = yield* antigravityAcpRootDir();
+  yield* fs.makeDirectory(root, { recursive: true });
+  const helperPath = yield* antigravityAcpBrowserHelperPath();
+  yield* fs.writeFileString(helperPath, antigravityBrowserHelperScript);
+  yield* chmodPlusX(helperPath);
+  return helperPath;
 });

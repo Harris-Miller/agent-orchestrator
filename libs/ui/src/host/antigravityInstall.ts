@@ -95,7 +95,7 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
       return yield* asAntigravityMissingPrerequisite('Antigravity archive did not contain the expected binaries');
     }
 
-    const { executablePath, harnessPath } = yield* mapAntigravityFs(
+    yield* mapAntigravityFs(
       materializeAntigravityAcpRuntime({
         executableSourcePath: executableSource,
         harnessSourcePath: harnessSource,
@@ -103,8 +103,6 @@ export const ensureAntigravityAcpInstalled = Effect.fn('ensureAntigravityAcpInst
       }),
       'Antigravity materialize failed',
     );
-
-    yield* runAntigravityShell('chmod', ['+x', executablePath, harnessPath], 'Antigravity runtime chmod failed');
 
     yield* Effect.logInfo('Antigravity ACP runtime ready', asset.version);
   },

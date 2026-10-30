@@ -1,5 +1,5 @@
 /**
- * Shell helpers for Antigravity install / BROWSER helper materialize.
+ * Shell helpers for Antigravity install (unzip outside AO home) + FS error mapping.
  */
 import { ANTIGRAVITY_ACP_SPAWN_NAME } from '@lib/ao-home';
 import { Effect } from 'effect';

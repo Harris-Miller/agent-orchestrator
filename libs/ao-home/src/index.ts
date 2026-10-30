@@ -20,6 +20,7 @@ export {
   ANTIGRAVITY_ACP_HARNESS_NAME,
   ANTIGRAVITY_ACP_SPAWN_NAME,
   ANTIGRAVITY_ACP_VERSION,
+  ANTIGRAVITY_AUTH_URL_MARKER_PREFIX,
   antigravityAcpBrowserHelperPath,
   antigravityAcpExecutablePath,
   antigravityAcpExecutableRelativeSegments,
@@ -27,8 +28,10 @@ export {
   antigravityAcpHomeDir,
   antigravityAcpRootDir,
   antigravityAcpRuntimeDir,
+  antigravityBrowserHelperScript,
   type AntigravityRuntimeSources,
   ensureAntigravityAcpDirs,
+  ensureAntigravityBrowserHelper,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';

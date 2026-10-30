@@ -1,10 +1,10 @@
 import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
-import { platform } from '@tauri-apps/plugin-os';
+import { arch, platform } from '@tauri-apps/plugin-os';
 import { Effect, Layer, Schema } from 'effect';
 
-import { mapTauriPlatformToNode } from './mapTauriPlatform.ts';
+import { mapTauriArchToNode, mapTauriPlatformToNode } from './mapTauriPlatform.ts';
 
 class HostProcessInfoError extends Schema.TaggedError<HostProcessInfoError>()('HostProcessInfoError', {
   cause: Schema.optional(Schema.Unknown),
@@ -65,9 +65,11 @@ export const OSLive = Layer.effect(
     );
 
     const nodePlatform = mapTauriPlatformToNode(platform());
-    yield* Effect.logInfo('OS Live ready', { cwd: host.cwd, platform: nodePlatform });
+    const nodeArch = mapTauriArchToNode(arch());
+    yield* Effect.logInfo('OS Live ready', { arch: nodeArch, cwd: host.cwd, platform: nodePlatform });
 
     return {
+      arch: () => nodeArch,
       cwd: () => host.cwd,
       env: () => host.env,
       homedir: () => home,

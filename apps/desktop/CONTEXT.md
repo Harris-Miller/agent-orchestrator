@@ -1,6 +1,6 @@
 # desktop
 
-Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex, Claude, and Gemini via `gemini-acp`) without embedding vendor LLM SDKs.
+Tauri + React desktop application that hosts the **Agent Harness** — an ACP Client for driving external coding agents (Codex, Claude, Antigravity, and Cursor) without embedding vendor LLM SDKs.
 
 ## Application
 
@@ -37,8 +37,16 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
 _Avoid_: Status, connection state
+
+**Sign in**:
+User action that starts Antigravity ACP Google `oauth-personal` (`authenticate` on the wire) from Providers or the session composer when bootstrap reports “Antigravity is not signed in.” Distinct from Vendor CLI `login` and from ACP permission / elicitation URL mode.
+_Avoid_: authenticate (wire-only), login, OAuth elicitation
+
+**Antigravity auth URL**:
+Google OAuth URL captured from the controlled Antigravity `BROWSER` helper stderr marker during Sign in; shown in the UI (copyable) and opened via Host OpenUrl.
+_Avoid_: elicitation URL, redirect URI (when you mean this captured sign-in link)
 
 **Backend harness**:
 A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize`, Config probe, and buffered `session/list`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
@@ -145,15 +153,15 @@ _Avoid_: Open session, live session
 ## Agent backends
 
 **Agent provider**:
-An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, **Gemini** (via the `gemini-acp` adapter), and **Cursor**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
+An external coding-agent backend the Harness can connect to: **Codex**, **Claude**, **Antigravity**, and **Cursor**. Each provider is reached as an ACP Agent subprocess, not via an in-process LLM SDK.
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — either an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`, `gemini-acp`) or a native Vendor CLI ACP process (`cursor-acp` → `cursor-agent acp`). Distinct from the agent provider name (Codex, Claude, Gemini, Cursor).
+The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), a native Vendor CLI ACP process (`cursor-acp` → `cursor-agent acp`), or a Managed ACP Agent (`antigravity-acp` → `agy_acp_server`). Distinct from the agent provider name (Codex, Claude, Antigravity, Cursor).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **ACP adapter**:
-A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vendor CLI or SDK that is not ACP-native (Codex via [`codex-acp`](https://github.com/agentclientprotocol/codex-acp), Claude via [`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)), or sits in front of a native ACP agent to complete session lifecycle capabilities the vendor omits (`gemini-acp` in front of Gemini CLI).
+A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vendor CLI or SDK that is not ACP-native (Codex via [`codex-acp`](https://github.com/agentclientprotocol/codex-acp), Claude via [`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).
 _Avoid_: Bridge, wrapper, proxy, shim
 
 **Adapter resource tree**:
@@ -161,15 +169,23 @@ Isolated ACP adapter install at repo-root `acp-adapter-resources/` (own lockfile
 _Avoid_: node_modules, Vite assets, sidecar, bundled adapters (ambiguous with Vite)
 
 **Vendor CLI**:
-User-installed agent CLI on PATH (`codex`, `claude`, `gemini`, `cursor-agent`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.
+User-installed agent CLI on PATH (`codex`, `claude`, `cursor-agent`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.
 _Avoid_: Agent binary, provider CLI, global install
 
+**Vendor CLI ACP**:
+A Vendor CLI that implements ACP directly on PATH. Cursor CLI (`cursor-agent acp`) is the harness example — native spawn, no adapter resource entry.
+_Avoid_: Managed ACP Agent (Harness-downloaded binary)
+
+**Managed ACP Agent**:
+Harness-downloaded ACP binary under Agent Orchestrator home (Antigravity `agy_acp_server` pin), not a Vendor CLI on PATH and not an adapter resource tree entry. Distinct from Vendor CLI ACP.
+_Avoid_: sidecar, PATH install, gemini-acp
+
 **Native ACP agent**:
-A vendor CLI that implements ACP directly. Cursor CLI (`cursor-agent acp`) is the first harness target that is native **without** an adapter in front. The Harness may still reach a native agent through an ACP adapter when the vendor omits required session lifecycle capabilities (Gemini CLI via `gemini-acp`).
+An ACP-speaking process the Harness spawns without a Node adapter in front — Vendor CLI ACP (Cursor) or Managed ACP Agent (Antigravity).
 _Avoid_: Built-in agent, direct agent, first-party server
 
 **Provider launch**:
-How the Harness starts a provider subprocess: executable, arguments, working directory, and environment — from the adapter resource tree for Node shims, or by spawning a Vendor CLI ACP mode directly (`cursor-agent acp`) — yielding a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
+How the Harness starts a provider subprocess: executable, arguments, working directory, and environment — from the adapter resource tree for Node shims, by spawning a Vendor CLI ACP mode (`cursor-agent acp`), or by spawning a Managed ACP Agent (`agy_acp_server`) — yielding a stdio ACP Agent the Harness connects to via `@libs/effect-acp`.
 _Avoid_: Spawn config, agent command, connection string
 
 ## Desktop host

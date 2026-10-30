@@ -8,6 +8,7 @@ import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
 const osLayer = (env: Readonly<Record<string, string>> = {}) =>
   Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => '/home/operator',
     env: () => env,
     homedir: () => '/home/operator',

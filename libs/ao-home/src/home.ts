@@ -6,10 +6,13 @@ import { Path } from 'effect/Path';
 import { defaultSettings, UserSettingsJsonString } from './UserSettings.ts';
 import type { UserSettings } from './UserSettings.ts';
 
+/** Directory name under the user home for Agent Orchestrator state. */
+export const AO_HOME_DIRNAME = '.ao' as const;
+
 export const resolveHome = Effect.fn('resolveHome')(function* () {
   const os = yield* OS;
   const path = yield* Path;
-  return path.join(os.homedir(), '.ao');
+  return path.join(os.homedir(), AO_HOME_DIRNAME);
 });
 
 export const ensureHome = Effect.fn('ensureHome')(function* () {

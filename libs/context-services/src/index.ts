@@ -3,4 +3,5 @@ export * from './Clipboard.ts';
 export * from './FileDialog.ts';
 export * from './HostServices.ts';
 export * from './openQueuedChildProcessStdio.ts';
+export * from './OpenUrl.ts';
 export * from './OS.ts';

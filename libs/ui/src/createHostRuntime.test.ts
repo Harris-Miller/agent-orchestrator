@@ -1,7 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
@@ -9,6 +10,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import { createHostRuntime } from './createHostRuntime.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
+  arch: () => 'arm64',
   cwd: () => '/home/operator',
   env: () => ({}),
   homedir: () => '/home/operator',
@@ -28,6 +30,10 @@ const mockFileDialogLayer = Layer.succeed(FileDialog, {
   pickFiles: () => Effect.succeed([]),
 });
 
+const mockOpenUrlLayer = Layer.succeed(OpenUrl, {
+  open: () => Effect.void,
+});
+
 const mockSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in createHostRuntime smoke test'))),
@@ -37,10 +43,12 @@ const mockHostLayer = Layer.mergeAll(
   mockBundledResourceLayer,
   mockClipboardLayer,
   mockFileDialogLayer,
+  mockOpenUrlLayer,
   mockOsLayer,
   layerNoop({}),
   posixPathLayer,
   mockSpawnerLayer,
+  FetchHttpClient.layer,
 );
 
 describe('createHostRuntime', () => {

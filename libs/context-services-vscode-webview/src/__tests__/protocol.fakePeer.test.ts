@@ -26,6 +26,7 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
         extension.postMessage(
           encodeIpcMessage({
             _tag: 'OsSnapshotResult',
+            arch: 'arm64',
             cwd: '/ext/cwd',
             env: { PATH: '/bin' },
             homedir: '/home/ao',
@@ -46,6 +47,7 @@ describe('extension↔webview IPC protocol (fake peer)', () => {
 
       assert.deepStrictEqual(message, {
         _tag: 'OsSnapshotResult',
+        arch: 'arm64',
         cwd: '/ext/cwd',
         env: { PATH: '/bin' },
         homedir: '/home/ao',

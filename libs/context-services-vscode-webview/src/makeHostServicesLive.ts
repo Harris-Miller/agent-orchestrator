@@ -1,5 +1,6 @@
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 import { makeBundledResourceLive } from './BundledResourceLive.ts';
 import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
@@ -9,6 +10,7 @@ import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
 import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
+import { makeOpenUrlLive } from './OpenUrlLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
 import { PathLive } from './PathLive.ts';
 import { IpcClient } from './protocol/ipcClient.ts';
@@ -40,6 +42,8 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
 
   const osLive = makeOsSnapshotLive(client);
 
+  const fetchLive = makeExtensionFetchLive(client);
+
   return Layer.mergeAll(
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),
@@ -47,14 +51,13 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     ConfigProviderLive,
     makeFileDialogLive(client),
     makeFileSystemLive(client),
+    makeOpenUrlLive(client),
     PathLive,
+    FetchHttpClient.layer.pipe(Layer.provide(fetchLive)),
   ).pipe(
     Layer.provideMerge(osLive),
     Layer.provideMerge(
-      ObservabilityLive.pipe(
-        Layer.provide(makeExtensionFetchLive(client)),
-        Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive))),
-      ),
+      ObservabilityLive.pipe(Layer.provide(fetchLive), Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive)))),
     ),
   );
 }

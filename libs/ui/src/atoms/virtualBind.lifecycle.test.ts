@@ -1,7 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 import type { AsyncResult, Atom } from 'effect/reactivity';
@@ -50,7 +51,11 @@ const mockHostLayer = Layer.mergeAll(
   Layer.succeed(FileDialog, {
     pickFiles: () => Effect.succeed([]),
   }),
+  Layer.succeed(OpenUrl, {
+    open: () => Effect.void,
+  }),
   Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => '/home/operator',
     env: () => ({}),
     homedir: () => '/home/operator',
@@ -62,6 +67,7 @@ const mockHostLayer = Layer.mergeAll(
     ChildProcessSpawner.ChildProcessSpawner,
     ChildProcessSpawner.make(() => Effect.die(new Error('spawner unused'))),
   ),
+  FetchHttpClient.layer,
 );
 
 const selectableConfig = {

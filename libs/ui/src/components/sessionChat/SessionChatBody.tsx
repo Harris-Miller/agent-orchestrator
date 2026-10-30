@@ -41,6 +41,7 @@ import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
+import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
@@ -594,6 +595,15 @@ export const SessionChatBody: FC<{
           <Typography color="error" sx={{ mb: 1 }} variant="body2">
             {backendSnapshot.error}
           </Typography>
+        ) : null}
+        {selectedLaunchTarget === 'antigravity-acp' && backendSnapshot !== undefined ? (
+          <Box sx={{ mb: 1 }}>
+            <AntigravitySignInControls
+              antigravityAuthUrl={backendSnapshot.antigravityAuthUrl}
+              error={backendSnapshot.error}
+              phase={backendSnapshot.phase}
+            />
+          </Box>
         ) : null}
         <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
           {aboveComposer !== undefined && aboveComposer !== null ? (

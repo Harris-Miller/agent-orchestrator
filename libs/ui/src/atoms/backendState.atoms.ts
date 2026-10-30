@@ -93,6 +93,7 @@ export const allRpcWireCallsAtom = Atom.make(get =>
 
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
   ALL_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+    antigravityAuthUrl: get(backendHarnessStateAtom(launchTarget)).antigravityAuthUrl,
     error: get(backendHarnessStateAtom(launchTarget)).error,
     label: agentLaunchTargetLabel(launchTarget),
     launchTarget,

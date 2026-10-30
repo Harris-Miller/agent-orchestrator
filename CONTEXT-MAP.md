@@ -11,9 +11,8 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 | **context-services-node** | [`libs/context-services-node/CONTEXT.md`](./libs/context-services-node/CONTEXT.md) | — | Node.js live layers for `@lib/context-services` |
 | **context-services-tauri** | [`libs/context-services-tauri/CONTEXT.md`](./libs/context-services-tauri/CONTEXT.md) | — | Tauri live layers for `@lib/context-services` and Effect platform primitives |
 | **context-services-vscode-webview** | [`libs/context-services-vscode-webview/CONTEXT.md`](./libs/context-services-vscode-webview/CONTEXT.md) | — | VS Code webview Host services Live + extension↔webview IPC codec for `@lib/context-services` |
-| **ao-home** | [`libs/ao-home/CONTEXT.md`](./libs/ao-home/CONTEXT.md) | [`libs/ao-home/docs/adr/`](./libs/ao-home/docs/adr/) | Agent Orchestrator home (`~/.ao`) seam: User settings, adapter roster documents, and session usage filesystem I/O |
-| **gemini-acp** | [`libs/gemini-acp/CONTEXT.md`](./libs/gemini-acp/CONTEXT.md) | — | ACP adapter in front of Gemini CLI: completes session lifecycle (`list` / `close` / `delete` / hot-cold `resume`); Issue #42 |
-| **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex, Claude, Gemini (via adapters), and Cursor (native Vendor CLI ACP) |
+| **ao-home** | [`libs/ao-home/CONTEXT.md`](./libs/ao-home/CONTEXT.md) | [`libs/ao-home/docs/adr/`](./libs/ao-home/docs/adr/) | Agent Orchestrator home (`~/.ao`) seam: User settings, adapter roster documents, session usage, and Antigravity managed-runtime paths |
+| **desktop** | [`apps/desktop/CONTEXT.md`](./apps/desktop/CONTEXT.md) | [`apps/desktop/docs/adr/`](./apps/desktop/docs/adr/) | Tauri + React **Agent Harness** — ACP Client for Codex, Claude, Antigravity (managed runtime), and Cursor (native Vendor CLI ACP) |
 | **ui** | [`libs/ui/CONTEXT.md`](./libs/ui/CONTEXT.md) | [`libs/ui/docs/adr/`](./libs/ui/docs/adr/) | Shared Agent Harness webview context: Backend Harness + Harness application state + shared Settings panes / theme React surfaces |
 | **vscode** | [`apps/vscode/CONTEXT.md`](./apps/vscode/CONTEXT.md) | [`apps/vscode/docs/adr/`](./apps/vscode/docs/adr/) | VS Code extension: extension-host fulfillment + webview Host (Settings via shared UI panes) |
 
@@ -28,13 +27,11 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **ui → ao-home**: session usage persist and User settings I/O from Harness application state
 - **ui → effect-acp**: ACP connection / RPCs for Backend Harness
 - **ao-home → context-services**: uses the portable `OS` service (`homedir`) plus Effect `Path` / `FileSystem`
-- **gemini-acp → effect-acp**: adapter is an ACP Agent (`serveAcpAgent`) and an ACP Client toward Gemini CLI (`connectAcpAgent`)
-- **gemini-acp → ao-home**: durable adapter roster document + lock under `~/.ao/adapters/gemini-acp/`
-- **desktop → gemini-acp**: Harness spawns `gemini-acp` from the adapter resource tree like other ACP adapters
 - **context-services → context-services-node**: context-services-node provides the Node/Bun live layer for the OS service defined in context-services
 - **context-services → context-services-tauri**: context-services-tauri provides the Tauri live layers for Host services and Effect platform primitives
 - **context-services → context-services-vscode-webview**: context-services-vscode-webview provides the webview Host services Live and extension↔webview IPC codec (Clipboard + IPC clients + OS snapshot; issue #83)
-- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`, `gemini-acp`) or native Vendor CLI ACP (`cursor-acp` → `cursor-agent acp`) — and connects over stdio. Gemini CLI remains the vendor CLI behind `gemini-acp` (native ACP; missing session lifecycle capabilities filled by the adapter). Cursor CLI is native ACP without an adapter in front
+- **desktop → external ACP agents**: Harness spawns provider subprocesses — ACP adapters from the adapter resource tree (`codex-acp`, `claude-agent-acp`), native Vendor CLI ACP (`cursor-acp` → `cursor-agent acp`), or managed Antigravity ACP (`antigravity-acp` → `agy_acp_server` under `~/.ao/antigravity-acp/`) — and connects over stdio
+- **ui → ao-home (Antigravity)**: pin download materializes into AO home; spawn env sets `GEMINI_HOME` to `~/.ao/antigravity-acp/home`
 - **vscode → ui**: VS Code webview supplies Host Live via `@lib/context-services-vscode-webview` and reuses Harness application state (Track B / #83)
 - **vscode → context-services-vscode-webview**: extension host imports protocol codec/types for fulfillment; webview boots `makeHostServicesLive`
 

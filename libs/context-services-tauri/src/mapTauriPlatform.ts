@@ -1,4 +1,28 @@
-import type { Platform } from '@tauri-apps/plugin-os';
+import type { Arch, Platform } from '@tauri-apps/plugin-os';
+
+/**
+ * Map Tauri `plugin-os` arch strings to Node-compatible `os.arch()` values.
+ */
+export const mapTauriArchToNode = (tauriArch: Arch): string => {
+  switch (tauriArch) {
+    case 'aarch64':
+      return 'arm64';
+    case 'arm':
+      return 'arm';
+    case 'mips':
+    case 'mips64':
+    case 'powerpc':
+    case 'powerpc64':
+    case 'riscv64':
+    case 's390x':
+    case 'sparc64':
+      return tauriArch;
+    case 'x86':
+      return 'ia32';
+    case 'x86_64':
+      return 'x64';
+  }
+};
 
 /**
  * Map Tauri `plugin-os` platform strings to Node-compatible `os.platform()` values

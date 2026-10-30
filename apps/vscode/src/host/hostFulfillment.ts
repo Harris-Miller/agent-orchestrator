@@ -1,3 +1,4 @@
+import { ANTIGRAVITY_ACP_SPAWN_NAME, antigravityAcpExecutableRelativeSegments, AO_HOME_DIRNAME } from '@lib/ao-home';
 import {
   bytesToArrayBuffer,
   decodeIpcMessage,
@@ -87,6 +88,7 @@ type ExtensionInbound = Extract<
       | 'FsWriteFileString'
       | 'HttpFetch'
       | 'Kill'
+      | 'OpenUrl'
       | 'OsSnapshot'
       | 'Spawn'
       | 'StdinChunk'
@@ -109,6 +111,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'FsWriteFileString',
   'HttpFetch',
   'Kill',
+  'OpenUrl',
   'OsSnapshot',
   'Spawn',
   'StdinChunk',
@@ -269,9 +272,18 @@ export const handleHostIpcMessage = async (args: {
         post(webview, { _tag: 'KillResult', id: message.id });
         return;
       }
+      case 'OpenUrl': {
+        const opened = await vscode.env.openExternal(vscode.Uri.parse(message.url));
+        if (!opened) {
+          throw new Error(`openExternal declined: ${message.url}`);
+        }
+        post(webview, { _tag: 'OpenUrlResult', id: message.id });
+        return;
+      }
       case 'OsSnapshot': {
         post(webview, {
           _tag: 'OsSnapshotResult',
+          arch: process.arch,
           cwd: process.cwd(),
           env: stringEnv(),
           homedir: osHomedir(),
@@ -284,7 +296,11 @@ export const handleHostIpcMessage = async (args: {
         const handleId = tracker.allocateHandleId();
         const opts = message.options ?? {};
         const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...(opts.env ?? {}) };
-        const child = spawn(message.command, [...message.args], {
+        const command =
+          message.command === ANTIGRAVITY_ACP_SPAWN_NAME
+            ? join(osHomedir(), AO_HOME_DIRNAME, ...antigravityAcpExecutableRelativeSegments())
+            : message.command;
+        const child = spawn(command, [...message.args], {
           cwd: opts.cwd,
           env,
           stdio: [toNodeStdio(opts.stdin), toNodeStdio(opts.stdout), toNodeStdio(opts.stderr)],

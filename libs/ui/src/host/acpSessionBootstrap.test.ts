@@ -356,11 +356,11 @@ describe('normalizeSessionInfoFromNew', () => {
 describe('groupAndSortSessionsByCwd', () => {
   it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { cwd: '/old', launchTarget: 'gemini-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { cwd: '/new', launchTarget: 'gemini-acp', sessionId: 'd' },
-      { cwd: '/mid', launchTarget: 'gemini-acp', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'antigravity-acp', sessionId: 'd' },
+      { cwd: '/mid', launchTarget: 'antigravity-acp', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsByCwd(roster);
@@ -391,10 +391,10 @@ describe('groupAndSortSessionsByCwd', () => {
 describe('sessionsForCwd', () => {
   it('returns the matching cwd group in groupAndSort order; empty when missing', () => {
     const roster: readonly UnifiedRosterEntry[] = [
-      { cwd: '/old', launchTarget: 'gemini-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
-      { cwd: '/new', launchTarget: 'gemini-acp', sessionId: 'd' },
+      { cwd: '/new', launchTarget: 'antigravity-acp', sessionId: 'd' },
     ];
 
     assert.deepStrictEqual(

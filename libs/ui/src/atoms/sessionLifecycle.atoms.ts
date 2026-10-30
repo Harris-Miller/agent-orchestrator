@@ -70,9 +70,9 @@ const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   }
 });
 
-/** Cursor: best-effort close. Other providers: fail-closed. */
+/** Cursor / Antigravity: best-effort close (agent may omit close). Other providers: fail-closed. */
 const closeSessionForLaunchTarget = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-  if (launchTarget === 'cursor-acp') {
+  if (launchTarget === 'cursor-acp' || launchTarget === 'antigravity-acp') {
     yield* Effect.exit(closeSession(launchTarget, sessionId));
     return;
   }

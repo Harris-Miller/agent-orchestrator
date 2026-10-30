@@ -1,5 +1,6 @@
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
@@ -8,6 +9,7 @@ import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { FileDialogLive } from './FileDialogLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
+import { OpenUrlLive } from './OpenUrlLive.ts';
 import { OSLive } from './OSLive.ts';
 import { PathLive } from './PathLive.ts';
 import { TauriFetchLive } from './TauriFetchLive.ts';
@@ -23,7 +25,7 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides BundledResource, Clipboard, FileDialog, OS, Path, FileSystem, ChildProcessSpawner, and
+ * Provides BundledResource, Clipboard, FileDialog, OpenUrl, OS, Path, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
@@ -33,7 +35,9 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   ChildProcessSpawnerLive,
   FileDialogLive,
   FileSystemLive,
+  OpenUrlLive,
   PathLive,
+  FetchHttpClient.layer.pipe(Layer.provide(TauriFetchLive)),
 ).pipe(
   Layer.provideMerge(OSLive),
   Layer.provideMerge(

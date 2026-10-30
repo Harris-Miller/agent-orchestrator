@@ -1,10 +1,11 @@
 import { OS } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import type { File, FileSystem } from 'effect/FileSystem';
 import type { Path } from 'effect/Path';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
+import { ChildProcessSpawner } from 'effect/process';
 
 export type MapFsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
 
@@ -33,6 +34,14 @@ const noopFile = {} as File;
 
 const mapFsLayer = (store: Map<string, MapFsEntry>) =>
   layerNoop({
+    copyFile: (fromPath, toPath) =>
+      Effect.gen(function* () {
+        const entry = store.get(fromPath);
+        if (entry?.kind !== 'file') {
+          return yield* notFound('copyFile', fromPath);
+        }
+        store.set(toPath, { content: entry.content, kind: 'file' });
+      }),
     exists: path => Effect.succeed(store.has(path)),
     makeDirectory: path =>
       Effect.sync(() => {
@@ -81,13 +90,38 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
       }),
   });
 
-/** In-memory FileSystem + Path + OS for adapter-roster lock tests. */
-export const mapFsTestServices = (store: Map<string, MapFsEntry>): Layer.Layer<FileSystem | OS | Path> => {
+/** Always-ok spawner for AO-home chmod during materialize / BROWSER helper tests. */
+const chmodOkSpawnerLayer = Layer.succeed(
+  ChildProcessSpawner.ChildProcessSpawner,
+  ChildProcessSpawner.make(() =>
+    Effect.succeed(
+      ChildProcessSpawner.makeHandle({
+        all: Stream.empty,
+        exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+        getInputFd: () => Sink.drain,
+        getOutputFd: () => Stream.empty,
+        isRunning: Effect.succeed(false),
+        kill: () => Effect.void,
+        pid: ChildProcessSpawner.ProcessId(1),
+        stderr: Stream.empty,
+        stdin: Sink.drain,
+        stdout: Stream.empty,
+        unref: Effect.succeed(Effect.void),
+      }),
+    ),
+  ),
+);
+
+/** In-memory FileSystem + Path + OS (+ chmod-ok spawner) for ao-home tests. */
+export const mapFsTestServices = (
+  store: Map<string, MapFsEntry>,
+): Layer.Layer<ChildProcessSpawner.ChildProcessSpawner | FileSystem | OS | Path> => {
   const osLayer = Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => DEFAULT_HOMEDIR,
     env: () => ({}),
     homedir: () => DEFAULT_HOMEDIR,
     platform: () => 'linux',
   });
-  return Layer.mergeAll(posixPathLayer, mapFsLayer(store)).pipe(Layer.provideMerge(osLayer));
+  return Layer.mergeAll(posixPathLayer, mapFsLayer(store), chmodOkSpawnerLayer).pipe(Layer.provideMerge(osLayer));
 };

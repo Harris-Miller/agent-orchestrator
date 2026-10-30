@@ -1,9 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
+import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
@@ -21,6 +22,7 @@ const SETTINGS = `${HOME}/settings.json`;
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
 
 const osLayer = Layer.succeed(OS, {
+  arch: () => 'arm64',
   cwd: () => HOMEDIR,
   env: () => ({}),
   homedir: () => HOMEDIR,
@@ -38,6 +40,10 @@ const clipboardLayer = Layer.succeed(Clipboard, {
 
 const fileDialogLayer = Layer.succeed(FileDialog, {
   pickFiles: () => Effect.succeed([]),
+});
+
+const openUrlLayer = Layer.succeed(OpenUrl, {
+  open: () => Effect.void,
 });
 
 const notFound = (method: string, path: string) =>
@@ -89,10 +95,12 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     bundledResourceLayer,
     clipboardLayer,
     fileDialogLayer,
+    openUrlLayer,
     osLayer,
     mapFsLayer(store, overrides),
     posixPathLayer,
     mockSpawnerLayer,
+    FetchHttpClient.layer,
   );
 
 const awaitSettled = <A, E>(

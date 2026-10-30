@@ -31,6 +31,7 @@ const SESSION_USAGE = `${SESSION_DIR}/usage.json`;
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
 
 const osLayer = Layer.succeed(OS, {
+  arch: () => 'arm64',
   cwd: () => HOMEDIR,
   env: () => ({}),
   homedir: () => HOMEDIR,

@@ -599,7 +599,7 @@ export const SessionChatBody: FC<{
         {selectedLaunchTarget === 'antigravity-acp' && backendSnapshot !== undefined ? (
           <Box sx={{ mb: 1 }}>
             <AntigravitySignInControls
-              authUrl={backendSnapshot.authUrl}
+              antigravityAuthUrl={backendSnapshot.antigravityAuthUrl}
               error={backendSnapshot.error}
               phase={backendSnapshot.phase}
             />

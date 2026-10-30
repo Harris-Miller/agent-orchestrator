@@ -42,7 +42,7 @@ export const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unk
 /** Drain stderr for the auth-URL marker; open the first URL via Host OpenUrl. */
 export const consumeAntigravityAuthStderr = Effect.fn('consumeAntigravityAuthStderr')(function* (
   stderr: Stream.Stream<Uint8Array, unknown>,
-  onAuthUrl: ((url: string) => void) | undefined,
+  onAntigravityAuthUrl: ((url: string) => void) | undefined,
 ) {
   const openUrl = yield* OpenUrl;
   const opened = { value: false };
@@ -55,7 +55,7 @@ export const consumeAntigravityAuthStderr = Effect.fn('consumeAntigravityAuthStd
         return Effect.void;
       }
       opened.value = true;
-      onAuthUrl?.(url);
+      onAntigravityAuthUrl?.(url);
       return openUrl.open(url).pipe(
         Effect.tapError(error => Effect.logWarning('OpenUrl failed during Antigravity Sign in', error.message)),
         Effect.ignore,

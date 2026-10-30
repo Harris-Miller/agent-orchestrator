@@ -43,7 +43,7 @@ export type RpcWireEntry = {
 };
 
 export type BackendHarnessCallbacks = {
-  readonly onAuthUrl?: (url: string) => void;
+  readonly onAntigravityAuthUrl?: (url: string) => void;
   readonly onConfigOptionIndexClear: () => void;
   readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
   readonly onElicitationCreate: (
@@ -149,7 +149,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       handlers.onPhase('signing-in');
       yield* Effect.logInfo('ACP harness Antigravity Sign in', launchTarget);
       yield* Effect.forkScoped(
-        consumeAntigravityAuthStderr(connection.handle.stderr, handlers.onAuthUrl).pipe(
+        consumeAntigravityAuthStderr(connection.handle.stderr, handlers.onAntigravityAuthUrl).pipe(
           Effect.catchCause(cause => Effect.logWarning('Antigravity stderr auth consumer stopped', cause)),
         ),
       );

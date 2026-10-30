@@ -13,18 +13,18 @@ import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 
 type AntigravitySignInControlsProps = {
-  readonly authUrl?: string;
+  readonly antigravityAuthUrl?: string;
   readonly error?: string;
   readonly phase: AcpBootstrapPhase;
 };
 
 /** Sign in CTA + auth URL for Antigravity when unsigned or mid Sign in. */
-export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ authUrl, error, phase }) => {
+export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ antigravityAuthUrl, error, phase }) => {
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
   const showSignIn = error === ANTIGRAVITY_NOT_SIGNED_IN;
   const signingIn = phase === 'signing-in';
 
-  if (!showSignIn && !signingIn && authUrl === undefined) {
+  if (!showSignIn && !signingIn && antigravityAuthUrl === undefined) {
     return null;
   }
 
@@ -48,7 +48,7 @@ export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ 
           Waiting for Google Sign in. A browser window should open; you can also copy the URL below.
         </Typography>
       ) : null}
-      {authUrl !== undefined ? (
+      {antigravityAuthUrl !== undefined ? (
         <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
           <Typography
             component="span"
@@ -60,11 +60,11 @@ export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ 
             }}
             variant="body2"
           >
-            {authUrl}
+            {antigravityAuthUrl}
           </Typography>
           <Button
             onClick={() => {
-              hostRunPromise(writeTextToClipboard(authUrl)).catch(() => undefined);
+              hostRunPromise(writeTextToClipboard(antigravityAuthUrl)).catch(() => undefined);
             }}
             size="small"
             variant="text"

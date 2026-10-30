@@ -45,10 +45,10 @@ export const createHarnessAtoms = (
         return runBackendHarness(
           launchTarget,
           {
-            onAuthUrl: url => {
+            onAntigravityAuthUrl: url => {
               updateState(current => ({
                 ...current,
-                authUrl: url,
+                antigravityAuthUrl: url,
               }));
             },
             onConfigOptionIndexClear: () => {
@@ -85,7 +85,9 @@ export const createHarnessAtoms = (
             onPhase: (phase, error) => {
               updateState(current => ({
                 ...current,
-                ...(phase === 'ready' || phase === 'error' || phase === 'connecting' ? { authUrl: undefined } : {}),
+                ...(phase === 'ready' || phase === 'error' || phase === 'connecting'
+                  ? { antigravityAuthUrl: undefined }
+                  : {}),
                 error,
                 phase,
               }));

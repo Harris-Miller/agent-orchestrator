@@ -112,7 +112,7 @@ export type UnifiedRosterEntry = {
 
 export type BackendHarnessSnapshot = {
   /** Google OAuth URL captured from Antigravity BROWSER helper during Sign in. */
-  readonly authUrl?: string;
+  readonly antigravityAuthUrl?: string;
   readonly error?: string;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;

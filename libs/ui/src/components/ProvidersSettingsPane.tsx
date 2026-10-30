@@ -73,7 +73,11 @@ export const ProvidersSettingsPane: FC = () => {
                 variant="outlined"
               />
               {entry.launchTarget === 'antigravity-acp' ? (
-                <AntigravitySignInControls authUrl={entry.authUrl} error={entry.error} phase={entry.phase} />
+                <AntigravitySignInControls
+                  antigravityAuthUrl={entry.antigravityAuthUrl}
+                  error={entry.error}
+                  phase={entry.phase}
+                />
               ) : null}
               {errorText !== undefined ? (
                 <Accordion sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}>

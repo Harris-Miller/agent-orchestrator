@@ -3,6 +3,7 @@
  * Live agent handles are registered with sessionRpc; atoms never see them.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
+import { OpenUrl } from '@lib/context-services';
 import { connectAcpAgent } from '@libs/effect-acp';
 import type {
   CreateElicitationRequestBody,
@@ -10,12 +11,13 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect, Exit, Ref } from 'effect';
+import { Effect, Exit, Ref, Schema, Stream } from 'effect';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { airCapability, airMeta } from './airMeta.ts';
+import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
@@ -25,6 +27,14 @@ import type { SessionListScope } from './sessionListScope.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
+/** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
+export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
+  'AntigravitySignInTimedOut',
+  {
+    message: Schema.String,
+  },
+) {}
+
 const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
@@ -32,7 +42,11 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
-const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
+/** User-facing bootstrap error when Antigravity needs Sign in. */
+export const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
+
+const ANTIGRAVITY_SIGN_IN_TIMEOUT = '5 minutes' as const;
+const ANTIGRAVITY_OAUTH_PERSONAL = 'oauth-personal';
 
 const looksLikeAntigravityAuthFailure = (message: string): boolean =>
   /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
@@ -53,6 +67,7 @@ export type RpcWireEntry = {
 };
 
 export type BackendHarnessCallbacks = {
+  readonly onAuthUrl?: (url: string) => void;
   readonly onConfigOptionIndexClear: () => void;
   readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
   readonly onElicitationCreate: (
@@ -73,6 +88,7 @@ export type BackendHarnessCallbacks = {
 };
 
 const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
+const pendingSignInRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 
 const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
   const existing = stoppedRefs.get(launchTarget);
@@ -85,14 +101,54 @@ const getStoppedRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
   return created;
 };
 
+const getPendingSignInRef = (launchTarget: AgentLaunchTarget): Ref.Ref<boolean> => {
+  const existing = pendingSignInRefs.get(launchTarget);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const created = Ref.makeUnsafe(false);
+  pendingSignInRefs.set(launchTarget, created);
+  return created;
+};
+
 export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
   clearConnectedAgent(launchTarget);
   clearPromptSpansForLaunchTarget(launchTarget);
 };
 
+/** Mark Antigravity harness to run Sign in (`authenticate`) on the next bootstrap. */
+export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(function* () {
+  yield* Ref.set(getPendingSignInRef('antigravity-acp'), true);
+});
+
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + Config probe + buffered roster list through ready. Does not hold the connection open. */
+const consumeAntigravityAuthStderr = Effect.fn('consumeAntigravityAuthStderr')(function* (
+  stderr: Stream.Stream<Uint8Array, unknown>,
+  onAuthUrl: ((url: string) => void) | undefined,
+) {
+  const openUrl = yield* OpenUrl;
+  const opened = { value: false };
+  yield* stderr.pipe(
+    Stream.decodeText(),
+    Stream.splitLines,
+    Stream.runForEach(line => {
+      const url = parseAntigravityAuthUrlMarker(line);
+      if (url === undefined || opened.value) {
+        return Effect.void;
+      }
+      opened.value = true;
+      onAuthUrl?.(url);
+      return openUrl.open(url).pipe(
+        Effect.tapError(error => Effect.logWarning('OpenUrl failed during Antigravity Sign in', error.message)),
+        Effect.ignore,
+      );
+    }),
+  );
+});
+
+/** Connect + initialize + optional Sign in + Config probe + buffered roster list through ready. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (
     launchTarget: AgentLaunchTarget,
@@ -142,6 +198,25 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
     yield* Effect.logInfo('ACP harness initialized', launchTarget);
+
+    const pendingSignIn =
+      launchTarget === 'antigravity-acp' && (yield* Ref.getAndSet(getPendingSignInRef(launchTarget), false));
+    if (pendingSignIn) {
+      handlers.onPhase('signing-in');
+      yield* Effect.logInfo('ACP harness Antigravity Sign in', launchTarget);
+      yield* Effect.forkScoped(
+        consumeAntigravityAuthStderr(connection.handle.stderr, handlers.onAuthUrl).pipe(
+          Effect.catchCause(cause => Effect.logWarning('Antigravity stderr auth consumer stopped', cause)),
+        ),
+      );
+      yield* agent.authenticate({ methodId: ANTIGRAVITY_OAUTH_PERSONAL }).pipe(
+        Effect.timeoutOrElse({
+          duration: ANTIGRAVITY_SIGN_IN_TIMEOUT,
+          orElse: () => Effect.fail(new AntigravitySignInTimedOut({ message: 'Antigravity sign-in timed out' })),
+        }),
+      );
+      yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);
+    }
 
     handlers.onPhase('probing');
     handlers.onConfigOptionIndexClear();

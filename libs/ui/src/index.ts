@@ -86,6 +86,7 @@ export * from './host/groupAndSortSessionsForNav.ts';
 export * from './host/handoffDocument.ts';
 export * from './host/harnessStateTransitions.ts';
 export * from './host/noFolderSessionCwd.ts';
+export * from './host/openUrlInHost.ts';
 export * from './host/pendingInteractions.ts';
 export * from './host/promptSpanRegistry.ts';
 export * from './host/resolveFdBinary.ts';

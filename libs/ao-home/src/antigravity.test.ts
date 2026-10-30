@@ -3,9 +3,11 @@ import { Effect } from 'effect';
 import { beforeEach } from 'vitest';
 
 import {
+  ANTIGRAVITY_ACP_BROWSER_HELPER_NAME,
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,
   ANTIGRAVITY_ACP_HARNESS_NAME,
   ANTIGRAVITY_ACP_VERSION,
+  antigravityAcpBrowserHelperPath,
   antigravityAcpExecutablePath,
   antigravityAcpHomeDir,
   antigravityAcpRuntimeDir,
@@ -30,9 +32,11 @@ describe('antigravity ao-home paths', () => {
       const home = yield* antigravityAcpHomeDir();
       const runtime = yield* antigravityAcpRuntimeDir();
       const executable = yield* antigravityAcpExecutablePath();
+      const browserHelper = yield* antigravityAcpBrowserHelperPath();
       assert.strictEqual(home, `${ROOT}/home`);
       assert.strictEqual(runtime, `${ROOT}/runtime/${ANTIGRAVITY_ACP_VERSION}`);
       assert.strictEqual(executable, `${runtime}/${ANTIGRAVITY_ACP_EXECUTABLE_NAME}`);
+      assert.strictEqual(browserHelper, `${ROOT}/${ANTIGRAVITY_ACP_BROWSER_HELPER_NAME}`);
     }).pipe(Effect.provide(mapFsTestServices(store))),
   );
 

@@ -88,6 +88,7 @@ type ExtensionInbound = Extract<
       | 'FsWriteFileString'
       | 'HttpFetch'
       | 'Kill'
+      | 'OpenUrl'
       | 'OsSnapshot'
       | 'Spawn'
       | 'StdinChunk'
@@ -110,6 +111,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'FsWriteFileString',
   'HttpFetch',
   'Kill',
+  'OpenUrl',
   'OsSnapshot',
   'Spawn',
   'StdinChunk',
@@ -268,6 +270,14 @@ export const handleHostIpcMessage = async (args: {
       case 'Kill': {
         tracker.kill(webviewId, message.handleId);
         post(webview, { _tag: 'KillResult', id: message.id });
+        return;
+      }
+      case 'OpenUrl': {
+        const opened = await vscode.env.openExternal(vscode.Uri.parse(message.url));
+        if (!opened) {
+          throw new Error(`openExternal declined: ${message.url}`);
+        }
+        post(webview, { _tag: 'OpenUrlResult', id: message.id });
         return;
       }
       case 'OsSnapshot': {

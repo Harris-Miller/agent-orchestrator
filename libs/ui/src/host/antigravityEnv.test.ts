@@ -3,7 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
 
 describe('buildAntigravitySpawnEnv', () => {
-  it('scrubs ambient Google / AGY / BROWSER keys and does not set BROWSER', () => {
+  it('scrubs ambient Google / AGY / BROWSER keys and sets controlled BROWSER', () => {
     const env = buildAntigravitySpawnEnv({
       baseEnv: {
         AGY_ACP_ENABLE_OAUTH: '1',
@@ -14,12 +14,13 @@ describe('buildAntigravitySpawnEnv', () => {
         HOME: '/home/operator',
         PATH: '/usr/bin',
       },
+      browserHelperPath: '/home/operator/.ao/antigravity-acp/browser-helper',
       geminiHome: '/home/operator/.ao/antigravity-acp/home',
       harnessPath: '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
       platform: 'darwin',
     });
 
-    assert.strictEqual(env.BROWSER, undefined);
+    assert.strictEqual(env.BROWSER, '/home/operator/.ao/antigravity-acp/browser-helper');
     assert.strictEqual(env.GEMINI_API_KEY, undefined);
     assert.strictEqual(env.GOOGLE_API_KEY, undefined);
     assert.strictEqual(env.AGY_ACP_ENABLE_OAUTH, undefined);

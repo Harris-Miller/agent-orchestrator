@@ -33,12 +33,16 @@ Per-session folder `sessions/<id>/` inside the Agent Orchestrator home. Removed 
 _Avoid_: session snapshot, session roster, adapter roster document
 
 **Antigravity ACP home**:
-Credential / profile directory `antigravity-acp/home/` inside the Agent Orchestrator home — value of `GEMINI_HOME` for managed Antigravity ACP. Distinct from the runtime binary tree.
-_Avoid_: runtime dir, adapter roster, Gemini CLI home
+Credential / profile directory `antigravity-acp/home/` inside the Agent Orchestrator home — value of `GEMINI_HOME` for managed Antigravity ACP. Distinct from the runtime binary tree. Credentials here are **not** shared with PATH `agy` / Gemini CLI logins.
+_Avoid_: runtime dir, adapter roster, Gemini CLI home, `agy` login store
 
 **Antigravity ACP runtime**:
 Pinned managed binaries under `antigravity-acp/runtime/<version>/` inside the Agent Orchestrator home (`agy_acp_server.par` + `localharness_external`). Materialize-only in this package; download/verify lives in `@lib/ui` host.
 _Avoid_: adapter resource tree, Vendor CLI, PATH install
+
+**Antigravity BROWSER helper**:
+Capture-only script at `antigravity-acp/browser-helper` under the Agent Orchestrator home — set as controlled `BROWSER` for managed Antigravity ACP; prints an auth URL marker to stderr; does not open a browser (Host OpenUrl does).
+_Avoid_: system browser, Host OpenUrl (when you mean the helper path)
 
 ## Package law
 

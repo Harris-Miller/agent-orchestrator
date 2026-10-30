@@ -16,11 +16,14 @@ import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 
+import { AntigravitySignInControls } from './AntigravitySignInControls.tsx';
+
 const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' | 'warning' => {
   switch (phase) {
     case 'connecting':
     case 'initialized':
     case 'probing':
+    case 'signing-in':
       return 'warning';
     case 'error':
       return 'error';
@@ -69,6 +72,9 @@ export const ProvidersSettingsPane: FC = () => {
                 sx={{ cursor: entry.phase === 'error' ? 'pointer' : 'default' }}
                 variant="outlined"
               />
+              {entry.launchTarget === 'antigravity-acp' ? (
+                <AntigravitySignInControls authUrl={entry.authUrl} error={entry.error} phase={entry.phase} />
+              ) : null}
               {errorText !== undefined ? (
                 <Accordion sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}>
                   <AccordionSummary>

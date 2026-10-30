@@ -10,6 +10,7 @@ import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
 import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
+import { makeOpenUrlLive } from './OpenUrlLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
 import { PathLive } from './PathLive.ts';
 import { IpcClient } from './protocol/ipcClient.ts';
@@ -50,6 +51,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     ConfigProviderLive,
     makeFileDialogLive(client),
     makeFileSystemLive(client),
+    makeOpenUrlLive(client),
     PathLive,
     FetchHttpClient.layer.pipe(Layer.provide(fetchLive)),
   ).pipe(

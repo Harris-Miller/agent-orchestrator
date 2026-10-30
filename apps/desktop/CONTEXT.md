@@ -37,8 +37,16 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
 _Avoid_: Status, connection state
+
+**Sign in**:
+User action that starts Antigravity ACP Google `oauth-personal` (`authenticate` on the wire) from Providers or the session composer when bootstrap reports “Antigravity is not signed in.” Distinct from Vendor CLI `login` and from ACP permission / elicitation URL mode.
+_Avoid_: authenticate (wire-only), login, OAuth elicitation
+
+**Antigravity auth URL**:
+Google OAuth URL captured from the controlled Antigravity `BROWSER` helper stderr marker during Sign in; shown in the UI (copyable) and opened via Host OpenUrl.
+_Avoid_: elicitation URL, redirect URI (when you mean this captured sign-in link)
 
 **Backend harness**:
 A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs `initialize`, Config probe, and buffered `session/list`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.

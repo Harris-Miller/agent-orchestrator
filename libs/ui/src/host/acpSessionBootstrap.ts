@@ -12,7 +12,7 @@ import type { PendingElicitation, PendingPermission } from './pendingInteraction
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
-export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probing' | 'ready';
+export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in';
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';
 
@@ -111,6 +111,8 @@ export type UnifiedRosterEntry = {
 } & NormalizedSessionInfo;
 
 export type BackendHarnessSnapshot = {
+  /** Google OAuth URL captured from Antigravity BROWSER helper during Sign in. */
+  readonly authUrl?: string;
   readonly error?: string;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;

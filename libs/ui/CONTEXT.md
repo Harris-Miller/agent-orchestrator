@@ -21,8 +21,16 @@ A long-running Harness worker for one agent launch target: spawns the ACP Agent 
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
+
+**Sign in**:
+User-gated Antigravity Google account flow (`oauth-personal` / ACP `authenticate`) from Providers or the session composer. Product verb; not Vendor CLI `login`.
+_Avoid_: authenticate (wire), login, OAuth elicitation
+
+**Antigravity auth URL**:
+OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in UI; Host OpenUrl opens it.
+_Avoid_: elicitation URL
 
 **Config option index**:
 Ephemeral per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models.

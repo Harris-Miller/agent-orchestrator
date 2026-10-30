@@ -20,6 +20,9 @@ export const ANTIGRAVITY_ACP_EXECUTABLE_NAME = 'agy_acp_server.par';
 /** Sibling harness binary name for darwin/linux Google releases. */
 export const ANTIGRAVITY_ACP_HARNESS_NAME = 'localharness_external';
 
+/** Capture-only `BROWSER` helper under the Antigravity ACP root (not under home/runtime). */
+export const ANTIGRAVITY_ACP_BROWSER_HELPER_NAME = 'browser-helper';
+
 export const antigravityAcpRootDir = Effect.fn('antigravityAcpRootDir')(function* () {
   const path = yield* Path;
   const home = yield* resolveHome();
@@ -31,6 +34,13 @@ export const antigravityAcpHomeDir = Effect.fn('antigravityAcpHomeDir')(function
   const path = yield* Path;
   const root = yield* antigravityAcpRootDir();
   return path.join(root, 'home');
+});
+
+/** Absolute path for the controlled Antigravity `BROWSER` helper script. */
+export const antigravityAcpBrowserHelperPath = Effect.fn('antigravityAcpBrowserHelperPath')(function* () {
+  const path = yield* Path;
+  const root = yield* antigravityAcpRootDir();
+  return path.join(root, ANTIGRAVITY_ACP_BROWSER_HELPER_NAME);
 });
 
 export const antigravityAcpRuntimeDir = Effect.fn('antigravityAcpRuntimeDir')(function* (

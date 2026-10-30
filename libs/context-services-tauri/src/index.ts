@@ -5,6 +5,7 @@ export { ConfigProviderLive } from './ConfigProviderLive.ts';
 export { FileDialogLive } from './FileDialogLive.ts';
 export { FileSystemLive } from './FileSystemLive.ts';
 export { mapTauriArchToNode, mapTauriPlatformToNode } from './mapTauriPlatform.ts';
+export { OpenUrlLive } from './OpenUrlLive.ts';
 export { OSLive } from './OSLive.ts';
 export { makeWin32Path, PathLive } from './PathLive.ts';
 export { type TauriServices, layer as TauriServicesLive } from './TauriServices.ts';

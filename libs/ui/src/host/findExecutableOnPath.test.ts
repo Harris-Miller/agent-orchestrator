@@ -23,6 +23,8 @@ const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
 const fsLayer = (existing: ReadonlySet<string>) =>
   layerNoop({
     exists: path => Effect.succeed(existing.has(path)),
+    makeDirectory: () => Effect.void,
+    writeFileString: () => Effect.void,
   });
 
 const bundledResourceLayer = Layer.succeed(BundledResource, {
@@ -197,7 +199,8 @@ describe('makeAcpLaunchCommand', () => {
       assert.strictEqual(command.options.extendEnv, false);
       assert.strictEqual(command.options.env?.GEMINI_HOME, '/home/operator/.ao/antigravity-acp/home');
       assert.strictEqual(command.options.env?.AGY_ACP_FORCE_FILE_STORAGE, '1');
-      assert.strictEqual(command.options.env?.BROWSER, undefined);
+      assert.strictEqual(command.options.env?.BROWSER, '/home/operator/.ao/antigravity-acp/browser-helper');
+      assert.strictEqual(command.options.stderr, 'pipe');
     }).pipe(
       Effect.provide(
         adapterServices(

@@ -1,6 +1,6 @@
 /**
  * Controlled spawn env for managed Antigravity ACP — scrub ambient Google / AGY keys.
- * No BROWSER helper this PR (OAuth follow-up #174).
+ * Sets capture-only `BROWSER` helper; Host OpenUrl opens the auth URL (#174).
  */
 
 const removedEnvironmentKeys = new Set([
@@ -30,13 +30,14 @@ const shouldScrubKey = (key: string): boolean => {
 
 export type AntigravitySpawnEnvInput = {
   readonly baseEnv: Readonly<Record<string, string | undefined>>;
+  readonly browserHelperPath: string;
   readonly geminiHome: string;
   readonly harnessPath: string;
   readonly platform: string;
   readonly runtimeTempDirectory?: string;
 };
 
-/** Scrub ambient keys, then set controlled GEMINI_HOME / force-file-storage / harness path. */
+/** Scrub ambient keys, then set controlled GEMINI_HOME / BROWSER / force-file-storage / harness path. */
 export const buildAntigravitySpawnEnv = (input: AntigravitySpawnEnvInput): Record<string, string> => {
   const environment: Record<string, string> = {};
   for (const [key, value] of Object.entries(input.baseEnv)) {
@@ -58,6 +59,7 @@ export const buildAntigravitySpawnEnv = (input: AntigravitySpawnEnvInput): Recor
     ...environment,
     AGY_ACP_FORCE_FILE_STORAGE: '1',
     ANTIGRAVITY_HARNESS_PATH: input.harnessPath,
+    BROWSER: input.browserHelperPath,
     ELECTRON_RUN_AS_NODE: '1',
     GEMINI_HOME: input.geminiHome,
     PYTHONUNBUFFERED: '1',

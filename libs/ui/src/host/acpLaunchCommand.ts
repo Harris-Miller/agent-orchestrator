@@ -9,6 +9,7 @@ import { ChildProcess } from 'effect/process';
 
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import type { AcpAdapterLaunchTarget, AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { ensureAntigravityBrowserHelper } from './antigravityBrowserHelper.ts';
 import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
 import { ensureAntigravityAcpInstalled } from './antigravityInstall.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
@@ -19,6 +20,11 @@ const pipedSpawnOptions = {
   stderr: 'inherit' as const,
   stdin: 'pipe' as const,
   stdout: 'pipe' as const,
+};
+
+const antigravitySpawnOptions = {
+  ...pipedSpawnOptions,
+  stderr: 'pipe' as const,
 };
 
 /** Root CLI auth flags before `acp` — docs: `agent --api-key "$CURSOR_API_KEY" acp`. */
@@ -84,17 +90,19 @@ const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* (
 
 const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () {
   yield* ensureAntigravityAcpInstalled();
+  const browserHelperPath = yield* ensureAntigravityBrowserHelper();
   const os = yield* OS;
   const geminiHome = yield* antigravityAcpHomeDir();
   const harnessPath = yield* antigravityAcpHarnessPath();
   const env = buildAntigravitySpawnEnv({
     baseEnv: os.env(),
+    browserHelperPath,
     geminiHome,
     harnessPath,
     platform: os.platform(),
   });
   return ChildProcess.make(ANTIGRAVITY_ACP_SPAWN_NAME, [...antigravityLinuxArgs(os.platform())], {
-    ...pipedSpawnOptions,
+    ...antigravitySpawnOptions,
     env,
     extendEnv: false,
   });

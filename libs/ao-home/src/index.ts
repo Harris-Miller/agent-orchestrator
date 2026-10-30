@@ -15,10 +15,12 @@ export {
   emptyAdapterRoster,
 } from './AdapterRosterDocument.ts';
 export {
+  ANTIGRAVITY_ACP_BROWSER_HELPER_NAME,
   ANTIGRAVITY_ACP_EXECUTABLE_NAME,
   ANTIGRAVITY_ACP_HARNESS_NAME,
   ANTIGRAVITY_ACP_SPAWN_NAME,
   ANTIGRAVITY_ACP_VERSION,
+  antigravityAcpBrowserHelperPath,
   antigravityAcpExecutablePath,
   antigravityAcpHarnessPath,
   antigravityAcpHomeDir,

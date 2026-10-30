@@ -21,6 +21,7 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
+import { useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
@@ -144,8 +145,15 @@ type TranscriptChipProps = {
 
 const TranscriptChip: FC<TranscriptChipProps> = props => {
   const { copyText, testId } = props;
+  const linkProps = useChatLinkProps(props.kind === 'markdownLink' ? (props.href ?? '') : '');
   return (
-    <Box component="span" data-copy-text={copyText} data-testid={testId} sx={{ display: 'inline' }}>
+    <Box
+      component="span"
+      data-copy-text={copyText}
+      data-testid={testId}
+      sx={{ display: 'inline', ...(linkProps && { cursor: 'pointer' }) }}
+      {...linkProps}
+    >
       {props.kind === 'command' ? (
         <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
       ) : (

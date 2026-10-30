@@ -6,6 +6,7 @@ import {
   OpenDeveloperPanelButton,
   refreshAllSessionRostersAtomFn,
   selectedSessionIdAtom,
+  sessionCwdAtom,
   sessionListScopeAtom,
   SessionRosterRow,
   sessionsForCwd,
@@ -24,7 +25,6 @@ import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
-import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
 export const SessionHistory: FC = () => {
   const roster = useAtomValue(unifiedSessionRosterAtom);

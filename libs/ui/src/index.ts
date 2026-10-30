@@ -31,9 +31,10 @@ export {
   rwFromRegistry,
   teardownVirtualAcpBind,
 } from './atoms/virtualBind.ts';
+export { sessionCwdAtom, workspaceFolderPathsAtom } from './atoms/workspaceFolderPaths.atoms.ts';
+export { bootWorkspaceFolders, handleWorkspaceFoldersChanged } from './atoms/workspaceFolders.ts';
 export {
   applyVirtualSessionFolderChurn,
-  applyVirtualSessionFolderChurnEffect,
   clearSelectedEffect,
   createVirtualSessionAtoms,
   discardVirtualSession,

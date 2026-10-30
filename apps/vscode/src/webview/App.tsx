@@ -1,14 +1,12 @@
-import { RegistryContext, RegistryProvider, useAtomSet } from '@effect/atom-react';
+import { RegistryContext, RegistryProvider } from '@effect/atom-react';
 import { onWorkspaceFoldersChanged, requestWorkspaceFolders } from '@lib/context-services-vscode-webview';
 import {
   AcpBackendsMount,
   AppThemeProvider,
-  cancelPromptAtomFn,
-  deactivateSessionAtomFn,
-  ensureVirtualSessionAtomFn,
+  bootWorkspaceFolders,
   FdPrerequisiteGate,
+  handleWorkspaceFoldersChanged,
   PersistUserSettingsToast,
-  refreshAllSessionRostersAtomFn,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -20,32 +18,15 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import type { AsyncResult, Atom } from 'effect/reactivity';
-import { AtomRegistry } from 'effect/reactivity';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { hostIpcClient } from './bindHostRuntime.ts';
 import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
-import { firstFolderPath } from './sessionsMatchingSessionCwd.ts';
-import { applyWorkspaceFolderPaths, handleWorkspaceFoldersChanged } from './workspaceFoldersChurn.ts';
-
-const runAtomFn = <A, E, W>(
-  registry: AtomRegistry.AtomRegistry,
-  atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
-  arg: W,
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    registry.set(atom, arg);
-    return yield* AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true });
-  });
 
 const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
-  useAtomSet(cancelPromptAtomFn);
-  useAtomSet(deactivateSessionAtomFn);
-  useAtomSet(refreshAllSessionRostersAtomFn);
   const [foldersReady, setFoldersReady] = useState(false);
   const [clientError, setClientError] = useState<null | string>(null);
 
@@ -56,12 +37,7 @@ const WorkspaceFoldersGate: FC = () => {
     Effect.runFork(
       Effect.gen(function* () {
         const paths = yield* requestWorkspaceFolders(hostIpcClient);
-        applyWorkspaceFolderPaths(registry, paths);
-        const bootCwd = firstFolderPath(paths);
-        if (bootCwd !== undefined) {
-          // AtomFn path rebinds when Ready already fired (sync ensure alone would miss Bind).
-          yield* runAtomFn(registry, ensureVirtualSessionAtomFn, { cwd: bootCwd }).pipe(Effect.ignore);
-        }
+        yield* bootWorkspaceFolders(registry, paths);
       }).pipe(
         Effect.tap(() =>
           Effect.sync(() => {

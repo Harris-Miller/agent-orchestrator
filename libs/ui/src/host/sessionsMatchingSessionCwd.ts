@@ -1,6 +1,6 @@
-import { resolveSessionCwd } from '@lib/ui/acp-session-bootstrap';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '@lib/ui/agent-launch-target';
-import type { AgentLaunchTarget } from '@lib/ui/agent-launch-target';
+import { resolveSessionCwd } from './acpSessionBootstrap.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from './agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
 type SessionLike = {
   readonly cwd?: string;

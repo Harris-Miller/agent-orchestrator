@@ -1,33 +1,24 @@
+import { Effect } from 'effect';
+import type { AtomRegistry } from 'effect/reactivity';
+
+import { stripSessionPendings } from '../host/harnessStateTransitions.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { firstFolderPath, sessionsMatchingSessionCwd } from '../host/sessionsMatchingSessionCwd.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
+import { backendHarnessStateAtom, selectedAtom } from './backendState.atoms.ts';
 import {
-  applyVirtualSessionFolderChurnEffect,
-  backendHarnessStateAtom,
   cancelPromptAtomFn,
   deactivateSessionAtomFn,
-  MOUNTED_AGENT_LAUNCH_TARGETS,
+  ensureVirtualSessionAtomFn,
   refreshAllSessionRostersAtomFn,
-  rwFromRegistry,
-  selectedAtom,
-  sessionListScopeAtom,
-  sessionListScopeFromPaths,
-  stripSessionPendings,
-} from '@lib/ui';
-import type { AgentLaunchTarget, BackendHarnessSnapshot } from '@lib/ui';
-import { Effect } from 'effect';
-import type { AsyncResult, Atom } from 'effect/reactivity';
-import { AtomRegistry } from 'effect/reactivity';
-
-import { firstFolderPath, sessionsMatchingSessionCwd } from './sessionsMatchingSessionCwd.ts';
+} from './boundHarnessAtoms.ts';
+import { runAtomFn } from './runAtomFn.ts';
+import { rwFromRegistry } from './virtualBind.ts';
+import { applyVirtualSessionFolderChurnEffect } from './virtualSession.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
-
-const runAtomFn = <A, E, W>(
-  registry: AtomRegistry.AtomRegistry,
-  atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
-  arg: W,
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    registry.set(atom, arg);
-    return yield* AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true });
-  });
 
 const stripPendingOnMatched = (
   registry: AtomRegistry.AtomRegistry,
@@ -57,15 +48,30 @@ const clearSelectedIfMatched = (
 const anyBackendReady = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
   MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => getSnapshot(launchTarget).phase === 'ready');
 
-/** Apply folder paths + list scope (boot and non-first-path churn). */
-export const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {
+const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {
   registry.set(workspaceFolderPathsAtom, paths);
   registry.set(sessionListScopeAtom, sessionListScopeFromPaths(paths));
 };
 
+/** Apply the initial folder paths and ensure the Virtual session for the first folder. */
+export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* (
+  registry: AtomRegistry.AtomRegistry,
+  paths: readonly string[],
+) {
+  applyWorkspaceFolderPaths(registry, paths);
+  const cwd = firstFolderPath(paths);
+  if (cwd !== undefined) {
+    // AtomFn path rebinds when Ready already fired; sync ensure alone can miss Bind.
+    yield* runAtomFn(registry, ensureVirtualSessionAtomFn, { cwd }).pipe(Effect.ignore);
+  }
+});
+
 /**
- * Handle WorkspaceFoldersChanged after first Result applied.
- * Non-first path churn → paths only. First-path change → ready teardown or not-ready soft path.
+ * Handle a Workspace folders change after the first Result was applied.
+ * - Same first folder: store paths only.
+ * - First folder changed, no ready backend: apply paths and re-point Virtual.
+ * - First folder changed, a backend ready: cancel prompts and deactivate sessions on the previous cwd,
+ *   strip pendings, clear Selected, apply paths, re-point Virtual, refresh rosters.
  */
 export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersChanged')(function* (
   registry: AtomRegistry.AtomRegistry,
@@ -81,15 +87,13 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   }
 
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessStateAtom(launchTarget));
-
   if (!anyBackendReady(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
     yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
     return;
   }
 
-  const matches = sessionsMatchingSessionCwd(lt => getSnapshot(lt), previousSessionCwd);
-
+  const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd);
   for (const match of matches) {
     if (match.pendingClientRequest === 'prompt') {
       yield* runAtomFn(registry, cancelPromptAtomFn, {
@@ -98,7 +102,6 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
       }).pipe(Effect.ignore);
     }
   }
-
   for (const match of matches) {
     yield* runAtomFn(registry, deactivateSessionAtomFn, {
       launchTarget: match.launchTarget,
@@ -110,6 +113,5 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
   yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
-
   yield* runAtomFn(registry, refreshAllSessionRostersAtomFn, undefined).pipe(Effect.ignore);
 });

@@ -12,6 +12,7 @@ import {
   selectedSessionLaunchTargetAtom,
   SessionChatBody,
   sessionChatTitle,
+  sessionCwdAtom,
   sessionListScopeAtom,
   unifiedSessionRosterAtom,
   virtualLifecycleInFlightAtom,
@@ -28,7 +29,6 @@ import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
-import { sessionCwdAtom } from './workspaceFolderPaths.atoms.ts';
 
 /**
  * Chat chrome for Virtual or Selected Session. Parent mounts when Selected is set;

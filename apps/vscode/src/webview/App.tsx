@@ -5,9 +5,9 @@ import {
   AppThemeProvider,
   bootWorkspaceFolders,
   FdPrerequisiteGate,
+  handleWorkspaceFoldersChanged,
   PersistUserSettingsToast,
   UserSettingsMount,
-  workspaceFoldersChanged,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -47,7 +47,7 @@ const WorkspaceFoldersGate: FC = () => {
             setFoldersReady(true);
             disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextPaths => {
               Effect.runFork(
-                workspaceFoldersChanged(registry, nextPaths).pipe(
+                handleWorkspaceFoldersChanged(registry, nextPaths).pipe(
                   Effect.catchCause(cause => Effect.logWarning('workspace folders churn failed', cause)),
                 ),
               );

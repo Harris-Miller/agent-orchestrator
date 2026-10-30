@@ -1,36 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
-import { layerNoop } from 'effect/FileSystem';
-import { FetchHttpClient } from 'effect/http';
-import { layer as posixPathLayer } from 'effect/Path';
-import { ChildProcessSpawner } from 'effect/process';
+import { Effect } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 import { bindHostRuntime } from '../hostRuntime.ts';
 
-const mockHostLayer = Layer.mergeAll(
-  Layer.succeed(BundledResource, { resolve: resourcePath => Effect.succeed(`/resources/${resourcePath}`) }),
-  Layer.succeed(Clipboard, { readText: () => Effect.succeed(''), writeText: () => Effect.void }),
-  Layer.succeed(FileDialog, { pickFiles: () => Effect.succeed([]) }),
-  Layer.succeed(OpenUrl, { open: () => Effect.void }),
-  Layer.succeed(OS, {
-    arch: () => 'arm64',
-    cwd: () => '/home/operator',
-    env: () => ({}),
-    homedir: () => '/home/operator',
-    platform: () => 'linux',
-  }),
-  layerNoop({}),
-  posixPathLayer,
-  Layer.succeed(
-    ChildProcessSpawner.ChildProcessSpawner,
-    ChildProcessSpawner.make(() => Effect.die('unused')),
-  ),
-  FetchHttpClient.layer,
-);
+import { mockHostLayer } from './mockHostLayer.testing.ts';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
@@ -46,7 +22,7 @@ const [
   import('./workspaceFolders.ts'),
 ]);
 
-const { bootWorkspaceFolders, workspaceFoldersChanged } = workspaceFolders;
+const { bootWorkspaceFolders, handleWorkspaceFoldersChanged } = workspaceFolders;
 
 describe('workspace folder policy', () => {
   it.effect('boot stores folder paths and derived list scope', () =>
@@ -77,7 +53,7 @@ describe('workspace folder policy', () => {
         },
       });
 
-      yield* workspaceFoldersChanged(registry, ['/workspace', '/new']);
+      yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']);
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
       assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions.session.status, 'active');
@@ -91,7 +67,7 @@ describe('workspace folder policy', () => {
       registry.set(workspaceFolderPathsAtom, ['/workspace']);
       registry.set(selectedAtom, { _tag: 'Virtual' });
 
-      yield* workspaceFoldersChanged(registry, []);
+      yield* handleWorkspaceFoldersChanged(registry, []);
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), []);
       assert.isUndefined(registry.get(selectedAtom));

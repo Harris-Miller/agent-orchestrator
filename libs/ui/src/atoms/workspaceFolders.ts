@@ -3,7 +3,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 
 import { stripSessionPendings } from '../host/harnessStateTransitions.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { sessionsMatchingSessionCwd } from '../host/sessionsMatchingSessionCwd.ts';
+import { firstFolderPath, sessionsMatchingSessionCwd } from '../host/sessionsMatchingSessionCwd.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
@@ -14,12 +14,11 @@ import {
   ensureVirtualSessionAtomFn,
   refreshAllSessionRostersAtomFn,
 } from './boundHarnessAtoms.ts';
-import { runAtomFn, rwFromRegistry } from './virtualBind.ts';
+import { runAtomFn } from './runAtomFn.ts';
+import { rwFromRegistry } from './virtualBind.ts';
 import { applyVirtualSessionFolderChurnEffect } from './virtualSession.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
-
-const firstFolderPath = (paths: readonly string[]): string | undefined => paths[0];
 
 const stripPendingOnMatched = (
   registry: AtomRegistry.AtomRegistry,
@@ -54,6 +53,7 @@ const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: r
   registry.set(sessionListScopeAtom, sessionListScopeFromPaths(paths));
 };
 
+/** Apply the initial folder paths and ensure the Virtual session for the first folder. */
 export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* (
   registry: AtomRegistry.AtomRegistry,
   paths: readonly string[],
@@ -66,7 +66,14 @@ export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* 
   }
 });
 
-export const workspaceFoldersChanged = Effect.fn('workspaceFoldersChanged')(function* (
+/**
+ * Handle a Workspace folders change after the first Result was applied.
+ * - Same first folder: store paths only.
+ * - First folder changed, no ready backend: apply paths and re-point Virtual.
+ * - First folder changed, a backend ready: cancel prompts and deactivate sessions on the previous cwd,
+ *   strip pendings, clear Selected, apply paths, re-point Virtual, refresh rosters.
+ */
+export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersChanged')(function* (
   registry: AtomRegistry.AtomRegistry,
   nextPaths: readonly string[],
 ) {

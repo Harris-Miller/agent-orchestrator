@@ -1,6 +1,6 @@
 /** Virtual ACP Bind lifecycle: teardown, ensure Bind, mutate-then-rebind. */
 import { Effect, Exit } from 'effect';
-import type { AsyncResult, Atom } from 'effect/reactivity';
+import type { Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
 import type { NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
@@ -20,16 +20,6 @@ export type AtomRw = {
   readonly get: <A>(atom: Atom.Atom<A>) => A;
   readonly set: <R, W>(atom: Atom.Writable<R, W>, value: W) => void;
 };
-
-export const runAtomFn = <A, E, W>(
-  registry: AtomRegistry.AtomRegistry,
-  atom: Atom.Writable<AsyncResult.AsyncResult<A, E>, W>,
-  arg: W,
-): Effect.Effect<A, E> =>
-  Effect.gen(function* () {
-    registry.set(atom, arg);
-    return yield* AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true });
-  });
 
 /** `@` FS listing preload after Bind. */
 export type RefreshSessionFsListing = (arg: {

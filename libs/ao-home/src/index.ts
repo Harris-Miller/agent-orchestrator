@@ -14,7 +14,8 @@ export {
   AdapterHistoryEntrySchema,
   emptyAdapterHistory,
 } from './AdapterHistoryDocument.ts';
-export { harnessDirPath, readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
+export { harnessDirPath } from './harnessFiles.ts';
+export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
 export {
   emptySessionIndex,
   SessionIndexDocumentJsonString,

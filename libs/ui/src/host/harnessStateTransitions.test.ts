@@ -8,29 +8,29 @@ import {
   endClientRequest,
   markHistoryUnavailable,
   markSessionInactive,
-  reconcileHistory,
+  mergeListedHistory,
   replaceSessionHistory,
   stripSessionPendings,
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
 
-describe('reconcileHistory', () => {
+describe('mergeListedHistory', () => {
   const current = [
     { cwd: '/a', sessionId: 'a' },
     { cwd: '/b', sessionId: 'b' },
   ];
   it('replaces unscoped results, including empty results', () => {
-    assert.deepStrictEqual(reconcileHistory(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
+    assert.deepStrictEqual(mergeListedHistory(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
       { cwd: '/c', sessionId: 'c' },
     ]);
-    assert.deepStrictEqual(reconcileHistory(current, [], { _tag: 'Unscoped' }), []);
+    assert.deepStrictEqual(mergeListedHistory(current, [], { _tag: 'Unscoped' }), []);
   });
   it('replaces only matching cwd and preserves Skip', () => {
-    assert.deepStrictEqual(reconcileHistory(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
+    assert.deepStrictEqual(mergeListedHistory(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
       { cwd: '/b', sessionId: 'b' },
       { cwd: '/a', sessionId: 'c' },
     ]);
-    assert.deepStrictEqual(reconcileHistory(current, [], { _tag: 'Skip' }), current);
+    assert.deepStrictEqual(mergeListedHistory(current, [], { _tag: 'Skip' }), current);
   });
   it('marks hydrated entries unavailable', () => {
     assert.deepStrictEqual(

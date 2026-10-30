@@ -1,6 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { hardResetForAgent, reconcileConfigValues, sanitizeConfigValuesForIndex } from './configOptionIndexUi.ts';
+import {
+  hardResetForAgent,
+  resetUnsupportedConfigValues,
+  sanitizeConfigValuesForIndex,
+} from './configOptionIndexUi.ts';
 import { configOptionIndexFromProbeResponses } from './configProbe.ts';
 
 describe('sanitizeConfigValuesForIndex', () => {
@@ -41,7 +45,7 @@ describe('hardResetForAgent', () => {
   });
 });
 
-describe('reconcileConfigValues', () => {
+describe('resetUnsupportedConfigValues', () => {
   const index = configOptionIndexFromProbeResponses('sonnet', {
     sonnet: {
       configOptions: [
@@ -63,11 +67,11 @@ describe('reconcileConfigValues', () => {
     },
   });
   it('resets removed models and invalid choices, preserving valid values and dropping removed ids', () => {
-    assert.deepStrictEqual(reconcileConfigValues(index, { model: 'gone', mode: 'custom' }), {
+    assert.deepStrictEqual(resetUnsupportedConfigValues(index, { model: 'gone', mode: 'custom' }), {
       model: 'sonnet',
       mode: 'default',
     });
-    assert.deepStrictEqual(reconcileConfigValues(index, { model: 'sonnet', mode: 'default', removed: 'x' }), {
+    assert.deepStrictEqual(resetUnsupportedConfigValues(index, { model: 'sonnet', mode: 'default', removed: 'x' }), {
       model: 'sonnet',
       mode: 'default',
     });

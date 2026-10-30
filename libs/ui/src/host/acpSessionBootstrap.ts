@@ -107,8 +107,10 @@ export type NormalizedSessionInfo = {
   readonly sessionId: string;
   readonly title?: string;
   readonly updatedAt?: string;
-  readonly unavailable?: true;
 };
+
+/** Cached `session/list` row; `unavailable` until its provider confirms it with a successful list. */
+export type HistoryEntry = NormalizedSessionInfo & { readonly unavailable?: true };
 
 export type UnifiedHistoryEntry = {
   readonly launchTarget: AgentLaunchTarget;
@@ -121,7 +123,7 @@ export type BackendHarnessSnapshot = {
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];
-  readonly sessionHistory: readonly NormalizedSessionInfo[];
+  readonly sessionHistory: readonly HistoryEntry[];
   readonly sessions: Readonly<Record<string, SessionSnapshot>>;
 };
 
@@ -239,7 +241,6 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
     sessionId: entry.sessionId,
     title: typeof entry.title === 'string' ? entry.title : undefined,
     updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
-    unavailable: undefined,
   };
 };
 
@@ -254,7 +255,6 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,
     updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : new Date(Date.now()).toISOString(),
-    unavailable: undefined,
   };
 };
 

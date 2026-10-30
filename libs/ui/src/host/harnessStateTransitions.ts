@@ -1,6 +1,7 @@
 /** Pure Harness state transitions over BackendHarnessSnapshot. */
 import type {
   BackendHarnessSnapshot,
+  HistoryEntry,
   NormalizedSessionInfo,
   PendingClientRequestKind,
   SessionSnapshot,
@@ -9,14 +10,14 @@ import { upsertHistoryEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
-export const markHistoryUnavailable = (history: readonly NormalizedSessionInfo[]): readonly NormalizedSessionInfo[] =>
+export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
 
-export const reconcileHistory = (
-  current: readonly NormalizedSessionInfo[],
+export const mergeListedHistory = (
+  current: readonly HistoryEntry[],
   listed: readonly NormalizedSessionInfo[],
   scope: SessionListScope,
-): readonly NormalizedSessionInfo[] => {
+): readonly HistoryEntry[] => {
   if (scope._tag === 'Unscoped') return listed;
   if (scope._tag === 'Skip') return current;
   const ids = new Set(listed.map(entry => entry.sessionId));

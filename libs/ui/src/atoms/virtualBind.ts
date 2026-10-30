@@ -3,9 +3,11 @@ import { Effect, Exit } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
-import type { NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
+import { normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import type { HistoryEntry, NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { dropSession, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { dropSession, mergeListedHistory, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import type { SessionListScope } from '../host/sessionListScope.ts';
 import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
@@ -60,6 +62,19 @@ export const excludeBoundVirtualFromHistory = (
   boundSessionId: string | undefined,
 ): readonly NormalizedSessionInfo[] =>
   boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
+
+/** Next history after a successful `session/list`: normalize, hide Bound Virtual, merge by scope. */
+export const historyAfterList = (
+  current: readonly HistoryEntry[],
+  listResult: unknown,
+  scope: SessionListScope,
+  boundSessionId: string | undefined,
+): readonly HistoryEntry[] =>
+  mergeListedHistory(
+    current,
+    excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
+    scope,
+  );
 
 /** ACP v1 cwd must be absolute; no post-create cwd mutator (teardown + Bind on change). */
 const isAbsoluteCwd = (cwd: string): boolean =>

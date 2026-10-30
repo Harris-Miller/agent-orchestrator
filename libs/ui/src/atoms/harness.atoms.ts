@@ -5,12 +5,13 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { initialBackendHarnessSnapshot, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
-import { reconcileConfigValues } from '../host/configOptionIndexUi.ts';
-import { markHistoryUnavailable, reconcileHistory } from '../host/harnessStateTransitions.ts';
+import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
+import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
 import {
   requestAntigravitySignIn,
   resetBackendHarnessState,
@@ -22,12 +23,7 @@ import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 import { backendHarnessStateAtom, clearSelectedSessionIfMissing, configOptionIndexAtom } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import {
-  ensureVirtualAcpBound,
-  excludeBoundVirtualFromHistory,
-  refreshFsListingViaRegistry,
-  rwFromRegistry,
-} from './virtualBind.ts';
+import { ensureVirtualAcpBound, historyAfterList, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
@@ -45,6 +41,23 @@ export const createHarnessAtoms = (
           get.registry.update(backendHarnessStateAtom(launchTarget), patch);
         };
 
+        const resetVirtualConfig = (index: ConfigOptionIndex) => {
+          const virtual = get.registry.get(virtualSessionAtom);
+          if (virtual?.launchTarget !== launchTarget) return;
+          get.registry.set(virtualSessionAtom, {
+            ...virtual,
+            configValues: resetUnsupportedConfigValues(index, virtual.configValues),
+          });
+        };
+
+        const persistConfigOptionIndex = (index: ConfigOptionIndex) => {
+          hostRunFork(
+            writeConfigOptionIndexCache(launchTarget as LaunchTarget, index).pipe(
+              Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
+            ),
+          );
+        };
+
         return runBackendHarness(
           launchTarget,
           {
@@ -56,20 +69,8 @@ export const createHarnessAtoms = (
             },
             onConfigOptionIndexPublish: index => {
               get.registry.set(configOptionIndexAtom(launchTarget), index);
-              const virtual = get.registry.get(virtualSessionAtom);
-              if (virtual?.launchTarget === launchTarget) {
-                get.registry.set(virtualSessionAtom, {
-                  ...virtual,
-                  configValues: reconcileConfigValues(index, virtual.configValues),
-                });
-              }
-              hostRunFork(
-                writeConfigOptionIndexCache(launchTarget as LaunchTarget, index).pipe(
-                  Effect.catchCause(cause =>
-                    Effect.logWarning('config option index persist failed', launchTarget, cause),
-                  ),
-                ),
-              );
+              resetVirtualConfig(index);
+              persistConfigOptionIndex(index);
             },
             onElicitationCreate: (sessionId, request, resolve) => {
               updateState(current => ({
@@ -136,11 +137,7 @@ export const createHarnessAtoms = (
               const boundSessionId = get.registry.get(virtualSessionAtom)?.sessionId;
               updateState(current => ({
                 ...current,
-                sessionHistory: reconcileHistory(
-                  current.sessionHistory,
-                  excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
-                  scope,
-                ),
+                sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
               }));
             },
             onSessionUpdate: (sessionId, update) => {

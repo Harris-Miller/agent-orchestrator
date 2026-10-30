@@ -59,7 +59,7 @@ export const sanitizeConfigValuesForIndex = (
   return preserveConfigValuesOnModelChange({ ...values, model: effectiveModel }, row);
 };
 
-export const reconcileConfigValues = (
+export const resetUnsupportedConfigValues = (
   index: ConfigOptionIndex | undefined,
   values: ConfigOptionValues,
 ): ConfigOptionValues => {

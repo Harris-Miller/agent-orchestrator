@@ -26,7 +26,7 @@ describe('groupAndSortSessionsForNav', () => {
       },
       {
         cwd: '/Users/me/Projects/app',
-        launchTarget: 'gemini-acp',
+        launchTarget: 'antigravity-acp',
         sessionId: 'proj',
         updatedAt: '2024-01-01T00:00:00.000Z',
       },
@@ -51,7 +51,7 @@ describe('groupAndSortSessionsForNav', () => {
   it('keeps normal cwd grouping and does not create empty No Folder', () => {
     const roster: readonly UnifiedRosterEntry[] = [
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
-      { cwd: '/old', launchTarget: 'gemini-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
     ];
 
     const groups = groupAndSortSessionsForNav(roster);
@@ -98,7 +98,7 @@ describe('groupAndSortSessionsForNav', () => {
       },
       {
         cwd: 'C:\\Users\\me\\src\\app',
-        launchTarget: 'gemini-acp',
+        launchTarget: 'antigravity-acp',
         sessionId: 'app',
         updatedAt: '2024-03-01T00:00:00.000Z',
       },

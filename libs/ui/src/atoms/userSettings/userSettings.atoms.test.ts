@@ -4,6 +4,7 @@ import type { UserSettings } from '@lib/ao-home';
 import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
@@ -21,6 +22,7 @@ const SETTINGS = `${HOME}/settings.json`;
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
 
 const osLayer = Layer.succeed(OS, {
+  arch: () => 'arm64',
   cwd: () => HOMEDIR,
   env: () => ({}),
   homedir: () => HOMEDIR,
@@ -93,6 +95,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     mapFsLayer(store, overrides),
     posixPathLayer,
     mockSpawnerLayer,
+    FetchHttpClient.layer,
   );
 
 const awaitSettled = <A, E>(

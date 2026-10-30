@@ -84,6 +84,7 @@ vi.mock('@tauri-apps/plugin-shell', () => {
 
 describe('ChildProcessSpawnerLive', () => {
   const OsTest = Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => '/tmp',
     env: () => ({ CURSOR_API_KEY: 'test-key', PATH: '/usr/bin' }),
     homedir: () => '/home/operator',

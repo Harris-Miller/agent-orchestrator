@@ -18,14 +18,14 @@ import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
 const HOMEDIR = '/home/operator';
 const HOME = `${HOMEDIR}/.ao`;
-const LAUNCH_TARGET = Schema.decodeSync(LaunchTargetSchema)('gemini-acp');
+const LAUNCH_TARGET = Schema.decodeSync(LaunchTargetSchema)('antigravity-acp');
 const ADAPTER_DIR = `${HOME}/adapters/${LAUNCH_TARGET}`;
 const ROSTER = `${ADAPTER_DIR}/roster.json`;
 const LOCK = `${ADAPTER_DIR}/roster.lock`;
 
 describe('LaunchTargetSchema', () => {
   it('accepts kebab-case launch targets', () => {
-    assert.strictEqual(Schema.decodeSync(LaunchTargetSchema)('gemini-acp'), 'gemini-acp');
+    assert.strictEqual(Schema.decodeSync(LaunchTargetSchema)('antigravity-acp'), 'antigravity-acp');
   });
 
   it('rejects non-kebab launch targets', () => {

@@ -1,13 +1,16 @@
 /**
- * Provider ACP launch command: adapter resource entry (`node` + shim) or
- * native Vendor CLI (`cursor-agent acp`).
+ * Provider ACP launch command: adapter resource entry (`node` + shim),
+ * native Vendor CLI (`cursor-agent acp`), or managed Antigravity binary.
  */
+import { ANTIGRAVITY_ACP_SPAWN_NAME, antigravityAcpHarnessPath, antigravityAcpHomeDir } from '@lib/ao-home';
 import { BundledResource, OS } from '@lib/context-services';
 import { Effect } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import type { AcpAdapterLaunchTarget, AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
+import { ensureAntigravityAcpInstalled } from './antigravityInstall.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
@@ -79,6 +82,24 @@ const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* (
   return ChildProcess.make('cursor-agent', [...cursorAcpArgs(os.env())], pipedSpawnOptions);
 });
 
+const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () {
+  yield* ensureAntigravityAcpInstalled();
+  const os = yield* OS;
+  const geminiHome = yield* antigravityAcpHomeDir();
+  const harnessPath = yield* antigravityAcpHarnessPath();
+  const env = buildAntigravitySpawnEnv({
+    baseEnv: os.env(),
+    geminiHome,
+    harnessPath,
+    platform: os.platform(),
+  });
+  return ChildProcess.make(ANTIGRAVITY_ACP_SPAWN_NAME, [...antigravityLinuxArgs(os.platform())], {
+    ...pipedSpawnOptions,
+    env,
+    extendEnv: false,
+  });
+});
+
 /** Resolve PATH/auth prerequisites and return the ACP spawn command for a launch target. */
 export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
   function* (launchTarget: AgentLaunchTarget) {
@@ -86,6 +107,10 @@ export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
 
     if (launchTarget === 'cursor-acp') {
       return yield* makeCursorNativeCommand();
+    }
+
+    if (launchTarget === 'antigravity-acp') {
+      return yield* makeAntigravityCommand();
     }
 
     yield* requireExecutableOnPath('node');
@@ -99,10 +124,6 @@ export const makeAcpLaunchCommand = Effect.fn('makeAcpLaunchCommand')(
         );
       case 'codex-acp':
         return yield* makeVendorCliAdapterCommand({ envKey: 'CODEX_PATH', executable: 'codex', launchTarget }, entry);
-      case 'gemini-acp': {
-        yield* requireExecutableOnPath('gemini');
-        return ChildProcess.make('node', [entry], pipedSpawnOptions);
-      }
     }
   },
   Effect.annotateLogs({ module: 'acpLaunchCommand' }),

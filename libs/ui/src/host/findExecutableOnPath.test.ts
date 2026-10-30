@@ -3,6 +3,7 @@ import { BundledResource, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
 import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
@@ -12,6 +13,7 @@ import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableO
 
 const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
   Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => '/home/operator',
     env: () => env,
     homedir: () => '/home/operator',
@@ -86,7 +88,8 @@ const adapterServices = (
   env: Readonly<Record<string, string>>,
   existing: ReadonlySet<string>,
   authLayer: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner> = authOkSpawnerLayer,
-) => Layer.mergeAll(pathServices(env, existing), authLayer, bundledResourceLayer);
+  platform = 'linux',
+) => Layer.mergeAll(pathServices(env, existing, platform), authLayer, bundledResourceLayer, FetchHttpClient.layer);
 
 describe('findExecutableOnPath', () => {
   it.effect('returns the first matching PATH entry', () =>
@@ -185,29 +188,38 @@ describe('makeAcpLaunchCommand', () => {
     ),
   );
 
-  it.effect('builds node + gemini-acp entry when node and gemini exist', () =>
+  it.effect('builds agy_acp_server when antigravity runtime is already present', () =>
     Effect.gen(function* () {
-      const command = yield* makeAcpLaunchCommand('gemini-acp');
+      const command = yield* makeAcpLaunchCommand('antigravity-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
-      assert.strictEqual(command.command, 'node');
-      assert.deepStrictEqual(command.args, [
-        '/resources/acp-adapter-resources/node_modules/@lib/gemini-acp/dist/index.js',
-      ]);
-      assert.strictEqual(command.options.env?.CODEX_PATH, undefined);
-      assert.strictEqual(command.options.env?.CLAUDE_CODE_EXECUTABLE, undefined);
+      assert.strictEqual(command.command, 'agy_acp_server');
+      assert.deepStrictEqual(command.args, ['--uid=']);
+      assert.strictEqual(command.options.extendEnv, false);
+      assert.strictEqual(command.options.env?.GEMINI_HOME, '/home/operator/.ao/antigravity-acp/home');
+      assert.strictEqual(command.options.env?.AGY_ACP_FORCE_FILE_STORAGE, '1');
+      assert.strictEqual(command.options.env?.BROWSER, undefined);
     }).pipe(
       Effect.provide(
-        adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/gemini', '/usr/local/bin/node'])),
+        adapterServices(
+          { PATH: '/usr/bin' },
+          new Set([
+            '/home/operator/.ao/antigravity-acp/runtime/1.4.1/agy_acp_server.par',
+            '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
+          ]),
+        ),
       ),
     ),
   );
 
-  it.effect('fails without spawning when gemini is missing', () =>
+  it.effect('fails for antigravity on unsupported win32', () =>
     Effect.gen(function* () {
-      const error = yield* makeAcpLaunchCommand('gemini-acp').pipe(Effect.flip);
+      const error = yield* makeAcpLaunchCommand('antigravity-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      assert.strictEqual(error.executable, 'gemini');
-    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
+      assert.strictEqual(error.executable, 'agy_acp_server');
+      assert.match(error.message, /Windows/);
+    }).pipe(
+      Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node']), authOkSpawnerLayer, 'win32')),
+    ),
   );
 
   it.effect('fails without spawning when vendor CLI is missing', () =>

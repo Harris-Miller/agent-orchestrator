@@ -51,7 +51,7 @@ export const useSessionChatSurface = () => {
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
   const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
-  const geminiConfigIndex = useAtomValue(configOptionIndexAtom('gemini-acp'));
+  const antigravityConfigIndex = useAtomValue(configOptionIndexAtom('antigravity-acp'));
   const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
   const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
@@ -67,17 +67,17 @@ export const useSessionChatSurface = () => {
   const getConfigOptionIndex = useCallback(
     (launchTarget: AgentLaunchTarget) => {
       switch (launchTarget) {
+        case 'antigravity-acp':
+          return antigravityConfigIndex;
         case 'claude-agent-acp':
           return claudeConfigIndex;
         case 'codex-acp':
           return codexConfigIndex;
         case 'cursor-acp':
           return cursorConfigIndex;
-        case 'gemini-acp':
-          return geminiConfigIndex;
       }
     },
-    [claudeConfigIndex, codexConfigIndex, cursorConfigIndex, geminiConfigIndex],
+    [antigravityConfigIndex, claudeConfigIndex, codexConfigIndex, cursorConfigIndex],
   );
 
   const draft = isVirtual ? (virtualSession?.draft ?? '') : sessionDraft;

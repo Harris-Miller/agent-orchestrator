@@ -1,0 +1,40 @@
+import { assert, describe, it } from '@effect/vitest';
+
+import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
+
+describe('buildAntigravitySpawnEnv', () => {
+  it('scrubs ambient Google / AGY / BROWSER keys and does not set BROWSER', () => {
+    const env = buildAntigravitySpawnEnv({
+      baseEnv: {
+        AGY_ACP_ENABLE_OAUTH: '1',
+        BROWSER: 'chrome',
+        GEMINI_API_KEY: 'secret',
+        GEMINI_HOME: '/wrong',
+        GOOGLE_API_KEY: 'g',
+        HOME: '/home/operator',
+        PATH: '/usr/bin',
+      },
+      geminiHome: '/home/operator/.ao/antigravity-acp/home',
+      harnessPath: '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
+      platform: 'darwin',
+    });
+
+    assert.strictEqual(env.BROWSER, undefined);
+    assert.strictEqual(env.GEMINI_API_KEY, undefined);
+    assert.strictEqual(env.GOOGLE_API_KEY, undefined);
+    assert.strictEqual(env.AGY_ACP_ENABLE_OAUTH, undefined);
+    assert.strictEqual(env.GEMINI_HOME, '/home/operator/.ao/antigravity-acp/home');
+    assert.strictEqual(env.AGY_ACP_FORCE_FILE_STORAGE, '1');
+    assert.strictEqual(env.PATH, '/usr/bin');
+    assert.strictEqual(env.PYTHONUNBUFFERED, '1');
+    assert.strictEqual(
+      env.ANTIGRAVITY_HARNESS_PATH,
+      '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
+    );
+  });
+
+  it('adds Linux --uid= only on linux', () => {
+    assert.deepStrictEqual(antigravityLinuxArgs('linux'), ['--uid=']);
+    assert.deepStrictEqual(antigravityLinuxArgs('darwin'), []);
+  });
+});

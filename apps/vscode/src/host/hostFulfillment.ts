@@ -1,3 +1,4 @@
+import { ANTIGRAVITY_ACP_EXECUTABLE_NAME, ANTIGRAVITY_ACP_SPAWN_NAME, ANTIGRAVITY_ACP_VERSION } from '@lib/ao-home';
 import {
   bytesToArrayBuffer,
   decodeIpcMessage,
@@ -272,6 +273,7 @@ export const handleHostIpcMessage = async (args: {
       case 'OsSnapshot': {
         post(webview, {
           _tag: 'OsSnapshotResult',
+          arch: process.arch,
           cwd: process.cwd(),
           env: stringEnv(),
           homedir: osHomedir(),
@@ -284,7 +286,18 @@ export const handleHostIpcMessage = async (args: {
         const handleId = tracker.allocateHandleId();
         const opts = message.options ?? {};
         const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...(opts.env ?? {}) };
-        const child = spawn(message.command, [...message.args], {
+        const command =
+          message.command === ANTIGRAVITY_ACP_SPAWN_NAME
+            ? join(
+                osHomedir(),
+                '.ao',
+                'antigravity-acp',
+                'runtime',
+                ANTIGRAVITY_ACP_VERSION,
+                ANTIGRAVITY_ACP_EXECUTABLE_NAME,
+              )
+            : message.command;
+        const child = spawn(command, [...message.args], {
           cwd: opts.cwd,
           env,
           stdio: [toNodeStdio(opts.stdin), toNodeStdio(opts.stdout), toNodeStdio(opts.stderr)],

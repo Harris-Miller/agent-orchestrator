@@ -102,7 +102,7 @@ export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: P
   const probeCwd = yield* fs.makeTempDirectory({ prefix: CONFIG_PROBE_CWD_PREFIX });
   const sessionNew = yield* agent['session/new']({ cwd: probeCwd, mcpServers: [] });
 
-  // Soft-close then delete so adapters that keep closed rows (gemini-acp) drop the probe from history.
+  // Soft-close then delete so adapters that keep closed rows (antigravity-acp) drop the probe from history.
   const cleanup = Effect.gen(function* () {
     yield* bestEffort('session/close', agent['session/close']({ sessionId: sessionNew.sessionId }));
     yield* bestEffort('session/delete', agent['session/delete']({ sessionId: sessionNew.sessionId }));

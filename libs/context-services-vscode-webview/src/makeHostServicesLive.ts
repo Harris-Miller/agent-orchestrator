@@ -1,5 +1,6 @@
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 import { makeBundledResourceLive } from './BundledResourceLive.ts';
 import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
@@ -40,6 +41,8 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
 
   const osLive = makeOsSnapshotLive(client);
 
+  const fetchLive = makeExtensionFetchLive(client);
+
   return Layer.mergeAll(
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),
@@ -48,13 +51,11 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     makeFileDialogLive(client),
     makeFileSystemLive(client),
     PathLive,
+    FetchHttpClient.layer.pipe(Layer.provide(fetchLive)),
   ).pipe(
     Layer.provideMerge(osLive),
     Layer.provideMerge(
-      ObservabilityLive.pipe(
-        Layer.provide(makeExtensionFetchLive(client)),
-        Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive))),
-      ),
+      ObservabilityLive.pipe(Layer.provide(fetchLive), Layer.provide(ConfigProviderLive.pipe(Layer.provide(osLive)))),
     ),
   );
 }

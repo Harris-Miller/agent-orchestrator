@@ -1,5 +1,6 @@
 import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
@@ -34,6 +35,7 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   FileDialogLive,
   FileSystemLive,
   PathLive,
+  FetchHttpClient.layer.pipe(Layer.provide(TauriFetchLive)),
 ).pipe(
   Layer.provideMerge(OSLive),
   Layer.provideMerge(

@@ -18,6 +18,7 @@ describe('makeHostServicesLive (fake peer)', () => {
           extension.postMessage(
             encodeIpcMessage({
               _tag: 'OsSnapshotResult',
+              arch: 'x64',
               cwd: '/tmp/ext',
               env: { PATH: '/usr/bin' },
               homedir: '/home/test',

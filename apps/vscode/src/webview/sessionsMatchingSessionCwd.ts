@@ -13,7 +13,7 @@ type SnapshotLike = {
 };
 
 /** Launch targets the vscode webview mounts (keep in sync with AcpBackendsMount). */
-const MOUNTED_LAUNCH_TARGETS = ['codex-acp', 'claude-agent-acp', 'gemini-acp', 'cursor-acp'] as const;
+const MOUNTED_LAUNCH_TARGETS = ['codex-acp', 'claude-agent-acp', 'antigravity-acp', 'cursor-acp'] as const;
 
 export type MatchedSession = {
   readonly launchTarget: (typeof MOUNTED_LAUNCH_TARGETS)[number];

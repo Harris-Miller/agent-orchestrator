@@ -13,12 +13,14 @@ export const makeOsSnapshotLive = (client: IpcClient): Layer.Layer<OS> =>
         return yield* Effect.die(new Error(`Unexpected OS snapshot response: ${response._tag}`));
       }
       const snapshot = {
+        arch: response.arch,
         cwd: response.cwd,
         env: response.env,
         homedir: response.homedir,
         platform: response.platform,
       };
       return {
+        arch: () => snapshot.arch,
         cwd: () => snapshot.cwd,
         env: () => snapshot.env,
         homedir: () => snapshot.homedir,

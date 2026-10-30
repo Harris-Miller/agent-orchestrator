@@ -32,6 +32,19 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
+const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
+
+const looksLikeAntigravityAuthFailure = (message: string): boolean =>
+  /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
+
+const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unknown): string => {
+  const message = formatError(error);
+  if (launchTarget === 'antigravity-acp' && looksLikeAntigravityAuthFailure(message)) {
+    return ANTIGRAVITY_NOT_SIGNED_IN;
+  }
+  return message;
+};
+
 export type RpcWireEntry = {
   readonly direction: 'in' | 'out';
   readonly id: string;
@@ -178,7 +191,7 @@ export const runBackendHarness = Effect.fnUntraced(
         return;
       }
 
-      const errorMessage = Exit.isFailure(exit) ? formatError(exit.cause) : 'Unknown error';
+      const errorMessage = Exit.isFailure(exit) ? formatBootstrapError(launchTarget, exit.cause) : 'Unknown error';
       yield* Effect.logError('ACP harness bootstrap failed', launchTarget, errorMessage);
       handlers.onPhase('error', errorMessage);
       if (yield* Ref.get(stoppedRef)) {

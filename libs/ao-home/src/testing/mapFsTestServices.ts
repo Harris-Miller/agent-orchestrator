@@ -33,6 +33,14 @@ const noopFile = {} as File;
 
 const mapFsLayer = (store: Map<string, MapFsEntry>) =>
   layerNoop({
+    copyFile: (fromPath, toPath) =>
+      Effect.gen(function* () {
+        const entry = store.get(fromPath);
+        if (entry?.kind !== 'file') {
+          return yield* notFound('copyFile', fromPath);
+        }
+        store.set(toPath, { content: entry.content, kind: 'file' });
+      }),
     exists: path => Effect.succeed(store.has(path)),
     makeDirectory: path =>
       Effect.sync(() => {
@@ -84,6 +92,7 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
 /** In-memory FileSystem + Path + OS for adapter-roster lock tests. */
 export const mapFsTestServices = (store: Map<string, MapFsEntry>): Layer.Layer<FileSystem | OS | Path> => {
   const osLayer = Layer.succeed(OS, {
+    arch: () => 'arm64',
     cwd: () => DEFAULT_HOMEDIR,
     env: () => ({}),
     homedir: () => DEFAULT_HOMEDIR,

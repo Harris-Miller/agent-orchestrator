@@ -14,6 +14,21 @@ export {
   AdapterRosterEntrySchema,
   emptyAdapterRoster,
 } from './AdapterRosterDocument.ts';
+export {
+  ANTIGRAVITY_ACP_EXECUTABLE_NAME,
+  ANTIGRAVITY_ACP_HARNESS_NAME,
+  ANTIGRAVITY_ACP_SPAWN_NAME,
+  ANTIGRAVITY_ACP_VERSION,
+  antigravityAcpExecutablePath,
+  antigravityAcpHarnessPath,
+  antigravityAcpHomeDir,
+  antigravityAcpRootDir,
+  antigravityAcpRuntimeDir,
+  type AntigravityRuntimeSources,
+  ensureAntigravityAcpDirs,
+  isAntigravityAcpRuntimePresent,
+  materializeAntigravityAcpRuntime,
+} from './antigravity.ts';
 export { ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';

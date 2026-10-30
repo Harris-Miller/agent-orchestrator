@@ -6,7 +6,7 @@ import { backendHarnessAtom } from '../atoms/boundHarnessAtoms.ts';
 export const AcpBackendsMount: FC = () => {
   useAtomMount(backendHarnessAtom('codex-acp'));
   useAtomMount(backendHarnessAtom('claude-agent-acp'));
-  useAtomMount(backendHarnessAtom('gemini-acp'));
+  useAtomMount(backendHarnessAtom('antigravity-acp'));
   useAtomMount(backendHarnessAtom('cursor-acp'));
   return null;
 };

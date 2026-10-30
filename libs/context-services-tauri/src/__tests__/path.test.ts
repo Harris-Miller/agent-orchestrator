@@ -43,6 +43,7 @@ describe('makeWin32Path', () => {
 describe('PathLive', () => {
   const osLayer = (platform: string) =>
     Layer.succeed(OS, {
+      arch: () => 'arm64',
       cwd: () => '/home/operator',
       env: () => ({}),
       homedir: () => '/home/operator',

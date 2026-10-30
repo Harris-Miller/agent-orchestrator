@@ -2,6 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { BundledResource, Clipboard, FileDialog, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
+import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
@@ -9,6 +10,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import { createHostRuntime } from './createHostRuntime.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
+  arch: () => 'arm64',
   cwd: () => '/home/operator',
   env: () => ({}),
   homedir: () => '/home/operator',
@@ -41,6 +43,7 @@ const mockHostLayer = Layer.mergeAll(
   layerNoop({}),
   posixPathLayer,
   mockSpawnerLayer,
+  FetchHttpClient.layer,
 );
 
 describe('createHostRuntime', () => {

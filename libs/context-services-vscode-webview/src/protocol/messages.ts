@@ -176,6 +176,7 @@ export const IpcMessage = Schema.TaggedUnion({
     id: CorrelationId,
   },
   OsSnapshotResult: {
+    arch: Schema.String,
     cwd: Schema.String,
     env: Schema.Record(Schema.String, Schema.String),
     homedir: Schema.String,

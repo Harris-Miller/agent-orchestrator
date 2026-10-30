@@ -16,6 +16,7 @@ vi.mock('@tauri-apps/api/path', () => ({
 }));
 
 vi.mock('@tauri-apps/plugin-os', () => ({
+  arch: vi.fn(() => 'aarch64'),
   platform: vi.fn(() => 'macos'),
 }));
 
@@ -36,6 +37,7 @@ describe('OSLive + ConfigProviderLive', () => {
         const os = yield* OS;
         assert.strictEqual(os.cwd(), '/Users/dev/project');
         assert.strictEqual(os.env().CURSOR_API_KEY, 'host-key');
+        assert.strictEqual(os.arch(), 'arm64');
         assert.strictEqual(os.homedir(), '/Users/dev');
         assert.strictEqual(os.platform(), 'darwin');
       }),

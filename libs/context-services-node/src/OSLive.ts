@@ -16,6 +16,7 @@ const processEnvRecord = (): Record<string, string> => {
 
 /** Node/Bun host implementation of {@link OS} via `node:os` / `process`. */
 export const OSLive = Layer.succeed(OS, {
+  arch: () => os.arch(),
   cwd: () => process.cwd(),
   env: () => processEnvRecord(),
   homedir: () => os.homedir(),

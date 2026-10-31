@@ -1,6 +1,5 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
-import { clearWorkRegionPhrases } from '../components/sessionChat/workRegionPhrase.ts';
 import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 
@@ -408,7 +407,6 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
           yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
 
-          clearWorkRegionPhrases(arg.sessionId);
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
             markSessionInactive(get(backendHarnessStateAtom(arg.launchTarget)), arg.sessionId),

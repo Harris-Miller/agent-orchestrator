@@ -5,7 +5,7 @@ export type WorkRegion = {
   readonly isLastTurn: boolean;
   readonly items: readonly ChatItem[];
   readonly kind: 'work_region';
-  readonly turn?: Extract<ChatItem, { kind: 'user_message' }>;
+  readonly userMessage: Extract<ChatItem, { kind: 'user_message' }>;
 };
 
 const isWork = (item: ChatItem) => item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought';
@@ -32,7 +32,7 @@ export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem |
           isLastTurn: i - 1 === lastTurnStart,
           items: body.slice(0, lastWork + 1),
           kind: 'work_region',
-          turn: head,
+          userMessage: head,
         });
         out.push(...body.slice(lastWork + 1));
       }
@@ -40,34 +40,4 @@ export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem |
     }
   }
   return out;
-};
-
-const durationFormat = new Intl.DurationFormat('en', { style: 'narrow' });
-
-/** `141` → `2m 21s`. */
-export const formatSeconds = (totalSeconds: number): string => {
-  const total = Math.max(0, totalSeconds);
-  return (
-    durationFormat.format({
-      hours: Math.floor(total / 3600),
-      minutes: Math.floor((total % 3600) / 60),
-      seconds: total % 60,
-    }) || '0s'
-  );
-};
-
-/** `now` (epoch ms) only matters while in flight: the label counts up from the turn's `startedAt`. */
-export const workRegionLabel = (
-  region: WorkRegion,
-  inFlight: boolean,
-  now: number,
-  unstampedLabel = 'Worked',
-): string => {
-  const { endedAt, startedAt } = region.turn ?? {};
-  if (inFlight) {
-    return startedAt === undefined ? 'Working…' : `Working for ${formatSeconds(Math.floor((now - startedAt) / 1000))}`;
-  }
-  return startedAt !== undefined && endedAt !== undefined
-    ? `Worked for ${formatSeconds(Math.round((endedAt - startedAt) / 1000))}`
-    : unstampedLabel;
 };

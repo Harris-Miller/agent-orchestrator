@@ -39,6 +39,25 @@ export type UserMessageImageRef = {
   readonly uri?: string;
 };
 
+/** ACP `ToolKind`. */
+const TOOL_KINDS = [
+  'read',
+  'edit',
+  'delete',
+  'move',
+  'search',
+  'execute',
+  'think',
+  'fetch',
+  'switch_mode',
+  'other',
+] as const;
+export type ToolKind = (typeof TOOL_KINDS)[number];
+const isToolKind = (value: unknown): value is ToolKind => TOOL_KINDS.includes(value as ToolKind);
+
+/** Client-measured turn timing (epoch ms) on a locally submitted user_message. */
+export type TurnTiming = { readonly endedAt?: number; readonly startedAt?: number };
+
 export type ChatItem =
   | {
       readonly command?: string;
@@ -48,17 +67,15 @@ export type ChatItem =
       readonly status: string;
       readonly title: string;
       readonly toolCallId: string;
-      readonly toolKind?: string;
+      readonly toolKind?: ToolKind;
     }
   | { readonly entries: readonly PlanEntry[]; readonly id: string; readonly kind: 'plan' }
-  | {
+  | (TurnTiming & {
       readonly id: string;
       readonly images?: readonly UserMessageImageRef[];
       readonly kind: 'user_message';
-      readonly startedAt?: number;
-      readonly endedAt?: number;
       readonly text: string;
-    }
+    })
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
@@ -417,10 +434,10 @@ export const markNonFinishedToolCallsCancelled = (transcript: SessionTranscript)
 });
 
 /** Patch timing stamps onto one user_message; other items and missing ids unchanged. */
-export const stampChatItem = (
+export const stampUserMessageTiming = (
   transcript: SessionTranscript,
   id: string,
-  patch: { readonly endedAt?: number; readonly startedAt?: number },
+  patch: TurnTiming,
 ): SessionTranscript => ({
   ...transcript,
   items: transcript.items.map(item => (item.id === id && item.kind === 'user_message' ? { ...item, ...patch } : item)),
@@ -515,7 +532,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           status,
           title: extractClaudeCodeToolName(update._meta) ?? update.title,
           toolCallId: update.toolCallId,
-          toolKind: typeof update.kind === 'string' ? update.kind : undefined,
+          toolKind: isToolKind(update.kind) ? update.kind : undefined,
         },
       ];
       const toolCallIndices = new Map(transcript.toolCallIndices).set(update.toolCallId, items.length - 1);

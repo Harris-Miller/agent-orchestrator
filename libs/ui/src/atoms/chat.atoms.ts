@@ -20,8 +20,8 @@ import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled, stampChatItem } from '../host/sessionUpdateReducer.ts';
-import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
+import { markNonFinishedToolCallsCancelled, stampUserMessageTiming } from '../host/sessionUpdateReducer.ts';
+import type { TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
   backendHarnessStateAtom,
@@ -83,7 +83,7 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   });
 
   const turnId = get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId].transcript.items.at(-1)?.id;
-  const stamp = (patch: { endedAt?: number; startedAt?: number }) =>
+  const stamp = (patch: TurnTiming) =>
     turnId === undefined
       ? Effect.void
       : Effect.sync(() => {
@@ -94,7 +94,7 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
                   ...current,
                   sessions: patchSession(current.sessions, session.sessionId, s => ({
                     ...s,
-                    transcript: stampChatItem(s.transcript, turnId, patch),
+                    transcript: stampUserMessageTiming(s.transcript, turnId, patch),
                   })),
                 }
               : current,

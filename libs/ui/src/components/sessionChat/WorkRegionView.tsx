@@ -1,26 +1,22 @@
-import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
-import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
-
 import { ChatItemView } from './ChatItemView.tsx';
-import { workRegionLabel } from './groupChatItems.ts';
+import { DisclosureButton, DisclosureChevron } from './DisclosureButton.tsx';
 import type { WorkRegion } from './groupChatItems.ts';
+import { workRegionLabel } from './workRegionLabel.ts';
 import { workRegionPhrase } from './workRegionPhrase.ts';
 
 export const WorkRegionView: FC<{
   availableCommands?: readonly AvailableCommand[];
   inFlight: boolean;
   region: WorkRegion;
-  sessionId: string;
-}> = ({ availableCommands, inFlight, region, sessionId }) => {
+}> = ({ availableCommands, inFlight, region }) => {
   const [toggle, setToggle] = useState<boolean>();
   const open = toggle ?? inFlight;
   const [now, setNow] = useState(() => Date.now());
@@ -35,31 +31,18 @@ export const WorkRegionView: FC<{
   }, [inFlight]);
   return (
     <ListItem sx={{ display: 'block', py: 0.5 }}>
-      <Box
-        aria-expanded={open}
-        component="button"
-        onClick={() => {
+      <DisclosureButton
+        onToggle={() => {
           setToggle(!open);
         }}
-        sx={{
-          alignItems: 'center',
-          bgcolor: 'transparent',
-          border: 0,
-          borderRadius: 1,
-          color: 'text.secondary',
-          cursor: 'pointer',
-          display: 'flex',
-          font: 'inherit',
-          gap: 0.5,
-          p: 0.5,
-          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-        }}
+        open={open}
+        sx={{ color: 'text.secondary', gap: 0.5, p: 0.5 }}
       >
-        <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} />
+        <DisclosureChevron open={open} />
         <Typography color="text.secondary" variant="body2">
-          {workRegionLabel(region, inFlight, now, workRegionPhrase(sessionId, region.id))}
+          {workRegionLabel(region, inFlight, now, workRegionPhrase(region.id))}
         </Typography>
-      </Box>
+      </DisclosureButton>
       <Collapse in={open} unmountOnExit>
         <List dense disablePadding sx={{ pl: 1 }}>
           {region.items.map(item => (

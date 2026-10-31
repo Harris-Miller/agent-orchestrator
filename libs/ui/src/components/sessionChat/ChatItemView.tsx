@@ -8,9 +8,8 @@ import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
 import {
+  ArrowLeftRight,
   Brain,
-  ChevronDown,
-  ChevronRight,
   FileText,
   FolderInput,
   Globe,
@@ -26,7 +25,7 @@ import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
-import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem, ToolKind, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
 import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
 import { AsyncResult } from 'effect/reactivity';
 import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
@@ -39,6 +38,7 @@ import {
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { DisclosureButton, DisclosureChevron } from './DisclosureButton.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownBlockMarkers.ts';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
@@ -355,21 +355,23 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   );
 };
 
-const TOOL_KIND_ICONS: Record<string, LucideIcon> = {
+const TOOL_KIND_ICONS: Record<ToolKind, LucideIcon> = {
   delete: Trash2,
   edit: Pencil,
   execute: SquareTerminal,
   fetch: Globe,
   move: FolderInput,
+  other: Wrench,
   read: FileText,
   search: Search,
+  switch_mode: ArrowLeftRight,
   think: Brain,
 };
 
 const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ item }) => {
   const [open, setOpen] = useState(false);
   const expandable = item.command !== undefined || item.resultText !== undefined;
-  const icon = TOOL_KIND_ICONS[item.toolKind ?? ''] ?? Wrench;
+  const icon = item.toolKind === undefined ? Wrench : TOOL_KIND_ICONS[item.toolKind];
   const row = (
     <>
       <LucideMuiIcon icon={icon} sx={{ color: 'text.secondary', fontSize: 16 }} />
@@ -385,7 +387,7 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
           {item.status}
         </Typography>
       ) : null}
-      {expandable ? <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} /> : null}
+      {expandable ? <DisclosureChevron open={open} /> : null}
     </>
   );
   const rowSx = { alignItems: 'center', display: 'flex', gap: 1, width: '100%' } as const;
@@ -393,27 +395,15 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
     <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0 }}>
       {expandable ? (
         <>
-          <Box
-            aria-expanded={open}
-            component="button"
-            onClick={() => {
+          <DisclosureButton
+            onToggle={() => {
               setOpen(current => !current);
             }}
-            sx={{
-              ...rowSx,
-              bgcolor: 'transparent',
-              border: 0,
-              borderRadius: 1,
-              color: 'inherit',
-              cursor: 'pointer',
-              font: 'inherit',
-              px: 0.5,
-              py: 0.25,
-              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-            }}
+            open={open}
+            sx={{ ...rowSx, color: 'inherit', px: 0.5, py: 0.25 }}
           >
             {row}
-          </Box>
+          </DisclosureButton>
           <Collapse in={open} unmountOnExit>
             <Box sx={{ pt: 0.5 }}>
               <ToolCallResult command={item.command} resultText={item.resultText} />

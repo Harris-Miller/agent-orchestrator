@@ -5,7 +5,7 @@ import {
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
   reduceSessionUpdate,
-  stampChatItem,
+  stampUserMessageTiming,
 } from './sessionUpdateReducer.ts';
 
 const expectUserMessage = (item: ChatItem | undefined) => {
@@ -355,7 +355,7 @@ describe('markNonFinishedToolCallsCancelled', () => {
   });
 });
 
-describe('stampChatItem', () => {
+describe('stampUserMessageTiming', () => {
   it('patches only the target user_message', () => {
     const base = emptySessionTranscript();
     const t = {
@@ -365,7 +365,7 @@ describe('stampChatItem', () => {
         { id: 'b', kind: 'user_message' as const, text: 'b' },
       ],
     };
-    const out = stampChatItem(t, 'b', { startedAt: 5 });
+    const out = stampUserMessageTiming(t, 'b', { startedAt: 5 });
     assert.deepStrictEqual(out.items[0], t.items[0]);
     assert.deepStrictEqual(out.items[1], { ...t.items[1], startedAt: 5 });
   });

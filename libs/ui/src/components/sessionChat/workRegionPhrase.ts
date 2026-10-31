@@ -11,19 +11,9 @@ const PHRASES = [
   'Worked for some amount of time',
 ] as const;
 
-// In-memory only: stable across session switches, re-rolled when the session is deactivated.
-const bySession = new Map<string, Map<string, string>>();
-
-export const workRegionPhrase = (sessionId: string, regionId: string): string => {
-  const regions = bySession.get(sessionId) ?? new Map<string, string>();
-  bySession.set(sessionId, regions);
-  const existing = regions.get(regionId);
-  if (existing !== undefined) return existing;
-  const phrase = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-  regions.set(regionId, phrase);
-  return phrase;
-};
-
-export const clearWorkRegionPhrases = (sessionId: string): void => {
-  bySession.delete(sessionId);
+/** Stable phrase per region: hashed from its id, so no cache to hold or clear. */
+export const workRegionPhrase = (regionId: string): string => {
+  let hash = 0;
+  for (const char of regionId) hash = (hash * 31 + char.charCodeAt(0)) % PHRASES.length;
+  return PHRASES[hash];
 };

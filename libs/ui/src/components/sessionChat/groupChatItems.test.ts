@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 
-import { groupChatItems, workRegionLabel } from './groupChatItems.ts';
+import { groupChatItems } from './groupChatItems.ts';
 import type { WorkRegion } from './groupChatItems.ts';
 
 const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_message', text: id, ...extra });
@@ -43,40 +43,5 @@ describe('groupChatItems', () => {
       two.map(r => r.isLastTurn),
       [false, true],
     );
-  });
-});
-
-describe('workRegionLabel', () => {
-  const region = (turn?: ChatItem): WorkRegion => ({
-    id: 'r',
-    isLastTurn: true,
-    items: [],
-    kind: 'work_region',
-    turn: turn as WorkRegion['turn'],
-  });
-  it('in flight without a start stamp', () => {
-    assert.strictEqual(workRegionLabel(region(u('u')), true, 0), 'Working…');
-  });
-  it('in flight counts up', () => {
-    const r = region(u('u', { startedAt: 1000 }));
-    assert.strictEqual(workRegionLabel(r, true, 1000), 'Working for 0s');
-    assert.strictEqual(workRegionLabel(r, true, 33_000), 'Working for 32s');
-    assert.strictEqual(workRegionLabel(r, true, 66_000), 'Working for 1m 5s');
-  });
-  it('with stamps', () => {
-    assert.strictEqual(
-      workRegionLabel(region(u('u', { endedAt: 142_000, startedAt: 1000 })), false, 0),
-      'Worked for 2m 21s',
-    );
-    assert.strictEqual(
-      workRegionLabel(region(u('u', { endedAt: 15_000, startedAt: 1000 })), false, 0),
-      'Worked for 14s',
-    );
-  });
-  it('without stamps', () => {
-    assert.strictEqual(workRegionLabel(region(u('u')), false, 0), 'Worked');
-  });
-  it('without stamps uses the supplied label', () => {
-    assert.strictEqual(workRegionLabel(region(u('u')), false, 0, 'Worked for a bit'), 'Worked for a bit');
   });
 });

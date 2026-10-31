@@ -170,11 +170,12 @@ export const createProvidersAtoms = (
 
   const refreshProviderAtomFn = atomRuntime
     .fn(
-      Effect.fn('refreshProviderAtomFn', { root: true })(function* (
-        launchTarget: AgentLaunchTarget,
-        get: Atom.FnContext,
-      ) {
-        yield* refreshProvider(launchTarget, get);
+      // One fn atom is shared by every caller and a new call interrupts the previous one, so refresh all targets in a
+      // single call instead of one call per provider.
+      Effect.fn('refreshProviderAtomFn', { root: true })(function* (_: undefined, get: Atom.FnContext) {
+        yield* Effect.forEach(MOUNTED_AGENT_LAUNCH_TARGETS, launchTarget => refreshProvider(launchTarget, get), {
+          concurrency: 'unbounded',
+        });
       }),
     )
     .pipe(Atom.keepAlive);

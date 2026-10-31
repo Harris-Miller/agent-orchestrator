@@ -30,7 +30,6 @@ import {
   setProviderEnabledAtomFn,
   signInAntigravityAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { overallStatus, PROVIDER_META, STATUS_META } from '../../host/providerView.ts';
@@ -222,9 +221,7 @@ export const useProviderControls = () => {
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
 
   useEffect(() => {
-    for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
-      refresh(launchTarget).catch(() => undefined);
-    }
+    refresh(undefined).catch(() => undefined);
   }, [refresh]);
 
   const perform = useCallback(

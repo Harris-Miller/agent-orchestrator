@@ -130,6 +130,13 @@ const spawnStandard = Effect.fnUntraced(
     return yield* stdio.finalize({
       kill: Effect.gen(function* () {
         yield* Effect.logInfo('Killing child process', { pid: child.pid });
+        // Tree kill first (needs the tracked pid); falls back to the plain kill below on failure / non-unix.
+        yield* Effect.promise(() =>
+          invoke('kill_tracked_process_tree', { pid: child.pid }).then(
+            () => undefined,
+            () => undefined,
+          ),
+        );
         untrackChildProcess(child.pid);
         trackedPid.current = undefined;
         yield* Effect.tryPromise({

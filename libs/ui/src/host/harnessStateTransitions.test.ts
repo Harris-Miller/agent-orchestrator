@@ -4,11 +4,13 @@ import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSess
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import {
   beginClientRequest,
+  cancelPendingRequests,
   dropSession,
   endClientRequest,
   markHistoryUnavailable,
   markSessionInactive,
   mergeListedHistory,
+  reconcileStoppedProvider,
   replaceSessionHistory,
   stripSessionPendings,
   upsertIntoSnapshot,
@@ -174,5 +176,67 @@ describe('replaceSessionHistory', () => {
     const next = replaceSessionHistory(snapshot, [{ cwd: '/x', sessionId: 's9' }]);
     assert.strictEqual(next.sessions.s1.sessionId, 's1');
     assert.deepStrictEqual(next.sessionHistory, [{ cwd: '/x', sessionId: 's9' }]);
+  });
+});
+
+describe('stopped provider reconcile', () => {
+  const pending = (): {
+    snapshot: BackendHarnessSnapshot;
+    elicitation: unknown[];
+    permission: unknown[];
+  } => {
+    const permission: unknown[] = [];
+    const elicitation: unknown[] = [];
+    const withPendings = activeSession('s1', {
+      pendingElicitation: {
+        request: {} as never,
+        resolve: response => {
+          elicitation.push(response);
+        },
+        sessionId: 's1',
+      },
+      pendingPermission: {
+        request: {} as never,
+        resolve: response => {
+          permission.push(response);
+        },
+        sessionId: 's1',
+      },
+    });
+    return {
+      elicitation,
+      permission,
+      snapshot: {
+        ...readySnapshot({ s1: withPendings, s2: initialSessionSnapshot('s2', 'activating') }),
+        rpcCalls: [{ direction: 'in', id: 'r', message: {}, receivedAt: 1 }],
+        sessionHistory: [{ cwd: '/a', sessionId: 's1' }],
+      },
+    };
+  };
+
+  it('cancels outstanding permission and elicitation requests', () => {
+    const { elicitation, permission, snapshot } = pending();
+    cancelPendingRequests(snapshot);
+    assert.deepStrictEqual(permission, [{ outcome: { outcome: 'cancelled' } }]);
+    assert.deepStrictEqual(elicitation, [{ action: 'cancel' }]);
+  });
+
+  it('marks every session inactive, drops pendings, keeps transcripts and marks history unavailable', () => {
+    const { snapshot } = pending();
+    const reconciled = reconcileStoppedProvider(snapshot);
+    assert.deepStrictEqual(
+      Object.values(reconciled.sessions).map(session => [session.sessionId, session.status]),
+      [
+        ['s1', 'inactive'],
+        ['s2', 'inactive'],
+      ],
+    );
+    assert.isUndefined(reconciled.sessions.s1.pendingPermission);
+    assert.isUndefined(reconciled.sessions.s1.pendingElicitation);
+    assert.deepStrictEqual(reconciled.sessions.s1.transcript, snapshot.sessions.s1.transcript);
+    assert.deepStrictEqual(reconciled.sessionHistory, [{ cwd: '/a', sessionId: 's1', unavailable: true }]);
+    assert.strictEqual(reconciled.phase, 'connecting');
+    assert.deepStrictEqual(reconciled.rpcCalls, []);
+    assert.isUndefined(reconciled.antigravityAuthUrl);
   });
 });

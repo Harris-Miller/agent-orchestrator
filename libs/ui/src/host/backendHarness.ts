@@ -62,7 +62,6 @@ export type BackendHarnessCallbacks = {
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
 };
 
-const stoppedRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 const pendingSignInRefs = new Map<AgentLaunchTarget, Ref.Ref<boolean>>();
 
 const getOrCreateBoolRef = (
@@ -177,19 +176,21 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );
 
-/** Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure. */
+/**
+ * Spawns an ACP agent, bootstraps a session, and blocks until interrupted. Retries up to 3 times on failure.
+ * Process lifetime is owned by `BackendLifecycle`; interruption kills the process tree and awaits exit.
+ */
 export const runBackendHarness = Effect.fnUntraced(
   function* (
     launchTarget: AgentLaunchTarget,
     handlers: BackendHarnessCallbacks,
     resolveListScope: () => SessionListScope,
   ) {
-    const stoppedRef = getOrCreateBoolRef(stoppedRefs, launchTarget);
-    yield* Ref.set(stoppedRef, false);
     const consecutiveFailures = { count: 0 };
     yield* Effect.logInfo('ACP harness started', launchTarget);
 
-    while (!(yield* Ref.get(stoppedRef))) {
+    // Runs until interrupted: `BackendLifecycle.stop` interrupts this fiber and awaits the scope finalizers.
+    while (true) {
       const exit = yield* Effect.exit(
         bootstrapOnce(launchTarget, handlers, resolveListScope, () => {
           consecutiveFailures.count = 0;
@@ -212,11 +213,6 @@ export const runBackendHarness = Effect.fnUntraced(
       const errorMessage = Exit.isFailure(exit) ? formatBootstrapError(launchTarget, exit.cause) : 'Unknown error';
       yield* Effect.logError('ACP harness bootstrap failed', launchTarget, errorMessage);
       handlers.onPhase('error', errorMessage);
-      if (yield* Ref.get(stoppedRef)) {
-        yield* Effect.logInfo('ACP harness stopped after failure', launchTarget);
-        return;
-      }
-
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
         yield* Effect.logFatal('ACP harness exhausted connect retries', launchTarget, {
@@ -237,10 +233,3 @@ export const runBackendHarness = Effect.fnUntraced(
   Effect.scoped,
   (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );
-
-export const stopBackendHarness = Effect.fn('stopBackendHarness')(function* (launchTarget: AgentLaunchTarget) {
-  yield* Effect.logInfo('Stopping ACP harness', launchTarget);
-  yield* Ref.set(getOrCreateBoolRef(stoppedRefs, launchTarget), true);
-  clearConnectedAgent(launchTarget);
-  clearPromptSpansForLaunchTarget(launchTarget);
-});

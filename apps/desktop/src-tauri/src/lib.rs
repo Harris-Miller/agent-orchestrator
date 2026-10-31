@@ -49,6 +49,18 @@ fn untrack_child_process(pid: u32, state: State<'_, TrackedChildPids>) {
     }
 }
 
+/// Kill a tracked child and its descendants (adapters spawn `claude`/`codex` beneath node).
+/// Only PIDs registered via `track_child_process` are accepted.
+#[tauri::command]
+fn kill_tracked_process_tree(pid: u32, state: State<'_, TrackedChildPids>) -> Result<(), String> {
+    let tracked = state.0.lock().map(|mut pids| pids.remove(&pid)).unwrap_or(false);
+    if !tracked {
+        return Err(format!("pid {pid} is not a tracked child process"));
+    }
+    kill_process_tree(pid);
+    Ok(())
+}
+
 /// True only for `<home>/.ao/providers/<launch-target>/current.json` with no traversal.
 fn is_provider_current_json(home: &Path, path: &Path) -> bool {
     let root = home.join(".ao").join("providers");
@@ -154,6 +166,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             atomic_replace_provider_state,
             greet,
+            kill_tracked_process_tree,
             host_process_info,
             track_child_process,
             untrack_child_process

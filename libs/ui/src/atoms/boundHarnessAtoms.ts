@@ -45,10 +45,13 @@ export const {
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 
-export const { backendHarnessAtom, restartBackendAtomFn, signInAntigravityAtomFn } = createHarnessAtoms(
-  hostBag,
-  refreshSessionFsListingAtomFn,
-);
+export const {
+  backendHarnessAtom,
+  restartBackendAtomFn,
+  signInAntigravityAtomFn,
+  startBackendAtomFn,
+  stopBackendAtomFn,
+} = createHarnessAtoms(hostBag, refreshSessionFsListingAtomFn);
 
 export const {
   activateSessionAtomFn,

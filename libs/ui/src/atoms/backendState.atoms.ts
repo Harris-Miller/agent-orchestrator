@@ -32,6 +32,16 @@ export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarge
   ),
 );
 
+/**
+ * Whether the provider's backend may run. `stopped` blocks start (disabled / stopping); only an explicit
+ * transition back to `running` plus a start can spawn it again. Step 6 drives this from `providerEnabled`.
+ */
+export type BackendDesiredState = 'running' | 'stopped';
+
+export const backendDesiredStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
+  Atom.make<BackendDesiredState>('running').pipe(Atom.withLabel(`backendDesired:${launchTarget}`), Atom.keepAlive),
+);
+
 export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
 );

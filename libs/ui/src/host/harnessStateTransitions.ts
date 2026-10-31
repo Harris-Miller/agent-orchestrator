@@ -6,7 +6,7 @@ import type {
   PendingClientRequestKind,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
-import { upsertHistoryEntry } from './acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, upsertHistoryEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
@@ -151,3 +151,30 @@ export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: st
     promptCancelRequested: undefined,
   })),
 });
+
+/** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
+export const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
+  for (const session of Object.values(snapshot.sessions)) {
+    session.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
+    session.pendingElicitation?.resolve({ action: 'cancel' });
+  }
+};
+
+/**
+ * Local state after the provider process is gone: every session inactive with pendings cleared, history and
+ * transcripts preserved (history marked unavailable), connection-scoped state reset. Sessions are not reopened.
+ * Caller clears invalid selection / Virtual binding.
+ */
+export const reconcileStoppedProvider = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => {
+  const stripped = stripSessionPendings(snapshot, Object.keys(snapshot.sessions));
+  return {
+    ...initialBackendHarnessSnapshot(),
+    sessionHistory: markHistoryUnavailable(snapshot.sessionHistory),
+    sessions: Object.fromEntries(
+      Object.entries(stripped.sessions).map(([sessionId, session]) => [
+        sessionId,
+        { ...session, promptCancelRequested: undefined, status: 'inactive' as const },
+      ]),
+    ),
+  };
+};

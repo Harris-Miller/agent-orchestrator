@@ -90,9 +90,6 @@ export const SessionChatPage: FC = () => {
   }, [clearSelected, isVirtual, launchTarget, onClientError, sessionId, status]);
 
   const onBack = () => {
-    if (inFlight) {
-      return;
-    }
     activateKickRef.current = undefined;
     clearSelected(undefined).catch(() => undefined);
   };
@@ -100,7 +97,7 @@ export const SessionChatPage: FC = () => {
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <IconButton aria-label="Back to Session History" disabled={inFlight} onClick={onBack} size="small">
+        <IconButton aria-label="Back to Session History" onClick={onBack} size="small">
           <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
         </IconButton>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
@@ -111,7 +108,6 @@ export const SessionChatPage: FC = () => {
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <IconButton
           aria-label="Settings"
-          disabled={inFlight}
           onClick={() => {
             navigate({ to: '/settings' }).catch(() => undefined);
           }}

@@ -44,6 +44,10 @@ const selectableConfig = {
 type MockOpts = {
   readonly failDelete?: boolean;
   readonly failNew?: boolean;
+  /** Runs inside `session/new` before it resolves (simulates user action mid-Bind). */
+  readonly duringNew?: Effect.Effect<void>;
+  /** Runs inside `session/set_config_option` before it resolves (simulates user action mid-Materialize). */
+  readonly duringSetConfig?: Effect.Effect<void>;
 };
 
 const installMockAgent = (calls: string[], opts: MockOpts = {}) => {
@@ -65,15 +69,16 @@ const installMockAgent = (calls: string[], opts: MockOpts = {}) => {
         }
         const sessionId = `bound-${nextId}`;
         nextId += 1;
-        return Effect.succeed({ ...selectableConfig, sessionId });
+        return Effect.as(opts.duringNew ?? Effect.void, { ...selectableConfig, sessionId });
       },
-      'session/prompt': () => {
+      'session/prompt': ({ sessionId }: { sessionId: string }) => {
         calls.push('prompt');
+        calls.push(`prompt:${sessionId}`);
         return Effect.succeed({ stopReason: 'end_turn' as const });
       },
       'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
         calls.push(`set:${configId}:${String(value)}`);
-        return Effect.succeed({
+        return Effect.as(opts.duringSetConfig ?? Effect.void, {
           configOptions: [
             {
               currentValue: value,
@@ -113,6 +118,22 @@ const seedReadyVirtual = (
     draft: overrides.draft ?? '',
     launchTarget: 'codex-acp',
     sessionId: overrides.sessionId,
+  });
+};
+
+const seedBoundSession = (registry: AtomRegistry.AtomRegistry, sessionId: string) => {
+  registry.set(backendHarnessStateAtom('codex-acp'), {
+    ...initialBackendHarnessSnapshot(),
+    phase: 'ready',
+    sessions: {
+      [sessionId]: {
+        cwd: '/proj',
+        sessionConfiguration: selectableConfig,
+        sessionId,
+        status: 'active',
+        transcript: emptySessionTranscript(),
+      },
+    },
   });
 };
 
@@ -434,6 +455,80 @@ describe('ensureVirtualAcpBound', () => {
       clearConnectedAgent('codex-acp');
     }),
   );
+
+  it.effect('selectSession with composer text → keep blob + Bound; no teardown', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      seedReadyVirtual(registry, { draft: 'half-typed', sessionId: 'bound-1' });
+      seedBoundSession(registry, 'bound-1');
+
+      yield* selectSessionEffect(rw, 'real-1');
+
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.draft, 'half-typed');
+      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
+  it.effect('clearSelected with composer text → keep blob; Selected unset', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      seedReadyVirtual(registry, { draft: 'half-typed', sessionId: 'bound-1' });
+      seedBoundSession(registry, 'bound-1');
+
+      yield* clearSelectedEffect(rw);
+
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+      assert.isUndefined(registry.get(selectedAtom));
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
+  it.effect('selectSession mid-Bind, empty composer → Selected flips; orphan deleted after session/new', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      installMockAgent(calls, { duringNew: selectSessionEffect(rw, 'real-1') });
+      seedReadyVirtual(registry);
+
+      yield* ensureVirtualAcpBound(rw);
+
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
+      assert.isNull(registry.get(virtualSessionAtom));
+      assert.ok(calls.includes('delete:bound-1'));
+      assert.notProperty(registry.get(backendHarnessStateAtom('codex-acp')).sessions, 'bound-1');
+      assert.isFalse(registry.get(virtualLifecycleInFlightAtom));
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
+  it.effect('selectSession mid-Bind, composer text → Selected flips; Bind finishes onto kept blob', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      installMockAgent(calls, { duringNew: selectSessionEffect(rw, 'real-1') });
+      seedReadyVirtual(registry, { draft: 'half-typed' });
+
+      yield* ensureVirtualAcpBound(rw);
+
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
+      assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+      assert.strictEqual(registry.get(virtualSessionAtom)?.draft, 'half-typed');
+      assert.isFalse(calls.some(call => call.startsWith('delete:')));
+      clearConnectedAgent('codex-acp');
+    }),
+  );
 });
 
 describe('setConfigOptionAtomFn Bound Virtual', () => {
@@ -508,6 +603,32 @@ describe('materializeVirtualThenSendAtomFn', () => {
       assert.ok(calls.includes('prompt'));
       assert.isNull(registry.get(virtualSessionAtom));
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
+      assert.strictEqual(
+        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.some(entry => entry.sessionId === 'bound-1'),
+        true,
+      );
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('navigate away mid-Materialize → Selected stays; prompt still sent to materialized session', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const runtime = createHostRuntime(mockHostLayer);
+      const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
+      const registry = AtomRegistry.make();
+      registry.mount(materializeVirtualThenSendAtomFn);
+      installMockAgent(calls, { duringSetConfig: selectSessionEffect(rwFromRegistry(registry), 'real-1') });
+
+      seedReadyVirtual(registry, { configValues: { model: 'o1' }, draft: 'hello', sessionId: 'bound-1' });
+      seedBoundSession(registry, 'bound-1');
+
+      yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
+
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
+      assert.isNull(registry.get(virtualSessionAtom));
+      assert.ok(calls.includes('prompt:bound-1'));
       assert.strictEqual(
         registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.some(entry => entry.sessionId === 'bound-1'),
         true,

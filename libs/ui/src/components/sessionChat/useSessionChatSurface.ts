@@ -46,7 +46,7 @@ export const useSessionChatSurface = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const virtualLifecycleInFlight = useAtomValue(virtualLifecycleInFlightAtom);
+  const lifecycleLockHeld = useAtomValue(virtualLifecycleInFlightAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
   const selectableLaunchTargets = useAtomValue(selectableLaunchTargetsAtom);
@@ -128,6 +128,8 @@ export const useSessionChatSurface = () => {
     (selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined);
   const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
   const canCancelPromptTurn = !isVirtual && selectedSession?.pendingClientRequest === 'prompt';
+  // The Virtual lifecycle lock only gates the Virtual composer; Sessions navigated to mid-Bind stay usable.
+  const virtualLifecycleInFlight = isVirtual && lifecycleLockHeld;
   const chromeLocked = handoffInProgress || virtualLifecycleInFlight;
   const controlsEnabled = isVirtual
     ? !chromeLocked

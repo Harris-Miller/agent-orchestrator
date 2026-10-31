@@ -99,7 +99,7 @@ Eager `session/new` for the Virtual session draft once absolute Session cwd, age
 _Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
 
 **Materialize**:
-Harness step on first Send that promotes a Bound Virtual session into a History entry, Selects the Session arm, clears Virtual, and locks cwd/launch target — then prompts. Not the Bind RPC and not the sessions-map-only upsert helper used during Bind.
+Harness step on first Send that promotes a Bound Virtual session into a History entry, Selects the Session arm (only if Selected is still Virtual), clears Virtual, and locks cwd/launch target — then prompts. Not the Bind RPC and not the sessions-map-only upsert helper used during Bind.
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
@@ -139,7 +139,7 @@ A pending elicitation or pending permission on a session snapshot. The Harness U
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:
-At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target + Ready are known.
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target + Ready are known.
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:

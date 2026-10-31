@@ -1,18 +1,31 @@
 import Box from '@mui/material/Box';
 import { useAtomValue } from '@effect/atom-react';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react';
+import Collapse from '@mui/material/Collapse';
+import {
+  ArrowLeftRight,
+  Brain,
+  FileText,
+  FolderInput,
+  Globe,
+  ImageOff,
+  Pencil,
+  Search,
+  SquareTerminal,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
-import type { AvailableCommand, ChatItem, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
+import type { AvailableCommand, ChatItem, ToolKind, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
 import { hostRunPromise, hostRuntime } from '../../hostRuntime.ts';
 import { AsyncResult } from 'effect/reactivity';
 import { openFileSupportedAtom } from '../../atoms/boundHarnessAtoms.ts';
@@ -25,6 +38,7 @@ import {
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { DisclosureButton, DisclosureChevron } from './DisclosureButton.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownBlockMarkers.ts';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
@@ -192,8 +206,7 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
 };
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
-const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
-const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
+const TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
 
 const toolResultShellSx = {
   bgcolor: 'action.hover',
@@ -206,7 +219,7 @@ const toolCommandMarkdownSx = {
   '& pre': {
     bgcolor: 'transparent',
     borderRadius: 0,
-    mb: 0,
+    m: 0,
     overflow: 'hidden',
     p: 0,
     whiteSpace: 'pre-wrap',
@@ -221,7 +234,7 @@ const toolResultMarkdownSx = {
   '& pre': {
     bgcolor: 'transparent',
     borderRadius: 0,
-    mb: 0,
+    m: 0,
     overflow: 'auto',
     p: 0,
   },
@@ -319,7 +332,6 @@ const MessageRow: FC<{
 };
 
 const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command, resultText }) => {
-  const [expanded, setExpanded] = useState(false);
   const hasCommand = command !== undefined && command.length > 0;
   const hasResult = resultText !== undefined && resultText.length > 0;
 
@@ -328,34 +340,80 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   }
 
   return (
-    <Stack spacing={0.25}>
-      <Box
-        sx={{
-          ...toolResultShellSx,
-          maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
-          overflow: expanded ? 'auto' : 'hidden',
-        }}
-      >
-        {hasCommand ? <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} /> : null}
-        {hasResult ? <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} /> : null}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <IconButton
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
-          onClick={() => {
-            setExpanded(current => !current);
-          }}
-          size="small"
-        >
-          {expanded ? (
-            <LucideMuiIcon fontSize="small" icon={ChevronUp} />
-          ) : (
-            <LucideMuiIcon fontSize="small" icon={ChevronDown} />
-          )}
-        </IconButton>
-      </Box>
+    <Stack spacing={0.5}>
+      {hasCommand ? (
+        <Box sx={toolResultShellSx}>
+          <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} />
+        </Box>
+      ) : null}
+      {hasResult ? (
+        <Box sx={{ ...toolResultShellSx, maxHeight: TOOL_RESULT_MAX_HEIGHT, overflow: 'auto' }}>
+          <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} />
+        </Box>
+      ) : null}
     </Stack>
+  );
+};
+
+const TOOL_KIND_ICONS: Record<ToolKind, LucideIcon> = {
+  delete: Trash2,
+  edit: Pencil,
+  execute: SquareTerminal,
+  fetch: Globe,
+  move: FolderInput,
+  other: Wrench,
+  read: FileText,
+  search: Search,
+  switch_mode: ArrowLeftRight,
+  think: Brain,
+};
+
+const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ item }) => {
+  const [open, setOpen] = useState(false);
+  const expandable = item.command !== undefined || item.resultText !== undefined;
+  const icon = item.toolKind === undefined ? Wrench : TOOL_KIND_ICONS[item.toolKind];
+  const row = (
+    <>
+      <LucideMuiIcon icon={icon} sx={{ color: 'text.secondary', fontSize: 16 }} />
+      <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
+        {item.title}
+      </Typography>
+      {item.status !== 'completed' ? (
+        <Typography
+          color={item.status === 'failed' ? 'error' : 'text.secondary'}
+          sx={{ flexShrink: 0 }}
+          variant="caption"
+        >
+          {item.status}
+        </Typography>
+      ) : null}
+      {expandable ? <DisclosureChevron open={open} /> : null}
+    </>
+  );
+  const rowSx = { alignItems: 'center', display: 'flex', gap: 1, width: '100%' } as const;
+  return (
+    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0 }}>
+      {expandable ? (
+        <>
+          <DisclosureButton
+            onToggle={() => {
+              setOpen(current => !current);
+            }}
+            open={open}
+            sx={{ ...rowSx, color: 'inherit', px: 0.5, py: 0.25 }}
+          >
+            {row}
+          </DisclosureButton>
+          <Collapse in={open} unmountOnExit>
+            <Box sx={{ pt: 0.5 }}>
+              <ToolCallResult command={item.command} resultText={item.resultText} />
+            </Box>
+          </Collapse>
+        </>
+      ) : (
+        <Box sx={{ ...rowSx, px: 0.5, py: 0.25 }}>{row}</Box>
+      )}
+    </ListItem>
   );
 };
 
@@ -420,23 +478,7 @@ export const ChatItemView: FC<{
       );
 
     case 'tool_call':
-      return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Paper sx={{ p: 1.5, width: '100%' }} variant="outlined">
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography sx={{ flex: 1, fontWeight: 600 }} variant="body2">
-                  {item.title}
-                </Typography>
-                <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
-              </Stack>
-              {item.command !== undefined || item.resultText !== undefined ? (
-                <ToolCallResult command={item.command} resultText={item.resultText} />
-              ) : null}
-            </Stack>
-          </Paper>
-        </ListItem>
-      );
+      return <ToolCallRow item={item} />;
 
     case 'user_message':
       return <MessageRow availableCommands={availableCommands} images={item.images} text={item.text} tone="user" />;

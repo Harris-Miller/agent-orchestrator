@@ -36,6 +36,14 @@ _Avoid_: hydrate Atom, bootstrap Atom (when meaning a mount-only procedure)
 A single ordered unit in a session transcript — a user message, agent message, tool call, plan, etc. Derived from session updates (and locally appended user prompts), not sent on the wire. Not a pending interaction.
 _Avoid_: Message, bubble, row, event
 
+**Work region**:
+The collapsible run of a turn's chat items between the user message and the Turn answer — tool calls, plans, agent thoughts, and interim agent messages.
+_Avoid_: work run, work group, activity log
+
+**Turn answer**:
+The trailing agent messages of a turn, after its last work item; always visible below the Work region.
+_Avoid_: final message, response
+
 **Bootstrap phase**:
 Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
 _Avoid_: Status, connection state

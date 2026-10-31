@@ -80,6 +80,7 @@ describe('reduceSessionUpdate', () => {
         command: 'gh pr view 11 --json title',
         id: 'call_001',
         kind: 'tool_call',
+        locationPath: undefined,
         resultText: '{"title":"hello"}',
         status: 'completed',
         title: 'Get PR metadata',
@@ -89,46 +90,28 @@ describe('reduceSessionUpdate', () => {
     ]);
   });
 
-  it('prefers _meta.claudeCode.toolName over title only when it is Bash', () => {
-    const bash = reduceSessionUpdate(emptySessionTranscript(), {
-      _meta: { claudeCode: { toolName: 'Bash' } },
+  it('captures locationPath from {path} and bare-string locations, keeping it across updates', () => {
+    const first = reduceSessionUpdate(emptySessionTranscript(), {
+      locations: [{ path: '/a/b.ts' }],
       sessionUpdate: 'tool_call',
-      title: 'Get PR #11 metadata and standards files',
-      toolCallId: 'call_002',
+      title: 'Read /a/b.ts',
+      toolCallId: 'c1',
+    });
+    const bare = reduceSessionUpdate(emptySessionTranscript(), {
+      locations: ['/x/y.ts'],
+      sessionUpdate: 'tool_call',
+      title: "Read file 'y.ts'",
+      toolCallId: 'c2',
+    });
+    const updated = reduceSessionUpdate(first, {
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId: 'c1',
     });
 
-    assert.deepStrictEqual(bash.items, [
-      {
-        command: undefined,
-        id: 'call_002',
-        kind: 'tool_call',
-        resultText: undefined,
-        status: 'pending',
-        title: 'Bash',
-        toolCallId: 'call_002',
-        toolKind: undefined,
-      },
-    ]);
-
-    const other = reduceSessionUpdate(emptySessionTranscript(), {
-      _meta: { claudeCode: { toolName: 'Read' } },
-      sessionUpdate: 'tool_call',
-      title: 'Reading configuration file',
-      toolCallId: 'call_003',
-    });
-
-    assert.deepStrictEqual(other.items, [
-      {
-        command: undefined,
-        id: 'call_003',
-        kind: 'tool_call',
-        resultText: undefined,
-        status: 'pending',
-        title: 'Reading configuration file',
-        toolCallId: 'call_003',
-        toolKind: undefined,
-      },
-    ]);
+    assert.strictEqual(first.items[0].kind === 'tool_call' && first.items[0].locationPath, '/a/b.ts');
+    assert.strictEqual(bare.items[0].kind === 'tool_call' && bare.items[0].locationPath, '/x/y.ts');
+    assert.strictEqual(updated.items[0].kind === 'tool_call' && updated.items[0].locationPath, '/a/b.ts');
   });
 });
 

@@ -63,6 +63,7 @@ export type ChatItem =
       readonly command?: string;
       readonly id: string;
       readonly kind: 'tool_call';
+      readonly locationPath?: string;
       readonly resultText?: string;
       readonly status: string;
       readonly title: string;
@@ -287,15 +288,15 @@ const extractRawInputCommand = (rawInput: unknown): string | undefined => {
   return rawInput.command;
 };
 
-const extractClaudeCodeToolName = (meta: unknown): string | undefined => {
-  if (!isRecord(meta)) {
+const extractLocationPath = (locations: unknown): string | undefined => {
+  if (!Array.isArray(locations)) {
     return undefined;
   }
-  const { claudeCode } = meta;
-  if (!isRecord(claudeCode) || claudeCode.toolName !== 'Bash') {
-    return undefined;
+  const [first] = locations as unknown[];
+  if (typeof first === 'string') {
+    return first;
   }
-  return 'Bash';
+  return isRecord(first) && typeof first.path === 'string' ? first.path : undefined;
 };
 
 const appendMessageChunk = (
@@ -528,9 +529,10 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           command: extractRawInputCommand(update.rawInput),
           id: update.toolCallId,
           kind: 'tool_call' as const,
+          locationPath: extractLocationPath(update.locations),
           resultText: extractTextFromContent(update.content),
           status,
-          title: extractClaudeCodeToolName(update._meta) ?? update.title,
+          title: update.title,
           toolCallId: update.toolCallId,
           toolKind: isToolKind(update.kind) ? update.kind : undefined,
         },
@@ -549,8 +551,8 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
       const command = extractRawInputCommand(update.rawInput);
       const resultText = extractTextFromContent(update.content);
       const status = typeof update.status === 'string' ? update.status : undefined;
-      const title =
-        extractClaudeCodeToolName(update._meta) ?? (typeof update.title === 'string' ? update.title : undefined);
+      const title = typeof update.title === 'string' ? update.title : undefined;
+      const locationPath = extractLocationPath(update.locations);
 
       if (existingIndex !== undefined) {
         const existing = transcript.items[existingIndex];
@@ -559,6 +561,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           items[existingIndex] = {
             ...existing,
             command: command ?? existing.command,
+            locationPath: locationPath ?? existing.locationPath,
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
             title: title ?? existing.title,
@@ -573,6 +576,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           command,
           id: update.toolCallId,
           kind: 'tool_call' as const,
+          locationPath,
           resultText,
           status: status ?? 'unknown',
           title: title ?? update.toolCallId,

@@ -309,8 +309,7 @@ export type ProviderRequest = ReturnType<typeof useProviderControls>['request'];
 export const ProviderEnabledSwitch: FC<{
   readonly provider: ProviderView;
   readonly request: ProviderRequest;
-  readonly size?: 'medium' | 'small';
-}> = ({ provider, request, size = 'small' }) => (
+}> = ({ provider, request }) => (
   <Switch
     checked={provider.enabled}
     onChange={(_event, checked) => {
@@ -319,7 +318,6 @@ export const ProviderEnabledSwitch: FC<{
     onClick={event => {
       event.stopPropagation();
     }}
-    size={size}
     slotProps={{ input: { 'aria-label': `Enable ${PROVIDER_META[provider.id].label}` } }}
   />
 );

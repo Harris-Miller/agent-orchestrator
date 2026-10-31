@@ -16,10 +16,11 @@ import { noopClientError } from './noopClientError.ts';
 import { truncateSessionId } from './truncateSessionId.ts';
 
 export const ConfirmSessionDeleteDialog: FC<{
+  readonly onBeforeDelete?: () => void;
   readonly onCancel: () => void;
   readonly onClientError?: (error: unknown) => void;
   readonly target: undefined | UnifiedHistoryEntry;
-}> = ({ onCancel, onClientError = noopClientError, target }) => {
+}> = ({ onBeforeDelete, onCancel, onClientError = noopClientError, target }) => {
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
 
   return (
@@ -43,6 +44,7 @@ export const ConfirmSessionDeleteDialog: FC<{
               return;
             }
             const { launchTarget, sessionId } = target;
+            onBeforeDelete?.();
             deleteSession({ launchTarget, sessionId }).then(onCancel).catch(onClientError);
           }}
           variant="contained"

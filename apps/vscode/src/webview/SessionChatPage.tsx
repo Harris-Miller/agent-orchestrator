@@ -54,7 +54,6 @@ export const SessionChatPage: FC = () => {
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
@@ -63,6 +62,14 @@ export const SessionChatPage: FC = () => {
   useEffect(() => {
     activateSessionRef.current = activateSession;
   }, [activateSession]);
+
+  // Close/Archive/Delete of this session: move to New Session first so the lifecycle atoms don't fall back to Session History.
+  const goToNewSession = () => {
+    if (sessionCwd !== undefined) {
+      ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
+    }
+  };
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError, goToNewSession);
 
   const isVirtual = selected?._tag === 'Virtual';
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
@@ -79,10 +86,7 @@ export const SessionChatPage: FC = () => {
 
     if (sessionId === undefined || launchTarget === undefined) {
       activateKickRef.current = undefined;
-      // Selected session went away (Close/Archive/Delete): land on New Session, not Session History.
-      (sessionCwd === undefined ? clearSelected(undefined) : ensureVirtualSession({ cwd: sessionCwd })).catch(
-        () => undefined,
-      );
+      clearSelected(undefined).catch(() => undefined);
       return;
     }
 
@@ -96,7 +100,7 @@ export const SessionChatPage: FC = () => {
     }
     activateKickRef.current = sessionId;
     activateSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
-  }, [clearSelected, ensureVirtualSession, isVirtual, launchTarget, onClientError, sessionCwd, sessionId, status]);
+  }, [clearSelected, isVirtual, launchTarget, onClientError, sessionId, status]);
 
   const onBack = () => {
     activateKickRef.current = undefined;
@@ -114,7 +118,12 @@ export const SessionChatPage: FC = () => {
           {title}
         </Typography>
         {entry === undefined ? null : (
-          <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
+          <SessionActionsMenu
+            entry={entry}
+            onBeforeAction={goToNewSession}
+            onClientError={onClientError}
+            onDeleteRequest={requestDelete}
+          />
         )}
         <OpenDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
@@ -131,7 +140,12 @@ export const SessionChatPage: FC = () => {
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
-      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
+      <ConfirmSessionDeleteDialog
+        onBeforeDelete={goToNewSession}
+        onCancel={clearDeleteTarget}
+        onClientError={onClientError}
+        target={deleteTarget}
+      />
     </Box>
   );
 };

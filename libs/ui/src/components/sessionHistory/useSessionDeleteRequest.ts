@@ -8,6 +8,7 @@ import { noopClientError } from './noopClientError.ts';
 
 export const useSessionDeleteRequest = (
   onClientError: (error: unknown) => void = noopClientError,
+  onBeforeDelete?: () => void,
 ): {
   readonly clearDeleteTarget: () => void;
   readonly deleteTarget: undefined | UnifiedHistoryEntry;
@@ -22,6 +23,7 @@ export const useSessionDeleteRequest = (
       setDeleteTarget(entry);
       return;
     }
+    onBeforeDelete?.();
     deleteSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
 

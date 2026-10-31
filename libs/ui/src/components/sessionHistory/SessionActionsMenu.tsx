@@ -22,10 +22,11 @@ const stopPropagation = (event: SyntheticEvent) => {
 
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
+  readonly onBeforeAction?: () => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly sx?: { readonly mr?: number };
-}> = ({ entry, onClientError = noopClientError, onDeleteRequest, sx }) => {
+}> = ({ entry, onBeforeAction, onClientError = noopClientError, onDeleteRequest, sx }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
@@ -68,6 +69,7 @@ export const SessionActionsMenu: FC<{
               disabled={unavailable || session?.status !== 'active'}
               onClick={() => {
                 closeMenu();
+                onBeforeAction?.();
                 deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
                   onClientError,
                 );
@@ -84,6 +86,7 @@ export const SessionActionsMenu: FC<{
               disabled={unavailable}
               onClick={() => {
                 closeMenu();
+                onBeforeAction?.();
                 archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
               }}
               size="small"

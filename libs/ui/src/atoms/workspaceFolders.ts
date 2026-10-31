@@ -9,7 +9,6 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
 import { backendHarnessStateAtom, selectedAtom } from './backendState.atoms.ts';
 import {
-  cancelPromptAtomFn,
   deactivateSessionAtomFn,
   ensureVirtualSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
@@ -94,14 +93,6 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   }
 
   const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd);
-  for (const match of matches) {
-    if (match.pendingClientRequest === 'prompt') {
-      yield* runAtomFn(registry, cancelPromptAtomFn, {
-        launchTarget: match.launchTarget,
-        sessionId: match.sessionId,
-      }).pipe(Effect.ignore);
-    }
-  }
   for (const match of matches) {
     yield* runAtomFn(registry, deactivateSessionAtomFn, {
       launchTarget: match.launchTarget,

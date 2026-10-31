@@ -42,6 +42,8 @@ import {
   configOptionIndexAtom,
   selectedAtom,
 } from './backendState.atoms.ts';
+import type { createChatAtoms } from './chat.atoms.ts';
+import { runAtomFn } from './runAtomFn.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
@@ -69,6 +71,7 @@ const resetActivatedConfiguration = Effect.fn('resetActivatedConfiguration')(fun
 });
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
+type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
 
 type SessionTarget = {
   readonly launchTarget: AgentLaunchTarget;
@@ -111,6 +114,7 @@ const closeSessionForLaunchTarget = Effect.fnUntraced(function* (launchTarget: A
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
   refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
+  cancelPromptAtomFn: CancelPromptAtomFn,
 ) => {
   const { atomRuntime } = runtime;
 
@@ -402,6 +406,11 @@ export const createSessionLifecycleAtoms = (
           if (snapshot.phase !== 'ready') {
             yield* Effect.logWarning('deactivateSession skipped; backend not ready', arg.launchTarget);
             return;
+          }
+
+          // Prompt turn cancel first; a failed cancel must not block the close.
+          if (snapshot.sessions[arg.sessionId]?.pendingClientRequest === 'prompt') {
+            yield* runAtomFn(get.registry, cancelPromptAtomFn, arg).pipe(Effect.ignore);
           }
 
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);

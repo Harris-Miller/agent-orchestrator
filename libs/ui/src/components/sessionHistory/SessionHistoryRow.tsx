@@ -13,12 +13,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import {
-  activateSessionAtomFn,
-  archiveSessionAtomFn,
-  cancelPromptAtomFn,
-  deactivateSessionAtomFn,
-} from '../../atoms/boundHarnessAtoms.ts';
+import { activateSessionAtomFn, archiveSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -49,7 +44,6 @@ export const SessionHistoryRow: FC<{
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
-  const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
@@ -133,11 +127,9 @@ export const SessionHistoryRow: FC<{
               disabled={unavailable || session?.status !== 'active'}
               onClick={() => {
                 closeMenu();
-                const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
-                // Cancel an in-flight prompt turn before Deactivate, same order as folder removal.
-                (session?.pendingClientRequest === 'prompt' ? cancelPrompt(target) : Promise.resolve())
-                  .then(() => deactivateSession(target))
-                  .catch(onClientError);
+                deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
+                  onClientError,
+                );
               }}
               size="small"
               startIcon={<LucideMuiIcon icon={X} />}

@@ -5,10 +5,12 @@
 import { useAtom } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Fragment, useState } from 'react';
@@ -60,16 +62,18 @@ export const ProvidersStartupMount: FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
-          <Button
-            color="inherit"
-            onClick={() => {
-              setShowOnStartup(false);
-              setOpen(false);
-            }}
-            size="small"
-          >
-            Don&apos;t show me again
-          </Button>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!showOnStartup}
+                onChange={event => {
+                  setShowOnStartup(!event.target.checked);
+                }}
+                size="small"
+              />
+            }
+            label="Don't show me again"
+          />
           <Button
             onClick={() => {
               setOpen(false);

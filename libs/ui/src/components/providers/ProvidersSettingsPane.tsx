@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
+import Checkbox from '@mui/material/Checkbox';
 import Typography from '@mui/material/Typography';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
@@ -350,7 +350,7 @@ export const ProvidersSettingsPane: FC = () => {
           <Box sx={{ p: 2 }}>
             <FormControlLabel
               control={
-                <Switch
+                <Checkbox
                   checked={showOnStartup}
                   onChange={(_event, checked) => {
                     setShowOnStartup(checked);

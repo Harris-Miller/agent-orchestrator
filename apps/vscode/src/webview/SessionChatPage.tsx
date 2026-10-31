@@ -4,6 +4,7 @@ import {
   AgentLaunchTargetIcon,
   clearSelectedAtomFn,
   ConfirmSessionDeleteDialog,
+  ensureVirtualSessionAtomFn,
   isSessionActiveOrActivating,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
@@ -50,6 +51,7 @@ export const SessionChatPage: FC = () => {
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
@@ -77,7 +79,10 @@ export const SessionChatPage: FC = () => {
 
     if (sessionId === undefined || launchTarget === undefined) {
       activateKickRef.current = undefined;
-      clearSelected(undefined).catch(() => undefined);
+      // Selected session went away (Close/Archive/Delete): land on New Session, not Session History.
+      (sessionCwd === undefined ? clearSelected(undefined) : ensureVirtualSession({ cwd: sessionCwd })).catch(
+        () => undefined,
+      );
       return;
     }
 
@@ -91,7 +96,7 @@ export const SessionChatPage: FC = () => {
     }
     activateKickRef.current = sessionId;
     activateSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
-  }, [clearSelected, isVirtual, launchTarget, onClientError, sessionId, status]);
+  }, [clearSelected, ensureVirtualSession, isVirtual, launchTarget, onClientError, sessionCwd, sessionId, status]);
 
   const onBack = () => {
     activateKickRef.current = undefined;

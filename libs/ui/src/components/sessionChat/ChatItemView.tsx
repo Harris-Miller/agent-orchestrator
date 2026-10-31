@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import { useAtomValue } from '@effect/atom-react';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -12,7 +11,6 @@ import {
   Brain,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
   FileText,
   FolderInput,
   Globe,

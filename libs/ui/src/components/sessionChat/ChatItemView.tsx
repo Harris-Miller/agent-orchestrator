@@ -25,6 +25,7 @@ import {
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownBlockMarkers.ts';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
@@ -178,13 +179,13 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
   const middle = text.slice(leading.length, text.length - trailing.length);
   // Plain text must stay a text node (same line metrics as chips). ChatMarkdown's inline <p>
   // wrapper shifts the baseline and makes neighboring chips look high/low.
-  if (middle.length === 0 || !/[*_~`[\]]/.test(middle)) {
+  if (middle.length === 0 || !hasInlineMarkdown(middle)) {
     return text;
   }
   return (
     <>
       {leading.length > 0 ? leading : null}
-      <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} />
+      <ChatMarkdown sx={userFragmentMarkdownSx} text={escapeMarkdownBlockMarkers(middle)} />
       {trailing.length > 0 ? trailing : null}
     </>
   );

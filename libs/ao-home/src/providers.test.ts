@@ -9,7 +9,13 @@ import {
   providerCurrentJsonPath,
   providerRuntimeDir,
 } from './providers.ts';
-import { ProviderRuntimeDocumentMalformed, readProviderRuntimeState } from './providerRuntimeState.ts';
+import { beginRuntimeAttempt, completeRuntimeAttempt, setActiveRuntime } from './providerRuntimeCatalog.ts';
+import {
+  ProviderRuntimeDocumentMalformed,
+  readProviderRuntimeState,
+  writeProviderRuntimeDocument,
+} from './providerRuntimeState.ts';
+import { emptyProviderRuntimeDocument } from './ProviderRuntimeDocument.ts';
 import { mapFsTestServices } from './testing/mapFsTestServices.ts';
 import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
@@ -55,6 +61,20 @@ describe('provider paths and runtime state', () => {
         });
         const state = yield* readProviderRuntimeState(claude);
         assert.strictEqual(state._tag, 'Present');
+      }),
+    );
+
+    layeredIt.effect('written document reads back and publishes through the atomic host op', () =>
+      Effect.gen(function* () {
+        let doc = beginRuntimeAttempt(emptyProviderRuntimeDocument, {
+          _tag: 'npm',
+          package: '@agentclientprotocol/claude-agent-acp',
+          version: '1.0.0',
+        });
+        doc = setActiveRuntime(completeRuntimeAttempt(doc, '1.0.0'), '1.0.0');
+        yield* writeProviderRuntimeDocument(claude, doc);
+        const state = yield* readProviderRuntimeState(claude);
+        assert.deepStrictEqual(state, { _tag: 'Present', document: doc });
       }),
     );
   });

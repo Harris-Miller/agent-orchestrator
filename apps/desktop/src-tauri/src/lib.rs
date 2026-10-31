@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -46,6 +47,48 @@ fn untrack_child_process(pid: u32, state: State<'_, TrackedChildPids>) {
     if let Ok(mut pids) = state.0.lock() {
         pids.remove(&pid);
     }
+}
+
+/// True only for `<home>/.ao/providers/<launch-target>/current.json` with no traversal.
+fn is_provider_current_json(home: &Path, path: &Path) -> bool {
+    let root = home.join(".ao").join("providers");
+    let Ok(relative) = path.strip_prefix(&root) else {
+        return false;
+    };
+    let parts: Vec<Component> = relative.components().collect();
+    if parts.iter().any(|part| !matches!(part, Component::Normal(_))) || parts.len() != 2 {
+        return false;
+    }
+    let id = parts[0].as_os_str().to_string_lossy();
+    let valid_id = !id.is_empty()
+        && !id.starts_with('-')
+        && !id.ends_with('-')
+        && !id.contains("--")
+        && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    valid_id && parts[1].as_os_str() == "current.json"
+}
+
+/// Atomically replace a provider's `current.json`: temp file beside the target, then rename.
+/// Refuses any other path (the shared FileSystem `rename` is unavailable to the webview).
+#[tauri::command]
+fn atomic_replace_provider_state(
+    app: tauri::AppHandle,
+    path: String,
+    content: String,
+) -> Result<(), String> {
+    let home = app.path().home_dir().map_err(|error| error.to_string())?;
+    let target = PathBuf::from(&path);
+    if !is_provider_current_json(&home, &target) {
+        return Err(format!("atomic replace refused for path outside provider state: {path}"));
+    }
+    let dir = target.parent().ok_or("missing parent directory")?;
+    std::fs::create_dir_all(dir).map_err(|error| error.to_string())?;
+    let temp = dir.join(format!("current.json.{}.tmp", std::process::id()));
+    let result = std::fs::write(&temp, content).and_then(|_| std::fs::rename(&temp, &target));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
+    }
+    result.map_err(|error| error.to_string())
 }
 
 /// Kill `pid` and its descendants (depth-first). Unix only — desktop target.
@@ -109,6 +152,7 @@ pub fn run() {
 
     builder
         .invoke_handler(tauri::generate_handler![
+            atomic_replace_provider_state,
             greet,
             host_process_info,
             track_child_process,
@@ -121,4 +165,26 @@ pub fn run() {
                 reap_tracked_children(&app_handle.state::<TrackedChildPids>());
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_only_provider_current_json() {
+        let home = Path::new("/home/operator");
+        assert!(is_provider_current_json(home, Path::new("/home/operator/.ao/providers/claude-agent-acp/current.json")));
+        for bad in [
+            "/home/operator/.ao/settings.json",
+            "/home/operator/.ao/providers/claude-agent-acp/runtime/1.0.0/current.json",
+            "/home/operator/.ao/providers/../settings.json",
+            "/home/operator/.ao/providers/claude-agent-acp/../x/current.json",
+            "/home/operator/.ao/providers/Bad_Id/current.json",
+            "/home/operator/.ao/providers/current.json",
+            "/etc/.ao/providers/claude-agent-acp/current.json",
+        ] {
+            assert!(!is_provider_current_json(home, Path::new(bad)), "{bad}");
+        }
+    }
 }

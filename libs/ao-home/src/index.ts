@@ -108,4 +108,5 @@ export {
   ProviderRuntimeDocumentMalformed,
   readProviderRuntimeState,
   type ProviderRuntimeState,
+  writeProviderRuntimeDocument,
 } from './providerRuntimeState.ts';

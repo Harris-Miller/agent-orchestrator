@@ -2,6 +2,7 @@ import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
+import { makeAtomicFileLive } from './AtomicFileLive.ts';
 import { makeBundledResourceLive } from './BundledResourceLive.ts';
 import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
@@ -46,6 +47,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
   const fetchLive = makeExtensionFetchLive(client);
 
   return Layer.mergeAll(
+    makeAtomicFileLive(client),
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),
     ClipboardLive,

@@ -2,6 +2,7 @@ import type { HostServices } from '@lib/context-services';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
+import { AtomicFileLive } from './AtomicFileLive.ts';
 import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
@@ -26,10 +27,11 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides BundledResource, Clipboard, FileDialog, OpenUrl, OpenFile, OS, Path, FileSystem, ChildProcessSpawner, and
+ * Provides AtomicFile, BundledResource, Clipboard, FileDialog, OpenUrl, OpenFile, OS, Path, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
+  AtomicFileLive,
   BundledResourceLive,
   ClipboardLive,
   ConfigProviderLive,

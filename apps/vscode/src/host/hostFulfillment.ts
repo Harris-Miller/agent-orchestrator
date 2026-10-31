@@ -13,11 +13,12 @@ import * as vscode from 'vscode';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir as osHomedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
+import { isProviderCurrentJsonPath } from './providerStatePath';
 import type { ProcessTracker } from './processTracker';
 
 export { fileWorkspaceFolderPaths };
@@ -80,6 +81,8 @@ type ExtensionInbound = Extract<
       | 'AppExit'
       | 'BundledResolve'
       | 'FileDialogPickFiles'
+      | 'FsAtomicReplaceFileString'
+      | 'FsCopyFile'
       | 'FsExists'
       | 'FsMakeDirectory'
       | 'FsMakeTempDirectory'
@@ -87,6 +90,7 @@ type ExtensionInbound = Extract<
       | 'FsReadFileString'
       | 'FsRemove'
       | 'FsStat'
+      | 'FsWriteFile'
       | 'FsWriteFileString'
       | 'HttpFetch'
       | 'Kill'
@@ -105,6 +109,8 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'AppExit',
   'BundledResolve',
   'FileDialogPickFiles',
+  'FsAtomicReplaceFileString',
+  'FsCopyFile',
   'FsExists',
   'FsMakeDirectory',
   'FsMakeTempDirectory',
@@ -112,6 +118,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'FsReadFileString',
   'FsRemove',
   'FsStat',
+  'FsWriteFile',
   'FsWriteFileString',
   'HttpFetch',
   'Kill',
@@ -186,6 +193,27 @@ export const handleHostIpcMessage = async (args: {
         });
         return;
       }
+      case 'FsAtomicReplaceFileString': {
+        if (!isProviderCurrentJsonPath(osHomedir(), message.path)) {
+          throw new Error(`Atomic replace refused for path outside provider state: ${message.path}`);
+        }
+        const temp = `${message.path}.${String(process.pid)}.${Date.now().toString(36)}.tmp`;
+        try {
+          await mkdir(dirname(message.path), { recursive: true });
+          await writeFile(temp, message.content, 'utf8');
+          await rename(temp, message.path);
+        } catch (error) {
+          await rm(temp, { force: true });
+          throw error;
+        }
+        post(webview, { _tag: 'FsAtomicReplaceFileStringResult', id: message.id });
+        return;
+      }
+      case 'FsCopyFile': {
+        await copyFile(message.fromPath, message.toPath);
+        post(webview, { _tag: 'FsCopyFileResult', id: message.id });
+        return;
+      }
       case 'FsExists': {
         try {
           await access(message.path, fsConstants.F_OK);
@@ -241,6 +269,11 @@ export const handleHostIpcMessage = async (args: {
           size: info.size,
           type,
         });
+        return;
+      }
+      case 'FsWriteFile': {
+        await writeFile(message.path, unknownBytesToUint8Array(message.bytes));
+        post(webview, { _tag: 'FsWriteFileResult', id: message.id });
         return;
       }
       case 'FsWriteFileString': {

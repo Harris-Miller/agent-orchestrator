@@ -1,3 +1,4 @@
+import { AtomicFile } from '@lib/context-services';
 import { Effect, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
@@ -31,4 +32,15 @@ export const readProviderRuntimeState = Effect.fn('readProviderRuntimeState')(fu
     Effect.mapError(error => new ProviderRuntimeDocumentMalformed({ launchTarget, message: error.message })),
   );
   return { _tag: 'Present', document } satisfies ProviderRuntimeState;
+});
+
+/** Publish `current.json` through the Host's atomic replace. Validates the document before writing. */
+export const writeProviderRuntimeDocument = Effect.fn('writeProviderRuntimeDocument')(function* (
+  launchTarget: LaunchTarget,
+  document: ProviderRuntimeDocument,
+) {
+  const atomicFile = yield* AtomicFile;
+  const filePath = yield* providerCurrentJsonPath(launchTarget);
+  const encoded = yield* Schema.encodeEffect(ProviderRuntimeDocumentJsonString)(document);
+  yield* atomicFile.replaceFileString(filePath, encoded.endsWith('\n') ? encoded : `${encoded}\n`);
 });

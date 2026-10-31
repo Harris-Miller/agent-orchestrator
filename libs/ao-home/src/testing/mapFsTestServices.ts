@@ -1,4 +1,4 @@
-import { OS } from '@lib/context-services';
+import { AtomicFile, OS } from '@lib/context-services';
 import { Effect, Layer, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import type { File, FileSystem } from 'effect/FileSystem';
@@ -113,10 +113,19 @@ const chmodOkSpawnerLayer = Layer.succeed(
   ),
 );
 
-/** In-memory FileSystem + Path + OS (+ chmod-ok spawner) for ao-home tests. */
+/** Map-backed atomic replace: a single store write, so readers never see a partial document. */
+const mapAtomicFileLayer = (store: Map<string, MapFsEntry>) =>
+  Layer.succeed(AtomicFile, {
+    replaceFileString: (path, content) =>
+      Effect.sync(() => {
+        store.set(path, { content, kind: 'file' });
+      }),
+  });
+
+/** In-memory FileSystem + Path + OS + AtomicFile (+ chmod-ok spawner) for ao-home tests. */
 export const mapFsTestServices = (
   store: Map<string, MapFsEntry>,
-): Layer.Layer<ChildProcessSpawner.ChildProcessSpawner | FileSystem | OS | Path> => {
+): Layer.Layer<AtomicFile | ChildProcessSpawner.ChildProcessSpawner | FileSystem | OS | Path> => {
   const osLayer = Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => DEFAULT_HOMEDIR,
@@ -124,5 +133,7 @@ export const mapFsTestServices = (
     homedir: () => DEFAULT_HOMEDIR,
     platform: () => 'linux',
   });
-  return Layer.mergeAll(posixPathLayer, mapFsLayer(store), chmodOkSpawnerLayer).pipe(Layer.provideMerge(osLayer));
+  return Layer.mergeAll(posixPathLayer, mapFsLayer(store), mapAtomicFileLayer(store), chmodOkSpawnerLayer).pipe(
+    Layer.provideMerge(osLayer),
+  );
 };

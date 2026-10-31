@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { OS } from '@lib/context-services';
+import { AtomicFile, OS } from '@lib/context-services';
 import { Effect, FileSystem } from 'effect';
 
 import { makeHostServicesLive } from '../makeHostServicesLive.ts';
@@ -49,6 +49,51 @@ describe('makeHostServicesLive (fake peer)', () => {
       const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(layer));
       assert.strictEqual(yield* fs.exists('/home/test/.ao'), true);
       assert.strictEqual(yield* fs.exists('/missing'), false);
+    }),
+  );
+
+  it.effect('atomic replace, binary writeFile and copyFile round-trip through IPC', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const seen: string[] = [];
+
+      extension.onMessage(raw => {
+        const message = decodeIpcMessage(raw);
+        if (message._tag === 'OsSnapshot') {
+          extension.postMessage(
+            encodeIpcMessage({
+              _tag: 'OsSnapshotResult',
+              arch: 'x64',
+              cwd: '/tmp',
+              env: {},
+              homedir: '/home/test',
+              id: message.id,
+              platform: 'linux',
+            }),
+          );
+        } else if (message._tag === 'FsAtomicReplaceFileString') {
+          seen.push(`atomic:${message.path}:${message.content}`);
+          extension.postMessage(encodeIpcMessage({ _tag: 'FsAtomicReplaceFileStringResult', id: message.id }));
+        } else if (message._tag === 'FsWriteFile') {
+          seen.push(`write:${message.path}`);
+          extension.postMessage(encodeIpcMessage({ _tag: 'FsWriteFileResult', id: message.id }));
+        } else if (message._tag === 'FsCopyFile') {
+          seen.push(`copy:${message.fromPath}->${message.toPath}`);
+          extension.postMessage(encodeIpcMessage({ _tag: 'FsCopyFileResult', id: message.id }));
+        }
+      });
+
+      const layer = makeHostServicesLive({ port: webview });
+      const atomicFile = yield* AtomicFile.pipe(Effect.provide(layer));
+      yield* atomicFile.replaceFileString('/home/test/.ao/providers/x/current.json', '{}');
+      const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(layer));
+      yield* fs.writeFile('/tmp/bin', new Uint8Array([1, 2, 3]));
+      yield* fs.copyFile('/tmp/a', '/tmp/b');
+      assert.deepStrictEqual(seen, [
+        'atomic:/home/test/.ao/providers/x/current.json:{}',
+        'write:/tmp/bin',
+        'copy:/tmp/a->/tmp/b',
+      ]);
     }),
   );
 });

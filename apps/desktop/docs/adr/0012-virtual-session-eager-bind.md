@@ -2,6 +2,8 @@
 
 ADR 0011 deferred `session/new` until first Send. That left Composer Triggers (`/` commands, `@` FS) dark until Materialize. We now **Bind** eagerly: once Virtual has absolute Session cwd + launch target and that backend is Bootstrap `ready`, call `session/new`, upsert the session snapshot into the harness sessions map (no Session History, no Config apply), and store the Bound `sessionId` on the Virtual blob. Selected stays Virtual. **Materialize** remains first-Send promote (apply Virtual `configValues`, Session History upsert, Select Session, clear Virtual, prompt) — not a second `session/new`. Session History publish drops the Bound id until promote. Sole Bind triggers: `mutateVirtualThenRebind` after Virtual mutates, and Ready `onPhase`. Supersedes ADR 0011’s defer-`session/new` timing only; Virtual draft ownership and non-persistence stay.
 
+**Leaving Virtual** (Select a Session, clear Selected) is navigation and never waits on the Bind / Materialize lifecycle lock. Composer content (non-blank draft or attachments) keeps the Virtual blob and its Bound session, so in-flight Bind or Materialize finishes in the background; Materialize only Selects the promoted Session if Selected is still Virtual. An empty Composer discards the blob with best-effort Bound teardown (an in-flight Bind tears down its orphan once `session/new` returns).
+
 ## Considered options
 
 - **Keep defer-until-Send (ADR 0011):** simplest lifecycle, but Bound Active sessionId unavailable for Triggers/Config live apply.

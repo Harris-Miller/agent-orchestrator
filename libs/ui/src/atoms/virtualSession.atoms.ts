@@ -9,6 +9,7 @@ import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configO
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 
 import { configOptionIndexAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
+import type { Selected } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { AtomRw } from './virtualBind.ts';
 import { mutateVirtualThenRebind, refreshFsListingViaRegistry, rwFromFnContext } from './virtualBind.ts';
@@ -164,46 +165,52 @@ export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarg
   });
 };
 
+/** Composer has typed text or attachments (same test Materialize uses for a sendable draft). */
+export const hasComposerContent = (virtual: Pick<VirtualSession, 'attachments' | 'draft'>): boolean =>
+  virtual.draft.trim().length > 0 || virtual.attachments.length > 0;
+
 /**
- * Leave Virtual Selected: best-effort Bound teardown + clear blob, then unset Selected.
- * No-op on lifecycle lock. Session-arm clear stays a Selected flip only.
+ * Navigate off Virtual (never blocked by the lifecycle lock). Composer content → keep blob + Bound
+ * (in-flight Bind / Materialize finish in the background). Empty → best-effort Bound teardown + clear blob.
  */
-export const clearSelectedEffect = Effect.fn('clearSelectedEffect')(function* (rw: AtomRw) {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
+const leaveVirtualEffect = Effect.fn('leaveVirtualEffect')(function* (rw: AtomRw, next: Selected | undefined) {
+  const virtual = rw.get(virtualSessionAtom);
+  if (virtual !== null && hasComposerContent(virtual)) {
+    rw.set(selectedAtom, next);
     return;
   }
+  if (rw.get(virtualLifecycleInFlightAtom)) {
+    // In-flight Bind sees the cleared blob after session/new and tears down its orphan.
+    rw.set(virtualSessionAtom, null);
+    rw.set(selectedAtom, next);
+    return;
+  }
+  yield* mutateVirtualThenRebind(rw, {
+    mutate: inner => {
+      discardVirtualSession(inner);
+      inner.set(selectedAtom, next);
+    },
+    rebind: false,
+  });
+});
+
+/** Unset Selected; leaving Virtual follows {@link leaveVirtualEffect}. Session-arm clear is a Selected flip only. */
+export const clearSelectedEffect = Effect.fn('clearSelectedEffect')(function* (rw: AtomRw) {
   if (rw.get(selectedAtom)?._tag === 'Virtual') {
-    yield* mutateVirtualThenRebind(rw, {
-      mutate: inner => {
-        discardVirtualSession(inner);
-        inner.set(selectedAtom, undefined);
-      },
-      rebind: false,
-    });
+    yield* leaveVirtualEffect(rw, undefined);
     return;
   }
   rw.set(selectedAtom, undefined);
 });
 
-/**
- * Select Session arm: if leaving Virtual, teardown Bound + clear blob first.
- * No-op on lifecycle lock.
- */
+/** Select Session arm; leaving Virtual follows {@link leaveVirtualEffect}. */
 export const selectSessionEffect = Effect.fn('selectSessionEffect')(function* (rw: AtomRw, sessionId: string) {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
-    return;
-  }
+  const next: Selected = { _tag: 'Session', sessionId };
   if (rw.get(selectedAtom)?._tag === 'Virtual') {
-    yield* mutateVirtualThenRebind(rw, {
-      mutate: inner => {
-        discardVirtualSession(inner);
-        inner.set(selectedAtom, { _tag: 'Session', sessionId });
-      },
-      rebind: false,
-    });
+    yield* leaveVirtualEffect(rw, next);
     return;
   }
-  rw.set(selectedAtom, { _tag: 'Session', sessionId });
+  rw.set(selectedAtom, next);
 });
 
 /** Effect folder churn: teardown Bound on clear/swap, then sync mutate, then Bind when cwd present. */

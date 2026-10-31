@@ -88,7 +88,8 @@ const formatActivationDefect = (defect: unknown): string => {
 export const SessionChatBody: FC<{
   readonly aboveComposer?: ReactNode;
   readonly onClientError: (error: unknown) => void;
-}> = ({ aboveComposer, onClientError }) => {
+  readonly virtualEmptyState?: ReactNode;
+}> = ({ aboveComposer, onClientError, virtualEmptyState }) => {
   const {
     attachments,
     availableCommands,
@@ -495,18 +496,28 @@ export const SessionChatBody: FC<{
     return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
+  const isChatEmpty = chatItems.length === 0 && !hasPendingInteraction;
+  const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;
+
   useEffect(() => {
     pinnedToBottomRef.current = true;
   }, [selectedLaunchTarget, selectedSession?.sessionId]);
 
   useLayoutEffect(() => {
     const chatScroll = chatScrollRef.current;
-    if (chatScroll === null || !pinnedToBottomRef.current) {
+    if (chatScroll === null) {
+      return;
+    }
+    if (showVirtualEmptyState) {
+      chatScroll.scrollTop = 0;
+      return;
+    }
+    if (!pinnedToBottomRef.current) {
       return;
     }
 
     chatScroll.scrollTop = chatScroll.scrollHeight;
-  }, [chatItems, selectedSession?.pendingElicitation, selectedSession?.pendingPermission]);
+  }, [chatItems, selectedSession?.pendingElicitation, selectedSession?.pendingPermission, showVirtualEmptyState]);
 
   return (
     <Box
@@ -533,7 +544,9 @@ export const SessionChatBody: FC<{
         sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <List dense disablePadding>
-          {chatItems.length === 0 && !hasPendingInteraction ? (
+          {showVirtualEmptyState ? (
+            virtualEmptyState
+          ) : isChatEmpty ? (
             <ListItem>
               <ListItemText
                 primary="No messages yet"

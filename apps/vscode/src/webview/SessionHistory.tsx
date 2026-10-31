@@ -1,17 +1,14 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allLaunchTargetPhasesAtom,
-  ConfirmSessionDeleteDialog,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
-  SessionHistoryRow,
   sessionListScopeAtom,
   sessionsForCwd,
   unifiedSessionHistoryAtom,
-  useSessionDeleteRequest,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -25,6 +22,7 @@ import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
+import { SessionRows } from './SessionRows.tsx';
 
 export const SessionHistory: FC = () => {
   const history = useAtomValue(unifiedSessionHistoryAtom);
@@ -35,7 +33,6 @@ export const SessionHistory: FC = () => {
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
@@ -99,19 +96,9 @@ export const SessionHistory: FC = () => {
         </Stack>
       ) : (
         <Box sx={{ overflow: 'auto', py: 0.5 }}>
-          {sessions.map(entry => (
-            <SessionHistoryRow
-              entry={entry}
-              key={`${entry.launchTarget}:${entry.sessionId}`}
-              onClientError={onClientError}
-              onDeleteRequest={requestDelete}
-              selected={selectedSessionId === entry.sessionId}
-            />
-          ))}
+          <SessionRows selectedSessionId={selectedSessionId} sessions={sessions} />
         </Box>
       )}
-
-      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>
   );
 };

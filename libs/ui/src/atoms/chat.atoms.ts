@@ -51,12 +51,17 @@ export const slimImageRefsFromAttachments = (
   }));
 
 const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
-  arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
+  arg: {
+    attachments?: readonly ComposerImageAttachment[];
+    launchTarget: AgentLaunchTarget;
+    sessionId: string | undefined;
+    text: string;
+  },
   get: Atom.FnContext,
 ) {
   const trimmed = arg.text.trim();
   const attachments = arg.attachments ?? [];
-  const sessionId = get(selectedSessionIdAtom);
+  const { sessionId } = arg;
   const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
   const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
@@ -95,7 +100,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
         get: Atom.FnContext,
       ) {
-        yield* sendChatItemEffect(arg, get);
+        yield* sendChatItemEffect({ ...arg, sessionId: get(selectedSessionIdAtom) }, get);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -179,8 +184,10 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           get.set(draftAtom(sessionId), draft);
           get.set(composerAttachmentsAtom(sessionId), attachments);
           get.set(virtualSessionAtom, null);
-          // Bypass in-flight guard while we still hold the virtual lifecycle lock.
-          get.set(selectedAtom, { _tag: 'Session', sessionId });
+          // User may have navigated away mid-Materialize; only follow the draft if still on Virtual.
+          if (get(selectedAtom)?._tag === 'Virtual') {
+            get.set(selectedAtom, { _tag: 'Session', sessionId });
+          }
           return { attachments, draft, launchTarget, sessionId } as const;
         }).pipe(
           Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
@@ -201,6 +208,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           {
             attachments: materialized.attachments,
             launchTarget: materialized.launchTarget,
+            sessionId: materialized.sessionId,
             text: materialized.draft,
           },
           get,

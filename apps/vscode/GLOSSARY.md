@@ -24,7 +24,11 @@ The sidebar presentation of Session History (see desktop glossary), filtered to 
 _Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:
-The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if Session History is nonempty. Back clears Selected (Virtual blob kept until process restart); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
+The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if Session History is nonempty. Empty Virtual Chat shows Recent sessions. Back clears Selected (Virtual blob kept when the Composer has content, else discarded); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
 _Avoid_: Main chat, AgentChatMain, conversation pane
+
+**Recent sessions**:
+The up-to-5 newest Session History entries for the Workspace cwd, listed in an empty Virtual Chat. None → blank Chat body.
+_Avoid_: Session History (when you mean this short list), recents
 
 For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).

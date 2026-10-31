@@ -14,7 +14,8 @@ export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom
 
 /**
  * True while Virtual Bind or Materialize holds the lifecycle lock.
- * Selection / create helpers no-op while true. Must not stay set during session/prompt.
+ * Create / Virtual-mutation helpers no-op while true; navigation (select / clear Selected) never waits on it.
+ * Must not stay set during session/prompt.
  */
 export const virtualLifecycleInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
 

@@ -70,3 +70,42 @@ export {
   UserSettingsJsonString,
   UserSettingsSchema,
 } from './UserSettings.ts';
+export {
+  ANTIGRAVITY_PROVIDER_ID,
+  antigravityProviderBrowserHelperPath,
+  antigravityProviderHomeDir,
+  providerCurrentJsonPath,
+  providerDir,
+  providerRuntimeDir,
+  providerRuntimeRelativeDir,
+  providersRootDir,
+} from './providers.ts';
+export {
+  emptyProviderRuntimeDocument,
+  isSafeRuntimeVersion,
+  type ProviderDistribution,
+  ProviderDistributionSchema,
+  type ProviderDownloadState,
+  type ProviderRuntimeDocument,
+  ProviderRuntimeDocumentJsonString,
+  ProviderRuntimeDocumentSchema,
+  type ProviderRuntimeEntry,
+  type ProviderRuntimeRef,
+} from './ProviderRuntimeDocument.ts';
+export {
+  beginRuntimeAttempt,
+  cleanupTargets,
+  clearActiveRuntime,
+  completeRuntimeAttempt,
+  downloadedRuntimes,
+  failRuntimeAttempt,
+  markRuntimePendingDelete,
+  removeRuntimeEntry,
+  setActiveRuntime,
+  supersededRuntimes,
+} from './providerRuntimeCatalog.ts';
+export {
+  ProviderRuntimeDocumentMalformed,
+  readProviderRuntimeState,
+  type ProviderRuntimeState,
+} from './providerRuntimeState.ts';

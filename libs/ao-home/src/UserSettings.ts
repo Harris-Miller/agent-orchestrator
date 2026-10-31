@@ -1,5 +1,7 @@
 import { Schema } from 'effect';
 
+import { LaunchTargetSchema } from './LaunchTarget.ts';
+
 /**
  * User settings schema: known preference fields + passthrough unknown keys.
  */
@@ -8,6 +10,8 @@ export const UserSettingsSchema = Schema.StructWithRest(
     alwaysHiddenGlobs: Schema.optionalKey(Schema.Array(Schema.String)),
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
+    providerEnabled: Schema.optionalKey(Schema.Record(LaunchTargetSchema, Schema.Boolean)),
+    showProvidersOnStartup: Schema.optionalKey(Schema.Boolean),
     showNoFolderGroup: Schema.optionalKey(Schema.Boolean),
     theme: Schema.optionalKey(Schema.String),
   }),

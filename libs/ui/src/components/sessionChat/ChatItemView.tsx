@@ -219,7 +219,7 @@ const toolCommandMarkdownSx = {
   '& pre': {
     bgcolor: 'transparent',
     borderRadius: 0,
-    mb: 0,
+    m: 0,
     overflow: 'hidden',
     p: 0,
     whiteSpace: 'pre-wrap',
@@ -234,7 +234,7 @@ const toolResultMarkdownSx = {
   '& pre': {
     bgcolor: 'transparent',
     borderRadius: 0,
-    mb: 0,
+    m: 0,
     overflow: 'auto',
     p: 0,
   },

@@ -4,7 +4,7 @@ import { TestClock } from 'effect/testing';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 
-import { checkNodePrerequisite } from './nodePrerequisite.ts';
+import { checkNodePrerequisite, isNodePrerequisiteMet } from './nodePrerequisite.ts';
 
 type Probe = { readonly exitCode: number; readonly stdout: string } | 'missing' | 'spawn-error' | 'hang';
 
@@ -51,7 +51,7 @@ describe('checkNodePrerequisite', () => {
         node: { exitCode: 0, stdout: 'v22.3.0\n' },
         npm: { exitCode: 0, stdout: '10.8.1\n' },
       });
-      assert.isTrue(result.ok);
+      assert.isTrue(isNodePrerequisiteMet(result));
       assert.deepStrictEqual(result.node, { _tag: 'Ok', version: '22.3.0' });
       assert.deepStrictEqual(result.npm, { _tag: 'Ok', version: '10.8.1' });
     }),
@@ -60,11 +60,11 @@ describe('checkNodePrerequisite', () => {
   it.effect('distinguishes too-old node, missing npm, invalid output, non-zero exit and spawn failure', () =>
     Effect.gen(function* () {
       const old = yield* check({ node: { exitCode: 0, stdout: 'v20.11.0' }, npm: { exitCode: 0, stdout: '10.0.0' } });
-      assert.isFalse(old.ok);
+      assert.isFalse(isNodePrerequisiteMet(old));
       assert.deepStrictEqual(old.node, { _tag: 'TooOld', version: '20.11.0' });
 
       const noNpm = yield* check({ node: { exitCode: 0, stdout: 'v22.0.0' } });
-      assert.isFalse(noNpm.ok);
+      assert.isFalse(isNodePrerequisiteMet(noNpm));
       assert.deepStrictEqual(noNpm.npm, { _tag: 'Missing' });
 
       const garbage = yield* check({ node: { exitCode: 0, stdout: 'hello' }, npm: { exitCode: 3, stdout: '' } });
@@ -82,7 +82,7 @@ describe('checkNodePrerequisite', () => {
       yield* TestClock.adjust('11 seconds');
       const result = yield* Fiber.join(fiber);
       assert.deepStrictEqual(result.node, { _tag: 'TimedOut' });
-      assert.isFalse(result.ok);
+      assert.isFalse(isNodePrerequisiteMet(result));
     }),
   );
 });

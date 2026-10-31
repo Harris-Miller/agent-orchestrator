@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, Result, Schema } from 'effect';
 
 import {
   beginRuntimeAttempt,
@@ -71,9 +71,24 @@ describe('ProviderRuntimeDocument schema', () => {
   );
 });
 
+/** Transitions that must succeed in these tests. */
+const ok = {
+  beginRuntimeAttempt: (...args: Parameters<typeof beginRuntimeAttempt>) =>
+    Result.getOrThrow(beginRuntimeAttempt(...args)),
+  completeRuntimeAttempt: (...args: Parameters<typeof completeRuntimeAttempt>) =>
+    Result.getOrThrow(completeRuntimeAttempt(...args)),
+  failRuntimeAttempt: (...args: Parameters<typeof failRuntimeAttempt>) =>
+    Result.getOrThrow(failRuntimeAttempt(...args)),
+  markRuntimePendingDelete: (...args: Parameters<typeof markRuntimePendingDelete>) =>
+    Result.getOrThrow(markRuntimePendingDelete(...args)),
+  removeRuntimeEntry: (...args: Parameters<typeof removeRuntimeEntry>) =>
+    Result.getOrThrow(removeRuntimeEntry(...args)),
+  setActiveRuntime: (...args: Parameters<typeof setActiveRuntime>) => Result.getOrThrow(setActiveRuntime(...args)),
+};
+
 describe('provider runtime catalog transitions', () => {
   it('records a downloading attempt before it can complete', () => {
-    const recorded = beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
+    const recorded = ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
     assert.deepStrictEqual(
       recorded.catalog.map(entry => [entry.version, entry.state._tag]),
       [['1.0.0', 'downloading']],
@@ -83,10 +98,10 @@ describe('provider runtime catalog transitions', () => {
   });
 
   it('first completion can activate; later completions leave active unchanged', () => {
-    let doc = beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
-    doc = completeRuntimeAttempt(doc, '1.0.0');
-    doc = setActiveRuntime(doc, '1.0.0');
-    doc = completeRuntimeAttempt(beginRuntimeAttempt(doc, npm('2.0.0')), '2.0.0');
+    let doc = ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
+    doc = ok.completeRuntimeAttempt(doc, '1.0.0');
+    doc = ok.setActiveRuntime(doc, '1.0.0');
+    doc = ok.completeRuntimeAttempt(ok.beginRuntimeAttempt(doc, npm('2.0.0')), '2.0.0');
     assert.strictEqual(doc.active?.version, '1.0.0');
     assert.deepStrictEqual(
       supersededRuntimes(doc).map(entry => entry.version),
@@ -95,18 +110,18 @@ describe('provider runtime catalog transitions', () => {
   });
 
   it('only completed entries can be activated', () => {
-    const doc = beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
-    assert.throws(() => setActiveRuntime(doc, '1.0.0'));
+    const doc = ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0'));
+    assert.isTrue(Result.isFailure(setActiveRuntime(doc, '1.0.0')));
   });
 
   it('cleanup targets are incomplete, failed and pending-delete entries, never the active one', () => {
-    let doc = completeRuntimeAttempt(beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')), '1.0.0');
-    doc = setActiveRuntime(doc, '1.0.0');
-    doc = beginRuntimeAttempt(doc, npm('2.0.0'));
-    doc = failRuntimeAttempt(beginRuntimeAttempt(doc, npm('3.0.0')), '3.0.0', 'exit 1');
-    doc = completeRuntimeAttempt(beginRuntimeAttempt(doc, npm('4.0.0')), '4.0.0');
-    doc = markRuntimePendingDelete(doc, '4.0.0', 'EBUSY');
-    doc = completeRuntimeAttempt(beginRuntimeAttempt(doc, npm('5.0.0')), '5.0.0');
+    let doc = ok.completeRuntimeAttempt(ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')), '1.0.0');
+    doc = ok.setActiveRuntime(doc, '1.0.0');
+    doc = ok.beginRuntimeAttempt(doc, npm('2.0.0'));
+    doc = ok.failRuntimeAttempt(ok.beginRuntimeAttempt(doc, npm('3.0.0')), '3.0.0', 'exit 1');
+    doc = ok.completeRuntimeAttempt(ok.beginRuntimeAttempt(doc, npm('4.0.0')), '4.0.0');
+    doc = ok.markRuntimePendingDelete(doc, '4.0.0', 'EBUSY');
+    doc = ok.completeRuntimeAttempt(ok.beginRuntimeAttempt(doc, npm('5.0.0')), '5.0.0');
     assert.deepStrictEqual(
       cleanupTargets(doc).map(entry => entry.version),
       ['2.0.0', '3.0.0', '4.0.0'],
@@ -114,22 +129,26 @@ describe('provider runtime catalog transitions', () => {
   });
 
   it('removing a cleaned entry drops it from the catalog; the active entry cannot be removed', () => {
-    let doc = completeRuntimeAttempt(beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')), '1.0.0');
-    doc = setActiveRuntime(doc, '1.0.0');
-    doc = failRuntimeAttempt(beginRuntimeAttempt(doc, npm('2.0.0')), '2.0.0', 'boom');
-    doc = removeRuntimeEntry(doc, '2.0.0');
+    let doc = ok.completeRuntimeAttempt(ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')), '1.0.0');
+    doc = ok.setActiveRuntime(doc, '1.0.0');
+    doc = ok.failRuntimeAttempt(ok.beginRuntimeAttempt(doc, npm('2.0.0')), '2.0.0', 'boom');
+    doc = ok.removeRuntimeEntry(doc, '2.0.0');
     assert.deepStrictEqual(
       doc.catalog.map(entry => entry.version),
       ['1.0.0'],
     );
-    assert.throws(() => removeRuntimeEntry(doc, '1.0.0'));
+    assert.isTrue(Result.isFailure(removeRuntimeEntry(doc, '1.0.0')));
   });
 
   it('a retried version replaces its failed entry but never a completed one', () => {
-    let doc = failRuntimeAttempt(beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')), '1.0.0', 'boom');
-    doc = beginRuntimeAttempt(doc, npm('1.0.0'));
+    let doc = ok.failRuntimeAttempt(
+      ok.beginRuntimeAttempt(emptyProviderRuntimeDocument, npm('1.0.0')),
+      '1.0.0',
+      'boom',
+    );
+    doc = ok.beginRuntimeAttempt(doc, npm('1.0.0'));
     assert.strictEqual(doc.catalog[0]?.state._tag, 'downloading');
-    doc = completeRuntimeAttempt(doc, '1.0.0');
-    assert.throws(() => beginRuntimeAttempt(doc, npm('1.0.0')));
+    doc = ok.completeRuntimeAttempt(doc, '1.0.0');
+    assert.isTrue(Result.isFailure(beginRuntimeAttempt(doc, npm('1.0.0'))));
   });
 });

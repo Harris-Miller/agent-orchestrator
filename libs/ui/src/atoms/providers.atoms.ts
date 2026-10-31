@@ -39,20 +39,26 @@ import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.
 type HarnessAtoms = ReturnType<typeof createHarnessAtoms>;
 type UserSettingsAtoms = ReturnType<typeof createUserSettingsAtoms>;
 
-/** What we know about a provider's requirements on disk / PATH. `loaded` is false until the first refresh. */
+/** `current.json` as last read: not yet refreshed, not applicable (Cursor), read, or unreadable/malformed. */
+export type RuntimeDocumentState =
+  | { readonly _tag: 'NotLoaded' }
+  | { readonly _tag: 'Unmanaged' }
+  | { readonly _tag: 'Read'; readonly snapshot: RuntimeSnapshot }
+  | { readonly _tag: 'Unreadable'; readonly message: string };
+
+/** What we know about a provider's requirements on disk / PATH. */
 export type ProviderRuntimeInfo = {
   readonly cli: CliState;
-  readonly documentError: string | undefined;
-  readonly loaded: boolean;
-  readonly snapshot: RuntimeSnapshot | undefined;
+  readonly document: RuntimeDocumentState;
 };
 
 const initialInfo = (launchTarget: AgentLaunchTarget): ProviderRuntimeInfo => ({
   cli: PROVIDER_META[launchTarget].cliName === undefined ? { _tag: 'NotRequired' } : { _tag: 'Missing' },
-  documentError: undefined,
-  loaded: false,
-  snapshot: undefined,
+  document: { _tag: 'NotLoaded' },
 });
+
+const snapshotOf = ({ document }: ProviderRuntimeInfo): RuntimeSnapshot | undefined =>
+  document._tag === 'Read' ? document.snapshot : undefined;
 
 const describeFailure = (cause: Cause.Cause<unknown>): { readonly detail: string; readonly message: string } => {
   const detail = Cause.pretty(cause);
@@ -99,9 +105,10 @@ export const createProvidersAtoms = (
   const providerViewAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
     Atom.make((get): ProviderView => {
       const info = get(providerRuntimeInfoAtom(launchTarget));
+      const snapshot = snapshotOf(info);
       const harnessState = get(backendHarnessStateAtom(launchTarget));
       const { auth, harnessError } = authFromHarness(harnessState.phase, harnessState.error);
-      const managed = PROVIDER_META[launchTarget].runtimeKind !== undefined;
+      const managed = PROVIDER_META[launchTarget].runtime !== undefined;
       return {
         auth,
         cli: info.cli,
@@ -111,10 +118,10 @@ export const createProvidersAtoms = (
         liveSessions: get(liveSessionCountAtom(launchTarget)),
         runtime: managed
           ? {
-              active: info.snapshot?.active,
-              cleanupFailures: info.snapshot?.cleanupFailures ?? [],
-              documentError: info.documentError,
-              downloaded: info.snapshot?.downloaded ?? [],
+              active: snapshot?.active,
+              cleanupFailures: snapshot?.cleanupFailures ?? [],
+              documentError: info.document._tag === 'Unreadable' ? info.document.message : undefined,
+              downloaded: snapshot?.downloaded ?? [],
               job: get(providerJobAtom(launchTarget)),
               latest: get(providerLatestAtom(launchTarget)),
             }
@@ -151,20 +158,15 @@ export const createProvidersAtoms = (
             ),
           );
     if (!isManagedProvider(launchTarget)) {
-      get.set(providerRuntimeInfoAtom(launchTarget), {
-        cli,
-        documentError: undefined,
-        loaded: true,
-        snapshot: undefined,
-      });
+      get.set(providerRuntimeInfoAtom(launchTarget), { cli, document: { _tag: 'Unmanaged' } });
       return;
     }
     const snapshot = yield* readRuntimeSnapshot(launchTarget).pipe(Effect.result);
     get.set(
       providerRuntimeInfoAtom(launchTarget),
       snapshot._tag === 'Success'
-        ? { cli, documentError: undefined, loaded: true, snapshot: snapshot.success }
-        : { cli, documentError: snapshot.failure.message, loaded: true, snapshot: undefined },
+        ? { cli, document: { _tag: 'Read', snapshot: snapshot.success } }
+        : { cli, document: { _tag: 'Unreadable', message: snapshot.failure.message } },
     );
   });
 
@@ -193,7 +195,7 @@ export const createProvidersAtoms = (
           get.set(providerLatestAtom(launchTarget), { _tag: 'Failed', message: resolved.failure.message });
           return;
         }
-        const { snapshot } = get(providerRuntimeInfoAtom(launchTarget));
+        const snapshot = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)));
         const have = new Set([snapshot?.active, ...(snapshot?.downloaded ?? [])]);
         get.set(providerLatestDistributionAtom(launchTarget), resolved.success);
         get.set(
@@ -263,7 +265,7 @@ export const createProvidersAtoms = (
         if (!isManagedProvider(launchTarget)) {
           return;
         }
-        const version = get(providerRuntimeInfoAtom(launchTarget)).snapshot?.downloaded.at(-1);
+        const version = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)))?.downloaded.at(-1);
         if (version === undefined) {
           return;
         }

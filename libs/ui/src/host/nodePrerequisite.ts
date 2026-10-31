@@ -1,5 +1,5 @@
 /** Global Node (>= 22) and npm prerequisite for provider runtimes. Pre-alpha: we rely on the user's own install. */
-import { Effect } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import type { PlatformError } from 'effect/PlatformError';
 import type { ChildProcessSpawner } from 'effect/process';
 
@@ -22,10 +22,15 @@ export type ToolStatus =
 export type NodePrerequisite = {
   readonly node: ToolStatus;
   readonly npm: ToolStatus;
-  readonly ok: boolean;
 };
 
-const VERSION = /^v?(\d+)\.(\d+)\.(\d+)/;
+export const isNodePrerequisiteMet = ({ node, npm }: NodePrerequisite): boolean =>
+  node._tag === 'Ok' && npm._tag === 'Ok';
+
+/** `node --version` / `npm --version` output: optional `v`, then `major.minor.patch…`. */
+const decodeToolVersion = Schema.decodeUnknownOption(
+  Schema.TemplateLiteralParser([Schema.Literals(['v', '']), Schema.Int, '.', Schema.Int, '.', Schema.String]),
+);
 
 const isMissingExecutable = (error: PlatformError): boolean =>
   error.reason._tag === 'NotFound' || /not found|ENOENT|No such file|program not allowed/i.test(error.message);
@@ -45,14 +50,13 @@ const probe = (
         return { _tag: 'NonZeroExit', exitCode };
       }
       const output = stdout.trim();
-      const match = VERSION.exec(output);
-      if (match === null) {
+      const parsed = decodeToolVersion(output);
+      if (Option.isNone(parsed)) {
         return { _tag: 'InvalidOutput', output: output.slice(0, 200) };
       }
-      const version = output.replace(/^v/, '');
-      return minMajor !== undefined && Number(match[1]) < minMajor
-        ? { _tag: 'TooOld', version }
-        : { _tag: 'Ok', version };
+      const [prefix, major] = parsed.value;
+      const version = output.slice(prefix.length);
+      return minMajor !== undefined && major < minMajor ? { _tag: 'TooOld', version } : { _tag: 'Ok', version };
     }),
     Effect.catch(error =>
       Effect.succeed<ToolStatus>(
@@ -64,7 +68,7 @@ const probe = (
 /** Probe `node --version` and `npm --version`. Never fails: every outcome is a typed status. */
 export const checkNodePrerequisite = Effect.fn('checkNodePrerequisite')(function* () {
   const [node, npm] = yield* Effect.all([probe('node', MIN_NODE_MAJOR), probe('npm', undefined)], { concurrency: 2 });
-  return { node, npm, ok: node._tag === 'Ok' && npm._tag === 'Ok' } satisfies NodePrerequisite;
+  return { node, npm } satisfies NodePrerequisite;
 });
 
 /** Human text for one tool, for the blocking modal. */

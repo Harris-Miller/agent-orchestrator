@@ -60,8 +60,11 @@ export type ProviderMeta = {
   readonly cliInstall: readonly CommandHint[];
   readonly cliName: string | undefined;
   readonly label: string;
-  readonly runtimeKind: 'npm' | 'registry' | undefined;
-  readonly runtimePackage: string | undefined;
+  /** `undefined` = no managed runtime (Cursor). */
+  readonly runtime:
+    | { readonly _tag: 'npm'; readonly package: string }
+    | { readonly _tag: 'registry'; readonly package: string }
+    | undefined;
   readonly signIn:
     | { readonly _tag: 'Cli'; readonly command: string; readonly hint: string }
     | { readonly _tag: 'InApp'; readonly hint: string };
@@ -72,8 +75,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     cliInstall: [],
     cliName: undefined,
     label: 'Antigravity',
-    runtimeKind: 'registry',
-    runtimePackage: 'agy_acp_server',
+    runtime: { _tag: 'registry', package: 'agy_acp_server' },
     signIn: { _tag: 'InApp', hint: 'Sign in with Google in your browser. No CLI needed.' },
   },
   'claude-agent-acp': {
@@ -83,8 +85,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     ],
     cliName: 'claude',
     label: 'Claude',
-    runtimeKind: 'npm',
-    runtimePackage: '@agentclientprotocol/claude-agent-acp',
+    runtime: { _tag: 'npm', package: '@agentclientprotocol/claude-agent-acp' },
     signIn: { _tag: 'Cli', command: 'claude', hint: 'Run claude in a terminal, then /login and follow the prompts.' },
   },
   'codex-acp': {
@@ -94,16 +95,14 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     ],
     cliName: 'codex',
     label: 'Codex',
-    runtimeKind: 'npm',
-    runtimePackage: '@agentclientprotocol/codex-acp',
+    runtime: { _tag: 'npm', package: '@agentclientprotocol/codex-acp' },
     signIn: { _tag: 'Cli', command: 'codex login', hint: 'Run codex login in a terminal.' },
   },
   'cursor-acp': {
     cliInstall: [{ command: 'curl https://cursor.com/install -fsS | bash', label: 'Installer' }],
     cliName: 'cursor-agent',
     label: 'Cursor',
-    runtimeKind: undefined,
-    runtimePackage: undefined,
+    runtime: undefined,
     signIn: { _tag: 'Cli', command: 'cursor-agent login', hint: 'Run cursor-agent login in a terminal.' },
   },
 };
@@ -115,6 +114,7 @@ export const runtimeDirLabel = (id: AgentLaunchTarget, version: string): string 
 
 export type OverallStatus =
   | 'checking'
+  | 'cli-missing'
   | 'disabled'
   | 'download-failed'
   | 'downloading'
@@ -123,8 +123,7 @@ export type OverallStatus =
   | 'not-signed-in'
   | 'ready'
   | 'signing-in'
-  | 'switching'
-  | 'unavailable';
+  | 'switching';
 
 /**
  * Disabled = switched off by the user. Unavailable (and the install/runtime states that explain it) = enabled but
@@ -135,7 +134,7 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
     return 'disabled';
   }
   if (p.cli._tag === 'Missing') {
-    return 'unavailable';
+    return 'cli-missing';
   }
   const { runtime } = p;
   if (runtime !== undefined) {
@@ -170,7 +169,7 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
 export const isProviderUnavailable = (p: ProviderView): boolean => {
   const status = overallStatus(p);
   return (
-    status === 'unavailable' || status === 'needs-runtime' || status === 'download-failed' || status === 'downloading'
+    status === 'cli-missing' || status === 'needs-runtime' || status === 'download-failed' || status === 'downloading'
   );
 };
 
@@ -181,6 +180,7 @@ export type StatusTone = 'error' | 'info' | 'neutral' | 'success' | 'warning';
 
 export const STATUS_META: Readonly<Record<OverallStatus, { readonly label: string; readonly tone: StatusTone }>> = {
   checking: { label: 'Checking sign-in…', tone: 'neutral' },
+  'cli-missing': { label: 'Unavailable', tone: 'error' },
   disabled: { label: 'Disabled', tone: 'neutral' },
   'download-failed': { label: 'Download failed', tone: 'error' },
   downloading: { label: 'Downloading…', tone: 'info' },
@@ -190,13 +190,12 @@ export const STATUS_META: Readonly<Record<OverallStatus, { readonly label: strin
   ready: { label: 'Ready', tone: 'success' },
   'signing-in': { label: 'Signing in…', tone: 'info' },
   switching: { label: 'Switching runtime…', tone: 'info' },
-  unavailable: { label: 'Unavailable', tone: 'error' },
 };
 
 /** Reason shown beside an unavailable row in pickers and the startup matrix. */
 export const unavailableReason = (p: ProviderView): string | undefined => {
   switch (overallStatus(p)) {
-    case 'unavailable':
+    case 'cli-missing':
       return `${PROVIDER_META[p.id].cliName ?? 'CLI'} not found on PATH`;
     case 'needs-runtime':
       return 'Runtime not downloaded';
@@ -220,7 +219,7 @@ export const statusHeadline = (p: ProviderView): string => {
   switch (status) {
     case 'ready':
       return 'Signed in';
-    case 'unavailable':
+    case 'cli-missing':
       return `Unavailable · ${PROVIDER_META[p.id].cliName ?? 'CLI'} not found`;
     case 'error':
       return p.harnessError ?? STATUS_META.error.label;

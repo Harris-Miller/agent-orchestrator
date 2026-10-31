@@ -95,6 +95,7 @@ export {
   downloadedRuntimes,
   failRuntimeAttempt,
   markRuntimePendingDelete,
+  ProviderRuntimeTransitionError,
   removeRuntimeEntry,
   setActiveRuntime,
   supersededRuntimes,

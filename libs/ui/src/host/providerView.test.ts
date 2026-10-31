@@ -35,7 +35,7 @@ describe('provider status', () => {
   it('distinguishes disabled from unavailable', () => {
     assert.strictEqual(overallStatus(view({ enabled: false, cli: { _tag: 'Missing' } })), 'disabled');
     const missingCli = view({ cli: { _tag: 'Missing' } });
-    assert.strictEqual(overallStatus(missingCli), 'unavailable');
+    assert.strictEqual(overallStatus(missingCli), 'cli-missing');
     assert.isTrue(isProviderUnavailable(missingCli));
     assert.strictEqual(unavailableReason(missingCli), 'claude not found on PATH');
   });

@@ -1,5 +1,5 @@
 import { assert, describe, layer } from '@effect/vitest';
-import { Effect } from 'effect';
+import { Effect, Result } from 'effect';
 import { beforeEach } from 'vitest';
 
 import { LaunchTargetSchema } from './LaunchTarget.ts';
@@ -66,12 +66,16 @@ describe('provider paths and runtime state', () => {
 
     layeredIt.effect('written document reads back and publishes through the atomic host op', () =>
       Effect.gen(function* () {
-        let doc = beginRuntimeAttempt(emptyProviderRuntimeDocument, {
-          _tag: 'npm',
-          package: '@agentclientprotocol/claude-agent-acp',
-          version: '1.0.0',
-        });
-        doc = setActiveRuntime(completeRuntimeAttempt(doc, '1.0.0'), '1.0.0');
+        const begun = yield* Effect.fromResult(
+          beginRuntimeAttempt(emptyProviderRuntimeDocument, {
+            _tag: 'npm',
+            package: '@agentclientprotocol/claude-agent-acp',
+            version: '1.0.0',
+          }),
+        );
+        const doc = yield* Effect.fromResult(
+          completeRuntimeAttempt(begun, '1.0.0').pipe(Result.flatMap(done => setActiveRuntime(done, '1.0.0'))),
+        );
         yield* writeProviderRuntimeDocument(claude, doc);
         const state = yield* readProviderRuntimeState(claude);
         assert.deepStrictEqual(state, { _tag: 'Present', document: doc });

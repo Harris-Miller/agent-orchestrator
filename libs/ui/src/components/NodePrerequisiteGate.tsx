@@ -13,7 +13,12 @@ import { Effect } from 'effect';
 import { useCallback, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { checkNodePrerequisite, describeToolStatus, MIN_NODE_MAJOR } from '../host/nodePrerequisite.ts';
+import {
+  checkNodePrerequisite,
+  describeToolStatus,
+  isNodePrerequisiteMet,
+  MIN_NODE_MAJOR,
+} from '../host/nodePrerequisite.ts';
 import type { NodePrerequisite } from '../host/nodePrerequisite.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
@@ -31,7 +36,7 @@ export const NodePrerequisiteGate: FC<{ readonly children: ReactNode }> = ({ chi
   const probe = useCallback(async () => {
     setPhase({ _tag: 'checking' });
     const result = await hostRuntime.runPromise(checkNodePrerequisite());
-    setPhase(result.ok ? { _tag: 'ready' } : { _tag: 'failed', result });
+    setPhase(isNodePrerequisiteMet(result) ? { _tag: 'ready' } : { _tag: 'failed', result });
   }, []);
 
   useEffect(() => {

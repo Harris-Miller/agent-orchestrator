@@ -271,7 +271,10 @@ describe('provider runtime resolve, cleanup and launch', () => {
         return yield* Effect.die('expected Present');
       }
       yield* run(
-        writeProviderRuntimeDocument(target, beginRuntimeAttempt(current.document, npm('2.0.0'))),
+        writeProviderRuntimeDocument(
+          target,
+          yield* Effect.fromResult(beginRuntimeAttempt(current.document, npm('2.0.0'))),
+        ),
         store,
         npmInstalls(store),
       );
@@ -443,7 +446,10 @@ describe('provider runtime cleanup failure reporting', () => {
         return yield* Effect.die('expected Present');
       }
       yield* run(
-        writeProviderRuntimeDocument(target, markRuntimePendingDelete(current.document, '2.0.0', 'EBUSY')),
+        writeProviderRuntimeDocument(
+          target,
+          yield* Effect.fromResult(markRuntimePendingDelete(current.document, '2.0.0', 'EBUSY')),
+        ),
         store,
         npmInstalls(store),
       );

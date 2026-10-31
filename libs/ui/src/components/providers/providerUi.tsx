@@ -105,7 +105,7 @@ export const ProviderHelp: FC<{ readonly dense?: boolean; readonly provider: Pro
   const meta = PROVIDER_META[provider.id];
   const gap = dense === true ? 0.75 : 1;
 
-  if (status === 'unavailable') {
+  if (status === 'cli-missing') {
     return (
       <Stack spacing={gap}>
         <Typography color="text.secondary" variant="body2">
@@ -173,8 +173,8 @@ export const ProviderHelp: FC<{ readonly dense?: boolean; readonly provider: Pro
   if (status === 'needs-runtime') {
     return (
       <Typography color="text.secondary" variant="body2">
-        {meta.runtimeKind === 'npm'
-          ? `Downloads ${meta.runtimePackage ?? ''} (latest) with npm into ~/.ao/providers/${provider.id}/runtime/.`
+        {meta.runtime?._tag === 'npm'
+          ? `Downloads ${meta.runtime.package} (latest) with npm into ~/.ao/providers/${provider.id}/runtime/.`
           : `Downloads agy_acp_server (latest from the ACP registry, sha256-verified) into ~/.ao/providers/${provider.id}/runtime/.`}
       </Typography>
     );
@@ -377,7 +377,7 @@ export const ProviderPrimaryAction: FC<{
           Recheck
         </Button>
       );
-    case 'unavailable':
+    case 'cli-missing':
     case 'error':
       return (
         <Button

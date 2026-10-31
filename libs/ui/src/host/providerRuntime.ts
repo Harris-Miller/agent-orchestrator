@@ -18,9 +18,15 @@ import {
   supersededRuntimes,
   writeProviderRuntimeDocument,
 } from '@lib/ao-home';
-import type { LaunchTarget, ProviderDistribution, ProviderRuntimeDocument, ProviderRuntimeEntry } from '@lib/ao-home';
+import type {
+  LaunchTarget,
+  ProviderDistribution,
+  ProviderRuntimeDocument,
+  ProviderRuntimeEntry,
+  ProviderRuntimeTransitionError,
+} from '@lib/ao-home';
 import { OS } from '@lib/context-services';
-import { Effect, Schema } from 'effect';
+import { Effect, Result, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { Path } from 'effect/Path';
@@ -51,7 +57,7 @@ export class ProviderRuntimeError extends Schema.TaggedError<ProviderRuntimeErro
   message: Schema.String,
 }) {}
 
-const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const isRuntimeVersion = Schema.is(Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)));
 
 const asTarget = (launchTarget: ManagedProviderLaunchTarget): LaunchTarget => launchTarget as LaunchTarget;
 
@@ -93,13 +99,14 @@ const readDocument = (launchTarget: ManagedProviderLaunchTarget) =>
 /** Re-read, transform, publish atomically. */
 const updateDocument = Effect.fnUntraced(function* (
   launchTarget: ManagedProviderLaunchTarget,
-  transform: (document: ProviderRuntimeDocument) => ProviderRuntimeDocument,
+  transform: (
+    document: ProviderRuntimeDocument,
+  ) => Result.Result<ProviderRuntimeDocument, ProviderRuntimeTransitionError>,
 ) {
   const current = yield* readDocument(launchTarget);
-  const document = yield* Effect.try({
-    catch: error => fail(launchTarget, `Invalid provider state transition: ${errorMessage(error)}`),
-    try: () => transform(current),
-  });
+  const document = yield* Effect.fromResult(transform(current)).pipe(
+    Effect.mapError(error => fail(launchTarget, `Invalid provider state transition: ${error.message}`)),
+  );
   yield* mapProviderError(
     launchTarget,
     writeProviderRuntimeDocument(asTarget(launchTarget), document),
@@ -122,7 +129,7 @@ const resolveNpmDistribution = Effect.fn('resolveNpmDistribution')(function* (la
   if (result.exitCode !== 0) {
     return yield* fail(launchTarget, `npm view exited ${String(result.exitCode)}: ${result.stderr.trim()}`);
   }
-  if (!SEMVER.test(version)) {
+  if (!isRuntimeVersion(version)) {
     return yield* fail(launchTarget, `npm view returned an invalid version: ${JSON.stringify(version)}`);
   }
   return { _tag: 'npm', package: pkg, version } satisfies ProviderDistribution;
@@ -191,15 +198,17 @@ export const purgeRuntimes = Effect.fn('purgeRuntimes')(function* (
     );
   }
   yield* updateDocument(launchTarget, current =>
-    targets.reduce((next, entry) => {
-      const failure = failures.find(candidate => candidate.version === entry.version);
-      if (!next.catalog.some(candidate => candidate.version === entry.version)) {
-        return next;
+    Result.gen(function* () {
+      let next = current;
+      const present = targets.filter(entry => current.catalog.some(candidate => candidate.version === entry.version));
+      for (const entry of present) {
+        const failure = failures.find(candidate => candidate.version === entry.version);
+        next = yield* failure === undefined
+          ? removeRuntimeEntry(next, entry.version)
+          : markRuntimePendingDelete(next, entry.version, failure.error);
       }
-      return failure === undefined
-        ? removeRuntimeEntry(next, entry.version)
-        : markRuntimePendingDelete(next, entry.version, failure.error);
-    }, current),
+      return next;
+    }),
   );
   return failures;
 });
@@ -247,7 +256,7 @@ const installNpm = Effect.fnUntraced(function* (
   distribution: Extract<ProviderDistribution, { readonly _tag: 'npm' }>,
   runtimeDir: string,
 ) {
-  if (distribution.package !== NPM_PACKAGES[launchTarget] || !SEMVER.test(distribution.version)) {
+  if (distribution.package !== NPM_PACKAGES[launchTarget] || !isRuntimeVersion(distribution.version)) {
     return yield* fail(launchTarget, `Refusing to install ${distribution.package}@${distribution.version}`);
   }
   yield* runChecked(
@@ -370,10 +379,13 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
     if (missing.length > 0) {
       return yield* fail(launchTarget, `Runtime ${version} is missing ${missing.join(', ')}`);
     }
-    const document = yield* updateDocument(launchTarget, current => {
-      const completed = completeRuntimeAttempt(current, version);
-      return completed.active === null ? setActiveRuntime(completed, version) : completed;
-    });
+    const document = yield* updateDocument(launchTarget, current =>
+      completeRuntimeAttempt(current, version).pipe(
+        Result.flatMap(completed =>
+          completed.active === null ? setActiveRuntime(completed, version) : Result.succeed(completed),
+        ),
+      ),
+    );
     return { activated: document.active?.version === version, version } satisfies DownloadOutcome;
   });
 
@@ -466,7 +478,7 @@ export const activateDownloadedRuntime = Effect.fn('activateDownloadedRuntime')(
 
 /** Remove step 1: publish "no active runtime". Entries stay cataloged until their directories are deleted. */
 export const deactivateRuntime = Effect.fn('deactivateRuntime')(function* (launchTarget: ManagedProviderLaunchTarget) {
-  yield* updateDocument(launchTarget, document => clearActiveRuntime(document));
+  yield* updateDocument(launchTarget, document => Result.succeed(clearActiveRuntime(document)));
 });
 
 /** After the local provider has stopped: delete every superseded runtime, including never-activated downloads. */

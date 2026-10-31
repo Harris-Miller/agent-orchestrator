@@ -250,5 +250,13 @@ export const createHarnessAtoms = (
     )
     .pipe(Atom.keepAlive);
 
-  return { backendHarnessAtom, restartBackendAtomFn, signInAntigravityAtomFn, startBackendAtomFn, stopBackendAtomFn };
+  return {
+    backendHarnessAtom,
+    restartBackendAtomFn,
+    signInAntigravityAtomFn,
+    startBackend,
+    startBackendAtomFn,
+    stopAndReconcile,
+    stopBackendAtomFn,
+  };
 };

@@ -4,7 +4,7 @@ import type { FC } from 'react';
 import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
 
 import { GeneralSettingsPane } from './GeneralSettingsPane.tsx';
-import { ProvidersPrototype } from './providersPrototype/ProvidersPrototype.tsx';
+import { ProvidersSettingsPane } from './providers/ProvidersSettingsPane.tsx';
 import { ThemeSelect } from './ThemeSelect.tsx';
 
 /** Shared Settings category pane body (host shells supply chrome). */
@@ -24,8 +24,7 @@ export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId
     return <GeneralSettingsPane />;
   }
   if (category === 'providers') {
-    // PROTOTYPE (#175): swap back to <ProvidersSettingsPane /> once a variant is picked.
-    return <ProvidersPrototype />;
+    return <ProvidersSettingsPane />;
   }
   return (
     <>

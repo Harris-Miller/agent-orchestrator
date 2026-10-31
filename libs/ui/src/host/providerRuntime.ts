@@ -5,7 +5,9 @@
 import {
   beginRuntimeAttempt,
   cleanupTargets,
+  clearActiveRuntime,
   completeRuntimeAttempt,
+  downloadedRuntimes,
   emptyProviderRuntimeDocument,
   failRuntimeAttempt,
   markRuntimePendingDelete,
@@ -13,6 +15,7 @@ import {
   readProviderRuntimeState,
   removeRuntimeEntry,
   setActiveRuntime,
+  supersededRuntimes,
   writeProviderRuntimeDocument,
 } from '@lib/ao-home';
 import type { LaunchTarget, ProviderDistribution, ProviderRuntimeDocument, ProviderRuntimeEntry } from '@lib/ao-home';
@@ -447,4 +450,72 @@ export const resolveActiveRuntime = Effect.fn('resolveActiveRuntime')(function* 
     runtimeDir,
     version: active.version,
   } satisfies ActiveRuntime;
+});
+
+// ---------------------------------------------------------------------------------------------
+// Install / Remove (JSON publication; the caller owns the local stop and restart)
+// ---------------------------------------------------------------------------------------------
+
+/** Install step 1: publish the chosen completed runtime as active. */
+export const activateDownloadedRuntime = Effect.fn('activateDownloadedRuntime')(function* (
+  launchTarget: ManagedProviderLaunchTarget,
+  version: string,
+) {
+  yield* updateDocument(launchTarget, document => setActiveRuntime(document, version));
+});
+
+/** Remove step 1: publish "no active runtime". Entries stay cataloged until their directories are deleted. */
+export const deactivateRuntime = Effect.fn('deactivateRuntime')(function* (launchTarget: ManagedProviderLaunchTarget) {
+  yield* updateDocument(launchTarget, document => clearActiveRuntime(document));
+});
+
+/** After the local provider has stopped: delete every superseded runtime, including never-activated downloads. */
+export const purgeSupersededRuntimes = Effect.fn('purgeSupersededRuntimes')(function* (
+  launchTarget: ManagedProviderLaunchTarget,
+) {
+  const document = yield* readDocument(launchTarget);
+  return yield* purgeRuntimes(launchTarget, supersededRuntimes(document));
+});
+
+/** Remove: after deactivation and the local stop, delete every cataloged runtime directory. */
+export const purgeAllRuntimes = Effect.fn('purgeAllRuntimes')(function* (launchTarget: ManagedProviderLaunchTarget) {
+  const document = yield* readDocument(launchTarget);
+  return yield* purgeRuntimes(launchTarget, document.catalog);
+});
+
+export type RuntimeSnapshot = {
+  readonly active: string | undefined;
+  readonly cleanupFailures: readonly { readonly error: string; readonly version: string }[];
+  /** Completed runtimes that are not active. */
+  readonly downloaded: readonly string[];
+};
+
+/** Read-only view of `current.json` for the UI. Malformed / unreadable state is an error, never an empty view. */
+export const readRuntimeSnapshot = Effect.fn('readRuntimeSnapshot')(function* (
+  launchTarget: ManagedProviderLaunchTarget,
+) {
+  const document = yield* readDocument(launchTarget);
+  return {
+    active: document.active?.version,
+    cleanupFailures: document.catalog.flatMap(entry =>
+      entry.state._tag === 'pending-delete' || entry.state._tag === 'failed'
+        ? [{ error: entry.state.error, version: entry.version }]
+        : [],
+    ),
+    downloaded: downloadedRuntimes(document).map(entry => entry.version),
+  } satisfies RuntimeSnapshot;
+});
+
+/** Startup: remove incomplete attempts and failed deletions for every managed provider. Never fails the caller. */
+export const runStartupRuntimeCleanup = Effect.fn('runStartupRuntimeCleanup')(function* (
+  launchTargets: readonly AgentLaunchTarget[],
+) {
+  yield* Effect.forEach(
+    launchTargets.filter(isManagedProvider),
+    launchTarget =>
+      cleanupProviderRuntimes(launchTarget).pipe(
+        Effect.catchCause(cause => Effect.logWarning('provider runtime startup cleanup failed', launchTarget, cause)),
+      ),
+    { concurrency: 'unbounded', discard: true },
+  );
 });

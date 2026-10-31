@@ -8,13 +8,16 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Cause } from 'effect';
+import { Cause, Effect } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
+import { providerEnabledMapAtom } from '../atoms/backendState.atoms.ts';
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { seedProviderEnabledIfAbsent } from '../host/providerBootstrap.ts';
+import { runStartupRuntimeCleanup } from '../host/providerRuntime.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
 type SeedPhase =
@@ -40,7 +43,14 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
       }
       setPhase({ _tag: 'seeding' });
       hostRuntime
-        .runPromiseExit(seedProviderEnabledIfAbsent())
+        .runPromiseExit(
+          Effect.gen(function* () {
+            const seeded = yield* seedProviderEnabledIfAbsent();
+            // Incomplete attempts and failed deletions from a previous run; the active runtime is never touched.
+            yield* runStartupRuntimeCleanup(MOUNTED_AGENT_LAUNCH_TARGETS);
+            return seeded;
+          }),
+        )
         .then(exit => {
           if (cancelled) {
             return;
@@ -53,6 +63,8 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
             // Keep the settings atom in step with what is now on disk.
             registry.set(userSettingsAtom, exit.value.settings);
           }
+          // Only now do providers mount: the enabled preference is known and first-run defaults are persisted.
+          registry.set(providerEnabledMapAtom, exit.value.settings.providerEnabled);
           setPhase({ _tag: 'ready' });
         })
         .catch(() => undefined);

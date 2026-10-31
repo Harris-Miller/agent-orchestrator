@@ -8,6 +8,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
+import { createProvidersAtoms } from './providers.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
@@ -45,13 +46,28 @@ export const {
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 
+const harnessAtoms = createHarnessAtoms(hostBag, refreshSessionFsListingAtomFn);
+
 export const {
   backendHarnessAtom,
   restartBackendAtomFn,
   signInAntigravityAtomFn,
   startBackendAtomFn,
   stopBackendAtomFn,
-} = createHarnessAtoms(hostBag, refreshSessionFsListingAtomFn);
+} = harnessAtoms;
+
+export const {
+  checkLatestAtomFn,
+  downloadAtomFn,
+  installAtomFn,
+  providerViewAtom,
+  providerViewsAtom,
+  recheckAtomFn,
+  refreshProviderAtomFn,
+  removeAtomFn,
+  setProviderEnabledAtomFn,
+  showProvidersOnStartupAtom,
+} = createProvidersAtoms(hostBag, harnessAtoms, { userSettingsAtom });
 
 export const {
   activateSessionAtomFn,

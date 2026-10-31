@@ -15,8 +15,13 @@ import { ChildProcessSpawner } from 'effect/process';
 import * as PlatformError from 'effect/PlatformError';
 
 import {
+  activateDownloadedRuntime,
   cleanupProviderRuntimes,
+  deactivateRuntime,
   downloadProviderRuntime,
+  purgeAllRuntimes,
+  purgeSupersededRuntimes,
+  readRuntimeSnapshot,
   resolveActiveRuntime,
   resolveLatestRuntime,
 } from './providerRuntime.ts';
@@ -444,6 +449,96 @@ describe('provider runtime cleanup failure reporting', () => {
       );
       const outcome = yield* run(downloadProviderRuntime('claude-agent-acp', npm('2.0.0')), store, npmInstalls(store));
       assert.deepStrictEqual(outcome, { activated: false, version: '2.0.0' });
+    }),
+  );
+});
+
+describe('provider runtime install and remove', () => {
+  const downloaded = (store: Map<string, MapFsEntry>) =>
+    Effect.gen(function* () {
+      yield* run(downloadProviderRuntime('claude-agent-acp', npm('1.0.0')), store, npmInstalls(store));
+      yield* run(downloadProviderRuntime('claude-agent-acp', npm('2.0.0')), store, npmInstalls(store));
+      yield* run(downloadProviderRuntime('claude-agent-acp', npm('3.0.0')), store, npmInstalls(store));
+    });
+
+  it.effect('Install activates the chosen version and deletes every superseded and never-activated directory', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      yield* downloaded(store);
+      yield* run(activateDownloadedRuntime('claude-agent-acp', '3.0.0'), store, npmInstalls(store));
+      const failures = yield* run(purgeSupersededRuntimes('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(failures, []);
+      assert.isTrue(store.has(ENTRY('3.0.0')));
+      assert.isFalse([...store.keys()].some(key => key.includes('runtime/1.0.0') || key.includes('runtime/2.0.0')));
+      const snapshot = yield* run(readRuntimeSnapshot('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(snapshot, { active: '3.0.0', cleanupFailures: [], downloaded: [] });
+    }),
+  );
+
+  it.effect('a second instance picks up the new current.json on its next resolve', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      yield* downloaded(store);
+      const before = yield* run(resolveActiveRuntime('claude-agent-acp'), store, npmInstalls(store));
+      assert.strictEqual(before.version, '1.0.0');
+      yield* run(activateDownloadedRuntime('claude-agent-acp', '2.0.0'), store, npmInstalls(store));
+      const after = yield* run(resolveActiveRuntime('claude-agent-acp'), store, npmInstalls(store));
+      assert.strictEqual(after.version, '2.0.0');
+    }),
+  );
+
+  it.effect('Install keeps a superseded directory that cannot be deleted in the catalog for startup retry', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      yield* downloaded(store);
+      yield* run(activateDownloadedRuntime('claude-agent-acp', '3.0.0'), store, npmInstalls(store));
+      const stuck = Layer.mergeAll(
+        mapFsTestServices(store, { failRemoveUnder: [`${CLAUDE}/runtime/1.0.0`] }),
+        spawnerLayer(npmInstalls(store), []),
+        noHttp,
+      );
+      const failures = yield* purgeSupersededRuntimes('claude-agent-acp').pipe(Effect.provide(stuck));
+      assert.deepStrictEqual(
+        failures.map(failure => failure.version),
+        ['1.0.0'],
+      );
+      const snapshot = yield* run(readRuntimeSnapshot('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(
+        snapshot.cleanupFailures.map(failure => failure.version),
+        ['1.0.0'],
+      );
+      const retried = yield* run(cleanupProviderRuntimes('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(retried, []);
+      const after = yield* run(readRuntimeSnapshot('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(after.cleanupFailures, []);
+    }),
+  );
+
+  it.effect(
+    'Remove clears the active runtime and deletes every directory; the provider then has nothing to launch',
+    () =>
+      Effect.gen(function* () {
+        const store = new Map<string, MapFsEntry>();
+        yield* downloaded(store);
+        yield* run(deactivateRuntime('claude-agent-acp'), store, npmInstalls(store));
+        yield* run(purgeAllRuntimes('claude-agent-acp'), store, npmInstalls(store));
+        assert.isFalse([...store.keys()].some(key => key.includes('/runtime/')));
+        const snapshot = yield* run(readRuntimeSnapshot('claude-agent-acp'), store, npmInstalls(store));
+        assert.deepStrictEqual(snapshot, { active: undefined, cleanupFailures: [], downloaded: [] });
+        const missing = yield* run(resolveActiveRuntime('claude-agent-acp'), store, npmInstalls(store)).pipe(
+          Effect.flip,
+        );
+        assert.include(missing.message, 'Settings > Providers');
+      }),
+  );
+
+  it.effect('Install cannot activate an incomplete attempt', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      const error = yield* run(activateDownloadedRuntime('claude-agent-acp', '9.9.9'), store, npmInstalls(store)).pipe(
+        Effect.flip,
+      );
+      assert.include(error.message, 'Invalid provider state transition');
     }),
   );
 });

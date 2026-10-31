@@ -17,7 +17,7 @@ import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '..
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, unifiedSessionHistoryAtom } from './backendState.atoms.ts';
+import { backendHarnessStateAtom, requireLaunchTargetUsable, unifiedSessionHistoryAtom } from './backendState.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
 import { selectSessionEffect } from './virtualSession.atoms.ts';
@@ -93,6 +93,11 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           },
           get: Atom.FnContext,
         ) {
+          // Shared action boundary: a stale picker selection must not hand off to a disabled / switching provider.
+          const blocked = requireLaunchTargetUsable(get, arg.targetLaunchTarget);
+          if (blocked !== undefined) {
+            return yield* blocked;
+          }
           get.set(handoffInProgressAtom, true);
           yield* Effect.annotateCurrentSpan({
             'acp.agent': arg.sourceLaunchTarget,

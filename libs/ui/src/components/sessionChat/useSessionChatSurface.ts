@@ -5,8 +5,9 @@ import { useCallback, useMemo } from 'react';
 import {
   backendHarnessStateAtom,
   configOptionIndexAtom,
+  launchTargetUnavailableReasonsAtom,
+  pickerLaunchTargetsAtom,
   readyLaunchTargetsAtom,
-  selectableLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -49,7 +50,8 @@ export const useSessionChatSurface = () => {
   const lifecycleLockHeld = useAtomValue(virtualLifecycleInFlightAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
-  const selectableLaunchTargets = useAtomValue(selectableLaunchTargetsAtom);
+  const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
+  const unavailableReasons = useAtomValue(launchTargetUnavailableReasonsAtom);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
   const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
@@ -196,6 +198,7 @@ export const useSessionChatSurface = () => {
     pendingClientRequest,
     readyLaunchTargets,
     selectableLaunchTargets,
+    unavailableReasons,
     requestFork,
     selectedLaunchTarget,
     selectedSession,

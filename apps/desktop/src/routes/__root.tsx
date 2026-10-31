@@ -5,6 +5,7 @@ import {
   NodePrerequisiteGate,
   PersistUserSettingsToast,
   ProviderBootstrapGate,
+  ProvidersStartupMount,
   UserSettingsMount,
 } from '@lib/ui';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
@@ -28,6 +29,7 @@ const RootComponent: FC = () => {
           <ProviderBootstrapGate>
             <HarnessCacheGate>
               <AcpBackendsMount />
+              <ProvidersStartupMount />
               <Outlet />
             </HarnessCacheGate>
           </ProviderBootstrapGate>

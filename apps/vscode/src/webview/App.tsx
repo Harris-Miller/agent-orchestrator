@@ -10,6 +10,7 @@ import {
   NodePrerequisiteGate,
   PersistUserSettingsToast,
   ProviderBootstrapGate,
+  ProvidersStartupMount,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -84,6 +85,7 @@ const WorkspaceFoldersGate: FC = () => {
     <OnClientErrorContext.Provider value={onClientError}>
       <HarnessCacheGate>
         <AcpBackendsMount />
+        <ProvidersStartupMount />
       </HarnessCacheGate>
       <Box
         sx={{

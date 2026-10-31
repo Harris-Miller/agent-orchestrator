@@ -1,3 +1,4 @@
+import { supportsDollarTrigger } from '../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
 import { isWhitespace } from './composerCommandTokens.ts';
@@ -37,7 +38,7 @@ export const detectComposerTrigger = ({
     return null;
   }
 
-  const isCodex = launchTarget === 'codex-acp';
+  const isCodex = supportsDollarTrigger(launchTarget);
 
   if (token.startsWith('@')) {
     return {

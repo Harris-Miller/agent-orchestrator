@@ -31,7 +31,8 @@
     "lexical": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
-    "react-markdown": "catalog:"
+    "react-markdown": "catalog:",
+    "remark-gfm": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

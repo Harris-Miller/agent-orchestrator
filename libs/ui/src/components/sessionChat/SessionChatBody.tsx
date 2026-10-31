@@ -32,6 +32,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { composerPlaceholder } from './composerPlaceholder.ts';
 import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
@@ -694,15 +695,7 @@ export const SessionChatBody: FC<{
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onSubmit={sendDraft}
-              placeholder={
-                isVirtual
-                  ? selectedLaunchTarget === undefined
-                    ? 'Choose an agent, then write a prompt…'
-                    : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
-                  : selectedLaunchTarget === undefined
-                    ? 'Select a session…'
-                    : `Message ${agentLaunchTargetLabel(selectedLaunchTarget)}…`
-              }
+              placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}
               value={draft}
             />

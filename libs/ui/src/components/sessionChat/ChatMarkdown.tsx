@@ -3,6 +3,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import type { FC, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { chatLinkUrlTransform } from '../../host/openChatLink.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
@@ -23,6 +24,8 @@ const MarkdownLink: FC<{ children?: ReactNode; href?: string }> = ({ children, h
     </Box>
   );
 };
+
+const remarkPlugins = [remarkGfm];
 
 const markdownComponents = { a: MarkdownLink } satisfies Components;
 
@@ -69,13 +72,20 @@ const baseSx = {
     overflow: 'auto',
     p: 1.5,
   },
+  '& table': { borderCollapse: 'collapse', mb: 1 },
+  '& th, & td': { border: 1, borderColor: 'divider', px: 1, py: 0.5 },
   color: 'text.primary',
   typography: 'body1',
 };
 
 export const ChatMarkdown: FC<{ sx?: SxProps<Theme>; text: string }> = ({ sx, text }) => (
   <Box sx={[baseSx, sx] as SxProps<Theme>}>
-    <Markdown components={markdownComponents} skipHtml urlTransform={chatLinkUrlTransform}>
+    <Markdown
+      components={markdownComponents}
+      remarkPlugins={remarkPlugins}
+      skipHtml
+      urlTransform={chatLinkUrlTransform}
+    >
       {prepareChatMarkdownText(text)}
     </Markdown>
   </Box>

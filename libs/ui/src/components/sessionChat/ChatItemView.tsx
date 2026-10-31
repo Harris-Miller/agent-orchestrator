@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ClipboardEventHandler, FC } from 'react';
+import type { ClipboardEventHandler, FC, SyntheticEvent } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
 import type { AvailableCommand, ChatItem, ToolKind, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
@@ -43,6 +43,7 @@ import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownB
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
+import { toolCallTitleSegments } from './toolCallTitleSegments.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
 
@@ -368,6 +369,30 @@ const TOOL_KIND_ICONS: Record<ToolKind, LucideIcon> = {
   think: Brain,
 };
 
+/** Wrap a handler so the event does not reach the enclosing disclosure button. */
+const stopThen =
+  <E extends SyntheticEvent>(handler: (event: E) => void) =>
+  (event: E): void => {
+    event.stopPropagation();
+    handler(event);
+  };
+
+/** Link inside a disclosure row: opening it must not toggle the row. */
+const TitleLink: FC<{ href: string; text: string }> = ({ href, text }) => {
+  const linkProps = useChatLinkProps(href);
+  return (
+    <Box
+      component="span"
+      sx={{ color: 'primary.main', textDecoration: 'underline', ...(linkProps && { cursor: 'pointer' }) }}
+      {...linkProps}
+      onClick={linkProps && stopThen(linkProps.onClick)}
+      onKeyDown={linkProps && stopThen(linkProps.onKeyDown)}
+    >
+      {text}
+    </Box>
+  );
+};
+
 const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ item }) => {
   const [open, setOpen] = useState(false);
   const expandable = item.command !== undefined || item.resultText !== undefined;
@@ -376,7 +401,14 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
     <>
       <LucideMuiIcon icon={icon} sx={{ color: 'text.secondary', fontSize: 16 }} />
       <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
-        {item.title}
+        {toolCallTitleSegments(item).map((segment, index) =>
+          !('href' in segment) ? (
+            segment.text
+          ) : (
+            // eslint-disable-next-line react/no-array-index-key
+            <TitleLink href={segment.href} key={index} text={segment.text} />
+          ),
+        )}
       </Typography>
       {item.status !== 'completed' ? (
         <Typography

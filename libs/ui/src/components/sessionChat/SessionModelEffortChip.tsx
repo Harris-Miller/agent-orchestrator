@@ -79,6 +79,7 @@ export const SessionModelEffortChip: FC<{
                     key={view.id}
                     onClick={() => {
                       onChange({ configId: effort.id, type: 'select', value: view.id });
+                      menu.close();
                     }}
                     selected={effort.currentValue === view.id}
                   >

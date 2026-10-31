@@ -390,7 +390,7 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
   );
   const rowSx = { alignItems: 'center', display: 'flex', gap: 1, width: '100%' } as const;
   return (
-    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0.25 }}>
+    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0 }}>
       {expandable ? (
         <>
           <Box
@@ -407,7 +407,8 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
               color: 'inherit',
               cursor: 'pointer',
               font: 'inherit',
-              p: 0.5,
+              px: 0.5,
+              py: 0.25,
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
             }}
           >
@@ -420,7 +421,7 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
           </Collapse>
         </>
       ) : (
-        <Box sx={{ ...rowSx, p: 0.5 }}>{row}</Box>
+        <Box sx={{ ...rowSx, px: 0.5, py: 0.25 }}>{row}</Box>
       )}
     </ListItem>
   );

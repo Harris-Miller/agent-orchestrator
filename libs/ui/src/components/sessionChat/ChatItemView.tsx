@@ -25,6 +25,7 @@ import {
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
+import { escapeMarkdownBlockMarkers } from './escapeMarkdownBlockMarkers.ts';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
@@ -184,7 +185,7 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
   return (
     <>
       {leading.length > 0 ? leading : null}
-      <ChatMarkdown sx={userFragmentMarkdownSx} text={middle} />
+      <ChatMarkdown sx={userFragmentMarkdownSx} text={escapeMarkdownBlockMarkers(middle)} />
       {trailing.length > 0 ? trailing : null}
     </>
   );

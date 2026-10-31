@@ -4,7 +4,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
@@ -23,6 +23,16 @@ export const WorkRegionView: FC<{
 }> = ({ availableCommands, inFlight, region, sessionId }) => {
   const [toggle, setToggle] = useState<boolean>();
   const open = toggle ?? inFlight;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!inFlight) return;
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [inFlight]);
   return (
     <ListItem sx={{ display: 'block', py: 0.5 }}>
       <Box
@@ -47,7 +57,7 @@ export const WorkRegionView: FC<{
       >
         <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} />
         <Typography color="text.secondary" variant="body2">
-          {workRegionLabel(region, inFlight, workRegionPhrase(sessionId, region.id))}
+          {workRegionLabel(region, inFlight, now, workRegionPhrase(sessionId, region.id))}
         </Typography>
       </Box>
       <Collapse in={open} unmountOnExit>

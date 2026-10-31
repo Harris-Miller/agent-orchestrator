@@ -40,16 +40,26 @@ _Avoid_: user settings, usage readout, telemetry
 Per-session folder `sessions/<id>/` inside the Agent Orchestrator home. Removed wholesale on Harness `session/delete`. Abandoned dirs (never deleted via Harness) remain until that explicit delete — no GC in this package.
 _Avoid_: session snapshot, Session History, Adapter history document
 
+**Provider directory**:
+`providers/<launch target>/` inside the Agent Orchestrator home. Holds `runtime/<version>/` directories and the `current.json` Provider runtime document.
+_Avoid_: adapter dir, harness dir
+
+**Provider runtime document**:
+`providers/<id>/current.json`: schema version, an **Active runtime** reference (version + provider-relative directory, or null) and a catalog of **Downloaded runtimes** with a discriminated download state (`downloading`, `completed`, `failed`, `pending-delete`) and the resolved npm/binary distribution. The active reference must point at a completed entry. Missing is distinct from malformed/unreadable (an error, never an instruction to seed or delete). Published through the Host's atomic replace.
+_Avoid_: symlink, current pointer, install manifest
+
+**Active runtime**:
+The completed runtime `current.json` selects for launch. Re-read before every spawn; no file watching.
+
+**Downloaded runtime**:
+A completed catalog entry that is not active — an update waiting to be Installed. Superseded ones are deleted on Install; a failed deletion stays cataloged (`pending-delete`) and is retried at startup.
+
 **Antigravity ACP home**:
-Credential / profile directory `antigravity-acp/home/` inside the Agent Orchestrator home — value of `GEMINI_HOME` for managed Antigravity ACP. Distinct from the runtime binary tree. Credentials here are **not** shared with PATH `agy` / Gemini CLI logins.
+Credential / profile directory `providers/antigravity-acp/home/` — value of `GEMINI_HOME` for managed Antigravity ACP. Distinct from the runtime binary tree. Credentials here are **not** shared with PATH `agy` / Gemini CLI logins.
 _Avoid_: runtime dir, Adapter history document, Gemini CLI home, `agy` login store
 
-**Antigravity ACP runtime**:
-Pinned managed binaries under `antigravity-acp/runtime/<version>/` inside the Agent Orchestrator home (`agy_acp_server.par` + `localharness_external`). Materialize + chmod in this package; download/verify/extract lives in `@lib/ui` host (staging outside AO home).
-_Avoid_: adapter resource tree, Vendor CLI, PATH install
-
 **Antigravity BROWSER helper**:
-Capture-only script at `antigravity-acp/browser-helper` under the Agent Orchestrator home — written and chmod'd here; set as controlled `BROWSER` for managed Antigravity ACP; prints an auth URL marker to stderr; does not open a browser (Host OpenUrl does).
+Capture-only script at `providers/antigravity-acp/browser-helper` — written and chmod'd here; set as controlled `BROWSER` for managed Antigravity ACP; prints an auth URL marker to stderr; does not open a browser (Host OpenUrl does).
 _Avoid_: system browser, Host OpenUrl (when you mean the helper path)
 
 ## Package law

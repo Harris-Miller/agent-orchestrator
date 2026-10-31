@@ -4,19 +4,9 @@ Local-development scaffold for the Agent Orchestrator VS Code extension.
 
 Renders a React webview in the **Secondary Side Bar** (`viewsContainers.secondarySidebar`).
 
-## ACP adapter resources
+## Provider runtimes
 
-Adapters live at repo-root `acp-adapter-resources/` (shared with desktop). See [`docs/adr/0001-acp-adapters-symlink-dev-copy-prod.md`](./docs/adr/0001-acp-adapters-symlink-dev-copy-prod.md).
-
-**Dev (F5):** before spawning adapters (or after lockfile changes):
-
-```bash
-pnpm --filter agent-orchestrator-vscode materialize-acp-adapters
-```
-
-That installs at repo root and symlinks `acp-adapter-resources` into this package. On Windows, enable Developer Mode so symlink creation works (no junction fallback).
-
-**Prod (VSIX):** `pnpm --filter agent-orchestrator-vscode run package` copies a real tree into the extension (via `vscode:prepublish`); ordinary `build` / `watch` do not.
+The extension bundles no ACP adapters. A global **Node >= 22** and **npm** are required (a blocking modal shows what is missing); runtimes are downloaded from Settings > Providers into `~/.ao/providers/<id>/` and selected by `current.json`, shared with the desktop app. See [desktop ADR 0017](../desktop/docs/adr/0017-user-installed-provider-runtimes.md). The VSIX contains no `acp-adapter-resources`.
 
 ## Load locally (no Marketplace)
 

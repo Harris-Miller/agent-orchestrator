@@ -1,5 +1,7 @@
 # Managed Antigravity ACP runtime (native launch)
 
+> **Amended by [ADR 0017](0017-user-installed-provider-runtimes.md).** The pin, `~/.ao/antigravity-acp/` layout, lazy download at launch and fixed shell-scope path described below are historical: the runtime is now user-downloaded under `~/.ao/providers/antigravity-acp/` from the ACP registry, selected by `current.json`, and spawned through a constrained native boundary.
+
 The Harness mounts Google Antigravity as launch target `antigravity-acp` by downloading a pinned `agy_acp_server` release (1.4.1, darwin/linux) into `~/.ao/antigravity-acp/runtime/<version>/` and spawning it by Tauri shell allowlist name `agy_acp_server` — no Node ACP adapter, no Vendor CLI on PATH. Credential tree is `GEMINI_HOME=~/.ao/antigravity-acp/home`. Activate prefers `session/resume` when local transcript has history (ADR 0004 heuristic); deactivate/delete use best-effort `session/close` like Cursor (agent advertises list/resume, not close/delete). In-app Sign in (`oauth-personal`, BROWSER helper, Host OpenUrl) is [ADR 0015](0015-antigravity-oauth-personal-sign-in.md); unsigned bootstrap still surfaces “Antigravity is not signed in.” until the user Signs in. Windows pin deferred. **Supersedes ADR 0010** (`gemini-acp` adapter); historical Gemini sessions under `~/.ao/adapters/gemini-acp/` are left on disk but no longer listed. Peer to [ADR 0013](0013-native-cli-acp-launch-targets.md) (native spawn without adapter resources).
 
 ## Considered options

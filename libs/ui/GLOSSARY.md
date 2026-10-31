@@ -30,6 +30,28 @@ _Avoid_: Status, connection state, phase atoms
 User-gated Antigravity Google account flow (`oauth-personal` / ACP `authenticate`) from Providers or the session composer. Product verb; not Vendor CLI `login`.
 _Avoid_: authenticate (wire), login, OAuth elicitation
 
+**Provider**:
+An agent backend the user can enable (Claude, Codex, Antigravity, Cursor), identified by its launch target. Has a user-controlled enabled preference, requirements (CLI on PATH, a Provider runtime) and a derived status.
+_Avoid_: backend (the running process), agent
+
+**Provider runtime**:
+The downloaded program backing a Provider (see ao-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, deleting superseded runtimes, bootstrapping once); Remove clears it.
+_Avoid_: adapter resource tree, bundled adapter
+
+**Disabled**:
+The user switched a Provider off: no running backend, hidden from pickers, runtime files kept.
+_Avoid_: unavailable, stopped (process state)
+
+**Unavailable**:
+An enabled Provider that cannot launch (CLI not on PATH, no Active runtime, failed download). Stays visible in pickers as a disabled row with a reason.
+_Avoid_: disabled, error (bootstrap phase)
+
+**Node prerequisite**:
+A global Node >= 22 and npm, checked at startup. The blocking Node modal (detected versions, Download Node.js, Retry) cannot be dismissed and ignores "Don't show me again".
+
+**Startup Providers modal**:
+The compact provider matrix shown on every launch while "Show Providers on startup" is on, after the Node prerequisite and settings load. Closing it never unmounts providers.
+
 **Antigravity auth URL**:
 OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in UI; Host OpenUrl opens it.
 _Avoid_: elicitation URL

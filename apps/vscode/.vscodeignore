@@ -16,6 +16,4 @@ scripts/**
 **/*.map
 **/*.vsix
 /node_modules/**
-!acp-adapter-resources/
-!acp-adapter-resources/**
 dist/**/*.map

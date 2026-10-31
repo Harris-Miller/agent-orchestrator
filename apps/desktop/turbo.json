@@ -1,14 +1,3 @@
 {
-  "extends": ["//"],
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build", "//#install-acp-adapter-deps"]
-    },
-    "tauri:build": {
-      "dependsOn": ["//#install-acp-adapter-deps"]
-    },
-    "tauri:dev": {
-      "dependsOn": ["//#install-acp-adapter-deps"]
-    }
-  }
+  "extends": ["//"]
 }

@@ -16,6 +16,8 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 import type { Command as EffectCommand } from 'effect/process/ChildProcess';
 
+import { npmScopeNameFor } from './mapNpmScope.ts';
+
 const trackChildProcess = (pid: number): void => {
   invoke('track_child_process', { pid }).then(
     () => undefined,
@@ -134,7 +136,17 @@ const spawnStandard = Effect.fnUntraced(
       }
     }
 
-    const tauriCommand = Command.create(command.command, [...command.args], {
+    // `npm` is spawned only as one of the three provider operations, each with its own pinned scope.
+    const scopeName = command.command === 'npm' ? npmScopeNameFor(command.args) : command.command;
+    if (scopeName === undefined) {
+      return yield* PlatformError.badArgument({
+        description: `Refusing to spawn npm with arguments outside the provider operations: ${command.args.join(' ')}`,
+        method: 'spawn',
+        module: 'ChildProcess',
+      });
+    }
+
+    const tauriCommand = Command.create(scopeName, [...command.args], {
       cwd: command.options.cwd,
       encoding: 'raw',
       ...(Object.keys(env).length > 0 ? { env } : {}),

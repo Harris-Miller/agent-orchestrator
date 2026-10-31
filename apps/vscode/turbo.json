@@ -1,17 +1,9 @@
 {
   "extends": ["//"],
   "tasks": {
-    "materialize-acp-adapters": {
-      "dependsOn": ["//#install-acp-adapter-deps"],
-      "inputs": ["scripts/ensure-acp-adapter-symlink.js"],
-      "outputs": ["acp-adapter-resources"]
-    },
     "build": {
       "cache": false,
-      "dependsOn": ["^build", "materialize-acp-adapters"]
-    },
-    "watch:main": {
-      "dependsOn": ["materialize-acp-adapters"]
+      "dependsOn": ["^build"]
     }
   }
 }

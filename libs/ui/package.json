@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./acp-adapter-entry": "./src/host/acpAdapterEntryResource.ts",
     "./acp-session-bootstrap": "./src/host/acpSessionBootstrap.ts",
     "./agent-launch-target": "./src/host/agentLaunchTarget.ts",
     "./fd-listing": "./src/host/fdListing.ts",

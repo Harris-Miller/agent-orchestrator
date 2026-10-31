@@ -68,6 +68,13 @@ export {
 export {
   ANTIGRAVITY_PROVIDER_ID,
   antigravityProviderBrowserHelperPath,
+  type NpmProviderId,
+  PROVIDER_CURRENT_FILENAME,
+  PROVIDER_NPM_PACKAGES,
+  PROVIDER_RUNTIME_DIRNAME,
+  PROVIDERS_DIRNAME,
+  providerDisplayPath,
+  ReleaseVersionSchema,
   antigravityProviderHomeDir,
   providerCurrentJsonPath,
   providerDir,

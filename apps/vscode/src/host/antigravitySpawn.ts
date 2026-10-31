@@ -1,4 +1,10 @@
-import { ProviderRuntimeDocumentJsonString } from '@lib/ao-home';
+import {
+  ANTIGRAVITY_PROVIDER_ID,
+  AO_HOME_DIRNAME,
+  PROVIDER_RUNTIME_DIRNAME,
+  ProviderRuntimeDocumentJsonString,
+  PROVIDERS_DIRNAME,
+} from '@lib/ao-home';
 import { Schema } from 'effect';
 
 import { join, resolve, sep } from 'node:path';
@@ -23,7 +29,13 @@ export const resolveAntigravitySpawn = (
   if (entry?.state._tag !== 'completed' || entry.distribution._tag !== 'binary') {
     throw new Error('Active Antigravity runtime is not a completed binary runtime');
   }
-  const runtimeRoot = resolve(homedir, '.ao', 'providers', 'antigravity-acp', 'runtime');
+  const runtimeRoot = resolve(
+    homedir,
+    AO_HOME_DIRNAME,
+    PROVIDERS_DIRNAME,
+    ANTIGRAVITY_PROVIDER_ID,
+    PROVIDER_RUNTIME_DIRNAME,
+  );
   const command = resolve(join(runtimeRoot, active.version, entry.distribution.cmd));
   if (!command.startsWith(runtimeRoot + sep)) {
     throw new Error('Antigravity command escapes the provider runtime directory');

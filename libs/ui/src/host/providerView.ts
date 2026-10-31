@@ -2,6 +2,8 @@
  * Provider presentation model: what Settings > Providers and the startup modal render, derived from real state
  * (enabled preference, CLI on PATH, `current.json`, harness phase). Pure — no atoms, no host services.
  */
+import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/ao-home';
+
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
 export type CliState =
@@ -85,7 +87,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     ],
     cliName: 'claude',
     label: 'Claude',
-    runtime: { _tag: 'npm', package: '@agentclientprotocol/claude-agent-acp' },
+    runtime: { _tag: 'npm', package: PROVIDER_NPM_PACKAGES['claude-agent-acp'] },
     signIn: { _tag: 'Cli', command: 'claude', hint: 'Run claude in a terminal, then /login and follow the prompts.' },
   },
   'codex-acp': {
@@ -95,7 +97,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     ],
     cliName: 'codex',
     label: 'Codex',
-    runtime: { _tag: 'npm', package: '@agentclientprotocol/codex-acp' },
+    runtime: { _tag: 'npm', package: PROVIDER_NPM_PACKAGES['codex-acp'] },
     signIn: { _tag: 'Cli', command: 'codex login', hint: 'Run codex login in a terminal.' },
   },
   'cursor-acp': {
@@ -108,7 +110,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
 };
 
 export const runtimeDirLabel = (id: AgentLaunchTarget, version: string): string =>
-  `~/.ao/providers/${id}/runtime/${version}`;
+  providerDisplayPath(id, providerRuntimeRelativeDir(version));
 
 // --- Derived status ---------------------------------------------------------
 

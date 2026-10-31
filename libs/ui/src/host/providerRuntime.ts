@@ -11,8 +11,10 @@ import {
   emptyProviderRuntimeDocument,
   failRuntimeAttempt,
   markRuntimePendingDelete,
+  PROVIDER_NPM_PACKAGES,
   providerRuntimeDir,
   readProviderRuntimeState,
+  ReleaseVersionSchema,
   removeRuntimeEntry,
   setActiveRuntime,
   supersededRuntimes,
@@ -20,6 +22,7 @@ import {
 } from '@lib/ao-home';
 import type {
   LaunchTarget,
+  NpmProviderId,
   ProviderDistribution,
   ProviderRuntimeDocument,
   ProviderRuntimeEntry,
@@ -39,13 +42,6 @@ import { runCapturedProcess } from './runCapturedProcess.ts';
 /** Launch targets whose runtime is user-downloaded under `~/.ao/providers`. */
 export type ManagedProviderLaunchTarget = 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp';
 
-export const NPM_PACKAGES = {
-  'claude-agent-acp': '@agentclientprotocol/claude-agent-acp',
-  'codex-acp': '@agentclientprotocol/codex-acp',
-} as const;
-
-type NpmLaunchTarget = keyof typeof NPM_PACKAGES;
-
 /** Second required Antigravity member beside the registry command. */
 export const ANTIGRAVITY_HARNESS_MEMBER = 'localharness_external';
 
@@ -57,7 +53,7 @@ export class ProviderRuntimeError extends Schema.TaggedError<ProviderRuntimeErro
   message: Schema.String,
 }) {}
 
-const isRuntimeVersion = Schema.is(Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)));
+const isRuntimeVersion = Schema.is(ReleaseVersionSchema);
 
 const asTarget = (launchTarget: ManagedProviderLaunchTarget): LaunchTarget => launchTarget as LaunchTarget;
 
@@ -67,13 +63,13 @@ const fail = (launchTarget: ManagedProviderLaunchTarget, message: string) =>
   new ProviderRuntimeError({ launchTarget, message });
 
 /** Adapter entry inside an npm runtime directory. */
-export const npmAdapterEntryRelativePath = (launchTarget: NpmLaunchTarget): string =>
-  `node_modules/${NPM_PACKAGES[launchTarget]}/dist/index.js`;
+export const npmAdapterEntryRelativePath = (launchTarget: NpmProviderId): string =>
+  `node_modules/${PROVIDER_NPM_PACKAGES[launchTarget]}/dist/index.js`;
 
 /** Files that must exist before a runtime may be marked completed. */
 export const requiredRuntimeFiles = (launchTarget: ManagedProviderLaunchTarget, distribution: ProviderDistribution) =>
   distribution._tag === 'npm'
-    ? [npmAdapterEntryRelativePath(launchTarget as NpmLaunchTarget)]
+    ? [npmAdapterEntryRelativePath(launchTarget as NpmProviderId)]
     : [distribution.cmd, ANTIGRAVITY_HARNESS_MEMBER];
 
 const mapProviderError = <A, E extends { readonly message: string }, R>(
@@ -120,8 +116,8 @@ const updateDocument = Effect.fnUntraced(function* (
 // ---------------------------------------------------------------------------------------------
 
 /** `npm view <pkg>@latest version` → exact validated package/version descriptor. */
-const resolveNpmDistribution = Effect.fn('resolveNpmDistribution')(function* (launchTarget: NpmLaunchTarget) {
-  const pkg = NPM_PACKAGES[launchTarget];
+const resolveNpmDistribution = Effect.fn('resolveNpmDistribution')(function* (launchTarget: NpmProviderId) {
+  const pkg = PROVIDER_NPM_PACKAGES[launchTarget];
   const result = yield* runCapturedProcess('npm', ['view', `${pkg}@latest`, 'version']).pipe(
     Effect.mapError(error => fail(launchTarget, `npm view failed to start: ${error.message}`)),
   );
@@ -252,11 +248,11 @@ const runChecked = Effect.fnUntraced(function* (
 });
 
 const installNpm = Effect.fnUntraced(function* (
-  launchTarget: NpmLaunchTarget,
+  launchTarget: NpmProviderId,
   distribution: Extract<ProviderDistribution, { readonly _tag: 'npm' }>,
   runtimeDir: string,
 ) {
-  if (distribution.package !== NPM_PACKAGES[launchTarget] || !isRuntimeVersion(distribution.version)) {
+  if (distribution.package !== PROVIDER_NPM_PACKAGES[launchTarget] || !isRuntimeVersion(distribution.version)) {
     return yield* fail(launchTarget, `Refusing to install ${distribution.package}@${distribution.version}`);
   }
   yield* runChecked(
@@ -371,7 +367,7 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
       'Create runtime directory',
     );
     if (distribution._tag === 'npm') {
-      yield* installNpm(launchTarget as NpmLaunchTarget, distribution, runtimeDir);
+      yield* installNpm(launchTarget as NpmProviderId, distribution, runtimeDir);
     } else {
       yield* installAntigravity(distribution, runtimeDir);
     }

@@ -1,4 +1,10 @@
-import { ANTIGRAVITY_ACP_SPAWN_NAME, AO_HOME_DIRNAME } from '@lib/ao-home';
+import {
+  ANTIGRAVITY_ACP_SPAWN_NAME,
+  ANTIGRAVITY_PROVIDER_ID,
+  AO_HOME_DIRNAME,
+  PROVIDER_CURRENT_FILENAME,
+  PROVIDERS_DIRNAME,
+} from '@lib/ao-home';
 import {
   bytesToArrayBuffer,
   decodeIpcMessage,
@@ -364,7 +370,13 @@ export const handleHostIpcMessage = async (args: {
             ? resolveAntigravitySpawn(
                 osHomedir(),
                 await readFile(
-                  join(osHomedir(), AO_HOME_DIRNAME, 'providers', 'antigravity-acp', 'current.json'),
+                  join(
+                    osHomedir(),
+                    AO_HOME_DIRNAME,
+                    PROVIDERS_DIRNAME,
+                    ANTIGRAVITY_PROVIDER_ID,
+                    PROVIDER_CURRENT_FILENAME,
+                  ),
                   'utf8',
                 ),
               )

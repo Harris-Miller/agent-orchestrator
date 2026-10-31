@@ -3,14 +3,9 @@
  * Settings load or seed failure shows Retry and never seeds, launches, or overwrites unreadable settings.
  */
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import { Cause, Effect } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { providerEnabledMapAtom } from '../atoms/backendState.atoms.ts';
@@ -19,6 +14,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { seedProviderEnabledIfAbsent } from '../host/providerBootstrap.ts';
 import { runStartupRuntimeCleanup } from '../host/providerRuntime.ts';
 import { hostRuntime } from '../hostRuntime.ts';
+import { GateProgress, GateRetry, useStartupTask } from './startupGateParts.tsx';
 
 type SeedPhase =
   | { readonly _tag: 'error'; readonly message: string }
@@ -32,47 +28,37 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
   const [phase, setPhase] = useState<SeedPhase>({ _tag: 'seeding' });
   const [attempt, setAttempt] = useState(0);
 
-  useEffect(() => {
-    if (!loaded) {
-      return;
-    }
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) {
+  useStartupTask(
+    async isCancelled => {
+      if (!loaded) {
         return;
       }
       setPhase({ _tag: 'seeding' });
-      hostRuntime
-        .runPromiseExit(
-          Effect.gen(function* () {
-            const seeded = yield* seedProviderEnabledIfAbsent();
-            // Incomplete attempts and failed deletions from a previous run; the active runtime is never touched.
-            yield* runStartupRuntimeCleanup(MOUNTED_AGENT_LAUNCH_TARGETS);
-            return seeded;
-          }),
-        )
-        .then(exit => {
-          if (cancelled) {
-            return;
-          }
-          if (exit._tag === 'Failure') {
-            setPhase({ _tag: 'error', message: Cause.pretty(exit.cause) });
-            return;
-          }
-          if (exit.value.seeded) {
-            // Keep the settings atom in step with what is now on disk.
-            registry.set(userSettingsAtom, exit.value.settings);
-          }
-          // Only now do providers mount: the enabled preference is known and first-run defaults are persisted.
-          registry.set(providerEnabledMapAtom, exit.value.settings.providerEnabled);
-          setPhase({ _tag: 'ready' });
-        })
-        .catch(() => undefined);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt, loaded, registry]);
+      const exit = await hostRuntime.runPromiseExit(
+        Effect.gen(function* () {
+          const seeded = yield* seedProviderEnabledIfAbsent();
+          // Incomplete attempts and failed deletions from a previous run; the active runtime is never touched.
+          yield* runStartupRuntimeCleanup(MOUNTED_AGENT_LAUNCH_TARGETS);
+          return seeded;
+        }),
+      );
+      if (isCancelled()) {
+        return;
+      }
+      if (exit._tag === 'Failure') {
+        setPhase({ _tag: 'error', message: Cause.pretty(exit.cause) });
+        return;
+      }
+      if (exit.value.seeded) {
+        // Keep the settings atom in step with what is now on disk.
+        registry.set(userSettingsAtom, exit.value.settings);
+      }
+      // Only now do providers mount: the enabled preference is known and first-run defaults are persisted.
+      registry.set(providerEnabledMapAtom, exit.value.settings.providerEnabled);
+      setPhase({ _tag: 'ready' });
+    },
+    [attempt, loaded, registry],
+  );
 
   const retry = useCallback(() => {
     registry.refresh(userSettingsAtom);
@@ -80,32 +66,13 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
   }, [registry]);
 
   if (AsyncResult.isFailure(settings)) {
-    return (
-      <Stack spacing={1} sx={{ p: 2 }}>
-        <Alert severity="error">Could not load settings: {Cause.pretty(settings.cause)}</Alert>
-        <Button onClick={retry} sx={{ alignSelf: 'flex-start' }} variant="contained">
-          Retry
-        </Button>
-      </Stack>
-    );
+    return <GateRetry message={`Could not load settings: ${Cause.pretty(settings.cause)}`} onRetry={retry} />;
   }
   if (phase._tag === 'error') {
-    return (
-      <Stack spacing={1} sx={{ p: 2 }}>
-        <Alert severity="error">Could not prepare providers: {phase.message}</Alert>
-        <Button onClick={retry} sx={{ alignSelf: 'flex-start' }} variant="contained">
-          Retry
-        </Button>
-      </Stack>
-    );
+    return <GateRetry message={`Could not prepare providers: ${phase.message}`} onRetry={retry} />;
   }
   if (!loaded || phase._tag === 'seeding') {
-    return (
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }}>
-        <CircularProgress size={18} />
-        <Typography variant="body2">Preparing providers…</Typography>
-      </Stack>
-    );
+    return <GateProgress label="Preparing providers…" />;
   }
   return children;
 };

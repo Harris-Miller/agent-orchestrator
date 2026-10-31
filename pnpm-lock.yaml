@@ -672,6 +672,9 @@ importers:
 
   libs/context-services-tauri:
     dependencies:
+      '@lib/ao-home':
+        specifier: workspace:^
+        version: link:../ao-home
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services

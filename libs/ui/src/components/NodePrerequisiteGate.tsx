@@ -2,7 +2,6 @@
 import { OpenUrl } from '@lib/context-services';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -10,7 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Effect } from 'effect';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import {
@@ -21,6 +20,7 @@ import {
 } from '../host/nodePrerequisite.ts';
 import type { NodePrerequisite } from '../host/nodePrerequisite.ts';
 import { hostRuntime } from '../hostRuntime.ts';
+import { GateProgress, useStartupTask } from './startupGateParts.tsx';
 
 export const NODE_DOWNLOAD_URL = 'https://nodejs.org/en/download';
 
@@ -39,17 +39,7 @@ export const NodePrerequisiteGate: FC<{ readonly children: ReactNode }> = ({ chi
     setPhase(isNodePrerequisiteMet(result) ? { _tag: 'ready' } : { _tag: 'failed', result });
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) {
-        probe().catch(() => undefined);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [probe]);
+  useStartupTask(probe, [probe]);
 
   const openDownload = useCallback(async () => {
     setOpenError(undefined);
@@ -68,12 +58,7 @@ export const NodePrerequisiteGate: FC<{ readonly children: ReactNode }> = ({ chi
     return children;
   }
   if (phase._tag === 'checking') {
-    return (
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }}>
-        <CircularProgress size={18} />
-        <Typography variant="body2">Checking for Node.js…</Typography>
-      </Stack>
-    );
+    return <GateProgress label="Checking for Node.js…" />;
   }
 
   return (

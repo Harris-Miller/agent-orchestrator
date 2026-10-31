@@ -1,5 +1,6 @@
 /** Shared presentation for Settings > Providers and the startup modal: status dot, command snippet, copy, actions. */
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { PROVIDER_RUNTIME_DIRNAME, providerDisplayPath } from '@lib/ao-home';
 import { OpenUrl } from '@lib/context-services';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -174,8 +175,8 @@ export const ProviderHelp: FC<{ readonly dense?: boolean; readonly provider: Pro
     return (
       <Typography color="text.secondary" variant="body2">
         {meta.runtime?._tag === 'npm'
-          ? `Downloads ${meta.runtime.package} (latest) with npm into ~/.ao/providers/${provider.id}/runtime/.`
-          : `Downloads agy_acp_server (latest from the ACP registry, sha256-verified) into ~/.ao/providers/${provider.id}/runtime/.`}
+          ? `Downloads ${meta.runtime.package} (latest) with npm into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`
+          : `Downloads agy_acp_server (latest from the ACP registry, sha256-verified) into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`}
       </Typography>
     );
   }

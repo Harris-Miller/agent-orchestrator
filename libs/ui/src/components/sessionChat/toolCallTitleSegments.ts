@@ -1,8 +1,12 @@
-import type { ToolKind } from '../../host/sessionUpdateReducer.ts';
+import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 
-export type TitleSegment = { readonly href?: string; readonly text: string };
+export type TitleSegment = { readonly href: string; readonly text: string } | { readonly text: string };
 
-const URL_SPLIT = /(https?:\/\/\S+)/;
+type ToolCallTitleSource = Pick<Extract<ChatItem, { kind: 'tool_call' }>, 'locationPath' | 'title' | 'toolKind'>;
+
+const URL_PATTERN = /https?:\/\/\S+/;
+const URL_SPLIT = new RegExp(`(${URL_PATTERN.source})`);
+const URL_WHOLE = new RegExp(`^${URL_PATTERN.source}$`);
 const QUOTED_PATH = /^(.*?')([^']+)('.*)$/;
 const VERB_PATH = /^(\S+\s+)(.+?)(\s+\([^)]*\))?$/;
 
@@ -12,7 +16,7 @@ const urlSegments = (title: string): TitleSegment[] =>
   title
     .split(URL_SPLIT)
     .filter(part => part !== '')
-    .map(part => (/^https?:\/\//.test(part) ? { href: part, text: part } : { text: part }));
+    .map(part => (URL_WHOLE.test(part) ? { href: part, text: part } : { text: part }));
 
 const pathSegments = (title: string, path: string): TitleSegment[] => {
   const match = QUOTED_PATH.exec(title) ?? VERB_PATH.exec(title);
@@ -22,11 +26,7 @@ const pathSegments = (title: string, path: string): TitleSegment[] => {
 };
 
 /** Split a tool_call title into plain and linked parts: URLs for fetch/search, the file path for read. */
-export const toolCallTitleSegments = (
-  title: string,
-  toolKind: ToolKind | undefined,
-  locationPath: string | undefined,
-): TitleSegment[] => {
+export const toolCallTitleSegments = ({ locationPath, title, toolKind }: ToolCallTitleSource): TitleSegment[] => {
   if (toolKind === 'fetch' || toolKind === 'search') return urlSegments(title);
   if (toolKind === 'read' && locationPath !== undefined) return pathSegments(title, locationPath);
   return plain(title);

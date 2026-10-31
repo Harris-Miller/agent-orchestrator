@@ -288,6 +288,7 @@ const extractRawInputCommand = (rawInput: unknown): string | undefined => {
   return rawInput.command;
 };
 
+/** Path of the first location only; tool_call titles link a single file. */
 const extractLocationPath = (locations: unknown): string | undefined => {
   if (!Array.isArray(locations)) {
     return undefined;

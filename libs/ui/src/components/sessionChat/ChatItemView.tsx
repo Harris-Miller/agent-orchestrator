@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ClipboardEventHandler, FC, KeyboardEvent, MouseEvent } from 'react';
+import type { ClipboardEventHandler, FC, SyntheticEvent } from 'react';
 
 import { loadFileUriThumbnail } from '../../host/loadFileUriThumbnail.ts';
 import type { AvailableCommand, ChatItem, ToolKind, UserMessageImageRef } from '../../host/sessionUpdateReducer.ts';
@@ -369,6 +369,14 @@ const TOOL_KIND_ICONS: Record<ToolKind, LucideIcon> = {
   think: Brain,
 };
 
+/** Wrap a handler so the event does not reach the enclosing disclosure button. */
+const stopThen =
+  <E extends SyntheticEvent>(handler: (event: E) => void) =>
+  (event: E): void => {
+    event.stopPropagation();
+    handler(event);
+  };
+
 /** Link inside a disclosure row: opening it must not toggle the row. */
 const TitleLink: FC<{ href: string; text: string }> = ({ href, text }) => {
   const linkProps = useChatLinkProps(href);
@@ -377,20 +385,8 @@ const TitleLink: FC<{ href: string; text: string }> = ({ href, text }) => {
       component="span"
       sx={{ color: 'primary.main', textDecoration: 'underline', ...(linkProps && { cursor: 'pointer' }) }}
       {...linkProps}
-      onClick={
-        linkProps &&
-        ((event: MouseEvent<HTMLElement>) => {
-          event.stopPropagation();
-          linkProps.onClick(event);
-        })
-      }
-      onKeyDown={
-        linkProps &&
-        ((event: KeyboardEvent<HTMLElement>) => {
-          event.stopPropagation();
-          linkProps.onKeyDown(event);
-        })
-      }
+      onClick={linkProps && stopThen(linkProps.onClick)}
+      onKeyDown={linkProps && stopThen(linkProps.onKeyDown)}
     >
       {text}
     </Box>
@@ -405,8 +401,8 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
     <>
       <LucideMuiIcon icon={icon} sx={{ color: 'text.secondary', fontSize: 16 }} />
       <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
-        {toolCallTitleSegments(item.title, item.toolKind, item.locationPath).map((segment, index) =>
-          segment.href === undefined ? (
+        {toolCallTitleSegments(item).map((segment, index) =>
+          !('href' in segment) ? (
             segment.text
           ) : (
             // eslint-disable-next-line react/no-array-index-key

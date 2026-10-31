@@ -5,8 +5,9 @@ import { useCallback, useMemo } from 'react';
 import {
   backendHarnessStateAtom,
   configOptionIndexAtom,
+  launchTargetUnavailableReasonsAtom,
+  pickerLaunchTargetsAtom,
   readyLaunchTargetsAtom,
-  selectableLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
@@ -17,6 +18,7 @@ import {
 import {
   forkSessionAtomFn,
   patchVirtualSessionAtomFn,
+  providerViewsAtom,
   setVirtualLaunchTargetAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { composerAttachmentsAtom, draftAtom } from '../../atoms/chat.atoms.ts';
@@ -29,6 +31,7 @@ import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsLis
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { unavailableReason } from '../../host/providerView.ts';
 import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 
@@ -49,7 +52,17 @@ export const useSessionChatSurface = () => {
   const lifecycleLockHeld = useAtomValue(virtualLifecycleInFlightAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
-  const selectableLaunchTargets = useAtomValue(selectableLaunchTargetsAtom);
+  const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
+  const harnessReasons = useAtomValue(launchTargetUnavailableReasonsAtom);
+  const providers = useAtomValue(providerViewsAtom);
+  const unavailableReasons = useMemo(() => {
+    const reasons = { ...harnessReasons };
+    for (const provider of providers) {
+      const reason = unavailableReason(provider);
+      if (reason !== undefined) reasons[provider.id] = reason;
+    }
+    return reasons;
+  }, [harnessReasons, providers]);
   const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
   const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
   const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
@@ -196,6 +209,7 @@ export const useSessionChatSurface = () => {
     pendingClientRequest,
     readyLaunchTargets,
     selectableLaunchTargets,
+    unavailableReasons,
     requestFork,
     selectedLaunchTarget,
     selectedSession,

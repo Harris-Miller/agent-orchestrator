@@ -2,6 +2,7 @@ import { ByteSize, Effect, FileSystem, Layer, Option, Stream } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
+import { bytesToArrayBuffer } from './protocol/messages.ts';
 import type { IpcMessage } from './protocol/messages.ts';
 
 const mapIpcError = (method: string, path: string, cause: unknown): PlatformError.PlatformError =>
@@ -57,7 +58,14 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       chmod: path => unsupported(`chmod(${path})`),
       chown: path => unsupported(`chown(${path})`),
       copy: path => unsupported(`copy(${path})`),
-      copyFile: path => unsupported(`copyFile(${path})`),
+      copyFile: Effect.fn('FileSystem.copyFile')(function* (fromPath: string, toPath: string) {
+        yield* fsIpcVoid({
+          build: id => ({ _tag: 'FsCopyFile', fromPath, id, toPath }),
+          client,
+          method: 'copyFile',
+          path: fromPath,
+        });
+      }),
       exists: Effect.fn('FileSystem.exists')(function* (path: string) {
         return yield* fsIpc({
           build: id => ({ _tag: 'FsExists', id, path }),
@@ -197,6 +205,14 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       truncate: path => unsupported(`truncate(${path})`),
       utimes: path => unsupported(`utimes(${path})`),
       watch: path => Stream.die(`FileSystem.watch(${path}) not supported on vscode Host`),
+      writeFile: Effect.fn('FileSystem.writeFile')(function* (path: string, data: Uint8Array) {
+        yield* fsIpcVoid({
+          build: id => ({ _tag: 'FsWriteFile', bytes: bytesToArrayBuffer(data), id, path }),
+          client,
+          method: 'writeFile',
+          path,
+        });
+      }),
       writeFileString: Effect.fn('FileSystem.writeFileString')(function* (path: string, content: string) {
         yield* fsIpcVoid({
           build: id => ({ _tag: 'FsWriteFileString', content, id, path }),

@@ -1,5 +1,7 @@
 # Ship ACP adapters with the VS Code extension
 
+> **Superseded by [desktop ADR 0017](../../../desktop/docs/adr/0017-user-installed-provider-runtimes.md).** The extension no longer ships or symlinks an adapter tree; runtimes are user-installed under `~/.ao/providers/`. The symlink/copy scheme below is historical.
+
 The extension Node host must spawn `node` on the same hoisted adapter entries as desktop (`claude-agent-acp`, `codex-acp`) without bundling those graphs into `dist/extension.cjs`. Adapters live in repo-root `acp-adapter-resources/` (shared, not owned by this app).
 
 **Dev (Extension Development Host / F5):** Turbo `build` / `watch:main` depend on cacheable `materialize-acp-adapters` (inputs: root adapter lockfile + symlink script; output: package symlink). That installs at repo root and creates a gitignored symlink `apps/vscode/acp-adapter-resources` → `../../acp-adapter-resources`. Relative keys match Tauri (`acp-adapter-resources/node_modules/@agentclientprotocol/…/dist/index.js`); `ExtensionContext.asAbsolutePath` follows the symlink. Darwin symlink; Windows needs Developer Mode (no junction fallback).

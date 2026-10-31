@@ -4,20 +4,19 @@
  */
 import {
   ANTIGRAVITY_ACP_SPAWN_NAME,
-  antigravityAcpHarnessPath,
-  antigravityAcpHomeDir,
-  ensureAntigravityBrowserHelper,
+  ensureAntigravityProviderBrowserHelper,
+  ensureAntigravityProviderHome,
 } from '@lib/ao-home';
-import { BundledResource, OS } from '@lib/context-services';
+import { OS } from '@lib/context-services';
 import { Effect } from 'effect';
+import { Path } from 'effect/Path';
 import { ChildProcess } from 'effect/process';
 
-import { ACP_ADAPTER_ENTRY_RESOURCE } from './acpAdapterEntryResource.ts';
 import type { AcpAdapterLaunchTarget, AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
-import { ensureAntigravityAcpInstalled } from './antigravityInstall.ts';
+import { buildAntigravitySpawnEnv } from './antigravityEnv.ts';
 import { mapAntigravityFs } from './antigravityShell.ts';
 import { MissingLaunchPrerequisite, requireExecutableOnPath } from './findExecutableOnPath.ts';
+import { ANTIGRAVITY_HARNESS_MEMBER, npmAdapterEntryRelativePath, resolveActiveRuntime } from './providerRuntime.ts';
 import { requireVendorCliAuthenticated } from './vendorCliAuth.ts';
 
 const pipedSpawnOptions = {
@@ -47,22 +46,14 @@ const cursorAcpArgs = (env: Readonly<Record<string, string | undefined>>): reado
   return args;
 };
 
+/** Adapter entry inside the active runtime (`~/.ao/providers/<id>/current.json`), re-read on every spawn. */
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
   function* (launchTarget: AcpAdapterLaunchTarget) {
-    const resourcePath = ACP_ADAPTER_ENTRY_RESOURCE[launchTarget];
-    yield* Effect.logDebug('Resolving ACP adapter resource', launchTarget, resourcePath);
-    const bundled = yield* BundledResource;
-    return yield* bundled.resolve(resourcePath).pipe(
-      Effect.mapError(
-        error =>
-          new MissingLaunchPrerequisite({
-            executable: resourcePath,
-            message: `ACP adapter resource not found (${resourcePath}): ${error.message}`,
-          }),
-      ),
-      Effect.tap(entry => Effect.logInfo('Resolved ACP adapter entry', launchTarget, entry)),
-      Effect.tapError(error => Effect.logError('ACP adapter resource missing', launchTarget, error.message)),
-    );
+    const path = yield* Path;
+    const active = yield* resolveActiveRuntime(launchTarget);
+    const entry = path.join(active.runtimeDir, npmAdapterEntryRelativePath(launchTarget));
+    yield* Effect.logInfo('Resolved ACP adapter entry', launchTarget, active.version, entry);
+    return entry;
   },
   Effect.annotateLogs({ module: 'acpLaunchCommand' }),
 );
@@ -94,22 +85,33 @@ const makeCursorNativeCommand = Effect.fn('makeCursorNativeCommand')(function* (
 });
 
 const makeAntigravityCommand = Effect.fn('makeAntigravityCommand')(function* () {
-  yield* ensureAntigravityAcpInstalled();
+  // No install at launch: the active runtime (command + arguments) was pinned at Download time, so launch is offline.
+  const active = yield* resolveActiveRuntime('antigravity-acp');
+  if (active.distribution._tag !== 'binary') {
+    return yield* new MissingLaunchPrerequisite({
+      executable: ANTIGRAVITY_ACP_SPAWN_NAME,
+      message: 'Active Antigravity runtime has no recorded command. Download it in Settings > Providers',
+    });
+  }
+  const path = yield* Path;
   const browserHelperPath = yield* mapAntigravityFs(
-    ensureAntigravityBrowserHelper(),
+    ensureAntigravityProviderBrowserHelper(),
     'Antigravity BROWSER helper ensure failed',
   );
+  const antigravityAcpHome = yield* mapAntigravityFs(
+    ensureAntigravityProviderHome(),
+    'Antigravity home directory ensure failed',
+  );
   const os = yield* OS;
-  const antigravityAcpHome = yield* antigravityAcpHomeDir();
-  const harnessPath = yield* antigravityAcpHarnessPath();
   const env = buildAntigravitySpawnEnv({
     antigravityAcpHome,
     baseEnv: os.env(),
     browserHelperPath,
-    harnessPath,
+    harnessPath: path.join(active.runtimeDir, ANTIGRAVITY_HARNESS_MEMBER),
     platform: os.platform(),
   });
-  return ChildProcess.make(ANTIGRAVITY_ACP_SPAWN_NAME, [...antigravityLinuxArgs(os.platform())], {
+  // Hosts resolve this name to the active runtime's recorded command from `current.json`; never an arbitrary path.
+  return ChildProcess.make(ANTIGRAVITY_ACP_SPAWN_NAME, [...active.distribution.args], {
     ...antigravitySpawnOptions,
     env,
     extendEnv: false,

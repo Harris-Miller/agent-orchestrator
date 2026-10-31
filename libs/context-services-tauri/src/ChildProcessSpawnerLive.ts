@@ -9,12 +9,14 @@
  * WebView reload can reap orphans whose Effect finalizers never ran.
  */
 import { mapSpawnError, openQueuedChildProcessStdio, OS } from '@lib/context-services';
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
 import { Effect, Layer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 import type { Command as EffectCommand } from 'effect/process/ChildProcess';
+
+import { npmScopeNameFor } from './mapNpmScope.ts';
 
 const trackChildProcess = (pid: number): void => {
   invoke('track_child_process', { pid }).then(
@@ -53,6 +55,65 @@ const encodeChunk = (chunk: unknown): Uint8Array => {
   throw new TypeError(`Unsupported shell IO chunk: ${Object.prototype.toString.call(chunk)}`);
 };
 
+/** Logical name of the Antigravity ACP server (`ANTIGRAVITY_ACP_SPAWN_NAME` in `@lib/ao-home`). */
+const ANTIGRAVITY_SPAWN_NAME = 'agy_acp_server';
+
+type ProviderEvent =
+  | { readonly data: { readonly code: number }; readonly event: 'exit' }
+  | { readonly data: unknown; readonly event: 'stderr' | 'stdout' };
+
+/**
+ * Antigravity is spawned by the constrained `spawn_antigravity_provider` Rust command, which reads the active
+ * runtime's command and arguments from `current.json` itself (no symlink, never a webview-supplied path).
+ * Stdio and exit arrive over a Channel; kill goes through the tracked process-tree kill.
+ */
+const spawnAntigravityProvider = Effect.fnUntraced(function* (
+  command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
+) {
+  yield* Effect.logInfo('Spawning Antigravity provider');
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(command.options.env ?? {})) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+  const stdio = yield* openQueuedChildProcessStdio();
+  const channel = new Channel<ProviderEvent>();
+  channel.onmessage = message => {
+    try {
+      switch (message.event) {
+        case 'stdout':
+          stdio.onStdoutChunk(encodeChunk(message.data));
+          break;
+        case 'stderr':
+          stdio.onStderrChunk(encodeChunk(message.data));
+          break;
+        case 'exit':
+          stdio.onExit(message.data.code);
+          break;
+      }
+    } catch (cause) {
+      stdio.onStdoutFail(cause);
+    }
+  };
+  const pid = yield* Effect.tryPromise({
+    catch: cause => mapSpawnError('spawn', cause),
+    try: () => invoke<number>('spawn_antigravity_provider', { env, onEvent: channel }),
+  }).pipe(Effect.tapError(error => Effect.logError('Antigravity spawn failed', error.message)));
+  return yield* stdio.finalize({
+    kill: Effect.tryPromise({
+      catch: cause => mapSpawnError('kill', cause),
+      try: () => invoke('kill_tracked_process_tree', { pid }),
+    }).pipe(Effect.asVoid),
+    pid,
+    writeStdin: chunk =>
+      Effect.tryPromise({
+        catch: cause => mapSpawnError('stdin', cause),
+        try: () => invoke('write_provider_stdin', { data: Array.from(chunk), pid }),
+      }).pipe(Effect.asVoid),
+  });
+});
+
 const spawnStandard = Effect.fnUntraced(
   function* (
     command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
@@ -75,7 +136,17 @@ const spawnStandard = Effect.fnUntraced(
       }
     }
 
-    const tauriCommand = Command.create(command.command, [...command.args], {
+    // `npm` is spawned only as one of the three provider operations, each with its own pinned scope.
+    const scopeName = command.command === 'npm' ? npmScopeNameFor(command.args) : command.command;
+    if (scopeName === undefined) {
+      return yield* PlatformError.badArgument({
+        description: `Refusing to spawn npm with arguments outside the provider operations: ${command.args.join(' ')}`,
+        method: 'spawn',
+        module: 'ChildProcess',
+      });
+    }
+
+    const tauriCommand = Command.create(scopeName, [...command.args], {
       cwd: command.options.cwd,
       encoding: 'raw',
       ...(Object.keys(env).length > 0 ? { env } : {}),
@@ -130,6 +201,13 @@ const spawnStandard = Effect.fnUntraced(
     return yield* stdio.finalize({
       kill: Effect.gen(function* () {
         yield* Effect.logInfo('Killing child process', { pid: child.pid });
+        // Tree kill first (needs the tracked pid); falls back to the plain kill below on failure / non-unix.
+        yield* Effect.promise(() =>
+          invoke('kill_tracked_process_tree', { pid: child.pid }).then(
+            () => undefined,
+            () => undefined,
+          ),
+        );
         untrackChildProcess(child.pid);
         trackedPid.current = undefined;
         yield* Effect.tryPromise({
@@ -165,7 +243,9 @@ const makeSpawn =
         ),
       );
     }
-    return spawnStandard(command, hostEnv);
+    return command.command === ANTIGRAVITY_SPAWN_NAME
+      ? spawnAntigravityProvider(command)
+      : spawnStandard(command, hostEnv);
   };
 
 /** Tauri `ChildProcessSpawner` Layer (requires {@link OS} for extendEnv). */

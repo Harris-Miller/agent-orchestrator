@@ -8,7 +8,12 @@ import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts
 import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 
-import { configOptionIndexAtom, selectedAtom, virtualLifecycleInFlightAtom } from './backendState.atoms.ts';
+import {
+  configOptionIndexAtom,
+  requireLaunchTargetUsable,
+  selectedAtom,
+  virtualLifecycleInFlightAtom,
+} from './backendState.atoms.ts';
 import type { Selected } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { AtomRw } from './virtualBind.ts';
@@ -273,14 +278,18 @@ export const createVirtualSessionAtoms = (
     .pipe(Atom.keepAlive);
 
   const setVirtualLaunchTargetAtomFn = atomRuntime
-    .fn((launchTarget: AgentLaunchTarget | undefined, get: Atom.FnContext) =>
-      mutateVirtualThenRebind(rwFromFnContext(get), {
+    .fn((launchTarget: AgentLaunchTarget | undefined, get: Atom.FnContext) => {
+      const blocked = launchTarget === undefined ? undefined : requireLaunchTargetUsable(get, launchTarget);
+      if (blocked !== undefined) {
+        return Effect.fail(blocked);
+      }
+      return mutateVirtualThenRebind(rwFromFnContext(get), {
         mutate: rw => {
           setVirtualLaunchTarget(rw, launchTarget);
         },
         refreshFsListing: refreshFsListing(get),
-      }),
-    )
+      });
+    })
     .pipe(Atom.keepAlive);
 
   const discardVirtualSessionAtomFn = atomRuntime

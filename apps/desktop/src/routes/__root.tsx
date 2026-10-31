@@ -2,7 +2,10 @@ import {
   AcpBackendsMount,
   FdPrerequisiteGate,
   HarnessCacheGate,
+  NodePrerequisiteGate,
   PersistUserSettingsToast,
+  ProviderBootstrapGate,
+  ProvidersStartupMount,
   UserSettingsMount,
 } from '@lib/ui';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
@@ -11,20 +14,28 @@ import type { FC } from 'react';
 
 const RootComponent: FC = () => {
   return (
-    <FdPrerequisiteGate
-      onExit={() => {
-        getCurrentWindow()
-          .close()
-          .catch(() => undefined);
-      }}
-    >
-      <HarnessCacheGate>
-        <AcpBackendsMount />
-        <UserSettingsMount />
-        <PersistUserSettingsToast />
-        <Outlet />
-      </HarnessCacheGate>
-    </FdPrerequisiteGate>
+    <>
+      {/* Settings load outside the gates that depend on them. */}
+      <UserSettingsMount />
+      <PersistUserSettingsToast />
+      <FdPrerequisiteGate
+        onExit={() => {
+          getCurrentWindow()
+            .close()
+            .catch(() => undefined);
+        }}
+      >
+        <NodePrerequisiteGate>
+          <ProviderBootstrapGate>
+            <HarnessCacheGate>
+              <AcpBackendsMount />
+              <ProvidersStartupMount />
+              <Outlet />
+            </HarnessCacheGate>
+          </ProviderBootstrapGate>
+        </NodePrerequisiteGate>
+      </FdPrerequisiteGate>
+    </>
   );
 };
 

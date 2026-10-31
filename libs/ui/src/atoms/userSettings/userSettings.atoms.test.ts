@@ -12,7 +12,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
-import { mockOpenFileLayer } from '../mockHostLayer.testing.ts';
+import { mockAtomicFileLayer, mockOpenFileLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -93,6 +93,7 @@ const mockSpawnerLayer = Layer.succeed(
 
 const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof mapFsLayer>[1]) =>
   Layer.mergeAll(
+    mockAtomicFileLayer,
     bundledResourceLayer,
     clipboardLayer,
     fileDialogLayer,

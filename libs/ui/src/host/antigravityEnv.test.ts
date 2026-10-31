@@ -1,11 +1,11 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { antigravityLinuxArgs, buildAntigravitySpawnEnv } from './antigravityEnv.ts';
+import { buildAntigravitySpawnEnv } from './antigravityEnv.ts';
 
 describe('buildAntigravitySpawnEnv', () => {
   it('scrubs ambient Google / AGY / BROWSER keys and sets controlled BROWSER', () => {
     const env = buildAntigravitySpawnEnv({
-      antigravityAcpHome: '/home/operator/.ao/antigravity-acp/home',
+      antigravityAcpHome: '/home/operator/.ao/providers/antigravity-acp/home',
       baseEnv: {
         AGY_ACP_ENABLE_OAUTH: '1',
         BROWSER: 'chrome',
@@ -15,27 +15,22 @@ describe('buildAntigravitySpawnEnv', () => {
         HOME: '/home/operator',
         PATH: '/usr/bin',
       },
-      browserHelperPath: '/home/operator/.ao/antigravity-acp/browser-helper',
-      harnessPath: '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
+      browserHelperPath: '/home/operator/.ao/providers/antigravity-acp/browser-helper',
+      harnessPath: '/home/operator/.ao/providers/antigravity-acp/runtime/1.4.1/localharness_external',
       platform: 'darwin',
     });
 
-    assert.strictEqual(env.BROWSER, '/home/operator/.ao/antigravity-acp/browser-helper');
+    assert.strictEqual(env.BROWSER, '/home/operator/.ao/providers/antigravity-acp/browser-helper');
     assert.strictEqual(env.GEMINI_API_KEY, undefined);
     assert.strictEqual(env.GOOGLE_API_KEY, undefined);
     assert.strictEqual(env.AGY_ACP_ENABLE_OAUTH, undefined);
-    assert.strictEqual(env.GEMINI_HOME, '/home/operator/.ao/antigravity-acp/home');
+    assert.strictEqual(env.GEMINI_HOME, '/home/operator/.ao/providers/antigravity-acp/home');
     assert.strictEqual(env.AGY_ACP_FORCE_FILE_STORAGE, '1');
     assert.strictEqual(env.PATH, '/usr/bin');
     assert.strictEqual(env.PYTHONUNBUFFERED, '1');
     assert.strictEqual(
       env.ANTIGRAVITY_HARNESS_PATH,
-      '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
+      '/home/operator/.ao/providers/antigravity-acp/runtime/1.4.1/localharness_external',
     );
-  });
-
-  it('adds Linux --uid= only on linux', () => {
-    assert.deepStrictEqual(antigravityLinuxArgs('linux'), ['--uid=']);
-    assert.deepStrictEqual(antigravityLinuxArgs('darwin'), []);
   });
 });

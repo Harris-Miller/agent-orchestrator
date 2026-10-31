@@ -55,5 +55,3 @@ export const buildAntigravitySpawnEnv = (input: AntigravitySpawnEnvInput): Recor
     PYTHONUNBUFFERED: '1',
   };
 };
-
-export const antigravityLinuxArgs = (platform: string): readonly string[] => (platform === 'linux' ? ['--uid='] : []);

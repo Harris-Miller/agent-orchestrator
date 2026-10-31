@@ -1,3 +1,5 @@
+> **Superseded by [ADR 0017](0017-user-installed-provider-runtimes.md).** Adapters are no longer bundled; they are user-installed under `~/.ao/providers/`. Kept for history.
+
 # Ship ACP adapters as Tauri resources
 
 The Agent Harness needs Codex and Claude ACP adapters at provider launch without a global `pnpm install -g @agentclientprotocol/…`. We ship a flattened adapter resource tree inside the Tauri application package (`tauri build` resources), materialize the same tree for `tauri:dev`, and spawn `node` on the adapter entry after detecting the user `codex` / `claude` vendor CLI on PATH (`CODEX_PATH` / `CLAUDE_CODE_EXECUTABLE`). We do not embed those vendor CLIs, and we do not use Tauri sidecars until a later need forces that.

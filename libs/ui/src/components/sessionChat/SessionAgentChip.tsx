@@ -17,9 +17,20 @@ export const SessionAgentChip: FC<{
   readonly disabled?: boolean;
   readonly interactive: boolean;
   readonly onChange?: (launchTarget: AgentLaunchTarget) => void;
+  /** Rows not listed here render disabled with their reason. Omit to treat every row as ready. */
+  readonly readyLaunchTargets?: readonly AgentLaunchTarget[];
   readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
+  readonly unavailableReasons?: Readonly<Partial<Record<AgentLaunchTarget, string>>>;
   readonly value: AgentLaunchTarget | undefined;
-}> = ({ disabled = false, interactive, onChange, selectableLaunchTargets, value }) => {
+}> = ({
+  disabled = false,
+  interactive,
+  onChange,
+  readyLaunchTargets,
+  selectableLaunchTargets,
+  unavailableReasons,
+  value,
+}) => {
   const menu = useComposerChromeMenu();
   const label = value === undefined ? 'Agent' : agentLaunchTargetLabel(value);
 
@@ -35,6 +46,7 @@ export const SessionAgentChip: FC<{
         <Menu {...menu.menuProps}>
           {selectableLaunchTargets.map(launchTarget => (
             <MenuItem
+              disabled={readyLaunchTargets !== undefined && !readyLaunchTargets.includes(launchTarget)}
               key={launchTarget}
               onClick={() => {
                 onChange?.(launchTarget);
@@ -45,7 +57,9 @@ export const SessionAgentChip: FC<{
               <ListItemIcon>
                 <AgentLaunchTargetIcon launchTarget={launchTarget} />
               </ListItemIcon>
-              <ListItemText>{agentLaunchTargetLabel(launchTarget)}</ListItemText>
+              <ListItemText secondary={unavailableReasons?.[launchTarget]}>
+                {agentLaunchTargetLabel(launchTarget)}
+              </ListItemText>
             </MenuItem>
           ))}
         </Menu>

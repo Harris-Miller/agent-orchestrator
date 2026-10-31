@@ -1,4 +1,0 @@
-{
-  "claude-agent-acp": "node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js",
-  "codex-acp": "node_modules/@agentclientprotocol/codex-acp/dist/index.js"
-}

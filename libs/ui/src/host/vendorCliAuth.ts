@@ -7,13 +7,15 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { isRecord } from '../isRecord.ts';
 
+import { notAuthenticatedMessage } from './authMessages.ts';
+import type { VendorAuthLaunchTarget } from './authMessages.ts';
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 
 const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
 /** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
 const POST_EXIT_STDOUT_DRAIN_MS = 100;
 
-type AuthProbeLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'cursor-acp';
+type AuthProbeLaunchTarget = VendorAuthLaunchTarget;
 
 const executableName = (launchTarget: AuthProbeLaunchTarget): string => {
   switch (launchTarget) {
@@ -23,17 +25,6 @@ const executableName = (launchTarget: AuthProbeLaunchTarget): string => {
       return 'codex';
     case 'cursor-acp':
       return 'cursor-agent';
-  }
-};
-
-const notAuthenticatedMessage = (launchTarget: AuthProbeLaunchTarget): string => {
-  switch (launchTarget) {
-    case 'claude-agent-acp':
-      return '`claude` is not authenticated — run `claude auth login`';
-    case 'codex-acp':
-      return '`codex` is not authenticated — run `codex login`';
-    case 'cursor-acp':
-      return '`cursor-agent` is not authenticated — run `cursor-agent login`';
   }
 };
 

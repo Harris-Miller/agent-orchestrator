@@ -11,6 +11,9 @@ import { Context, Deferred, Effect, Queue, Sink, Stream, Tracer } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 
+/** Upper bound on waiting for exit after kill during scope close. */
+const EXIT_AFTER_KILL_TIMEOUT = '5 seconds' as const;
+
 export const mapSpawnError = (method: string, cause: unknown): PlatformError.PlatformError =>
   PlatformError.systemError({
     _tag: 'Unknown',
@@ -132,6 +135,8 @@ export const openQueuedChildProcessStdio = Effect.fnUntraced(function* (
           runningRef.current = false;
           if (shouldKill) {
             yield* finalizeOptions.kill.pipe(Effect.ignore);
+            // Stop must not return until the process is really gone (bounded so a stuck child can't hang the scope).
+            yield* Deferred.await(exitDeferred).pipe(Effect.timeout(EXIT_AFTER_KILL_TIMEOUT), Effect.ignore);
           }
           yield* Queue.shutdown(stdoutQueue);
           yield* Queue.shutdown(stderrQueue);

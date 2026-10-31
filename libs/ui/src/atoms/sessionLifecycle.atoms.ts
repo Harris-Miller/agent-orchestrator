@@ -40,6 +40,7 @@ import {
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
   configOptionIndexAtom,
+  requireLaunchTargetUsable,
   selectedAtom,
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
@@ -202,6 +203,10 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.annotateCurrentSpan({
             'acp.agent': arg.launchTarget,
           });
+          const blocked = requireLaunchTargetUsable(get, arg.launchTarget);
+          if (blocked !== undefined) {
+            return yield* blocked;
+          }
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
           if (snapshot.phase !== 'ready') {
             yield* Effect.logWarning('createSession skipped; backend not ready', arg.launchTarget);
@@ -241,6 +246,10 @@ export const createSessionLifecycleAtoms = (
           'acp.agent': arg.launchTarget,
           'acp.sessionId': arg.sessionId,
         });
+        const blocked = requireLaunchTargetUsable(get, arg.launchTarget);
+        if (blocked !== undefined) {
+          return yield* blocked;
+        }
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
         if (snapshot.phase !== 'ready') {
           yield* Effect.logWarning('activateSession skipped; backend not ready', arg.launchTarget);

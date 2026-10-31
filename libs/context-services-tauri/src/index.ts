@@ -1,3 +1,4 @@
+export { AtomicFileLive } from './AtomicFileLive.ts';
 export { BundledResourceLive } from './BundledResourceLive.ts';
 export { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 export { ClipboardLive } from './ClipboardLive.ts';

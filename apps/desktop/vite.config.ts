@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       watch: {
         // 3. tell Vite to ignore watching `src-tauri` and the ACP adapter resource tree
-        ignored: ['**/src-tauri/**', '**/acp-adapter-resources/**'],
+        ignored: ['**/src-tauri/**'],
       },
     },
   };

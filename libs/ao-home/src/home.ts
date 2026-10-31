@@ -42,6 +42,27 @@ export const readUserSettings = Effect.fn('readUserSettings')(function* () {
   );
 });
 
+/** `settings.json` exists but cannot be decoded. Bootstrap must not treat this as "absent" and overwrite it. */
+export class UserSettingsMalformed extends Schema.TaggedError<UserSettingsMalformed>()('UserSettingsMalformed', {
+  message: Schema.String,
+}) {}
+
+/**
+ * Like {@link readUserSettings}, but distinguishes the cases bootstrap cares about: a missing file is the empty
+ * defaults, malformed content fails with {@link UserSettingsMalformed}, and read failures propagate as PlatformError.
+ */
+export const readUserSettingsStrict = Effect.fn('readUserSettingsStrict')(function* () {
+  const fs = yield* FileSystem;
+  const filePath = yield* settingsPath();
+  if (!(yield* fs.exists(filePath))) {
+    return defaultSettings;
+  }
+  const content = yield* fs.readFileString(filePath);
+  return yield* Schema.decodeEffect(UserSettingsJsonString)(content).pipe(
+    Effect.mapError(error => new UserSettingsMalformed({ message: error.message })),
+  );
+});
+
 export const writeUserSettings = Effect.fn('writeUserSettings')(function* (userSettings: UserSettings) {
   const fs = yield* FileSystem;
   yield* ensureHome();

@@ -12,11 +12,6 @@
       // so just don't cache
       "cache": false
     },
-    "//#install-acp-adapter-deps": {
-      "inputs": ["acp-adapter-resources/package.json", "acp-adapter-resources/pnpm-lock.yaml"],
-      "outputs": ["acp-adapter-resources/node_modules/**", "acp-adapter-resources/vendor/**"]
-    },
-    "materialize-acp-adapters": {},
     "test": {},
     "typecheck": {},
     "dev": {

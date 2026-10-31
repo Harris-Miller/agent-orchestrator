@@ -1,4 +1,4 @@
-import { OS } from '@lib/context-services';
+import { AtomicFile, OS } from '@lib/context-services';
 import { Effect, Layer, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import type { File, FileSystem } from 'effect/FileSystem';
@@ -32,8 +32,14 @@ const alreadyExists = (method: string, path: string) =>
 /** Lock tests only need open/`wx` side effects; handle methods are unused. */
 const noopFile = {} as File;
 
-const mapFsLayer = (store: Map<string, MapFsEntry>) =>
-  layerNoop({
+export type MapFsOptions = {
+  /** `FileSystem.remove` fails (PermissionDenied) for these path prefixes. */
+  readonly failRemoveUnder?: readonly string[];
+};
+
+const mapFsLayer = (store: Map<string, MapFsEntry>, fsOptions: MapFsOptions = {}) => {
+  const blockedRemoval = fsOptions.failRemoveUnder ?? [];
+  return layerNoop({
     copyFile: (fromPath, toPath) =>
       Effect.gen(function* () {
         const entry = store.get(fromPath);
@@ -46,6 +52,12 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
     makeDirectory: path =>
       Effect.sync(() => {
         store.set(path, { kind: 'dir' });
+      }),
+    makeTempDirectory: options =>
+      Effect.sync(() => {
+        const path = `${options?.directory ?? '/tmp'}/${options?.prefix ?? 'tmp-'}${String(store.size)}`;
+        store.set(path, { kind: 'dir' });
+        return path;
       }),
     open: (path, options) =>
       Effect.acquireRelease(
@@ -62,6 +74,10 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
         }),
         () => Effect.void,
       ),
+    writeFile: (path, data) =>
+      Effect.sync(() => {
+        store.set(path, { content: new TextDecoder().decode(data), kind: 'file' });
+      }),
     readFileString: path => {
       const entry = store.get(path);
       if (entry?.kind === 'file') {
@@ -70,26 +86,40 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
       return notFound('readFileString', path);
     },
     remove: (path, options) =>
-      Effect.sync(() => {
-        const present = store.has(path) || [...store.keys()].some(key => key.startsWith(`${path}/`));
-        if (!present) {
-          if (options?.force === true) {
-            return;
-          }
-          throw notFound('remove', path);
+      Effect.suspend(() => {
+        if (blockedRemoval.some(prefix => path.startsWith(prefix))) {
+          return Effect.fail(
+            PlatformError.systemError({
+              _tag: 'PermissionDenied',
+              description: 'Permission denied',
+              method: 'remove',
+              module: 'FileSystem',
+              pathOrDescriptor: path,
+            }),
+          );
         }
-        // oxlint-disable-next-line unicorn/no-useless-spread -- Deleting during iteration requires a snapshot.
-        for (const key of [...store.keys()]) {
-          if (key === path || key.startsWith(`${path}/`)) {
-            store.delete(key);
+        return Effect.sync(() => {
+          const present = store.has(path) || [...store.keys()].some(key => key.startsWith(`${path}/`));
+          if (!present) {
+            if (options?.force === true) {
+              return;
+            }
+            throw notFound('remove', path);
           }
-        }
+          // oxlint-disable-next-line unicorn/no-useless-spread -- Deleting during iteration requires a snapshot.
+          for (const key of [...store.keys()]) {
+            if (key === path || key.startsWith(`${path}/`)) {
+              store.delete(key);
+            }
+          }
+        });
       }),
     writeFileString: (path, data) =>
       Effect.sync(() => {
         store.set(path, { content: data, kind: 'file' });
       }),
   });
+};
 
 /** Always-ok spawner for AO-home chmod during materialize / BROWSER helper tests. */
 const chmodOkSpawnerLayer = Layer.succeed(
@@ -113,10 +143,20 @@ const chmodOkSpawnerLayer = Layer.succeed(
   ),
 );
 
-/** In-memory FileSystem + Path + OS (+ chmod-ok spawner) for ao-home tests. */
+/** Map-backed atomic replace: a single store write, so readers never see a partial document. */
+const mapAtomicFileLayer = (store: Map<string, MapFsEntry>) =>
+  Layer.succeed(AtomicFile, {
+    replaceFileString: (path, content) =>
+      Effect.sync(() => {
+        store.set(path, { content, kind: 'file' });
+      }),
+  });
+
+/** In-memory FileSystem + Path + OS + AtomicFile (+ chmod-ok spawner) for ao-home tests. */
 export const mapFsTestServices = (
   store: Map<string, MapFsEntry>,
-): Layer.Layer<ChildProcessSpawner.ChildProcessSpawner | FileSystem | OS | Path> => {
+  options: MapFsOptions = {},
+): Layer.Layer<AtomicFile | ChildProcessSpawner.ChildProcessSpawner | FileSystem | OS | Path> => {
   const osLayer = Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => DEFAULT_HOMEDIR,
@@ -124,5 +164,10 @@ export const mapFsTestServices = (
     homedir: () => DEFAULT_HOMEDIR,
     platform: () => 'linux',
   });
-  return Layer.mergeAll(posixPathLayer, mapFsLayer(store), chmodOkSpawnerLayer).pipe(Layer.provideMerge(osLayer));
+  return Layer.mergeAll(
+    posixPathLayer,
+    mapFsLayer(store, options),
+    mapAtomicFileLayer(store),
+    chmodOkSpawnerLayer,
+  ).pipe(Layer.provideMerge(osLayer));
 };

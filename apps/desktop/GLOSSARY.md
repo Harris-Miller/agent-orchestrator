@@ -177,16 +177,16 @@ An external coding-agent backend the Harness can connect to: **Codex**, **Claude
 _Avoid_: Model, LLM, vendor, integration
 
 **Agent launch target**:
-The spawn identity for a selectable harness connection — an ACP adapter from the adapter resource tree (`codex-acp`, `claude-agent-acp`), a native Vendor CLI ACP process (`cursor-acp` → `cursor-agent acp`), or a Managed ACP Agent (`antigravity-acp` → `agy_acp_server`). Distinct from the agent provider name (Codex, Claude, Antigravity, Cursor).
+The spawn identity for a selectable harness connection — an ACP adapter from a Provider runtime (`codex-acp`, `claude-agent-acp`), a native Vendor CLI ACP process (`cursor-acp` → `cursor-agent acp`), or a Managed ACP Agent (`antigravity-acp` → `agy_acp_server`). Distinct from the agent provider name (Codex, Claude, Antigravity, Cursor).
 _Avoid_: Backend (ambiguous with Tauri host), provider id
 
 **ACP adapter**:
 A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vendor CLI or SDK that is not ACP-native (Codex via [`codex-acp`](https://github.com/agentclientprotocol/codex-acp), Claude via [`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)).
 _Avoid_: Bridge, wrapper, proxy, shim
 
-**Adapter resource tree**:
-Isolated ACP adapter install at repo-root `acp-adapter-resources/` (own lockfile, hoisted `node_modules`; shared with the VS Code extension) copied into the Tauri application package for provider launch. Shared by `tauri:dev` and packaged builds.
-_Avoid_: node_modules, Vite assets, sidecar, bundled adapters (ambiguous with Vite)
+**Provider runtime**:
+The user-downloaded program that backs a launch target (an npm install of `claude-agent-acp` / `codex-acp`, or the extracted Antigravity binaries), stored under `~/.ao/providers/<id>/runtime/<version>/`. Replaces the former bundled adapter resource tree.
+_Avoid_: Adapter resource tree, bundled adapters, node_modules
 
 **Vendor CLI**:
 User-installed agent CLI on PATH (`codex`, `claude`, `cursor-agent`) that an ACP adapter or native ACP agent requires. The Harness detects it and does not install it.

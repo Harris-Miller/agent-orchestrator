@@ -8,12 +8,11 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' 'apps/*/acp-adapter-resources'",
+    "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist'",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "lint": "turbo run lint",
     "local-ci": "turbo run typecheck //#format:check lint test",
-    "install-acp-adapter-deps": "pnpm --dir acp-adapter-resources install --frozen-lockfile --prod",
     "prepare": "effect-tsgo patch",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",

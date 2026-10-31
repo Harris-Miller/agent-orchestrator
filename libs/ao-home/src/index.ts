@@ -35,27 +35,22 @@ export {
   type ConfigOptionIndexDocument,
 } from './ConfigOptionIndexDocument.ts';
 export {
-  ANTIGRAVITY_ACP_BROWSER_HELPER_NAME,
-  ANTIGRAVITY_ACP_EXECUTABLE_NAME,
-  ANTIGRAVITY_ACP_HARNESS_NAME,
   ANTIGRAVITY_ACP_SPAWN_NAME,
-  ANTIGRAVITY_ACP_VERSION,
   ANTIGRAVITY_AUTH_URL_MARKER_PREFIX,
-  antigravityAcpBrowserHelperPath,
-  antigravityAcpExecutablePath,
-  antigravityAcpExecutableRelativeSegments,
-  antigravityAcpHarnessPath,
-  antigravityAcpHomeDir,
-  antigravityAcpRootDir,
-  antigravityAcpRuntimeDir,
   antigravityBrowserHelperScript,
-  type AntigravityRuntimeSources,
-  ensureAntigravityAcpDirs,
-  ensureAntigravityBrowserHelper,
-  isAntigravityAcpRuntimePresent,
-  materializeAntigravityAcpRuntime,
+  ensureAntigravityProviderBrowserHelper,
+  ensureAntigravityProviderHome,
 } from './antigravity.ts';
-export { AO_HOME_DIRNAME, ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
+export {
+  AO_HOME_DIRNAME,
+  ensureHome,
+  readUserSettings,
+  readUserSettingsStrict,
+  resolveHome,
+  settingsPath,
+  UserSettingsMalformed,
+  writeUserSettings,
+} from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {
@@ -70,3 +65,51 @@ export {
   UserSettingsJsonString,
   UserSettingsSchema,
 } from './UserSettings.ts';
+export {
+  ANTIGRAVITY_PROVIDER_ID,
+  antigravityProviderBrowserHelperPath,
+  type NpmProviderId,
+  PROVIDER_CURRENT_FILENAME,
+  PROVIDER_NPM_PACKAGES,
+  PROVIDER_RUNTIME_DIRNAME,
+  PROVIDERS_DIRNAME,
+  providerDisplayPath,
+  ReleaseVersionSchema,
+  antigravityProviderHomeDir,
+  providerCurrentJsonPath,
+  providerDir,
+  providerRuntimeDir,
+  providerRuntimeRelativeDir,
+  providersRootDir,
+} from './providers.ts';
+export {
+  emptyProviderRuntimeDocument,
+  isSafeRuntimeVersion,
+  type ProviderDistribution,
+  ProviderDistributionSchema,
+  type ProviderDownloadState,
+  type ProviderRuntimeDocument,
+  ProviderRuntimeDocumentJsonString,
+  ProviderRuntimeDocumentSchema,
+  type ProviderRuntimeEntry,
+  type ProviderRuntimeRef,
+} from './ProviderRuntimeDocument.ts';
+export {
+  beginRuntimeAttempt,
+  cleanupTargets,
+  clearActiveRuntime,
+  completeRuntimeAttempt,
+  downloadedRuntimes,
+  failRuntimeAttempt,
+  markRuntimePendingDelete,
+  ProviderRuntimeTransitionError,
+  removeRuntimeEntry,
+  setActiveRuntime,
+  supersededRuntimes,
+} from './providerRuntimeCatalog.ts';
+export {
+  ProviderRuntimeDocumentMalformed,
+  readProviderRuntimeState,
+  type ProviderRuntimeState,
+  writeProviderRuntimeDocument,
+} from './providerRuntimeState.ts';

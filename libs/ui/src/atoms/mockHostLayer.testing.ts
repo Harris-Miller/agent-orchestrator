@@ -1,4 +1,4 @@
-import { BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
+import { AtomicFile, BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -12,7 +12,13 @@ export const mockOpenFileLayer = Layer.succeed(OpenFile, {
   supported: false,
 });
 
+/** Atomic replace that publishes nothing (tests that don't observe provider state). */
+export const mockAtomicFileLayer = Layer.succeed(AtomicFile, {
+  replaceFileString: () => Effect.void,
+});
+
 export const mockHostLayer = Layer.mergeAll(
+  mockAtomicFileLayer,
   Layer.succeed(BundledResource, {
     resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
   }),

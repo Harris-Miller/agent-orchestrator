@@ -1,4 +1,5 @@
 /** Core ACP backend / session selection Atom state. */
+import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -7,6 +8,7 @@ import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/ag
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
+import type { RuntimeJob } from '../host/providerView.ts';
 
 export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
 
@@ -31,6 +33,56 @@ export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarge
     Atom.keepAlive,
   ),
 );
+
+/**
+ * Whether the provider's backend may run. `stopped` blocks start (disabled / stopping); only an explicit
+ * transition back to `running` plus a start can spawn it again. Step 6 drives this from `providerEnabled`.
+ */
+export type BackendDesiredState = 'running' | 'stopped';
+
+export const backendDesiredStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
+  Atom.make<BackendDesiredState>('running').pipe(Atom.withLabel(`backendDesired:${launchTarget}`), Atom.keepAlive),
+);
+
+/**
+ * Per-provider enabled preference, mirrored from User settings once bootstrap has loaded them (and seeded first-run
+ * defaults). `undefined` until then, so nothing mounts, launches, or appears in a picker before settings are known.
+ */
+export const providerEnabledMapAtom = Atom.make<Readonly<Record<string, boolean>> | undefined>(undefined).pipe(
+  Atom.withLabel('providerEnabledMap'),
+  Atom.keepAlive,
+);
+
+/** Launch targets in this build (beta flags applied) whose enabled preference is on. */
+export const enabledLaunchTargetsAtom = Atom.make(get => {
+  const enabled = get(providerEnabledMapAtom);
+  return enabled === undefined ? [] : MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget]);
+}).pipe(Atom.keepAlive);
+
+/** Runtime job state per provider (Download / Install / Remove). Install and Remove mean "switching". */
+export const providerJobAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
+  Atom.make<RuntimeJob>({ _tag: 'Idle' }).pipe(Atom.withLabel(`providerJob:${launchTarget}`), Atom.keepAlive),
+);
+
+/** Raised at shared action boundaries (create / activate / handoff / Virtual binding). Disabled buttons are not enough. */
+export class ProviderUnavailable extends Schema.TaggedError<ProviderUnavailable>()('ProviderUnavailable', {
+  message: Schema.String,
+}) {}
+
+type AtomGetter = <A>(atom: Atom.Atom<A>) => A;
+
+/** Fails unless the provider is enabled and not switching runtimes. Phase readiness is checked by each action. */
+export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLaunchTarget) => {
+  const label = agentLaunchTargetLabel(launchTarget);
+  if (!get(enabledLaunchTargetsAtom).includes(launchTarget)) {
+    return new ProviderUnavailable({ message: `${label} is disabled` });
+  }
+  const job = get(providerJobAtom(launchTarget));
+  if (job._tag === 'Installing' || job._tag === 'Removing') {
+    return new ProviderUnavailable({ message: `${label} is switching runtimes` });
+  }
+  return undefined;
+};
 
 export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
@@ -110,22 +162,42 @@ export const allLaunchTargetPhasesAtom = Atom.make(get =>
   })),
 ).pipe(Atom.keepAlive);
 
+/** Phase entries for enabled providers only (new-session menu, session history). */
+export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
+  const enabled = get(enabledLaunchTargetsAtom);
+  return get(allLaunchTargetPhasesAtom).filter(entry => enabled.includes(entry.launchTarget));
+}).pipe(Atom.keepAlive);
+
 /** Launch targets that completed Config probe with a nonempty index. */
 export const readyLaunchTargetsAtom = Atom.make(get =>
-  MOUNTED_AGENT_LAUNCH_TARGETS.filter(
+  get(enabledLaunchTargetsAtom).filter(
     launchTarget =>
       get(backendHarnessStateAtom(launchTarget)).phase === 'ready' &&
       configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
   ),
 ).pipe(Atom.keepAlive);
 
-export const selectableLaunchTargetsAtom = Atom.make(get =>
-  MOUNTED_AGENT_LAUNCH_TARGETS.filter(
-    launchTarget =>
-      get(backendHarnessStateAtom(launchTarget)).phase !== 'error' &&
-      configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
-  ),
-).pipe(Atom.keepAlive);
+/** Why an enabled provider is not ready (`undefined` when ready). Shown beside its disabled picker row. */
+export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
+  const reasons: Partial<Record<AgentLaunchTarget, string>> = {};
+  for (const launchTarget of get(enabledLaunchTargetsAtom)) {
+    const snapshot = get(backendHarnessStateAtom(launchTarget));
+    if (snapshot.phase === 'error') {
+      reasons[launchTarget] = snapshot.error ?? 'Unavailable';
+    } else if (snapshot.phase !== 'ready') {
+      reasons[launchTarget] = 'Starting…';
+    } else if (!configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget)))) {
+      reasons[launchTarget] = 'No configuration available';
+    }
+  }
+  return reasons;
+}).pipe(Atom.keepAlive);
+
+/**
+ * Picker rows: every enabled provider, even when unavailable (rendered disabled with a reason). Readiness is
+ * derived separately in {@link readyLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
+ */
+export const pickerLaunchTargetsAtom = Atom.make(get => get(enabledLaunchTargetsAtom)).pipe(Atom.keepAlive);
 
 export const selectSession = (get: Atom.FnContext, sessionId: string) => {
   if (get(virtualLifecycleInFlightAtom)) {

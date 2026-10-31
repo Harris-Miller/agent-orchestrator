@@ -81,6 +81,22 @@ export const IpcMessage = Schema.TaggedUnion({
     id: CorrelationId,
     paths: Schema.Array(Schema.String),
   },
+  FsAtomicReplaceFileString: {
+    content: Schema.String,
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  FsAtomicReplaceFileStringResult: {
+    id: CorrelationId,
+  },
+  FsCopyFile: {
+    fromPath: Schema.String,
+    id: CorrelationId,
+    toPath: Schema.String,
+  },
+  FsCopyFileResult: {
+    id: CorrelationId,
+  },
   FsExists: {
     id: CorrelationId,
     path: Schema.String,
@@ -141,6 +157,15 @@ export const IpcMessage = Schema.TaggedUnion({
     mtime: Schema.optional(Schema.Number),
     size: Schema.Number,
     type: Schema.Literals(['Directory', 'File', 'SymbolicLink', 'Unknown']),
+  },
+  FsWriteFile: {
+    /** Binary payload (`ArrayBuffer`); may be transferred via postMessage. */
+    bytes: Schema.Unknown,
+    id: CorrelationId,
+    path: Schema.String,
+  },
+  FsWriteFileResult: {
+    id: CorrelationId,
   },
   FsWriteFileString: {
     content: Schema.String,
@@ -266,7 +291,7 @@ export const getIpcTransferList = (message: IpcMessage): ArrayBuffer[] | undefin
   if ((message._tag === 'HttpFetch' || message._tag === 'HttpFetchResult') && message.body instanceof ArrayBuffer) {
     return [message.body];
   }
-  if (message._tag === 'FsReadFileResult' && message.bytes instanceof ArrayBuffer) {
+  if ((message._tag === 'FsReadFileResult' || message._tag === 'FsWriteFile') && message.bytes instanceof ArrayBuffer) {
     return [message.bytes];
   }
   return undefined;

@@ -7,7 +7,10 @@ import {
   FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
   HarnessCacheGate,
+  NodePrerequisiteGate,
   PersistUserSettingsToast,
+  ProviderBootstrapGate,
+  ProvidersStartupMount,
   UserSettingsMount,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
@@ -82,6 +85,7 @@ const WorkspaceFoldersGate: FC = () => {
     <OnClientErrorContext.Provider value={onClientError}>
       <HarnessCacheGate>
         <AcpBackendsMount />
+        <ProvidersStartupMount />
       </HarnessCacheGate>
       <Box
         sx={{
@@ -130,7 +134,11 @@ export const App: FC = () => (
             Effect.runPromise(hostIpcClient.request(id => ({ _tag: 'AppExit' as const, id }))).catch(() => undefined);
           }}
         >
-          <WorkspaceFoldersGate />
+          <NodePrerequisiteGate>
+            <ProviderBootstrapGate>
+              <WorkspaceFoldersGate />
+            </ProviderBootstrapGate>
+          </NodePrerequisiteGate>
         </FdPrerequisiteGate>
       </Box>
     </AppThemeProvider>

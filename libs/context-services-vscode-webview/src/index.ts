@@ -1,3 +1,4 @@
+export { makeAtomicFileLive } from './AtomicFileLive.ts';
 export { ClipboardLive } from './ClipboardLive.ts';
 export { makeFileDialogLive } from './FileDialogLive.ts';
 export { makeHostServicesLive } from './makeHostServicesLive.ts';

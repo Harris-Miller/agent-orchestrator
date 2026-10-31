@@ -2,12 +2,8 @@
  * PROTOTYPE Variant A — ChatGPT nested accordion.
  * Outer "Worked for Xs" collapses the whole block; each step expands piece-by-piece.
  */
-import ChevronRight from '@mui/icons-material/ChevronRight';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import HubOutlined from '@mui/icons-material/HubOutlined';
-import LinkOutlined from '@mui/icons-material/LinkOutlined';
-import SearchOutlined from '@mui/icons-material/SearchOutlined';
-import TerminalOutlined from '@mui/icons-material/TerminalOutlined';
+import { LucideMuiIcon } from '@lib/ui';
+import { ChevronDown, ChevronRight, Link, Network, Search, SquareTerminal, Wrench } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
 import Typography from '@mui/material/Typography';
@@ -22,15 +18,15 @@ export const VARIANT_A_NAME = 'Nested accordion (ChatGPT)';
 const stepIcon = (kind: WorkStep['kind']): ReactNode => {
   switch (kind) {
     case 'group':
-      return <HubOutlined fontSize="inherit" />;
+      return <LucideMuiIcon fontSize="inherit" icon={Network} />;
     case 'read':
-      return <LinkOutlined fontSize="inherit" />;
+      return <LucideMuiIcon fontSize="inherit" icon={Link} />;
     case 'search':
-      return <SearchOutlined fontSize="inherit" />;
+      return <LucideMuiIcon fontSize="inherit" icon={Search} />;
     case 'shell':
-      return <TerminalOutlined fontSize="inherit" />;
+      return <LucideMuiIcon fontSize="inherit" icon={SquareTerminal} />;
     case 'tool':
-      return <HubOutlined fontSize="inherit" />;
+      return <LucideMuiIcon fontSize="inherit" icon={Wrench} />;
   }
 };
 
@@ -66,7 +62,7 @@ const StepRow: FC<{
         <Typography sx={{ flex: 1 }} variant="body2">
           {step.title}
         </Typography>
-        {canExpand ? expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" /> : null}
+        {canExpand ? <LucideMuiIcon fontSize="small" icon={expanded ? ChevronDown : ChevronRight} /> : null}
       </Box>
       <Collapse in={detailOpen}>
         <Box
@@ -136,7 +132,7 @@ export const VariantA: FC<{
           <Typography color="text.secondary" variant="body2">
             {fixture.durationLabel}
           </Typography>
-          {outerOpen ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+          <LucideMuiIcon fontSize="small" icon={outerOpen ? ChevronDown : ChevronRight} />
         </Box>
         <Collapse in={outerOpen}>
           <Typography color="text.secondary" sx={{ mb: 1, mt: 0.5 }} variant="body2">

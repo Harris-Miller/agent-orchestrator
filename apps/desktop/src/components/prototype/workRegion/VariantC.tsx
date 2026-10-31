@@ -2,7 +2,8 @@
  * PROTOTYPE Variant C — answer-first; work lives in a bottom sheet.
  * Transcript stays clean; a chip is the only inline affordance.
  */
-import Close from '@mui/icons-material/Close';
+import { LucideMuiIcon } from '@lib/ui';
+import { X } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
@@ -64,7 +65,7 @@ export const VariantC: FC<{
               }}
               size="small"
             >
-              <Close fontSize="small" />
+              <LucideMuiIcon fontSize="small" icon={X} />
             </IconButton>
           </Box>
           <Typography color="text.secondary" sx={{ mb: 1 }} variant="body2">

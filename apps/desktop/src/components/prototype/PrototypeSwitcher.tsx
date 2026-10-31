@@ -2,8 +2,8 @@
  * PROTOTYPE — floating variant bar. Hidden in production builds.
  * Shared by throwaway UI prototypes that use `?variant=` search params.
  */
-import ChevronLeft from '@mui/icons-material/ChevronLeft';
-import ChevronRight from '@mui/icons-material/ChevronRight';
+import { LucideMuiIcon } from '@lib/ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -99,7 +99,7 @@ export const PrototypeSwitcher: FC<{
         }}
         size="small"
       >
-        <ChevronLeft />
+        <LucideMuiIcon icon={ChevronLeft} />
       </IconButton>
       <Typography sx={{ fontWeight: 700, minWidth: 220, textAlign: 'center' }} variant="body2">
         {label.key} · {label.name}
@@ -112,7 +112,7 @@ export const PrototypeSwitcher: FC<{
         }}
         size="small"
       >
-        <ChevronRight />
+        <LucideMuiIcon icon={ChevronRight} />
       </IconButton>
     </Box>
   );

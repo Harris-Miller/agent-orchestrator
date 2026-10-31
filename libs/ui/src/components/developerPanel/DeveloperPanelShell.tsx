@@ -30,6 +30,7 @@ import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
+import { ProviderStateView } from './ProviderStateView.tsx';
 import {
   cascadedWireIds,
   classifyRpcWireLog,
@@ -46,6 +47,7 @@ import { SessionStateView } from './SessionStateView.tsx';
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
 const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
+const PROVIDER_STATE_TAB = 'provider-state' as const;
 const SESSION_STATE_TAB = 'session-state' as const;
 const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
 const COMPOSER_TAB = 'composer' as const;
@@ -309,18 +311,20 @@ const RpcWireLogBody: FC<{
 
 export const DeveloperPanelShell: FC<{
   readonly extraTabs?: readonly DeveloperPanelExtraTab[];
-  readonly initializeResult: unknown;
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
   readonly session?: SessionSnapshot;
-}> = ({ extraTabs = [], initializeResult, onClose, onCopyError, session }) => {
+}> = ({ extraTabs = [], onClose, onCopyError, session }) => {
   const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(RPC_WIRE_LOG_TAB);
   const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
   const isMuiThemePlaygroundTab = activeTab === MUI_THEME_PLAYGROUND_TAB;
   const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
   const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
-  const bodyPadding = isRpcWireLogTab || activeTab === SESSION_STATE_TAB || isMuiThemePlaygroundTab ? 2 : 0;
+  const bodyPadding =
+    isRpcWireLogTab || activeTab === PROVIDER_STATE_TAB || activeTab === SESSION_STATE_TAB || isMuiThemePlaygroundTab
+      ? 2
+      : 0;
 
   return (
     <Box
@@ -343,6 +347,7 @@ export const DeveloperPanelShell: FC<{
         variant="scrollable"
       >
         <Tab label="RPC wire" value={RPC_WIRE_LOG_TAB} />
+        <Tab label="Provider State" value={PROVIDER_STATE_TAB} />
         <Tab label="Session State" value={SESSION_STATE_TAB} />
         <Tab label="@ FS listing" value={FS_MENTION_LISTING_TAB} />
         <Tab label="Composer" value={COMPOSER_TAB} />
@@ -363,8 +368,10 @@ export const DeveloperPanelShell: FC<{
       >
         {activeTab === RPC_WIRE_LOG_TAB ? (
           <RpcWireLogBody onCopyError={onCopyError} />
+        ) : activeTab === PROVIDER_STATE_TAB ? (
+          <ProviderStateView />
         ) : activeTab === SESSION_STATE_TAB ? (
-          <SessionStateView initializeResult={initializeResult} session={session} />
+          <SessionStateView session={session} />
         ) : isFsMentionListingTab ? (
           <FsMentionListingTab />
         ) : activeTab === COMPOSER_TAB ? (

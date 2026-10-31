@@ -12,7 +12,6 @@ import {
   OpenDeveloperPanelButton,
   PANEL_HEADER_HEIGHT,
   selectedAtom,
-  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
@@ -97,7 +96,6 @@ export const AgentChatWorkbench: FC<{
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
-  const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
   const history = useAtomValue(unifiedSessionHistoryAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
@@ -241,7 +239,6 @@ export const AgentChatWorkbench: FC<{
                 label: 'TanStack Router',
               },
             ]}
-            initializeResult={selectedSnapshot?.initializeResult}
             onClose={closeDeveloperPanel}
             onCopyError={onClientError}
             session={selectedSession}

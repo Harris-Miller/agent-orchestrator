@@ -36,11 +36,10 @@ ${paths.length === 0 ? '  (empty)' : paths.map(p => `  - ${p}`).join('\n')}`}
 };
 
 export const DeveloperPanel: FC<{
-  readonly initializeResult: unknown;
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
   readonly session?: SessionSnapshot;
-}> = ({ initializeResult, onClose, onCopyError, session }) => (
+}> = ({ onClose, onCopyError, session }) => (
   <DeveloperPanelShell
     extraTabs={[
       {
@@ -49,7 +48,6 @@ export const DeveloperPanel: FC<{
         label: 'Workspace cwd',
       },
     ]}
-    initializeResult={initializeResult}
     onClose={onClose}
     onCopyError={onCopyError}
     session={session}

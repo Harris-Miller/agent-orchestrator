@@ -92,6 +92,14 @@ export const allRpcWireCallsAtom = Atom.make(get =>
   })),
 ).pipe(Atom.keepAlive);
 
+/** Initialize response per mounted launch target (undefined until that provider has initialized). */
+export const allInitializeResultsAtom = Atom.make(get =>
+  MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+    initializeResult: get(backendHarnessStateAtom(launchTarget)).initializeResult,
+    launchTarget,
+  })),
+).pipe(Atom.keepAlive);
+
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
     antigravityAuthUrl: get(backendHarnessStateAtom(launchTarget)).antigravityAuthUrl,

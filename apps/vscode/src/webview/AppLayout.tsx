@@ -6,7 +6,6 @@ import {
   DEVELOPER_PANEL_HEIGHT,
   isRecord,
   readDeveloperPanelOpen,
-  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   useDeveloperPanelOpen,
 } from '@lib/ui';
@@ -80,7 +79,6 @@ export const AppLayout: FC = () => {
   const allotmentRef = useRef<AllotmentHandle | null>(null);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: panelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const selectedSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const onClientError = useContext(OnClientErrorContext);
 
   const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
@@ -136,12 +134,7 @@ export const AppLayout: FC = () => {
           snap
           visible={panelVisible}
         >
-          <DeveloperPanel
-            initializeResult={selectedSnapshot?.initializeResult}
-            onClose={closeDeveloperPanel}
-            onCopyError={onClientError}
-            session={selectedSession}
-          />
+          <DeveloperPanel onClose={closeDeveloperPanel} onCopyError={onClientError} session={selectedSession} />
         </Allotment.Pane>
       </Allotment>
     </Box>

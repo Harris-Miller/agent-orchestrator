@@ -1,4 +1,4 @@
-import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
@@ -10,24 +10,29 @@ import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
 import type {
-  NormalizedCapability,
   NormalizedConfigOption,
   NormalizedMode,
   NormalizedModel,
   SessionSnapshot,
 } from '../../host/acpSessionBootstrap.ts';
-import { normalizeInitialize, normalizeSession } from '../../host/acpSessionBootstrap.ts';
+import { normalizeSession } from '../../host/acpSessionBootstrap.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
+import { hostRunPromise } from '../../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { UsageCard } from '../sessionChat/UsageCard.tsx';
 
-const sectionCardSx = {
+export const sectionCardSx = {
   bgcolor: 'background.default',
   borderColor: 'divider',
   p: 1.5,
 } as const;
 
-const Section: FC<{ children: ReactNode; pending?: boolean; title: string }> = ({ children, pending, title }) => (
+export const Section: FC<{ children: ReactNode; pending?: boolean; title: string }> = ({
+  children,
+  pending,
+  title,
+}) => (
   <Stack spacing={1}>
     <Typography sx={{ fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }} variant="caption">
       {title}
@@ -41,39 +46,6 @@ const Section: FC<{ children: ReactNode; pending?: boolean; title: string }> = (
     )}
   </Stack>
 );
-
-const capabilityGroupLabel = (path: string): string => {
-  const [group] = path.split('.');
-  switch (group) {
-    case 'auth':
-      return 'Auth';
-    case 'mcpCapabilities':
-      return 'MCP';
-    case 'promptCapabilities':
-      return 'Prompt';
-    case 'sessionCapabilities':
-      return 'Session';
-    default:
-      return 'General';
-  }
-};
-
-const groupCapabilities = (
-  capabilities: readonly NormalizedCapability[],
-): readonly { readonly group: string; readonly items: readonly NormalizedCapability[] }[] => {
-  const groups = new Map<string, NormalizedCapability[]>();
-
-  for (const capability of capabilities) {
-    const group = capabilityGroupLabel(capability.path);
-    const existing = groups.get(group) ?? [];
-    existing.push(capability);
-    groups.set(group, existing);
-  }
-
-  return [...groups.entries()].map(([group, items]) => ({ group, items }));
-};
-
-const capabilityLabel = (path: string): string => path.split('.').at(-1) ?? path;
 
 const OptionChips: FC<{
   readonly currentId?: string;
@@ -170,125 +142,34 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
 
 export const SessionStateContent: FC<{
   readonly availableCommands?: readonly AvailableCommand[];
-  readonly initializeResult: unknown;
   readonly selectedModeId?: string;
   readonly selectedModelId?: string;
   readonly session?: SessionSnapshot;
   readonly showSessionDetails: boolean;
-}> = ({ availableCommands, initializeResult, selectedModeId, selectedModelId, session, showSessionDetails }) => {
-  const initialize = normalizeInitialize(initializeResult);
+}> = ({ availableCommands, selectedModeId, selectedModelId, session, showSessionDetails }) => {
   const sessionConfiguration =
     session?.sessionConfiguration !== undefined ? normalizeSession(session.sessionConfiguration) : undefined;
-  const capabilityGroups = initialize === undefined ? [] : groupCapabilities(initialize.capabilities);
 
   return (
     <Stack spacing={2}>
-      <Typography color="text.secondary" variant="body2">
-        Abstracted from initialize, session lifecycle RPCs, available_commands_update, and usage_update.
-      </Typography>
-
-      <Divider />
-
-      <Section pending={initialize === undefined} title="Agent">
-        {initialize !== undefined ? (
-          <Stack spacing={1.5}>
-            {initialize.agentInfo !== undefined ? (
-              <Paper sx={sectionCardSx} variant="outlined">
-                <Stack spacing={0.5}>
-                  <Typography sx={{ fontWeight: 600 }} variant="body1">
-                    {initialize.agentInfo.title ?? initialize.agentInfo.name}
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ fontFamily: FONT_FAMILY_MONO }} variant="caption">
-                    {initialize.agentInfo.name} · v{initialize.agentInfo.version}
-                  </Typography>
-                  {initialize.protocolVersion !== undefined ? (
-                    <Chip label={`protocol v${initialize.protocolVersion}`} size="small" variant="outlined" />
-                  ) : null}
-                </Stack>
-              </Paper>
-            ) : null}
-
-            {initialize.authMethods.length > 0 ? (
-              <Stack spacing={0.75}>
-                <Typography color="text.secondary" variant="caption">
-                  Auth methods
-                </Typography>
-                <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                  {initialize.authMethods.map(method => (
-                    <Chip key={method.id} label={method.name ?? method.id} size="small" variant="outlined" />
-                  ))}
-                </Stack>
-              </Stack>
-            ) : null}
-
-            {initialize.metaExtensions.length > 0 ? (
-              <Stack spacing={0.75}>
-                <Typography color="text.secondary" variant="caption">
-                  Extensions
-                </Typography>
-                {initialize.metaExtensions.map(extension => (
-                  <Box key={extension.key}>
-                    <Typography sx={{ fontWeight: 600 }} variant="body2">
-                      {extension.key}
-                    </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      {extension.summary}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            ) : null}
-          </Stack>
-        ) : null}
-      </Section>
-
-      <Divider />
-
-      <Section pending={initialize === undefined} title="Capabilities">
-        {initialize !== undefined ? (
-          capabilityGroups.length === 0 ? (
-            <Typography color="text.secondary" variant="body2">
-              None reported
-            </Typography>
-          ) : (
-            <Stack spacing={1.25}>
-              {capabilityGroups.map(group => (
-                <Box key={group.group}>
-                  <Typography color="text.secondary" sx={{ mb: 0.75 }} variant="caption">
-                    {group.group}
-                  </Typography>
-                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                    {group.items.map(capability => (
-                      <Chip
-                        color={capability.enabled ? 'success' : 'default'}
-                        key={capability.path}
-                        label={capabilityLabel(capability.path)}
-                        size="small"
-                        title={capability.path}
-                        variant="outlined"
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              ))}
-            </Stack>
-          )
-        ) : null}
-      </Section>
-
       {showSessionDetails ? (
         <>
-          <Divider />
-
           <Section pending={sessionConfiguration === undefined} title="Session">
             {sessionConfiguration !== undefined ? (
               <Stack spacing={1.5}>
                 {session?.sessionId !== undefined ? (
-                  <Chip
-                    label={session.sessionId}
-                    size="small"
-                    sx={{ alignSelf: 'flex-start', fontFamily: FONT_FAMILY_MONO }}
-                  />
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <Chip label={session.sessionId} size="small" sx={{ fontFamily: FONT_FAMILY_MONO }} />
+                    <Button
+                      onClick={() => {
+                        hostRunPromise(writeTextToClipboard(session.sessionId)).catch(() => undefined);
+                      }}
+                      size="small"
+                      variant="text"
+                    >
+                      Copy
+                    </Button>
+                  </Stack>
                 ) : null}
 
                 <Stack spacing={0.75}>
@@ -374,12 +255,10 @@ export const SessionStateContent: FC<{
 
 /** Session State body for the Developer panel tab. */
 export const SessionStateView: FC<{
-  readonly initializeResult: unknown;
   readonly session?: SessionSnapshot;
-}> = ({ initializeResult, session }) => (
+}> = ({ session }) => (
   <SessionStateContent
     availableCommands={session?.availableCommands}
-    initializeResult={initializeResult}
     selectedModeId={session?.selectedModeId}
     selectedModelId={session?.selectedModelId}
     session={session}

@@ -13,6 +13,7 @@ import {
   normalizeAlwaysHiddenGlobs,
   readSessionUsage,
   readUserSettings,
+  readUserSettingsStrict,
   resolveHome,
   sessionDirPath,
   sessionUsagePath,
@@ -194,6 +195,20 @@ describe('ao-home', () => {
       if (entry?.kind === 'file') {
         assert.strictEqual(entry.content, '{not-json');
       }
+    }),
+  );
+
+  it.effect('readUserSettingsStrict: missing is defaults, corrupt fails and is never rewritten', () =>
+    Effect.gen(function* () {
+      const missing = yield* readUserSettingsStrict().pipe(Effect.provide(services(new Map<string, FsEntry>())));
+      assert.deepStrictEqual(missing, defaultSettings);
+      const store = new Map<string, FsEntry>([
+        [HOME, { kind: 'dir' }],
+        [SETTINGS, { content: '{not-json', kind: 'file' }],
+      ]);
+      const error = yield* readUserSettingsStrict().pipe(Effect.provide(services(store)), Effect.flip);
+      assert.strictEqual(error._tag, 'UserSettingsMalformed');
+      assert.deepStrictEqual(store.get(SETTINGS), { content: '{not-json', kind: 'file' });
     }),
   );
 

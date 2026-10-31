@@ -57,7 +57,16 @@ export {
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';
-export { AO_HOME_DIRNAME, ensureHome, readUserSettings, resolveHome, settingsPath, writeUserSettings } from './home.ts';
+export {
+  AO_HOME_DIRNAME,
+  ensureHome,
+  readUserSettings,
+  readUserSettingsStrict,
+  resolveHome,
+  settingsPath,
+  UserSettingsMalformed,
+  writeUserSettings,
+} from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
 export {

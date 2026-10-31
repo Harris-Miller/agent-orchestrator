@@ -55,6 +55,8 @@ export * from './components/developerPanel/PanelHeader.tsx';
 export * from './components/developerPanel/SessionStateView.tsx';
 export * from './components/developerPanel/useDeveloperPanelOpen.ts';
 export * from './components/FdPrerequisiteGate.tsx';
+export * from './components/NodePrerequisiteGate.tsx';
+export * from './components/ProviderBootstrapGate.tsx';
 export * from './components/FieldLabel.tsx';
 export * from './components/LucideMuiIcon.tsx';
 export * from './components/PersistUserSettingsToast.tsx';

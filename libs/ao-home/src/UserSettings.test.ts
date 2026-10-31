@@ -12,7 +12,7 @@ describe('UserSettings provider fields', () => {
         extra: 1,
       });
       const decoded = yield* Schema.decodeEffect(UserSettingsJsonString)(input);
-      assert.strictEqual(decoded.providerEnabled?.['claude-agent-acp' as never], true);
+      assert.strictEqual(decoded.providerEnabled?.['claude-agent-acp'], true);
       assert.strictEqual(decoded.showProvidersOnStartup, false);
       const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(decoded);
       assert.deepStrictEqual(JSON.parse(encoded), JSON.parse(input));

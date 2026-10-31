@@ -208,7 +208,7 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
 };
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
-const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '7.5rem'; // ~5 lines, clipped
+const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '6.5rem'; // 4 lines + padding, clipped
 const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
 
 const toolResultShellSx = {
@@ -344,33 +344,38 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   }
 
   return (
-    <Stack spacing={0.25}>
-      <Box
-        sx={{
-          ...toolResultShellSx,
-          maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
-          overflow: expanded ? 'auto' : 'hidden',
-        }}
-      >
-        {hasCommand ? <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} /> : null}
-        {hasResult ? <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} /> : null}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <IconButton
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
-          onClick={() => {
-            setExpanded(current => !current);
-          }}
-          size="small"
-        >
-          {expanded ? (
-            <LucideMuiIcon fontSize="small" icon={ChevronUp} />
-          ) : (
-            <LucideMuiIcon fontSize="small" icon={ChevronDown} />
-          )}
-        </IconButton>
-      </Box>
+    <Stack spacing={0.5}>
+      {hasCommand ? (
+        <Box sx={toolResultShellSx}>
+          <ChatMarkdown sx={toolCommandMarkdownSx} text={`\`\`\`\n$ ${command}\n\`\`\``} />
+        </Box>
+      ) : null}
+      {hasResult ? (
+        <Stack direction="row" spacing={0.5}>
+          <IconButton
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
+            onClick={() => {
+              setExpanded(current => !current);
+            }}
+            size="small"
+            sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
+          >
+            <LucideMuiIcon fontSize="small" icon={expanded ? ChevronUp : ChevronDown} />
+          </IconButton>
+          <Box
+            sx={{
+              ...toolResultShellSx,
+              flex: 1,
+              maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
+              minWidth: 0,
+              overflow: expanded ? 'auto' : 'hidden',
+            }}
+          >
+            <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} />
+          </Box>
+        </Stack>
+      ) : null}
     </Stack>
   );
 };

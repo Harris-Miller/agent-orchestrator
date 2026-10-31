@@ -352,17 +352,6 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
       ) : null}
       {hasResult ? (
         <Stack direction="row" spacing={0.5}>
-          <IconButton
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
-            onClick={() => {
-              setExpanded(current => !current);
-            }}
-            size="small"
-            sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
-          >
-            <LucideMuiIcon fontSize="small" icon={expanded ? ChevronUp : ChevronDown} />
-          </IconButton>
           <Box
             sx={{
               ...toolResultShellSx,
@@ -374,6 +363,17 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
           >
             <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} />
           </Box>
+          <IconButton
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
+            onClick={() => {
+              setExpanded(current => !current);
+            }}
+            size="small"
+            sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
+          >
+            <LucideMuiIcon fontSize="small" icon={expanded ? ChevronUp : ChevronDown} />
+          </IconButton>
         </Stack>
       ) : null}
     </Stack>

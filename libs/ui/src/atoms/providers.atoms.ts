@@ -281,7 +281,7 @@ export const createProvidersAtoms = (
       .pipe(Atom.keepAlive),
   );
 
-  /** Install the downloaded update: publish active, await the local stop, delete superseded dirs, bootstrap once. */
+  /** Install the downloaded update: publish active, await the local stop, bootstrap once, delete superseded dirs. */
   const installAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
@@ -293,19 +293,26 @@ export const createProvidersAtoms = (
           if (version === undefined) {
             return;
           }
-          const ok = yield* runJob(
+          yield* runJob(
             get,
             launchTarget,
             { _tag: 'Installing', version },
             Effect.gen(function* () {
               yield* activateDownloadedRuntime(launchTarget, version);
-              yield* harness.stopAndReconcile(launchTarget, get);
+              // Once the new runtime is active, bootstrap it even if the stop failed; only then delete the old ones,
+              // so a cleanup failure is reported on the job but never leaves the provider stopped.
+              yield* harness.stopAndReconcile(launchTarget, get).pipe(
+                Effect.ensuring(
+                  Effect.sync(() => {
+                    if (get(enabledLaunchTargetsAtom).includes(launchTarget)) {
+                      harness.startBackend(launchTarget, get);
+                    }
+                  }),
+                ),
+              );
               yield* purgeSupersededRuntimes(launchTarget);
             }),
           );
-          if (ok && get(enabledLaunchTargetsAtom).includes(launchTarget)) {
-            harness.startBackend(launchTarget, get);
-          }
         }),
       )
       .pipe(Atom.keepAlive),

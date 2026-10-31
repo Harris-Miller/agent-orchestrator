@@ -35,7 +35,7 @@ An agent backend the user can enable (Claude, Codex, Antigravity, Cursor), ident
 _Avoid_: backend (the running process), agent
 
 **Provider runtime**:
-The downloaded program backing a Provider (see ao-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, deleting superseded runtimes, bootstrapping once); Remove clears it.
+The downloaded program backing a Provider (see ao-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, bootstrapping once, then deleting superseded runtimes); Remove clears it.
 _Avoid_: adapter resource tree, bundled adapter
 
 **Disabled**:

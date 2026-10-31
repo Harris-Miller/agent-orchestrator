@@ -8,13 +8,18 @@ import Paper from '@mui/material/Paper';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Archive, Ellipsis, Trash2 } from 'lucide-react';
+import { Archive, Ellipsis, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import { activateSessionAtomFn, archiveSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { hasSessionArchiveCapability } from '../../host/acpSessionBootstrap.ts';
+import {
+  activateSessionAtomFn,
+  archiveSessionAtomFn,
+  cancelPromptAtomFn,
+  deactivateSessionAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
+import { hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
@@ -44,6 +49,8 @@ export const SessionHistoryRow: FC<{
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
+  const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
+  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
@@ -121,6 +128,24 @@ export const SessionHistoryRow: FC<{
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
+          {hasSessionCloseCapability(snapshot.initializeResult) ? (
+            <Button
+              disabled={unavailable || session?.status !== 'active'}
+              onClick={() => {
+                closeMenu();
+                const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
+                // Cancel an in-flight prompt first; Close keeps the snapshot, so a stale pending flag would linger.
+                (session?.pendingClientRequest === 'prompt' ? cancelPrompt(target) : Promise.resolve())
+                  .then(() => deactivateSession(target))
+                  .catch(onClientError);
+              }}
+              size="small"
+              startIcon={<LucideMuiIcon icon={X} />}
+              variant="outlined"
+            >
+              Close
+            </Button>
+          ) : null}
           {hasSessionArchiveCapability(snapshot.initializeResult) ? (
             <Button
               disabled={unavailable}

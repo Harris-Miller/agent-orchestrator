@@ -132,7 +132,7 @@ _Avoid_: In flight, loading, busy flag
 
 **Prompt turn cancel**:
 Harness action that sends ACP `session/cancel` for an in-flight prompt turn on a session. The session stays active. Distinct from Deactivate (`session/close`), elicitation cancel, and `$/cancel_request`.
-_Avoid_: Stop generation (vendor-specific), abort session, session close
+_Avoid_: Stop generation (vendor-specific), abort session, Close (that is Deactivate)
 
 **Pending elicitation**:
 Outstanding Agent `elicitation/create` held on a session snapshot until the user accepts, declines, or cancels. Ephemeral snapshot state — not a chat item.
@@ -157,6 +157,10 @@ _Avoid_: Selected session (when you mean the union including Virtual), current s
 **Active session**:
 A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/resume` completed; ends at `session/close`). Includes Bound-but-still-Virtual sessions. Multiple may be active per agent simultaneously; only the Selected Session arm accepts prompts after Materialize.
 _Avoid_: Open session, live session
+
+**Deactivate**:
+Harness action that sends ACP `session/close` for an Active session (after a Prompt turn cancel if a prompt is in flight) and marks it `inactive`. The session stays in Session History with its transcript; clicking the row reactivates it. Labeled **Close** in the Harness UI and shown only when the agent advertises `sessionCapabilities.close`. Memory savings depend on the adapter (soft close for Gemini/Antigravity per ADR 0010; best-effort for Cursor/Antigravity per ADR 0013/0014).
+_Avoid_: End session, Close (UI label only — use Deactivate in code/docs)
 
 ## Agent backends
 

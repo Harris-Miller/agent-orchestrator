@@ -13,6 +13,7 @@ import {
   defectsFromWireCause,
   groupAndSortSessionsByCwd,
   hasSessionArchiveCapability,
+  hasSessionCloseCapability,
   hasSessionForkCapability,
   isConfigProbeCwd,
   normalizeConfigOptions,
@@ -502,5 +503,21 @@ describe('hasSessionForkCapability', () => {
       }),
     );
     assert.isFalse(hasSessionForkCapability({}));
+  });
+});
+
+describe('hasSessionCloseCapability', () => {
+  it('treats sessionCapabilities.close {} as enabled', () => {
+    assert.isTrue(
+      hasSessionCloseCapability({
+        agentCapabilities: { sessionCapabilities: { close: {} } },
+      }),
+    );
+    assert.isFalse(
+      hasSessionCloseCapability({
+        agentCapabilities: { sessionCapabilities: { list: {} } },
+      }),
+    );
+    assert.isFalse(hasSessionCloseCapability({}));
   });
 });

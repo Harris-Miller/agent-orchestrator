@@ -121,6 +121,14 @@ describe('markSessionInactive', () => {
     const next = markSessionInactive(snapshot, 's1');
     assert.strictEqual(next.sessions.s1.status, 'inactive');
   });
+  it('clears pending client request but keeps prompt cancel flag', () => {
+    const snapshot = readySnapshot({
+      s1: activeSession('s1', { pendingClientRequest: 'prompt', promptCancelRequested: true }),
+    });
+    const next = markSessionInactive(snapshot, 's1');
+    assert.isUndefined(next.sessions.s1.pendingClientRequest);
+    assert.isTrue(next.sessions.s1.promptCancelRequested);
+  });
 });
 
 describe('dropSession', () => {

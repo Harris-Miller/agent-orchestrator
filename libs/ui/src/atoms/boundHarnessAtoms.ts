@@ -61,7 +61,7 @@ export const {
   refreshAllSessionHistoriesAtomFn,
   refreshSessionHistoryAtomFn,
   selectSessionAtomFn,
-} = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn);
+} = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 

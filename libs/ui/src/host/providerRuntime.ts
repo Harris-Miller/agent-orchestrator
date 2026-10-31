@@ -92,7 +92,11 @@ const updateDocument = Effect.fnUntraced(function* (
   launchTarget: ManagedProviderLaunchTarget,
   transform: (document: ProviderRuntimeDocument) => ProviderRuntimeDocument,
 ) {
-  const document = transform(yield* readDocument(launchTarget));
+  const current = yield* readDocument(launchTarget);
+  const document = yield* Effect.try({
+    catch: error => fail(launchTarget, `Invalid provider state transition: ${errorMessage(error)}`),
+    try: () => transform(current),
+  });
   yield* mapProviderError(
     launchTarget,
     writeProviderRuntimeDocument(asTarget(launchTarget), document),
@@ -370,6 +374,8 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
     return { activated: document.active?.version === version, version } satisfies DownloadOutcome;
   });
 
+  // Deletion error of a failed attempt, so the caller sees both errors.
+  const cleanupFailure: { message?: string } = {};
   return yield* attempt.pipe(
     Effect.onExit(exit =>
       exit._tag === 'Success'
@@ -378,6 +384,9 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
           Effect.uninterruptible(
             Effect.gen(function* () {
               const removal = yield* fs.remove(runtimeDir, { force: true, recursive: true }).pipe(Effect.result);
+              if (removal._tag === 'Failure') {
+                cleanupFailure.message = removal.failure.message;
+              }
               yield* updateDocument(launchTarget, current =>
                 removal._tag === 'Success'
                   ? removeRuntimeEntry(current, version)
@@ -385,6 +394,11 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
               ).pipe(Effect.ignore);
             }),
           ),
+    ),
+    Effect.mapError(error =>
+      cleanupFailure.message === undefined
+        ? error
+        : fail(launchTarget, `${error.message}; cleanup of ${runtimeDir} also failed: ${cleanupFailure.message}`),
     ),
   );
 });

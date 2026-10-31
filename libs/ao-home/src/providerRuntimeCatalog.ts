@@ -22,13 +22,13 @@ const replaceState = (
   return { ...doc, catalog: doc.catalog.map(entry => (entry.version === version ? { ...entry, state } : entry)) };
 };
 
-/** Record a `downloading` attempt before its directory exists. Replaces a failed/incomplete attempt, never a completed one. */
+/** Record a `downloading` attempt before its directory exists. Replaces any non-completed entry, never a completed one. */
 export const beginRuntimeAttempt = (
   doc: ProviderRuntimeDocument,
   distribution: ProviderDistribution,
 ): ProviderRuntimeDocument => {
   const existing = findEntry(doc, distribution.version);
-  if (existing !== undefined && existing.state._tag !== 'failed' && existing.state._tag !== 'downloading') {
+  if (existing?.state._tag === 'completed') {
     throw new Error(`Provider runtime ${distribution.version} already exists (${existing.state._tag})`);
   }
   const entry: ProviderRuntimeEntry = {

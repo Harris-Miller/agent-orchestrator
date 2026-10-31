@@ -2,6 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import {
   beginRuntimeAttempt,
   LaunchTargetSchema,
+  markRuntimePendingDelete,
   readProviderRuntimeState,
   writeProviderRuntimeDocument,
 } from '@lib/ao-home';
@@ -391,6 +392,58 @@ describe('provider runtime download (antigravity)', () => {
         unzips(store, []),
       );
       assert.deepStrictEqual(state._tag === 'Present' && state.document.catalog, []);
+    }),
+  );
+});
+
+describe('provider runtime cleanup failure reporting', () => {
+  it.effect('reports both errors, keeps a failed entry, and startup cleanup retries the deletion', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      store.set(`${CLAUDE}/runtime/1.0.0/leftover`, { content: 'x', kind: 'file' });
+      const stuck = Layer.mergeAll(
+        mapFsTestServices(store, { failRemoveUnder: [`${CLAUDE}/runtime/1.0.0`] }),
+        spawnerLayer(npmInstalls(store, { exitCode: 1 }), []),
+        noHttp,
+      );
+      const error = yield* downloadProviderRuntime('claude-agent-acp', npm('1.0.0')).pipe(
+        Effect.provide(stuck),
+        Effect.flip,
+      );
+      assert.include(error.message, 'Permission denied');
+      assert.include(error.message, 'also failed');
+
+      const state = yield* run(readProviderRuntimeState(target), store, npmInstalls(store));
+      assert.deepStrictEqual(
+        state._tag === 'Present' && state.document.catalog.map(entry => [entry.version, entry.state._tag]),
+        [['1.0.0', 'failed']],
+      );
+      assert.strictEqual(state._tag === 'Present' && state.document.active, null);
+
+      // The directory is gone now; startup cleanup retries and drops the entry.
+      const failures = yield* run(cleanupProviderRuntimes('claude-agent-acp'), store, npmInstalls(store));
+      assert.deepStrictEqual(failures, []);
+      const after = yield* run(readProviderRuntimeState(target), store, npmInstalls(store));
+      assert.deepStrictEqual(after._tag === 'Present' && after.document.catalog, []);
+    }),
+  );
+
+  it.effect('re-downloading a version left in pending-delete replaces the entry instead of defecting', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      yield* run(downloadProviderRuntime('claude-agent-acp', npm('1.0.0')), store, npmInstalls(store));
+      yield* run(downloadProviderRuntime('claude-agent-acp', npm('2.0.0')), store, npmInstalls(store));
+      const current = yield* run(readProviderRuntimeState(target), store, npmInstalls(store));
+      if (current._tag !== 'Present') {
+        return yield* Effect.die('expected Present');
+      }
+      yield* run(
+        writeProviderRuntimeDocument(target, markRuntimePendingDelete(current.document, '2.0.0', 'EBUSY')),
+        store,
+        npmInstalls(store),
+      );
+      const outcome = yield* run(downloadProviderRuntime('claude-agent-acp', npm('2.0.0')), store, npmInstalls(store));
+      assert.deepStrictEqual(outcome, { activated: false, version: '2.0.0' });
     }),
   );
 });

@@ -7,11 +7,11 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
-import { allInitializeResultsAtom } from '../../atoms/backendState.atoms.ts';
-import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { allInitializeResultsAtom, allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import type { NormalizedCapability, NormalizedInitializeState } from '../../host/acpSessionBootstrap.ts';
 import { normalizeInitialize } from '../../host/acpSessionBootstrap.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
+import { ProviderPhaseStatus } from '../ProviderPhaseStatus.tsx';
 
 import { Section, sectionCardSx } from './SessionStateView.tsx';
 
@@ -136,32 +136,24 @@ const ProviderStateSection: FC<{ readonly initialize: NormalizedInitializeState 
   );
 };
 
-/** Provider State body for the Developer panel tab: one block per provider that has initialized. */
+/** Provider State body for the Developer panel tab: every provider, with its Settings → Providers status and initialize details once available. */
 export const ProviderStateView: FC = () => {
+  const phases = useAtomValue(allLaunchTargetPhasesAtom);
   const results = useAtomValue(allInitializeResultsAtom);
-  const providers = results.flatMap(({ initializeResult, launchTarget }) => {
-    const initialize = normalizeInitialize(initializeResult);
-    return initialize === undefined ? [] : [{ initialize, launchTarget }];
-  });
-
-  if (providers.length === 0) {
-    return (
-      <Typography color="text.secondary" variant="body2">
-        No provider has initialized yet.
-      </Typography>
-    );
-  }
 
   return (
     <Stack divider={<Divider />} spacing={2}>
-      {providers.map(({ initialize, launchTarget }) => (
-        <Stack key={launchTarget} spacing={1.5}>
-          <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
-            {agentLaunchTargetLabel(launchTarget)}
-          </Typography>
-          <ProviderStateSection initialize={initialize} />
-        </Stack>
-      ))}
+      {phases.map(entry => {
+        const initialize = normalizeInitialize(
+          results.find(result => result.launchTarget === entry.launchTarget)?.initializeResult,
+        );
+        return (
+          <Stack key={entry.launchTarget} spacing={1.5}>
+            <ProviderPhaseStatus entry={entry} />
+            {initialize === undefined ? null : <ProviderStateSection initialize={initialize} />}
+          </Stack>
+        );
+      })}
     </Stack>
   );
 };

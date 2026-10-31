@@ -24,6 +24,7 @@ import {
   consumeAntigravityAuthStderr,
   formatBootstrapError,
 } from './antigravityAuth.ts';
+import { normalizeVendorAuthMessage } from './authMessages.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import type { SessionListScope } from './sessionListScope.ts';
@@ -200,7 +201,7 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness missing launch prerequisite', launchTarget, error.message);
-              handlers.onPhase('error', error.message);
+              handlers.onPhase('error', normalizeVendorAuthMessage(launchTarget, error.message));
             }),
           ),
         ),

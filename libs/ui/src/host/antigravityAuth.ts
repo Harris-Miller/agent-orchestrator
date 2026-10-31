@@ -6,6 +6,7 @@ import { Effect, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
+import { normalizeVendorAuthMessage } from './authMessages.ts';
 
 /** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
 export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
@@ -36,7 +37,7 @@ export const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unk
   if (launchTarget === 'antigravity-acp' && looksLikeAntigravityAuthFailure(message)) {
     return ANTIGRAVITY_NOT_SIGNED_IN;
   }
-  return message;
+  return normalizeVendorAuthMessage(launchTarget, message);
 };
 
 /** Drain stderr for the auth-URL marker; open the first URL via Host OpenUrl. */

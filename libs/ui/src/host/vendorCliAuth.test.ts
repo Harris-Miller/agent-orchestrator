@@ -133,7 +133,7 @@ describe('requireVendorCliAuthenticated', () => {
       const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'claude');
-      assert.strictEqual(error.message, '`claude` is not authenticated — run `claude auth login`');
+      assert.strictEqual(error.message, '`claude` is not authenticated — run `claude` and log in');
     }).pipe(
       Effect.provide(
         Layer.mergeAll(osLayer(), mockSpawnerLayer({ exitCode: 0, stdout: JSON.stringify({ loggedIn: false }) })),

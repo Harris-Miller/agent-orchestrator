@@ -9,6 +9,7 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { ensureHome, resolveHome } from './home.ts';
+import { antigravityProviderBrowserHelperPath, antigravityProviderHomeDir } from './providers.ts';
 
 /** Pinned managed runtime version (keep in sync with Tauri shell cmd + ui host pin). */
 export const ANTIGRAVITY_ACP_VERSION = '1.4.1';
@@ -170,6 +171,27 @@ export const ensureAntigravityBrowserHelper = Effect.fn('ensureAntigravityBrowse
   const root = yield* antigravityAcpRootDir();
   yield* fs.makeDirectory(root, { recursive: true });
   const helperPath = yield* antigravityAcpBrowserHelperPath();
+  yield* fs.writeFileString(helperPath, antigravityBrowserHelperScript);
+  yield* chmodPlusX(helperPath);
+  return helperPath;
+});
+
+/** Provider-layout `GEMINI_HOME` (`providers/antigravity-acp/home`), created on demand. */
+export const ensureAntigravityProviderHome = Effect.fn('ensureAntigravityProviderHome')(function* () {
+  const fs = yield* FileSystem;
+  yield* ensureHome();
+  const homeDir = yield* antigravityProviderHomeDir();
+  yield* fs.makeDirectory(homeDir, { recursive: true });
+  return homeDir;
+});
+
+/** Write the capture-only `BROWSER` helper at `providers/antigravity-acp/browser-helper` and mark it executable. */
+export const ensureAntigravityProviderBrowserHelper = Effect.fn('ensureAntigravityProviderBrowserHelper')(function* () {
+  const fs = yield* FileSystem;
+  const path = yield* Path;
+  yield* ensureHome();
+  const helperPath = yield* antigravityProviderBrowserHelperPath();
+  yield* fs.makeDirectory(path.dirname(helperPath), { recursive: true });
   yield* fs.writeFileString(helperPath, antigravityBrowserHelperScript);
   yield* chmodPlusX(helperPath);
   return helperPath;

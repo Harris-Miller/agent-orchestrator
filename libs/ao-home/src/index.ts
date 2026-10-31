@@ -52,6 +52,8 @@ export {
   type AntigravityRuntimeSources,
   ensureAntigravityAcpDirs,
   ensureAntigravityBrowserHelper,
+  ensureAntigravityProviderBrowserHelper,
+  ensureAntigravityProviderHome,
   isAntigravityAcpRuntimePresent,
   materializeAntigravityAcpRuntime,
 } from './antigravity.ts';

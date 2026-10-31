@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { BundledResource, OS } from '@lib/context-services';
+import { BundledResource, OpenUrl, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
 import { Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
@@ -9,6 +9,8 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
+import { formatBootstrapError } from './antigravityAuth.ts';
+import { runBackendHarness } from './backendHarness.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';
 
 const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
@@ -20,12 +22,64 @@ const osLayer = (env: Readonly<Record<string, string>>, platform = 'linux') =>
     platform: () => platform,
   });
 
-const fsLayer = (existing: ReadonlySet<string>) =>
+const fsLayer = (existing: ReadonlySet<string>, files: Readonly<Record<string, string>> = {}) =>
   layerNoop({
-    exists: path => Effect.succeed(existing.has(path)),
+    exists: path => Effect.succeed(existing.has(path) || path in files),
     makeDirectory: () => Effect.void,
+    readFileString: path =>
+      path in files
+        ? Effect.succeed(files[path] ?? '')
+        : Effect.fail(
+            PlatformError.systemError({
+              _tag: 'NotFound',
+              description: 'No such file',
+              method: 'readFileString',
+              module: 'FileSystem',
+              pathOrDescriptor: path,
+            }),
+          ),
     writeFileString: () => Effect.void,
   });
+
+const PROVIDERS = '/home/operator/.ao/providers';
+
+/** `current.json` + required files for an active, completed runtime. */
+const activeRuntime = (
+  launchTarget: 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp',
+  distribution: Record<string, unknown>,
+  requiredFiles: readonly string[],
+): Record<string, string> => {
+  const version = String(distribution.version);
+  const dir = `${PROVIDERS}/${launchTarget}`;
+  return {
+    [`${dir}/current.json`]: JSON.stringify({
+      active: { dir: `runtime/${version}`, version },
+      catalog: [{ dir: `runtime/${version}`, distribution, state: { _tag: 'completed' }, version }],
+      schemaVersion: 1,
+    }),
+    ...Object.fromEntries(requiredFiles.map(file => [`${dir}/runtime/${version}/${file}`, ''])),
+  };
+};
+
+const npmRuntime = (launchTarget: 'claude-agent-acp' | 'codex-acp') =>
+  activeRuntime(launchTarget, { _tag: 'npm', package: `@agentclientprotocol/${launchTarget}`, version: '1.0.0' }, [
+    `node_modules/@agentclientprotocol/${launchTarget}/dist/index.js`,
+  ]);
+
+const antigravityRuntime = () =>
+  activeRuntime(
+    'antigravity-acp',
+    {
+      _tag: 'binary',
+      archive: 'https://dl.google.com/agy-extensions/a.zip',
+      args: ['--uid='],
+      cmd: 'agy_acp_server.par',
+      platform: 'linux-x86_64',
+      sha256: 'a'.repeat(64),
+      version: '1.4.5',
+    },
+    ['agy_acp_server.par', 'localharness_external'],
+  );
 
 const bundledResourceLayer = Layer.succeed(BundledResource, {
   resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
@@ -81,9 +135,14 @@ const authFailSpawnerLayer = Layer.succeed(
   ),
 );
 
-const pathServices = (env: Readonly<Record<string, string>>, existing: ReadonlySet<string>, platform = 'linux') => {
+const pathServices = (
+  env: Readonly<Record<string, string>>,
+  existing: ReadonlySet<string>,
+  platform = 'linux',
+  files: Readonly<Record<string, string>> = {},
+) => {
   const pathLayer = platform === 'win32' ? PathLive.pipe(Layer.provide(osLayer(env, platform))) : posixPathLayer;
-  return Layer.mergeAll(pathLayer, fsLayer(existing)).pipe(Layer.provideMerge(osLayer(env, platform)));
+  return Layer.mergeAll(pathLayer, fsLayer(existing, files)).pipe(Layer.provideMerge(osLayer(env, platform)));
 };
 
 const adapterServices = (
@@ -91,7 +150,9 @@ const adapterServices = (
   existing: ReadonlySet<string>,
   authLayer: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner> = authOkSpawnerLayer,
   platform = 'linux',
-) => Layer.mergeAll(pathServices(env, existing, platform), authLayer, bundledResourceLayer, FetchHttpClient.layer);
+  files: Readonly<Record<string, string>> = {},
+) =>
+  Layer.mergeAll(pathServices(env, existing, platform, files), authLayer, bundledResourceLayer, FetchHttpClient.layer);
 
 describe('findExecutableOnPath', () => {
   it.effect('returns the first matching PATH entry', () =>
@@ -164,7 +225,7 @@ describe('makeAcpLaunchCommand', () => {
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'node');
       assert.deepStrictEqual(command.args, [
-        '/resources/acp-adapter-resources/node_modules/@agentclientprotocol/codex-acp/dist/index.js',
+        `${PROVIDERS}/codex-acp/runtime/1.0.0/node_modules/@agentclientprotocol/codex-acp/dist/index.js`,
       ]);
       assert.strictEqual(command.options.env?.CODEX_PATH, '/usr/local/bin/codex');
     }).pipe(
@@ -172,6 +233,9 @@ describe('makeAcpLaunchCommand', () => {
         adapterServices(
           { PATH: '/usr/local/bin:/usr/bin' },
           new Set(['/usr/bin/node', '/usr/local/bin/codex', '/usr/local/bin/node']),
+          authOkSpawnerLayer,
+          'linux',
+          npmRuntime('codex-acp'),
         ),
       ),
     ),
@@ -185,43 +249,48 @@ describe('makeAcpLaunchCommand', () => {
       assert.strictEqual(command.options.env?.CLAUDE_CODE_EXECUTABLE, '/usr/local/bin/claude');
     }).pipe(
       Effect.provide(
+        adapterServices(
+          { PATH: '/usr/local/bin:/usr/bin' },
+          new Set(['/usr/local/bin/claude', '/usr/local/bin/node']),
+          authOkSpawnerLayer,
+          'linux',
+          npmRuntime('claude-agent-acp'),
+        ),
+      ),
+    ),
+  );
+
+  it.effect('fails with Download instructions when no runtime has been downloaded', () =>
+    Effect.gen(function* () {
+      const error = yield* makeAcpLaunchCommand('claude-agent-acp').pipe(Effect.flip);
+      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.include(error.message, 'Settings > Providers');
+    }).pipe(
+      Effect.provide(
         adapterServices({ PATH: '/usr/local/bin:/usr/bin' }, new Set(['/usr/local/bin/claude', '/usr/local/bin/node'])),
       ),
     ),
   );
 
-  it.effect('builds agy_acp_server when antigravity runtime is already present', () =>
+  it.effect('builds agy_acp_server from the recorded command and arguments, offline', () =>
     Effect.gen(function* () {
       const command = yield* makeAcpLaunchCommand('antigravity-acp');
       assert.strictEqual(command._tag, 'StandardCommand');
       assert.strictEqual(command.command, 'agy_acp_server');
       assert.deepStrictEqual(command.args, ['--uid=']);
       assert.strictEqual(command.options.extendEnv, false);
-      assert.strictEqual(command.options.env?.GEMINI_HOME, '/home/operator/.ao/antigravity-acp/home');
+      assert.strictEqual(command.options.env?.GEMINI_HOME, `${PROVIDERS}/antigravity-acp/home`);
       assert.strictEqual(command.options.env?.AGY_ACP_FORCE_FILE_STORAGE, '1');
-      assert.strictEqual(command.options.env?.BROWSER, '/home/operator/.ao/antigravity-acp/browser-helper');
+      assert.strictEqual(command.options.env?.BROWSER, `${PROVIDERS}/antigravity-acp/browser-helper`);
+      assert.strictEqual(
+        command.options.env?.ANTIGRAVITY_HARNESS_PATH,
+        `${PROVIDERS}/antigravity-acp/runtime/1.4.5/localharness_external`,
+      );
       assert.strictEqual(command.options.stderr, 'pipe');
     }).pipe(
       Effect.provide(
-        adapterServices(
-          { PATH: '/usr/bin' },
-          new Set([
-            '/home/operator/.ao/antigravity-acp/runtime/1.4.1/agy_acp_server.par',
-            '/home/operator/.ao/antigravity-acp/runtime/1.4.1/localharness_external',
-          ]),
-        ),
+        adapterServices({ PATH: '/usr/bin' }, new Set(), authOkSpawnerLayer, 'linux', antigravityRuntime()),
       ),
-    ),
-  );
-
-  it.effect('fails for antigravity on unsupported win32', () =>
-    Effect.gen(function* () {
-      const error = yield* makeAcpLaunchCommand('antigravity-acp').pipe(Effect.flip);
-      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
-      assert.strictEqual(error.executable, 'agy_acp_server');
-      assert.match(error.message, /Windows/);
-    }).pipe(
-      Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node']), authOkSpawnerLayer, 'win32')),
     ),
   );
 
@@ -230,7 +299,17 @@ describe('makeAcpLaunchCommand', () => {
       const error = yield* makeAcpLaunchCommand('codex-acp').pipe(Effect.flip);
       assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
       assert.strictEqual(error.executable, 'codex');
-    }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
+    }).pipe(
+      Effect.provide(
+        adapterServices(
+          { PATH: '/usr/bin' },
+          new Set(['/usr/bin/node']),
+          authOkSpawnerLayer,
+          'linux',
+          npmRuntime('codex-acp'),
+        ),
+      ),
+    ),
   );
 
   it.effect('fails when node is missing', () =>
@@ -253,6 +332,8 @@ describe('makeAcpLaunchCommand', () => {
           { PATH: '/usr/local/bin:/usr/bin' },
           new Set(['/usr/bin/node', '/usr/local/bin/codex', '/usr/local/bin/node']),
           authFailSpawnerLayer,
+          'linux',
+          npmRuntime('codex-acp'),
         ),
       ),
     ),
@@ -309,4 +390,84 @@ describe('makeAcpLaunchCommand', () => {
       assert.strictEqual(error.executable, 'cursor-agent');
     }).pipe(Effect.provide(adapterServices({ PATH: '/usr/bin' }, new Set(['/usr/bin/node'])))),
   );
+});
+
+describe('auth messages through bootstrap publication', () => {
+  const claudeLoggedOutSpawner = Layer.succeed(
+    ChildProcessSpawner.ChildProcessSpawner,
+    ChildProcessSpawner.make(() => {
+      const stdout = new TextEncoder().encode(JSON.stringify({ loggedIn: false }));
+      return Effect.succeed(
+        ChildProcessSpawner.makeHandle({
+          all: Stream.make(stdout),
+          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+          getInputFd: () => Sink.drain,
+          getOutputFd: () => Stream.empty,
+          isRunning: Effect.succeed(false),
+          kill: () => Effect.void,
+          pid: ChildProcessSpawner.ProcessId(1),
+          stderr: Stream.empty,
+          stdin: Sink.drain,
+          stdout: Stream.make(stdout),
+          unref: Effect.succeed(Effect.void),
+        }),
+      );
+    }),
+  );
+
+  it.effect('publishes the normalized Claude instruction as the harness error phase', () =>
+    Effect.gen(function* () {
+      const phases: { readonly error: string | undefined; readonly phase: string }[] = [];
+      const noop = () => undefined;
+      yield* runBackendHarness(
+        'claude-agent-acp',
+        {
+          onConfigOptionIndexPublish: noop,
+          onElicitationCreate: noop,
+          onInitializeResult: noop,
+          onPermissionRequest: noop,
+          onPhase: (phase, error) => {
+            phases.push({ error, phase });
+          },
+          onRpcMessage: noop,
+          onSessionHistoryResult: noop,
+          onSessionUpdate: noop,
+        },
+        () => ({ _tag: 'Skip' }),
+      );
+      assert.deepStrictEqual(phases.at(-1), {
+        error: '`claude` is not authenticated — run `claude` and log in',
+        phase: 'error',
+      });
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          adapterServices(
+            { PATH: '/usr/local/bin:/usr/bin' },
+            new Set(['/usr/local/bin/claude', '/usr/local/bin/node']),
+            claudeLoggedOutSpawner,
+            'linux',
+            npmRuntime('claude-agent-acp'),
+          ),
+          Layer.succeed(OpenUrl, { open: () => Effect.void }),
+        ),
+      ),
+    ),
+  );
+
+  it('normalizes auth-looking bootstrap failures and preserves ordinary ones', () => {
+    assert.strictEqual(
+      formatBootstrapError('codex-acp', new Error('Authentication required')),
+      '`codex` is not authenticated — run `codex login`',
+    );
+    assert.strictEqual(
+      formatBootstrapError('cursor-acp', new Error('401 Unauthorized')),
+      '`cursor-agent` is not authenticated — run `cursor-agent login`',
+    );
+    assert.strictEqual(formatBootstrapError('claude-agent-acp', new Error('spawn node ENOENT')), 'spawn node ENOENT');
+    assert.strictEqual(
+      formatBootstrapError('antigravity-acp', new Error('please sign in')),
+      'Antigravity is not signed in.',
+    );
+  });
 });

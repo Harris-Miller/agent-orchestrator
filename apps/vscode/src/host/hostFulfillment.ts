@@ -1,4 +1,4 @@
-import { ANTIGRAVITY_ACP_SPAWN_NAME, antigravityAcpExecutableRelativeSegments, AO_HOME_DIRNAME } from '@lib/ao-home';
+import { ANTIGRAVITY_ACP_SPAWN_NAME, AO_HOME_DIRNAME } from '@lib/ao-home';
 import {
   bytesToArrayBuffer,
   decodeIpcMessage,
@@ -18,6 +18,7 @@ import { homedir as osHomedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { fileWorkspaceFolderPaths } from './fileWorkspaceFolderPaths';
+import { resolveAntigravitySpawn } from './antigravitySpawn';
 import { isProviderCurrentJsonPath } from './providerStatePath';
 import type { ProcessTracker } from './processTracker';
 
@@ -356,11 +357,19 @@ export const handleHostIpcMessage = async (args: {
         const handleId = tracker.allocateHandleId();
         const opts = message.options ?? {};
         const env = { ...(opts.extendEnv === false ? {} : stringEnv()), ...opts.env };
-        const command =
+        // The logical Antigravity name maps to the active runtime's recorded command + args from current.json
+        // (re-read on every spawn); the webview never supplies an executable path for it.
+        const resolved =
           message.command === ANTIGRAVITY_ACP_SPAWN_NAME
-            ? join(osHomedir(), AO_HOME_DIRNAME, ...antigravityAcpExecutableRelativeSegments())
-            : message.command;
-        const child = spawn(command, [...message.args], {
+            ? resolveAntigravitySpawn(
+                osHomedir(),
+                await readFile(
+                  join(osHomedir(), AO_HOME_DIRNAME, 'providers', 'antigravity-acp', 'current.json'),
+                  'utf8',
+                ),
+              )
+            : { args: message.args, command: message.command };
+        const child = spawn(resolved.command, [...resolved.args], {
           cwd: opts.cwd,
           env,
           stdio: [toNodeStdio(opts.stdin), toNodeStdio(opts.stdout), toNodeStdio(opts.stderr)],

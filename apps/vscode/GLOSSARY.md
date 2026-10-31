@@ -28,7 +28,7 @@ The sidebar view that shows Virtual or Selected Session transcript/composer (sam
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
 **Recent sessions**:
-The up-to-5 newest Session History entries for the Workspace cwd, listed in an empty Virtual Chat. Hidden during Materialize (shown during Bind); none → blank Chat body.
+The up-to-5 newest Session History entries for the Workspace cwd, listed in an empty Virtual Chat. None → blank Chat body.
 _Avoid_: Session History (when you mean this short list), recents
 
 For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).

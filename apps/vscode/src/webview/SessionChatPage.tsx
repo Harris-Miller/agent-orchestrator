@@ -63,13 +63,16 @@ export const SessionChatPage: FC = () => {
     activateSessionRef.current = activateSession;
   }, [activateSession]);
 
-  // Close/Archive/Delete of this session: move to New Session first so the lifecycle atoms don't fall back to Session History.
-  const goToNewSession = () => {
+  // Deactivate/Archive/Delete of this session: switch to the Virtual session first so the lifecycle atoms don't clear Selected.
+  const switchToVirtualSession = () => {
     if (sessionCwd !== undefined) {
       ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
     }
   };
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError, goToNewSession);
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(
+    onClientError,
+    switchToVirtualSession,
+  );
 
   const isVirtual = selected?._tag === 'Virtual';
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
@@ -120,7 +123,7 @@ export const SessionChatPage: FC = () => {
         {entry === undefined ? null : (
           <SessionActionsMenu
             entry={entry}
-            onBeforeAction={goToNewSession}
+            onBeforeAction={switchToVirtualSession}
             onClientError={onClientError}
             onDeleteRequest={requestDelete}
           />
@@ -141,7 +144,7 @@ export const SessionChatPage: FC = () => {
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
       <ConfirmSessionDeleteDialog
-        onBeforeDelete={goToNewSession}
+        onBeforeDelete={switchToVirtualSession}
         onCancel={clearDeleteTarget}
         onClientError={onClientError}
         target={deleteTarget}

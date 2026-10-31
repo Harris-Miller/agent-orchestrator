@@ -42,10 +42,10 @@ export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem |
   return out;
 };
 
-export const workRegionLabel = (region: WorkRegion, inFlight: boolean): string => {
+export const workRegionLabel = (region: WorkRegion, inFlight: boolean, unstampedLabel = 'Worked'): string => {
   if (inFlight) return 'Working…';
   const { endedAt, startedAt } = region.turn ?? {};
   return startedAt !== undefined && endedAt !== undefined
     ? `Worked for ${String(Math.round((endedAt - startedAt) / 1000))}s`
-    : 'Worked';
+    : unstampedLabel;
 };

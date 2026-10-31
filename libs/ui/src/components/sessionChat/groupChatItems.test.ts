@@ -63,4 +63,7 @@ describe('workRegionLabel', () => {
   it('without stamps', () => {
     assert.strictEqual(workRegionLabel(region(u('u')), false), 'Worked');
   });
+  it('without stamps uses the supplied label', () => {
+    assert.strictEqual(workRegionLabel(region(u('u')), false, 'Worked for a bit'), 'Worked for a bit');
+  });
 });

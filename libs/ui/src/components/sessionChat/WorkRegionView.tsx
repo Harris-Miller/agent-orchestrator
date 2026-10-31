@@ -13,12 +13,14 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
 import { workRegionLabel } from './groupChatItems.ts';
 import type { WorkRegion } from './groupChatItems.ts';
+import { workRegionPhrase } from './workRegionPhrase.ts';
 
 export const WorkRegionView: FC<{
   availableCommands?: readonly AvailableCommand[];
   inFlight: boolean;
   region: WorkRegion;
-}> = ({ availableCommands, inFlight, region }) => {
+  sessionId: string;
+}> = ({ availableCommands, inFlight, region, sessionId }) => {
   const [toggle, setToggle] = useState<boolean>();
   const open = toggle ?? inFlight;
   return (
@@ -45,7 +47,7 @@ export const WorkRegionView: FC<{
       >
         <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} />
         <Typography color="text.secondary" variant="body2">
-          {workRegionLabel(region, inFlight)}
+          {workRegionLabel(region, inFlight, workRegionPhrase(sessionId, region.id))}
         </Typography>
       </Box>
       <Collapse in={open} unmountOnExit>

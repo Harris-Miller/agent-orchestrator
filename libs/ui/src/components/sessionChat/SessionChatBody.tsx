@@ -565,6 +565,7 @@ export const SessionChatBody: FC<{
                   inFlight={item.isLastTurn && selectedSession?.pendingClientRequest === 'prompt'}
                   key={`work-${item.id}`}
                   region={item}
+                  sessionId={selectedSession?.sessionId ?? ''}
                 />
               ) : (
                 <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />

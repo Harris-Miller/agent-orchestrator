@@ -45,6 +45,8 @@ import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
+import { groupChatItems } from './groupChatItems.ts';
+import { WorkRegionView } from './WorkRegionView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
 import { commandInvocation, replaceComposerTriggerRange } from './composerCommandTokens.ts';
@@ -496,6 +498,7 @@ export const SessionChatBody: FC<{
     return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
+  const groupedItems = useMemo(() => groupChatItems(chatItems), [chatItems]);
   const isChatEmpty = chatItems.length === 0 && !hasPendingInteraction;
   const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;
 
@@ -555,7 +558,18 @@ export const SessionChatBody: FC<{
               />
             </ListItem>
           ) : (
-            chatItems.map(item => <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />)
+            groupedItems.map(item =>
+              item.kind === 'work_region' ? (
+                <WorkRegionView
+                  availableCommands={availableCommands}
+                  inFlight={item.isLastTurn && selectedSession?.pendingClientRequest === 'prompt'}
+                  key={`work-${item.id}`}
+                  region={item}
+                />
+              ) : (
+                <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />
+              ),
+            )
           )}
           {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>

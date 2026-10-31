@@ -7,7 +7,23 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ChevronDown, ChevronUp, ImageOff } from 'lucide-react';
+import Collapse from '@mui/material/Collapse';
+import {
+  Brain,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  FileText,
+  FolderInput,
+  Globe,
+  ImageOff,
+  Pencil,
+  Search,
+  SquareTerminal,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
@@ -359,6 +375,77 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
   );
 };
 
+const TOOL_KIND_ICONS: Record<string, LucideIcon> = {
+  delete: Trash2,
+  edit: Pencil,
+  execute: SquareTerminal,
+  fetch: Globe,
+  move: FolderInput,
+  read: FileText,
+  search: Search,
+  think: Brain,
+};
+
+const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ item }) => {
+  const [open, setOpen] = useState(false);
+  const expandable = item.command !== undefined || item.resultText !== undefined;
+  const icon = TOOL_KIND_ICONS[item.toolKind ?? ''] ?? Wrench;
+  const row = (
+    <>
+      <LucideMuiIcon icon={icon} sx={{ color: 'text.secondary', fontSize: 16 }} />
+      <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
+        {item.title}
+      </Typography>
+      {item.status !== 'completed' ? (
+        <Typography
+          color={item.status === 'failed' ? 'error' : 'text.secondary'}
+          sx={{ flexShrink: 0 }}
+          variant="caption"
+        >
+          {item.status}
+        </Typography>
+      ) : null}
+      {expandable ? <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} /> : null}
+    </>
+  );
+  const rowSx = { alignItems: 'center', display: 'flex', gap: 1, width: '100%' } as const;
+  return (
+    <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0.25 }}>
+      {expandable ? (
+        <>
+          <Box
+            aria-expanded={open}
+            component="button"
+            onClick={() => {
+              setOpen(current => !current);
+            }}
+            sx={{
+              ...rowSx,
+              bgcolor: 'transparent',
+              border: 0,
+              borderRadius: 1,
+              color: 'inherit',
+              cursor: 'pointer',
+              font: 'inherit',
+              p: 0.5,
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+            }}
+          >
+            {row}
+          </Box>
+          <Collapse in={open} unmountOnExit>
+            <Box sx={{ pt: 0.5 }}>
+              <ToolCallResult command={item.command} resultText={item.resultText} />
+            </Box>
+          </Collapse>
+        </>
+      ) : (
+        <Box sx={{ ...rowSx, p: 0.5 }}>{row}</Box>
+      )}
+    </ListItem>
+  );
+};
+
 export const ChatItemView: FC<{
   availableCommands?: readonly AvailableCommand[];
   item: ChatItem;
@@ -420,23 +507,7 @@ export const ChatItemView: FC<{
       );
 
     case 'tool_call':
-      return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Paper sx={{ p: 1.5, width: '100%' }} variant="outlined">
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography sx={{ flex: 1, fontWeight: 600 }} variant="body2">
-                  {item.title}
-                </Typography>
-                <Chip color={statusColor(item.status)} label={item.status} size="small" variant="outlined" />
-              </Stack>
-              {item.command !== undefined || item.resultText !== undefined ? (
-                <ToolCallResult command={item.command} resultText={item.resultText} />
-              ) : null}
-            </Stack>
-          </Paper>
-        </ListItem>
-      );
+      return <ToolCallRow item={item} />;
 
     case 'user_message':
       return <MessageRow availableCommands={availableCommands} images={item.images} text={item.text} tone="user" />;

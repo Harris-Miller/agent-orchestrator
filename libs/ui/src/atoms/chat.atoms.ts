@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Effect } from 'effect';
+import { Clock, Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -20,7 +20,7 @@ import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
+import { markNonFinishedToolCallsCancelled, stampChatItem } from '../host/sessionUpdateReducer.ts';
 import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
@@ -82,12 +82,34 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
     ),
   });
 
+  const turnId = get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId].transcript.items.at(-1)?.id;
+  const stamp = (patch: { endedAt?: number; startedAt?: number }) =>
+    turnId === undefined
+      ? Effect.void
+      : Effect.sync(() => {
+          // Disposed Atom.fn context makes get.set a no-op; registry.update still lands.
+          get.registry.update(backendHarnessStateAtom(arg.launchTarget), current =>
+            session.sessionId in current.sessions
+              ? {
+                  ...current,
+                  sessions: patchSession(current.sessions, session.sessionId, s => ({
+                    ...s,
+                    transcript: stampChatItem(s.transcript, turnId, patch),
+                  })),
+                }
+              : current,
+          );
+        });
+  yield* stamp({ startedAt: yield* Clock.currentTimeMillis });
+
   yield* withSessionClientRequest(
     arg.launchTarget,
     get,
     session.sessionId,
     'prompt',
-    sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed, attachments),
+    sendPromptSoftCancel(arg.launchTarget, get, session.sessionId, trimmed, attachments).pipe(
+      Effect.ensuring(Effect.flatMap(Clock.currentTimeMillis, endedAt => stamp({ endedAt }))),
+    ),
   );
 });
 

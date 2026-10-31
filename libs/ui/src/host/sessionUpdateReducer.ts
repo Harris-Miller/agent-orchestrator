@@ -55,6 +55,8 @@ export type ChatItem =
       readonly id: string;
       readonly images?: readonly UserMessageImageRef[];
       readonly kind: 'user_message';
+      readonly startedAt?: number;
+      readonly endedAt?: number;
       readonly text: string;
     }
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
@@ -412,6 +414,16 @@ export const markNonFinishedToolCallsCancelled = (transcript: SessionTranscript)
     }
     return { ...item, status: 'cancelled' };
   }),
+});
+
+/** Patch timing stamps onto one user_message; other items and missing ids unchanged. */
+export const stampChatItem = (
+  transcript: SessionTranscript,
+  id: string,
+  patch: { readonly endedAt?: number; readonly startedAt?: number },
+): SessionTranscript => ({
+  ...transcript,
+  items: transcript.items.map(item => (item.id === id && item.kind === 'user_message' ? { ...item, ...patch } : item)),
 });
 
 export const appendUserChatMessage = (

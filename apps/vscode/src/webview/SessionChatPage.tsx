@@ -3,6 +3,7 @@ import {
   activateSessionAtomFn,
   AgentLaunchTargetIcon,
   clearSelectedAtomFn,
+  ConfirmSessionDeleteDialog,
   isSessionActiveOrActivating,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
@@ -10,11 +11,13 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
   unifiedSessionHistoryAtom,
+  useSessionDeleteRequest,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -49,6 +52,7 @@ export const SessionChatPage: FC = () => {
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
@@ -104,6 +108,9 @@ export const SessionChatPage: FC = () => {
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
         </Typography>
+        {entry === undefined ? null : (
+          <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
+        )}
         <OpenDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <IconButton
@@ -119,6 +126,7 @@ export const SessionChatPage: FC = () => {
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
+      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>
   );
 };

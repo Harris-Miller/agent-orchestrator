@@ -74,6 +74,13 @@ _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 Session History display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the Session History accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
+**Session header**:
+The top row of the chat surface (desktop main chat and VS Code Chat) showing the Selected agent's icon and session title.
+_Avoid_: chat header, title bar
+
+**Session actions**:
+The per-session menu of lifecycle actions (Close, Archive, Delete), each shown only when the agent supports it. Available on a History entry row and in the Session header (hidden while Virtual is Selected).
+
 **History entry**:
 One row in Session History: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
 _Avoid_: Roster entry, Session (when you mean the full working copy)

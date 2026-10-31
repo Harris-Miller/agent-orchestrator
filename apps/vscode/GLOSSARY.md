@@ -31,4 +31,4 @@ _Avoid_: Main chat, AgentChatMain, conversation pane
 The up-to-5 newest Session History entries for the Workspace cwd, listed in an empty Virtual Chat. None → blank Chat body.
 _Avoid_: Session History (when you mean this short list), recents
 
-For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).
+For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session / Session header / Session actions, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).

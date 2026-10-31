@@ -1,5 +1,5 @@
 /** Shared presentation for Settings > Providers and the startup modal: status dot, command snippet, copy, actions. */
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { RegistryContext, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { PROVIDER_RUNTIME_DIRNAME, providerDisplayPath } from '@lib/ao-home';
 import { OpenUrl } from '@lib/context-services';
 import Alert from '@mui/material/Alert';
@@ -17,7 +17,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { Effect } from 'effect';
 import { Copy } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import {
@@ -213,12 +213,7 @@ export const useProviderControls = () => {
   const providers = useAtomValue(providerViewsAtom);
   const [pending, setPending] = useState<Pending | undefined>(undefined);
   const refresh = useAtomSet(refreshProviderAtomFn, { mode: 'promise' });
-  const checkLatest = useAtomSet(checkLatestAtomFn, { mode: 'promise' });
-  const download = useAtomSet(downloadAtomFn, { mode: 'promise' });
-  const install = useAtomSet(installAtomFn, { mode: 'promise' });
-  const remove = useAtomSet(removeAtomFn, { mode: 'promise' });
-  const recheck = useAtomSet(recheckAtomFn, { mode: 'promise' });
-  const setEnabled = useAtomSet(setProviderEnabledAtomFn, { mode: 'promise' });
+  const registry = useContext(RegistryContext);
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
 
   useEffect(() => {
@@ -227,29 +222,34 @@ export const useProviderControls = () => {
 
   const perform = useCallback(
     (action: ProviderAction, launchTarget: AgentLaunchTarget) => {
-      const run = (): Promise<unknown> => {
-        switch (action.kind) {
-          case 'checkLatest':
-            return checkLatest(launchTarget);
-          case 'disable':
-            return setEnabled({ enabled: false, launchTarget });
-          case 'download':
-            return download(launchTarget);
-          case 'enable':
-            return setEnabled({ enabled: true, launchTarget });
-          case 'install':
-            return install(launchTarget);
-          case 'recheck':
-            return recheck(launchTarget);
-          case 'remove':
-            return remove(launchTarget);
-          case 'signIn':
-            return signIn(undefined);
-        }
-      };
-      run().catch(() => undefined);
+      // Per-provider fn atoms: results surface through provider state, so fire and forget.
+      switch (action.kind) {
+        case 'checkLatest':
+          registry.set(checkLatestAtomFn(launchTarget), launchTarget);
+          return;
+        case 'disable':
+          registry.set(setProviderEnabledAtomFn(launchTarget), { enabled: false, launchTarget });
+          return;
+        case 'download':
+          registry.set(downloadAtomFn(launchTarget), launchTarget);
+          return;
+        case 'enable':
+          registry.set(setProviderEnabledAtomFn(launchTarget), { enabled: true, launchTarget });
+          return;
+        case 'install':
+          registry.set(installAtomFn(launchTarget), launchTarget);
+          return;
+        case 'recheck':
+          registry.set(recheckAtomFn(launchTarget), launchTarget);
+          return;
+        case 'remove':
+          registry.set(removeAtomFn(launchTarget), launchTarget);
+          return;
+        case 'signIn':
+          signIn(undefined).catch(() => undefined);
+      }
     },
-    [checkLatest, download, install, recheck, remove, setEnabled, signIn],
+    [registry, signIn],
   );
 
   const request = useCallback(

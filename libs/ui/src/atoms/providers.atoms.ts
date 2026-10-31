@@ -66,6 +66,11 @@ const describeFailure = (cause: Cause.Cause<unknown>): { readonly detail: string
   return { detail, message: first.replace(/^\w*Error:\s*/, '') };
 };
 
+/**
+ * Provider actions are one fn atom per provider (`Atom.family`). A fn atom re-run interrupts its previous call and
+ * disposes that call's `get`, so a single shared atom let a Codex action kill — or silently drop the writes of — an
+ * in-flight Claude action. Call as `registry.set(downloadAtomFn(launchTarget), launchTarget)`.
+ */
 export const createProvidersAtoms = (
   runtime: HostRuntimeBag,
   harness: HarnessAtoms,
@@ -183,30 +188,35 @@ export const createProvidersAtoms = (
     .pipe(Atom.keepAlive);
 
   /** Manual "Check for latest": metadata only, never interrupts the provider or its sessions. */
-  const checkLatestAtomFn = atomRuntime
-    .fn(
-      Effect.fn('checkLatestAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-        if (!isManagedProvider(launchTarget)) {
-          return;
-        }
-        get.set(providerLatestAtom(launchTarget), { _tag: 'Checking' });
-        const resolved = yield* resolveLatestRuntime(launchTarget).pipe(Effect.result);
-        if (resolved._tag === 'Failure') {
-          get.set(providerLatestAtom(launchTarget), { _tag: 'Failed', message: resolved.failure.message });
-          return;
-        }
-        const snapshot = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)));
-        const have = new Set([snapshot?.active, ...(snapshot?.downloaded ?? [])]);
-        get.set(providerLatestDistributionAtom(launchTarget), resolved.success);
-        get.set(
-          providerLatestAtom(launchTarget),
-          have.has(resolved.success.version)
-            ? { _tag: 'UpToDate' }
-            : { _tag: 'Available', version: resolved.success.version },
-        );
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const checkLatestAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('checkLatestAtomFn', { root: true })(function* (
+          launchTarget: AgentLaunchTarget,
+          get: Atom.FnContext,
+        ) {
+          if (!isManagedProvider(launchTarget)) {
+            return;
+          }
+          get.set(providerLatestAtom(launchTarget), { _tag: 'Checking' });
+          const resolved = yield* resolveLatestRuntime(launchTarget).pipe(Effect.result);
+          if (resolved._tag === 'Failure') {
+            get.set(providerLatestAtom(launchTarget), { _tag: 'Failed', message: resolved.failure.message });
+            return;
+          }
+          const snapshot = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)));
+          const have = new Set([snapshot?.active, ...(snapshot?.downloaded ?? [])]);
+          get.set(providerLatestDistributionAtom(launchTarget), resolved.success);
+          get.set(
+            providerLatestAtom(launchTarget),
+            have.has(resolved.success.version)
+              ? { _tag: 'UpToDate' }
+              : { _tag: 'Available', version: resolved.success.version },
+          );
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   const runJob = <A, E, R>(
     get: Atom.FnContext,
@@ -216,7 +226,15 @@ export const createProvidersAtoms = (
   ) =>
     Effect.gen(function* () {
       setJob(get, launchTarget, start);
-      const exit = yield* work.pipe(Effect.exit);
+      const exit = yield* work.pipe(
+        // A repeat call for the same provider interrupts this one and disposes `get`, so reset through the registry.
+        Effect.onInterrupt(() =>
+          Effect.sync(() => {
+            get.registry.set(providerJobAtom(launchTarget), { _tag: 'Idle' });
+          }),
+        ),
+        Effect.exit,
+      );
       yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
       if (exit._tag === 'Failure') {
         setJob(get, launchTarget, { _tag: 'Failed', ...describeFailure(exit.cause) });
@@ -230,121 +248,134 @@ export const createProvidersAtoms = (
    * User-requested Download, in the background: resolves latest when no Check ran, installs into its own directory,
    * and never stops the provider. The first Download activates automatically and then starts the backend once.
    */
-  const downloadAtomFn = atomRuntime
-    .fn(
-      Effect.fn('downloadAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-        if (!isManagedProvider(launchTarget)) {
-          return;
-        }
-        const outcome = { activated: false };
-        const ok = yield* runJob(
-          get,
-          launchTarget,
-          { _tag: 'Downloading', version: get(providerLatestAtom(launchTarget))._tag === 'Available' ? 'latest' : '…' },
-          Effect.gen(function* () {
-            const distribution =
-              get(providerLatestDistributionAtom(launchTarget)) ?? (yield* resolveLatestRuntime(launchTarget));
-            setJob(get, launchTarget, { _tag: 'Downloading', version: distribution.version });
-            const downloaded = yield* downloadProviderRuntime(launchTarget, distribution);
-            outcome.activated = downloaded.activated;
-            get.set(providerLatestDistributionAtom(launchTarget), undefined);
-            get.set(providerLatestAtom(launchTarget), { _tag: 'Idle' });
-          }),
-        );
-        if (ok && outcome.activated && get(enabledLaunchTargetsAtom).includes(launchTarget)) {
-          harness.startBackend(launchTarget, get);
-        }
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const downloadAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('downloadAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
+          if (!isManagedProvider(launchTarget)) {
+            return;
+          }
+          const outcome = { activated: false };
+          const ok = yield* runJob(
+            get,
+            launchTarget,
+            {
+              _tag: 'Downloading',
+              version: get(providerLatestAtom(launchTarget))._tag === 'Available' ? 'latest' : '…',
+            },
+            Effect.gen(function* () {
+              const distribution =
+                get(providerLatestDistributionAtom(launchTarget)) ?? (yield* resolveLatestRuntime(launchTarget));
+              setJob(get, launchTarget, { _tag: 'Downloading', version: distribution.version });
+              const downloaded = yield* downloadProviderRuntime(launchTarget, distribution);
+              outcome.activated = downloaded.activated;
+              get.set(providerLatestDistributionAtom(launchTarget), undefined);
+              get.set(providerLatestAtom(launchTarget), { _tag: 'Idle' });
+            }),
+          );
+          if (ok && outcome.activated && get(enabledLaunchTargetsAtom).includes(launchTarget)) {
+            harness.startBackend(launchTarget, get);
+          }
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   /** Install the downloaded update: publish active, await the local stop, delete superseded dirs, bootstrap once. */
-  const installAtomFn = atomRuntime
-    .fn(
-      Effect.fn('installAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-        if (!isManagedProvider(launchTarget)) {
-          return;
-        }
-        const version = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)))?.downloaded.at(-1);
-        if (version === undefined) {
-          return;
-        }
-        const ok = yield* runJob(
-          get,
-          launchTarget,
-          { _tag: 'Installing', version },
-          Effect.gen(function* () {
-            yield* activateDownloadedRuntime(launchTarget, version);
-            yield* harness.stopAndReconcile(launchTarget, get);
-            yield* purgeSupersededRuntimes(launchTarget);
-          }),
-        );
-        if (ok && get(enabledLaunchTargetsAtom).includes(launchTarget)) {
-          harness.startBackend(launchTarget, get);
-        }
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const installAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('installAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
+          if (!isManagedProvider(launchTarget)) {
+            return;
+          }
+          const version = snapshotOf(get(providerRuntimeInfoAtom(launchTarget)))?.downloaded.at(-1);
+          if (version === undefined) {
+            return;
+          }
+          const ok = yield* runJob(
+            get,
+            launchTarget,
+            { _tag: 'Installing', version },
+            Effect.gen(function* () {
+              yield* activateDownloadedRuntime(launchTarget, version);
+              yield* harness.stopAndReconcile(launchTarget, get);
+              yield* purgeSupersededRuntimes(launchTarget);
+            }),
+          );
+          if (ok && get(enabledLaunchTargetsAtom).includes(launchTarget)) {
+            harness.startBackend(launchTarget, get);
+          }
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   /** Remove: no active runtime, stop, delete every runtime directory. Credentials and the enable preference stay. */
-  const removeAtomFn = atomRuntime
-    .fn(
-      Effect.fn('removeAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-        if (!isManagedProvider(launchTarget)) {
-          return;
-        }
-        yield* runJob(
-          get,
-          launchTarget,
-          { _tag: 'Removing' },
-          Effect.gen(function* () {
-            yield* deactivateRuntime(launchTarget);
-            yield* harness.stopAndReconcile(launchTarget, get);
-            yield* purgeAllRuntimes(launchTarget);
-          }),
-        );
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const removeAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('removeAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
+          if (!isManagedProvider(launchTarget)) {
+            return;
+          }
+          yield* runJob(
+            get,
+            launchTarget,
+            { _tag: 'Removing' },
+            Effect.gen(function* () {
+              yield* deactivateRuntime(launchTarget);
+              yield* harness.stopAndReconcile(launchTarget, get);
+              yield* purgeAllRuntimes(launchTarget);
+            }),
+          );
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   /** Enable starts once; Disable awaits the actual process exit and leaves runtime files on disk. */
-  const setProviderEnabledAtomFn = atomRuntime
-    .fn(
-      Effect.fn('setProviderEnabledAtomFn', { root: true })(function* (
-        arg: { readonly enabled: boolean; readonly launchTarget: AgentLaunchTarget },
-        get: Atom.FnContext,
-      ) {
-        const { enabled, launchTarget } = arg;
-        const settings = unwrapUserSettings(get(userSettingsAtom));
-        const next = { ...settings.providerEnabled, [launchTarget]: enabled };
-        if (enabled) {
-          get.set(backendDesiredStateAtom(launchTarget), 'running');
+  const setProviderEnabledAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('setProviderEnabledAtomFn', { root: true })(function* (
+          arg: { readonly enabled: boolean; readonly launchTarget: AgentLaunchTarget },
+          get: Atom.FnContext,
+        ) {
+          const { enabled, launchTarget } = arg;
+          const settings = unwrapUserSettings(get(userSettingsAtom));
+          const next = { ...settings.providerEnabled, [launchTarget]: enabled };
+          if (enabled) {
+            get.set(backendDesiredStateAtom(launchTarget), 'running');
+            get.set(providerEnabledMapAtom, next);
+            get.set(userSettingsAtom, { ...settings, providerEnabled: next });
+            yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
+            harness.startBackend(launchTarget, get);
+            return;
+          }
+          get.set(backendDesiredStateAtom(launchTarget), 'stopped');
           get.set(providerEnabledMapAtom, next);
           get.set(userSettingsAtom, { ...settings, providerEnabled: next });
-          yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
-          harness.startBackend(launchTarget, get);
-          return;
-        }
-        get.set(backendDesiredStateAtom(launchTarget), 'stopped');
-        get.set(providerEnabledMapAtom, next);
-        get.set(userSettingsAtom, { ...settings, providerEnabled: next });
-        yield* harness.stopAndReconcile(launchTarget, get);
-      }),
-    )
-    .pipe(Atom.keepAlive);
+          yield* harness.stopAndReconcile(launchTarget, get);
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   /** Disruptive Recheck: re-read requirements, then restart the backend once. */
-  const recheckAtomFn = atomRuntime
-    .fn(
-      Effect.fn('recheckAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-        yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
-        if (get(enabledLaunchTargetsAtom).includes(launchTarget)) {
-          yield* harness.stopAndReconcile(launchTarget, get);
-          harness.startBackend(launchTarget, get);
-        }
-      }),
-    )
-    .pipe(Atom.keepAlive);
+  const recheckAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+    atomRuntime
+      .fn(
+        Effect.fn('recheckAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
+          yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
+          if (get(enabledLaunchTargetsAtom).includes(launchTarget)) {
+            yield* harness.stopAndReconcile(launchTarget, get);
+            harness.startBackend(launchTarget, get);
+          }
+        }),
+      )
+      .pipe(Atom.keepAlive),
+  );
 
   return {
     checkLatestAtomFn,

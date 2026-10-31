@@ -1,25 +1,19 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
-import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Archive, Ellipsis, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import { activateSessionAtomFn, archiveSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
+import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
-import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
+import { SessionActionsMenu } from './SessionActionsMenu.tsx';
 
 const sessionCardSx = (selected: boolean) =>
   ({
@@ -43,24 +37,16 @@ export const SessionHistoryRow: FC<{
 }> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
-  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
-  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
-  const menuOpen = menuAnchor !== null;
   const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
     // activateSession selects + no-ops when already active/activating (Codex-safe).
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
-  };
-
-  const closeMenu = () => {
-    setMenuAnchor(null);
   };
 
   return (
@@ -100,73 +86,14 @@ export const SessionHistoryRow: FC<{
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}
-          <IconButton
-            aria-label="Session actions"
-            onClick={event => {
-              event.stopPropagation();
-              setMenuAnchor(event.currentTarget);
-            }}
-            size="small"
-            sx={{ flexShrink: 0, mr: -0.5 }}
-          >
-            <LucideMuiIcon fontSize="small" icon={Ellipsis} />
-          </IconButton>
+          <SessionActionsMenu
+            entry={entry}
+            onClientError={onClientError}
+            onDeleteRequest={onDeleteRequest}
+            sx={{ mr: -0.5 }}
+          />
         </Stack>
       </Paper>
-
-      <Popover
-        anchorEl={menuAnchor}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        onClose={closeMenu}
-        open={menuOpen}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-      >
-        <Stack spacing={1} sx={{ p: 1 }}>
-          {hasSessionCloseCapability(snapshot.initializeResult) ? (
-            <Button
-              disabled={unavailable || session?.status !== 'active'}
-              onClick={() => {
-                closeMenu();
-                deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
-                  onClientError,
-                );
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={X} />}
-              variant="outlined"
-            >
-              Close
-            </Button>
-          ) : null}
-          {hasSessionArchiveCapability(snapshot.initializeResult) ? (
-            <Button
-              disabled={unavailable}
-              onClick={() => {
-                closeMenu();
-                archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={Archive} />}
-              variant="outlined"
-            >
-              Archive
-            </Button>
-          ) : null}
-          <Button
-            color="error"
-            disabled={unavailable}
-            onClick={() => {
-              closeMenu();
-              onDeleteRequest(entry);
-            }}
-            size="small"
-            startIcon={<LucideMuiIcon icon={Trash2} />}
-            variant="outlined"
-          >
-            Delete
-          </Button>
-        </Stack>
-      </Popover>
     </ListItem>
   );
 };

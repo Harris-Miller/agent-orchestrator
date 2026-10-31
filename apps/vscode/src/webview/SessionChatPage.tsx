@@ -3,6 +3,8 @@ import {
   activateSessionAtomFn,
   AgentLaunchTargetIcon,
   clearSelectedAtomFn,
+  ConfirmSessionDeleteDialog,
+  ensureVirtualSessionAtomFn,
   isSessionActiveOrActivating,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
@@ -10,11 +12,13 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
   unifiedSessionHistoryAtom,
+  useSessionDeleteRequest,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -47,6 +51,7 @@ export const SessionChatPage: FC = () => {
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
+  const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
@@ -57,6 +62,17 @@ export const SessionChatPage: FC = () => {
   useEffect(() => {
     activateSessionRef.current = activateSession;
   }, [activateSession]);
+
+  // Deactivate/Archive/Delete of this session: switch to the Virtual session first so the lifecycle atoms don't clear Selected.
+  const switchToVirtualSession = () => {
+    if (sessionCwd !== undefined) {
+      ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
+    }
+  };
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(
+    onClientError,
+    switchToVirtualSession,
+  );
 
   const isVirtual = selected?._tag === 'Virtual';
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
@@ -104,6 +120,14 @@ export const SessionChatPage: FC = () => {
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
         </Typography>
+        {entry === undefined ? null : (
+          <SessionActionsMenu
+            entry={entry}
+            onBeforeAction={switchToVirtualSession}
+            onClientError={onClientError}
+            onDeleteRequest={requestDelete}
+          />
+        )}
         <OpenDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <IconButton
@@ -119,6 +143,12 @@ export const SessionChatPage: FC = () => {
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
+      <ConfirmSessionDeleteDialog
+        onBeforeDelete={switchToVirtualSession}
+        onCancel={clearDeleteTarget}
+        onClientError={onClientError}
+        target={deleteTarget}
+      />
     </Box>
   );
 };

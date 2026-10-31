@@ -4,6 +4,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   AgentLaunchTargetIcon,
   allotmentSashSx,
+  ConfirmSessionDeleteDialog,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
@@ -15,10 +16,12 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
   unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
+  useSessionDeleteRequest,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -103,6 +106,7 @@ export const AgentChatWorkbench: FC<{
   const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
   const entry = selectedSessionId === undefined ? undefined : history.find(row => row.sessionId === selectedSessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);
@@ -193,6 +197,9 @@ export const AgentChatWorkbench: FC<{
                   <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
                     {title}
                   </Typography>
+                  {entry === undefined ? null : (
+                    <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
+                  )}
                   <OpenDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
                     <Button
@@ -241,6 +248,7 @@ export const AgentChatWorkbench: FC<{
           />
         </Allotment.Pane>
       </Allotment>
+      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>
   );
 };

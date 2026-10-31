@@ -134,7 +134,7 @@ export const SessionHistoryRow: FC<{
               onClick={() => {
                 closeMenu();
                 const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
-                // Cancel an in-flight prompt first; Close keeps the snapshot, so a stale pending flag would linger.
+                // Cancel an in-flight prompt turn before Deactivate, same order as folder removal.
                 (session?.pendingClientRequest === 'prompt' ? cancelPrompt(target) : Promise.resolve())
                   .then(() => deactivateSession(target))
                   .catch(onClientError);

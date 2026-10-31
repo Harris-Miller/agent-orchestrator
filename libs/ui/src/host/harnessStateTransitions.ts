@@ -56,11 +56,18 @@ export const stripSessionPendings = (
   };
 };
 
-/** Mark a session inactive. Caller clears selection when selected === sessionId. */
+/**
+ * Mark a session inactive and drop pendings (a cancelled prompt's response may never arrive after
+ * `session/close`). Keeps `promptCancelRequested` so a late prompt error still resolves as cancelled.
+ * Caller clears selection when selected === sessionId.
+ */
 export const markSessionInactive = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
   ...snapshot,
   sessions: patchSession(snapshot.sessions, sessionId, session => ({
     ...session,
+    pendingClientRequest: undefined,
+    pendingElicitation: undefined,
+    pendingPermission: undefined,
     status: 'inactive',
   })),
 });

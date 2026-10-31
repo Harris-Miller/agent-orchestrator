@@ -7,7 +7,7 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize), sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize) plus a Materialize-only in-flight flag, sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Bind**:

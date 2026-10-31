@@ -1,19 +1,10 @@
 import { useAtomValue } from '@effect/atom-react';
-import {
-  ConfirmSessionDeleteDialog,
-  sessionCwdAtom,
-  SessionHistoryRow,
-  sessionsForCwd,
-  unifiedSessionHistoryAtom,
-  useSessionDeleteRequest,
-  virtualMaterializeInFlightAtom,
-} from '@lib/ui';
+import { sessionCwdAtom, sessionsForCwd, unifiedSessionHistoryAtom, virtualMaterializeInFlightAtom } from '@lib/ui';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
-import { useContext } from 'react';
 import type { FC } from 'react';
 
-import { OnClientErrorContext } from './onClientError.tsx';
+import { SessionRows } from './SessionRows.tsx';
 
 const RECENT_LIMIT = 5;
 
@@ -24,8 +15,6 @@ export const RecentSessions: FC = () => {
     0,
     RECENT_LIMIT,
   );
-  const onClientError = useContext(OnClientErrorContext);
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
   if (materializing || sessions.length === 0) {
     return null;
@@ -38,16 +27,7 @@ export const RecentSessions: FC = () => {
           Recent sessions
         </Typography>
       </ListItem>
-      {sessions.map(entry => (
-        <SessionHistoryRow
-          entry={entry}
-          key={`${entry.launchTarget}:${entry.sessionId}`}
-          onClientError={onClientError}
-          onDeleteRequest={requestDelete}
-          selected={false}
-        />
-      ))}
-      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
+      <SessionRows selectedSessionId={undefined} sessions={sessions} />
     </>
   );
 };

@@ -496,8 +496,8 @@ export const SessionChatBody: FC<{
     return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
-  const showVirtualEmptyState =
-    isVirtual && virtualEmptyState !== undefined && chatItems.length === 0 && !hasPendingInteraction;
+  const isChatEmpty = chatItems.length === 0 && !hasPendingInteraction;
+  const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;
 
   useEffect(() => {
     pinnedToBottomRef.current = true;
@@ -546,7 +546,7 @@ export const SessionChatBody: FC<{
         <List dense disablePadding>
           {showVirtualEmptyState ? (
             virtualEmptyState
-          ) : chatItems.length === 0 && !hasPendingInteraction ? (
+          ) : isChatEmpty ? (
             <ListItem>
               <ListItemText
                 primary="No messages yet"

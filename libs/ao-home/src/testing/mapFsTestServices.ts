@@ -47,6 +47,12 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
       Effect.sync(() => {
         store.set(path, { kind: 'dir' });
       }),
+    makeTempDirectory: options =>
+      Effect.sync(() => {
+        const path = `${options?.directory ?? '/tmp'}/${options?.prefix ?? 'tmp-'}${String(store.size)}`;
+        store.set(path, { kind: 'dir' });
+        return path;
+      }),
     open: (path, options) =>
       Effect.acquireRelease(
         Effect.gen(function* () {
@@ -62,6 +68,10 @@ const mapFsLayer = (store: Map<string, MapFsEntry>) =>
         }),
         () => Effect.void,
       ),
+    writeFile: (path, data) =>
+      Effect.sync(() => {
+        store.set(path, { content: new TextDecoder().decode(data), kind: 'file' });
+      }),
     readFileString: path => {
       const entry = store.get(path);
       if (entry?.kind === 'file') {

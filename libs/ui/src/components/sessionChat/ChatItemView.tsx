@@ -208,8 +208,7 @@ const UserTextFragment: FC<{ text: string }> = ({ text }) => {
 };
 
 /** body2 ≈ 0.875rem × 1.43 line-height; heights include typical result-block padding. */
-const COLLAPSED_TOOL_RESULT_MAX_HEIGHT = '6.5rem'; // 4 lines + padding, clipped
-const EXPANDED_TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
+const TOOL_RESULT_MAX_HEIGHT = '26rem'; // ~20 lines, scrollable
 
 const toolResultShellSx = {
   bgcolor: 'action.hover',
@@ -335,7 +334,6 @@ const MessageRow: FC<{
 };
 
 const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command, resultText }) => {
-  const [expanded, setExpanded] = useState(false);
   const hasCommand = command !== undefined && command.length > 0;
   const hasResult = resultText !== undefined && resultText.length > 0;
 
@@ -351,30 +349,9 @@ const ToolCallResult: FC<{ command?: string; resultText?: string }> = ({ command
         </Box>
       ) : null}
       {hasResult ? (
-        <Stack direction="row" spacing={0.5}>
-          <Box
-            sx={{
-              ...toolResultShellSx,
-              flex: 1,
-              maxHeight: expanded ? EXPANDED_TOOL_RESULT_MAX_HEIGHT : COLLAPSED_TOOL_RESULT_MAX_HEIGHT,
-              minWidth: 0,
-              overflow: expanded ? 'auto' : 'hidden',
-            }}
-          >
-            <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} />
-          </Box>
-          <IconButton
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse tool result' : 'Expand tool result'}
-            onClick={() => {
-              setExpanded(current => !current);
-            }}
-            size="small"
-            sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
-          >
-            <LucideMuiIcon fontSize="small" icon={expanded ? ChevronUp : ChevronDown} />
-          </IconButton>
-        </Stack>
+        <Box sx={{ ...toolResultShellSx, maxHeight: TOOL_RESULT_MAX_HEIGHT, overflow: 'auto' }}>
+          <ChatMarkdown sx={toolResultMarkdownSx} text={resultText} />
+        </Box>
       ) : null}
     </Stack>
   );

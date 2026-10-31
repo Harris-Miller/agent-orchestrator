@@ -189,8 +189,9 @@ export const createHarnessAtoms = (
     cancelPendingRequests(current);
     get.set(backendHarnessStateAtom(launchTarget), reconcileStoppedProvider(current));
     const virtual = get.registry.get(virtualSessionAtom);
-    if (virtual?.launchTarget === launchTarget && virtual.sessionId !== undefined) {
-      get.set(virtualSessionAtom, { ...virtual, sessionId: undefined });
+    if (virtual?.launchTarget === launchTarget) {
+      // The Virtual target is gone with the process: unbind and drop the target so the composer cannot send to it.
+      get.set(virtualSessionAtom, { ...virtual, configValues: {}, launchTarget: undefined, sessionId: undefined });
     }
     clearSelectedSessionIfMissing(get);
   });

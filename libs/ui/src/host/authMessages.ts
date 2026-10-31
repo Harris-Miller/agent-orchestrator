@@ -19,7 +19,7 @@ export const notAuthenticatedMessage = (launchTarget: VendorAuthLaunchTarget): s
 
 /** Phrases an adapter / CLI uses when the user simply is not signed in (narrow: ordinary errors must survive). */
 const looksLikeVendorAuthFailure = (message: string): boolean =>
-  /not (logged|signed) in|not authenticated|login required|log in|sign in required|auth(entication)?[ _-]?required|unauthorized|invalid api key/i.test(
+  /not (logged|signed) in|not authenticated|login required|sign[- ]?in required|auth(entication)?[ _-]?required/i.test(
     message,
   );
 

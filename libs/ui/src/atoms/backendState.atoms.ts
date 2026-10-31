@@ -162,6 +162,12 @@ export const allLaunchTargetPhasesAtom = Atom.make(get =>
   })),
 ).pipe(Atom.keepAlive);
 
+/** Phase entries for enabled providers only (new-session menu, session history). */
+export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
+  const enabled = get(enabledLaunchTargetsAtom);
+  return get(allLaunchTargetPhasesAtom).filter(entry => enabled.includes(entry.launchTarget));
+}).pipe(Atom.keepAlive);
+
 /** Launch targets that completed Config probe with a nonempty index. */
 export const readyLaunchTargetsAtom = Atom.make(get =>
   get(enabledLaunchTargetsAtom).filter(

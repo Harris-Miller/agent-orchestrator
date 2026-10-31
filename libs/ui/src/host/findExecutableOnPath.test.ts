@@ -461,7 +461,7 @@ describe('auth messages through bootstrap publication', () => {
       '`codex` is not authenticated — run `codex login`',
     );
     assert.strictEqual(
-      formatBootstrapError('cursor-acp', new Error('401 Unauthorized')),
+      formatBootstrapError('cursor-acp', new Error('Not logged in')),
       '`cursor-agent` is not authenticated — run `cursor-agent login`',
     );
     assert.strictEqual(formatBootstrapError('claude-agent-acp', new Error('spawn node ENOENT')), 'spawn node ENOENT');

@@ -442,7 +442,7 @@ export const resolveActiveRuntime = Effect.fn('resolveActiveRuntime')(function* 
   const absent = yield* missingRequiredFiles(launchTarget, runtimeDir, entry.distribution);
   if (absent.length > 0) {
     return yield* missing(
-      `Active ${launchTarget} runtime ${active.version} is incomplete (${absent.join(', ')}). ${downloadInstructions(launchTarget)}`,
+      `Active ${launchTarget} runtime ${active.version} is incomplete (${absent.join(', ')}). Remove it in Settings > Providers, then Download again`,
     );
   }
   return {

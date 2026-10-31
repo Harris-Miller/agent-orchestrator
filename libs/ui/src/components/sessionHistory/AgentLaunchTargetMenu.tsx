@@ -3,7 +3,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import type { FC } from 'react';
 
-import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
+import { enabledLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
 export type AgentLaunchTargetMenuProps = {
@@ -19,7 +19,7 @@ export const AgentLaunchTargetMenu: FC<AgentLaunchTargetMenuProps> = ({
   onClose,
   onSelect,
 }) => {
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
+  const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
 
   return (
     <Menu anchorEl={anchorEl} onClose={onClose} open={anchorEl !== null}>

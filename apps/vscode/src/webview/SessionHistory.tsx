@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
-  allLaunchTargetPhasesAtom,
+  enabledLaunchTargetPhasesAtom,
   LucideMuiIcon,
   OpenDeveloperPanelButton,
   refreshAllSessionHistoriesAtomFn,
@@ -27,7 +27,7 @@ import { SessionRows } from './SessionRows.tsx';
 export const SessionHistory: FC = () => {
   const history = useAtomValue(unifiedSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const backendPhases = useAtomValue(allLaunchTargetPhasesAtom);
+  const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });

@@ -669,6 +669,13 @@ export const hasSessionArchiveCapability = (initializeResult: unknown): boolean 
   return Array.isArray(capabilities) && capabilities.includes(airCapability.sessionArchive);
 };
 
+/** True when initialize result `_meta.steering.supported` is `true` (Claude/Codex `_session/steering`). */
+export const hasSteeringSupport = (initializeResult: unknown): boolean =>
+  isRecord(initializeResult) &&
+  isRecord(initializeResult._meta) &&
+  isRecord(initializeResult._meta.steering) &&
+  initializeResult._meta.steering.supported === true;
+
 /** True when initialize advertises `sessionCapabilities.fork` (`{}`). */
 export const hasSessionForkCapability = (initializeResult: unknown): boolean => {
   const normalized = normalizeInitialize(initializeResult);

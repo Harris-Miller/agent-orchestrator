@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Effect } from 'effect';
 
-import { routeDecodedMessage } from './AcpConnection.ts';
+import { makeStdioDemuxRoute, routeDecodedMessage } from './AcpConnection.ts';
 
 const noop = (): void => undefined;
 
@@ -308,4 +309,30 @@ describe('routeDecodedMessage', () => {
       requestId: 'req-1',
     });
   });
+});
+
+describe('makeStdioDemuxRoute', () => {
+  it.effect('returns an Exit to the RpcClient that sent the request, not the last sender', () =>
+    Effect.gen(function* () {
+      const delivered: number[] = [];
+      const writes = {
+        clientIdByRequest: new Map<number | string, number>([
+          ['1', 0],
+          ['2', 3],
+        ]),
+        clientWriteResponse: (clientId: number) =>
+          Effect.sync(() => {
+            delivered.push(clientId);
+          }),
+        rpcClientId: 3,
+        serverWriteRequest: undefined,
+      };
+      const route = makeStdioDemuxRoute(new Set<number | string>(['1', '2']), new Set(), writes);
+
+      yield* route({ _tag: 'Exit', exit: { _tag: 'Success', value: null }, requestId: '1' });
+
+      assert.deepStrictEqual(delivered, [0]);
+      assert.isFalse(writes.clientIdByRequest.has('1'));
+    }),
+  );
 });

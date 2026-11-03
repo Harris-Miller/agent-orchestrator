@@ -13,9 +13,11 @@ import {
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
   SESSION_SET_MODEL_METHOD,
+  SESSION_STEERING_METHOD,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
   UnstableSessionSetModelRpcs,
+  UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
@@ -118,14 +120,38 @@ export type AcpWireTap = {
 /** Mutable write hooks filled in once RpcClient / RpcServer protocols start. */
 type StdioDemuxWrites = {
   clientWriteResponse: ((clientId: number, message: FromServerEncoded) => Effect.Effect<void>) | undefined;
+  /** Last sender; fallback for frames without a `requestId`. */
   rpcClientId: number;
+  /** Each RpcClient has its own clientId; an Exit/Chunk must return to the client that sent the request. */
+  readonly clientIdByRequest: Map<number | string, number>;
   serverWriteRequest: ((clientId: number, message: FromClientEncoded) => Effect.Effect<void>) | undefined;
+};
+
+const makeStdioDemuxWrites = (): StdioDemuxWrites => ({
+  clientWriteResponse: undefined,
+  clientIdByRequest: new Map(),
+  rpcClientId: 0,
+  serverWriteRequest: undefined,
+});
+
+/** Records which RpcClient sent a request so its response routes back to it. */
+const trackClientSend = (
+  writes: StdioDemuxWrites,
+  pendingClientRequestIds: Set<number | string>,
+  clientId: number,
+  message: FromClientEncoded,
+) => {
+  writes.rpcClientId = clientId;
+  if (message._tag === 'Request' && message.isNotification !== true) {
+    pendingClientRequestIds.add(message.id);
+    writes.clientIdByRequest.set(message.id, clientId);
+  }
 };
 
 /**
  * Shared Effect demux used by both Client (`connectAcpAgent`) and Agent (`serveAcpAgent`) stdio duplexes.
  */
-const makeStdioDemuxRoute =
+export const makeStdioDemuxRoute =
   (
     pendingClientRequestIds: Set<number | string>,
     notificationIds: Set<number | string>,
@@ -146,9 +172,14 @@ const makeStdioDemuxRoute =
       let next: Effect.Effect<void> = Effect.void;
       routeDecodedMessage(message, pendingClientRequestIds, notificationIds, {
         toClient: m => {
+          const requestId = 'requestId' in m ? m.requestId : undefined;
+          const clientId = requestId === undefined ? undefined : writes.clientIdByRequest.get(requestId);
+          if (m._tag === 'Exit' && requestId !== undefined) {
+            writes.clientIdByRequest.delete(requestId);
+          }
           next =
             writes.clientWriteResponse !== undefined
-              ? writes.clientWriteResponse(writes.rpcClientId, m)
+              ? writes.clientWriteResponse(clientId ?? writes.rpcClientId, m)
               : Effect.logWarning('ACP demux toClient before client protocol ready', tag);
         },
         toServer: m => {
@@ -172,6 +203,11 @@ export type AcpAgentConnection = {
   >[typeof SESSION_ARCHIVE_METHOD];
   /** Unstable `session/fork`. Not part of stable AgentRpcs. */
   readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
+  /** Claude/Codex `_session/steering`. Not part of stable AgentRpcs. */
+  readonly sessionSteering: RpcClient.FromGroup<
+    typeof UnstableSessionSteeringRpcs,
+    RpcClientError
+  >[typeof SESSION_STEERING_METHOD];
   /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
   readonly sessionSetModel: RpcClient.FromGroup<
     typeof UnstableSessionSetModelRpcs,
@@ -223,11 +259,7 @@ export const connectAcpAgent = Effect.fnUntraced(
 
     const pendingClientRequestIds = new Set<number | string>();
     const notificationIds = new Set<number | string>();
-    const writes: StdioDemuxWrites = {
-      clientWriteResponse: undefined,
-      rpcClientId: 0,
-      serverWriteRequest: undefined,
-    };
+    const writes = makeStdioDemuxWrites();
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
 
     const transport = yield* makeStdioTransport(handle, demuxRoute, wireTap).pipe(
@@ -243,10 +275,7 @@ export const connectAcpAgent = Effect.fnUntraced(
         return {
           codecFor: transport.codecFor,
           send: (clientId: number, message: FromClientEncoded) => {
-            writes.rpcClientId = clientId;
-            if (message._tag === 'Request' && message.isNotification !== true) {
-              pendingClientRequestIds.add(message.id);
-            }
+            trackClientSend(writes, pendingClientRequestIds, clientId, message);
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },
           supportsAck: false,
@@ -303,6 +332,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     const setModelClient = yield* RpcClient.make(UnstableSessionSetModelRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
+    const steeringClient = yield* RpcClient.make(UnstableSessionSteeringRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
 
     yield* transport.start;
     yield* Effect.logInfo('ACP agent connection ready', { pid: handle.pid });
@@ -314,6 +346,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       sessionArchive: archiveClient[SESSION_ARCHIVE_METHOD],
       sessionFork: forkClient[SESSION_FORK_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
+      sessionSteering: steeringClient[SESSION_STEERING_METHOD],
     } as const satisfies AcpAgentConnection;
   },
   // Short setup span only — lifetime Agent→Client traffic must not parent under connect.
@@ -340,11 +373,7 @@ export const serveAcpAgent = Effect.fnUntraced(
 
     const pendingClientRequestIds = new Set<number | string>();
     const notificationIds = new Set<number | string>();
-    const writes: StdioDemuxWrites = {
-      clientWriteResponse: undefined,
-      rpcClientId: 0,
-      serverWriteRequest: undefined,
-    };
+    const writes = makeStdioDemuxWrites();
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
 
     const transport = yield* makeParentStdioTransport(demuxRoute, wireTap).pipe(
@@ -360,10 +389,7 @@ export const serveAcpAgent = Effect.fnUntraced(
         return {
           codecFor: transport.codecFor,
           send: (clientId: number, message: FromClientEncoded) => {
-            writes.rpcClientId = clientId;
-            if (message._tag === 'Request' && message.isNotification !== true) {
-              pendingClientRequestIds.add(message.id);
-            }
+            trackClientSend(writes, pendingClientRequestIds, clientId, message);
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },
           supportsAck: false,

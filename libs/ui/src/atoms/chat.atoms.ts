@@ -6,6 +6,7 @@ import { Atom } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySetConfigOptionResult,
+  hasSteeringSupport,
   normalizeConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
@@ -13,11 +14,12 @@ import {
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
+import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
-import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
+import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
 import {
   appendElicitationSummary,
   markNonFinishedToolCallsCancelled,
@@ -116,6 +118,93 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   );
 });
 
+const PROMPT_CLEAR_MAX_POLLS = 50;
+const PROMPT_CLEAR_POLL_INTERVAL = '100 millis';
+
+/**
+ * `_session/steering` into the in-flight turn. Needs steering support, a `prompt` pending request and no
+ * Pending interaction; otherwise no-op. `promptRequired` (turn already ended) falls back to a normal prompt.
+ * A steered message joins the in-flight turn, so it gets no turn timing of its own.
+ */
+export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
+  arg: {
+    attachments?: readonly ComposerImageAttachment[];
+    launchTarget: AgentLaunchTarget;
+    sessionId: string | undefined;
+    text: string;
+  },
+  get: Atom.FnContext,
+) {
+  const trimmed = arg.text.trim();
+  const attachments = arg.attachments ?? [];
+  const { sessionId } = arg;
+  const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+  const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+
+  if (
+    (trimmed.length === 0 && attachments.length === 0) ||
+    session?.status !== 'active' ||
+    session.pendingClientRequest !== 'prompt' ||
+    session.promptCancelRequested === true ||
+    session.pendingElicitation !== undefined ||
+    session.pendingPermission !== undefined ||
+    !hasSteeringSupport(snapshot.initializeResult)
+  ) {
+    // Caller already cleared the draft; fail so it restores instead of silently dropping the message.
+    return yield* Effect.fail(new Error('Steering is not available for this session right now'));
+  }
+
+  yield* Effect.annotateCurrentSpan({
+    'acp.agent': arg.launchTarget,
+    'acp.sessionId': session.sessionId,
+  });
+
+  const prompt = yield* promptBlocksFromComposerDraft(trimmed, {
+    attachments,
+    cwd: session.cwd,
+    initializeResult: snapshot.initializeResult,
+  });
+  const result = yield* steerSession(arg.launchTarget, session.sessionId, prompt);
+
+  if (result.outcome === 'injected') {
+    get.registry.update(backendHarnessStateAtom(arg.launchTarget), current =>
+      session.sessionId in current.sessions
+        ? {
+            ...current,
+            sessions: patchSession(current.sessions, session.sessionId, s =>
+              withUserChatMessage(
+                s,
+                trimmed,
+                attachments.length > 0 ? slimImageRefsFromAttachments(attachments) : undefined,
+                { steering: true },
+              ),
+            ),
+          }
+        : current,
+    );
+    return;
+  }
+  yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
+  // The ended turn's `session/prompt` response may still be in flight; sending now would be skipped
+  // by beginClientRequest after the user message was appended. Wait (bounded) for it to clear.
+  for (let attempt = 0; ; attempt += 1) {
+    const { sessions } = get(backendHarnessStateAtom(arg.launchTarget));
+    if (!(session.sessionId in sessions)) {
+      return yield* Effect.fail(new Error('Session was removed while steering'));
+    }
+    const current = sessions[session.sessionId];
+    if (current.pendingClientRequest === undefined) {
+      break;
+    }
+    if (attempt >= PROMPT_CLEAR_MAX_POLLS) {
+      // Caller restores the draft; sending now would append a user message that is never sent.
+      return yield* Effect.fail(new Error('Previous prompt turn did not finish; steering message not sent'));
+    }
+    yield* Effect.sleep(PROMPT_CLEAR_POLL_INTERVAL);
+  }
+  yield* sendChatItemEffect(arg, get);
+});
+
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
@@ -126,6 +215,19 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         get: Atom.FnContext,
       ) {
         yield* sendChatItemEffect({ ...arg, sessionId: get(selectedSessionIdAtom) }, get);
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  const steerChatItemAtomFn = atomRuntime
+    .fn(
+      Effect.fn('steerChatItemAtomFn', {
+        root: true,
+      })(function* (
+        arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
+        get: Atom.FnContext,
+      ) {
+        yield* steerChatItemEffect({ ...arg, sessionId: get(selectedSessionIdAtom) }, get);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -476,5 +578,6 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     respondPermissionAtomFn,
     sendChatItemAtomFn,
     setConfigOptionAtomFn,
+    steerChatItemAtomFn,
   };
 };

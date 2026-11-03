@@ -42,6 +42,7 @@ export const {
   respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
+  steerChatItemAtomFn,
 } = createChatAtoms(hostBag);
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);

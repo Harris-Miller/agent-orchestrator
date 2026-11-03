@@ -65,6 +65,9 @@ export const SESSION_FORK_METHOD = 'session/fork' as const;
 /** AIR `_session/archive`. Not in stable AgentRpcs. */
 export const SESSION_ARCHIVE_METHOD = '_session/archive' as const;
 
+/** Claude/Codex `_session/steering`. Not in stable AgentRpcs. */
+export const SESSION_STEERING_METHOD = '_session/steering' as const;
+
 // =============================================================================
 // Payload schemas
 // =============================================================================
@@ -223,6 +226,27 @@ export class SessionArchiveRequest extends Schema.Opaque<SessionArchiveRequest>(
 export const SessionArchiveResponse = EmptyResult;
 export type SessionArchiveResponse = EmptyResult;
 
+/** `prompt` is injected into the in-flight turn; `_meta.steering.idleBehavior` opts into `promptRequired` when idle. */
+export class SessionSteeringRequest extends Schema.Opaque<SessionSteeringRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    prompt: Schema.Array(ContentBlock),
+    sessionId: SessionId,
+  }),
+) {}
+
+/**
+ * `injected`: message went into the running turn.
+ * `promptRequired`: no running turn; Client must send a normal `session/prompt`.
+ * `startedNewTurn`: legacy default when idleBehavior is omitted (detached turn, no `session/prompt` response).
+ */
+export const SessionSteeringResponse = Schema.Union([
+  Schema.Struct({ outcome: Schema.Literal('injected') }),
+  Schema.Struct({ outcome: Schema.Literal('promptRequired'), reason: optional(Schema.String) }),
+  Schema.Struct({ outcome: Schema.Literal('startedNewTurn') }),
+]);
+export type SessionSteeringResponse = typeof SessionSteeringResponse.Type;
+
 export class SetSessionModeRequest extends Schema.Opaque<SetSessionModeRequest>()(
   Schema.Struct({
     _meta: MetaField,
@@ -355,6 +379,13 @@ export class SessionArchive extends Rpc.make(SESSION_ARCHIVE_METHOD, {
   error: AcpError,
   payload: SessionArchiveRequest,
   success: SessionArchiveResponse,
+}) {}
+
+/** Claude/Codex `_session/steering`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionSteering. */
+export class SessionSteering extends Rpc.make(SESSION_STEERING_METHOD, {
+  error: AcpError,
+  payload: SessionSteeringRequest,
+  success: SessionSteeringResponse,
 }) {}
 
 export class SessionSetMode extends Rpc.make(AGENT_METHODS.session_set_mode, {

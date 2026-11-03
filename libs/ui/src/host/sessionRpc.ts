@@ -12,6 +12,7 @@ type ConnectedAgent = {
   readonly notify: AcpAgentConnection['notify'];
   readonly sessionArchive: AcpAgentConnection['sessionArchive'];
   readonly sessionFork: AcpAgentConnection['sessionFork'];
+  readonly sessionSteering: AcpAgentConnection['sessionSteering'];
 };
 
 export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>()('BackendNotConnected', {
@@ -31,13 +32,14 @@ const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<C
 /** Lifecycle hook — backendHarness registers the live agent after connect. */
 export const setConnectedAgent = (
   launchTarget: AgentLaunchTarget,
-  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionArchive' | 'sessionFork'>,
+  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionSteering'>,
 ): void => {
   connectedAgents.set(launchTarget, {
     agent: connection.agent,
     notify: connection.notify,
     sessionArchive: connection.sessionArchive,
     sessionFork: connection.sessionFork,
+    sessionSteering: connection.sessionSteering,
   });
 };
 
@@ -156,6 +158,28 @@ export const sendPrompt = Effect.fn('sendPrompt')(
   },
   (effect, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', launchTarget, sessionId, error))),
+);
+
+/**
+ * `_session/steering`: inject `prompt` into the in-flight turn. Always opts into `promptRequired` so an idle
+ * Agent never starts a detached turn; caller falls back to `session/prompt` on that outcome.
+ */
+export const steerSession = Effect.fn('steerSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
+    const { sessionSteering } = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.annotateCurrentSpan({
+      'acp.agent': launchTarget,
+      'acp.sessionId': sessionId,
+    });
+    yield* Effect.logDebug('_session/steering', sessionId, { blocks: prompt.length });
+    return yield* sessionSteering({
+      _meta: { steering: { idleBehavior: 'promptRequired' } },
+      prompt: [...prompt],
+      sessionId,
+    });
+  },
+  (effect, launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('_session/steering failed', launchTarget, sessionId, error))),
 );
 
 /** ACP Client→Agent notification (no JSON-RPC id). Must use transport.notify, not RpcClient. */

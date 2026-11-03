@@ -15,6 +15,7 @@ import {
   hasSessionArchiveCapability,
   hasSessionCloseCapability,
   hasSessionForkCapability,
+  hasSteeringSupport,
   isConfigProbeCwd,
   normalizeConfigOptions,
   normalizeModels,
@@ -487,6 +488,17 @@ describe('hasSessionArchiveCapability', () => {
       }),
     );
     assert.isFalse(hasSessionArchiveCapability({}));
+  });
+});
+
+describe('hasSteeringSupport', () => {
+  it('is true only when initialize _meta.steering.supported is true', () => {
+    assert.isTrue(hasSteeringSupport({ _meta: { steering: { supported: true } } }));
+    assert.isFalse(hasSteeringSupport({ _meta: { steering: { supported: false } } }));
+    assert.isFalse(hasSteeringSupport({ _meta: { steering: {} } }));
+    assert.isFalse(hasSteeringSupport({ _meta: {} }));
+    assert.isFalse(hasSteeringSupport({ agentCapabilities: { _meta: { steering: { supported: true } } } }));
+    assert.isFalse(hasSteeringSupport(undefined));
   });
 });
 

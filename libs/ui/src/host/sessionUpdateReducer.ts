@@ -75,6 +75,8 @@ export type ChatItem =
       readonly id: string;
       readonly images?: readonly UserMessageImageRef[];
       readonly kind: 'user_message';
+      /** Sent via `_session/steering` into an in-flight turn (no turn timing of its own). */
+      readonly steering?: true;
       readonly text: string;
     })
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
@@ -461,17 +463,28 @@ export const appendUserChatMessage = (
   transcript: SessionTranscript,
   text: string,
   images?: readonly UserMessageImageRef[],
+  options?: { readonly steering?: true },
 ): SessionTranscript => {
   // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
   const lifted = liftImageMarkdownLinks(text);
   const mergedImages = [...(images ?? []), ...lifted.images];
-  if (mergedImages.length === 0) {
+  const steering = options?.steering;
+  if (mergedImages.length === 0 && steering === undefined) {
     return appendMessageChunk(transcript, 'user_message', undefined, lifted.text);
   }
   const id = crypto.randomUUID();
   return {
     ...transcript,
-    items: [...transcript.items, { id, images: mergedImages, kind: 'user_message', text: lifted.text }],
+    items: [
+      ...transcript.items,
+      {
+        id,
+        kind: 'user_message',
+        text: lifted.text,
+        ...(mergedImages.length > 0 ? { images: mergedImages } : {}),
+        ...(steering === undefined ? {} : { steering }),
+      },
+    ],
   };
 };
 

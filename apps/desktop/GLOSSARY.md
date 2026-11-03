@@ -146,6 +146,14 @@ _Avoid_: In flight, loading, busy flag
 Harness action that sends ACP `session/cancel` for an in-flight prompt turn on a session. The session stays active. Distinct from Deactivate (`session/close`), elicitation cancel, and `$/cancel_request`.
 _Avoid_: Stop generation (vendor-specific), abort session, Close (that is Deactivate)
 
+**Steering**:
+Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a normal `session/prompt`. Not a prompt queue — there is none.
+_Avoid_: Queue, interrupt, follow-up message
+
+**Steering supported**:
+Agent advertises `_meta.steering.supported: true` on the `initialize` result (top level, not under `agentCapabilities`). Gates Steering; when absent, the Composer is still editable mid-turn but cannot send and Prompt turn cancel stays the primary action.
+_Avoid_: promptQueueing (a separate Claude-only flag we ignore), steer capability
+
 **Pending elicitation**:
 Outstanding Agent `elicitation/create` held on a session snapshot until the user accepts, declines, or cancels. Ephemeral snapshot state — not a chat item.
 _Avoid_: Elicitation form, form card, open elicitation

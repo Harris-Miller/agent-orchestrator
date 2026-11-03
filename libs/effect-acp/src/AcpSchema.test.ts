@@ -11,8 +11,16 @@ import {
   ProtocolNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
+  UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
-import { ListSessionsRequest, SESSION_ARCHIVE_METHOD, SESSION_FORK_METHOD } from './schema/agent.ts';
+import {
+  ListSessionsRequest,
+  SESSION_ARCHIVE_METHOD,
+  SESSION_FORK_METHOD,
+  SESSION_STEERING_METHOD,
+  SessionSteeringRequest,
+  SessionSteeringResponse,
+} from './schema/agent.ts';
 
 const STABLE_AGENT_REQUESTS = [
   'initialize',
@@ -96,6 +104,37 @@ describe('AcpSchema stable v1 allowlist', () => {
   it('_session/archive stays off the stable AgentRequestRpcs allowlist', () => {
     assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_ARCHIVE_METHOD), false);
     assertExactTags(UnstableSessionArchiveRpcs, [SESSION_ARCHIVE_METHOD]);
+  });
+});
+
+describe('_session/steering', () => {
+  it('stays off the stable AgentRequestRpcs allowlist', () => {
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_STEERING_METHOD), false);
+    assertExactTags(UnstableSessionSteeringRpcs, [SESSION_STEERING_METHOD]);
+  });
+
+  it('encodes the request with idleBehavior in _meta.steering', () => {
+    const request = Schema.decodeUnknownSync(SessionSteeringRequest)({
+      _meta: { steering: { idleBehavior: 'promptRequired' } },
+      prompt: [{ text: 'go left', type: 'text' }],
+      sessionId: 's1',
+    });
+    assert.deepStrictEqual(Schema.encodeSync(SessionSteeringRequest)(request), {
+      _meta: { steering: { idleBehavior: 'promptRequired' } },
+      prompt: [{ text: 'go left', type: 'text' }],
+      sessionId: 's1',
+    });
+  });
+
+  it('decodes each response outcome and rejects unknown ones', () => {
+    for (const response of [
+      { outcome: 'injected' },
+      { outcome: 'promptRequired', reason: 'noRunningTurn' },
+      { outcome: 'startedNewTurn' },
+    ] as const) {
+      assert.deepStrictEqual(Schema.decodeUnknownSync(SessionSteeringResponse)(response), response);
+    }
+    assert.throws(() => Schema.decodeUnknownSync(SessionSteeringResponse)({ outcome: 'bogus' }));
   });
 });
 

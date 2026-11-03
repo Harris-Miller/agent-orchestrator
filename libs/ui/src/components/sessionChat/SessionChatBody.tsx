@@ -306,9 +306,19 @@ export const SessionChatBody: FC<{
   });
 
   // Desktop (Tauri): OS drops arrive only via DropTarget; hit-test against the chat so modal backdrops are ignored.
+  // The zone is the chat's rectangle. Only a modal / popover actually covering the point rejects it,
+  // so a point that lands on a non-chat element inside the rect (e.g. during an OS drag) still counts.
   const isOverChat = (position: { readonly x: number; readonly y: number }): boolean => {
+    const root = chatRootRef.current;
+    if (root === null) {
+      return false;
+    }
+    const rect = root.getBoundingClientRect();
+    if (position.x < rect.left || position.x > rect.right || position.y < rect.top || position.y > rect.bottom) {
+      return false;
+    }
     const el = document.elementFromPoint(position.x, position.y);
-    return el !== null && chatRootRef.current?.contains(el) === true;
+    return !el?.closest('.MuiModal-root, .MuiPopover-root, .MuiMenu-root');
   };
   const isOverChatRef = useRef(isOverChat);
   const controlsEnabledRef = useRef(controlsEnabled);

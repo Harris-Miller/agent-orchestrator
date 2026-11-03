@@ -10,6 +10,10 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
+**Draft during turn**:
+Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering; otherwise it stays in the Composer and is sent as a normal prompt after the turn ends.
+_Avoid_: Queued prompt, pending message, outbox
+
 **Bind**:
 Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)

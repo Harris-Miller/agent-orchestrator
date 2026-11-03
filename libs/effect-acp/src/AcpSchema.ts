@@ -24,6 +24,7 @@ import {
   SessionSetConfigOption,
   SessionSetMode,
   SessionSetModel,
+  SessionSteering,
 } from './schema/agent.ts';
 import {
   ElicitationComplete,
@@ -161,6 +162,9 @@ export class UnstableSessionForkRpcs extends RpcGroup.make(SessionFork) {}
 
 /** AIR `_session/archive`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive) {}
+
+/** Claude/Codex `_session/steering`; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionSteeringRpcs extends RpcGroup.make(SessionSteering) {}
 
 // =============================================================================
 // Intermediate encoded aliases

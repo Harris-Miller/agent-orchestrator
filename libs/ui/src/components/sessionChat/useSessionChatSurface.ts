@@ -26,7 +26,11 @@ import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { selectedActiveSessionAtom } from '../../atoms/selectedActiveSession.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
-import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import {
+  hasSessionForkCapability,
+  hasSteeringSupport,
+  normalizeConfigOptions,
+} from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { unavailableReason } from '../../host/providerView.ts';
 import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
@@ -143,6 +147,8 @@ export const useSessionChatSurface = () => {
   const controlsEnabled = isVirtual
     ? !chromeLocked
     : selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !chromeLocked;
+  // Typing and attaching stay open mid-turn (and during config/interaction waits); only submit is gated.
+  const canEdit = isVirtual ? !chromeLocked : selectedSession?.status === 'active' && !chromeLocked;
   const virtualReady =
     isVirtual &&
     selectedLaunchTarget !== undefined &&
@@ -152,6 +158,7 @@ export const useSessionChatSurface = () => {
   const canSend = isVirtual
     ? controlsEnabled && virtualReady && hasSendableContent
     : controlsEnabled && selectedLaunchTarget !== undefined && hasSendableContent;
+  const steeringSupported = hasSteeringSupport(backendSnapshot?.initializeResult);
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );
@@ -190,6 +197,7 @@ export const useSessionChatSurface = () => {
     attachments,
     availableCommands,
     canCancelPromptTurn,
+    canEdit,
     canForkBase,
     canHandoffBase,
     canSend,
@@ -213,6 +221,7 @@ export const useSessionChatSurface = () => {
     setAttachments,
     setDraft,
     setVirtualLaunchTarget,
+    steeringSupported,
     virtualLifecycleInFlight,
   };
 };

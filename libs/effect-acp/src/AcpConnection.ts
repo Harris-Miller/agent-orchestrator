@@ -13,9 +13,11 @@ import {
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
   SESSION_SET_MODEL_METHOD,
+  SESSION_STEERING_METHOD,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
   UnstableSessionSetModelRpcs,
+  UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
 import { makeParentStdioTransport, makeStdioTransport } from './AcpTransport.ts';
 import type { TransportError } from './AcpTransport.ts';
@@ -172,6 +174,11 @@ export type AcpAgentConnection = {
   >[typeof SESSION_ARCHIVE_METHOD];
   /** Unstable `session/fork`. Not part of stable AgentRpcs. */
   readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
+  /** Claude/Codex `_session/steering`. Not part of stable AgentRpcs. */
+  readonly sessionSteering: RpcClient.FromGroup<
+    typeof UnstableSessionSteeringRpcs,
+    RpcClientError
+  >[typeof SESSION_STEERING_METHOD];
   /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
   readonly sessionSetModel: RpcClient.FromGroup<
     typeof UnstableSessionSetModelRpcs,
@@ -303,6 +310,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     const setModelClient = yield* RpcClient.make(UnstableSessionSetModelRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
+    const steeringClient = yield* RpcClient.make(UnstableSessionSteeringRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
 
     yield* transport.start;
     yield* Effect.logInfo('ACP agent connection ready', { pid: handle.pid });
@@ -314,6 +324,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       sessionArchive: archiveClient[SESSION_ARCHIVE_METHOD],
       sessionFork: forkClient[SESSION_FORK_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
+      sessionSteering: steeringClient[SESSION_STEERING_METHOD],
     } as const satisfies AcpAgentConnection;
   },
   // Short setup span only — lifetime Agent→Client traffic must not parent under connect.

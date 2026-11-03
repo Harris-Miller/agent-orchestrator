@@ -146,6 +146,8 @@ export type ComposerPromptEditorProps = {
   /** Parent assigns `() => void` that focuses the editor with the caret at root end. */
   readonly focusEndRef?: RefObject<(() => void) | null>;
   readonly onChange: (next: ComposerPromptChange) => void;
+  /** Esc when no typeahead menu consumed it. Return nothing; the editor swallows the key only if set. */
+  readonly onEscape?: () => void;
   readonly onSubmit: () => void;
   readonly placeholder: string;
   /** When set, applied after an external `value` sync, then cleared by the editor. */
@@ -475,6 +477,27 @@ const SubmitOnEnterPlugin: FC<{ readonly menuOpen: boolean; readonly onSubmit: (
   return null;
 };
 
+/** Runs below the command menu's CRITICAL Esc handler, so an open menu dismisses first. */
+const EscapePlugin: FC<{ readonly onEscape: () => void }> = ({ onEscape }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(
+    () =>
+      editor.registerCommand(
+        KEY_ESCAPE_COMMAND,
+        event => {
+          event.preventDefault();
+          onEscape();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+    [editor, onEscape],
+  );
+
+  return null;
+};
+
 const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[] }> = ({ availableCommands }) => {
   const [editor] = useLexicalComposerContext();
 
@@ -624,6 +647,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   disabled,
   focusEndRef,
   onChange,
+  onEscape,
   onSubmit,
   placeholder,
   syncCursorRef,
@@ -726,6 +750,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       {focusEndRef === undefined ? null : <FocusEndApiPlugin focusEndRef={focusEndRef} />}
       <ChipifyPlugin availableCommands={availableCommands} />
       <ChipDeletePlugin />
+      {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />
       <ComposerCommandKeyPlugin commandMenu={commandMenu} />
     </LexicalExtensionComposer>

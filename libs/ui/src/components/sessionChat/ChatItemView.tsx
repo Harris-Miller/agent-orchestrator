@@ -264,9 +264,10 @@ const statusColor = (status: string | undefined): 'default' | 'error' | 'info' |
 const MessageRow: FC<{
   availableCommands?: readonly AvailableCommand[];
   images?: readonly UserMessageImageRef[];
+  steering?: boolean;
   text: string;
   tone: 'agent' | 'thought' | 'user';
-}> = ({ availableCommands = [], images, text, tone }) => {
+}> = ({ availableCommands = [], images, steering = false, text, tone }) => {
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
     const hasText = text.length > 0;
@@ -283,6 +284,11 @@ const MessageRow: FC<{
           }}
         >
           <Stack spacing={1}>
+            {steering ? (
+              <Typography color="text.secondary" data-testid="transcript-steering-label" variant="caption">
+                Steering
+              </Typography>
+            ) : null}
             {hasImages ? <TranscriptImageStrip images={images} /> : null}
             {hasText ? (
               <Box
@@ -542,7 +548,15 @@ export const ChatItemView: FC<{
       return <ToolCallRow item={item} />;
 
     case 'user_message':
-      return <MessageRow availableCommands={availableCommands} images={item.images} text={item.text} tone="user" />;
+      return (
+        <MessageRow
+          availableCommands={availableCommands}
+          images={item.images}
+          steering={item.steering === true}
+          text={item.text}
+          tone="user"
+        />
+      );
 
     default:
       return null;

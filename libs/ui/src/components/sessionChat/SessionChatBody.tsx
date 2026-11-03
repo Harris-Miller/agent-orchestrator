@@ -28,9 +28,11 @@ import {
   respondPermissionAtomFn,
   sendChatItemAtomFn,
   setConfigOptionAtomFn,
+  steerChatItemAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { composerTurnActions } from './composerTurnActions.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
@@ -95,6 +97,7 @@ export const SessionChatBody: FC<{
     attachments,
     availableCommands,
     canCancelPromptTurn,
+    canEdit,
     canForkBase: canFork,
     canHandoffBase: canHandoff,
     canSend,
@@ -117,12 +120,14 @@ export const SessionChatBody: FC<{
     setAttachments,
     setDraft,
     setVirtualLaunchTarget,
+    steeringSupported,
     virtualLifecycleInFlight,
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
+  const steerChatItem = useAtomSet(steerChatItemAtomFn, { mode: 'promise' });
   const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -396,6 +401,28 @@ export const SessionChatBody: FC<{
     sendChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
+  const { canSteer, primaryAction } = composerTurnActions({
+    canCancelPromptTurn,
+    hasPendingInteraction,
+    hasSendableContent: draft.trim().length > 0 || attachments.length > 0,
+    steeringSupported,
+  });
+
+  const steerDraft = () => {
+    if (!canSteer || selectedLaunchTarget === undefined) {
+      return;
+    }
+    const text = draft;
+    const toSend = attachments;
+    setDraft('');
+    setAttachments([]);
+    steerChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch((error: unknown) => {
+      setDraft(text);
+      setAttachments(toSend);
+      onClientError(error);
+    });
+  };
+
   const onCancelPrompt = () => {
     if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancelPromptTurn) {
       return;
@@ -405,7 +432,11 @@ export const SessionChatBody: FC<{
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (canCancelPromptTurn) {
+    if (primaryAction === 'steer') {
+      steerDraft();
+      return;
+    }
+    if (primaryAction === 'stop') {
       onCancelPrompt();
       return;
     }
@@ -667,7 +698,7 @@ export const SessionChatBody: FC<{
             />
             <ComposerImageAttachments
               attachments={attachments}
-              disabled={!controlsEnabled}
+              disabled={!canEdit}
               onRemove={id => {
                 setAttachments(attachments.filter(attachment => attachment.id !== id));
               }}
@@ -675,11 +706,12 @@ export const SessionChatBody: FC<{
             <ComposerPromptEditor
               availableCommands={availableCommands}
               commandMenu={commandMenu}
-              disabled={!controlsEnabled}
+              disabled={!canEdit}
               focusEndRef={focusComposerEndRef}
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
-              onSubmit={sendDraft}
+              onEscape={canCancelPromptTurn ? onCancelPrompt : undefined}
+              onSubmit={canSteer ? steerDraft : sendDraft}
               placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}
               value={draft}
@@ -722,22 +754,24 @@ export const SessionChatBody: FC<{
                 />
               ))}
               <Box sx={{ flexGrow: 1 }} />
-              <IconButton aria-label="Attach images" disabled={!controlsEnabled} onClick={onAttachImages} size="small">
+              <IconButton aria-label="Attach images" disabled={!canEdit} onClick={onAttachImages} size="small">
                 <LucideMuiIcon fontSize="small" icon={Paperclip} />
               </IconButton>
               {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
               <ButtonGroup variant="contained">
                 <Button
                   aria-label={
-                    canCancelPromptTurn
+                    primaryAction === 'stop'
                       ? 'Prompt turn cancel'
-                      : pendingClientRequest || virtualLifecycleInFlight
-                        ? 'Pending client request'
-                        : 'Send'
+                      : primaryAction === 'steer'
+                        ? 'Steer'
+                        : pendingClientRequest || virtualLifecycleInFlight
+                          ? 'Pending client request'
+                          : 'Send'
                   }
-                  disabled={canCancelPromptTurn ? false : !canSend}
+                  disabled={primaryAction === 'stop' ? false : primaryAction === 'steer' ? !canSteer : !canSend}
                   onClick={
-                    canCancelPromptTurn
+                    primaryAction === 'stop'
                       ? event => {
                           event.preventDefault();
                           onCancelPrompt();
@@ -745,11 +779,11 @@ export const SessionChatBody: FC<{
                       : undefined
                   }
                   sx={{ minWidth: 40, px: 1.5 }}
-                  type={canCancelPromptTurn ? 'button' : 'submit'}
+                  type={primaryAction === 'stop' ? 'button' : 'submit'}
                 >
-                  {canCancelPromptTurn ? (
+                  {primaryAction === 'stop' ? (
                     <LucideMuiIcon fontSize="small" icon={Square} />
-                  ) : pendingClientRequest || virtualLifecycleInFlight ? (
+                  ) : primaryAction === 'send' && (pendingClientRequest || virtualLifecycleInFlight) ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <LucideMuiIcon fontSize="small" icon={ArrowUp} />

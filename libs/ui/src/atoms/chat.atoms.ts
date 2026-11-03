@@ -20,7 +20,11 @@ import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled, stampUserMessageTiming } from '../host/sessionUpdateReducer.ts';
+import {
+  appendElicitationSummary,
+  markNonFinishedToolCallsCancelled,
+  stampUserMessageTiming,
+} from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
@@ -313,15 +317,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
               ...current,
               pendingElicitation: undefined,
               transcript:
-                'summary' in arg && arg.summary.rows.length > 0
-                  ? {
-                      ...current.transcript,
-                      items: [
-                        ...current.transcript.items,
-                        { ...arg.summary, id: crypto.randomUUID(), kind: 'elicitation_summary' },
-                      ],
-                    }
-                  : current.transcript,
+                'summary' in arg ? appendElicitationSummary(current.transcript, arg.summary) : current.transcript,
             })),
           });
         },

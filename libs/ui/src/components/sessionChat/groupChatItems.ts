@@ -10,6 +10,9 @@ export type WorkRegion = {
   readonly userMessage: Extract<ChatItem, { kind: 'user_message' }>;
 };
 
+/** The region a running prompt is still adding to: last region of the last turn. */
+export const isLiveRegion = (region: WorkRegion): boolean => region.isLastTurn && region.isLastInTurn;
+
 const isWork = (item: ChatItem) => item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought';
 
 /** Cut a turn body into runs separated by (and including, as singleton runs) Elicitation summaries. */

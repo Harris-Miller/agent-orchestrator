@@ -25,27 +25,44 @@ import {
   elicitationSummaryRows,
   initialElicitationValues,
 } from './elicitationFormViews.ts';
-import type { ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
+import type { ElicitationOther, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
 
-const OTHER = '\u0000other';
-
-const OtherInput: FC<{
-  readonly onChange: (text: string) => void;
-  readonly onFocus: () => void;
-  readonly placeholder: string;
-  readonly value: string;
-}> = ({ onChange, onFocus, placeholder, value }) => (
-  <TextField
-    fullWidth
-    onChange={event => {
-      onChange(event.target.value);
-    }}
-    onFocus={onFocus}
-    placeholder={placeholder}
-    size="small"
-    sx={{ ml: 4, width: 'calc(100% - 2rem)' }}
-    value={value}
-  />
+/** "Other" toggle plus its free-text box; focusing the box checks the toggle. Unchecked = text `undefined`. */
+const OtherChoice: FC<{
+  readonly control: typeof Checkbox | typeof Radio;
+  readonly groupName?: string;
+  readonly onCheck: (checked: boolean) => void;
+  readonly onText: (text: string) => void;
+  readonly other: ElicitationOther;
+  readonly text: ElicitationValue;
+}> = ({ control: Control, groupName, onCheck, onText, other, text }) => (
+  <>
+    <FormControlLabel
+      control={
+        <Control
+          checked={text !== undefined}
+          name={groupName}
+          onChange={event => {
+            onCheck(event.target.checked);
+          }}
+        />
+      }
+      label="Other"
+    />
+    <TextField
+      fullWidth
+      onChange={event => {
+        onText(event.target.value);
+      }}
+      onFocus={() => {
+        if (text === undefined) onCheck(true);
+      }}
+      placeholder={other.placeholder}
+      size="small"
+      sx={{ ml: 4, width: 'calc(100% - 2rem)' }}
+      value={typeof text === 'string' ? text : ''}
+    />
+  </>
 );
 
 export const PendingElicitationCard: FC<{
@@ -128,28 +145,19 @@ export const PendingElicitationCard: FC<{
 
           if (view.kind === 'single') {
             const { other } = view;
-            const otherText = other === undefined ? undefined : values[other.name];
-            const selectOther = () => {
-              if (other !== undefined && otherText === undefined) {
-                setValues(current => ({ ...current, [other.name]: '', [view.name]: undefined }));
-              }
-            };
             return (
               <FormControl key={view.name}>
                 <FormLabel>{caption}</FormLabel>
                 <RadioGroup
+                  name={view.name}
                   onChange={event => {
-                    if (event.target.value === OTHER) {
-                      selectOther();
-                    } else {
-                      setValues(current => ({
-                        ...current,
-                        ...(other && { [other.name]: undefined }),
-                        [view.name]: event.target.value,
-                      }));
-                    }
+                    setValues(current => ({
+                      ...current,
+                      ...(other && { [other.name]: undefined }),
+                      [view.name]: event.target.value,
+                    }));
                   }}
-                  value={otherText !== undefined ? OTHER : typeof value === 'string' ? value : ''}
+                  value={typeof value === 'string' ? value : ''}
                 >
                   {view.options.map(option => (
                     <FormControlLabel
@@ -159,20 +167,26 @@ export const PendingElicitationCard: FC<{
                       value={option.value}
                     />
                   ))}
-                  {other === undefined ? null : (
-                    <>
-                      <FormControlLabel control={<Radio />} label="Other" value={OTHER} />
-                      <OtherInput
-                        onChange={text => {
-                          setValues(current => ({ ...current, [other.name]: text, [view.name]: undefined }));
-                        }}
-                        onFocus={selectOther}
-                        placeholder={other.placeholder}
-                        value={typeof otherText === 'string' ? otherText : ''}
-                      />
-                    </>
-                  )}
                 </RadioGroup>
+                {other === undefined ? null : (
+                  // Outside RadioGroup so its value can't collide with an option; shared `name` keeps keyboard grouping.
+                  <OtherChoice
+                    control={Radio}
+                    groupName={view.name}
+                    onCheck={() => {
+                      setValues(current => ({
+                        ...current,
+                        [other.name]: current[other.name] ?? '',
+                        [view.name]: undefined,
+                      }));
+                    }}
+                    onText={text => {
+                      setValues(current => ({ ...current, [other.name]: text, [view.name]: undefined }));
+                    }}
+                    other={other}
+                    text={values[other.name]}
+                  />
+                )}
               </FormControl>
             );
           }
@@ -180,12 +194,6 @@ export const PendingElicitationCard: FC<{
           if (view.kind === 'multi') {
             const selected: readonly string[] = Array.isArray(value) ? value : [];
             const { other } = view;
-            const otherText = other === undefined ? undefined : values[other.name];
-            const selectOther = () => {
-              if (other !== undefined && otherText === undefined) {
-                setValue(other.name, '');
-              }
-            };
             return (
               <FormControl key={view.name}>
                 <FormLabel>{caption}</FormLabel>
@@ -210,27 +218,17 @@ export const PendingElicitationCard: FC<{
                     />
                   ))}
                   {other === undefined ? null : (
-                    <>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={otherText !== undefined}
-                            onChange={event => {
-                              setValue(other.name, event.target.checked ? '' : undefined);
-                            }}
-                          />
-                        }
-                        label="Other"
-                      />
-                      <OtherInput
-                        onChange={text => {
-                          setValue(other.name, text);
-                        }}
-                        onFocus={selectOther}
-                        placeholder={other.placeholder}
-                        value={typeof otherText === 'string' ? otherText : ''}
-                      />
-                    </>
+                    <OtherChoice
+                      control={Checkbox}
+                      onCheck={checked => {
+                        setValue(other.name, checked ? '' : undefined);
+                      }}
+                      onText={text => {
+                        setValue(other.name, text);
+                      }}
+                      other={other}
+                      text={values[other.name]}
+                    />
                   )}
                 </FormGroup>
               </FormControl>

@@ -475,6 +475,18 @@ export const appendUserChatMessage = (
   };
 };
 
+/** Empty summaries (nothing answered) leave the transcript unchanged. */
+export const appendElicitationSummary = (
+  transcript: SessionTranscript,
+  summary: ElicitationSummary,
+): SessionTranscript =>
+  summary.rows.length === 0
+    ? transcript
+    : {
+        ...transcript,
+        items: [...transcript.items, { ...summary, id: crypto.randomUUID(), kind: 'elicitation_summary' }],
+      };
+
 export const reduceSessionUpdate = (transcript: SessionTranscript, update: unknown): SessionTranscript => {
   if (!isRecord(update) || typeof update.sessionUpdate !== 'string') {
     return transcript;

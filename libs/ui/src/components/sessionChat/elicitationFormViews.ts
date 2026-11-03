@@ -15,7 +15,7 @@ export type ElicitationChoice = { readonly label: string; readonly value: string
 /** A paired free-text "Other" field (Claude's `question_N_custom`), folded into its choice question. */
 export type ElicitationOther = { readonly name: string; readonly placeholder: string };
 
-type Shared = {
+type ElicitationFieldBase = {
   /** Shorter of title/description, shown small above the label; undefined when only one is present. */
   readonly caption: string | undefined;
   readonly label: string;
@@ -24,7 +24,7 @@ type Shared = {
   readonly secret: boolean;
 };
 
-export type ElicitationFieldView = Shared &
+export type ElicitationFieldView = ElicitationFieldBase &
   (
     | {
         readonly default: string | undefined;
@@ -58,6 +58,11 @@ export type ElicitationFieldView = Shared &
     | { readonly kind: 'unsupported'; readonly type: string }
   );
 
+type ElicitationChoiceView = Extract<ElicitationFieldView, { kind: 'single' | 'multi' }>;
+
+const isChoiceView = (view: ElicitationFieldView | undefined): view is ElicitationChoiceView =>
+  view?.kind === 'single' || view?.kind === 'multi';
+
 export type ElicitationValue = ElicitationContent[string] | undefined;
 export type ElicitationValues = Readonly<Record<string, ElicitationValue>>;
 
@@ -77,26 +82,36 @@ type TextProps = { readonly description?: string | null; readonly title?: string
 
 const labelPair = (
   name: string,
-  title: string | null | undefined,
-  description: string | null | undefined,
+  property: ElicitationPropertySchema,
 ): { readonly caption: string | undefined; readonly label: string } => {
-  const t = title ?? undefined;
-  const d = description ?? undefined;
-  if (t === undefined || d === undefined) return { caption: undefined, label: d ?? t ?? name };
-  return t.length > d.length ? { caption: d, label: t } : { caption: t, label: d };
+  const text = property as TextProps;
+  const title = text.title ?? undefined;
+  const description = text.description ?? undefined;
+  if (title === undefined || description === undefined) {
+    return { caption: undefined, label: description ?? title ?? name };
+  }
+  return title.length > description.length
+    ? { caption: description, label: title }
+    : { caption: title, label: description };
 };
 
-const isSecret = (property: ElicitationPropertySchema): boolean => {
-  const meta = property._meta as { readonly codex?: { readonly isSecret?: unknown } } | null | undefined;
-  return meta?.codex?.isSecret === true;
-};
+/** Vendor `_meta` keys we read: Codex secrets and Claude's custom-answer pairing. */
+type PropertyMeta =
+  | {
+      readonly _askUserQuestionCustomAnswer?: { readonly questionId?: unknown };
+      readonly codex?: { readonly isSecret?: unknown };
+    }
+  | null
+  | undefined;
+
+const propertyMeta = (property: ElicitationPropertySchema): PropertyMeta => property._meta as PropertyMeta;
 
 const toView = (name: string, property: ElicitationPropertySchema, required: boolean): ElicitationFieldView => {
   const shared = {
-    ...labelPair(name, (property as TextProps).title, (property as TextProps).description),
+    ...labelPair(name, property),
     name,
     required,
-    secret: isSecret(property),
+    secret: propertyMeta(property)?.codex?.isSecret === true,
   };
   if (Schema.is(ElicitationArrayProperty)(property)) {
     const options = choiceOptions(property.items.oneOf ?? property.items.anyOf, property.items.enum);
@@ -108,7 +123,6 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           kind: 'multi',
           maxItems: property.maxItems ?? undefined,
           minItems: property.minItems ?? undefined,
-          name,
           options,
           other: undefined,
         };
@@ -127,14 +141,10 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
         }
       : { ...base, kind: 'single', options, other: undefined };
   }
-  if (
-    Schema.is(ElicitationNumberProperty)(property) ||
-    Schema.is(ElicitationIntegerProperty)(property) ||
-    Schema.is(ElicitationBooleanProperty)(property)
-  ) {
-    if (Schema.is(ElicitationBooleanProperty)(property)) {
-      return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
-    }
+  if (Schema.is(ElicitationBooleanProperty)(property)) {
+    return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
+  }
+  if (Schema.is(ElicitationNumberProperty)(property) || Schema.is(ElicitationIntegerProperty)(property)) {
     return {
       ...shared,
       default: property.default ?? undefined,
@@ -147,11 +157,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
 };
 
 const customAnswerQuestionId = (property: ElicitationPropertySchema): string | undefined => {
-  const meta = property._meta as
-    | { readonly _askUserQuestionCustomAnswer?: { readonly questionId?: unknown } }
-    | null
-    | undefined;
-  const id = meta?._askUserQuestionCustomAnswer?.questionId;
+  const id = propertyMeta(property)?._askUserQuestionCustomAnswer?.questionId;
   return typeof id === 'string' ? id : undefined;
 };
 
@@ -164,15 +170,14 @@ export const elicitationFieldViews = (request: CreateElicitationFormRequest): re
   for (const [name, property] of entries) {
     const questionId = customAnswerQuestionId(property);
     const target = views.find(view => view.name === questionId);
-    if (questionId !== undefined && (target?.kind === 'single' || target?.kind === 'multi')) {
-      const { label } = labelPair(name, (property as TextProps).title, (property as TextProps).description);
-      others.set(questionId, { name, placeholder: label });
+    if (questionId !== undefined && isChoiceView(target)) {
+      others.set(questionId, { name, placeholder: labelPair(name, property).label });
     }
   }
   const foldedNames = new Set([...others.values()].map(other => other.name));
   return views
     .filter(view => !foldedNames.has(view.name))
-    .map(view => (view.kind === 'single' || view.kind === 'multi' ? { ...view, other: others.get(view.name) } : view));
+    .map(view => (isChoiceView(view) ? { ...view, other: others.get(view.name) } : view));
 };
 
 /** Seed only from `default`; a boolean has no unset state so it seeds `false`. */
@@ -247,8 +252,7 @@ export const canAcceptElicitation = (views: readonly ElicitationFieldView[], val
       return !view.required;
     }
     const value = values[view.name];
-    const otherSet =
-      (view.kind === 'single' || view.kind === 'multi') && view.other !== undefined && isSet(values[view.other.name]);
+    const otherSet = isChoiceView(view) && view.other !== undefined && isSet(values[view.other.name]);
     if (view.kind === 'multi') {
       const count = (Array.isArray(value) ? value.length : 0) + (otherSet ? 1 : 0);
       if (count < (view.minItems ?? 0) || (view.maxItems !== undefined && count > view.maxItems)) {
@@ -275,7 +279,7 @@ const formatValue = (
 ) => {
   if (view.secret) return '••••••';
   if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
-  const options = view.kind === 'single' || view.kind === 'multi' ? view.options : [];
+  const options = isChoiceView(view) ? view.options : [];
   const optionLabel = (v: string) => options.find(o => o.value === v)?.label ?? v;
   if (Array.isArray(raw)) return raw.map(optionLabel).join(', ');
   return typeof raw === 'string' ? optionLabel(raw) : String(raw);
@@ -289,7 +293,7 @@ export const elicitationSummaryRows = (
   views.flatMap(view => {
     if (view.kind === 'unsupported') return [];
     const raw = values[view.name];
-    const other = (view.kind === 'single' || view.kind === 'multi') && view.other ? values[view.other.name] : undefined;
+    const other = isChoiceView(view) && view.other ? values[view.other.name] : undefined;
     const parts = [isSet(raw) ? formatValue(view, raw!) : undefined, isSet(other) ? String(other) : undefined].filter(
       part => part !== undefined,
     );

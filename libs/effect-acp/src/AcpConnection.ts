@@ -120,14 +120,17 @@ export type AcpWireTap = {
 /** Mutable write hooks filled in once RpcClient / RpcServer protocols start. */
 type StdioDemuxWrites = {
   clientWriteResponse: ((clientId: number, message: FromServerEncoded) => Effect.Effect<void>) | undefined;
+  /** Last sender; fallback for frames without a `requestId`. */
   rpcClientId: number;
+  /** Each RpcClient has its own clientId; an Exit/Chunk must return to the client that sent the request. */
+  readonly clientIdByRequest: Map<number | string, number>;
   serverWriteRequest: ((clientId: number, message: FromClientEncoded) => Effect.Effect<void>) | undefined;
 };
 
 /**
  * Shared Effect demux used by both Client (`connectAcpAgent`) and Agent (`serveAcpAgent`) stdio duplexes.
  */
-const makeStdioDemuxRoute =
+export const makeStdioDemuxRoute =
   (
     pendingClientRequestIds: Set<number | string>,
     notificationIds: Set<number | string>,
@@ -148,9 +151,14 @@ const makeStdioDemuxRoute =
       let next: Effect.Effect<void> = Effect.void;
       routeDecodedMessage(message, pendingClientRequestIds, notificationIds, {
         toClient: m => {
+          const requestId = 'requestId' in m ? m.requestId : undefined;
+          const clientId = requestId === undefined ? undefined : writes.clientIdByRequest.get(requestId);
+          if (m._tag === 'Exit' && requestId !== undefined) {
+            writes.clientIdByRequest.delete(requestId);
+          }
           next =
             writes.clientWriteResponse !== undefined
-              ? writes.clientWriteResponse(writes.rpcClientId, m)
+              ? writes.clientWriteResponse(clientId ?? writes.rpcClientId, m)
               : Effect.logWarning('ACP demux toClient before client protocol ready', tag);
         },
         toServer: m => {
@@ -233,6 +241,7 @@ export const connectAcpAgent = Effect.fnUntraced(
     const writes: StdioDemuxWrites = {
       clientWriteResponse: undefined,
       rpcClientId: 0,
+      clientIdByRequest: new Map(),
       serverWriteRequest: undefined,
     };
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
@@ -253,6 +262,7 @@ export const connectAcpAgent = Effect.fnUntraced(
             writes.rpcClientId = clientId;
             if (message._tag === 'Request' && message.isNotification !== true) {
               pendingClientRequestIds.add(message.id);
+              writes.clientIdByRequest.set(message.id, clientId);
             }
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },
@@ -354,6 +364,7 @@ export const serveAcpAgent = Effect.fnUntraced(
     const writes: StdioDemuxWrites = {
       clientWriteResponse: undefined,
       rpcClientId: 0,
+      clientIdByRequest: new Map(),
       serverWriteRequest: undefined,
     };
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
@@ -374,6 +385,7 @@ export const serveAcpAgent = Effect.fnUntraced(
             writes.rpcClientId = clientId;
             if (message._tag === 'Request' && message.isNotification !== true) {
               pendingClientRequestIds.add(message.id);
+              writes.clientIdByRequest.set(message.id, clientId);
             }
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },

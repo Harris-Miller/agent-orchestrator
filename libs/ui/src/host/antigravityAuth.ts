@@ -18,9 +18,6 @@ export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySig
   },
 ) {}
 
-/** User-facing bootstrap error when Antigravity needs Sign in. */
-export const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
-
 export const ANTIGRAVITY_SIGN_IN_TIMEOUT = '5 minutes' as const;
 export const ANTIGRAVITY_OAUTH_PERSONAL = 'oauth-personal';
 

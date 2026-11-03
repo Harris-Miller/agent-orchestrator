@@ -10,7 +10,9 @@ import type { FC } from 'react';
 
 import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import type { AcpBootstrapPhase, HarnessFailure } from '../host/acpSessionBootstrap.ts';
+import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
+import { isNotSignedIn } from '../host/harnessFailure.ts';
+import type { HarnessFailure } from '../host/harnessFailure.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
@@ -65,7 +67,7 @@ export const ProviderPhaseStatus: FC<{ readonly entry: ProviderPhaseEntry }> = (
       {entry.launchTarget === 'antigravity-acp' ? (
         <AntigravitySignInControls
           antigravityAuthUrl={entry.antigravityAuthUrl}
-          notSignedIn={entry.failure?._tag === 'NotSignedIn'}
+          notSignedIn={isNotSignedIn(entry.failure)}
           phase={entry.phase}
         />
       ) : null}

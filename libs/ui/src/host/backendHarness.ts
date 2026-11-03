@@ -17,7 +17,6 @@ import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { airCapability, airMeta } from './airMeta.ts';
 import {
-  ANTIGRAVITY_NOT_SIGNED_IN,
   ANTIGRAVITY_OAUTH_PERSONAL,
   ANTIGRAVITY_SIGN_IN_TIMEOUT,
   AntigravitySignInTimedOut,
@@ -28,13 +27,14 @@ import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 import { runConfigProbe } from './configProbe.ts';
-import type { MissingLaunchPrerequisite, VendorNotAuthenticated } from './findExecutableOnPath.ts';
+import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
+import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
-export { ANTIGRAVITY_NOT_SIGNED_IN, AntigravitySignInTimedOut };
+export { AntigravitySignInTimedOut };
 
 export type RpcWireEntry = {
   readonly direction: 'in' | 'out';

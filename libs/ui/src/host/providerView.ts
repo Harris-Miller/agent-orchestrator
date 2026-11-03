@@ -5,6 +5,8 @@
 import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/ao-home';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { isNotSignedIn } from './harnessFailure.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 
 export type CliState =
   | { readonly _tag: 'Found'; readonly path: string }
@@ -248,7 +250,7 @@ export const readyToInstallVersion = (p: ProviderView): string | undefined => p.
  */
 export const authFromHarness = (
   phase: 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in',
-  failure: { readonly _tag: 'Failed' | 'NotSignedIn'; readonly message: string } | undefined,
+  failure: HarnessFailure | undefined,
 ): { readonly auth: AuthState; readonly harnessError: string | undefined } => {
   switch (phase) {
     case 'ready':
@@ -260,7 +262,7 @@ export const authFromHarness = (
     case 'probing':
       return { auth: 'Checking', harnessError: undefined };
     case 'error':
-      return failure?._tag === 'NotSignedIn'
+      return isNotSignedIn(failure)
         ? { auth: 'NotSignedIn', harnessError: undefined }
         : { auth: 'Unknown', harnessError: failure?.message ?? 'Backend error' };
   }

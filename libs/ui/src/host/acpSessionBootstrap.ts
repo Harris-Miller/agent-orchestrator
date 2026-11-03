@@ -117,8 +117,6 @@ export type UnifiedHistoryEntry = {
   readonly launchTarget: AgentLaunchTarget;
 } & NormalizedSessionInfo;
 
-export type { HarnessFailure } from './harnessFailure.ts';
-
 export type BackendHarnessSnapshot = {
   /** Google OAuth URL captured from Antigravity BROWSER helper during Sign in. */
   readonly antigravityAuthUrl?: string;

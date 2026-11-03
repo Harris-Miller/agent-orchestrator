@@ -2,18 +2,24 @@
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
 import { OS } from '@lib/context-services';
-import { Effect, Ref, Stream } from 'effect';
+import { Effect, Ref, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { isRecord } from '../isRecord.ts';
 
 import { notAuthenticatedMessage } from './authMessages.ts';
 import type { VendorAuthLaunchTarget } from './authMessages.ts';
-import { MissingLaunchPrerequisite, VendorNotAuthenticated } from './findExecutableOnPath.ts';
+import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 
 const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
 /** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
 const POST_EXIT_STDOUT_DRAIN_MS = 100;
+
+/** The vendor CLI is installed but reports the user is not signed in. */
+export class VendorNotAuthenticated extends Schema.TaggedError<VendorNotAuthenticated>()('VendorNotAuthenticated', {
+  executable: Schema.String,
+  message: Schema.String,
+}) {}
 
 type AuthProbeLaunchTarget = VendorAuthLaunchTarget;
 

@@ -14,6 +14,12 @@ export class MissingLaunchPrerequisite extends Schema.TaggedError<MissingLaunchP
   },
 ) {}
 
+/** The vendor CLI is installed but reports the user is not signed in. */
+export class VendorNotAuthenticated extends Schema.TaggedError<VendorNotAuthenticated>()('VendorNotAuthenticated', {
+  executable: Schema.String,
+  message: Schema.String,
+}) {}
+
 const pathListSeparator = (platform: string): string => (platform === 'win32' ? ';' : ':');
 
 const executableCandidates = (platform: string, directory: string, name: string, path: Path): readonly string[] => {

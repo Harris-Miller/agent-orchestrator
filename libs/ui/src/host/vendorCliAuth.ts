@@ -9,7 +9,7 @@ import { isRecord } from '../isRecord.ts';
 
 import { notAuthenticatedMessage } from './authMessages.ts';
 import type { VendorAuthLaunchTarget } from './authMessages.ts';
-import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
+import { MissingLaunchPrerequisite, VendorNotAuthenticated } from './findExecutableOnPath.ts';
 
 const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
 /** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
@@ -94,7 +94,7 @@ const runCodexAuthProbe = Effect.fn('runCodexAuthProbe')(function* () {
   const command = ChildProcess.make('codex', ['login', 'status'], { extendEnv: true });
   const exitCode = yield* spawner.exitCode(command);
   if (exitCode !== 0) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'codex',
       message: notAuthenticatedMessage('codex-acp'),
     });
@@ -114,7 +114,7 @@ const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
     });
   }
   if (!loggedIn) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'claude',
       message: notAuthenticatedMessage('claude-agent-acp'),
     });
@@ -140,7 +140,7 @@ const runCursorAuthProbe = Effect.fn('runCursorAuthProbe')(function* () {
     });
   }
   if (!authenticated) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'cursor-agent',
       message: notAuthenticatedMessage('cursor-acp'),
     });
@@ -167,7 +167,7 @@ export const requireVendorCliAuthenticated = Effect.fn('requireVendorCliAuthenti
     return yield* authProbeFor(launchTarget).pipe(
       Effect.timeout(AUTH_PROBE_TIMEOUT),
       Effect.mapError(error => {
-        if (error._tag === 'MissingLaunchPrerequisite') {
+        if (error._tag === 'MissingLaunchPrerequisite' || error._tag === 'VendorNotAuthenticated') {
           return error;
         }
         return new MissingLaunchPrerequisite({

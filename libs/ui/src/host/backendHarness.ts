@@ -10,7 +10,7 @@ import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
 } from '@libs/effect-acp';
-import { Effect, Exit, Ref } from 'effect';
+import { Cause, Effect, Exit, Ref } from 'effect';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -21,15 +21,15 @@ import {
   ANTIGRAVITY_OAUTH_PERSONAL,
   ANTIGRAVITY_SIGN_IN_TIMEOUT,
   AntigravitySignInTimedOut,
+  classifyBootstrapFailure,
   consumeAntigravityAuthStderr,
-  formatBootstrapError,
 } from './antigravityAuth.ts';
-import { normalizeVendorAuthMessage } from './authMessages.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 import { runConfigProbe } from './configProbe.ts';
-import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
+import type { MissingLaunchPrerequisite, VendorNotAuthenticated } from './findExecutableOnPath.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
@@ -57,7 +57,7 @@ export type BackendHarnessCallbacks = {
     request: RequestPermissionRequest,
     resolve: (response: RequestPermissionResponse) => void,
   ) => void;
-  readonly onPhase: (phase: AcpBootstrapPhase, error?: string) => void;
+  readonly onPhase: (phase: AcpBootstrapPhase, failure?: HarnessFailure) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   readonly onSessionHistoryResult: (result: unknown, scope: SessionListScope) => void;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
@@ -201,7 +201,13 @@ export const runBackendHarness = Effect.fnUntraced(
           Effect.catchTag('MissingLaunchPrerequisite', (error: MissingLaunchPrerequisite) =>
             Effect.gen(function* () {
               yield* Effect.logError('ACP harness missing launch prerequisite', launchTarget, error.message);
-              handlers.onPhase('error', normalizeVendorAuthMessage(launchTarget, error.message));
+              handlers.onPhase('error', { _tag: 'Failed', message: error.message });
+            }),
+          ),
+          Effect.catchTag('VendorNotAuthenticated', (error: VendorNotAuthenticated) =>
+            Effect.gen(function* () {
+              yield* Effect.logError('ACP harness vendor CLI not authenticated', launchTarget, error.message);
+              handlers.onPhase('error', { _tag: 'NotSignedIn', message: error.message });
             }),
           ),
         ),
@@ -211,9 +217,13 @@ export const runBackendHarness = Effect.fnUntraced(
         return;
       }
 
-      const errorMessage = Exit.isFailure(exit) ? formatBootstrapError(launchTarget, exit.cause) : 'Unknown error';
-      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, errorMessage);
-      handlers.onPhase('error', errorMessage);
+      // A clean `BackendLifecycle.stop` interrupts this fiber; that is not a failure to publish.
+      if (Cause.hasInterruptsOnly(exit.cause)) {
+        return;
+      }
+      const failure = classifyBootstrapFailure(launchTarget, exit.cause);
+      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, failure.message);
+      handlers.onPhase('error', failure);
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {
         yield* Effect.logFatal('ACP harness exhausted connect retries', launchTarget, {

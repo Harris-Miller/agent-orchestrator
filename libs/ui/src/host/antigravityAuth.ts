@@ -2,11 +2,13 @@
  * Antigravity oauth-personal Sign in helpers for the ACP harness bootstrap.
  */
 import { OpenUrl } from '@lib/context-services';
-import { Effect, Schema, Stream } from 'effect';
+import { Cause, Effect, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
-import { normalizeVendorAuthMessage } from './authMessages.ts';
+import { isRecord } from '../isRecord.ts';
+import { classifyVendorAuthFailure } from './authMessages.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 
 /** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
 export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
@@ -26,18 +28,26 @@ const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
+  // ACP wire errors arrive as a plain `AcpError` struct, not an `Error`.
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
   return JSON.stringify(error);
 };
 
 const looksLikeAntigravityAuthFailure = (message: string): boolean =>
   /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
 
-export const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unknown): string => {
-  const message = formatError(error);
-  if (launchTarget === 'antigravity-acp' && looksLikeAntigravityAuthFailure(message)) {
-    return ANTIGRAVITY_NOT_SIGNED_IN;
+/** Classify a bootstrap `Cause` for the provider views; interrupts are not failures the user caused. */
+export const classifyBootstrapFailure = (
+  launchTarget: AgentLaunchTarget,
+  cause: Cause.Cause<unknown>,
+): HarnessFailure => {
+  const message = formatError(Cause.squash(cause));
+  if (launchTarget === 'antigravity-acp') {
+    return looksLikeAntigravityAuthFailure(message) ? { _tag: 'NotSignedIn', message } : { _tag: 'Failed', message };
   }
-  return normalizeVendorAuthMessage(launchTarget, message);
+  return classifyVendorAuthFailure(launchTarget, message);
 };
 
 /** Drain stderr for the auth-URL marker; open the first URL via Host OpenUrl. */

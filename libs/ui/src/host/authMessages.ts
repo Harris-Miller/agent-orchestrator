@@ -1,5 +1,6 @@
 /** User-facing "sign in with the vendor CLI" messages, shared by the launch prerequisite and bootstrap failures. */
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 
 export type VendorAuthLaunchTarget = 'claude-agent-acp' | 'codex-acp' | 'cursor-acp';
 
@@ -23,8 +24,8 @@ const looksLikeVendorAuthFailure = (message: string): boolean =>
     message,
   );
 
-/** Replace an auth-looking message with the canonical instruction; leave every other message untouched. */
-export const normalizeVendorAuthMessage = (launchTarget: AgentLaunchTarget, message: string): string =>
+/** Classify adapter / CLI text at the wire boundary: sign-in failures become instructions, everything else survives. */
+export const classifyVendorAuthFailure = (launchTarget: AgentLaunchTarget, message: string): HarnessFailure =>
   isVendorAuthLaunchTarget(launchTarget) && looksLikeVendorAuthFailure(message)
-    ? notAuthenticatedMessage(launchTarget)
-    : message;
+    ? { _tag: 'NotSignedIn', message: notAuthenticatedMessage(launchTarget) }
+    : { _tag: 'Failed', message };

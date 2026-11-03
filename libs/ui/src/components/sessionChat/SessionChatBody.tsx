@@ -621,16 +621,16 @@ export const SessionChatBody: FC<{
       </Box>
 
       <Box sx={{ flexShrink: 0, position: 'relative' }}>
-        {backendSnapshot?.error !== undefined ? (
+        {backendSnapshot?.failure !== undefined ? (
           <Typography color="error" sx={{ mb: 1 }} variant="body2">
-            {backendSnapshot.error}
+            {backendSnapshot.failure.message}
           </Typography>
         ) : null}
         {selectedLaunchTarget === 'antigravity-acp' && backendSnapshot !== undefined ? (
           <Box sx={{ mb: 1 }}>
             <AntigravitySignInControls
               antigravityAuthUrl={backendSnapshot.antigravityAuthUrl}
-              error={backendSnapshot.error}
+              notSignedIn={backendSnapshot.failure?._tag === 'NotSignedIn'}
               phase={backendSnapshot.phase}
             />
           </Box>

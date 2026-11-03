@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { BundledResource, OpenUrl, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
-import { Effect, Layer, Option, Sink, Stream } from 'effect';
+import { Cause, Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -9,7 +9,8 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
-import { formatBootstrapError } from './antigravityAuth.ts';
+import { AntigravitySignInTimedOut, classifyBootstrapFailure } from './antigravityAuth.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 import { runBackendHarness } from './backendHarness.ts';
 import { findExecutableOnPath, requireExecutableOnPath } from './findExecutableOnPath.ts';
 
@@ -323,7 +324,7 @@ describe('makeAcpLaunchCommand', () => {
   it.effect('fails when vendor CLI is present but unauthenticated', () =>
     Effect.gen(function* () {
       const error = yield* makeAcpLaunchCommand('codex-acp').pipe(Effect.flip);
-      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error._tag, 'VendorNotAuthenticated');
       assert.strictEqual(error.executable, 'codex');
       assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
     }).pipe(
@@ -417,7 +418,7 @@ describe('auth messages through bootstrap publication', () => {
 
   it.effect('publishes the normalized Claude instruction as the harness error phase', () =>
     Effect.gen(function* () {
-      const phases: { readonly error: string | undefined; readonly phase: string }[] = [];
+      const phases: { readonly failure: HarnessFailure | undefined; readonly phase: string }[] = [];
       const noop = () => undefined;
       yield* runBackendHarness(
         'claude-agent-acp',
@@ -426,8 +427,8 @@ describe('auth messages through bootstrap publication', () => {
           onElicitationCreate: noop,
           onInitializeResult: noop,
           onPermissionRequest: noop,
-          onPhase: (phase, error) => {
-            phases.push({ error, phase });
+          onPhase: (phase, failure) => {
+            phases.push({ failure, phase });
           },
           onRpcMessage: noop,
           onSessionHistoryResult: noop,
@@ -436,9 +437,11 @@ describe('auth messages through bootstrap publication', () => {
         () => ({ _tag: 'Skip' }),
       );
       assert.deepStrictEqual(phases.at(-1), {
-        error: '`claude` is not authenticated — run `claude` and log in',
+        failure: { _tag: 'NotSignedIn', message: '`claude` is not authenticated — run `claude` and log in' },
         phase: 'error',
       });
+      // Not-signed-in is terminal: it must not fall through to the retry loop.
+      assert.strictEqual(phases.filter(entry => entry.phase === 'error').length, 1);
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
@@ -455,19 +458,39 @@ describe('auth messages through bootstrap publication', () => {
     ),
   );
 
-  it('normalizes auth-looking bootstrap failures and preserves ordinary ones', () => {
-    assert.strictEqual(
-      formatBootstrapError('codex-acp', new Error('Authentication required')),
-      '`codex` is not authenticated — run `codex login`',
+  it('classifies bootstrap causes without matching the user-facing wording', () => {
+    assert.deepStrictEqual(classifyBootstrapFailure('codex-acp', Cause.fail(new Error('Authentication required'))), {
+      _tag: 'NotSignedIn',
+      message: '`codex` is not authenticated — run `codex login`',
+    });
+    assert.deepStrictEqual(classifyBootstrapFailure('cursor-acp', Cause.fail(new Error('Not logged in'))), {
+      _tag: 'NotSignedIn',
+      message: '`cursor-agent` is not authenticated — run `cursor-agent login`',
+    });
+    assert.deepStrictEqual(classifyBootstrapFailure('claude-agent-acp', Cause.fail(new Error('spawn node ENOENT'))), {
+      _tag: 'Failed',
+      message: 'spawn node ENOENT',
+    });
+    // An `AcpError` arrives as a plain struct, not an `Error`: its message must be read, not JSON-stringified.
+    assert.deepStrictEqual(
+      classifyBootstrapFailure('codex-acp', Cause.fail({ code: -32000, message: 'Not logged in' })),
+      { _tag: 'NotSignedIn', message: '`codex` is not authenticated — run `codex login`' },
     );
-    assert.strictEqual(
-      formatBootstrapError('cursor-acp', new Error('Not logged in')),
-      '`cursor-agent` is not authenticated — run `cursor-agent login`',
+    assert.deepStrictEqual(classifyBootstrapFailure('antigravity-acp', Cause.fail(new Error('please sign in'))), {
+      _tag: 'NotSignedIn',
+      message: 'please sign in',
+    });
+    // The sign-in timeout stays NotSignedIn (Sign in button shows) but keeps its own wording.
+    assert.deepStrictEqual(
+      classifyBootstrapFailure(
+        'antigravity-acp',
+        Cause.fail(new AntigravitySignInTimedOut({ message: 'Antigravity Sign in timed out' })),
+      ),
+      { _tag: 'NotSignedIn', message: 'Antigravity Sign in timed out' },
     );
-    assert.strictEqual(formatBootstrapError('claude-agent-acp', new Error('spawn node ENOENT')), 'spawn node ENOENT');
-    assert.strictEqual(
-      formatBootstrapError('antigravity-acp', new Error('please sign in')),
-      'Antigravity is not signed in.',
-    );
+    assert.deepStrictEqual(classifyBootstrapFailure('antigravity-acp', Cause.die('boom')), {
+      _tag: 'Failed',
+      message: '"boom"',
+    });
   });
 });

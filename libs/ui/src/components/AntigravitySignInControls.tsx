@@ -7,30 +7,32 @@ import type { FC } from 'react';
 
 import { signInAntigravityAtomFn } from '../atoms/boundHarnessAtoms.ts';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
-import { ANTIGRAVITY_NOT_SIGNED_IN } from '../host/antigravityAuth.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
 
 type AntigravitySignInControlsProps = {
   readonly antigravityAuthUrl?: string;
-  readonly error?: string;
+  readonly notSignedIn: boolean;
   readonly phase: AcpBootstrapPhase;
 };
 
 /** Sign in CTA + auth URL for Antigravity when unsigned or mid Sign in. */
-export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({ antigravityAuthUrl, error, phase }) => {
+export const AntigravitySignInControls: FC<AntigravitySignInControlsProps> = ({
+  antigravityAuthUrl,
+  notSignedIn,
+  phase,
+}) => {
   const signIn = useAtomSet(signInAntigravityAtomFn, { mode: 'promise' });
-  const showSignIn = error === ANTIGRAVITY_NOT_SIGNED_IN;
   const signingIn = phase === 'signing-in';
 
-  if (!showSignIn && !signingIn && antigravityAuthUrl === undefined) {
+  if (!notSignedIn && !signingIn && antigravityAuthUrl === undefined) {
     return null;
   }
 
   return (
     <Stack spacing={1} sx={{ mt: 1 }}>
-      {showSignIn ? (
+      {notSignedIn ? (
         <Box>
           <Button
             onClick={() => {

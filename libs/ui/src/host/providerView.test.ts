@@ -67,16 +67,23 @@ describe('provider status', () => {
     assert.isFalse(isProviderReady(switching));
   });
 
-  it('maps real harness phases and keeps non-auth bootstrap errors', () => {
+  it('maps real harness phases from the failure tag, not its wording', () => {
     assert.deepStrictEqual(authFromHarness('connecting', undefined), { auth: 'Checking', harnessError: undefined });
     assert.deepStrictEqual(authFromHarness('probing', undefined), { auth: 'Checking', harnessError: undefined });
     assert.deepStrictEqual(authFromHarness('signing-in', undefined), { auth: 'SigningIn', harnessError: undefined });
     assert.deepStrictEqual(authFromHarness('ready', undefined), { auth: 'SignedIn', harnessError: undefined });
-    assert.deepStrictEqual(authFromHarness('error', '`codex` is not authenticated — run `codex login`'), {
+    // The tag decides, so instruction wording can change freely...
+    assert.deepStrictEqual(authFromHarness('error', { _tag: 'NotSignedIn', message: 'lorem ipsum' }), {
       auth: 'NotSignedIn',
       harnessError: undefined,
     });
-    const ordinary = authFromHarness('error', 'spawn node ENOENT');
+    // ...and sign-in wording on an ordinary failure stays an error.
+    assert.deepStrictEqual(
+      authFromHarness('error', { _tag: 'Failed', message: '`codex` is not authenticated — run `codex login`' }),
+      { auth: 'Unknown', harnessError: '`codex` is not authenticated — run `codex login`' },
+    );
+    assert.deepStrictEqual(authFromHarness('error', undefined), { auth: 'Unknown', harnessError: 'Backend error' });
+    const ordinary = authFromHarness('error', { _tag: 'Failed', message: 'spawn node ENOENT' });
     assert.deepStrictEqual(ordinary, { auth: 'Unknown', harnessError: 'spawn node ENOENT' });
     assert.strictEqual(overallStatus(view({ auth: ordinary.auth, harnessError: ordinary.harnessError })), 'error');
   });

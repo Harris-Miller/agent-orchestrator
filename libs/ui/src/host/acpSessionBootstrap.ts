@@ -6,6 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 import { airCapability } from './airMeta.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
@@ -116,10 +117,12 @@ export type UnifiedHistoryEntry = {
   readonly launchTarget: AgentLaunchTarget;
 } & NormalizedSessionInfo;
 
+export type { HarnessFailure } from './harnessFailure.ts';
+
 export type BackendHarnessSnapshot = {
   /** Google OAuth URL captured from Antigravity BROWSER helper during Sign in. */
   readonly antigravityAuthUrl?: string;
-  readonly error?: string;
+  readonly failure?: HarnessFailure;
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];

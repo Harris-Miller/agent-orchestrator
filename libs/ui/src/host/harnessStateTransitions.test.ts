@@ -238,5 +238,6 @@ describe('stopped provider reconcile', () => {
     assert.strictEqual(reconciled.phase, 'connecting');
     assert.deepStrictEqual(reconciled.rpcCalls, []);
     assert.isUndefined(reconciled.antigravityAuthUrl);
+    assert.isUndefined(reconciled.failure);
   });
 });

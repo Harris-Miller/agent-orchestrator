@@ -244,12 +244,11 @@ export const activeVersionLabel = (p: ProviderView): string | undefined =>
 export const readyToInstallVersion = (p: ProviderView): string | undefined => p.runtime?.downloaded.at(-1);
 
 /**
- * Map harness phase + published error to the sign-in axis. `bootstrapError` is the harness `error` text; a
- * "not authenticated / not signed in" message means NotSignedIn, any other error stays an error.
+ * Map harness phase + published failure to the sign-in axis. Classification comes from the failure tag, not its text.
  */
 export const authFromHarness = (
   phase: 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in',
-  error: string | undefined,
+  failure: { readonly _tag: 'Failed' | 'NotSignedIn'; readonly message: string } | undefined,
 ): { readonly auth: AuthState; readonly harnessError: string | undefined } => {
   switch (phase) {
     case 'ready':
@@ -261,8 +260,8 @@ export const authFromHarness = (
     case 'probing':
       return { auth: 'Checking', harnessError: undefined };
     case 'error':
-      return error !== undefined && /not (authenticated|signed in)|log in|sign in/i.test(error)
+      return failure?._tag === 'NotSignedIn'
         ? { auth: 'NotSignedIn', harnessError: undefined }
-        : { auth: 'Unknown', harnessError: error ?? 'Backend error' };
+        : { auth: 'Unknown', harnessError: failure?.message ?? 'Backend error' };
   }
 };

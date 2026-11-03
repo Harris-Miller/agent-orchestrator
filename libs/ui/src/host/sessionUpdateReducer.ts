@@ -463,15 +463,16 @@ export const appendUserChatMessage = (
   transcript: SessionTranscript,
   text: string,
   images?: readonly UserMessageImageRef[],
-  steering?: true,
+  options?: { readonly steering?: true },
 ): SessionTranscript => {
   // Same lift as session/load `user_message_chunk`: `@` image markdown → top thumbnails.
   const lifted = liftImageMarkdownLinks(text);
   const mergedImages = [...(images ?? []), ...lifted.images];
-  const id = crypto.randomUUID();
+  const steering = options?.steering;
   if (mergedImages.length === 0 && steering === undefined) {
     return appendMessageChunk(transcript, 'user_message', undefined, lifted.text);
   }
+  const id = crypto.randomUUID();
   return {
     ...transcript,
     items: [

@@ -118,6 +118,9 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   );
 });
 
+const PROMPT_CLEAR_MAX_POLLS = 50;
+const PROMPT_CLEAR_POLL_INTERVAL = '100 millis';
+
 /**
  * `_session/steering` into the in-flight turn. Needs steering support, a `prompt` pending request and no
  * Pending interaction; otherwise no-op. `promptRequired` (turn already ended) falls back to a normal prompt.
@@ -172,7 +175,7 @@ const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
                 s,
                 trimmed,
                 attachments.length > 0 ? slimImageRefsFromAttachments(attachments) : undefined,
-                true,
+                { steering: true },
               ),
             ),
           }
@@ -183,12 +186,20 @@ const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
   // The ended turn's `session/prompt` response may still be in flight; sending now would be skipped
   // by beginClientRequest after the user message was appended. Wait (bounded) for it to clear.
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const current = get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId];
+  for (let attempt = 0; ; attempt += 1) {
+    const { sessions } = get(backendHarnessStateAtom(arg.launchTarget));
+    if (!(session.sessionId in sessions)) {
+      return yield* Effect.fail(new Error('Session was removed while steering'));
+    }
+    const current = sessions[session.sessionId];
     if (current.pendingClientRequest === undefined) {
       break;
     }
-    yield* Effect.sleep('100 millis');
+    if (attempt >= PROMPT_CLEAR_MAX_POLLS) {
+      // Caller restores the draft; sending now would append a user message that is never sent.
+      return yield* Effect.fail(new Error('Previous prompt turn did not finish; steering message not sent'));
+    }
+    yield* Effect.sleep(PROMPT_CLEAR_POLL_INTERVAL);
   }
   yield* sendChatItemEffect(arg, get);
 });

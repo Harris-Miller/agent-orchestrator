@@ -381,6 +381,13 @@ export const SessionChatBody: FC<{
       });
   };
 
+  const takeDraft = () => {
+    const taken = { text: draft, toSend: attachments };
+    setDraft('');
+    setAttachments([]);
+    return taken;
+  };
+
   const sendDraft = () => {
     if (!canSend) {
       return;
@@ -394,10 +401,7 @@ export const SessionChatBody: FC<{
     if (selectedLaunchTarget === undefined) {
       return;
     }
-    const text = draft;
-    const toSend = attachments;
-    setDraft('');
-    setAttachments([]);
+    const { text, toSend } = takeDraft();
     sendChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch(onClientError);
   };
 
@@ -408,14 +412,18 @@ export const SessionChatBody: FC<{
     steeringSupported,
   });
 
+  const sendPending = pendingClientRequest || virtualLifecycleInFlight;
+  const primaryButton = {
+    send: { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: !canSend },
+    steer: { ariaLabel: 'Steer', disabled: !canSteer },
+    stop: { ariaLabel: 'Prompt turn cancel', disabled: false },
+  }[primaryAction];
+
   const steerDraft = () => {
     if (!canSteer || selectedLaunchTarget === undefined) {
       return;
     }
-    const text = draft;
-    const toSend = attachments;
-    setDraft('');
-    setAttachments([]);
+    const { text, toSend } = takeDraft();
     steerChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch((error: unknown) => {
       setDraft(text);
       setAttachments(toSend);
@@ -760,16 +768,8 @@ export const SessionChatBody: FC<{
               {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
               <ButtonGroup variant="contained">
                 <Button
-                  aria-label={
-                    primaryAction === 'stop'
-                      ? 'Prompt turn cancel'
-                      : primaryAction === 'steer'
-                        ? 'Steer'
-                        : pendingClientRequest || virtualLifecycleInFlight
-                          ? 'Pending client request'
-                          : 'Send'
-                  }
-                  disabled={primaryAction === 'stop' ? false : primaryAction === 'steer' ? !canSteer : !canSend}
+                  aria-label={primaryButton.ariaLabel}
+                  disabled={primaryButton.disabled}
                   onClick={
                     primaryAction === 'stop'
                       ? event => {
@@ -783,7 +783,7 @@ export const SessionChatBody: FC<{
                 >
                   {primaryAction === 'stop' ? (
                     <LucideMuiIcon fontSize="small" icon={Square} />
-                  ) : primaryAction === 'send' && (pendingClientRequest || virtualLifecycleInFlight) ? (
+                  ) : primaryAction === 'send' && sendPending ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <LucideMuiIcon fontSize="small" icon={ArrowUp} />

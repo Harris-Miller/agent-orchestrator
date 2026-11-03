@@ -127,6 +127,27 @@ type StdioDemuxWrites = {
   serverWriteRequest: ((clientId: number, message: FromClientEncoded) => Effect.Effect<void>) | undefined;
 };
 
+const makeStdioDemuxWrites = (): StdioDemuxWrites => ({
+  clientWriteResponse: undefined,
+  clientIdByRequest: new Map(),
+  rpcClientId: 0,
+  serverWriteRequest: undefined,
+});
+
+/** Records which RpcClient sent a request so its response routes back to it. */
+const trackClientSend = (
+  writes: StdioDemuxWrites,
+  pendingClientRequestIds: Set<number | string>,
+  clientId: number,
+  message: FromClientEncoded,
+) => {
+  writes.rpcClientId = clientId;
+  if (message._tag === 'Request' && message.isNotification !== true) {
+    pendingClientRequestIds.add(message.id);
+    writes.clientIdByRequest.set(message.id, clientId);
+  }
+};
+
 /**
  * Shared Effect demux used by both Client (`connectAcpAgent`) and Agent (`serveAcpAgent`) stdio duplexes.
  */
@@ -238,12 +259,7 @@ export const connectAcpAgent = Effect.fnUntraced(
 
     const pendingClientRequestIds = new Set<number | string>();
     const notificationIds = new Set<number | string>();
-    const writes: StdioDemuxWrites = {
-      clientWriteResponse: undefined,
-      rpcClientId: 0,
-      clientIdByRequest: new Map(),
-      serverWriteRequest: undefined,
-    };
+    const writes = makeStdioDemuxWrites();
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
 
     const transport = yield* makeStdioTransport(handle, demuxRoute, wireTap).pipe(
@@ -259,11 +275,7 @@ export const connectAcpAgent = Effect.fnUntraced(
         return {
           codecFor: transport.codecFor,
           send: (clientId: number, message: FromClientEncoded) => {
-            writes.rpcClientId = clientId;
-            if (message._tag === 'Request' && message.isNotification !== true) {
-              pendingClientRequestIds.add(message.id);
-              writes.clientIdByRequest.set(message.id, clientId);
-            }
+            trackClientSend(writes, pendingClientRequestIds, clientId, message);
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },
           supportsAck: false,
@@ -361,12 +373,7 @@ export const serveAcpAgent = Effect.fnUntraced(
 
     const pendingClientRequestIds = new Set<number | string>();
     const notificationIds = new Set<number | string>();
-    const writes: StdioDemuxWrites = {
-      clientWriteResponse: undefined,
-      rpcClientId: 0,
-      clientIdByRequest: new Map(),
-      serverWriteRequest: undefined,
-    };
+    const writes = makeStdioDemuxWrites();
     const demuxRoute = makeStdioDemuxRoute(pendingClientRequestIds, notificationIds, writes, wireTap);
 
     const transport = yield* makeParentStdioTransport(demuxRoute, wireTap).pipe(
@@ -382,11 +389,7 @@ export const serveAcpAgent = Effect.fnUntraced(
         return {
           codecFor: transport.codecFor,
           send: (clientId: number, message: FromClientEncoded) => {
-            writes.rpcClientId = clientId;
-            if (message._tag === 'Request' && message.isNotification !== true) {
-              pendingClientRequestIds.add(message.id);
-              writes.clientIdByRequest.set(message.id, clientId);
-            }
+            trackClientSend(writes, pendingClientRequestIds, clientId, message);
             return transport.send(message).pipe(Effect.mapError(toRpcClientError));
           },
           supportsAck: false,

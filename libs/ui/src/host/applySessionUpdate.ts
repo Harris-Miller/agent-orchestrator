@@ -25,10 +25,10 @@ export const withUserChatMessage = (
   session: SessionSnapshot,
   text: string,
   images?: readonly UserMessageImageRef[],
-  steering?: true,
+  options?: { readonly steering?: true },
 ): SessionSnapshot => ({
   ...session,
-  transcript: appendUserChatMessage(session.transcript, text, images, steering),
+  transcript: appendUserChatMessage(session.transcript, text, images, options),
 });
 
 /**

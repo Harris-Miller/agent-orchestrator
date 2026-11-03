@@ -29,6 +29,18 @@ describe('pathsFromDataTransfer', () => {
     assert.deepStrictEqual(pathsFromDataTransfer(transfer({ resourceurls: '["file:///tmp/t.md"]' })), ['/tmp/t.md']);
     assert.deepStrictEqual(pathsFromDataTransfer(transfer({ resourceurls: '[not json' })), []);
   });
+
+  it('reads codefiles (Explorer files and folders) and codeeditors (tabs), deduped', () => {
+    const paths = pathsFromDataTransfer(
+      transfer({
+        codeeditors:
+          '[{"resource":{"$mid":1,"scheme":"file","path":"/tmp/t.md"}},{"resource":{"scheme":"untitled","path":"x"}}]',
+        codefiles: '["/tmp/dir","/tmp/t.md"]',
+        resourceurls: '["file:///tmp/t.md"]',
+      }),
+    );
+    assert.deepStrictEqual(paths, ['/tmp/dir', '/tmp/t.md']);
+  });
 });
 
 describe('dropMentionsMarkdown', () => {

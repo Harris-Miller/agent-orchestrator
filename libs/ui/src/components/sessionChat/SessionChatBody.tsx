@@ -338,6 +338,15 @@ export const SessionChatBody: FC<{
                 return;
               }
               const inside = controlsEnabledRef.current && isOverChatRef.current(event.position);
+              // TEMP-DROP-DEBUG
+              const hit = document.elementFromPoint(event.position.x, event.position.y);
+              console.debug('[drop-debug]', event._tag, JSON.stringify(event.position), {
+                controlsEnabled: controlsEnabledRef.current,
+                inside,
+                hit: hit?.tagName,
+                hitClass: typeof hit?.className === 'string' ? hit.className.slice(0, 120) : undefined,
+                modalAncestor: hit?.closest('.MuiModal-root, .MuiPopover-root, .MuiMenu-root')?.className.slice(0, 120),
+              });
               setDropActive(inside && event._tag !== 'drop');
               if (event._tag === 'drop') {
                 setDropActive(false);

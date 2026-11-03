@@ -38,16 +38,46 @@ const parseJsonStringArray = (raw: string): string[] => {
   }
 };
 
-/** DataTransfer types that carry file or editor resources from a VS Code drag. */
-export const composerDropTypes: readonly string[] = ['text/uri-list', 'resourceurls'];
+/**
+ * DataTransfer types that carry file or editor resources from a VS Code drag (lowercased by the browser).
+ * `codefiles` is the only one that includes folders; `codeeditors` is what editor tabs set.
+ */
+export const composerDropTypes: readonly string[] = ['text/uri-list', 'resourceurls', 'codefiles', 'codeeditors'];
+
+/** `codefiles`: JSON array of absolute fs paths (Explorer files and folders). */
+const parseCodeFiles = (raw: string): string[] => parseJsonStringArray(raw);
+
+/** `codeeditors`: JSON array of `{ resource: { $mid, scheme, path } }` (editor tabs). */
+const parseCodeEditors = (raw: string): string[] => {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.flatMap((entry: unknown) => {
+      if (!Predicate.isObject(entry) || !Predicate.isObject(entry.resource)) {
+        return [];
+      }
+      const { path, scheme } = entry.resource;
+      return scheme === 'file' && typeof path === 'string' ? [path] : [];
+    });
+  } catch {
+    return [];
+  }
+};
 
 /** Absolute `file:` paths from a DataTransfer (`text/uri-list`, VS Code `resourceurls`). Read synchronously in the drop handler. */
 export const pathsFromDataTransfer = (getData: (type: string) => string): string[] => {
   const uris = [...parseUriList(getData('text/uri-list')), ...parseJsonStringArray(getData('resourceurls'))];
-  return uris.flatMap(uri => {
-    const path = fileUriToPath(uri);
-    return path === undefined ? [] : [path];
-  });
+  const paths = [
+    ...parseCodeFiles(getData('codefiles')),
+    ...parseCodeEditors(getData('codeeditors')),
+    ...uris.flatMap(uri => {
+      const path = fileUriToPath(uri);
+      return path === undefined ? [] : [path];
+    }),
+  ];
+  return [...new Set(paths)];
 };
 
 export type DroppedPathEntry = { readonly kind: 'dir' | 'file'; readonly path: string };

@@ -431,6 +431,17 @@ export const SessionChatBody: FC<{
     });
   };
 
+  const onCancelElicitation = () => {
+    if (selectedLaunchTarget === undefined || selectedSession?.pendingElicitation === undefined) {
+      return;
+    }
+    respondElicitation({
+      launchTarget: selectedLaunchTarget,
+      response: { action: 'cancel' },
+      sessionId: selectedSession.sessionId,
+    }).catch(onClientError);
+  };
+
   const onCancelPrompt = () => {
     if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancelPromptTurn) {
       return;
@@ -607,13 +618,7 @@ export const SessionChatBody: FC<{
                     summary,
                   }).catch(onClientError);
                 }}
-                onCancel={() => {
-                  respondElicitation({
-                    launchTarget: selectedLaunchTarget,
-                    response: { action: 'cancel' },
-                    sessionId: selectedSession.sessionId,
-                  }).catch(onClientError);
-                }}
+                onCancel={onCancelElicitation}
                 onDecline={() => {
                   respondElicitation({
                     launchTarget: selectedLaunchTarget,
@@ -718,7 +723,7 @@ export const SessionChatBody: FC<{
               focusEndRef={focusComposerEndRef}
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
-              onEscape={canCancelPromptTurn ? onCancelPrompt : undefined}
+              onEscape={selectedSession?.pendingElicitation === undefined ? undefined : onCancelElicitation}
               onSubmit={canSteer ? steerDraft : sendDraft}
               placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}

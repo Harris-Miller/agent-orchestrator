@@ -531,108 +531,63 @@ describe('ensureVirtualAcpBound', () => {
   );
 });
 
-const sessionWithModel = (sessionId: string, currentValue: string) => ({
+/** Bound session snapshot whose single `model` option currently reports `modelValue`. */
+const sessionWithModelValue = (sessionId: string, modelValue: string) => ({
   cwd: '/proj',
-  sessionConfiguration: { configOptions: [{ ...selectableConfig.configOptions[0], currentValue }] },
+  sessionConfiguration: { configOptions: [{ ...selectableConfig.configOptions[0], currentValue: modelValue }] },
   sessionId,
   status: 'active' as const,
   transcript: emptySessionTranscript(),
 });
 
-describe('setConfigOptionAtomFn Virtual (blob-only)', () => {
-  it.effect(
-    'Virtual Config matching live Bound session → blob updated, no set_config_option, live unchanged (#217)',
-    () =>
-      Effect.gen(function* () {
-        const calls: string[] = [];
-        installMockAgent(calls);
-        const runtime = createHostRuntime(mockHostLayer);
-        const { setConfigOptionAtomFn } = createChatAtoms(runtime);
-        const registry = AtomRegistry.make();
-        registry.mount(setConfigOptionAtomFn);
+/** Seed a ready Virtual (blob model `gpt`), optionally Bound to a live session reporting `liveModel`, then select `o1`. */
+const selectO1OnVirtual = (liveModel?: string) =>
+  Effect.gen(function* () {
+    const calls: string[] = [];
+    installMockAgent(calls);
+    const runtime = createHostRuntime(mockHostLayer);
+    const { setConfigOptionAtomFn } = createChatAtoms(runtime);
+    const registry = AtomRegistry.make();
+    registry.mount(setConfigOptionAtomFn);
 
-        seedReadyVirtual(registry, { configValues: { model: 'gpt' }, sessionId: 'bound-1' });
-        const live = sessionWithModel('bound-1', 'o1');
-        registry.set(backendHarnessStateAtom('codex-acp'), {
-          ...initialBackendHarnessSnapshot(),
-          phase: 'ready',
-          sessions: { 'bound-1': live },
-        });
-
-        yield* runAtomFn(registry, setConfigOptionAtomFn, {
-          configId: 'model',
-          launchTarget: 'codex-acp',
-          type: 'select',
-          value: 'o1',
-        });
-
-        assert.deepStrictEqual(calls, []);
-        assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
-        assert.deepStrictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'], live);
-        assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
-        clearConnectedAgent('codex-acp');
-        registry.dispose();
-      }),
-  );
-
-  it.effect('Virtual Config differing from live Bound session → blob updated, no set_config_option', () =>
-    Effect.gen(function* () {
-      const calls: string[] = [];
-      installMockAgent(calls);
-      const runtime = createHostRuntime(mockHostLayer);
-      const { setConfigOptionAtomFn } = createChatAtoms(runtime);
-      const registry = AtomRegistry.make();
-      registry.mount(setConfigOptionAtomFn);
-
-      seedReadyVirtual(registry, { configValues: { model: 'gpt' }, sessionId: 'bound-1' });
-      const live = sessionWithModel('bound-1', 'gpt');
+    const live = liveModel === undefined ? undefined : sessionWithModelValue('bound-1', liveModel);
+    seedReadyVirtual(registry, { configValues: { model: 'gpt' }, ...(live && { sessionId: 'bound-1' }) });
+    if (live !== undefined) {
       registry.set(backendHarnessStateAtom('codex-acp'), {
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: { 'bound-1': live },
       });
+    }
 
-      yield* runAtomFn(registry, setConfigOptionAtomFn, {
-        configId: 'model',
-        launchTarget: 'codex-acp',
-        type: 'select',
-        value: 'o1',
-      });
+    yield* runAtomFn(registry, setConfigOptionAtomFn, {
+      configId: 'model',
+      launchTarget: 'codex-acp',
+      type: 'select',
+      value: 'o1',
+    });
 
-      assert.deepStrictEqual(calls, []);
-      assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
+    assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
+    if (live !== undefined) {
       assert.deepStrictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'], live);
-      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
-      clearConnectedAgent('codex-acp');
-      registry.dispose();
-    }),
+    }
+    clearConnectedAgent('codex-acp');
+    registry.dispose();
+  });
+
+describe('setConfigOptionAtomFn Virtual (blob-only)', () => {
+  it.effect(
+    'Virtual Config matching live Bound session → blob updated, no set_config_option, live unchanged (#217)',
+    () => selectO1OnVirtual('o1'),
   );
 
-  it.effect('unbound Virtual Config change → blob updated, no RPC', () =>
-    Effect.gen(function* () {
-      const calls: string[] = [];
-      installMockAgent(calls);
-      const runtime = createHostRuntime(mockHostLayer);
-      const { setConfigOptionAtomFn } = createChatAtoms(runtime);
-      const registry = AtomRegistry.make();
-      registry.mount(setConfigOptionAtomFn);
-
-      seedReadyVirtual(registry, { configValues: { model: 'gpt' } });
-
-      yield* runAtomFn(registry, setConfigOptionAtomFn, {
-        configId: 'model',
-        launchTarget: 'codex-acp',
-        type: 'select',
-        value: 'o1',
-      });
-
-      assert.deepStrictEqual(calls, []);
-      assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
-      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
-      clearConnectedAgent('codex-acp');
-      registry.dispose();
-    }),
+  it.effect('Virtual Config differing from live Bound session → blob updated, no set_config_option', () =>
+    selectO1OnVirtual('gpt'),
   );
+
+  it.effect('unbound Virtual Config change → blob updated, no RPC', () => selectO1OnVirtual());
 });
 
 describe('materializeVirtualThenSendAtomFn', () => {
@@ -688,15 +643,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
       registry.set(backendHarnessStateAtom('codex-acp'), {
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
-        sessions: {
-          'bound-1': {
-            cwd: '/proj',
-            sessionConfiguration: selectableConfig,
-            sessionId: 'bound-1',
-            status: 'active',
-            transcript: emptySessionTranscript(),
-          },
-        },
+        sessions: { 'bound-1': sessionWithModelValue('bound-1', 'gpt') },
       });
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);

@@ -11,7 +11,7 @@ The reactive Harness state shared across host webviews — backend harness phase
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Bind**:
-Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Composer Config writes only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
+Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Harness state transition**:

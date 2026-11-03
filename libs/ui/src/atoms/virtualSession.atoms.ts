@@ -5,8 +5,9 @@ import { Atom } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
-import { hardResetForAgent, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
-import type { ConfigOptionValues } from '../host/configProbe.ts';
+import { hardResetForAgent, rowForModel, sanitizeConfigValuesForIndex } from '../host/configOptionIndexUi.ts';
+import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
+import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
 
 import {
   configOptionIndexAtom,
@@ -130,6 +131,22 @@ export const patchVirtualSession = (rw: AtomRw, patch: Partial<VirtualSession>):
     return;
   }
   rw.set(virtualSessionAtom, { ...current, ...patch });
+};
+
+/** Blob-only Config write. A model change re-derives the other options from the new model's rows. */
+export const patchVirtualConfigValue = (
+  rw: AtomRw,
+  index: ConfigOptionIndex | undefined,
+  configId: string,
+  value: boolean | string,
+): void => {
+  const configValues = rw.get(virtualSessionAtom)?.configValues ?? {};
+  patchVirtualSession(rw, {
+    configValues:
+      configId === 'model' && typeof value === 'string' && index !== undefined
+        ? preserveConfigValuesOnModelChange({ ...configValues, model: value }, rowForModel(index, value))
+        : { ...configValues, [configId]: value },
+  });
 };
 
 /** LT change on Virtual: Handoff-style hard reset; keep draft + cwd; clear Bound id when LT changes; prefer lastCreateDefaults when LT matches. */

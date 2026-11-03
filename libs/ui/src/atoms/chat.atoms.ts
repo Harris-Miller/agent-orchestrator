@@ -13,8 +13,6 @@ import {
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
-import { rowForModel } from '../host/configOptionIndexUi.ts';
-import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
@@ -36,8 +34,8 @@ import {
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { lastCreateDefaultsAtom, patchVirtualSession, virtualSessionAtom } from './virtualSession.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
+import { lastCreateDefaultsAtom, patchVirtualConfigValue, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -377,13 +375,12 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
       ) {
         if (get(selectedAtom)?._tag === 'Virtual') {
           // Virtual (Bound or not): blob only. Materialize's applyConfigDiffs pushes it to the live session on Send.
-          const configValues = get(virtualSessionAtom)?.configValues ?? {};
-          const index = get(configOptionIndexAtom(arg.launchTarget));
-          const nextConfigValues =
-            arg.type === 'select' && arg.configId === 'model' && index !== undefined
-              ? preserveConfigValuesOnModelChange({ ...configValues, model: arg.value }, rowForModel(index, arg.value))
-              : { ...configValues, [arg.configId]: arg.value };
-          patchVirtualSession(rwFromFnContext(get), { configValues: nextConfigValues });
+          patchVirtualConfigValue(
+            rwFromFnContext(get),
+            get(configOptionIndexAtom(arg.launchTarget)),
+            arg.configId,
+            arg.value,
+          );
           return;
         }
 

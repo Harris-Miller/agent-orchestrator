@@ -285,18 +285,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
+  type RespondElicitationArg = {
+    launchTarget: AgentLaunchTarget;
+    sessionId: string;
+  } & (
+    | { response: Extract<CreateElicitationResponseBody, { action: 'accept' }>; summary: ElicitationSummary }
+    | { response: Extract<CreateElicitationResponseBody, { action: 'decline' | 'cancel' }> }
+  );
+
   const respondElicitationAtomFn = atomRuntime
     .fn(
       Effect.fnUntraced(
-        function* (
-          arg: {
-            launchTarget: AgentLaunchTarget;
-            response: CreateElicitationResponseBody;
-            sessionId: string;
-            summary?: ElicitationSummary;
-          },
-          get: Atom.FnContext,
-        ) {
+        function* (arg: RespondElicitationArg, get: Atom.FnContext) {
           yield* Effect.annotateCurrentSpan({
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
@@ -313,7 +313,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
               ...current,
               pendingElicitation: undefined,
               transcript:
-                arg.response.action === 'accept' && arg.summary !== undefined && arg.summary.rows.length > 0
+                'summary' in arg && arg.summary.rows.length > 0
                   ? {
                       ...current.transcript,
                       items: [

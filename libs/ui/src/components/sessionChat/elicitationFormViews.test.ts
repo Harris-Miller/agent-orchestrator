@@ -23,25 +23,45 @@ const oneOf = [
   { const: 'b', title: 'Beta' },
 ];
 
-const claudeFixture = request(
-  {
-    question_0: { description: 'Which one?', oneOf, title: 'Pick', type: 'string' },
-    question_0_custom: { title: 'Pick (Other)', type: 'string' },
+// `question_0` / `question_0_custom` from the elicitation/create payload in issue #220.
+const claudeQuestion =
+  'Q17: "Install vX" while that provider has live sessions — restart its harness immediately (kills in-flight turns; old runtime dir is deleted per Q3, so lazy Node requires could break otherwise)?';
+const claudeOther = 'Type your own answer, or add a note to the option you chose above (optional).';
+const claudeProperties = {
+  question_0: {
+    description: claudeQuestion,
+    oneOf: [
+      { const: 'Restart now (Recommended)', title: 'Restart now (Recommended)' },
+      { const: 'Defer', title: 'Defer' },
+    ],
+    title: 'Update+live',
+    type: 'string',
   },
-  ['question_0'],
-);
+  question_0_custom: {
+    _meta: {
+      _askUserQuestionCustomAnswer: { isCustomAnswer: true, questionId: 'question_0' },
+      jetbrains: { air: { customAnswer: { isCustomAnswer: true, questionId: 'question_0' }, version: 1 } },
+    },
+    description: claudeOther,
+    title: 'Other',
+    type: 'string',
+  },
+};
+const claudeFixture = request(claudeProperties);
 
 describe('elicitationFieldViews', () => {
   it('maps oneOf to single with titles as labels', () => {
     const [first, second] = elicitationFieldViews(claudeFixture);
     assert.strictEqual(first.kind, 'single');
     assert.deepStrictEqual(first.kind === 'single' ? first.options : [], [
-      { label: 'Alpha', value: 'a' },
-      { label: 'Beta', value: 'b' },
+      { label: 'Restart now (Recommended)', value: 'Restart now (Recommended)' },
+      { label: 'Defer', value: 'Defer' },
     ]);
-    assert.strictEqual(first.label, 'Which one?');
-    assert.strictEqual(first.caption, 'Pick');
+    assert.strictEqual(first.label, claudeQuestion);
+    assert.strictEqual(first.caption, 'Update+live');
     assert.strictEqual(second.kind, 'text');
+    assert.strictEqual(second.label, claudeOther);
+    assert.strictEqual(second.caption, 'Other');
   });
 
   it('maps enum to single, oneOf wins over enum', () => {
@@ -71,13 +91,18 @@ describe('elicitationFieldViews', () => {
 });
 
 describe('values + accept gating', () => {
-  const views = elicitationFieldViews(claudeFixture);
-
-  it('does not preselect without default and gates required', () => {
+  it('does not preselect without default; payload has no required, so empty is acceptable', () => {
+    const views = elicitationFieldViews(claudeFixture);
     const values = initialElicitationValues(views);
     assert.strictEqual(values.question_0, undefined);
+    assert.isTrue(canAcceptElicitation(views, values));
+  });
+
+  it('gates required', () => {
+    const views = elicitationFieldViews(request(claudeProperties, ['question_0']));
+    const values = initialElicitationValues(views);
     assert.isFalse(canAcceptElicitation(views, values));
-    assert.isTrue(canAcceptElicitation(views, { ...values, question_0: 'a' }));
+    assert.isTrue(canAcceptElicitation(views, { ...values, question_0: 'Defer' }));
   });
 
   it('gates multi on minItems/maxItems', () => {

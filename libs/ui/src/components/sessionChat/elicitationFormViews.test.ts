@@ -88,7 +88,7 @@ describe('values + accept gating', () => {
   });
 
   it('omits unset values from content', () => {
-    assert.deepStrictEqual(elicitationContent({ a: undefined, b: '', c: 'v', d: false, e: 0 }), {
+    assert.deepStrictEqual(elicitationContent({ a: undefined, b: '', c: 'v', d: false, e: 0, f: [] }), {
       c: 'v',
       d: false,
       e: 0,

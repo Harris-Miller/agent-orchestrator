@@ -113,7 +113,8 @@ export const initialElicitationValues = (views: readonly ElicitationFieldView[])
   return values;
 };
 
-const isSet = (value: ElicitationValue): boolean => value !== undefined && value !== '';
+const isSet = (value: ElicitationValue): boolean =>
+  value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0);
 
 export const canAcceptElicitation = (views: readonly ElicitationFieldView[], values: ElicitationValues): boolean =>
   views.every(view => {

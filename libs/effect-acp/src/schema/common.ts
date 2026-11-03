@@ -34,6 +34,11 @@ export const AcpError = Schema.Struct({
 });
 export type AcpError = typeof AcpError.Type;
 
+/** ACP V1 `auth_required`. Also the generic JSON-RPC server-error code, so only trust it from agents known to use it for auth. */
+export const ACP_AUTH_REQUIRED = -32000;
+
+export const isAuthRequiredError = (error: AcpError): boolean => error.code === ACP_AUTH_REQUIRED;
+
 export const RequestId = Schema.Union([Schema.Null, Schema.Number, Schema.String]);
 export type RequestId = typeof RequestId.Type;
 

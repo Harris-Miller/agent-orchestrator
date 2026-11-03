@@ -7,6 +7,7 @@ import {
   ClientNotificationRpcs,
   ClientRequestRpcs,
   ContentBlock,
+  isAuthRequiredError,
   ProtocolNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
@@ -149,5 +150,12 @@ describe('ListSessionsRequest metadata', () => {
       _meta: { jetbrains: { air: { list: { archived: 'not-archived' }, version: 1 } } },
     };
     assert.throws(() => Schema.decodeUnknownSync(ListSessionsRequest)(invalidRequest));
+  });
+});
+
+describe('isAuthRequiredError', () => {
+  it('accepts the auth_required code only', () => {
+    assert.isTrue(isAuthRequiredError({ code: -32000, message: 'x' }));
+    assert.isFalse(isAuthRequiredError({ code: -32603, message: 'Please sign in' }));
   });
 });

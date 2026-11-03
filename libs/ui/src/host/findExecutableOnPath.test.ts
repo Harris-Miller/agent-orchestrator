@@ -476,17 +476,29 @@ describe('auth messages through bootstrap publication', () => {
       classifyBootstrapFailure('codex-acp', Cause.fail({ code: -32000, message: 'Not logged in' })),
       { _tag: 'NotSignedIn', message: '`codex` is not authenticated — run `codex login`' },
     );
+    // Wording never decides: only the ACP `auth_required` code or our own timeout do.
     assert.deepStrictEqual(classifyBootstrapFailure('antigravity-acp', Cause.fail(new Error('please sign in'))), {
-      _tag: 'NotSignedIn',
+      _tag: 'Failed',
       message: 'please sign in',
     });
+    assert.deepStrictEqual(
+      classifyBootstrapFailure(
+        'antigravity-acp',
+        Cause.fail({ code: -32603, message: 'Could not sign in to telemetry' }),
+      ),
+      { _tag: 'Failed', message: 'Could not sign in to telemetry' },
+    );
+    assert.deepStrictEqual(
+      classifyBootstrapFailure('antigravity-acp', Cause.fail({ code: -32000, message: 'Session unavailable' })),
+      { _tag: 'NotSignedIn', message: 'Session unavailable' },
+    );
     // The sign-in timeout stays NotSignedIn (Sign in button shows) but keeps its own wording.
     assert.deepStrictEqual(
       classifyBootstrapFailure(
         'antigravity-acp',
-        Cause.fail(new AntigravitySignInTimedOut({ message: 'Antigravity Sign in timed out' })),
+        Cause.fail(new AntigravitySignInTimedOut({ message: 'Gave up waiting for the browser' })),
       ),
-      { _tag: 'NotSignedIn', message: 'Antigravity Sign in timed out' },
+      { _tag: 'NotSignedIn', message: 'Gave up waiting for the browser' },
     );
     assert.deepStrictEqual(classifyBootstrapFailure('antigravity-acp', Cause.die('boom')), {
       _tag: 'Failed',

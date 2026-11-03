@@ -2,7 +2,9 @@
  * Antigravity oauth-personal Sign in helpers for the ACP harness bootstrap.
  */
 import { OpenUrl } from '@lib/context-services';
-import { Cause, Effect, Schema, Stream } from 'effect';
+import { isAuthRequiredError } from '@libs/effect-acp';
+import type { AcpError } from '@libs/effect-acp';
+import { Cause, Effect, Option, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
@@ -32,18 +34,27 @@ const formatError = (error: unknown): string => {
   return JSON.stringify(error);
 };
 
-const looksLikeAntigravityAuthFailure = (message: string): boolean =>
-  /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
+const isAcpError = (error: unknown): error is AcpError =>
+  isRecord(error) && typeof error.code === 'number' && typeof error.message === 'string';
+
+/** Antigravity is signed out when sign-in timed out or ACP reports `auth_required`; wording is never consulted. */
+const isAntigravityNotSignedIn = (error: unknown): boolean =>
+  (isRecord(error) && error._tag === 'AntigravitySignInTimedOut') || (isAcpError(error) && isAuthRequiredError(error));
 
 /** Classify a bootstrap `Cause` for the provider views; interrupts are not failures the user caused. */
 export const classifyBootstrapFailure = (
   launchTarget: AgentLaunchTarget,
   cause: Cause.Cause<unknown>,
 ): HarnessFailure => {
-  const message = formatError(Cause.squash(cause));
   if (launchTarget === 'antigravity-acp') {
-    return looksLikeAntigravityAuthFailure(message) ? { _tag: 'NotSignedIn', message } : { _tag: 'Failed', message };
+    const typed = Cause.findErrorOption(cause);
+    if (Option.isSome(typed)) {
+      const message = formatError(typed.value);
+      return isAntigravityNotSignedIn(typed.value) ? { _tag: 'NotSignedIn', message } : { _tag: 'Failed', message };
+    }
+    return { _tag: 'Failed', message: formatError(Cause.squash(cause)) };
   }
+  const message = formatError(Cause.squash(cause));
   return classifyVendorAuthFailure(launchTarget, message);
 };
 

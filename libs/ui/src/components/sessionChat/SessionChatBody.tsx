@@ -150,6 +150,7 @@ export const SessionChatBody: FC<{
   const [commandFocusIndex, setCommandFocusIndex] = useState(0);
   const composerCursorRef = useRef(0);
   const draftRef = useRef(draft);
+  const attachmentsRef = useRef(attachments);
   const chatRootRef = useRef<HTMLElement>(null);
   const [dropActive, setDropActive] = useState(false);
   const syncCursorRef = useRef<null | number>(null);
@@ -260,7 +261,8 @@ export const SessionChatBody: FC<{
 
   useLayoutEffect(() => {
     draftRef.current = draft;
-  }, [draft]);
+    attachmentsRef.current = attachments;
+  }, [attachments, draft]);
 
   // Shared by the DOM (VS Code) and Tauri drop paths. Reads draft and cursor after the stat await, not at drop time.
   const applyDroppedPaths = (paths: readonly string[]) => {
@@ -269,8 +271,28 @@ export const SessionChatBody: FC<{
     }
     hostRuntime
       .runPromise(classifyDroppedPaths(paths))
-      .then(entries => {
-        const next = insertDroppedMentions(draftRef.current, composerCursorRef.current, dropMentionsMarkdown(entries));
+      .then(async entries => {
+        // Images attach like the paperclip and @-menu (preview chips); everything else becomes a mention link.
+        const imagePaths = entries
+          .filter(entry => entry.kind === 'file' && mimeTypeForImagePath(entry.path) !== undefined)
+          .map(entry => entry.path);
+        const mentionEntries = entries.filter(entry => !imagePaths.includes(entry.path));
+        if (imagePaths.length > 0) {
+          const merged = await hostRuntime.runPromise(
+            mergeComposerAttachmentsFromPaths(attachmentsRef.current, imagePaths),
+          );
+          if (merged !== undefined) {
+            setAttachments(merged);
+          }
+        }
+        if (mentionEntries.length === 0) {
+          return;
+        }
+        const next = insertDroppedMentions(
+          draftRef.current,
+          composerCursorRef.current,
+          dropMentionsMarkdown(mentionEntries),
+        );
         syncCursorRef.current = next.cursor;
         composerCursorRef.current = next.cursor;
         setDraft(next.draft);

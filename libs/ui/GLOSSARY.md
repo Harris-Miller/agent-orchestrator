@@ -85,7 +85,7 @@ The floating list opened by a Composer Trigger — Available Commands for `/` an
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)
 
 **Filesystem Mention**:
-Choosing a filesystem path from the `@` Composer Menu, or dropping files, folders, or (VS Code) editor tabs onto the composer; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob. A drop inserts every dropped `file:` path (any absolute path, not limited to the session cwd) in drop order at the draft's last cursor, or at the end if none; ignored while the composer is disabled.
+Choosing a filesystem path from the `@` Composer Menu, or dropping files, folders, or (VS Code) editor tabs onto the composer; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob. A drop inserts every dropped non-image `file:` path (any absolute path, not limited to the session cwd) in drop order at the draft's last cursor, or at the end if none; dropped image files attach as image attachments instead, like the paperclip. Ignored while the composer is disabled.
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:

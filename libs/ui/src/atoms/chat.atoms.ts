@@ -146,7 +146,8 @@ const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
     session.pendingPermission !== undefined ||
     !hasSteeringSupport(snapshot.initializeResult)
   ) {
-    return;
+    // Caller already cleared the draft; fail so it restores instead of silently dropping the message.
+    return yield* Effect.fail(new Error('Steering is not available for this session right now'));
   }
 
   yield* Effect.annotateCurrentSpan({
@@ -180,6 +181,15 @@ const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
     return;
   }
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
+  // The ended turn's `session/prompt` response may still be in flight; sending now would be skipped
+  // by beginClientRequest after the user message was appended. Wait (bounded) for it to clear.
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const current = get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId];
+    if (current.pendingClientRequest === undefined) {
+      break;
+    }
+    yield* Effect.sleep('100 millis');
+  }
   yield* sendChatItemEffect(arg, get);
 });
 

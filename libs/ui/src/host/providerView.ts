@@ -5,6 +5,8 @@
 import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/ao-home';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { isNotSignedIn } from './harnessFailure.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 
 export type CliState =
   | { readonly _tag: 'Found'; readonly path: string }
@@ -244,12 +246,11 @@ export const activeVersionLabel = (p: ProviderView): string | undefined =>
 export const readyToInstallVersion = (p: ProviderView): string | undefined => p.runtime?.downloaded.at(-1);
 
 /**
- * Map harness phase + published error to the sign-in axis. `bootstrapError` is the harness `error` text; a
- * "not authenticated / not signed in" message means NotSignedIn, any other error stays an error.
+ * Map harness phase + published failure to the sign-in axis. Classification comes from the failure tag, not its text.
  */
 export const authFromHarness = (
   phase: 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in',
-  error: string | undefined,
+  failure: HarnessFailure | undefined,
 ): { readonly auth: AuthState; readonly harnessError: string | undefined } => {
   switch (phase) {
     case 'ready':
@@ -261,8 +262,8 @@ export const authFromHarness = (
     case 'probing':
       return { auth: 'Checking', harnessError: undefined };
     case 'error':
-      return error !== undefined && /not (authenticated|signed in)|log in|sign in/i.test(error)
+      return isNotSignedIn(failure)
         ? { auth: 'NotSignedIn', harnessError: undefined }
-        : { auth: 'Unknown', harnessError: error ?? 'Backend error' };
+        : { auth: 'Unknown', harnessError: failure?.message ?? 'Backend error' };
   }
 };

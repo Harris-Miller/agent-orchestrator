@@ -155,7 +155,7 @@ export const allInitializeResultsAtom = Atom.make(get =>
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
     antigravityAuthUrl: get(backendHarnessStateAtom(launchTarget)).antigravityAuthUrl,
-    error: get(backendHarnessStateAtom(launchTarget)).error,
+    failure: get(backendHarnessStateAtom(launchTarget)).failure,
     label: agentLaunchTargetLabel(launchTarget),
     launchTarget,
     phase: get(backendHarnessStateAtom(launchTarget)).phase,
@@ -183,7 +183,7 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
   for (const launchTarget of get(enabledLaunchTargetsAtom)) {
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     if (snapshot.phase === 'error') {
-      reasons[launchTarget] = snapshot.error ?? 'Unavailable';
+      reasons[launchTarget] = snapshot.failure?.message ?? 'Unavailable';
     } else if (snapshot.phase !== 'ready') {
       reasons[launchTarget] = 'Starting…';
     } else if (!configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget)))) {

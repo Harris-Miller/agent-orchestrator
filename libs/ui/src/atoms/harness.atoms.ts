@@ -107,13 +107,13 @@ export const createHarnessAtoms = (
                 })),
               }));
             },
-            onPhase: (phase, error) => {
+            onPhase: (phase, failure) => {
               updateState(current => ({
                 ...current,
                 ...(phase === 'ready' || phase === 'error' || phase === 'connecting'
                   ? { antigravityAuthUrl: undefined }
                   : {}),
-                error,
+                failure,
                 phase,
               }));
               if (phase === 'ready') {

@@ -112,7 +112,7 @@ export const createProvidersAtoms = (
       const info = get(providerRuntimeInfoAtom(launchTarget));
       const snapshot = snapshotOf(info);
       const harnessState = get(backendHarnessStateAtom(launchTarget));
-      const { auth, harnessError } = authFromHarness(harnessState.phase, harnessState.error);
+      const { auth, harnessError } = authFromHarness(harnessState.phase, harnessState.failure);
       const managed = PROVIDER_META[launchTarget].runtime !== undefined;
       return {
         auth,

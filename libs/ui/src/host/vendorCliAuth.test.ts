@@ -67,10 +67,10 @@ describe('requireVendorCliAuthenticated', () => {
     ),
   );
 
-  it.effect('codex: exit 1 → MissingLaunchPrerequisite auth message', () =>
+  it.effect('codex: exit 1 → VendorNotAuthenticated auth message', () =>
     Effect.gen(function* () {
       const error = yield* requireVendorCliAuthenticated('codex-acp', '/usr/local/bin/codex').pipe(Effect.flip);
-      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error._tag, 'VendorNotAuthenticated');
       assert.strictEqual(error.executable, 'codex');
       assert.strictEqual(error.message, '`codex` is not authenticated — run `codex login`');
     }).pipe(Effect.provide(Layer.mergeAll(osLayer(), mockSpawnerLayer({ exitCode: 1, stdout: 'Not logged in\n' })))),
@@ -128,10 +128,10 @@ describe('requireVendorCliAuthenticated', () => {
     return provideAuth(requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude'), delayedStdoutLayer);
   });
 
-  it.effect('claude: loggedIn false → MissingLaunchPrerequisite auth message', () =>
+  it.effect('claude: loggedIn false → VendorNotAuthenticated auth message', () =>
     Effect.gen(function* () {
       const error = yield* requireVendorCliAuthenticated('claude-agent-acp', '/usr/local/bin/claude').pipe(Effect.flip);
-      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error._tag, 'VendorNotAuthenticated');
       assert.strictEqual(error.executable, 'claude');
       assert.strictEqual(error.message, '`claude` is not authenticated — run `claude` and log in');
     }).pipe(
@@ -176,10 +176,10 @@ describe('requireVendorCliAuthenticated', () => {
     ),
   );
 
-  it.effect('cursor: isAuthenticated false → MissingLaunchPrerequisite auth message', () =>
+  it.effect('cursor: isAuthenticated false → VendorNotAuthenticated auth message', () =>
     Effect.gen(function* () {
       const error = yield* requireVendorCliAuthenticated('cursor-acp', '/usr/local/bin/cursor-agent').pipe(Effect.flip);
-      assert.strictEqual(error._tag, 'MissingLaunchPrerequisite');
+      assert.strictEqual(error._tag, 'VendorNotAuthenticated');
       assert.strictEqual(error.executable, 'cursor-agent');
       assert.strictEqual(error.message, '`cursor-agent` is not authenticated — run `cursor-agent login`');
     }).pipe(

@@ -2,7 +2,7 @@
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
 import { OS } from '@lib/context-services';
-import { Effect, Ref, Stream } from 'effect';
+import { Effect, Ref, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { isRecord } from '../isRecord.ts';
@@ -14,6 +14,12 @@ import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 const AUTH_PROBE_TIMEOUT = '3 seconds' as const;
 /** Wall-clock grace after exit so late stdout chunks land (Tauri queues; TestClock-safe). */
 const POST_EXIT_STDOUT_DRAIN_MS = 100;
+
+/** The vendor CLI is installed but reports the user is not signed in. */
+export class VendorNotAuthenticated extends Schema.TaggedError<VendorNotAuthenticated>()('VendorNotAuthenticated', {
+  executable: Schema.String,
+  message: Schema.String,
+}) {}
 
 type AuthProbeLaunchTarget = VendorAuthLaunchTarget;
 
@@ -94,7 +100,7 @@ const runCodexAuthProbe = Effect.fn('runCodexAuthProbe')(function* () {
   const command = ChildProcess.make('codex', ['login', 'status'], { extendEnv: true });
   const exitCode = yield* spawner.exitCode(command);
   if (exitCode !== 0) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'codex',
       message: notAuthenticatedMessage('codex-acp'),
     });
@@ -114,7 +120,7 @@ const runClaudeAuthProbe = Effect.fn('runClaudeAuthProbe')(function* () {
     });
   }
   if (!loggedIn) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'claude',
       message: notAuthenticatedMessage('claude-agent-acp'),
     });
@@ -140,7 +146,7 @@ const runCursorAuthProbe = Effect.fn('runCursorAuthProbe')(function* () {
     });
   }
   if (!authenticated) {
-    return yield* new MissingLaunchPrerequisite({
+    return yield* new VendorNotAuthenticated({
       executable: 'cursor-agent',
       message: notAuthenticatedMessage('cursor-acp'),
     });
@@ -167,7 +173,7 @@ export const requireVendorCliAuthenticated = Effect.fn('requireVendorCliAuthenti
     return yield* authProbeFor(launchTarget).pipe(
       Effect.timeout(AUTH_PROBE_TIMEOUT),
       Effect.mapError(error => {
-        if (error._tag === 'MissingLaunchPrerequisite') {
+        if (error._tag === 'MissingLaunchPrerequisite' || error._tag === 'VendorNotAuthenticated') {
           return error;
         }
         return new MissingLaunchPrerequisite({

@@ -2,11 +2,15 @@
  * Antigravity oauth-personal Sign in helpers for the ACP harness bootstrap.
  */
 import { OpenUrl } from '@lib/context-services';
-import { Effect, Schema, Stream } from 'effect';
+import { isAuthRequiredError } from '@libs/effect-acp';
+import type { AcpError } from '@libs/effect-acp';
+import { Cause, Effect, Option, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
-import { normalizeVendorAuthMessage } from './authMessages.ts';
+import { isRecord } from '../isRecord.ts';
+import { classifyVendorAuthFailure } from './authMessages.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
 
 /** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
 export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
@@ -16,9 +20,6 @@ export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySig
   },
 ) {}
 
-/** User-facing bootstrap error when Antigravity needs Sign in. */
-export const ANTIGRAVITY_NOT_SIGNED_IN = 'Antigravity is not signed in.';
-
 export const ANTIGRAVITY_SIGN_IN_TIMEOUT = '5 minutes' as const;
 export const ANTIGRAVITY_OAUTH_PERSONAL = 'oauth-personal';
 
@@ -26,18 +27,35 @@ const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
+  // ACP wire errors arrive as a plain `AcpError` struct, not an `Error`.
+  if (isRecord(error) && typeof error.message === 'string') {
+    return error.message;
+  }
   return JSON.stringify(error);
 };
 
-const looksLikeAntigravityAuthFailure = (message: string): boolean =>
-  /sign[- ]?in|authenticat|oauth|not (logged|signed) in|login required|unauthorized/i.test(message);
+const isAcpError = (error: unknown): error is AcpError =>
+  isRecord(error) && typeof error.code === 'number' && typeof error.message === 'string';
 
-export const formatBootstrapError = (launchTarget: AgentLaunchTarget, error: unknown): string => {
-  const message = formatError(error);
-  if (launchTarget === 'antigravity-acp' && looksLikeAntigravityAuthFailure(message)) {
-    return ANTIGRAVITY_NOT_SIGNED_IN;
+/** Antigravity is signed out when sign-in timed out or ACP reports `auth_required`; wording is never consulted. */
+const isAntigravityNotSignedIn = (error: unknown): boolean =>
+  (isRecord(error) && error._tag === 'AntigravitySignInTimedOut') || (isAcpError(error) && isAuthRequiredError(error));
+
+/** Classify a bootstrap `Cause` for the provider views; interrupts are not failures the user caused. */
+export const classifyBootstrapFailure = (
+  launchTarget: AgentLaunchTarget,
+  cause: Cause.Cause<unknown>,
+): HarnessFailure => {
+  if (launchTarget === 'antigravity-acp') {
+    const typed = Cause.findErrorOption(cause);
+    if (Option.isSome(typed)) {
+      const message = formatError(typed.value);
+      return isAntigravityNotSignedIn(typed.value) ? { _tag: 'NotSignedIn', message } : { _tag: 'Failed', message };
+    }
+    return { _tag: 'Failed', message: formatError(Cause.squash(cause)) };
   }
-  return normalizeVendorAuthMessage(launchTarget, message);
+  const message = formatError(Cause.squash(cause));
+  return classifyVendorAuthFailure(launchTarget, message);
 };
 
 /** Drain stderr for the auth-URL marker; open the first URL via Host OpenUrl. */

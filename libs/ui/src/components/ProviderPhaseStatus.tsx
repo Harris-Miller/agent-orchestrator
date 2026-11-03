@@ -11,6 +11,8 @@ import type { FC } from 'react';
 import { restartBackendAtomFn } from '../atoms/boundHarnessAtoms.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
+import { isNotSignedIn } from '../host/harnessFailure.ts';
+import type { HarnessFailure } from '../host/harnessFailure.ts';
 import { writeTextToClipboard } from '../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../theme/tokens.ts';
@@ -19,7 +21,7 @@ import { AntigravitySignInControls } from './AntigravitySignInControls.tsx';
 
 export type ProviderPhaseEntry = {
   readonly antigravityAuthUrl: string | undefined;
-  readonly error: string | undefined;
+  readonly failure: HarnessFailure | undefined;
   readonly label: string;
   readonly launchTarget: AgentLaunchTarget;
   readonly phase: AcpBootstrapPhase;
@@ -41,18 +43,10 @@ const phaseColor = (phase: AcpBootstrapPhase): 'default' | 'error' | 'success' |
   }
 };
 
-const prettyErrorText = (error: string): string => {
-  try {
-    return JSON.stringify(JSON.parse(error), null, 2);
-  } catch {
-    return error;
-  }
-};
-
 /** Phase chip, Antigravity sign-in, and error details for one provider. Shared by Settings → Providers and Provider State. */
 export const ProviderPhaseStatus: FC<{ readonly entry: ProviderPhaseEntry }> = ({ entry }) => {
   const restartBackend = useAtomSet(restartBackendAtomFn, { mode: 'promise' });
-  const errorText = entry.error === undefined ? undefined : prettyErrorText(entry.error);
+  const errorText = entry.failure?.message;
 
   return (
     <Box>
@@ -73,7 +67,7 @@ export const ProviderPhaseStatus: FC<{ readonly entry: ProviderPhaseEntry }> = (
       {entry.launchTarget === 'antigravity-acp' ? (
         <AntigravitySignInControls
           antigravityAuthUrl={entry.antigravityAuthUrl}
-          error={entry.error}
+          notSignedIn={isNotSignedIn(entry.failure)}
           phase={entry.phase}
         />
       ) : null}

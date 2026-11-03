@@ -1,18 +1,37 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { normalizeVendorAuthMessage } from './authMessages.ts';
+import { classifyVendorAuthFailure, notAuthenticatedMessage } from './authMessages.ts';
+import type { VendorAuthLaunchTarget } from './authMessages.ts';
 
-describe('normalizeVendorAuthMessage', () => {
-  it('rewrites sign-in failures and leaves ordinary errors alone', () => {
-    assert.strictEqual(
-      normalizeVendorAuthMessage('claude-agent-acp', 'Authentication required'),
-      '`claude` is not authenticated — run `claude` and log in',
-    );
-    assert.strictEqual(
-      normalizeVendorAuthMessage('claude-agent-acp', '401 Unauthorized from proxy'),
+const VENDOR_TARGETS: readonly VendorAuthLaunchTarget[] = ['claude-agent-acp', 'codex-acp', 'cursor-acp'];
+
+describe('classifyVendorAuthFailure', () => {
+  it('classifies known auth failures as NotSignedIn with the instruction text', () => {
+    for (const launchTarget of VENDOR_TARGETS) {
+      for (const message of ['Authentication required', 'not logged in', 'login required']) {
+        assert.deepStrictEqual(classifyVendorAuthFailure(launchTarget, message), {
+          _tag: 'NotSignedIn',
+          message: notAuthenticatedMessage(launchTarget),
+        });
+      }
+    }
+  });
+
+  it('keeps ordinary failures Failed even when they mention signing in', () => {
+    for (const message of [
       '401 Unauthorized from proxy',
-    );
-    assert.strictEqual(normalizeVendorAuthMessage('codex-acp', 'invalid api key'), 'invalid api key');
-    assert.strictEqual(normalizeVendorAuthMessage('antigravity-acp', 'not signed in'), 'not signed in');
+      'invalid api key',
+      'Could not log in to the telemetry endpoint',
+      'failed to sign in the commit',
+    ]) {
+      assert.deepStrictEqual(classifyVendorAuthFailure('codex-acp', message), { _tag: 'Failed', message });
+    }
+  });
+
+  it('does not classify antigravity here', () => {
+    assert.deepStrictEqual(classifyVendorAuthFailure('antigravity-acp', 'not signed in'), {
+      _tag: 'Failed',
+      message: 'not signed in',
+    });
   });
 });

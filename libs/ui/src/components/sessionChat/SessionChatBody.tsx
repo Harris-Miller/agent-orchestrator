@@ -37,6 +37,7 @@ import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import { rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
+import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
@@ -621,16 +622,16 @@ export const SessionChatBody: FC<{
       </Box>
 
       <Box sx={{ flexShrink: 0, position: 'relative' }}>
-        {backendSnapshot?.error !== undefined ? (
+        {backendSnapshot?.failure !== undefined ? (
           <Typography color="error" sx={{ mb: 1 }} variant="body2">
-            {backendSnapshot.error}
+            {backendSnapshot.failure.message}
           </Typography>
         ) : null}
         {selectedLaunchTarget === 'antigravity-acp' && backendSnapshot !== undefined ? (
           <Box sx={{ mb: 1 }}>
             <AntigravitySignInControls
               antigravityAuthUrl={backendSnapshot.antigravityAuthUrl}
-              error={backendSnapshot.error}
+              notSignedIn={isNotSignedIn(backendSnapshot.failure)}
               phase={backendSnapshot.phase}
             />
           </Box>

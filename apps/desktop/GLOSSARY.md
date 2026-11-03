@@ -49,7 +49,7 @@ Harness-reported lifecycle while bringing a backend harness online: `connecting`
 _Avoid_: Status, connection state
 
 **Sign in**:
-User action that starts Antigravity ACP Google `oauth-personal` (`authenticate` on the wire) from Providers or the session composer when bootstrap reports “Antigravity is not signed in.” Distinct from Vendor CLI `login` and from ACP permission / elicitation URL mode.
+User action that starts Antigravity ACP Google `oauth-personal` (`authenticate` on the wire) from Providers or the session composer when bootstrap reports a `NotSignedIn` Harness failure (from the ACP `auth_required` error or the Sign in timeout, never from message text) Distinct from Vendor CLI `login` and from ACP permission / elicitation URL mode.
 _Avoid_: authenticate (wire-only), login, OAuth elicitation
 
 **Antigravity auth URL**:

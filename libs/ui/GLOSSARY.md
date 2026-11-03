@@ -27,7 +27,7 @@ Harness-reported lifecycle while bringing a backend harness online: connecting â
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:
-User-gated Antigravity Google account flow (`oauth-personal` / ACP `authenticate`) from Providers or the session composer. Product verb; not Vendor CLI `login`.
+User-gated Antigravity Google account flow (`oauth-personal` / ACP `authenticate`) from Providers or the session composer. Product verb; not Vendor CLI `login`. Classified from the ACP `auth_required` error (or our own sign-in timeout), never from message text.
 _Avoid_: authenticate (wire), login, OAuth elicitation
 
 **Provider**:

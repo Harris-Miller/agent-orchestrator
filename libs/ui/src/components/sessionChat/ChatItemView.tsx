@@ -494,8 +494,8 @@ export const ChatItemView: FC<{
               {item.message}
             </Typography>
             <Stack spacing={1}>
-              {item.rows.map((row, index) => (
-                <div key={`${index}-${row.label}`}>
+              {item.rows.map(row => (
+                <div key={`${row.label}-${row.value}`}>
                   {row.caption === undefined ? null : (
                     <Typography color="text.secondary" sx={{ display: 'block' }} variant="caption">
                       {row.caption}

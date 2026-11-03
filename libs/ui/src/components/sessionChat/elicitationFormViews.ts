@@ -26,8 +26,20 @@ type Shared = {
 
 export type ElicitationFieldView = Shared &
   (
-    | { readonly default: string | undefined; readonly kind: 'text' }
-    | { readonly default: number | undefined; readonly kind: 'number' | 'integer' }
+    | {
+        readonly default: string | undefined;
+        readonly format: string | undefined;
+        readonly kind: 'text';
+        readonly maxLength: number | undefined;
+        readonly minLength: number | undefined;
+        readonly pattern: string | undefined;
+      }
+    | {
+        readonly default: number | undefined;
+        readonly kind: 'number' | 'integer';
+        readonly maximum: number | undefined;
+        readonly minimum: number | undefined;
+      }
     | { readonly default: boolean | undefined; readonly kind: 'boolean' }
     | {
         readonly default: string | undefined;
@@ -104,7 +116,16 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
   if (Schema.is(ElicitationStringProperty)(property)) {
     const options = choiceOptions(property.oneOf, property.enum);
     const base = { ...shared, default: property.default ?? undefined };
-    return options === undefined ? { ...base, kind: 'text' } : { ...base, kind: 'single', options, other: undefined };
+    return options === undefined
+      ? {
+          ...base,
+          format: property.format ?? undefined,
+          kind: 'text',
+          maxLength: property.maxLength ?? undefined,
+          minLength: property.minLength ?? undefined,
+          pattern: property.pattern ?? undefined,
+        }
+      : { ...base, kind: 'single', options, other: undefined };
   }
   if (
     Schema.is(ElicitationNumberProperty)(property) ||
@@ -114,7 +135,13 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
     if (Schema.is(ElicitationBooleanProperty)(property)) {
       return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
     }
-    return { ...shared, default: property.default ?? undefined, kind: property.type };
+    return {
+      ...shared,
+      default: property.default ?? undefined,
+      kind: property.type,
+      maximum: property.maximum ?? undefined,
+      minimum: property.minimum ?? undefined,
+    };
   }
   return { ...shared, kind: 'unsupported', type: 'unknown' };
 };
@@ -162,6 +189,58 @@ export const initialElicitationValues = (views: readonly ElicitationFieldView[])
 const isSet = (value: ElicitationValue): boolean =>
   value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0);
 
+const ipv4Octet = '(25[0-5]|2[0-4]\\d|1?\\d?\\d)';
+
+const formatChecks: Readonly<Record<string, (value: string) => boolean>> = {
+  date: value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)),
+  'date-time': value => /^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value)),
+  email: value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  hostname: value => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(value),
+  ipv4: value => new RegExp(`^${ipv4Octet}(\\.${ipv4Octet}){3}$`).test(value),
+  ipv6: value => value.includes(':') && URL.canParse(`http://[${value}]`),
+  'uri-reference': value => /^\S+$/.test(value),
+  uri: value => URL.canParse(value),
+  uuid: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value),
+};
+
+const matchesPattern = (pattern: string, value: string): boolean => {
+  try {
+    return new RegExp(pattern, 'u').test(value);
+  } catch {
+    return true; // an unusable pattern can't be enforced client-side
+  }
+};
+
+/** Message for a set text/number value that breaks the field's schema constraints; undefined when valid or unset. */
+export const elicitationFieldError = (view: ElicitationFieldView, value: ElicitationValue): string | undefined => {
+  if (view.kind === 'text' && typeof value === 'string' && value !== '') {
+    if (view.minLength !== undefined && value.length < view.minLength) {
+      return `At least ${view.minLength} characters`;
+    }
+    if (view.maxLength !== undefined && value.length > view.maxLength) {
+      return `At most ${view.maxLength} characters`;
+    }
+    if (view.format !== undefined && !formatChecks[view.format]?.(value)) {
+      return `Must be a valid ${view.format}`;
+    }
+    if (view.pattern !== undefined && !matchesPattern(view.pattern, value)) {
+      return `Must match ${view.pattern}`;
+    }
+  }
+  if ((view.kind === 'number' || view.kind === 'integer') && typeof value === 'number') {
+    if (view.kind === 'integer' && !Number.isInteger(value)) {
+      return 'Must be a whole number';
+    }
+    if (view.minimum !== undefined && value < view.minimum) {
+      return `At least ${view.minimum}`;
+    }
+    if (view.maximum !== undefined && value > view.maximum) {
+      return `At most ${view.maximum}`;
+    }
+  }
+  return undefined;
+};
+
 export const canAcceptElicitation = (views: readonly ElicitationFieldView[], values: ElicitationValues): boolean =>
   views.every(view => {
     if (view.kind === 'unsupported') {
@@ -177,7 +256,7 @@ export const canAcceptElicitation = (views: readonly ElicitationFieldView[], val
       }
       return !view.required || count > 0;
     }
-    return !view.required || isSet(value) || otherSet;
+    return elicitationFieldError(view, value) === undefined && (!view.required || isSet(value) || otherSet);
   });
 
 export const elicitationContent = (values: ElicitationValues): ElicitationContent => {

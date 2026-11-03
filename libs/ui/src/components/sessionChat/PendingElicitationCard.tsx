@@ -20,6 +20,7 @@ import type { ElicitationSummary } from '../../host/sessionUpdateReducer.ts';
 import {
   canAcceptElicitation,
   elicitationContent,
+  elicitationFieldError,
   elicitationFieldViews,
   elicitationSummaryRows,
   initialElicitationValues,
@@ -237,9 +238,12 @@ export const PendingElicitationCard: FC<{
           }
 
           const numeric = view.kind === 'number' || view.kind === 'integer';
+          const error = elicitationFieldError(view, value);
           return (
             <TextField
+              error={error !== undefined}
               fullWidth
+              helperText={error}
               key={view.name}
               label={caption}
               onChange={event => {
@@ -248,7 +252,7 @@ export const PendingElicitationCard: FC<{
               }}
               size="small"
               slotProps={{ inputLabel: { shrink: true } }}
-              type={numeric ? 'number' : 'text'}
+              type={numeric ? 'number' : view.secret ? 'password' : 'text'}
               value={value ?? ''}
             />
           );

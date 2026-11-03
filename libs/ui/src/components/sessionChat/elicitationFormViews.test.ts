@@ -5,6 +5,7 @@ import { Schema } from 'effect';
 import {
   canAcceptElicitation,
   elicitationContent,
+  elicitationFieldError,
   elicitationFieldViews,
   elicitationSummaryRows,
   initialElicitationValues,
@@ -227,5 +228,48 @@ describe('elicitationSummaryRows', () => {
       rows.map(r => r.value),
       ['Alpha, Gamma'],
     );
+  });
+});
+
+describe('elicitationFieldError', () => {
+  const view = (property: Record<string, unknown>) => elicitationFieldViews(request({ q: property }))[0];
+
+  it('enforces number/integer bounds and whole numbers', () => {
+    const v = view({ maximum: 10, minimum: 1, type: 'integer' });
+    assert.isUndefined(elicitationFieldError(v, undefined));
+    assert.isUndefined(elicitationFieldError(v, 5));
+    assert.isDefined(elicitationFieldError(v, 0));
+    assert.isDefined(elicitationFieldError(v, 11));
+    assert.isDefined(elicitationFieldError(v, 2.5));
+    assert.isUndefined(elicitationFieldError(view({ type: 'number' }), 2.5));
+  });
+
+  it('enforces string length, pattern and format', () => {
+    const len = view({ maxLength: 3, minLength: 2, type: 'string' });
+    assert.isDefined(elicitationFieldError(len, 'a'));
+    assert.isUndefined(elicitationFieldError(len, 'ab'));
+    assert.isDefined(elicitationFieldError(len, 'abcd'));
+    const pat = view({ pattern: '^[a-z]+$', type: 'string' });
+    assert.isUndefined(elicitationFieldError(pat, 'abc'));
+    assert.isDefined(elicitationFieldError(pat, 'ABC'));
+    assert.isUndefined(elicitationFieldError(view({ pattern: '(', type: 'string' }), 'anything'));
+    const email = view({ format: 'email', type: 'string' });
+    assert.isUndefined(elicitationFieldError(email, 'a@b.co'));
+    assert.isDefined(elicitationFieldError(email, 'nope'));
+    assert.isDefined(elicitationFieldError(view({ format: 'ipv4', type: 'string' }), '999.1.1.1'));
+    assert.isUndefined(elicitationFieldError(view({ format: 'ipv4', type: 'string' }), '10.0.0.1'));
+    assert.isUndefined(elicitationFieldError(view({ format: 'date', type: 'string' }), '2026-11-02'));
+    assert.isDefined(elicitationFieldError(view({ format: 'date', type: 'string' }), 'tomorrow'));
+  });
+
+  it('blocks accept while a set value is invalid, even when optional', () => {
+    const views = [view({ maximum: 10, type: 'integer' })];
+    assert.isTrue(canAcceptElicitation(views, {}));
+    assert.isTrue(canAcceptElicitation(views, { q: 3 }));
+    assert.isFalse(canAcceptElicitation(views, { q: 30 }));
+  });
+
+  it('marks secret fields', () => {
+    assert.isTrue(view({ _meta: { codex: { isSecret: true } }, type: 'string' }).secret);
   });
 });

@@ -40,7 +40,9 @@ export const WorkRegionView: FC<{
       >
         <DisclosureChevron open={open} />
         <Typography color="text.secondary" variant="body2">
-          {workRegionLabel(region, inFlight, now, workRegionPhrase(region.id))}
+          {region.isLastInTurn
+            ? workRegionLabel(region, inFlight, now, workRegionPhrase(region.id))
+            : workRegionPhrase(region.id)}
         </Typography>
       </DisclosureButton>
       <Collapse in={open} unmountOnExit>

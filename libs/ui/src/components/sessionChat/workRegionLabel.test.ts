@@ -10,6 +10,7 @@ const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_messa
 describe('workRegionLabel', () => {
   const region = (userMessage: ChatItem): WorkRegion => ({
     id: 'r',
+    isLastInTurn: true,
     isLastTurn: true,
     items: [],
     kind: 'work_region',

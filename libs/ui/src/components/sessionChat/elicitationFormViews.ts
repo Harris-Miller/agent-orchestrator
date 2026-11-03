@@ -11,10 +11,12 @@ import { Schema } from 'effect';
 export type ElicitationChoice = { readonly label: string; readonly value: string };
 
 type Shared = {
-  readonly description: string | undefined;
+  /** Shorter of title/description, shown small above the label; undefined when only one is present. */
+  readonly caption: string | undefined;
+  readonly label: string;
   readonly name: string;
   readonly required: boolean;
-  readonly title: string;
+  readonly secret: boolean;
 };
 
 export type ElicitationFieldView = Shared &
@@ -47,33 +49,49 @@ export const choiceOptions = (
   return enumValues?.map(value => ({ label: value, value }));
 };
 
+/** Claude puts the question in `description`, Codex in `title`: the longer text is the label. */
+type TextProps = { readonly description?: string | null; readonly title?: string | null };
+
+const labelPair = (
+  name: string,
+  title: string | null | undefined,
+  description: string | null | undefined,
+): { readonly caption: string | undefined; readonly label: string } => {
+  const t = title ?? undefined;
+  const d = description ?? undefined;
+  if (t === undefined || d === undefined) return { caption: undefined, label: d ?? t ?? name };
+  return t.length > d.length ? { caption: d, label: t } : { caption: t, label: d };
+};
+
+const isSecret = (property: ElicitationPropertySchema): boolean => {
+  const meta = property._meta as { readonly codex?: { readonly isSecret?: unknown } } | null | undefined;
+  return meta?.codex?.isSecret === true;
+};
+
 const toView = (name: string, property: ElicitationPropertySchema, required: boolean): ElicitationFieldView => {
+  const shared = {
+    ...labelPair(name, (property as TextProps).title, (property as TextProps).description),
+    name,
+    required,
+    secret: isSecret(property),
+  };
   if (Schema.is(ElicitationArrayProperty)(property)) {
     const options = choiceOptions(property.items.oneOf, property.items.enum);
     return options === undefined
-      ? { kind: 'unsupported', description: undefined, name, required, title: name, type: 'array' }
+      ? { ...shared, kind: 'unsupported', type: 'array' }
       : {
+          ...shared,
           default: property.default ?? undefined,
-          description: property.description ?? undefined,
           kind: 'multi',
           maxItems: property.maxItems ?? undefined,
           minItems: property.minItems ?? undefined,
           name,
           options,
-          required,
-          title: property.title ?? name,
         };
   }
-  const shared = { description: undefined, name, required, title: name };
   if (Schema.is(ElicitationStringProperty)(property)) {
     const options = choiceOptions(property.oneOf, property.enum);
-    const base = {
-      default: property.default ?? undefined,
-      description: property.description ?? undefined,
-      name,
-      required,
-      title: property.title ?? name,
-    };
+    const base = { ...shared, default: property.default ?? undefined };
     return options === undefined ? { ...base, kind: 'text' } : { ...base, kind: 'single', options };
   }
   if (
@@ -81,16 +99,10 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
     Schema.is(ElicitationIntegerProperty)(property) ||
     Schema.is(ElicitationBooleanProperty)(property)
   ) {
-    const base = {
-      description: property.description ?? undefined,
-      name,
-      required,
-      title: property.title ?? name,
-    };
     if (Schema.is(ElicitationBooleanProperty)(property)) {
-      return { ...base, default: property.default ?? undefined, kind: 'boolean' };
+      return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
     }
-    return { ...base, default: property.default ?? undefined, kind: property.type };
+    return { ...shared, default: property.default ?? undefined, kind: property.type };
   }
   return { ...shared, kind: 'unsupported', type: 'unknown' };
 };
@@ -141,3 +153,33 @@ export const elicitationContent = (values: ElicitationValues): ElicitationConten
   }
   return content;
 };
+
+export type ElicitationSummaryRow = {
+  readonly caption: string | undefined;
+  readonly label: string;
+  readonly value: string;
+};
+
+/** One row per set, supported field; choice values show their option label, secrets are masked. */
+export const elicitationSummaryRows = (
+  views: readonly ElicitationFieldView[],
+  values: ElicitationValues,
+): readonly ElicitationSummaryRow[] =>
+  views.flatMap(view => {
+    const raw = values[view.name];
+    if (view.kind === 'unsupported' || !isSet(raw)) return [];
+    const optionLabel = (v: string) =>
+      (view.kind === 'single' || view.kind === 'multi' ? view.options.find(o => o.value === v)?.label : undefined) ?? v;
+    const value = view.secret
+      ? '••••••'
+      : Array.isArray(raw)
+        ? raw.map(optionLabel).join(', ')
+        : typeof raw === 'boolean'
+          ? raw
+            ? 'Yes'
+            : 'No'
+          : typeof raw === 'string'
+            ? optionLabel(raw)
+            : String(raw);
+    return [{ caption: view.caption, label: view.label, value }];
+  });

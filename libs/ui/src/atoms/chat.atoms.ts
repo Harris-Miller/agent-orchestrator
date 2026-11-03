@@ -21,7 +21,7 @@ import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '..
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
 import { markNonFinishedToolCallsCancelled, stampUserMessageTiming } from '../host/sessionUpdateReducer.ts';
-import type { TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
+import type { ChatItem, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
   backendHarnessStateAtom,
@@ -293,6 +293,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             launchTarget: AgentLaunchTarget;
             response: CreateElicitationResponseBody;
             sessionId: string;
+            summary?: Pick<Extract<ChatItem, { kind: 'elicitation_summary' }>, 'message' | 'rows'>;
           },
           get: Atom.FnContext,
         ) {
@@ -311,6 +312,16 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
               ...current,
               pendingElicitation: undefined,
+              transcript:
+                arg.response.action === 'accept' && arg.summary !== undefined && arg.summary.rows.length > 0
+                  ? {
+                      ...current.transcript,
+                      items: [
+                        ...current.transcript.items,
+                        { ...arg.summary, id: crypto.randomUUID(), kind: 'elicitation_summary' },
+                      ],
+                    }
+                  : current.transcript,
             })),
           });
         },

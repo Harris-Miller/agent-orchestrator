@@ -79,6 +79,16 @@ export type ChatItem =
     })
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
+  | {
+      readonly id: string;
+      readonly kind: 'elicitation_summary';
+      readonly message: string;
+      readonly rows: readonly {
+        readonly caption: string | undefined;
+        readonly label: string;
+        readonly value: string;
+      }[];
+    }
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
 
 export type SessionTranscript = {

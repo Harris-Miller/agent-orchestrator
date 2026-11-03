@@ -565,7 +565,7 @@ export const SessionChatBody: FC<{
               item.kind === 'work_region' ? (
                 <WorkRegionView
                   availableCommands={availableCommands}
-                  inFlight={item.isLastTurn && selectedSession?.pendingClientRequest === 'prompt'}
+                  inFlight={item.isLastTurn && item.isLastInTurn && selectedSession?.pendingClientRequest === 'prompt'}
                   key={`work-${item.id}`}
                   region={item}
                 />
@@ -578,11 +578,12 @@ export const SessionChatBody: FC<{
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
               <PendingElicitationCard
                 agentTitle={agentTitle}
-                onAccept={content => {
+                onAccept={(content, summary) => {
                   respondElicitation({
                     launchTarget: selectedLaunchTarget,
                     response: { action: 'accept', content },
                     sessionId: selectedSession.sessionId,
+                    summary: { message: summary.message, rows: [...summary.rows] },
                   }).catch(onClientError);
                 }}
                 onCancel={() => {

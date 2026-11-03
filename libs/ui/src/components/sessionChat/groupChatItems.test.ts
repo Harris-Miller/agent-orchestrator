@@ -9,6 +9,7 @@ const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_messa
 const a = (id: string): ChatItem => ({ id, kind: 'agent_message', text: id });
 const t = (id: string): ChatItem => ({ id, kind: 'tool_call', status: 'completed', title: id, toolCallId: id });
 const c = (id: string): ChatItem => ({ id, kind: 'config_options', options: [] });
+const s = (id: string): ChatItem => ({ id, kind: 'elicitation_summary', message: id, rows: [] });
 const shape = (items: readonly ChatItem[]) =>
   groupChatItems(items).map(i => (i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id));
 
@@ -43,5 +44,17 @@ describe('groupChatItems', () => {
       two.map(r => r.isLastTurn),
       [false, true],
     );
+  });
+  it('summary splits the region; only the last region is isLastInTurn', () => {
+    const items = [u('u'), t('t1'), s('s'), t('t2'), a('a')];
+    assert.deepStrictEqual(shape(items), ['u', 'R[t1]', 's', 'R[t2]', 'a']);
+    const regions = groupChatItems(items).filter((i): i is WorkRegion => i.kind === 'work_region');
+    assert.deepStrictEqual(
+      regions.map(r => r.isLastInTurn),
+      [false, true],
+    );
+  });
+  it('summary with no work after it stays flat', () => {
+    assert.deepStrictEqual(shape([u('u'), t('t'), s('s')]), ['u', 'R[t]', 's']);
   });
 });

@@ -6,6 +6,7 @@ import {
   canAcceptElicitation,
   elicitationContent,
   elicitationFieldViews,
+  elicitationSummaryRows,
   initialElicitationValues,
 } from './elicitationFormViews.ts';
 
@@ -38,7 +39,8 @@ describe('elicitationFieldViews', () => {
       { label: 'Alpha', value: 'a' },
       { label: 'Beta', value: 'b' },
     ]);
-    assert.strictEqual(first.description, 'Which one?');
+    assert.strictEqual(first.label, 'Which one?');
+    assert.strictEqual(first.caption, 'Pick');
     assert.strictEqual(second.kind, 'text');
   });
 
@@ -93,5 +95,56 @@ describe('values + accept gating', () => {
       d: false,
       e: 0,
     });
+  });
+});
+
+describe('label/caption', () => {
+  const view = (property: Record<string, unknown>) => elicitationFieldViews(request({ q: property }))[0];
+
+  it('longer text is the label (Codex shape)', () => {
+    const v = view({ description: 'Header', title: 'Which database should we use?', type: 'string' });
+    assert.strictEqual(v.label, 'Which database should we use?');
+    assert.strictEqual(v.caption, 'Header');
+  });
+
+  it('single or equal-length texts', () => {
+    assert.deepStrictEqual(
+      [view({ title: 'Only', type: 'string' }).label, view({ title: 'Only', type: 'string' }).caption],
+      ['Only', undefined],
+    );
+    const same = view({ description: 'bb', title: 'aa', type: 'string' });
+    assert.strictEqual(same.label, 'bb');
+    assert.strictEqual(same.caption, 'aa');
+  });
+});
+
+describe('elicitationSummaryRows', () => {
+  const views = elicitationFieldViews(
+    request({
+      flag: { description: 'Enabled?', type: 'boolean' },
+      many: { items: { oneOf, type: 'string' }, title: 'Many', type: 'array' },
+      one: { description: 'Which one?', oneOf, title: 'Pick', type: 'string' },
+      other: { title: 'Other', type: 'string' },
+      pw: { _meta: { codex: { isSecret: true } }, title: 'Password', type: 'string' },
+    }),
+  );
+
+  it('shows option labels, joins multi, yes/no, masks secrets, skips unset', () => {
+    const rows = elicitationSummaryRows(views, {
+      flag: true,
+      many: ['a', 'b'],
+      one: 'a',
+      other: '',
+      pw: 'hunter2',
+    });
+    assert.deepStrictEqual(
+      rows.map(r => [r.label, r.value]),
+      [
+        ['Enabled?', 'Yes'],
+        ['Many', 'Alpha, Beta'],
+        ['Which one?', 'Alpha'],
+        ['Password', '••••••'],
+      ],
+    );
   });
 });

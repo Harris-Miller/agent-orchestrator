@@ -20,13 +20,17 @@ import {
   canAcceptElicitation,
   elicitationContent,
   elicitationFieldViews,
+  elicitationSummaryRows,
   initialElicitationValues,
 } from './elicitationFormViews.ts';
-import type { ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
+import type { ElicitationSummaryRow, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
 
 export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
-  readonly onAccept: (content: ElicitationContent) => void;
+  readonly onAccept: (
+    content: ElicitationContent,
+    summary: { readonly message: string; readonly rows: readonly ElicitationSummaryRow[] },
+  ) => void;
   readonly onCancel: () => void;
   readonly onDecline: () => void;
   readonly request: CreateElicitationRequestBody;
@@ -76,10 +80,12 @@ export const PendingElicitationCard: FC<{
           const value = values[view.name];
           const caption = (
             <>
-              <Typography color="text.secondary" component="span" sx={{ display: 'block' }} variant="caption">
-                {view.title}
-              </Typography>
-              {view.description ?? ''}
+              {view.caption === undefined ? null : (
+                <Typography color="text.secondary" component="span" sx={{ display: 'block' }} variant="caption">
+                  {view.caption}
+                </Typography>
+              )}
+              {view.label}
             </>
           );
 
@@ -175,7 +181,10 @@ export const PendingElicitationCard: FC<{
         <Button
           disabled={!canAcceptElicitation(views, values)}
           onClick={() => {
-            onAccept(elicitationContent(values));
+            onAccept(elicitationContent(values), {
+              message: formRequest.message,
+              rows: elicitationSummaryRows(views, values),
+            });
           }}
           size="small"
           variant="contained"

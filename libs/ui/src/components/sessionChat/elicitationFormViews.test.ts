@@ -147,4 +147,12 @@ describe('elicitationSummaryRows', () => {
       ],
     );
   });
+
+  it('shows Other only when filled', () => {
+    const rows = elicitationSummaryRows(views, { other: 'Custom' });
+    assert.deepStrictEqual(
+      rows.map(r => [r.label, r.value]),
+      [['Other', 'Custom']],
+    );
+  });
 });

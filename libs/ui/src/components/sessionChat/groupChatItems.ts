@@ -10,9 +10,40 @@ export type WorkRegion = {
   readonly userMessage: Extract<ChatItem, { kind: 'user_message' }>;
 };
 
-const isSummary = (item: ChatItem) => item.kind === 'elicitation_summary';
-
 const isWork = (item: ChatItem) => item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought';
+
+/** Cut a turn body into runs separated by (and including, as singleton runs) Elicitation summaries. */
+const splitAtSummaries = (body: readonly ChatItem[]): readonly (readonly ChatItem[])[] =>
+  body.reduce<ChatItem[][]>(
+    (runs, item) => {
+      if (item.kind === 'elicitation_summary') return [...runs, [item], []];
+      runs.at(-1)!.push(item);
+      return runs;
+    },
+    [[]],
+  );
+
+const groupTurn = (
+  userMessage: WorkRegion['userMessage'],
+  body: readonly ChatItem[],
+  isLastTurn: boolean,
+): readonly (ChatItem | WorkRegion)[] => {
+  const runs = splitAtSummaries(body);
+  const lastWorkRun = runs.findLastIndex(run => run.some(isWork));
+  return runs.flatMap<ChatItem | WorkRegion>((run, index) => {
+    const lastWork = run.findLastIndex(isWork);
+    if (lastWork === -1) return run;
+    const region: WorkRegion = {
+      id: run.find(isWork)!.id,
+      isLastInTurn: index === lastWorkRun,
+      isLastTurn,
+      items: run.slice(0, lastWork + 1),
+      kind: 'work_region',
+      userMessage,
+    };
+    return [region, ...run.slice(lastWork + 1)];
+  });
+};
 
 /** Wrap each turn's items up to its last work item in a WorkRegion; the rest stays flat. */
 export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem | WorkRegion)[] => {
@@ -26,39 +57,7 @@ export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem |
     if (head.kind === 'user_message') {
       let end = i;
       while (end < items.length && items[end].kind !== 'user_message') end += 1;
-      const body = items.slice(i, end);
-      const isLastTurn = i - 1 === lastTurnStart;
-      const regions: (ChatItem | WorkRegion)[] = [];
-      // Split on summaries; each segment's items up to its last work item form a region.
-      let segStart = 0;
-      const flush = (segEnd: number) => {
-        const seg = body.slice(segStart, segEnd);
-        const lastWork = seg.findLastIndex(isWork);
-        if (lastWork === -1) {
-          regions.push(...seg);
-        } else {
-          regions.push({
-            id: seg.find(isWork)!.id,
-            isLastInTurn: false,
-            isLastTurn,
-            items: seg.slice(0, lastWork + 1),
-            kind: 'work_region',
-            userMessage: head,
-          });
-          regions.push(...seg.slice(lastWork + 1));
-        }
-      };
-      body.forEach((item, idx) => {
-        if (isSummary(item)) {
-          flush(idx);
-          regions.push(item);
-          segStart = idx + 1;
-        }
-      });
-      flush(body.length);
-      const lastRegion = regions.findLastIndex(r => r.kind === 'work_region');
-      if (lastRegion !== -1) regions[lastRegion] = { ...(regions[lastRegion] as WorkRegion), isLastInTurn: true };
-      out.push(...regions);
+      out.push(...groupTurn(head, items.slice(i, end), i - 1 === lastTurnStart));
       i = end;
     }
   }

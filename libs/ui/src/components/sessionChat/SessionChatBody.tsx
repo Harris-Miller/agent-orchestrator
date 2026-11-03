@@ -583,7 +583,7 @@ export const SessionChatBody: FC<{
                     launchTarget: selectedLaunchTarget,
                     response: { action: 'accept', content },
                     sessionId: selectedSession.sessionId,
-                    summary: { message: summary.message, rows: [...summary.rows] },
+                    summary,
                   }).catch(onClientError);
                 }}
                 onCancel={() => {

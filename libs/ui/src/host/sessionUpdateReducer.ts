@@ -79,17 +79,19 @@ export type ChatItem =
     })
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
-  | {
-      readonly id: string;
-      readonly kind: 'elicitation_summary';
-      readonly message: string;
-      readonly rows: readonly {
-        readonly caption: string | undefined;
-        readonly label: string;
-        readonly value: string;
-      }[];
-    }
+  | (ElicitationSummary & { readonly id: string; readonly kind: 'elicitation_summary' })
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
+
+export type ElicitationSummaryRow = {
+  readonly caption: string | undefined;
+  readonly label: string;
+  readonly value: string;
+};
+
+export type ElicitationSummary = {
+  readonly message: string;
+  readonly rows: readonly ElicitationSummaryRow[];
+};
 
 export type SessionTranscript = {
   readonly items: readonly ChatItem[];

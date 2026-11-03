@@ -8,6 +8,8 @@ import {
 import type { CreateElicitationFormRequest, ElicitationContent, ElicitationPropertySchema } from '@libs/effect-acp';
 import { Schema } from 'effect';
 
+import type { ElicitationSummaryRow } from '../../host/sessionUpdateReducer.ts';
+
 export type ElicitationChoice = { readonly label: string; readonly value: string };
 
 type Shared = {
@@ -154,10 +156,16 @@ export const elicitationContent = (values: ElicitationValues): ElicitationConten
   return content;
 };
 
-export type ElicitationSummaryRow = {
-  readonly caption: string | undefined;
-  readonly label: string;
-  readonly value: string;
+const formatValue = (
+  view: Exclude<ElicitationFieldView, { kind: 'unsupported' }>,
+  raw: NonNullable<ElicitationValue>,
+) => {
+  if (view.secret) return '••••••';
+  if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
+  const options = view.kind === 'single' || view.kind === 'multi' ? view.options : [];
+  const optionLabel = (v: string) => options.find(o => o.value === v)?.label ?? v;
+  if (Array.isArray(raw)) return raw.map(optionLabel).join(', ');
+  return typeof raw === 'string' ? optionLabel(raw) : String(raw);
 };
 
 /** One row per set, supported field; choice values show their option label, secrets are masked. */
@@ -168,18 +176,5 @@ export const elicitationSummaryRows = (
   views.flatMap(view => {
     const raw = values[view.name];
     if (view.kind === 'unsupported' || !isSet(raw)) return [];
-    const optionLabel = (v: string) =>
-      (view.kind === 'single' || view.kind === 'multi' ? view.options.find(o => o.value === v)?.label : undefined) ?? v;
-    const value = view.secret
-      ? '••••••'
-      : Array.isArray(raw)
-        ? raw.map(optionLabel).join(', ')
-        : typeof raw === 'boolean'
-          ? raw
-            ? 'Yes'
-            : 'No'
-          : typeof raw === 'string'
-            ? optionLabel(raw)
-            : String(raw);
-    return [{ caption: view.caption, label: view.label, value }];
+    return [{ caption: view.caption, label: view.label, value: formatValue(view, raw!) }];
   });

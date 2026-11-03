@@ -16,6 +16,7 @@ import { Schema } from 'effect';
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import type { ElicitationSummary } from '../../host/sessionUpdateReducer.ts';
 import {
   canAcceptElicitation,
   elicitationContent,
@@ -23,14 +24,11 @@ import {
   elicitationSummaryRows,
   initialElicitationValues,
 } from './elicitationFormViews.ts';
-import type { ElicitationSummaryRow, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
+import type { ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
 
 export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
-  readonly onAccept: (
-    content: ElicitationContent,
-    summary: { readonly message: string; readonly rows: readonly ElicitationSummaryRow[] },
-  ) => void;
+  readonly onAccept: (content: ElicitationContent, summary: ElicitationSummary) => void;
   readonly onCancel: () => void;
   readonly onDecline: () => void;
   readonly request: CreateElicitationRequestBody;

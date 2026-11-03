@@ -125,6 +125,47 @@ describe('applyConfigDiffs', () => {
     }),
   );
 
+  it.effect('applies an option that only becomes valid after an earlier diff refreshes the choices', () =>
+    Effect.gen(function* () {
+      const optionsFor = (model: string) => [
+        {
+          currentValue: model,
+          id: 'model',
+          name: 'Model',
+          options: [
+            { name: 'Sonnet', value: 'sonnet' },
+            { name: 'Opus', value: 'opus' },
+          ],
+          type: 'select',
+        },
+        {
+          currentValue: 'low',
+          id: 'effort',
+          name: 'Effort',
+          options: model === 'opus' ? [{ value: 'low' }, { value: 'high' }] : [{ value: 'low' }],
+          type: 'select',
+        },
+      ];
+      const calls: ConfigValueDiff[] = [];
+      const result = yield* applyConfigDiffs(
+        { configOptions: optionsFor('sonnet') },
+        { effort: 'high', model: 'opus' },
+        diff => {
+          calls.push(diff);
+          return Effect.succeed({
+            configOptions:
+              diff.configId === 'model' ? optionsFor('opus') : [{ ...optionsFor('opus')[1], currentValue: diff.value }],
+          });
+        },
+      );
+      assert.strictEqual(result.stoppedEarly, false);
+      assert.deepStrictEqual(calls, [
+        { configId: 'model', type: 'select', value: 'opus' },
+        { configId: 'effort', type: 'select', value: 'high' },
+      ]);
+    }),
+  );
+
   it.effect('applies boolean diffs', () =>
     Effect.gen(function* () {
       const config = {

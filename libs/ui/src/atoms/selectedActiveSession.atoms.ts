@@ -1,4 +1,4 @@
-/** Active session for Selected Session arm or Bound Virtual (Triggers / FS / live Config). */
+/** Active session for Selected Session arm or Bound Virtual (Triggers / FS; live Config is Session arm only). */
 import { Atom } from 'effect/reactivity';
 
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -19,17 +19,9 @@ export type SelectedActiveSession = {
   readonly sessionId: string;
 };
 
-/** Bound id when Selected is Virtual; undefined for Session arm or unbound Virtual. */
-export const selectedVirtualBoundSessionIdAtom = Atom.make(get => {
-  if (get(selectedAtom)?._tag !== 'Virtual') {
-    return undefined;
-  }
-  return get(virtualSessionAtom)?.sessionId;
-}).pipe(Atom.keepAlive);
-
 /**
  * Active session for Selected Session arm or Bound Virtual.
- * Does not widen `selectedSessionIdAtom` (Session-arm-only); use this for Triggers / FS / live Config.
+ * Does not widen `selectedSessionIdAtom` (Session-arm-only); use this for Triggers / FS and Session-arm live Config.
  */
 export const selectedActiveSessionAtom = Atom.make(get => {
   const selected = get(selectedAtom);

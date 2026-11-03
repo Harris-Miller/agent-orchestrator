@@ -23,10 +23,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import { composerAttachmentsAtom, draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
-import {
-  selectedActiveSessionAtom,
-  selectedVirtualBoundSessionIdAtom,
-} from '../../atoms/selectedActiveSession.atoms.ts';
+import { selectedActiveSessionAtom } from '../../atoms/selectedActiveSession.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
@@ -39,7 +36,6 @@ export const useSessionChatSurface = () => {
   const selected = useAtomValue(selectedAtom);
   const isVirtual = selected?._tag === 'Virtual';
   const virtualSession = useAtomValue(virtualSessionAtom);
-  const virtualBoundSessionId = useAtomValue(selectedVirtualBoundSessionIdAtom);
   const activeSession = useAtomValue(selectedActiveSessionAtom);
   const selectedLaunchTargetFromSession = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
@@ -217,9 +213,6 @@ export const useSessionChatSurface = () => {
     setAttachments,
     setDraft,
     setVirtualLaunchTarget,
-    virtualBoundSessionId,
-    virtualConfigIndex,
-    virtualConfigValues,
     virtualLifecycleInFlight,
   };
 };

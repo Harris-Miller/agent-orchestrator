@@ -60,6 +60,8 @@ export const historyEntryFromNew = (result: unknown, cwd: string): NormalizedSes
 
 /**
  * Apply config values that differ from the session via injectable `setOption`.
+ * Diffs are recomputed after each apply so options that only become valid after another change
+ * (e.g. a reasoning level after a model change) are applied against the refreshed choices.
  * Stops on the first failure (partial configuration kept).
  */
 export const applyConfigDiffs = Effect.fn('applyConfigDiffs')(function* (
@@ -69,8 +71,14 @@ export const applyConfigDiffs = Effect.fn('applyConfigDiffs')(function* (
 ) {
   let next: unknown = sessionConfiguration;
   let stoppedEarly = false;
+  const attempted = new Set<string>();
 
-  for (const diff of configValueDiffs(next, values)) {
+  for (
+    let diff = configValueDiffs(next, values).find(d => !attempted.has(d.configId));
+    diff !== undefined;
+    diff = configValueDiffs(next, values).find(d => !attempted.has(d.configId))
+  ) {
+    attempted.add(diff.configId);
     const patched = patchConfigOptionValue(next, diff.configId, diff.value);
     const exit = yield* Effect.exit(setOption(diff));
     if (Exit.isFailure(exit)) {

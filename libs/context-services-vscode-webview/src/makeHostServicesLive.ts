@@ -8,6 +8,7 @@ import { makeChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
+import { DropTargetLive } from './DropTargetLive.ts';
 import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
@@ -51,6 +52,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     makeBundledResourceLive(client),
     makeChildProcessSpawnerLive(client),
     ClipboardLive,
+    DropTargetLive,
     ConfigProviderLive,
     makeFileDialogLive(client),
     makeFileSystemLive(client),

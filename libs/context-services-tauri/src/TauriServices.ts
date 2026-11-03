@@ -7,6 +7,7 @@ import { BundledResourceLive } from './BundledResourceLive.ts';
 import { ChildProcessSpawnerLive } from './ChildProcessSpawnerLive.ts';
 import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
+import { DropTargetLive } from './DropTargetLive.ts';
 import { FileDialogLive } from './FileDialogLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
@@ -34,6 +35,7 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   AtomicFileLive,
   BundledResourceLive,
   ClipboardLive,
+  DropTargetLive,
   ConfigProviderLive,
   ChildProcessSpawnerLive,
   FileDialogLive,

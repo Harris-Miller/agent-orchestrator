@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
+import { BundledResource, Clipboard, DropTarget, FileDialog, OpenUrl, OS } from '@lib/context-services';
+import { Effect, Layer, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -42,6 +42,8 @@ const clipboardLayer = Layer.succeed(Clipboard, {
 const fileDialogLayer = Layer.succeed(FileDialog, {
   pickFiles: () => Effect.succeed([]),
 });
+
+const dropTargetLayer = Layer.succeed(DropTarget, { events: Stream.empty });
 
 const openUrlLayer = Layer.succeed(OpenUrl, {
   open: () => Effect.void,
@@ -97,6 +99,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     bundledResourceLayer,
     clipboardLayer,
     fileDialogLayer,
+    dropTargetLayer,
     openUrlLayer,
     mockOpenFileLayer,
     osLayer,

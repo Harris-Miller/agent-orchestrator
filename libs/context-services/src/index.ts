@@ -1,6 +1,7 @@
 export * from './AtomicFile.ts';
 export * from './BundledResource.ts';
 export * from './Clipboard.ts';
+export * from './DropTarget.ts';
 export * from './FileDialog.ts';
 export * from './HostServices.ts';
 export * from './openQueuedChildProcessStdio.ts';

@@ -4,6 +4,10 @@ import { listingBasename } from '../../host/fdListing.ts';
 
 import { markdownLinkText } from './markdownLinkText.ts';
 
+/** Percent-encode the characters that would break a markdown link destination. */
+const encodeHrefPath = (path: string): string =>
+  path.replace(/[%() #?]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+
 /** Absolute FS path → `file://` href (matches ACP session/load replay). */
 export const absolutePathToFileUrlHref = (absolutePath: string): string => {
   if (absolutePath.startsWith('file://')) {
@@ -11,12 +15,12 @@ export const absolutePathToFileUrlHref = (absolutePath: string): string => {
   }
   const asPosix = absolutePath.replaceAll('\\', '/');
   if (/^[A-Za-z]:\//.test(asPosix)) {
-    return `file:///${asPosix}`;
+    return `file:///${encodeHrefPath(asPosix)}`;
   }
   if (asPosix.startsWith('/')) {
-    return `file://${asPosix}`;
+    return `file://${encodeHrefPath(asPosix)}`;
   }
-  return `file:///${asPosix}`;
+  return `file:///${encodeHrefPath(asPosix)}`;
 };
 
 /** `[@"basename"](file:///abs)` — same shape Codex/Claude echo on session/load. */

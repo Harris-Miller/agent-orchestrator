@@ -14,7 +14,10 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { FC, ReactNode, SubmitEvent } from 'react';
+import type { DragEvent, FC, ReactNode, SubmitEvent } from 'react';
+
+import { DropTarget } from '@lib/context-services';
+import { Effect, Fiber, Stream } from 'effect';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import {
@@ -38,12 +41,13 @@ import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
 import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
-import { hostRuntime } from '../../hostRuntime.ts';
+import { hostRunFork, hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
 import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
+import { classifyDroppedPaths } from './classifyDroppedPaths.ts';
 import { groupChatItems, isLiveRegion } from './groupChatItems.ts';
 import { WorkRegionView } from './WorkRegionView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
@@ -53,6 +57,12 @@ import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
 import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
 import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
+import {
+  composerDropTypes,
+  dropMentionsMarkdown,
+  insertDroppedMentions,
+  pathsFromDataTransfer,
+} from './composerDrop.ts';
 import { detectComposerTrigger } from './detectComposerTrigger.ts';
 import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
@@ -139,6 +149,9 @@ export const SessionChatBody: FC<{
   const [composerTrigger, setComposerTrigger] = useState<ComposerTrigger | null>(null);
   const [commandFocusIndex, setCommandFocusIndex] = useState(0);
   const composerCursorRef = useRef(0);
+  const draftRef = useRef(draft);
+  const chatRootRef = useRef<HTMLElement>(null);
+  const [dropActive, setDropActive] = useState(false);
   const syncCursorRef = useRef<null | number>(null);
   const focusComposerEndRef = useRef<(() => void) | null>(null);
 
@@ -244,6 +257,106 @@ export const SessionChatBody: FC<{
     },
     [attachments, draft, onClientError, selectedLaunchTarget, sessionCwd, setAttachments, setDraft],
   );
+
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  // Shared by the DOM (VS Code) and Tauri drop paths. Reads draft and cursor after the stat await, not at drop time.
+  const applyDroppedPaths = (paths: readonly string[]) => {
+    if (!controlsEnabled || paths.length === 0) {
+      return;
+    }
+    hostRuntime
+      .runPromise(classifyDroppedPaths(paths))
+      .then(entries => {
+        const next = insertDroppedMentions(draftRef.current, composerCursorRef.current, dropMentionsMarkdown(entries));
+        syncCursorRef.current = next.cursor;
+        composerCursorRef.current = next.cursor;
+        setDraft(next.draft);
+        setComposerTrigger(null);
+      })
+      .catch(onClientError);
+  };
+  const applyDroppedPathsRef = useRef(applyDroppedPaths);
+  useLayoutEffect(() => {
+    applyDroppedPathsRef.current = applyDroppedPaths;
+  });
+
+  // Desktop (Tauri): OS drops arrive only via DropTarget; hit-test against the chat so modal backdrops are ignored.
+  const isOverChat = (position: { readonly x: number; readonly y: number }): boolean => {
+    const el = document.elementFromPoint(position.x, position.y);
+    return el !== null && chatRootRef.current?.contains(el) === true;
+  };
+  const isOverChatRef = useRef(isOverChat);
+  const controlsEnabledRef = useRef(controlsEnabled);
+  useLayoutEffect(() => {
+    isOverChatRef.current = isOverChat;
+    controlsEnabledRef.current = controlsEnabled;
+  });
+  useEffect(() => {
+    const fiber = hostRunFork(
+      Effect.gen(function* () {
+        const dropTarget = yield* DropTarget;
+        yield* dropTarget.events.pipe(
+          Stream.runForEach(event =>
+            Effect.sync(() => {
+              if (event._tag === 'leave') {
+                setDropActive(false);
+                return;
+              }
+              const inside = controlsEnabledRef.current && isOverChatRef.current(event.position);
+              setDropActive(inside && event._tag !== 'drop');
+              if (event._tag === 'drop') {
+                setDropActive(false);
+                if (inside) {
+                  applyDroppedPathsRef.current(event.paths);
+                }
+              }
+            }),
+          ),
+        );
+      }),
+    );
+    return () => {
+      hostRunFork(Fiber.interrupt(fiber));
+    };
+  }, []);
+
+  // VS Code webview: DOM drags. Capture phase keeps Lexical's native drop handling out of the way.
+  const isOwnDragTarget = (event: DragEvent<HTMLElement>): boolean =>
+    event.currentTarget.contains(event.target as Node);
+  const hasDropPayload = (event: DragEvent<HTMLElement>): boolean =>
+    composerDropTypes.some(type => event.dataTransfer.types.includes(type));
+  const onChatDragOverCapture = (event: DragEvent<HTMLElement>) => {
+    if (!controlsEnabled || !isOwnDragTarget(event) || !hasDropPayload(event)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+    setDropActive(true);
+  };
+  const onChatDragLeaveCapture = (event: DragEvent<HTMLElement>) => {
+    if (!isOwnDragTarget(event)) {
+      return;
+    }
+    const related = event.relatedTarget;
+    if (related instanceof Node && event.currentTarget.contains(related)) {
+      return;
+    }
+    setDropActive(false);
+  };
+  const onChatDropCapture = (event: DragEvent<HTMLElement>) => {
+    if (!controlsEnabled || !isOwnDragTarget(event) || !hasDropPayload(event)) {
+      setDropActive(false);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setDropActive(false);
+    applyDroppedPaths(pathsFromDataTransfer(type => event.dataTransfer.getData(type)));
+  };
 
   const onComposerChange = useCallback(
     ({ adjacentToToken, cursor, text }: ComposerPromptChange) => {
@@ -510,6 +623,10 @@ export const SessionChatBody: FC<{
   return (
     <Box
       component="main"
+      onDragLeaveCapture={onChatDragLeaveCapture}
+      onDragOverCapture={onChatDragOverCapture}
+      onDropCapture={onChatDropCapture}
+      ref={chatRootRef}
       sx={{
         bgcolor: 'background.default',
         display: 'flex',
@@ -518,6 +635,9 @@ export const SessionChatBody: FC<{
         gap: 0.5,
         minHeight: 0,
         minWidth: 0,
+        outline: dropActive ? '2px dashed' : 'none',
+        outlineColor: 'primary.main',
+        outlineOffset: -2,
         overflow: 'hidden',
         p: 0.5,
       }}

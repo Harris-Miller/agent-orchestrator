@@ -1,5 +1,14 @@
-import { AtomicFile, BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
+import {
+  AtomicFile,
+  BundledResource,
+  Clipboard,
+  DropTarget,
+  FileDialog,
+  OpenFile,
+  OpenUrl,
+  OS,
+} from '@lib/context-services';
+import { Effect, Layer, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
@@ -25,6 +34,9 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(Clipboard, {
     readText: () => Effect.succeed(''),
     writeText: () => Effect.void,
+  }),
+  Layer.succeed(DropTarget, {
+    events: Stream.empty,
   }),
   Layer.succeed(FileDialog, {
     pickFiles: () => Effect.succeed([]),

@@ -6,6 +6,7 @@ import type { ChildProcessSpawner } from 'effect/process/ChildProcessSpawner';
 import type { AtomicFile } from './AtomicFile.ts';
 import type { BundledResource } from './BundledResource.ts';
 import type { Clipboard } from './Clipboard.ts';
+import type { DropTarget } from './DropTarget.ts';
 import type { FileDialog } from './FileDialog.ts';
 import type { OpenUrl } from './OpenUrl.ts';
 import type { OpenFile } from './OpenFile.ts';
@@ -17,6 +18,7 @@ export type HostServices =
   | BundledResource
   | ChildProcessSpawner
   | Clipboard
+  | DropTarget
   | FileDialog
   | FileSystem
   | HttpClient

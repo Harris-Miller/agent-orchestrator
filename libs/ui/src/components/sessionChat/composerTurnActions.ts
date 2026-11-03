@@ -9,11 +9,14 @@ export const composerTurnActions = (input: {
   readonly canCancelPromptTurn: boolean;
   readonly hasPendingInteraction: boolean;
   readonly hasSendableContent: boolean;
+  /** Prompt turn cancel already requested; the turn is ending, so steering would target a dead turn. */
+  readonly promptCancelRequested: boolean;
   readonly steeringSupported: boolean;
 }): ComposerTurnActions => {
   if (!input.canCancelPromptTurn) {
     return { canSteer: false, primaryAction: 'send' };
   }
-  const canSteer = input.steeringSupported && !input.hasPendingInteraction && input.hasSendableContent;
+  const canSteer =
+    input.steeringSupported && !input.promptCancelRequested && !input.hasPendingInteraction && input.hasSendableContent;
   return { canSteer, primaryAction: canSteer ? 'steer' : 'stop' };
 };

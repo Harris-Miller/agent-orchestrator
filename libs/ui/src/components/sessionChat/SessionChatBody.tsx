@@ -365,7 +365,7 @@ export const SessionChatBody: FC<{
   }, [attachments, composerTrigger, draft, sessionCwd, setAttachments, setDraft]);
 
   const onAttachImages = () => {
-    if (!controlsEnabled) {
+    if (!canEdit) {
       return;
     }
     hostRuntime
@@ -380,6 +380,11 @@ export const SessionChatBody: FC<{
         focusComposerEndRef.current?.();
       });
   };
+
+  const latestDraftRef = useRef({ attachments, text: draft });
+  useLayoutEffect(() => {
+    latestDraftRef.current = { attachments, text: draft };
+  }, [attachments, draft]);
 
   const takeDraft = () => {
     const taken = { text: draft, toSend: attachments };
@@ -409,6 +414,7 @@ export const SessionChatBody: FC<{
     canCancelPromptTurn,
     hasPendingInteraction,
     hasSendableContent: draft.trim().length > 0 || attachments.length > 0,
+    promptCancelRequested: selectedSession?.promptCancelRequested === true,
     steeringSupported,
   });
 
@@ -425,8 +431,10 @@ export const SessionChatBody: FC<{
     }
     const { text, toSend } = takeDraft();
     steerChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch((error: unknown) => {
-      setDraft(text);
-      setAttachments(toSend);
+      // The Composer stays editable during the RPC; keep anything typed since instead of overwriting it.
+      const typed = latestDraftRef.current;
+      setDraft(typed.text.length === 0 ? text : `${text}\n${typed.text}`);
+      setAttachments([...toSend, ...typed.attachments]);
       onClientError(error);
     });
   };

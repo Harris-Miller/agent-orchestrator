@@ -126,7 +126,7 @@ const PROMPT_CLEAR_POLL_INTERVAL = '100 millis';
  * Pending interaction; otherwise no-op. `promptRequired` (turn already ended) falls back to a normal prompt.
  * A steered message joins the in-flight turn, so it gets no turn timing of its own.
  */
-const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
+export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   arg: {
     attachments?: readonly ComposerImageAttachment[];
     launchTarget: AgentLaunchTarget;
@@ -145,6 +145,7 @@ const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
     (trimmed.length === 0 && attachments.length === 0) ||
     session?.status !== 'active' ||
     session.pendingClientRequest !== 'prompt' ||
+    session.promptCancelRequested === true ||
     session.pendingElicitation !== undefined ||
     session.pendingPermission !== undefined ||
     !hasSteeringSupport(snapshot.initializeResult)

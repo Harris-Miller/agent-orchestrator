@@ -6,6 +6,7 @@ const base = {
   canCancelPromptTurn: true,
   hasPendingInteraction: false,
   hasSendableContent: true,
+  promptCancelRequested: false,
   steeringSupported: true,
 } as const;
 
@@ -30,6 +31,13 @@ describe('composerTurnActions', () => {
 
   it('keeps Stop while a permission or elicitation is pending', () => {
     assert.deepStrictEqual(composerTurnActions({ ...base, hasPendingInteraction: true }), {
+      canSteer: false,
+      primaryAction: 'stop',
+    });
+  });
+
+  it('keeps Stop once Prompt turn cancel was requested', () => {
+    assert.deepStrictEqual(composerTurnActions({ ...base, promptCancelRequested: true }), {
       canSteer: false,
       primaryAction: 'stop',
     });

@@ -65,8 +65,15 @@ export const splitComposerCommandSegments = (
   const segments: ComposerSegment[] = [];
   let index = 0;
 
+  // Markdown links are atomic even when their label has spaces (e.g. a dropped "Burning Man" folder).
+  const links = findMarkdownLinks(text);
   while (index < text.length) {
-    if (isWhitespace(text[index])) {
+    const tokenAt = index;
+    const linkAtIndex = links.find(link => link.start === tokenAt);
+    if (linkAtIndex !== undefined) {
+      segments.push({ href: linkAtIndex.href, kind: 'markdownLink', label: linkAtIndex.label });
+      index = linkAtIndex.end;
+    } else if (isWhitespace(text[index])) {
       const wsStart = index;
       while (index < text.length && isWhitespace(text[index])) {
         index += 1;

@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import { dropMentionsMarkdown, insertDroppedMentions, pathsFromDataTransfer } from './composerDrop.ts';
+import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 
 const transfer = (entries: Record<string, string>) => (type: string) => entries[type] ?? '';
 
@@ -69,5 +70,19 @@ describe('insertDroppedMentions', () => {
       cursor: '[@a](file:///a) '.length,
       draft: '[@a](file:///a) ',
     });
+  });
+});
+
+describe('splitComposerCommandSegments with dropped mentions', () => {
+  it('keeps a mention link with spaces in its label as one markdown-link segment', () => {
+    const text = '[@Burning Man 2025 SD card](file:///Users/harris/Pictures/Burning%20Man/) next';
+    assert.deepStrictEqual(splitComposerCommandSegments(text, []), [
+      {
+        href: 'file:///Users/harris/Pictures/Burning%20Man/',
+        kind: 'markdownLink',
+        label: '@Burning Man 2025 SD card',
+      },
+      { kind: 'text', value: ' next' },
+    ]);
   });
 });

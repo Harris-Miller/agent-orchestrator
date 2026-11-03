@@ -17,6 +17,9 @@ export const formatSeconds = (totalSeconds: number): string => {
 /** `now` (epoch ms) only matters while in flight: the label counts up from the turn's `startedAt`. */
 export const workRegionLabel = (region: WorkRegion, inFlight: boolean, now: number, unstampedLabel: string): string => {
   const { endedAt, startedAt } = region.userMessage;
+  if (!region.isLastInTurn) {
+    return unstampedLabel;
+  }
   if (inFlight) {
     return startedAt === undefined ? 'Working…' : `Working for ${formatSeconds(Math.floor((now - startedAt) / 1000))}`;
   }

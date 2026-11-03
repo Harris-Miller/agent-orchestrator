@@ -79,7 +79,19 @@ export type ChatItem =
     })
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
+  | (ElicitationSummary & { readonly id: string; readonly kind: 'elicitation_summary' })
   | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
+
+export type ElicitationSummaryRow = {
+  readonly caption: string | undefined;
+  readonly label: string;
+  readonly value: string;
+};
+
+export type ElicitationSummary = {
+  readonly message: string;
+  readonly rows: readonly ElicitationSummaryRow[];
+};
 
 export type SessionTranscript = {
   readonly items: readonly ChatItem[];
@@ -462,6 +474,18 @@ export const appendUserChatMessage = (
     items: [...transcript.items, { id, images: mergedImages, kind: 'user_message', text: lifted.text }],
   };
 };
+
+/** Empty summaries (nothing answered) leave the transcript unchanged. */
+export const appendElicitationSummary = (
+  transcript: SessionTranscript,
+  summary: ElicitationSummary,
+): SessionTranscript =>
+  summary.rows.length === 0
+    ? transcript
+    : {
+        ...transcript,
+        items: [...transcript.items, { ...summary, id: crypto.randomUUID(), kind: 'elicitation_summary' }],
+      };
 
 export const reduceSessionUpdate = (transcript: SessionTranscript, update: unknown): SessionTranscript => {
   if (!isRecord(update) || typeof update.sessionUpdate !== 'string') {

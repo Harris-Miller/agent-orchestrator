@@ -37,12 +37,16 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Work region**:
-The collapsible run of a turn's chat items between the user message and the Turn answer — tool calls, plans, agent thoughts, and interim agent messages.
+The collapsible run of a turn's chat items between the user message and the Turn answer — tool calls, plans, agent thoughts, and interim agent messages. An Elicitation summary splits it, so a turn may have several.
 _Avoid_: work run, work group, activity log
 
 **Turn answer**:
 The trailing agent messages of a turn, after its last work item; always visible below the Work region.
 _Avoid_: final message, response
+
+**Elicitation summary**:
+A chat item recording an accepted form-mode Elicitation: each field the user set and the value chosen, with secret values masked. Created by the Client at accept time, not sent on the wire, and not restored by `session/load`. Always visible, never inside a Work region.
+_Avoid_: answers, answered questions, elicitation result
 
 **Bootstrap phase**:
 Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.

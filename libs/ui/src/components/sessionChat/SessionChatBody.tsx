@@ -47,7 +47,7 @@ import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatItemView } from './ChatItemView.tsx';
-import { groupChatItems } from './groupChatItems.ts';
+import { groupChatItems, isLiveRegion } from './groupChatItems.ts';
 import { WorkRegionView } from './WorkRegionView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
@@ -565,7 +565,7 @@ export const SessionChatBody: FC<{
               item.kind === 'work_region' ? (
                 <WorkRegionView
                   availableCommands={availableCommands}
-                  inFlight={item.isLastTurn && selectedSession?.pendingClientRequest === 'prompt'}
+                  inFlight={isLiveRegion(item) && selectedSession?.pendingClientRequest === 'prompt'}
                   key={`work-${item.id}`}
                   region={item}
                 />
@@ -578,11 +578,12 @@ export const SessionChatBody: FC<{
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
               <PendingElicitationCard
                 agentTitle={agentTitle}
-                onAccept={content => {
+                onAccept={(content, summary) => {
                   respondElicitation({
                     launchTarget: selectedLaunchTarget,
                     response: { action: 'accept', content },
                     sessionId: selectedSession.sessionId,
+                    summary,
                   }).catch(onClientError);
                 }}
                 onCancel={() => {

@@ -29,9 +29,11 @@ export class EnumOption extends Schema.Opaque<EnumOption>()(
 export class MultiSelectItems extends Schema.Opaque<MultiSelectItems>()(
   Schema.Struct({
     _meta: MetaField,
+    /** Titled multi-select as sent by Claude (MCP shape); no `type`. */
+    anyOf: optional(Schema.NullOr(Schema.Array(EnumOption))),
     enum: optional(Schema.NullOr(Schema.Array(Schema.String))),
     oneOf: optional(Schema.NullOr(Schema.Array(EnumOption))),
-    type: Schema.Literals(['string']),
+    type: optional(Schema.NullOr(Schema.Literals(['string']))),
   }),
 ) {}
 

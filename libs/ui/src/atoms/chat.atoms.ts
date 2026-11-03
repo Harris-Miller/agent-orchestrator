@@ -20,8 +20,12 @@ import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption } from '../host/sessionRpc.ts';
-import { markNonFinishedToolCallsCancelled, stampUserMessageTiming } from '../host/sessionUpdateReducer.ts';
-import type { TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
+import {
+  appendElicitationSummary,
+  markNonFinishedToolCallsCancelled,
+  stampUserMessageTiming,
+} from '../host/sessionUpdateReducer.ts';
+import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
   backendHarnessStateAtom,
@@ -285,17 +289,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
+  type RespondElicitationArg = {
+    launchTarget: AgentLaunchTarget;
+    sessionId: string;
+  } & (
+    | { response: Extract<CreateElicitationResponseBody, { action: 'accept' }>; summary: ElicitationSummary }
+    | { response: Extract<CreateElicitationResponseBody, { action: 'decline' | 'cancel' }> }
+  );
+
   const respondElicitationAtomFn = atomRuntime
     .fn(
       Effect.fnUntraced(
-        function* (
-          arg: {
-            launchTarget: AgentLaunchTarget;
-            response: CreateElicitationResponseBody;
-            sessionId: string;
-          },
-          get: Atom.FnContext,
-        ) {
+        function* (arg: RespondElicitationArg, get: Atom.FnContext) {
           yield* Effect.annotateCurrentSpan({
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
@@ -311,6 +316,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
               ...current,
               pendingElicitation: undefined,
+              transcript:
+                'summary' in arg ? appendElicitationSummary(current.transcript, arg.summary) : current.transcript,
             })),
           });
         },

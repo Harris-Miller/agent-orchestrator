@@ -483,6 +483,35 @@ export const ChatItemView: FC<{
         </ListItem>
       );
 
+    case 'elicitation_summary':
+      return (
+        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
+          <Paper sx={{ p: 1.5 }} variant="outlined">
+            <Typography color="text.secondary" variant="caption">
+              You answered
+            </Typography>
+            <Typography gutterBottom variant="body2">
+              {item.message}
+            </Typography>
+            <Stack spacing={1}>
+              {item.rows.map(row => (
+                <div key={`${row.label}-${row.value}`}>
+                  {row.caption === undefined ? null : (
+                    <Typography color="text.secondary" sx={{ display: 'block' }} variant="caption">
+                      {row.caption}
+                    </Typography>
+                  )}
+                  <Typography variant="body2">{row.label}</Typography>
+                  <Typography sx={{ fontWeight: 600 }} variant="body2">
+                    {row.value}
+                  </Typography>
+                </div>
+              ))}
+            </Stack>
+          </Paper>
+        </ListItem>
+      );
+
     case 'plan':
       return (
         <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>

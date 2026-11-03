@@ -12,6 +12,9 @@ import type { ElicitationSummaryRow } from '../../host/sessionUpdateReducer.ts';
 
 export type ElicitationChoice = { readonly label: string; readonly value: string };
 
+/** A paired free-text "Other" field (Claude's `question_N_custom`), folded into its choice question. */
+export type ElicitationOther = { readonly name: string; readonly placeholder: string };
+
 type Shared = {
   /** Shorter of title/description, shown small above the label; undefined when only one is present. */
   readonly caption: string | undefined;
@@ -26,13 +29,19 @@ export type ElicitationFieldView = Shared &
     | { readonly default: string | undefined; readonly kind: 'text' }
     | { readonly default: number | undefined; readonly kind: 'number' | 'integer' }
     | { readonly default: boolean | undefined; readonly kind: 'boolean' }
-    | { readonly default: string | undefined; readonly kind: 'single'; readonly options: readonly ElicitationChoice[] }
+    | {
+        readonly default: string | undefined;
+        readonly kind: 'single';
+        readonly options: readonly ElicitationChoice[];
+        readonly other: ElicitationOther | undefined;
+      }
     | {
         readonly default: readonly string[] | undefined;
         readonly kind: 'multi';
         readonly maxItems: number | undefined;
         readonly minItems: number | undefined;
         readonly options: readonly ElicitationChoice[];
+        readonly other: ElicitationOther | undefined;
       }
     | { readonly kind: 'unsupported'; readonly type: string }
   );
@@ -78,7 +87,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
     secret: isSecret(property),
   };
   if (Schema.is(ElicitationArrayProperty)(property)) {
-    const options = choiceOptions(property.items.oneOf, property.items.enum);
+    const options = choiceOptions(property.items.oneOf ?? property.items.anyOf, property.items.enum);
     return options === undefined
       ? { ...shared, kind: 'unsupported', type: 'array' }
       : {
@@ -89,12 +98,13 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           minItems: property.minItems ?? undefined,
           name,
           options,
+          other: undefined,
         };
   }
   if (Schema.is(ElicitationStringProperty)(property)) {
     const options = choiceOptions(property.oneOf, property.enum);
     const base = { ...shared, default: property.default ?? undefined };
-    return options === undefined ? { ...base, kind: 'text' } : { ...base, kind: 'single', options };
+    return options === undefined ? { ...base, kind: 'text' } : { ...base, kind: 'single', options, other: undefined };
   }
   if (
     Schema.is(ElicitationNumberProperty)(property) ||
@@ -109,11 +119,33 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
   return { ...shared, kind: 'unsupported', type: 'unknown' };
 };
 
+const customAnswerQuestionId = (property: ElicitationPropertySchema): string | undefined => {
+  const meta = property._meta as
+    | { readonly _askUserQuestionCustomAnswer?: { readonly questionId?: unknown } }
+    | null
+    | undefined;
+  const id = meta?._askUserQuestionCustomAnswer?.questionId;
+  return typeof id === 'string' ? id : undefined;
+};
+
+/** Custom-answer fields pair with a choice question and are folded into it as its "Other" choice. */
 export const elicitationFieldViews = (request: CreateElicitationFormRequest): readonly ElicitationFieldView[] => {
   const { properties, required } = request.requestedSchema;
-  return Object.entries(properties ?? {}).map(([name, property]) =>
-    toView(name, property, required?.includes(name) ?? false),
-  );
+  const entries = Object.entries(properties ?? {});
+  const views = entries.map(([name, property]) => toView(name, property, required?.includes(name) ?? false));
+  const others = new Map<string, ElicitationOther>();
+  for (const [name, property] of entries) {
+    const questionId = customAnswerQuestionId(property);
+    const target = views.find(view => view.name === questionId);
+    if (questionId !== undefined && (target?.kind === 'single' || target?.kind === 'multi')) {
+      const { label } = labelPair(name, (property as TextProps).title, (property as TextProps).description);
+      others.set(questionId, { name, placeholder: label });
+    }
+  }
+  const foldedNames = new Set([...others.values()].map(other => other.name));
+  return views
+    .filter(view => !foldedNames.has(view.name))
+    .map(view => (view.kind === 'single' || view.kind === 'multi' ? { ...view, other: others.get(view.name) } : view));
 };
 
 /** Seed only from `default`; a boolean has no unset state so it seeds `false`. */
@@ -136,14 +168,16 @@ export const canAcceptElicitation = (views: readonly ElicitationFieldView[], val
       return !view.required;
     }
     const value = values[view.name];
+    const otherSet =
+      (view.kind === 'single' || view.kind === 'multi') && view.other !== undefined && isSet(values[view.other.name]);
     if (view.kind === 'multi') {
-      const count = Array.isArray(value) ? value.length : 0;
+      const count = (Array.isArray(value) ? value.length : 0) + (otherSet ? 1 : 0);
       if (count < (view.minItems ?? 0) || (view.maxItems !== undefined && count > view.maxItems)) {
         return false;
       }
       return !view.required || count > 0;
     }
-    return !view.required || isSet(value);
+    return !view.required || isSet(value) || otherSet;
   });
 
 export const elicitationContent = (values: ElicitationValues): ElicitationContent => {
@@ -174,7 +208,11 @@ export const elicitationSummaryRows = (
   values: ElicitationValues,
 ): readonly ElicitationSummaryRow[] =>
   views.flatMap(view => {
+    if (view.kind === 'unsupported') return [];
     const raw = values[view.name];
-    if (view.kind === 'unsupported' || !isSet(raw)) return [];
-    return [{ caption: view.caption, label: view.label, value: formatValue(view, raw!) }];
+    const other = (view.kind === 'single' || view.kind === 'multi') && view.other ? values[view.other.name] : undefined;
+    const parts = [isSet(raw) ? formatValue(view, raw!) : undefined, isSet(other) ? String(other) : undefined].filter(
+      part => part !== undefined,
+    );
+    return parts.length === 0 ? [] : [{ caption: view.caption, label: view.label, value: parts.join(', ') }];
   });

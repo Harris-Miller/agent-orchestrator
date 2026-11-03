@@ -51,7 +51,9 @@ const claudeFixture = request(claudeProperties);
 
 describe('elicitationFieldViews', () => {
   it('maps oneOf to single with titles as labels', () => {
-    const [first, second] = elicitationFieldViews(claudeFixture);
+    const views = elicitationFieldViews(claudeFixture);
+    assert.strictEqual(views.length, 1);
+    const [first] = views;
     assert.strictEqual(first.kind, 'single');
     assert.deepStrictEqual(first.kind === 'single' ? first.options : [], [
       { label: 'Restart now (Recommended)', value: 'Restart now (Recommended)' },
@@ -59,9 +61,10 @@ describe('elicitationFieldViews', () => {
     ]);
     assert.strictEqual(first.label, claudeQuestion);
     assert.strictEqual(first.caption, 'Update+live');
-    assert.strictEqual(second.kind, 'text');
-    assert.strictEqual(second.label, claudeOther);
-    assert.strictEqual(second.caption, 'Other');
+    assert.deepStrictEqual(first.kind === 'single' ? first.other : undefined, {
+      name: 'question_0_custom',
+      placeholder: claudeOther,
+    });
   });
 
   it('maps enum to single, oneOf wins over enum', () => {
@@ -78,15 +81,27 @@ describe('elicitationFieldViews', () => {
     ]);
   });
 
-  it('maps array items oneOf/enum to multi', () => {
-    const [byOneOf, byEnum] = elicitationFieldViews(
+  it('maps array items oneOf/anyOf/enum to multi', () => {
+    const [byOneOf, byEnum, byAnyOf] = elicitationFieldViews(
       request({
         byEnum: { items: { enum: ['x'], type: 'string' }, type: 'array' },
         byOneOf: { items: { oneOf, type: 'string' }, type: 'array' },
+        byAnyOf: { items: { anyOf: oneOf }, type: 'array' },
       }),
     );
     assert.strictEqual(byOneOf.kind, 'multi');
     assert.strictEqual(byEnum.kind, 'multi');
+    assert.strictEqual(byAnyOf.kind, 'multi');
+    assert.deepStrictEqual(byAnyOf.kind === 'multi' ? byAnyOf.options.map(o => o.label) : [], ['Alpha', 'Beta']);
+  });
+
+  it('leaves a custom field with no matching choice question as text', () => {
+    const views = elicitationFieldViews(
+      request({
+        orphan: { _meta: { _askUserQuestionCustomAnswer: { questionId: 'missing' } }, type: 'string' },
+      }),
+    );
+    assert.strictEqual(views[0].kind, 'text');
   });
 });
 
@@ -103,6 +118,23 @@ describe('values + accept gating', () => {
     const values = initialElicitationValues(views);
     assert.isFalse(canAcceptElicitation(views, values));
     assert.isTrue(canAcceptElicitation(views, { ...values, question_0: 'Defer' }));
+  });
+
+  it('required single is satisfied by Other text alone', () => {
+    const views = elicitationFieldViews(request(claudeProperties, ['question_0']));
+    assert.isFalse(canAcceptElicitation(views, { question_0_custom: '' }));
+    assert.isTrue(canAcceptElicitation(views, { question_0_custom: 'mine' }));
+  });
+
+  it('Other text counts toward multi minItems', () => {
+    const views = elicitationFieldViews(
+      request({
+        m: { items: { anyOf: oneOf }, minItems: 1, type: 'array' },
+        m_custom: { _meta: { _askUserQuestionCustomAnswer: { questionId: 'm' } }, type: 'string' },
+      }),
+    );
+    assert.isFalse(canAcceptElicitation(views, { m: [] }));
+    assert.isTrue(canAcceptElicitation(views, { m: [], m_custom: 'mine' }));
   });
 
   it('gates multi on minItems/maxItems', () => {
@@ -173,11 +205,27 @@ describe('elicitationSummaryRows', () => {
     );
   });
 
-  it('shows Other only when filled', () => {
-    const rows = elicitationSummaryRows(views, { other: 'Custom' });
+  it('shows Other only when filled, on its question row', () => {
+    const claudeViews = elicitationFieldViews(claudeFixture);
+    assert.deepStrictEqual(elicitationSummaryRows(claudeViews, { question_0_custom: '' }), []);
+    const rows = elicitationSummaryRows(claudeViews, { question_0_custom: 'Custom' });
     assert.deepStrictEqual(
       rows.map(r => [r.label, r.value]),
-      [['Other', 'Custom']],
+      [[claudeQuestion, 'Custom']],
+    );
+  });
+
+  it('combines selected options with Other text', () => {
+    const multi = elicitationFieldViews(
+      request({
+        m: { items: { anyOf: oneOf }, title: 'M', type: 'array' },
+        m_custom: { _meta: { _askUserQuestionCustomAnswer: { questionId: 'm' } }, type: 'string' },
+      }),
+    );
+    const rows = elicitationSummaryRows(multi, { m: ['a'], m_custom: 'Gamma' });
+    assert.deepStrictEqual(
+      rows.map(r => r.value),
+      ['Alpha, Gamma'],
     );
   });
 });

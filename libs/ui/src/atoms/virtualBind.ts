@@ -113,7 +113,7 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
 /**
  * Sole Virtual Bind entry: `session/new` + sessions-map upsert + Virtual.sessionId; no history, no Config.
  * Callers: {@link mutateVirtualThenRebind} after Virtual mutates, and Ready `onPhase`. Not Materialize.
- * Config stays on the Virtual blob until live Bound `setConfigOption` or Materialize.
+ * Config stays on the Virtual blob until Materialize.
  * After Bind, optional `refreshFsListing` preloads `@` composer paths.
  */
 export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function* (

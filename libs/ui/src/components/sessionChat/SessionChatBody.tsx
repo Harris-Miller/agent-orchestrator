@@ -23,7 +23,6 @@ import {
   cancelPromptAtomFn,
   handoffSessionAtomFn,
   materializeVirtualThenSendAtomFn,
-  patchVirtualSessionAtomFn,
   refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
@@ -34,8 +33,6 @@ import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsLis
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
-import { rowForModel } from '../../host/configOptionIndexUi.ts';
-import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
@@ -120,9 +117,6 @@ export const SessionChatBody: FC<{
     setAttachments,
     setDraft,
     setVirtualLaunchTarget,
-    virtualBoundSessionId,
-    virtualConfigIndex,
-    virtualConfigValues,
     virtualLifecycleInFlight,
   } = useSessionChatSurface();
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
@@ -130,7 +124,6 @@ export const SessionChatBody: FC<{
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
   const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
-  const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
@@ -428,18 +421,7 @@ export const SessionChatBody: FC<{
     if (selectedLaunchTarget === undefined) {
       return;
     }
-    if (isVirtual && virtualBoundSessionId === undefined) {
-      const nextConfigValues =
-        diff.type === 'select' && diff.configId === 'model'
-          ? preserveConfigValuesOnModelChange(
-              { ...virtualConfigValues, model: diff.value },
-              rowForModel(virtualConfigIndex, diff.value),
-            )
-          : { ...virtualConfigValues, [diff.configId]: diff.value };
-      patchVirtualSession({ configValues: nextConfigValues }).catch(() => undefined);
-      return;
-    }
-    // Session arm or Bound Virtual: live setConfigOption (AtomFn owns Virtual blob preserve).
+    // Virtual writes the blob only (AtomFn); Session arm sends live setConfigOption.
     setConfigOption(
       diff.type === 'boolean'
         ? {

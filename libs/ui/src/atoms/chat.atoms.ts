@@ -36,7 +36,8 @@ import {
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { lastCreateDefaultsAtom, patchVirtualSession, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { rwFromFnContext } from './virtualBind.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -374,9 +375,19 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           | { configId: string; launchTarget: AgentLaunchTarget; type: 'select'; value: string },
         get: Atom.FnContext,
       ) {
-        const selected = get(selectedAtom);
-        const virtual = get(virtualSessionAtom);
-        // Session arm, or Bound Virtual (do not widen selectedSessionIdAtom).
+        if (get(selectedAtom)?._tag === 'Virtual') {
+          // Virtual (Bound or not): blob only. Materialize's applyConfigDiffs pushes it to the live session on Send.
+          const configValues = get(virtualSessionAtom)?.configValues ?? {};
+          const index = get(configOptionIndexAtom(arg.launchTarget));
+          const nextConfigValues =
+            arg.type === 'select' && arg.configId === 'model' && index !== undefined
+              ? preserveConfigValuesOnModelChange({ ...configValues, model: arg.value }, rowForModel(index, arg.value))
+              : { ...configValues, [arg.configId]: arg.value };
+          patchVirtualSession(rwFromFnContext(get), { configValues: nextConfigValues });
+          return;
+        }
+
+        // Session arm only.
         const sessionId = get(selectedActiveSessionAtom)?.sessionId;
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
         const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
@@ -396,7 +407,6 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const previousModeId = session.selectedModeId;
         const previousModelId = session.selectedModelId;
         const previousSessionState = session.sessionConfiguration;
-        const previousVirtualConfigValues = virtual?.configValues;
         const patchedSessionState = patchConfigOptionValue(session.sessionConfiguration, arg.configId, arg.value);
         const selection = selectionFromSessionConfiguration(patchedSessionState);
 
@@ -409,21 +419,6 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             sessionConfiguration: patchedSessionState,
           })),
         });
-
-        if (selected?._tag === 'Virtual' && virtual !== null) {
-          const index = get(configOptionIndexAtom(arg.launchTarget));
-          const nextConfigValues =
-            arg.type === 'select' && arg.configId === 'model' && index !== undefined
-              ? preserveConfigValuesOnModelChange(
-                  { ...virtual.configValues, model: arg.value },
-                  rowForModel(index, arg.value),
-                )
-              : { ...virtual.configValues, [arg.configId]: arg.value };
-          get.set(virtualSessionAtom, {
-            ...virtual,
-            configValues: nextConfigValues,
-          });
-        }
 
         const rpc = Effect.gen(function* () {
           const result = yield* setConfigOption(
@@ -470,17 +465,6 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
                   }),
                 ),
               });
-              const currentVirtual = get(virtualSessionAtom);
-              if (
-                selected?._tag === 'Virtual' &&
-                currentVirtual !== null &&
-                previousVirtualConfigValues !== undefined
-              ) {
-                get.set(virtualSessionAtom, {
-                  ...currentVirtual,
-                  configValues: previousVirtualConfigValues,
-                });
-              }
             }),
           ),
         );

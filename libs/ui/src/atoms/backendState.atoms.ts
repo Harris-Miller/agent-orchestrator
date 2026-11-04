@@ -110,10 +110,9 @@ export const findLaunchTargetForSessionId = (
 ): AgentLaunchTarget | undefined => {
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
-    if (
-      sessionId in snapshot.sessions ||
-      snapshot.sessionHistory.some(entry => entry.sessionId === sessionId && !isArchivedEntry(entry))
-    ) {
+    const entry = snapshot.sessionHistory.find(candidate => candidate.sessionId === sessionId);
+    // A session archived elsewhere counts as missing even while loaded.
+    if ((entry !== undefined && !isArchivedEntry(entry)) || (entry === undefined && sessionId in snapshot.sessions)) {
       return launchTarget;
     }
   }

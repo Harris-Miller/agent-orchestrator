@@ -68,6 +68,9 @@ export const createHarnessAtoms = (
         );
       };
 
+      // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
+      let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
+
       lifecycle.start(
         launchTarget,
         runBackendHarness(
@@ -154,10 +157,12 @@ export const createHarnessAtoms = (
                 ],
               }));
             },
+            onSessionHistoryRequest: () => {
+              pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
+            },
             onSessionHistoryResult: (listResult, scope) => {
               const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-              // Startup list runs behind the cache gate: pins read now were all made before this result.
-              const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
+              const pinsBefore = pinsBeforeStartupList;
               updateState(current => ({
                 ...current,
                 sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),

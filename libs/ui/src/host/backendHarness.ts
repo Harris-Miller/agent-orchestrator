@@ -59,6 +59,7 @@ export type BackendHarnessCallbacks = {
   ) => void;
   readonly onPhase: (phase: AcpBootstrapPhase, failure?: HarnessFailure) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
+  readonly onSessionHistoryRequest: () => void;
   readonly onSessionHistoryResult: (result: unknown, scope: SessionListScope) => void;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
 };
@@ -166,6 +167,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
     const listScope = resolveListScope();
     const listPayload = listSessionsPayload(listScope);
+    if (listPayload !== undefined) handlers.onSessionHistoryRequest();
     const listResult = listPayload === undefined ? { sessions: [] } : yield* agent['session/list'](listPayload);
     const index = yield* runConfigProbe(agent);
     handlers.onConfigOptionIndexPublish(index);

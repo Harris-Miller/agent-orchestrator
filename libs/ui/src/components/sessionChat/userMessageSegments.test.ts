@@ -4,7 +4,7 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
-import { segmentCopyText } from './userMessageClipboard.ts';
+import { segmentCopyText, userMessageMarkdown } from './userMessageClipboard.ts';
 
 const commands = [
   { description: 'Show status', name: 'status' },
@@ -67,5 +67,25 @@ describe('segmentCopyText', () => {
       '[@package.json](file:///tmp/package.json)',
     );
     assert.strictEqual(segmentCopyText({ kind: 'text', value: ' hello ' }), ' hello ');
+  });
+});
+
+describe('userMessageMarkdown', () => {
+  it('keeps plain Markdown untouched', () => {
+    const source = '**bold** and `code`\n- a\n- b';
+    assert.strictEqual(userMessageMarkdown(source, commands), source);
+  });
+
+  it('restores a command chip as its raw /name', () => {
+    assert.strictEqual(userMessageMarkdown('run /status now', commands), 'run /status now');
+  });
+
+  it('restores a Markdown link chip as [label](href)', () => {
+    assert.strictEqual(userMessageMarkdown('see [readme](./README.md) ok', commands), 'see [readme](./README.md) ok');
+  });
+
+  it('strips injected blocks', () => {
+    assert.strictEqual(userMessageMarkdown('hi <system-reminder>x</system-reminder>', commands).trim(), 'hi');
+    assert.strictEqual(userMessageMarkdown('<context name="x">only</context>', commands).trim(), '');
   });
 });

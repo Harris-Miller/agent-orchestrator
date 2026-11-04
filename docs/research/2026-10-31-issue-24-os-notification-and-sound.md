@@ -1,12 +1,12 @@
 # Issue #24: OS notification + sound on prompt completion (desktop + VS Code, macOS + Windows)
 
-Date: 2026-10-31
+Date: 2026-10-31 (code references refreshed 2026-11-03 against `038e4c4`)
 Question: How would [issue #24](https://github.com/Harris-Miller/agent-orchestrator/issues/24) be implemented for both `apps/desktop` (Tauri) and `apps/vscode`, on both macOS and Windows? What are the limitations? Add two independent Settings toggles: one for sound, one for notifications.
 
 ## Summary
 
 - **Doable on both hosts and both OSes.** The best shape: one shared trigger in `@lib/ui`, a **Sound** played in the webview (shared, no host seam), and a **Notification** behind a new Host service with one Live per host.
-- **Hook point**: `sendPromptSoftCancel` (`libs/ui/src/atoms/sessionPatch.atoms.ts:18-42`) is the shared choke point for every `session/prompt`. Fire when the returned `stopReason` is anything but `cancelled`.
+- **Hook point**: `sendPromptSoftCancel` (`libs/ui/src/atoms/sessionPatch.atoms.ts:18-42`) is the shared choke point for every `session/prompt`. Fire when the returned `stopReason` is anything but `cancelled`. Steered messages (`_session/steering`) join the in-flight turn and do not hit this hook, so a steered turn still notifies once.
 - **Desktop (Tauri v2)**: add `tauri-plugin-notification` (2.8.0). Desktop needs no permission prompt (`request_permission` always returns `Granted`). Omit `sound` so the toast is **silent**, and play the ding in the webview. This makes the two toggles fall out naturally.
 - **VS Code**: there is **no public extension API for OS notifications**. `window.showInformationMessage` is an in-app toast only. VS Code's own chat OS toasts use an internal `IHostService.showToast` that extensions cannot call.
   - The most promising route is a web `new Notification(..., { silent: true })` from the webview. VS Code's Electron main process always grants `notifications` to `vscode-webview://` URLs. **This needs a spike** (nested cross-origin iframe).
@@ -31,39 +31,40 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
 
 ### Where "prompt finished" happens
 
-- The ACP harness runs **in the webview JS** on both hosts. `sendPrompt` calls `agent['session/prompt']` and resolves with the `PromptResponse` (`libs/ui/src/host/sessionRpc.ts:135-159`).
-- `StopReason` is `'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled'` (`libs/effect-acp/src/schema/common.ts:64`).
+- The ACP harness runs **in the webview JS** on both hosts. `sendPrompt` calls `agent['session/prompt']` and resolves with the `PromptResponse` (`libs/ui/src/host/sessionRpc.ts:137-162`).
+- `StopReason` is `'end_turn' | 'max_tokens' | 'max_turn_requests' | 'refusal' | 'cancelled'` (`libs/effect-acp/src/schema/common.ts:69`).
 - `sendPromptSoftCancel` wraps `sendPrompt` and maps errors that follow a user cancel to `{ stopReason: 'cancelled' }` (`libs/ui/src/atoms/sessionPatch.atoms.ts:18-42`). It has two callers:
-  - the composer send path `sendChatItemEffect` (`libs/ui/src/atoms/chat.atoms.ts:105-113`; there is already an `Effect.ensuring` that stamps `endedAt` on the turn at `:111`);
-  - the pinned-session handoff `promptPinnedSession` (`libs/ui/src/atoms/handoff.atoms.ts:61-73`).
+  - the composer send path `sendChatItemEffect` (`libs/ui/src/atoms/chat.atoms.ts:115-118`; there is already an `Effect.ensuring` that stamps `endedAt` on the turn at `:116`);
+  - the pinned-session handoff `promptPinnedSession` (`libs/ui/src/atoms/handoff.atoms.ts:31-78`).
+- **Steering** (added after the first draft, #235): `steerChatItemEffect` (`chat.atoms.ts`) injects a message into the in-flight turn via `_session/steering` (`steerSession`, `sessionRpc.ts`) and does **not** go through `sendPromptSoftCancel`. A steered message joins the running turn, whose original `session/prompt` still resolves once, so a steered turn notifies once. When the turn has already ended (`promptRequired`), steering falls back to a normal prompt, which does hit the hook.
 - No existing notification or audio code exists in `apps/*/src` or `libs/*/src`. The only "notification" hits are JSON-RPC/IPC notifications.
 
 ### Host seam
 
-- **Host services** is a union of portable `Context.Service`s (`libs/context-services/src/HostServices.ts:14-24`). Each host composes Live layers:
-  - Tauri: `libs/context-services-tauri/src/TauriServices.ts:32-51`.
-  - VS Code webview: `makeHostServicesLive` over the extension↔webview IPC client (`libs/context-services-vscode-webview/src/makeHostServicesLive.ts:36-65`).
-- The precedent for adding a capability is `OpenUrl`: a tiny service (`libs/context-services/src/OpenUrl.ts:14-18`), a Tauri Live wrapping a plugin (`libs/context-services-tauri/src/OpenUrlLive.ts:6-17`), and a VS Code Live that sends an IPC request (`libs/context-services-vscode-webview/src/OpenUrlLive.ts:7-31`) fulfilled in the extension host (`apps/vscode/src/host/hostFulfillment.ts:281-287`).
+- **Host services** is a union of portable `Context.Service`s (`libs/context-services/src/HostServices.ts:15-26`). Each host composes Live layers:
+  - Tauri: `libs/context-services-tauri/src/TauriServices.ts:29-53`.
+  - VS Code webview: `makeHostServicesLive` over the extension↔webview IPC client (`libs/context-services-vscode-webview/src/makeHostServicesLive.ts:33-70`).
+- The precedent for adding a capability is `OpenUrl`: a tiny service (`libs/context-services/src/OpenUrl.ts:14-18`), a Tauri Live wrapping a plugin (`libs/context-services-tauri/src/OpenUrlLive.ts:6-17`), and a VS Code Live that sends an IPC request (`libs/context-services-vscode-webview/src/OpenUrlLive.ts:7-31`) fulfilled in the extension host (`apps/vscode/src/host/hostFulfillment.ts:321`).
 - ADR convention: widening Host services gets a context-services ADR. Every Host declares the service explicitly, using a `supported` flag rather than an optional service (`libs/context-services/docs/adr/0005-widen-host-services-open-file.md:3`).
 - Each app binds its Live before Atoms load: `apps/desktop/src/bindHostRuntime.ts:1-5` and `libs/ui/docs/adr/0001-host-runtime-bind-slot.md`.
 
 ### Desktop shell (Tauri v2)
 
-- Tauri `2.12.4`. Plugins in use: opener, clipboard-manager, dialog, fs, http, os, shell, window-state. There is **no notification plugin** (`apps/desktop/src-tauri/Cargo.toml:20-33`, `apps/desktop/src-tauri/src/lib.rs:89-103`).
+- Tauri `2.12.4`. Plugins in use: opener, clipboard-manager, dialog, fs, http, os, shell, window-state. There is **no notification plugin** (`apps/desktop/src-tauri/Cargo.toml:20-32`, `apps/desktop/src-tauri/src/lib.rs:309-316`).
 - One window, default label `main`, with no `backgroundThrottling` set (`apps/desktop/src-tauri/tauri.conf.json:14-20`). `security.csp` is `null` (`:21-23`). Identifier `com.agent-orchestrator` (`:5`). Bundling targets `all` (`:25-32`).
-- Capability `default` (`apps/desktop/src-tauri/capabilities/default.json:1-16`) includes `core:default`. Its `core:window` default set includes `allow-is-focused` but **not** `allow-set-focus`, `allow-unminimize` or `allow-request-user-attention` (`apps/desktop/src-tauri/gen/schemas/acl-manifests.json`, `core:window.default_permission`).
+- Capability `default` (`apps/desktop/src-tauri/capabilities/default.json:7`) includes `core:default`. Its `core:window` default set includes `allow-is-focused` but **not** `allow-set-focus`, `allow-unminimize` or `allow-request-user-attention` (`apps/desktop/src-tauri/gen/schemas/acl-manifests.json`, `core:window.default_permission`).
 
 ### VS Code extension
 
-- A webview **view** in the secondary sidebar (`apps/vscode/package.json:67-92`). No `extensionKind` and no `contributes.configuration`.
+- A webview **view** in the secondary sidebar (`apps/vscode/package.json:65-90`). No `extensionKind` and no `contributes.configuration`.
 - Registered with `retainContextWhenHidden: true` (`apps/vscode/src/extension.ts:22-25`), so the harness keeps running when the view is collapsed.
 - Webview options: `enableScripts`, `localResourceRoots: [dist/webview]` (`apps/vscode/src/sidebarViewProvider.ts:50-53`).
 - CSP is `default-src 'none'; img-src data:; style-src …; script-src 'nonce-…'` in prod (`:128`) and dev (`:94`). There is **no `media-src`**.
-- IPC fulfillment is a `switch` on `_tag` in `apps/vscode/src/host/hostFulfillment.ts:155-390`. The command `agentOrchestrator.sidebar.focus` is already used (`apps/vscode/src/extension.ts:26-28`).
+- IPC fulfillment is a `switch` on `_tag` in `apps/vscode/src/host/hostFulfillment.ts:169-438`. The command `agentOrchestrator.sidebar.focus` is already used (`apps/vscode/src/extension.ts:26-28`).
 
 ### Settings
 
-- User settings is an Effect Schema struct with optional booleans, stored at `~/.ao/settings.json` (`libs/ao-home/src/UserSettings.ts:6-15`, `libs/ao-home/src/home.ts:10-28`). It is an Effect Schema by ADR (`libs/ao-home/docs/adr/0001-effect-schema-for-user-settings.md`). Restore defaults rewrites only this file (`libs/ao-home/docs/adr/0002-restore-user-settings-only.md`).
+- User settings is an Effect Schema struct with optional booleans, stored at `~/.ao/settings.json` (`libs/ao-home/src/UserSettings.ts:6-17`, `libs/ao-home/src/home.ts:10-28`). It is an Effect Schema by ADR (`libs/ao-home/docs/adr/0001-effect-schema-for-user-settings.md`). Restore defaults rewrites only this file (`libs/ao-home/docs/adr/0002-restore-user-settings-only.md`).
 - Defaults are resolved in projection helpers, e.g. `confirmSessionDeleteEnabled = s.confirmSessionDelete !== false` (`libs/ui/src/atoms/userSettings/userSettings.atoms.ts:21-28`). Each field has a writable atom that patches the settings (`:60-80`).
 - The shared `GeneralSettingsPane` renders MUI `Switch`es (`libs/ui/src/components/GeneralSettingsPane.tsx:45-82`). Both hosts mount it through `SettingsCategoryContent`:
   - desktop: `apps/desktop/src/routes/settings/$category.tsx:15`;
@@ -74,10 +75,10 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
 
 ### Shared (`@lib/ui`, `@lib/context-services`, `@lib/ao-home`)
 
-1. **Settings schema.** Add `notifyOnPromptComplete: Schema.optionalKey(Schema.Boolean)` and `soundOnPromptComplete: Schema.optionalKey(Schema.Boolean)` to `UserSettingsSchema` (`libs/ao-home/src/UserSettings.ts:7-13`). Add projection helpers and writable atoms copying the `confirmSessionDelete` pattern. Defaults are an open question; `!== false` would mean on-when-unset.
+1. **Settings schema.** Add `notifyOnPromptComplete: Schema.optionalKey(Schema.Boolean)` and `soundOnPromptComplete: Schema.optionalKey(Schema.Boolean)` to `UserSettingsSchema` (`libs/ao-home/src/UserSettings.ts:7-15`). Add projection helpers and writable atoms copying the `confirmSessionDelete` pattern. Defaults are an open question; `!== false` would mean on-when-unset.
 2. **Trigger.** After `sendPromptSoftCancel` returns a response with `stopReason !== 'cancelled'`, run a `notifyPromptComplete(launchTarget, sessionId, stopReason)` effect. Two placement options:
-   - Inside `sendPromptSoftCancel` (`sessionPatch.atoms.ts:33-35`), which covers both chat and handoff.
-   - Only in `sendChatItemEffect` (`chat.atoms.ts:110`), if handoff shouldn't ding.
+   - Inside `sendPromptSoftCancel` (`sessionPatch.atoms.ts:33-36`), which covers both chat and handoff.
+   - Only in `sendChatItemEffect` (`chat.atoms.ts:115`), if handoff shouldn't ding.
 
    Run it with `Effect.forkDetach`/`ignore` so a notification failure never fails the turn. The effect:
    - reads both toggles;
@@ -92,12 +93,12 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
    - `isWindowFocused: Effect<boolean>`;
    - `supported: 'os' | 'in-app' | 'none'`, so the Settings UI can explain what the user will get.
 
-   Add it to `HostServices` (`HostServices.ts:14-24`) and record a widening ADR next to `0005-widen-host-services-open-file.md`. Keep `notify` free of a sound parameter, so notifications are always silent and the sound toggle stays independent.
+   Add it to `HostServices` (`HostServices.ts:15-26`) and record a widening ADR next to `0005-widen-host-services-open-file.md`. Keep `notify` free of a sound parameter, so notifications are always silent and the sound toggle stays independent.
 
 ### Desktop (`apps/desktop`, `@lib/context-services-tauri`)
 
 1. Add `tauri-plugin-notification = "2"` to `Cargo.toml` and `@tauri-apps/plugin-notification` to the package that imports it (`libs/context-services-tauri`). Then run `pnpm i`.
-2. Register `.plugin(tauri_plugin_notification::init())` in `lib.rs:89-97`. Add `"notification:default"` to `capabilities/default.json`. The default set includes `allow-notify`, `allow-show`, `allow-register-listener` and others ([permissions/default.toml](https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/notification/permissions/default.toml)).
+2. Register `.plugin(tauri_plugin_notification::init())` in `lib.rs:309-316`. Add `"notification:default"` to `capabilities/default.json`. The default set includes `allow-notify`, `allow-show`, `allow-register-listener` and others ([permissions/default.toml](https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/notification/permissions/default.toml)).
 3. `NotifierLive` (Tauri):
    - `notify` → `sendNotification({ title, body })`, with **no `sound`**;
    - `isWindowFocused` → `getCurrentWindow().isFocused()`, already allowed by `core:window:default`.
@@ -120,7 +121,7 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
 
 1. **Focus**: inside the webview, `document.hasFocus()` only tells you whether the _webview iframe_ has focus. It is false while the user types in an editor in the same window. Use the extension host's `vscode.window.state.focused` and `onDidChangeWindowState` ([vscode.d.ts `WindowState`](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.d.ts); [API reference](https://code.visualstudio.com/api/references/vscode-api#WindowState)). Two ways to get it to the webview:
    - a new IPC request (`WindowFocused` → `WindowFocusedResult`);
-   - pushing changes like `postWorkspaceFoldersChanged` (`apps/vscode/src/sidebarViewProvider.ts:71-73`).
+   - pushing changes like `postWorkspaceFoldersChanged` (`apps/vscode/src/sidebarViewProvider.ts:70-72`).
 
    VS Code's own chat notifier gates on window focus with default `windowNotFocused` (`chat.notifyWindowOnResponseReceived`, [chat.shared.contribution.ts](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts)).
 
@@ -136,7 +137,7 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
    - **(C) Not recommended**: native helpers from the extension host:
      - macOS: `osascript -e 'display notification …'` is attributed to Script Editor or the script runner ([Mac Automation Scripting Guide](https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/DisplayNotifications.html)).
      - Windows: PowerShell toasts need an AUMID/Start-menu shortcut ([Win32 desktop toast quickstart](https://learn.microsoft.com/en-us/windows/win32/shell/quickstart-sending-desktop-toast)).
-     - node-notifier: ships vendor binaries, but `vsce package --no-dependencies` (`apps/vscode/package.json:24`) means bundling them is extra work.
+     - node-notifier: ships vendor binaries, but `vsce package --no-dependencies` (`apps/vscode/package.json:23`) means bundling them is extra work.
      - With no `extensionKind`, the extension host runs **where the workspace is**. Over SSH/WSL/containers, helpers would run on the remote host, while webviews always run locally ([Remote extensions](https://code.visualstudio.com/api/advanced-topics/remote-extensions)).
    - There is **no public OS-notification API** for extensions. `IHostService.showToast` ("Show an OS-level toast notification", [host.ts](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/host/browser/host.ts)) is internal to the workbench.
 3. **Sound**: play in the webview (shared code). Constraints:
@@ -154,7 +155,7 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
 | Sound         | `soundOnPromptComplete`  | Short ding played in the webview                          | Web Audio / `<audio>` (CSP `null`, autoplay allowed) | Web Audio (no CSP change) or `<audio>` plus `media-src`                                  |
 
 - **Storage**: `~/.ao/settings.json` through `@lib/ao-home`, the same as other General toggles. On VS Code, the file is read through IPC FileSystem in the extension host, so it is shared with desktop on a local machine. Over Remote it is the remote machine's `~/.ao`. **No `contributes.configuration`**: that would fork the settings source of truth and bypass the shared pane.
-- **UI**: two `FormControlLabel` + `Switch` rows in `GeneralSettingsPane` (`libs/ui/src/components/GeneralSettingsPane.tsx:45-82`). Alternatively, use a new `notifications` entry in `SETTINGS_CATEGORIES` (`libs/ui/src/settings/settingsCategories.ts:1-9`). Update the pane's description text at `:41-44`. Optionally:
+- **UI**: two `FormControlLabel` + `Switch` rows in `GeneralSettingsPane` (`libs/ui/src/components/GeneralSettingsPane.tsx:45-82`). Alternatively, use a new `notifications` entry in `SETTINGS_CATEGORIES` (`libs/ui/src/settings/settingsCategories.ts:1-9`). The Providers pane has since moved to `libs/ui/src/components/providers/`; `GeneralSettingsPane` is unchanged. Update the pane's description text at `:41-44`. Optionally:
   - add a "Test" button per row;
   - show helper text from `Notifier.supported` (e.g. "In-app only in VS Code");
   - show a dev-build hint on desktop.
@@ -200,8 +201,8 @@ Added requirement: two **separate** Settings toggles, Sound on/off and Notificat
 
 1. Should the notification fire **only when the window is unfocused** (VS Code default `windowNotFocused`), or always? Should the sound also be gated on focus?
 2. Default values when unset: on/on, or off/off?
-3. Which `stopReason`s notify? This doc proposes all except `cancelled`. Should RPC **errors** notify too, and should the pinned-session handoff (`handoff.atoms.ts:61-73`) ding?
-4. Should other "needs attention" events notify too, e.g. a pending permission request or elicitation (`pendingPermission`, `pendingElicitation`)? VS Code notifies for both (`chat.notifyWindowOnConfirmation`).
+3. Which `stopReason`s notify? This doc proposes all except `cancelled`. Should RPC **errors** notify too, and should the pinned-session handoff (`handoff.atoms.ts:31-78`) ding?
+4. Should other "needs attention" events notify too, e.g. a pending permission request or elicitation (`pendingPermission`, `pendingElicitation`)? VS Code notifies for both (`chat.notifyWindowOnConfirmation`). Elicitation became a richer interaction after #229 (`PendingElicitationCard`, `elicitationFormViews`), which makes it a stronger candidate.
 5. Should desktop and VS Code share one setting (current `~/.ao` model) or be per-host?
 6. Is click-to-focus in scope? On desktop it needs extra window capabilities.
 7. VS Code spike result: does `new Notification()` from the sidebar webview produce an OS toast on macOS and Windows stable VS Code, and what does `Notification.permission` report?

@@ -46,7 +46,7 @@ import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import { CopyMessageButton } from './CopyMessageButton.tsx';
 import { toolCallTitleSegments } from './toolCallTitleSegments.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
-import { clipboardTextFromSelectionInRoot, segmentCopyText, userMessageMarkdown } from './userMessageClipboard.ts';
+import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
 
 const THUMB_PX = 72;
 
@@ -271,9 +271,12 @@ const MessageRow: FC<{
 }> = ({ availableCommands = [], images, steering = false, text, tone }) => {
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
-    const markdown = userMessageMarkdown(text, availableCommands);
+    const markdown = segments.map(segmentCopyText).join('');
     const hasText = markdown.trim().length > 0;
     const hasImages = images !== undefined && images.length > 0;
+    if (!hasText && !hasImages && !steering) {
+      return null;
+    }
     return (
       <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
         <Box sx={{ alignItems: 'flex-end', display: 'flex', flexDirection: 'column', maxWidth: 'min(85%, 42rem)' }}>

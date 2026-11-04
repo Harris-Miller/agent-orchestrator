@@ -13,11 +13,11 @@ const COPIED_MS = 1500;
 /** Icon-only "Copy message" control; `getText` is read at click time so streaming text is current. */
 export const CopyMessageButton: FC<{ readonly getText: () => string }> = ({ getText }) => {
   const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const revertTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(
     () => () => {
-      clearTimeout(timer.current);
+      clearTimeout(revertTimeout.current);
     },
     [],
   );
@@ -28,11 +28,12 @@ export const CopyMessageButton: FC<{ readonly getText: () => string }> = ({ getT
       <IconButton
         aria-label={label}
         onClick={() => {
+          clearTimeout(revertTimeout.current);
           hostRunPromise(writeTextToClipboard(getText()))
             .then(() => {
               setCopied(true);
-              clearTimeout(timer.current);
-              timer.current = setTimeout(() => {
+              clearTimeout(revertTimeout.current);
+              revertTimeout.current = setTimeout(() => {
                 setCopied(false);
               }, COPIED_MS);
             })

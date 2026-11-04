@@ -11,6 +11,7 @@ import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createProvidersAtoms } from './providers.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { createNotifierAtoms } from './notifier.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
 
@@ -23,12 +24,17 @@ const hostBag = {
   hostRuntime,
 };
 
+export const { notifierSupportedAtom } = createNotifierAtoms(atomRuntime);
+
 export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 
 export const {
   alwaysHiddenGlobsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
+  notificationSoundEnabledAtom,
+  notificationsEnabledAtom,
+  notifyOnlyWhenUnfocusedAtom,
   persistUserSettingsAtomFn,
   showNoFolderGroupAtom,
   themeAtom,

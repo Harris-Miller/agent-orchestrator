@@ -7,6 +7,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { beginClientRequest, endClientRequest } from '../host/harnessStateTransitions.ts';
+import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { sendPrompt } from '../host/sessionRpc.ts';
 import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
@@ -32,6 +33,15 @@ export const sendPromptSoftCancel = Effect.fn('sendPromptSoftCancel')(function* 
 
   const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, prompt));
   if (Exit.isSuccess(exit)) {
+    const { stopReason } = exit.value;
+    if (isAttentionStopReason(stopReason)) {
+      yield* Effect.forkDetach(
+        notifySessionAttention(get(backendHarnessStateAtom(launchTarget)), launchTarget, sessionId, {
+          kind: 'turn-ended',
+          stopReason,
+        }),
+      );
+    }
     return exit.value;
   }
   if (get(backendHarnessStateAtom(launchTarget)).sessions[sessionId].promptCancelRequested === true) {

@@ -14,6 +14,7 @@ import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
+import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
@@ -90,6 +91,11 @@ export const createHarnessAtoms = (
                   pendingElicitation: { request, resolve, sessionId },
                 })),
               }));
+              hostRunFork(
+                notifySessionAttention(registry.get(backendHarnessStateAtom(launchTarget)), launchTarget, sessionId, {
+                  kind: 'elicitation',
+                }),
+              );
             },
             onInitializeResult: initializeResult => {
               updateState(current => ({
@@ -106,6 +112,11 @@ export const createHarnessAtoms = (
                   pendingPermission: { request, resolve, sessionId },
                 })),
               }));
+              hostRunFork(
+                notifySessionAttention(registry.get(backendHarnessStateAtom(launchTarget)), launchTarget, sessionId, {
+                  kind: 'permission',
+                }),
+              );
             },
             onPhase: (phase, failure) => {
               updateState(current => ({

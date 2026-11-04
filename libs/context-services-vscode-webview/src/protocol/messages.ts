@@ -198,6 +198,14 @@ export const IpcMessage = Schema.TaggedUnion({
   KillResult: {
     id: CorrelationId,
   },
+  NotifyInApp: {
+    body: Schema.String,
+    id: CorrelationId,
+    title: Schema.String,
+  },
+  NotifyInAppResult: {
+    id: CorrelationId,
+  },
   OpenUrl: {
     id: CorrelationId,
     url: Schema.String,
@@ -217,6 +225,13 @@ export const IpcMessage = Schema.TaggedUnion({
     id: CorrelationId,
   },
   OpenFileResult: {
+    id: CorrelationId,
+  },
+  WindowFocus: {
+    id: CorrelationId,
+  },
+  WindowFocusResult: {
+    focused: Schema.Boolean,
     id: CorrelationId,
   },
   OsSnapshot: {

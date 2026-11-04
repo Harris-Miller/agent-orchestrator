@@ -20,6 +20,16 @@ _Avoid_: clipboard-manager, navigator.clipboard (when you mean the portable Seam
 The host capability to pick filesystem paths via a native open dialog (`pickFiles` → absolute paths; cancel → empty list). Does not return file bytes.
 _Avoid_: showOpenDialog, plugin-dialog, `<input type="file">` (when you mean the portable Seam)
 
+**Notifier** (service):
+The host capability to raise an OS Notification (`notify({ title, body, sound })`), report whether the Host window is focused (`isWindowFocused`), and report `supported: 'os' | 'in-app'`. Used for Attention events. Failures are swallowed by callers.
+_Avoid_: toast service, plugin-notification, `new Notification` (when you mean the portable Seam)
+
+**Notification**:
+The OS toast a Notifier raises for an Attention event. Title is the session's chat title; body is a fixed phrase, never agent text. See `@lib/ui` Attention event.
+
+**Notification sound**:
+The system notification sound attached to a Notification (`sound: true`). Never played alone; a silent Notification is `sound: false`.
+
 **OpenUrl** (service):
 The host capability to open an absolute http(s) URL in the system default browser / handler (`open`). Used for Antigravity Sign in, chat Markdown links, and similar external auth flows — not ACP elicitation URL mode.
 _Avoid_: BROWSER helper, window.open, openExternal (when you mean the portable Seam)
@@ -33,5 +43,5 @@ The runtime environment that supplies a live implementation of Host services to 
 _Avoid_: Node, machine, runtime (when you mean the Seam consumer)
 
 **Host services**:
-Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, OpenFile, OpenUrl, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
+Portable aggregate of BundledResource, ChildProcessSpawner, Clipboard, FileDialog, FileSystem, HttpClient, Notifier, OpenFile, OpenUrl, OS, and Path — the Seam a host fulfills for Agent Harness code. Host apps compose Live Adapters; shared packages depend only on the portable tags. Live Adapters stay in Host packages; Effect-only helpers those Adapters share (no Host SDK) may live in this package.
 _Avoid_: Platform services, Tauri services (when you mean the portable aggregate)

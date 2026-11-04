@@ -7,6 +7,7 @@ import type { AtomicFile } from './AtomicFile.ts';
 import type { BundledResource } from './BundledResource.ts';
 import type { Clipboard } from './Clipboard.ts';
 import type { FileDialog } from './FileDialog.ts';
+import type { Notifier } from './Notifier.ts';
 import type { OpenUrl } from './OpenUrl.ts';
 import type { OpenFile } from './OpenFile.ts';
 import type { OS } from './OS.ts';
@@ -20,6 +21,7 @@ export type HostServices =
   | FileDialog
   | FileSystem
   | HttpClient
+  | Notifier
   | OpenUrl
   | OpenFile
   | OS

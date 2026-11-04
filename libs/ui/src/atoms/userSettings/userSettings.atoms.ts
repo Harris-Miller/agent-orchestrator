@@ -27,6 +27,17 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
 
+/** Notifications are on when the Settings field is unset. */
+export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
+
+/** Notification sound is on when the Settings field is unset. */
+export const notificationSoundEnabled = (settings: UserSettings): boolean =>
+  settings.notificationSoundEnabled !== false;
+
+/** Only notify while the Host window is unfocused when the Settings field is unset. */
+export const notifyOnlyWhenUnfocusedEnabled = (settings: UserSettings): boolean =>
+  settings.notifyOnlyWhenUnfocused !== false;
+
 export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   const loadUserSettingsAtom = runtime.atom(() => readUserSettings()).pipe(Atom.keepAlive);
 
@@ -81,6 +92,36 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective Notifications preference (on when unset). Write patches User settings. */
+  const notificationsEnabledAtom = Atom.writable(
+    get => notificationsEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), notificationsEnabled: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective Notification sound preference (on when unset). Write patches User settings. */
+  const notificationSoundEnabledAtom = Atom.writable(
+    get => notificationSoundEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, {
+        ...unwrapUserSettings(ctx.get(userSettingsAtom)),
+        notificationSoundEnabled: enabled,
+      });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective only-when-unfocused preference (on when unset). Write patches User settings. */
+  const notifyOnlyWhenUnfocusedAtom = Atom.writable(
+    get => notifyOnlyWhenUnfocusedEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, {
+        ...unwrapUserSettings(ctx.get(userSettingsAtom)),
+        notifyOnlyWhenUnfocused: enabled,
+      });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Normalized Always-hidden globs (empty when unset). Write patches User settings. */
   const alwaysHiddenGlobsAtom = Atom.writable(
     get => normalizeAlwaysHiddenGlobs(unwrapUserSettings(get(userSettingsAtom)).alwaysHiddenGlobs),
@@ -117,6 +158,9 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     alwaysHiddenGlobsAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,
+    notificationSoundEnabledAtom,
+    notificationsEnabledAtom,
+    notifyOnlyWhenUnfocusedAtom,
     persistUserSettingsAtomFn,
     showNoFolderGroupAtom,
     themeAtom,

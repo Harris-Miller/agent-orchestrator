@@ -9,6 +9,7 @@ import { ClipboardLive } from './ClipboardLive.ts';
 import { ConfigProviderLive } from './ConfigProviderLive.ts';
 import { FileDialogLive } from './FileDialogLive.ts';
 import { FileSystemLive } from './FileSystemLive.ts';
+import { NotifierLive } from './NotifierLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
 import { OpenUrlLive } from './OpenUrlLive.ts';
 import { OpenFileLive } from './OpenFileLive.ts';
@@ -27,7 +28,7 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides AtomicFile, BundledResource, Clipboard, FileDialog, OpenUrl, OpenFile, OS, Path, FileSystem, ChildProcessSpawner, and
+ * Provides AtomicFile, BundledResource, Clipboard, FileDialog, Notifier, OpenUrl, OpenFile, OS, Path, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
@@ -38,6 +39,7 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   ChildProcessSpawnerLive,
   FileDialogLive,
   FileSystemLive,
+  NotifierLive,
   OpenUrlLive,
   OpenFileLive,
   PathLive,

@@ -353,3 +353,57 @@ describe('stampUserMessageTiming', () => {
     assert.deepStrictEqual(out.items[1], { ...t.items[1], startedAt: 5 });
   });
 });
+
+describe('reduceSessionUpdate planFilePath', () => {
+  const call = (planFilePath: unknown) =>
+    reduceSessionUpdate(emptySessionTranscript(), {
+      rawInput: { planFilePath },
+      sessionUpdate: 'tool_call',
+      title: 'Exit plan mode',
+      toolCallId: 'p1',
+    });
+  const planOf = (t: ReturnType<typeof call>) => {
+    const [item] = t.items;
+    return item.kind === 'tool_call' ? item.planFilePath : undefined;
+  };
+
+  it('stores the path from tool_call', () => {
+    assert.strictEqual(planOf(call('/plans/a.md')), '/plans/a.md');
+  });
+
+  it('stores the path from tool_call_update', () => {
+    const t = reduceSessionUpdate(call(undefined), {
+      rawInput: { planFilePath: '/plans/b.md' },
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'p1',
+    });
+    assert.strictEqual(planOf(t), '/plans/b.md');
+  });
+
+  it('keeps the stored path on pathless and blank updates', () => {
+    const base = call('/plans/a.md');
+    for (const rawInput of [undefined, { planFilePath: '' }]) {
+      const t = reduceSessionUpdate(base, {
+        rawInput,
+        sessionUpdate: 'tool_call_update',
+        status: 'completed',
+        toolCallId: 'p1',
+      });
+      assert.strictEqual(planOf(t), '/plans/a.md');
+    }
+  });
+
+  it('creates the item from an update with no existing item', () => {
+    const t = reduceSessionUpdate(emptySessionTranscript(), {
+      rawInput: { planFilePath: '/plans/c.md' },
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'p2',
+    });
+    assert.strictEqual(planOf(t), '/plans/c.md');
+  });
+
+  it('ignores relative and non-string paths', () => {
+    assert.strictEqual(planOf(call('plans/a.md')), undefined);
+    assert.strictEqual(planOf(call(42)), undefined);
+  });
+});

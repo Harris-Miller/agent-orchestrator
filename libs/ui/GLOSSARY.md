@@ -34,6 +34,10 @@ _Avoid_: Status, connection state, phase atoms
 User-gated Antigravity Google account flow (`oauth-personal` / ACP `authenticate`) from Providers or the session composer. Product verb; not Vendor CLI `login`. Classified from the ACP `auth_required` error (or our own sign-in timeout), never from message text.
 _Avoid_: authenticate (wire), login, OAuth elicitation
 
+**Plan file**:
+The file a Claude `ExitPlanMode` tool call names (`rawInput.planFilePath`), surfaced as a link above the Composer (plain text where the host cannot open files). Codex plans arrive as markdown with no file.
+_Avoid_: Plan (the ACP `plan` entries list)
+
 **Provider**:
 An agent backend the user can enable (Claude, Codex, Antigravity, Cursor), identified by its launch target. Has a user-controlled enabled preference, requirements (CLI on PATH, a Provider runtime) and a derived status.
 _Avoid_: backend (the running process), agent

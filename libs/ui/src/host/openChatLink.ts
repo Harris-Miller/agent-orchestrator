@@ -12,7 +12,7 @@ export type ChatLink =
   | { readonly kind: 'path'; readonly path: string; readonly cwd: string };
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
-const WINDOWS_DRIVE = /^[a-z]:[\\/]/i;
+export const WINDOWS_DRIVE = /^[a-z]:[\\/]/i;
 
 /** Agents link workspace files as plain paths (`libs/x.ts#L3`, `/abs/dir`), not `file://` URIs. */
 const classifyPathHref = (href: string, cwd: string): ChatLink | undefined => {

@@ -12,6 +12,7 @@ import {
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
+import { WINDOWS_DRIVE } from './openChatLink.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -64,6 +65,8 @@ export type ChatItem =
       readonly id: string;
       readonly kind: 'tool_call';
       readonly locationPath?: string;
+      /** Absolute path of the plan file named by a Claude `ExitPlanMode` call (`rawInput.planFilePath`). */
+      readonly planFilePath?: string;
       readonly resultText?: string;
       readonly status: string;
       readonly title: string;
@@ -301,6 +304,18 @@ const extractRawInputCommand = (rawInput: unknown): string | undefined => {
   }
   return rawInput.command;
 };
+
+/** Only a non-empty absolute string counts; anything else is ignored so it never clears a stored path. */
+const extractPlanFilePath = (rawInput: unknown): string | undefined => {
+  if (!isRecord(rawInput) || typeof rawInput.planFilePath !== 'string') {
+    return undefined;
+  }
+  const path = rawInput.planFilePath;
+  return path.startsWith('/') || WINDOWS_DRIVE.test(path) ? path : undefined;
+};
+
+/** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
+const withPlanFilePath = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
 
 /** Path of the first location only; tool_call titles link a single file. */
 const extractLocationPath = (locations: unknown): string | undefined => {
@@ -568,6 +583,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           id: update.toolCallId,
           kind: 'tool_call' as const,
           locationPath: extractLocationPath(update.locations),
+          ...withPlanFilePath(extractPlanFilePath(update.rawInput)),
           resultText: extractTextFromContent(update.content),
           status,
           title: update.title,
@@ -591,6 +607,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
       const status = typeof update.status === 'string' ? update.status : undefined;
       const title = typeof update.title === 'string' ? update.title : undefined;
       const locationPath = extractLocationPath(update.locations);
+      const planFilePath = extractPlanFilePath(update.rawInput);
 
       if (existingIndex !== undefined) {
         const existing = transcript.items[existingIndex];
@@ -600,6 +617,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
             ...existing,
             command: command ?? existing.command,
             locationPath: locationPath ?? existing.locationPath,
+            ...withPlanFilePath(planFilePath ?? existing.planFilePath),
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
             title: title ?? existing.title,
@@ -615,6 +633,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           id: update.toolCallId,
           kind: 'tool_call' as const,
           locationPath,
+          ...withPlanFilePath(planFilePath),
           resultText,
           status: status ?? 'unknown',
           title: title ?? update.toolCallId,

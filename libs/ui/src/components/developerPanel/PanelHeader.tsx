@@ -8,12 +8,13 @@ import { PANEL_HEADER_HEIGHT } from '../../theme/tokens.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 export const PanelHeader: FC<{
+  readonly actions?: ReactNode;
   readonly closeAriaLabel: string;
   readonly closeIcon: LucideIcon;
   readonly onClose: () => void;
   readonly title: ReactNode;
   readonly titleEnd?: ReactNode;
-}> = ({ closeAriaLabel, closeIcon, onClose, title, titleEnd }) => (
+}> = ({ actions, closeAriaLabel, closeIcon, onClose, title, titleEnd }) => (
   <Box
     sx={{
       alignItems: 'center',
@@ -31,8 +32,11 @@ export const PanelHeader: FC<{
       {typeof title === 'string' ? <Typography variant="h6">{title}</Typography> : title}
       {titleEnd}
     </Box>
-    <IconButton aria-label={closeAriaLabel} edge="end" onClick={onClose} size="small">
-      <LucideMuiIcon fontSize="small" icon={closeIcon} />
-    </IconButton>
+    <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+      {actions}
+      <IconButton aria-label={closeAriaLabel} edge="end" onClick={onClose} size="small">
+        <LucideMuiIcon fontSize="small" icon={closeIcon} />
+      </IconButton>
+    </Box>
   </Box>
 );

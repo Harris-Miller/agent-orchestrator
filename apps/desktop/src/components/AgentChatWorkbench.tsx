@@ -203,19 +203,21 @@ export const AgentChatWorkbench: FC<{
                   {entry === undefined ? null : (
                     <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
                   )}
-                  <ToggleDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
-                    <Tooltip title="Open session state panel">
-                      <IconButton
-                        aria-label="Open session state panel"
-                        onClick={() => {
-                          commitLayout({ sessionStateOpen: true });
-                        }}
-                        size="small"
-                      >
-                        <LucideMuiIcon fontSize="small" icon={PanelRightOpen} />
-                      </IconButton>
-                    </Tooltip>
+                    <>
+                      <ToggleDeveloperPanelButton />
+                      <Tooltip title="Open session state panel">
+                        <IconButton
+                          aria-label="Open session state panel"
+                          onClick={() => {
+                            commitLayout({ sessionStateOpen: true });
+                          }}
+                          size="small"
+                        >
+                          <LucideMuiIcon fontSize="small" icon={PanelRightOpen} />
+                        </IconButton>
+                      </Tooltip>
+                    </>
                   )}
                 </Box>
 

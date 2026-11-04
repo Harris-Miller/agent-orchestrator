@@ -1,4 +1,4 @@
-import { PanelHeader } from '@lib/ui';
+import { PanelHeader, ToggleDeveloperPanelButton } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { PanelRightClose } from 'lucide-react';
 import type { FC } from 'react';
@@ -19,6 +19,12 @@ export const RightPanelPlaceholder: FC<{
       minHeight: 0,
     }}
   >
-    <PanelHeader closeAriaLabel="Close panel" closeIcon={PanelRightClose} onClose={onClose} title="Panel" />
+    <PanelHeader
+      actions={<ToggleDeveloperPanelButton />}
+      closeAriaLabel="Close panel"
+      closeIcon={PanelRightClose}
+      onClose={onClose}
+      title="Panel"
+    />
   </Box>
 );

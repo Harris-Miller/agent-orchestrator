@@ -115,4 +115,8 @@ _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the pinned-session handoff prompt), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
+**Copy message**:
+The control under a transcript user or agent message that writes that message's Markdown source to the Host clipboard. For user messages, Command Chips copy as the raw invocation and Markdown Link Chips as `[label](href)`; injected context blocks and images are omitted. Does not apply to thoughts or tool output, and is distinct from the selection copy inside a user bubble.
+_Avoid_: copy button (when you mean the behavior), copy rendered text
+
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md). Session and Settings domain terms live primarily in [`../../apps/desktop/GLOSSARY.md`](../../apps/desktop/GLOSSARY.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/GLOSSARY.md`](../../apps/vscode/GLOSSARY.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.

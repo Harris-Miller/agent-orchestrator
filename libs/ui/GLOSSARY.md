@@ -77,7 +77,7 @@ A model id advertised on `session/new` whose probe `session/set_config_option` s
 _Avoid_: Missing model, failed model, disabled model (when you mean this probe outcome)
 
 **Developer panel**:
-Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the reopen affordance are shared; hosts own pane layout chrome and host-only tabs.
+Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs.
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)
 
 **Available Command**:

@@ -98,6 +98,10 @@ _Avoid_: Session record, session object
 The ordered chat items for one session snapshot, derived from session updates and locally appended user prompts. Sole owner of that session’s chat items; survives backend harness reconnect.
 _Avoid_: Chat log, message list, accumulator
 
+**Session state panel**:
+The desktop right panel (chat header open button, `PanelRightOpen`; panel header close button, `PanelRightClose`) that shows the Selected session's Session snapshot. "Session state" is avoided for the underlying data (see Session status, Session configuration); this term names only the panel.
+_Avoid_: Right panel, Panel, state drawer
+
 **Session update apply**:
 Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — that stays at the atom seam.
 _Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
@@ -171,7 +175,7 @@ At most one process-lifetime in-memory draft (composer text, agent launch target
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:
-App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (desktop normally keeps Virtual or a Session selected). Determines which transcript/composer the main chat shows and what the session-state panel displays. Not per-agent.
+App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (desktop normally keeps Virtual or a Session selected). Determines which transcript/composer the main chat shows and what the Session state panel displays. Not per-agent.
 _Avoid_: Selected session (when you mean the union including Virtual), current session, focused session
 
 **Active session**:

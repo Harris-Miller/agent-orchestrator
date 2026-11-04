@@ -4,6 +4,7 @@ import {
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
+  IconTooltipButton,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
@@ -195,17 +196,13 @@ export const WorkbenchNavRail: FC<{
         </Box>
         <Divider />
         <Box sx={{ flexShrink: 0, p: 1 }}>
-          <Tooltip title="Settings">
-            <IconButton
-              aria-label="Settings"
-              onClick={() => {
-                navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
-              }}
-              size="small"
-            >
-              <LucideMuiIcon fontSize="small" icon={Settings} />
-            </IconButton>
-          </Tooltip>
+          <IconTooltipButton
+            icon={Settings}
+            label="Settings"
+            onClick={() => {
+              navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
+            }}
+          />
         </Box>
       </Box>
 

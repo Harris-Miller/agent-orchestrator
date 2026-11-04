@@ -20,8 +20,8 @@ export const RightPanelPlaceholder: FC<{
     }}
   >
     <PanelHeader
-      actions={<ToggleDeveloperPanelButton />}
-      closeAriaLabel="Close panel"
+      beforeClose={<ToggleDeveloperPanelButton />}
+      closeAriaLabel="Close session state panel"
       closeIcon={PanelRightClose}
       onClose={onClose}
       title="Panel"

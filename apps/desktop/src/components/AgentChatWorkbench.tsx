@@ -8,8 +8,8 @@ import {
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
+  IconTooltipButton,
   isRecord,
-  LucideMuiIcon,
   PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedSessionAtom,
@@ -25,8 +25,6 @@ import {
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
@@ -184,17 +182,13 @@ export const AgentChatWorkbench: FC<{
                   }}
                 >
                   {layout.sessionHistoryOpen ? null : (
-                    <Tooltip title="Open session history panel">
-                      <IconButton
-                        aria-label="Open session history panel"
-                        onClick={() => {
-                          commitLayout({ sessionHistoryOpen: true });
-                        }}
-                        size="small"
-                      >
-                        <LucideMuiIcon fontSize="small" icon={PanelLeftOpen} />
-                      </IconButton>
-                    </Tooltip>
+                    <IconTooltipButton
+                      icon={PanelLeftOpen}
+                      label="Open session history panel"
+                      onClick={() => {
+                        commitLayout({ sessionHistoryOpen: true });
+                      }}
+                    />
                   )}
                   {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
                   <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
@@ -206,17 +200,13 @@ export const AgentChatWorkbench: FC<{
                   {layout.sessionStateOpen ? null : (
                     <>
                       <ToggleDeveloperPanelButton />
-                      <Tooltip title="Open session state panel">
-                        <IconButton
-                          aria-label="Open session state panel"
-                          onClick={() => {
-                            commitLayout({ sessionStateOpen: true });
-                          }}
-                          size="small"
-                        >
-                          <LucideMuiIcon fontSize="small" icon={PanelRightOpen} />
-                        </IconButton>
-                      </Tooltip>
+                      <IconTooltipButton
+                        icon={PanelRightOpen}
+                        label="Open session state panel"
+                        onClick={() => {
+                          commitLayout({ sessionStateOpen: true });
+                        }}
+                      />
                     </>
                   )}
                 </Box>

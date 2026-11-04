@@ -1,20 +1,19 @@
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import type { LucideIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
 import { PANEL_HEADER_HEIGHT } from '../../theme/tokens.ts';
-import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
+import { IconTooltipButton } from '../IconTooltipButton.tsx';
 
 export const PanelHeader: FC<{
-  readonly actions?: ReactNode;
+  readonly beforeClose?: ReactNode;
   readonly closeAriaLabel: string;
   readonly closeIcon: LucideIcon;
   readonly onClose: () => void;
   readonly title: ReactNode;
   readonly titleEnd?: ReactNode;
-}> = ({ actions, closeAriaLabel, closeIcon, onClose, title, titleEnd }) => (
+}> = ({ beforeClose, closeAriaLabel, closeIcon, onClose, title, titleEnd }) => (
   <Box
     sx={{
       alignItems: 'center',
@@ -33,10 +32,8 @@ export const PanelHeader: FC<{
       {titleEnd}
     </Box>
     <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-      {actions}
-      <IconButton aria-label={closeAriaLabel} onClick={onClose} size="small">
-        <LucideMuiIcon fontSize="small" icon={closeIcon} />
-      </IconButton>
+      {beforeClose}
+      <IconTooltipButton icon={closeIcon} label={closeAriaLabel} onClick={onClose} />
     </Box>
   </Box>
 );

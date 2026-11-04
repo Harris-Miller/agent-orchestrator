@@ -23,6 +23,8 @@
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {
+    "@agentclientprotocol/claude-agent-acp": "catalog:",
+    "@agentclientprotocol/codex-acp": "catalog:",
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "effect": "catalog:",

@@ -3,12 +3,18 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
-import { Archive, Ellipsis, Pencil, Trash2, X } from 'lucide-react';
+import { Archive, Ellipsis, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
-import { archiveSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import {
+  archiveSessionAtomFn,
+  deactivateSessionAtomFn,
+  pinSessionAtomFn,
+  unpinSessionAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
+import { pinnedSessionsAtom, pinsLoadedAtom } from '../../atoms/pinnedSessions.atoms.ts';
 import { canRename, hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
@@ -31,6 +37,10 @@ export const SessionActionsMenu: FC<{
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
+  const pinSession = useAtomSet(pinSessionAtomFn, { mode: 'promise' });
+  const unpinSession = useAtomSet(unpinSessionAtomFn, { mode: 'promise' });
+  const pinsLoaded = useAtomValue(pinsLoadedAtom(entry.launchTarget));
+  const pinned = useAtomValue(pinnedSessionsAtom(entry.launchTarget)).some(pin => pin.sessionId === entry.sessionId);
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
@@ -78,6 +88,20 @@ export const SessionActionsMenu: FC<{
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
+          {/* Pinning is local-only: it works for unavailable rows and must not run onBeforeAction. */}
+          <Button
+            disabled={!pinsLoaded}
+            onClick={() => {
+              closeMenu();
+              const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
+              (pinned ? unpinSession(target) : pinSession({ ...target, cwd: entry.cwd })).catch(onClientError);
+            }}
+            size="small"
+            startIcon={<LucideMuiIcon icon={pinned ? PinOff : Pin} />}
+            variant="outlined"
+          >
+            {pinned ? 'Unpin' : 'Pin'}
+          </Button>
           {hasSessionCloseCapability(snapshot.initializeResult) ? (
             <Button
               disabled={unavailable || session?.status !== 'active'}

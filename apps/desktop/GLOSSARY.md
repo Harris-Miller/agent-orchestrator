@@ -82,8 +82,15 @@ _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code
 The top row of the chat surface (desktop main chat and VS Code Chat) showing the Selected session's agent launch target icon and title.
 _Avoid_: chat header, title bar
 
+**Pin**:
+A user mark on a History entry (per launch target, persisted in ao-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned but hidden. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
+_Avoid_: favorite, star, bookmark; "pinned-session handoff prompt" is unrelated (see `promptPinnedSession`)
+
+**Pinned section**:
+The top Session History region listing visible pinned entries newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename ("No Folder" for scratch cwds), shown regardless of the No Folder group setting. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
+
 **Session actions**:
-The per-session menu of lifecycle actions: Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected).
+The per-session menu of actions: Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected).
 _Avoid_: dotdotdot menu, kebab menu, session options
 
 **Session title**:

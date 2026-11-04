@@ -24,6 +24,7 @@ import {
   configOptionIndexAtom,
 } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { ensureVirtualAcpBound, historyAfterList, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -155,10 +156,15 @@ export const createHarnessAtoms = (
             },
             onSessionHistoryResult: (listResult, scope) => {
               const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
+              // Startup list runs behind the cache gate: pins read now were all made before this result.
+              const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
               updateState(current => ({
                 ...current,
                 sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
               }));
+              hostRunFork(
+                reconcilePinsAfterList(rwFromRegistry(registry), launchTarget, pinsBefore, listResult, scope),
+              );
             },
             onSessionUpdate: (sessionId, update) => {
               const before = registry.get(backendHarnessStateAtom(launchTarget));

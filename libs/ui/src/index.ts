@@ -1,4 +1,5 @@
 export * from './atoms/backendState.atoms.ts';
+export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
@@ -126,3 +127,4 @@ export * from './theme/themes.ts';
 export * from './theme/tokens.ts';
 export { defaultSettings } from '@lib/ao-home';
 export * from './host/directoryBasename.ts';
+export { isNoFolderSessionCwd } from './host/noFolderSessionCwd.ts';

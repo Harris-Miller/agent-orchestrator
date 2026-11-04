@@ -6,15 +6,17 @@ import {
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
+  isNoFolderSessionCwd,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
+  pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   SessionHistoryRow,
   showNoFolderGroupAtom,
-  visibleSessionHistoryAtom,
   useSessionDeleteRequest,
+  visibleSessionHistoryAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -26,10 +28,18 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, PanelLeftClose, Plus, Settings } from 'lucide-react';
+import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, Settings } from 'lucide-react';
 import type { FC } from 'react';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
+
+/** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
+const PINNED_SECTION_KEY = '__pinned__';
+
+const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
+
+const pinnedCaption = (entry: UnifiedHistoryEntry): string =>
+  isNoFolderSessionCwd(entry.cwd) ? 'No Folder' : directoryBasename(entry.cwd);
 
 const NO_FOLDER_TOOLTIP = 'Projectless / scratch sessions';
 
@@ -62,6 +72,7 @@ export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClientError, onClose }) => {
   const history = useAtomValue(visibleSessionHistoryAtom);
+  const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
@@ -69,7 +80,11 @@ export const WorkbenchNavRail: FC<{
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
 
-  const navGroups = groupAndSortSessionsForNav(history).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
+  const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
+  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+").
+  const navGroups = groupAndSortSessionsForNav(history)
+    .filter(group => group.kind !== 'noFolder' || showNoFolderGroup)
+    .map(group => ({ ...group, sessions: group.sessions.filter(entry => !pinnedKeys.has(pinnedKey(entry))) }));
 
   return (
     <>
@@ -121,6 +136,37 @@ export const WorkbenchNavRail: FC<{
             </Typography>
           ) : (
             <Box sx={{ py: 0.5 }}>
+              {pinnedEntries.length > 0 ? (
+                <Accordion defaultExpanded key={PINNED_SECTION_KEY} sx={{ bgcolor: 'transparent' }}>
+                  <AccordionSummary
+                    sx={{
+                      '&:hover': { bgcolor: 'action.hover' },
+                      '& .MuiAccordionSummary-content': { gap: 0.75, m: 0, width: '100%' },
+                      fontWeight: 600,
+                      minHeight: 0,
+                      px: 2,
+                      py: 1,
+                    }}
+                  >
+                    <LucideMuiIcon icon={Pin} sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                    <Box component="span" sx={{ flex: 1, minWidth: 0 }}>
+                      Pinned
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
+                    {pinnedEntries.map(entry => (
+                      <SessionHistoryRow
+                        caption={pinnedCaption(entry)}
+                        entry={entry}
+                        key={pinnedKey(entry)}
+                        onClientError={onClientError}
+                        onDeleteRequest={requestDelete}
+                        selected={selectedSessionId === entry.sessionId}
+                      />
+                    ))}
+                  </AccordionDetails>
+                </Accordion>
+              ) : null}
               {navGroups.map(group => {
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;

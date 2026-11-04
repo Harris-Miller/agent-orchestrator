@@ -24,6 +24,10 @@ _Avoid_: Adapter roster document, Session History (Harness term), user settings,
 Harness-owned durable view of listed sessions under `harness/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup; distinct from the Adapter history document, which belongs to an ACP adapter.
 _Avoid_: Adapter history document, live session list
 
+**Pinned sessions document**:
+Per-launch-target `harness/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
+_Avoid_: Pin list, favorites
+
 **Config option index cache**:
 Durable per-launch-target copy of the Config option index under `harness/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
 _Avoid_: Provider catalog, session configuration

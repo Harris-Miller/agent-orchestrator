@@ -1,5 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { readConfigOptionIndexCache, readSessionIndex, writeSessionIndex } from '@lib/ao-home';
+import { readConfigOptionIndexCache, readPinnedSessions, readSessionIndex, writeSessionIndex } from '@lib/ao-home';
 import type { LaunchTarget } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
 import { useContext, useEffect, useState } from 'react';
@@ -7,6 +7,7 @@ import type { FC, ReactNode } from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { backendHarnessStateAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
+import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
@@ -60,6 +61,13 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
                     });
                   }),
                 );
+              }
+              const pinsRead = yield* Effect.exit(readPinnedSessions(target));
+              if (Exit.isSuccess(pinsRead)) {
+                registry.set(pinnedSessionsAtom(launchTarget), pinsRead.value.pinned);
+                registry.set(pinsLoadedAtom(launchTarget), true);
+              } else {
+                yield* Effect.logWarning('pinned sessions hydrate failed', launchTarget, pinsRead.cause);
               }
               const config = yield* readConfigOptionIndexCache(target).pipe(
                 Effect.catchTag('PlatformError', error =>

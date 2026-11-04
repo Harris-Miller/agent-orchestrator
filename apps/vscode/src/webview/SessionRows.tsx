@@ -2,20 +2,31 @@ import { ConfirmSessionDeleteDialog, SessionHistoryRow, useSessionDeleteRequest 
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import { useContext } from 'react';
 import type { FC } from 'react';
+import ListItem from '@mui/material/ListItem';
+import Typography from '@mui/material/Typography';
 
 import { OnClientErrorContext } from './onClientError.tsx';
 
 /** Session History rows plus their delete-confirm dialog. Shared by Session History and Recent sessions. */
 export const SessionRows: FC<{
+  /** Rendered once under a Pinned heading above `sessions`; the caller excludes them from `sessions`. */
+  readonly pinnedSessions?: readonly UnifiedHistoryEntry[];
   readonly selectedSessionId: string | undefined;
   readonly sessions: readonly UnifiedHistoryEntry[];
-}> = ({ selectedSessionId, sessions }) => {
+}> = ({ pinnedSessions = [], selectedSessionId, sessions }) => {
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
 
   return (
     <>
-      {sessions.map(entry => (
+      {pinnedSessions.length > 0 ? (
+        <ListItem>
+          <Typography color="text.secondary" variant="subtitle2">
+            Pinned
+          </Typography>
+        </ListItem>
+      ) : null}
+      {[...pinnedSessions, ...sessions].map(entry => (
         <SessionHistoryRow
           entry={entry}
           key={`${entry.launchTarget}:${entry.sessionId}`}

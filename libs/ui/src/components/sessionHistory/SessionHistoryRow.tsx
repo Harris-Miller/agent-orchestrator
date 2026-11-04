@@ -31,11 +31,13 @@ const sessionCardSx = (selected: boolean) =>
   }) as const;
 
 export const SessionHistoryRow: FC<{
+  /** Secondary line under the title (Pinned region shows the session's folder). */
+  readonly caption?: string;
   readonly entry: UnifiedHistoryEntry;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly selected: boolean;
-}> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
+}> = ({ caption, entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const rename = useSessionTitleRename(entry.sessionId);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -70,22 +72,29 @@ export const SessionHistoryRow: FC<{
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
           <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
-          <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
-            <Typography
-              sx={{
-                display: '-webkit-box',
-                fontWeight: selected ? 600 : 400,
-                lineHeight: 1.4,
-                overflow: 'hidden',
-                WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 2,
-                width: '100%',
-              }}
-              variant="body2"
-            >
-              {displayTitle}
-            </Typography>
-          </SessionTitleInlineRename>
+          <Stack sx={{ flex: 1, minWidth: 0 }}>
+            <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
+              <Typography
+                sx={{
+                  display: '-webkit-box',
+                  fontWeight: selected ? 600 : 400,
+                  lineHeight: 1.4,
+                  overflow: 'hidden',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  width: '100%',
+                }}
+                variant="body2"
+              >
+                {displayTitle}
+              </Typography>
+            </SessionTitleInlineRename>
+            {caption === undefined ? null : (
+              <Typography color="text.secondary" noWrap variant="caption">
+                {caption}
+              </Typography>
+            )}
+          </Stack>
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}

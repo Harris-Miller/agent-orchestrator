@@ -75,19 +75,6 @@ import { useSessionChatSurface } from './useSessionChatSurface.ts';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 
-// One id per pending request object, so identical consecutive requests still remount the card.
-const elicitationIds = new WeakMap<object, number>();
-let nextElicitationId = 0;
-const elicitationInstanceId = (pending: object): number => {
-  let id = elicitationIds.get(pending);
-  if (id === undefined) {
-    id = nextElicitationId;
-    nextElicitationId += 1;
-    elicitationIds.set(pending, id);
-  }
-  return id;
-};
-
 const formatActivationDefect = (defect: unknown): string => {
   if (!isRecord(defect)) {
     return String(defect);
@@ -603,7 +590,7 @@ export const SessionChatBody: FC<{
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ bgcolor: 'transparent', flex: '1 1 0', minHeight: 0, overflow: 'auto', p: 0.5 }}
+        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
       >
         <List dense disablePadding>
           {showVirtualEmptyState ? (
@@ -652,7 +639,7 @@ export const SessionChatBody: FC<{
         <Box sx={{ flex: '0 1 auto', maxHeight: '65%', minHeight: 0, overflowY: 'auto', px: 1, py: 0.5 }}>
           <PendingElicitationCard
             agentTitle={agentTitle}
-            key={`${selectedLaunchTarget}:${selectedSession.sessionId}:${elicitationInstanceId(selectedSession.pendingElicitation)}`}
+            key={selectedSession.pendingElicitation.id}
             onAccept={(content, summary) => {
               respondElicitation({
                 launchTarget: selectedLaunchTarget,

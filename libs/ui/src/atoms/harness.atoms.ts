@@ -92,7 +92,7 @@ export const createHarnessAtoms = (
                 ...current,
                 sessions: patchSession(current.sessions, sessionId, session => ({
                   ...session,
-                  pendingElicitation: { request, resolve, sessionId },
+                  pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
                 })),
               }));
               hostRunFork(

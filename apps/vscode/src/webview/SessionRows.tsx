@@ -2,6 +2,7 @@ import { ConfirmSessionDeleteDialog, SessionHistoryRow, useSessionDeleteRequest 
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import { useContext } from 'react';
 import type { FC } from 'react';
+import Divider from '@mui/material/Divider';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 
@@ -20,13 +21,25 @@ export const SessionRows: FC<{
   return (
     <>
       {pinnedSessions.length > 0 ? (
-        <ListItem>
-          <Typography color="text.secondary" variant="subtitle2">
-            Pinned
-          </Typography>
-        </ListItem>
+        <>
+          <ListItem>
+            <Typography color="text.secondary" variant="subtitle2">
+              Pinned
+            </Typography>
+          </ListItem>
+          {pinnedSessions.map(entry => (
+            <SessionHistoryRow
+              entry={entry}
+              key={`${entry.launchTarget}:${entry.sessionId}`}
+              onClientError={onClientError}
+              onDeleteRequest={requestDelete}
+              selected={selectedSessionId === entry.sessionId}
+            />
+          ))}
+          {sessions.length > 0 ? <Divider sx={{ my: 1 }} /> : null}
+        </>
       ) : null}
-      {[...pinnedSessions, ...sessions].map(entry => (
+      {sessions.map(entry => (
         <SessionHistoryRow
           entry={entry}
           key={`${entry.launchTarget}:${entry.sessionId}`}

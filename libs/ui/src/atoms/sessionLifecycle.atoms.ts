@@ -10,7 +10,6 @@ import {
   normalizeConfigOptions,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
-import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
@@ -93,10 +92,10 @@ const readyHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
 const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   get: Atom.FnContext,
   launchTarget: AgentLaunchTarget,
-  snapshot: BackendHarnessSnapshot,
   sessionId: string,
 ) {
-  get.set(backendHarnessStateAtom(launchTarget), dropSession(snapshot, sessionId));
+  // Re-read: a concurrent Bind may have upserted its session while the RPC was in flight.
+  get.set(backendHarnessStateAtom(launchTarget), dropSession(get(backendHarnessStateAtom(launchTarget)), sessionId));
   const selected = get(selectedAtom);
   if (selected?._tag === 'Session' && selected.sessionId === sessionId) {
     yield* clearSelectedEffect(rwFromFnContext(get));
@@ -458,7 +457,7 @@ export const createSessionLifecycleAtoms = (
 
           yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
           yield* archiveSession(arg.launchTarget, arg.sessionId);
-          yield* dropSessionAndClearSelection(get, arg.launchTarget, snapshot, arg.sessionId);
+          yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
         },
         (effect, arg) =>
           effect.pipe(
@@ -495,7 +494,7 @@ export const createSessionLifecycleAtoms = (
             ),
           );
 
-          yield* dropSessionAndClearSelection(get, arg.launchTarget, snapshot, arg.sessionId);
+          yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
         },
         (effect, arg) =>
           effect.pipe(

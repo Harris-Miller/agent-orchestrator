@@ -21,9 +21,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
@@ -198,17 +195,17 @@ export const WorkbenchNavRail: FC<{
         </Box>
         <Divider />
         <Box sx={{ flexShrink: 0, p: 1 }}>
-          <ListItemButton
-            onClick={() => {
-              navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
-            }}
-            sx={{ borderRadius: 1 }}
-          >
-            <ListItemIcon>
+          <Tooltip title="Settings">
+            <IconButton
+              aria-label="Settings"
+              onClick={() => {
+                navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
+              }}
+              size="small"
+            >
               <LucideMuiIcon fontSize="small" icon={Settings} />
-            </ListItemIcon>
-            <ListItemText primary="Settings" />
-          </ListItemButton>
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
 

@@ -8,7 +8,7 @@ import { attentionBody, isAttentionStopReason, notifyAttention } from './notifyA
 
 type Sent = { body: string; sound: boolean; title: string };
 
-const harness = (opts: { failNotify?: boolean; focused: boolean; settings?: object }) => {
+const harness = (opts: { failNotify?: boolean; focused: boolean; inApp?: boolean; settings?: object }) => {
   const sent: Sent[] = [];
   const layer = Layer.mergeAll(
     Layer.succeed(Notifier, {
@@ -17,7 +17,7 @@ const harness = (opts: { failNotify?: boolean; focused: boolean; settings?: obje
         sent.push({ ...input });
         return opts.failNotify === true ? Effect.fail(new NotifyFailed({ message: 'boom' })) : Effect.void;
       },
-      supported: 'os',
+      supported: opts.inApp === true ? 'in-app' : 'os',
     }),
     Layer.succeed(OS, {
       arch: () => 'arm64',
@@ -57,6 +57,14 @@ describe('notifyAttention', () => {
       const h = harness({ focused: true, settings: { notifyOnlyWhenUnfocused: false } });
       yield* notifyAttention('Chat A', { kind: 'turn-ended', stopReason: 'end_turn' }).pipe(Effect.provide(h.layer));
       assert.deepStrictEqual(h.sent, [{ body: 'Finished', sound: true, title: 'Chat A' }]);
+    }),
+  );
+
+  it.effect('in-app notifier ignores the unfocused gate', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: true, inApp: true });
+      yield* notifyAttention('Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.strictEqual(h.sent.length, 1);
     }),
   );
 

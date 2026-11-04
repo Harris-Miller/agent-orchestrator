@@ -8,7 +8,7 @@ const SYSTEM_SOUND = 'default';
 
 /** Tauri Live for {@link Notifier}: `@tauri-apps/plugin-notification` + the main window's focus state. */
 export const NotifierLive = Layer.succeed(Notifier, {
-  isWindowFocused: Effect.promise(() => getCurrentWindow().isFocused()).pipe(Effect.orElseSucceed(() => false)),
+  isWindowFocused: Effect.tryPromise(() => getCurrentWindow().isFocused()).pipe(Effect.orElseSucceed(() => false)),
   notify: Effect.fn('Notifier.notify')(function* (input: { body: string; sound: boolean; title: string }) {
     return yield* Effect.tryPromise({
       catch: cause =>

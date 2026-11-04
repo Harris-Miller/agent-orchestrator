@@ -44,7 +44,8 @@ export const notifyAttention = (title: string, event: AttentionEvent) =>
       return;
     }
     const notifier = yield* Notifier;
-    if (notifyOnlyWhenUnfocusedEnabled(settings) && (yield* notifier.isWindowFocused)) {
+    // An in-app message is only visible in a focused window, so the unfocused gate cannot apply to it.
+    if (notifier.supported === 'os' && notifyOnlyWhenUnfocusedEnabled(settings) && (yield* notifier.isWindowFocused)) {
       return;
     }
     yield* notifier.notify({

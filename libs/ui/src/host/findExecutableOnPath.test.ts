@@ -431,6 +431,7 @@ describe('auth messages through bootstrap publication', () => {
             phases.push({ failure, phase });
           },
           onRpcMessage: noop,
+          onSessionHistoryRequest: noop,
           onSessionHistoryResult: noop,
           onSessionUpdate: noop,
         },

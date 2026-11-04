@@ -34,18 +34,18 @@ describe('groupAndSortSessionsForNav', () => {
 
     const groups = groupAndSortSessionsForNav(history);
     assert.strictEqual(groups.length, 2);
-    assert.strictEqual(groups[0]?.kind, 'noFolder');
-    if (groups[0]?.kind !== 'noFolder') {
+    assert.strictEqual(groups[0]?.kind, 'cwd');
+    if (groups[0]?.kind === 'cwd') {
+      assert.strictEqual(groups[0].cwd, '/Users/me/Projects/app');
+    }
+    assert.strictEqual(groups[1]?.kind, 'noFolder');
+    if (groups[1]?.kind !== 'noFolder') {
       return;
     }
     assert.deepStrictEqual(
-      groups[0].sessions.map(entry => entry.sessionId),
+      groups[1].sessions.map(entry => entry.sessionId),
       ['codex-a', 'claude-b', 'claude-a'],
     );
-    assert.strictEqual(groups[1]?.kind, 'cwd');
-    if (groups[1]?.kind === 'cwd') {
-      assert.strictEqual(groups[1].cwd, '/Users/me/Projects/app');
-    }
   });
 
   it('keeps normal cwd grouping and does not create empty No Folder', () => {
@@ -125,5 +125,27 @@ describe('groupAndSortSessionsForNav', () => {
     if (groups[0]?.kind === 'noFolder') {
       assert.strictEqual(groups[0].sessions[0]?.cwd, cwd);
     }
+  });
+
+  it('sorts cwd groups alphabetically by directory name, No Folder last', () => {
+    const at = '2024-01-01T00:00:00.000Z';
+    const entry = (cwd: string, sessionId: string): UnifiedHistoryEntry => ({
+      cwd,
+      launchTarget: 'codex-acp',
+      sessionId,
+      updatedAt: at,
+    });
+    const groups = groupAndSortSessionsForNav([
+      entry('/a/zebra', '1'),
+      entry('/Users/me/Documents/Codex/local-2026-01-01', '2'),
+      entry('/z/apple', '3'),
+      entry('/b/Apple', '4'),
+      entry('/x/app10', '5'),
+      entry('/x/app2', '6'),
+    ]);
+    assert.deepStrictEqual(
+      groups.map(group => (group.kind === 'cwd' ? group.cwd : group.kind)),
+      ['/x/app2', '/x/app10', '/b/Apple', '/z/apple', '/a/zebra', 'noFolder'],
+    );
   });
 });

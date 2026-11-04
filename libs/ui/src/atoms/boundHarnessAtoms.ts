@@ -8,6 +8,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
+import { createPinnedSessionsAtoms } from './pinnedSessions.atoms.ts';
 import { createProvidersAtoms } from './providers.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
@@ -98,3 +99,5 @@ export const {
   patchVirtualSessionAtomFn,
   setVirtualLaunchTargetAtomFn,
 } = createVirtualSessionAtoms(hostBag, refreshSessionFsListingAtomFn);
+
+export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);

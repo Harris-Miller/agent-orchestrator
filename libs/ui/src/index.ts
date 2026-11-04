@@ -1,4 +1,5 @@
 export * from './atoms/backendState.atoms.ts';
+export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
@@ -87,6 +88,7 @@ export * from './host/backendHarness.ts';
 export * from './host/clientHandlers.ts';
 export * from './host/configOptionIndexUi.ts';
 export * from './host/configProbe.ts';
+export * from './host/directoryBasename.ts';
 export * from './host/draftToContentBlocks.ts';
 export * from './host/fdInstallCommands.ts';
 export * from './host/fdListing.ts';

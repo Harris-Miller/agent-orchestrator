@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  directoryBasename,
   LucideMuiIcon,
   patchVirtualSessionAtomFn,
   selectedAtom,
@@ -11,8 +12,6 @@ import Box from '@mui/material/Box';
 import { FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import { directoryBasename } from '../directoryBasename.ts';
 
 import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
 

@@ -48,6 +48,7 @@ import type { createChatAtoms } from './chat.atoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
 import { historyAfterList, rwFromFnContext } from './virtualBind.ts';
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -148,6 +149,7 @@ export const createSessionLifecycleAtoms = (
           }
 
           yield* Effect.logDebug('Refreshing session history', launchTarget);
+          const pinsBefore = get(pinnedSessionsAtom(launchTarget));
           const listResult = yield* listSessions(launchTarget, listPayload);
           const current = get(backendHarnessStateAtom(launchTarget));
           const boundSessionId = get(virtualSessionAtom)?.sessionId;
@@ -156,6 +158,7 @@ export const createSessionLifecycleAtoms = (
             replaceSessionHistory(current, historyAfterList(current.sessionHistory, listResult, scope, boundSessionId)),
           );
           clearSelectedSessionIfMissing(get);
+          yield* reconcilePinsAfterList(rwFromFnContext(get), launchTarget, pinsBefore, listResult, scope);
         },
         (effect, launchTarget) =>
           effect.pipe(Effect.tapError(error => Effect.logError('refreshSessionHistory failed', launchTarget, error))),
@@ -168,31 +171,40 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
         const scope = get(sessionListScopeAtom);
         const listPayload = listSessionsPayload(scope);
-        yield* Effect.forEach(
+        // One provider failing must not interrupt the others.
+        const exits = yield* Effect.forEach(
           MOUNTED_AGENT_LAUNCH_TARGETS,
           launchTarget =>
-            Effect.gen(function* () {
-              const snapshot = get(backendHarnessStateAtom(launchTarget));
-              if (snapshot.phase !== 'ready') {
-                return;
-              }
-              if (listPayload === undefined) {
-                return;
-              }
-              const listResult = yield* listSessions(launchTarget, listPayload);
-              const current = get(backendHarnessStateAtom(launchTarget));
-              const boundSessionId = get(virtualSessionAtom)?.sessionId;
-              get.set(
-                backendHarnessStateAtom(launchTarget),
-                replaceSessionHistory(
-                  current,
-                  historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
-                ),
-              );
-            }),
+            Effect.exit(
+              Effect.gen(function* () {
+                const snapshot = get(backendHarnessStateAtom(launchTarget));
+                if (snapshot.phase !== 'ready') {
+                  return;
+                }
+                if (listPayload === undefined) {
+                  return;
+                }
+                const pinsBefore = get(pinnedSessionsAtom(launchTarget));
+                const listResult = yield* listSessions(launchTarget, listPayload);
+                const current = get(backendHarnessStateAtom(launchTarget));
+                const boundSessionId = get(virtualSessionAtom)?.sessionId;
+                get.set(
+                  backendHarnessStateAtom(launchTarget),
+                  replaceSessionHistory(
+                    current,
+                    historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
+                  ),
+                );
+                yield* reconcilePinsAfterList(rwFromFnContext(get), launchTarget, pinsBefore, listResult, scope);
+              }),
+            ),
           { concurrency: 'unbounded' },
         );
         clearSelectedSessionIfMissing(get);
+        const failed = exits.find(Exit.isFailure);
+        if (failed !== undefined) {
+          return yield* failed;
+        }
       }),
     )
     .pipe(Atom.keepAlive);
@@ -542,6 +554,7 @@ export const createSessionLifecycleAtoms = (
           );
 
           yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
+          yield* removePins(rwFromFnContext(get), arg.launchTarget, [arg.sessionId]);
         },
         (effect, arg) =>
           effect.pipe(

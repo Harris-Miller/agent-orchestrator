@@ -113,3 +113,19 @@ export {
   type ProviderRuntimeState,
   writeProviderRuntimeDocument,
 } from './providerRuntimeState.ts';
+export {
+  pinnedSessionsPath,
+  PinnedSessionsMalformed,
+  pinSession,
+  readPinnedSessions,
+  unpinSessions,
+  updatePinnedSessions,
+} from './pinnedSessions.ts';
+export {
+  emptyPinnedSessions,
+  type PinnedSession,
+  PinnedSessionSchema,
+  type PinnedSessionsDocument,
+  PinnedSessionsDocumentJsonString,
+  PinnedSessionsDocumentSchema,
+} from './PinnedSessionsDocument.ts';

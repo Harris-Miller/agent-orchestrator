@@ -1,12 +1,12 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
 import { writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
-import type { LaunchTarget } from '@lib/ao-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
@@ -24,6 +24,7 @@ import {
   configOptionIndexAtom,
 } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { ensureVirtualAcpBound, historyAfterList, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -61,11 +62,14 @@ export const createHarnessAtoms = (
 
       const persistConfigOptionIndex = (index: ConfigOptionIndex) => {
         hostRunFork(
-          writeConfigOptionIndexCache(launchTarget as LaunchTarget, index).pipe(
+          writeConfigOptionIndexCache(toLaunchTarget(launchTarget), index).pipe(
             Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
           ),
         );
       };
+
+      // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
+      let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
 
       lifecycle.start(
         launchTarget,
@@ -153,12 +157,19 @@ export const createHarnessAtoms = (
                 ],
               }));
             },
+            onSessionHistoryRequest: () => {
+              pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
+            },
             onSessionHistoryResult: (listResult, scope) => {
               const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
+              const pinsBefore = pinsBeforeStartupList;
               updateState(current => ({
                 ...current,
                 sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
               }));
+              hostRunFork(
+                reconcilePinsAfterList(rwFromRegistry(registry), launchTarget, pinsBefore, listResult, scope),
+              );
             },
             onSessionUpdate: (sessionId, update) => {
               const before = registry.get(backendHarnessStateAtom(launchTarget));

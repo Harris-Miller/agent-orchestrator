@@ -1,13 +1,14 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
+  pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
   sessionListScopeAtom,
   sessionsForCwd,
   ToggleDeveloperPanelButton,
-  unifiedSessionHistoryAtom,
+  visibleSessionHistoryAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,7 +25,8 @@ import { SessionRows } from './SessionRows.tsx';
 import { SettingsButton } from './SettingsButton.tsx';
 
 export const SessionHistory: FC = () => {
-  const history = useAtomValue(unifiedSessionHistoryAtom);
+  const history = useAtomValue(visibleSessionHistoryAtom);
+  const pinnedAll = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
@@ -36,7 +38,10 @@ export const SessionHistory: FC = () => {
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   const anyReady = backendPhases.some(entry => entry.phase === 'ready');
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
-  const sessions = sessionsForCwd(history, sessionCwd);
+  const workspaceSessions = sessionsForCwd(history, sessionCwd);
+  const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);
+  const pinnedKeys = new Set(pinnedSessions.map(entry => `${entry.launchTarget}:${entry.sessionId}`));
+  const sessions = workspaceSessions.filter(entry => !pinnedKeys.has(`${entry.launchTarget}:${entry.sessionId}`));
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
@@ -66,7 +71,7 @@ export const SessionHistory: FC = () => {
         <Typography color="text.secondary" variant="body2">
           Open a workspace folder to create and list sessions.
         </Typography>
-      ) : sessions.length === 0 ? (
+      ) : workspaceSessions.length === 0 ? (
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">
             {anyReady
@@ -87,7 +92,7 @@ export const SessionHistory: FC = () => {
         </Stack>
       ) : (
         <Box sx={{ overflow: 'auto', py: 0.5 }}>
-          <SessionRows selectedSessionId={selectedSessionId} sessions={sessions} />
+          <SessionRows pinnedSessions={pinnedSessions} selectedSessionId={selectedSessionId} sessions={sessions} />
         </Box>
       )}
     </Box>

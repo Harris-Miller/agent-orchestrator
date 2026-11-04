@@ -69,7 +69,7 @@ Per-launch-target result of Config probe: default model, per-model selectable op
 _Avoid_: Provider catalog, harness defaults, config catalog
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached but filtered out by `visibleSessionHistoryAtom`. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
@@ -112,7 +112,7 @@ A draft-side image picked via Host FileDialog, held in-memory as metadata plus a
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Attention event**:
-A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the pinned-session handoff prompt), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
+A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the handoff prompt for a pinned session — `promptPinnedSession`, unrelated to Pin, the user mark in the desktop glossary), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
 **Copy message**:

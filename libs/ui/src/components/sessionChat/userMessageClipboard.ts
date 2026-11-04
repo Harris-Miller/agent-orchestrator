@@ -1,5 +1,9 @@
+import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+
+import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import type { ComposerSegment } from './composerCommandTokens.ts';
 import { markdownLinkText } from './markdownLinkText.ts';
+import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
 
 /** Plain-text form that pastes back into the composer as the original chip source. */
 export const segmentCopyText = (segment: ComposerSegment): string => {
@@ -12,6 +16,10 @@ export const segmentCopyText = (segment: ComposerSegment): string => {
       return segment.value;
   }
 };
+
+/** Sanitized Markdown source of a user message: hidden blocks stripped, chips restored to their raw form. */
+export const userMessageMarkdown = (text: string, availableCommands: readonly AvailableCommand[]): string =>
+  splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands).map(segmentCopyText).join('');
 
 const selectedSliceOfTextNode = (textNode: Text, range: Range): string => {
   if (!range.intersectsNode(textNode)) {

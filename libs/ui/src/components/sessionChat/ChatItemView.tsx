@@ -43,9 +43,10 @@ import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownB
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
+import { CopyMessageButton } from './CopyMessageButton.tsx';
 import { toolCallTitleSegments } from './toolCallTitleSegments.ts';
 import { prepareChatMarkdownText } from './stripEmbeddedContextBlocks.ts';
-import { clipboardTextFromSelectionInRoot, segmentCopyText } from './userMessageClipboard.ts';
+import { clipboardTextFromSelectionInRoot, segmentCopyText, userMessageMarkdown } from './userMessageClipboard.ts';
 
 const THUMB_PX = 72;
 
@@ -270,70 +271,80 @@ const MessageRow: FC<{
 }> = ({ availableCommands = [], images, steering = false, text, tone }) => {
   if (tone === 'user') {
     const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
-    const hasText = text.length > 0;
+    const markdown = userMessageMarkdown(text, availableCommands);
+    const hasText = markdown.trim().length > 0;
     const hasImages = images !== undefined && images.length > 0;
     return (
       <ListItem sx={{ display: 'flex', justifyContent: 'flex-end', py: 1 }}>
-        <Box
-          sx={{
-            bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
-            borderRadius: 1,
-            maxWidth: 'min(85%, 42rem)',
-            px: 1.75,
-            py: 1.25,
-          }}
-        >
-          <Stack spacing={1}>
-            {steering ? (
-              <Typography color="text.secondary" data-testid="transcript-steering-label" variant="caption">
-                Steering
-              </Typography>
-            ) : null}
-            {hasImages ? <TranscriptImageStrip images={images} /> : null}
-            {hasText ? (
-              <Box
-                onCopy={onUserMessageCopy}
-                sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              >
-                {segments.map((segment, index) => {
-                  const key = `${segment.kind}-${String(index)}`;
-                  const copyText = segmentCopyText(segment);
-                  if (segment.kind === 'command') {
-                    return (
-                      <TranscriptChip
-                        copyText={copyText}
-                        key={key}
-                        kind="command"
-                        label={segment.value}
-                        testId="transcript-command-chip"
-                      />
-                    );
-                  }
-                  if (segment.kind === 'markdownLink') {
-                    return (
-                      <TranscriptChip
-                        copyText={copyText}
-                        href={segment.href}
-                        key={key}
-                        kind="markdownLink"
-                        label={segment.label}
-                        testId="transcript-markdown-link-chip"
-                      />
-                    );
-                  }
-                  return <UserTextFragment key={key} text={segment.value} />;
-                })}
-              </Box>
-            ) : null}
-          </Stack>
+        <Box sx={{ alignItems: 'flex-end', display: 'flex', flexDirection: 'column', maxWidth: 'min(85%, 42rem)' }}>
+          <Box
+            sx={{
+              bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
+              borderRadius: 1,
+              px: 1.75,
+              py: 1.25,
+            }}
+          >
+            <Stack spacing={1}>
+              {steering ? (
+                <Typography color="text.secondary" data-testid="transcript-steering-label" variant="caption">
+                  Steering
+                </Typography>
+              ) : null}
+              {hasImages ? <TranscriptImageStrip images={images} /> : null}
+              {hasText ? (
+                <Box
+                  onCopy={onUserMessageCopy}
+                  sx={{ typography: 'body1', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                >
+                  {segments.map((segment, index) => {
+                    const key = `${segment.kind}-${String(index)}`;
+                    const copyText = segmentCopyText(segment);
+                    if (segment.kind === 'command') {
+                      return (
+                        <TranscriptChip
+                          copyText={copyText}
+                          key={key}
+                          kind="command"
+                          label={segment.value}
+                          testId="transcript-command-chip"
+                        />
+                      );
+                    }
+                    if (segment.kind === 'markdownLink') {
+                      return (
+                        <TranscriptChip
+                          copyText={copyText}
+                          href={segment.href}
+                          key={key}
+                          kind="markdownLink"
+                          label={segment.label}
+                          testId="transcript-markdown-link-chip"
+                        />
+                      );
+                    }
+                    return <UserTextFragment key={key} text={segment.value} />;
+                  })}
+                </Box>
+              ) : null}
+            </Stack>
+          </Box>
+          {hasText ? <CopyMessageButton getText={() => markdown} /> : null}
         </Box>
       </ListItem>
     );
   }
 
+  const agentMarkdown = tone === 'agent' ? prepareChatMarkdownText(text) : text;
+  const showCopy = tone === 'agent' && agentMarkdown.trim().length > 0;
   return (
     <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 1 }}>
       <ChatMarkdown sx={tone === 'thought' ? { color: 'text.secondary' } : undefined} text={text} />
+      {showCopy ? (
+        <Box sx={{ ml: -0.75 }}>
+          <CopyMessageButton getText={() => agentMarkdown} />
+        </Box>
+      ) : null}
     </ListItem>
   );
 };

@@ -2,12 +2,12 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
   LucideMuiIcon,
-  OpenDeveloperPanelButton,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
   sessionListScopeAtom,
   sessionsForCwd,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -58,7 +58,7 @@ export const SessionHistory: FC = () => {
           </Typography>
         </IconButton>
         <Box sx={{ flex: 1 }} />
-        <OpenDeveloperPanelButton />
+        <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
         <IconButton
           aria-label="Settings"

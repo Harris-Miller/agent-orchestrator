@@ -9,7 +9,7 @@ import {
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
   isRecord,
-  OpenDeveloperPanelButton,
+  LucideMuiIcon,
   PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedSessionAtom,
@@ -18,16 +18,19 @@ import {
   SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
   useSessionDeleteRequest,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
+import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
@@ -181,15 +184,17 @@ export const AgentChatWorkbench: FC<{
                   }}
                 >
                   {layout.sessionHistoryOpen ? null : (
-                    <Button
-                      onClick={() => {
-                        commitLayout({ sessionHistoryOpen: true });
-                      }}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Sessions
-                    </Button>
+                    <Tooltip title="Open session history panel">
+                      <IconButton
+                        aria-label="Open session history panel"
+                        onClick={() => {
+                          commitLayout({ sessionHistoryOpen: true });
+                        }}
+                        size="small"
+                      >
+                        <LucideMuiIcon fontSize="small" icon={PanelLeftOpen} />
+                      </IconButton>
+                    </Tooltip>
                   )}
                   {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
                   <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
@@ -198,17 +203,19 @@ export const AgentChatWorkbench: FC<{
                   {entry === undefined ? null : (
                     <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
                   )}
-                  <OpenDeveloperPanelButton />
+                  <ToggleDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
-                    <Button
-                      onClick={() => {
-                        commitLayout({ sessionStateOpen: true });
-                      }}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Panel
-                    </Button>
+                    <Tooltip title="Open session state panel">
+                      <IconButton
+                        aria-label="Open session state panel"
+                        onClick={() => {
+                          commitLayout({ sessionStateOpen: true });
+                        }}
+                        size="small"
+                      >
+                        <LucideMuiIcon fontSize="small" icon={PanelRightOpen} />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </Box>
 

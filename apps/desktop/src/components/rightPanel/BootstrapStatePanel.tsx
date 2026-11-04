@@ -1,5 +1,6 @@
 import { PanelHeader } from '@lib/ui';
 import Box from '@mui/material/Box';
+import { PanelRightClose } from 'lucide-react';
 import type { FC } from 'react';
 
 export const RIGHT_PANEL_WIDTH = 380;
@@ -18,6 +19,6 @@ export const RightPanelPlaceholder: FC<{
       minHeight: 0,
     }}
   >
-    <PanelHeader closeAriaLabel="Close panel" closeGlyph="›" onClose={onClose} title="Panel" />
+    <PanelHeader closeAriaLabel="Close panel" closeIcon={PanelRightClose} onClose={onClose} title="Panel" />
   </Box>
 );

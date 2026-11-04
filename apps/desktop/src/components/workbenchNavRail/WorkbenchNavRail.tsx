@@ -27,7 +27,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, Plus, Settings } from 'lucide-react';
+import { Folder, FolderOpen, PanelLeftClose, Plus, Settings } from 'lucide-react';
 import type { FC } from 'react';
 
 import { directoryBasename } from '../../directoryBasename.ts';
@@ -87,7 +87,7 @@ export const WorkbenchNavRail: FC<{
       >
         <PanelHeader
           closeAriaLabel="Close session history panel"
-          closeGlyph="‹"
+          closeIcon={PanelLeftClose}
           onClose={onClose}
           title="Sessions"
           titleEnd={

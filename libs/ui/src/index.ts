@@ -50,7 +50,7 @@ export * from './components/AcpBackendsMount.tsx';
 export * from './components/HarnessCacheGate.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
-export * from './components/developerPanel/OpenDeveloperPanelButton.tsx';
+export * from './components/developerPanel/ToggleDeveloperPanelButton.tsx';
 export * from './components/developerPanel/PanelHeader.tsx';
 export * from './components/developerPanel/SessionStateView.tsx';
 export * from './components/developerPanel/useDeveloperPanelOpen.ts';

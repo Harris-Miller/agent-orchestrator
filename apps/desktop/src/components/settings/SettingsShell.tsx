@@ -8,12 +8,13 @@ import {
   UserSettingsLoadFailureAlert,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { Outlet, useMatch, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Search } from 'lucide-react';
@@ -23,16 +24,18 @@ import type { FC } from 'react';
 const BackToApp: FC = () => {
   const navigate = useNavigate();
   return (
-    <Button
-      onClick={() => {
-        navigate({ to: '/' }).catch(() => undefined);
-      }}
-      startIcon={<LucideMuiIcon icon={ArrowLeft} />}
-      sx={{ justifyContent: 'flex-start' }}
-      variant="text"
-    >
-      Back to app
-    </Button>
+    <Tooltip title="Back to app">
+      <IconButton
+        aria-label="Back to app"
+        onClick={() => {
+          navigate({ to: '/' }).catch(() => undefined);
+        }}
+        size="small"
+        sx={{ alignSelf: 'flex-start' }}
+      >
+        <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
+      </IconButton>
+    </Tooltip>
   );
 };
 

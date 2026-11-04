@@ -24,7 +24,7 @@ The sidebar presentation of Session History (see desktop glossary), filtered to 
 _Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:
-The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if Session History is nonempty. Empty Virtual Chat shows Recent sessions. Back clears Selected (Virtual blob kept when the Composer has content, else discarded); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
+The sidebar view that shows Virtual or Selected Session transcript/composer (same Harness behavior as desktop main chat). Shown on `/` when Selected is Virtual or Session (not a separate URL). Boot / webview restart with a Workspace cwd ensures Virtual and lands on Chat even if Session History is nonempty. Empty Virtual Chat shows Recent sessions. The History button clears Selected (Virtual blob kept when the Composer has content, else discarded); first-path folder churn patches Virtual cwd or discards the blob when cwd is gone.
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
 **Recent sessions**:

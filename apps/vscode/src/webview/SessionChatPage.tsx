@@ -7,7 +7,6 @@ import {
   ensureVirtualSessionAtomFn,
   isSessionActiveOrActivating,
   LucideMuiIcon,
-  OpenDeveloperPanelButton,
   selectedAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
@@ -17,6 +16,7 @@ import {
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
   virtualLifecycleInFlightAtom,
@@ -25,9 +25,10 @@ import {
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { History, Settings } from 'lucide-react';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
@@ -113,9 +114,6 @@ export const SessionChatPage: FC = () => {
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <IconButton aria-label="Back to Session History" onClick={onBack} size="small">
-          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
-        </IconButton>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
@@ -128,7 +126,7 @@ export const SessionChatPage: FC = () => {
             onDeleteRequest={requestDelete}
           />
         )}
-        <OpenDeveloperPanelButton />
+        <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <IconButton
           aria-label="Settings"
@@ -139,6 +137,11 @@ export const SessionChatPage: FC = () => {
         >
           <LucideMuiIcon fontSize="small" icon={Settings} />
         </IconButton>
+        <Tooltip title="Session History">
+          <IconButton aria-label="Session History" onClick={onBack} size="small">
+            <LucideMuiIcon fontSize="small" icon={History} />
+          </IconButton>
+        </Tooltip>
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />

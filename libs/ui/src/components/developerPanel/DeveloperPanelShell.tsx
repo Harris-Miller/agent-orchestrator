@@ -13,6 +13,7 @@ import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
@@ -337,7 +338,7 @@ export const DeveloperPanelShell: FC<{
         minHeight: 0,
       }}
     >
-      <PanelHeader closeAriaLabel="Close developer panel" closeGlyph="∨" onClose={onClose} title="Developer panel" />
+      <PanelHeader closeAriaLabel="Close developer panel" closeIcon={X} onClose={onClose} title="Developer panel" />
       <Tabs
         onChange={(_event: SyntheticEvent, value: DeveloperPanelTab) => {
           setActiveTab(value);

@@ -128,15 +128,17 @@ export const SessionChatPage: FC = () => {
         )}
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
-        <IconButton
-          aria-label="Settings"
-          onClick={() => {
-            navigate({ to: '/settings' }).catch(() => undefined);
-          }}
-          size="small"
-        >
-          <LucideMuiIcon fontSize="small" icon={Settings} />
-        </IconButton>
+        <Tooltip title="Settings">
+          <IconButton
+            aria-label="Settings"
+            onClick={() => {
+              navigate({ to: '/settings' }).catch(() => undefined);
+            }}
+            size="small"
+          >
+            <LucideMuiIcon fontSize="small" icon={Settings} />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Session History">
           <IconButton aria-label="Session History" onClick={onBack} size="small">
             <LucideMuiIcon fontSize="small" icon={History} />

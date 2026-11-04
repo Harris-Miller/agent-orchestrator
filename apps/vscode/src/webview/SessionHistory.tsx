@@ -14,6 +14,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { Settings } from 'lucide-react';
@@ -60,15 +61,17 @@ export const SessionHistory: FC = () => {
         <Box sx={{ flex: 1 }} />
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
-        <IconButton
-          aria-label="Settings"
-          onClick={() => {
-            navigate({ to: '/settings' }).catch(() => undefined);
-          }}
-          size="small"
-        >
-          <LucideMuiIcon fontSize="small" icon={Settings} />
-        </IconButton>
+        <Tooltip title="Settings">
+          <IconButton
+            aria-label="Settings"
+            onClick={() => {
+              navigate({ to: '/settings' }).catch(() => undefined);
+            }}
+            size="small"
+          >
+            <LucideMuiIcon fontSize="small" icon={Settings} />
+          </IconButton>
+        </Tooltip>
       </Stack>
 
       {noFolder ? (

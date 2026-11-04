@@ -1,13 +1,13 @@
 /** Pinned sessions: per-launch-target pins (ao-home), hydrated by HarnessCacheGate, swept after successful lists. */
 import { pinSession, unpinSessions } from '@lib/ao-home';
-import type { LaunchTarget, PinnedSession } from '@lib/ao-home';
+import type { PinnedSession } from '@lib/ao-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { compareHistoryEntriesByUpdatedAtDesc } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
@@ -43,7 +43,7 @@ export const removePins = Effect.fn('removePins')(
     if (sessionIds.length === 0 || !rw.get(pinsLoadedAtom(launchTarget))) {
       return;
     }
-    const document = yield* unpinSessions(launchTarget as LaunchTarget, sessionIds);
+    const document = yield* unpinSessions(toLaunchTarget(launchTarget), sessionIds);
     rw.set(pinnedSessionsAtom(launchTarget), document.pinned);
   },
   Effect.catchCause(cause => Effect.logWarning('unpin sessions failed', cause)),
@@ -73,7 +73,7 @@ export const createPinnedSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 
         if (!get(pinsLoadedAtom(arg.launchTarget))) {
           return;
         }
-        const document = yield* pinSession(arg.launchTarget as LaunchTarget, {
+        const document = yield* pinSession(toLaunchTarget(arg.launchTarget), {
           cwd: arg.cwd,
           sessionId: arg.sessionId,
         });
@@ -88,7 +88,7 @@ export const createPinnedSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 
         if (!get(pinsLoadedAtom(arg.launchTarget))) {
           return;
         }
-        const document = yield* unpinSessions(arg.launchTarget as LaunchTarget, [arg.sessionId]);
+        const document = yield* unpinSessions(toLaunchTarget(arg.launchTarget), [arg.sessionId]);
         get.set(pinnedSessionsAtom(arg.launchTarget), document.pinned);
       }),
     )

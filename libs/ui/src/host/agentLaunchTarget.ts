@@ -1,5 +1,9 @@
 /** Agent launch target identity: type, mounted list, and display labels. */
 
+import { LaunchTargetSchema } from '@lib/ao-home';
+import type { LaunchTarget } from '@lib/ao-home';
+import { Schema } from 'effect';
+
 declare const process: { readonly env: Record<string, string | undefined> };
 
 export type AgentLaunchTarget = 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp' | 'cursor-acp';
@@ -49,3 +53,7 @@ export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string 
       return 'Cursor (beta)';
   }
 };
+
+/** Decodes an agent launch target into the ao-home branded `LaunchTarget` (throws only if a target id is not kebab-case). */
+export const toLaunchTarget = (launchTarget: AgentLaunchTarget): LaunchTarget =>
+  Schema.decodeSync(LaunchTargetSchema)(launchTarget);

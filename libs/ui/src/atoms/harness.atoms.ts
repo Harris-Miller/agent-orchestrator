@@ -1,12 +1,12 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
 import { writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
-import type { LaunchTarget } from '@lib/ao-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
@@ -62,7 +62,7 @@ export const createHarnessAtoms = (
 
       const persistConfigOptionIndex = (index: ConfigOptionIndex) => {
         hostRunFork(
-          writeConfigOptionIndexCache(launchTarget as LaunchTarget, index).pipe(
+          writeConfigOptionIndexCache(toLaunchTarget(launchTarget), index).pipe(
             Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
           ),
         );

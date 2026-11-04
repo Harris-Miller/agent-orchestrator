@@ -1,6 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
 import { readConfigOptionIndexCache, readPinnedSessions, readSessionIndex, writeSessionIndex } from '@lib/ao-home';
-import type { LaunchTarget } from '@lib/ao-home';
 import { Effect, Exit, Option } from 'effect';
 import { useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
@@ -8,7 +7,7 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { backendHarnessStateAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
@@ -24,7 +23,7 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
           MOUNTED_AGENT_LAUNCH_TARGETS,
           launchTarget =>
             Effect.gen(function* () {
-              const target = launchTarget as LaunchTarget;
+              const target = toLaunchTarget(launchTarget);
               const historyRead = yield* Effect.exit(readSessionIndex(target));
               const history = Exit.isSuccess(historyRead) ? historyRead.value : { sessions: [] };
               if (Exit.isFailure(historyRead)) {

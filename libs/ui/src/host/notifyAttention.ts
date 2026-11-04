@@ -1,5 +1,6 @@
 import { readUserSettings } from '@lib/ao-home';
 import { Notifier } from '@lib/context-services';
+import type { StopReason } from '@libs/effect-acp';
 import { Effect } from 'effect';
 
 import {
@@ -16,7 +17,7 @@ import { sessionChatTitle } from './sessionChatTitle.ts';
 export type AttentionEvent =
   | { readonly kind: 'elicitation' }
   | { readonly kind: 'permission' }
-  | { readonly kind: 'turn-ended'; readonly stopReason: string };
+  | { readonly kind: 'turn-ended'; readonly stopReason: StopReason };
 
 /** Fixed phrase per event. Never agent text. */
 export const attentionBody = (event: AttentionEvent): string => {
@@ -31,7 +32,7 @@ export const attentionBody = (event: AttentionEvent): string => {
 };
 
 /** Whether a turn ending with this stop reason is an Attention event. */
-export const isAttentionStopReason = (stopReason: string): boolean => stopReason !== 'cancelled';
+export const isAttentionStopReason = (stopReason: StopReason): boolean => stopReason !== 'cancelled';
 
 /**
  * Raise a Notification for an Attention event, honoring User settings. Never fails:
@@ -55,7 +56,7 @@ export const notifyAttention = (title: string, event: AttentionEvent) =>
     });
   }).pipe(Effect.ignore);
 
-/** {@link notifyAttention} titled with the session's chat title (history entry, else launch target label). */
+/** {@link notifyAttention} titled with the session's chat title (history entry title or launch target label; `Chat` before a history entry exists). */
 export const notifySessionAttention = (
   snapshot: BackendHarnessSnapshot,
   launchTarget: AgentLaunchTarget,

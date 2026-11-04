@@ -27,11 +27,10 @@ export const makeNotifierLive = (client: IpcClient): Layer.Layer<Notifier> =>
         try: async () => {
           const permission =
             Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-          if (permission !== 'granted') {
-            throw new Error(`Notification permission ${permission}`);
+          if (permission === 'granted') {
+            // oxlint-disable-next-line no-new -- constructing the Notification is the side effect
+            new Notification(input.title, { body: input.body, silent: !input.sound });
           }
-          // oxlint-disable-next-line no-new -- constructing the Notification is the side effect
-          new Notification(input.title, { body: input.body, silent: !input.sound });
         },
       });
     }),

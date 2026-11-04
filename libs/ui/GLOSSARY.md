@@ -112,7 +112,7 @@ A draft-side image picked via Host FileDialog, held in-memory as metadata plus a
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Attention event**:
-A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the pinned-session handoff prompt), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
+A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the pinned-session handoff prompt), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md). Session and Settings domain terms live primarily in [`../../apps/desktop/GLOSSARY.md`](../../apps/desktop/GLOSSARY.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/GLOSSARY.md`](../../apps/vscode/GLOSSARY.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.

@@ -1,4 +1,13 @@
-import { AtomicFile, BundledResource, Clipboard, FileDialog, OpenFile, OpenUrl, OS } from '@lib/context-services';
+import {
+  AtomicFile,
+  BundledResource,
+  Clipboard,
+  FileDialog,
+  Notifier,
+  OpenFile,
+  OpenUrl,
+  OS,
+} from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -10,6 +19,13 @@ export const mockOpenFileLayer = Layer.succeed(OpenFile, {
   open: () => Effect.void,
   openImageData: () => Effect.void,
   supported: false,
+});
+
+/** Notifier that never raises anything (window reported focused). */
+export const mockNotifierLayer = Layer.succeed(Notifier, {
+  isWindowFocused: Effect.succeed(true),
+  notify: () => Effect.void,
+  supported: 'os',
 });
 
 /** Atomic replace that publishes nothing (tests that don't observe provider state). */
@@ -29,6 +45,7 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(FileDialog, {
     pickFiles: () => Effect.succeed([]),
   }),
+  mockNotifierLayer,
   Layer.succeed(OpenUrl, {
     open: () => Effect.void,
   }),

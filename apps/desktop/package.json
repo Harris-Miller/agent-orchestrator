@@ -29,6 +29,7 @@
     "@tanstack/react-router-devtools": "catalog:",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/plugin-dialog": "catalog:",
+    "@tauri-apps/plugin-notification": "catalog:",
     "@tauri-apps/plugin-opener": "catalog:",
     "allotment": "catalog:",
     "effect": "catalog:",

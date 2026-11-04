@@ -12,7 +12,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
-import { mockAtomicFileLayer, mockOpenFileLayer } from '../mockHostLayer.testing.ts';
+import { mockAtomicFileLayer, mockNotifierLayer, mockOpenFileLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -97,6 +97,7 @@ const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof ma
     bundledResourceLayer,
     clipboardLayer,
     fileDialogLayer,
+    mockNotifierLayer,
     openUrlLayer,
     mockOpenFileLayer,
     osLayer,

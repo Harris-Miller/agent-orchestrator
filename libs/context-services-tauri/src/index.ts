@@ -6,6 +6,7 @@ export { ConfigProviderLive } from './ConfigProviderLive.ts';
 export { FileDialogLive } from './FileDialogLive.ts';
 export { FileSystemLive } from './FileSystemLive.ts';
 export { mapTauriArchToNode, mapTauriPlatformToNode } from './mapTauriPlatform.ts';
+export { NotifierLive } from './NotifierLive.ts';
 export { OpenUrlLive } from './OpenUrlLive.ts';
 export { OpenFileLive } from './OpenFileLive.ts';
 export { OSLive } from './OSLive.ts';

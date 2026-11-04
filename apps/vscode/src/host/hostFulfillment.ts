@@ -108,6 +108,7 @@ type ExtensionInbound = Extract<
       | 'Spawn'
       | 'StdinChunk'
       | 'StdinEnd'
+      | 'WindowFocus'
       | 'WorkspaceFolders';
   }
 >;
@@ -136,6 +137,7 @@ const EXTENSION_INBOUND_TAGS: ReadonlySet<ExtensionInbound['_tag']> = new Set([
   'Spawn',
   'StdinChunk',
   'StdinEnd',
+  'WindowFocus',
   'WorkspaceFolders',
 ]);
 
@@ -316,6 +318,10 @@ export const handleHostIpcMessage = async (args: {
       case 'Kill': {
         tracker.kill(webviewId, message.handleId);
         post(webview, { _tag: 'KillResult', id: message.id });
+        return;
+      }
+      case 'WindowFocus': {
+        post(webview, { _tag: 'WindowFocusResult', focused: vscode.window.state.focused, id: message.id });
         return;
       }
       case 'OpenUrl': {

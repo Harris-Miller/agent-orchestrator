@@ -11,6 +11,7 @@ import { makeExtensionFetchLive } from './ExtensionFetchLive.ts';
 import { makeFileDialogLive } from './FileDialogLive.ts';
 import { makeFileSystemLive } from './FileSystemLive.ts';
 import { ObservabilityLive } from './ObservabilityLive.ts';
+import { makeNotifierLive } from './NotifierLive.ts';
 import { makeOpenUrlLive } from './OpenUrlLive.ts';
 import { makeOpenFileLive } from './OpenFileLive.ts';
 import { makeOsSnapshotLive } from './OsSnapshotLive.ts';
@@ -54,6 +55,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     ConfigProviderLive,
     makeFileDialogLive(client),
     makeFileSystemLive(client),
+    makeNotifierLive(client),
     makeOpenUrlLive(client),
     makeOpenFileLive(client),
     PathLive,

@@ -219,6 +219,13 @@ export const IpcMessage = Schema.TaggedUnion({
   OpenFileResult: {
     id: CorrelationId,
   },
+  WindowFocus: {
+    id: CorrelationId,
+  },
+  WindowFocusResult: {
+    focused: Schema.Boolean,
+    id: CorrelationId,
+  },
   OsSnapshot: {
     id: CorrelationId,
   },

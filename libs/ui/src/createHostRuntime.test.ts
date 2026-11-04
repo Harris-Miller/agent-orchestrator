@@ -7,7 +7,7 @@ import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
-import { mockAtomicFileLayer, mockOpenFileLayer } from './atoms/mockHostLayer.testing.ts';
+import { mockAtomicFileLayer, mockNotifierLayer, mockOpenFileLayer } from './atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from './createHostRuntime.ts';
 
 const mockOsLayer = Layer.succeed(OS, {
@@ -45,6 +45,7 @@ const mockHostLayer = Layer.mergeAll(
   mockBundledResourceLayer,
   mockClipboardLayer,
   mockFileDialogLayer,
+  mockNotifierLayer,
   mockOpenUrlLayer,
   mockOpenFileLayer,
   mockOsLayer,

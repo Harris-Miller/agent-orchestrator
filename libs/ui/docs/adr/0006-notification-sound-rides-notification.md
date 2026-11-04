@@ -1,0 +1,3 @@
+# Notification sound rides the Notification
+
+The Notification sound is the system sound attached to an OS Notification (`Notifier.notify({ sound })`); the app never plays a sound on its own. A standalone sound would need an audio asset, an autoplay-permission story per Host (webview vs Tauri vs VS Code), and would ignore OS Do Not Disturb, which the system notification path respects for free. Consequences: the Sound setting is disabled when Notifications is off, "Sound off" yields a silent Notification (`sound: false`), and a Host that can only show an in-app message (`supported: 'in-app'`) has no sound. Standalone sound is out of scope.

@@ -1,6 +1,9 @@
 # Issue #24: OS notification + sound on prompt completion (desktop + VS Code, macOS + Windows)
 
 Date: 2026-10-31 (code references refreshed 2026-11-03 against `038e4c4`)
+
+> **Superseded in part (2026-11-04).** Shipped design differs: the Notification sound is the system sound attached to the Notification (no standalone webview sound; follow-up #240), the Host service is `Notifier` (`notify`, `isWindowFocused`, `supported: 'os' | 'in-app'`), and VS Code uses a webview `Notification` (spike confirmed an OS toast on macOS) with window focus from the extension host. See `libs/context-services/docs/adr/0006-widen-host-services-notifier.md` and `libs/ui/docs/adr/0006-notification-sound-rides-notification.md`.
+
 Question: How would [issue #24](https://github.com/Harris-Miller/agent-orchestrator/issues/24) be implemented for both `apps/desktop` (Tauri) and `apps/vscode`, on both macOS and Windows? What are the limitations? Add two independent Settings toggles: one for sound, one for notifications.
 
 ## Summary

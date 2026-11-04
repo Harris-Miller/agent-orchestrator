@@ -689,8 +689,8 @@ export const SessionChatBody: FC<{
                 px: 1.5,
               }}
             >
-              {aboveComposer}
               {planFilePath === undefined ? null : <PlanFileBanner path={planFilePath} />}
+              {aboveComposer}
             </Box>
           ) : null}
           <Paper

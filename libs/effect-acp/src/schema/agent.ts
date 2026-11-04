@@ -65,6 +65,9 @@ export const SESSION_FORK_METHOD = 'session/fork' as const;
 /** AIR `_session/archive`. Not in stable AgentRpcs. */
 export const SESSION_ARCHIVE_METHOD = '_session/archive' as const;
 
+/** AIR `_session/rename`. Not in stable AgentRpcs. */
+export const SESSION_RENAME_METHOD = '_session/rename' as const;
+
 /** Claude/Codex `_session/steering`. Not in stable AgentRpcs. */
 export const SESSION_STEERING_METHOD = '_session/steering' as const;
 
@@ -226,6 +229,17 @@ export class SessionArchiveRequest extends Schema.Opaque<SessionArchiveRequest>(
 export const SessionArchiveResponse = EmptyResult;
 export type SessionArchiveResponse = EmptyResult;
 
+export class SessionRenameRequest extends Schema.Opaque<SessionRenameRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    sessionId: SessionId,
+    title: Schema.String,
+  }),
+) {}
+
+export const SessionRenameResponse = EmptyResult;
+export type SessionRenameResponse = EmptyResult;
+
 /** `prompt` is injected into the in-flight turn; `_meta.steering.idleBehavior` opts into `promptRequired` when idle. */
 export class SessionSteeringRequest extends Schema.Opaque<SessionSteeringRequest>()(
   Schema.Struct({
@@ -379,6 +393,13 @@ export class SessionArchive extends Rpc.make(SESSION_ARCHIVE_METHOD, {
   error: AcpError,
   payload: SessionArchiveRequest,
   success: SessionArchiveResponse,
+}) {}
+
+/** AIR `_session/rename`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionRename. */
+export class SessionRename extends Rpc.make(SESSION_RENAME_METHOD, {
+  error: AcpError,
+  payload: SessionRenameRequest,
+  success: SessionRenameResponse,
 }) {}
 
 /** Claude/Codex `_session/steering`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionSteering. */

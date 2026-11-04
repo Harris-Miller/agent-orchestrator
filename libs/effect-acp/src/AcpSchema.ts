@@ -20,6 +20,7 @@ import {
   SessionLoad,
   SessionNew,
   SessionPrompt,
+  SessionRename,
   SessionResume,
   SessionSetConfigOption,
   SessionSetMode,
@@ -162,6 +163,9 @@ export class UnstableSessionForkRpcs extends RpcGroup.make(SessionFork) {}
 
 /** AIR `_session/archive`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive) {}
+
+/** AIR `_session/rename`; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionRenameRpcs extends RpcGroup.make(SessionRename) {}
 
 /** Claude/Codex `_session/steering`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionSteeringRpcs extends RpcGroup.make(SessionSteering) {}

@@ -11,13 +11,16 @@ import {
   ProtocolNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
+  UnstableSessionRenameRpcs,
   UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
 import {
   ListSessionsRequest,
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
+  SESSION_RENAME_METHOD,
   SESSION_STEERING_METHOD,
+  SessionRenameRequest,
   SessionSteeringRequest,
   SessionSteeringResponse,
 } from './schema/agent.ts';
@@ -104,6 +107,18 @@ describe('AcpSchema stable v1 allowlist', () => {
   it('_session/archive stays off the stable AgentRequestRpcs allowlist', () => {
     assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_ARCHIVE_METHOD), false);
     assertExactTags(UnstableSessionArchiveRpcs, [SESSION_ARCHIVE_METHOD]);
+  });
+});
+
+describe('_session/rename', () => {
+  it('stays off the stable AgentRequestRpcs allowlist', () => {
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_RENAME_METHOD), false);
+    assertExactTags(UnstableSessionRenameRpcs, [SESSION_RENAME_METHOD]);
+  });
+
+  it('decodes sessionId and title', () => {
+    const request = Schema.decodeUnknownSync(SessionRenameRequest)({ sessionId: 's1', title: 'New' });
+    assert.strictEqual(request.title, 'New');
   });
 });
 

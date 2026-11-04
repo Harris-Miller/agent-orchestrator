@@ -16,6 +16,7 @@ import {
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
+  SessionTitleInlineRename,
   ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
@@ -26,7 +27,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { History } from 'lucide-react';
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
@@ -52,6 +53,7 @@ export const SessionChatPage: FC = () => {
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const onClientError = useContext(OnClientErrorContext);
+  const [renaming, setRenaming] = useState(false);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
@@ -112,16 +114,32 @@ export const SessionChatPage: FC = () => {
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-        <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          {title}
-        </Typography>
-        {entry === undefined ? null : (
-          <SessionActionsMenu
-            entry={entry}
-            onBeforeAction={switchToVirtualSession}
-            onClientError={onClientError}
-            onDeleteRequest={requestDelete}
-          />
+        {entry === undefined ? (
+          <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
+            {title}
+          </Typography>
+        ) : (
+          <>
+            <SessionTitleInlineRename
+              editing={renaming}
+              entry={entry}
+              onClientError={onClientError}
+              onEditingChange={setRenaming}
+            >
+              <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+                {title}
+              </Typography>
+            </SessionTitleInlineRename>
+            <SessionActionsMenu
+              entry={entry}
+              onBeforeAction={switchToVirtualSession}
+              onClientError={onClientError}
+              onDeleteRequest={requestDelete}
+              onRenameRequest={() => {
+                setRenaming(true);
+              }}
+            />
+          </>
         )}
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />

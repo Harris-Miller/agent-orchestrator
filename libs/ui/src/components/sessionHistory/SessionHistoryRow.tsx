@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
@@ -14,6 +14,7 @@ import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
 import { SessionActionsMenu } from './SessionActionsMenu.tsx';
+import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 
 const sessionCardSx = (selected: boolean) =>
   ({
@@ -36,6 +37,7 @@ export const SessionHistoryRow: FC<{
   readonly selected: boolean;
 }> = ({ entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
+  const [editing, setEditing] = useState(false);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
@@ -56,6 +58,7 @@ export const SessionHistoryRow: FC<{
         aria-disabled={unavailable}
         onClick={activateHistoryEntry}
         onKeyDown={event => {
+          if (event.target !== event.currentTarget) return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             activateHistoryEntry();
@@ -67,7 +70,12 @@ export const SessionHistoryRow: FC<{
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
           <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+          <SessionTitleInlineRename
+            editing={editing}
+            entry={entry}
+            onClientError={onClientError}
+            onEditingChange={setEditing}
+          >
             <Typography
               sx={{
                 display: '-webkit-box',
@@ -82,7 +90,7 @@ export const SessionHistoryRow: FC<{
             >
               {displayTitle}
             </Typography>
-          </Box>
+          </SessionTitleInlineRename>
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}
@@ -90,6 +98,9 @@ export const SessionHistoryRow: FC<{
             entry={entry}
             onClientError={onClientError}
             onDeleteRequest={onDeleteRequest}
+            onRenameRequest={() => {
+              setEditing(true);
+            }}
             sx={{ mr: -0.5 }}
           />
         </Stack>

@@ -12,6 +12,7 @@ type ConnectedAgent = {
   readonly notify: AcpAgentConnection['notify'];
   readonly sessionArchive: AcpAgentConnection['sessionArchive'];
   readonly sessionFork: AcpAgentConnection['sessionFork'];
+  readonly sessionRename: AcpAgentConnection['sessionRename'];
   readonly sessionSteering: AcpAgentConnection['sessionSteering'];
 };
 
@@ -32,13 +33,17 @@ const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<C
 /** Lifecycle hook — backendHarness registers the live agent after connect. */
 export const setConnectedAgent = (
   launchTarget: AgentLaunchTarget,
-  connection: Pick<AcpAgentConnection, 'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionSteering'>,
+  connection: Pick<
+    AcpAgentConnection,
+    'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionRename' | 'sessionSteering'
+  >,
 ): void => {
   connectedAgents.set(launchTarget, {
     agent: connection.agent,
     notify: connection.notify,
     sessionArchive: connection.sessionArchive,
     sessionFork: connection.sessionFork,
+    sessionRename: connection.sessionRename,
     sessionSteering: connection.sessionSteering,
   });
 };
@@ -122,6 +127,16 @@ export const archiveSession = Effect.fn('archiveSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('_session/archive failed', sessionId, error))),
+);
+
+export const renameSession = Effect.fn('renameSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string, title: string) {
+    const { sessionRename } = yield* requireConnectedAgent(launchTarget);
+    yield* Effect.logInfo('Renaming ACP session', sessionId);
+    yield* sessionRename({ sessionId, title });
+  },
+  (effect, _launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('_session/rename failed', sessionId, error))),
 );
 
 export const deleteSession = Effect.fn('deleteSession')(

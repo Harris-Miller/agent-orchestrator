@@ -205,6 +205,10 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   yield* sendChatItemEffect(arg, get);
 });
 
+export type ElicitationReply =
+  | { response: Extract<CreateElicitationResponseBody, { action: 'accept' }>; summary: ElicitationSummary }
+  | { response: Extract<CreateElicitationResponseBody, { action: 'decline' | 'cancel' }> };
+
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
@@ -393,10 +397,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   type RespondElicitationArg = {
     launchTarget: AgentLaunchTarget;
     sessionId: string;
-  } & (
-    | { response: Extract<CreateElicitationResponseBody, { action: 'accept' }>; summary: ElicitationSummary }
-    | { response: Extract<CreateElicitationResponseBody, { action: 'decline' | 'cancel' }> }
-  );
+  } & ElicitationReply;
 
   const respondElicitationAtomFn = atomRuntime
     .fn(

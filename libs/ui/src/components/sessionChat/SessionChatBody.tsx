@@ -30,6 +30,7 @@ import {
   setConfigOptionAtomFn,
   steerChatItemAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
+import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { composerTurnActions } from './composerTurnActions.ts';
@@ -74,6 +75,8 @@ import { UsagePopover } from './UsagePopover.tsx';
 import { useSessionChatSurface } from './useSessionChatSurface.ts';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
+/** Cap on the pinned question section so the transcript stays visible. */
+const PENDING_QUESTION_MAX_HEIGHT = '65%';
 
 const formatActivationDefect = (defect: unknown): string => {
   if (!isRecord(defect)) {
@@ -442,15 +445,19 @@ export const SessionChatBody: FC<{
     });
   };
 
-  const onCancelElicitation = () => {
+  const replyToElicitation = (reply: ElicitationReply) => {
     if (selectedLaunchTarget === undefined || selectedSession?.pendingElicitation === undefined) {
       return;
     }
     respondElicitation({
+      ...reply,
       launchTarget: selectedLaunchTarget,
-      response: { action: 'cancel' },
       sessionId: selectedSession.sessionId,
     }).catch(onClientError);
+  };
+
+  const onCancelElicitation = () => {
+    replyToElicitation({ response: { action: 'cancel' } });
   };
 
   const onCancelPrompt = () => {
@@ -617,30 +624,6 @@ export const SessionChatBody: FC<{
               ),
             )
           )}
-          {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
-            <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
-              <PendingElicitationCard
-                agentTitle={agentTitle}
-                onAccept={(content, summary) => {
-                  respondElicitation({
-                    launchTarget: selectedLaunchTarget,
-                    response: { action: 'accept', content },
-                    sessionId: selectedSession.sessionId,
-                    summary,
-                  }).catch(onClientError);
-                }}
-                onCancel={onCancelElicitation}
-                onDecline={() => {
-                  respondElicitation({
-                    launchTarget: selectedLaunchTarget,
-                    response: { action: 'decline' },
-                    sessionId: selectedSession.sessionId,
-                  }).catch(onClientError);
-                }}
-                request={selectedSession.pendingElicitation.request}
-              />
-            </ListItem>
-          ) : null}
           {selectedSession?.pendingPermission !== undefined && selectedLaunchTarget !== undefined ? (
             <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
               <PendingPermissionCard
@@ -658,6 +641,32 @@ export const SessionChatBody: FC<{
           ) : null}
         </List>
       </Box>
+
+      {selectedSession?.pendingElicitation !== undefined && selectedLaunchTarget !== undefined ? (
+        <Box
+          sx={{
+            flex: '0 1 auto',
+            maxHeight: PENDING_QUESTION_MAX_HEIGHT,
+            minHeight: 0,
+            overflowY: 'auto',
+            px: 1,
+            py: 0.5,
+          }}
+        >
+          <PendingElicitationCard
+            agentTitle={agentTitle}
+            key={selectedSession.pendingElicitation.id}
+            onAccept={(content, summary) => {
+              replyToElicitation({ response: { action: 'accept', content }, summary });
+            }}
+            onCancel={onCancelElicitation}
+            onDecline={() => {
+              replyToElicitation({ response: { action: 'decline' } });
+            }}
+            request={selectedSession.pendingElicitation.request}
+          />
+        </Box>
+      ) : null}
 
       <Box sx={{ flexShrink: 0, position: 'relative' }}>
         {backendSnapshot?.failure !== undefined ? (

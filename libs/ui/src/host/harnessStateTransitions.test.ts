@@ -77,6 +77,7 @@ describe('beginClientRequest', () => {
     const snapshot = readySnapshot({
       s1: activeSession('s1', {
         pendingElicitation: {
+          id: 'e1',
           request: {} as never,
           resolve: () => undefined,
           sessionId: 's1',
@@ -189,6 +190,7 @@ describe('stopped provider reconcile', () => {
     const elicitation: unknown[] = [];
     const withPendings = activeSession('s1', {
       pendingElicitation: {
+        id: 'e1',
         request: {} as never,
         resolve: response => {
           elicitation.push(response);

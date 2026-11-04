@@ -8,6 +8,8 @@ import type {
 import { Schema } from 'effect';
 
 export type PendingElicitation = {
+  /** Unique per request, so identical consecutive requests still remount the card. */
+  readonly id: string;
   readonly request: CreateElicitationRequestBody;
   readonly resolve: (response: CreateElicitationResponseBody) => void;
   readonly sessionId: string;

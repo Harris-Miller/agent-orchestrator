@@ -690,9 +690,7 @@ export const SessionChatBody: FC<{
               }}
             >
               {aboveComposer}
-              {planFilePath !== undefined && sessionCwd !== undefined ? (
-                <PlanFileBanner cwd={sessionCwd} path={planFilePath} />
-              ) : null}
+              {planFilePath === undefined ? null : <PlanFileBanner path={planFilePath} />}
             </Box>
           ) : null}
           <Paper

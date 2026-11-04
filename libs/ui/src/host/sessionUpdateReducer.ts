@@ -12,6 +12,7 @@ import {
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
+import { WINDOWS_DRIVE } from './openChatLink.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -310,10 +311,11 @@ const extractPlanFilePath = (rawInput: unknown): string | undefined => {
     return undefined;
   }
   const path = rawInput.planFilePath;
-  return path.startsWith('/') || /^[a-z]:[\\/]/i.test(path) ? path : undefined;
+  return path.startsWith('/') || WINDOWS_DRIVE.test(path) ? path : undefined;
 };
 
-const planFileField = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
+/** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
+const withPlanFilePath = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
 
 /** Path of the first location only; tool_call titles link a single file. */
 const extractLocationPath = (locations: unknown): string | undefined => {
@@ -581,7 +583,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           id: update.toolCallId,
           kind: 'tool_call' as const,
           locationPath: extractLocationPath(update.locations),
-          ...planFileField(extractPlanFilePath(update.rawInput)),
+          ...withPlanFilePath(extractPlanFilePath(update.rawInput)),
           resultText: extractTextFromContent(update.content),
           status,
           title: update.title,
@@ -615,7 +617,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
             ...existing,
             command: command ?? existing.command,
             locationPath: locationPath ?? existing.locationPath,
-            ...planFileField(planFilePath ?? existing.planFilePath),
+            ...withPlanFilePath(planFilePath ?? existing.planFilePath),
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
             title: title ?? existing.title,
@@ -631,7 +633,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           id: update.toolCallId,
           kind: 'tool_call' as const,
           locationPath,
-          ...planFileField(planFilePath),
+          ...withPlanFilePath(planFilePath),
           resultText,
           status: status ?? 'unknown',
           title: title ?? update.toolCallId,

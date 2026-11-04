@@ -362,7 +362,10 @@ describe('reduceSessionUpdate planFilePath', () => {
       title: 'Exit plan mode',
       toolCallId: 'p1',
     });
-  const planOf = (t: ReturnType<typeof call>) => (t.items[0] as { planFilePath?: string }).planFilePath;
+  const planOf = (t: ReturnType<typeof call>) => {
+    const [item] = t.items;
+    return item.kind === 'tool_call' ? item.planFilePath : undefined;
+  };
 
   it('stores the path from tool_call', () => {
     assert.strictEqual(planOf(call('/plans/a.md')), '/plans/a.md');

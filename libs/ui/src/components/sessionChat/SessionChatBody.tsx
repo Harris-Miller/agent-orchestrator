@@ -60,6 +60,8 @@ import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 import { filterFsListingMatches } from './filterFsListingEntries.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { absolutePathForMentionEntry, mentionMarkdownForEntry } from './mentionMarkdown.ts';
+import { latestPlanFilePath } from './latestPlanFilePath.ts';
+import { PlanFileBanner } from './PlanFileBanner.tsx';
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
@@ -123,6 +125,7 @@ export const SessionChatBody: FC<{
     steeringSupported,
     virtualLifecycleInFlight,
   } = useSessionChatSurface();
+  const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
@@ -672,7 +675,7 @@ export const SessionChatBody: FC<{
           </Box>
         ) : null}
         <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
-          {aboveComposer !== undefined && aboveComposer !== null ? (
+          {(aboveComposer !== undefined && aboveComposer !== null) || planFilePath !== undefined ? (
             <Box
               sx={{
                 bgcolor: 'action.hover',
@@ -687,6 +690,9 @@ export const SessionChatBody: FC<{
               }}
             >
               {aboveComposer}
+              {planFilePath !== undefined && sessionCwd !== undefined ? (
+                <PlanFileBanner cwd={sessionCwd} path={planFilePath} />
+              ) : null}
             </Box>
           ) : null}
           <Paper

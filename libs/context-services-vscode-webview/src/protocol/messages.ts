@@ -198,14 +198,6 @@ export const IpcMessage = Schema.TaggedUnion({
   KillResult: {
     id: CorrelationId,
   },
-  NotifyInApp: {
-    body: Schema.String,
-    id: CorrelationId,
-    title: Schema.String,
-  },
-  NotifyInAppResult: {
-    id: CorrelationId,
-  },
   OpenUrl: {
     id: CorrelationId,
     url: Schema.String,

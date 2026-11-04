@@ -41,7 +41,7 @@ const setup = (sessionRename: (payload: { sessionId: string; title: string }) =>
 };
 
 describe('renameSessionAtomFn', () => {
-  it.live('success keeps the new title', () =>
+  it.effect('success keeps the new title', () =>
     Effect.gen(function* () {
       const { registry, renameSessionAtomFn, title } = setup(() => Effect.void);
       yield* runAtomFn(registry, renameSessionAtomFn, { launchTarget: 'codex-acp', sessionId: 's1', title: 'New' });
@@ -51,7 +51,7 @@ describe('renameSessionAtomFn', () => {
     }),
   );
 
-  it.live('failure restores the previous title', () =>
+  it.effect('failure restores the previous title', () =>
     Effect.gen(function* () {
       const { registry, renameSessionAtomFn, title } = setup(() => Effect.fail('boom'));
       yield* Effect.exit(
@@ -63,7 +63,7 @@ describe('renameSessionAtomFn', () => {
     }),
   );
 
-  it.live('failure does not clobber a newer title', () =>
+  it.effect('failure does not clobber a newer title', () =>
     Effect.gen(function* () {
       let patch: () => void = () => undefined;
       const { registry, renameSessionAtomFn, title } = setup(() =>

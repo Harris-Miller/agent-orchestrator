@@ -32,9 +32,9 @@ export const PanelHeader: FC<{
       {typeof title === 'string' ? <Typography variant="h6">{title}</Typography> : title}
       {titleEnd}
     </Box>
-    <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
       {actions}
-      <IconButton aria-label={closeAriaLabel} edge="end" onClick={onClose} size="small">
+      <IconButton aria-label={closeAriaLabel} onClick={onClose} size="small">
         <LucideMuiIcon fontSize="small" icon={closeIcon} />
       </IconButton>
     </Box>

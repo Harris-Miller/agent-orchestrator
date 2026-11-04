@@ -1,17 +1,19 @@
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import type { LucideIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
 import { PANEL_HEADER_HEIGHT } from '../../theme/tokens.ts';
+import { IconTooltipButton } from '../IconTooltipButton.tsx';
 
 export const PanelHeader: FC<{
+  readonly beforeClose?: ReactNode;
   readonly closeAriaLabel: string;
-  readonly closeGlyph: string;
+  readonly closeIcon: LucideIcon;
   readonly onClose: () => void;
   readonly title: ReactNode;
   readonly titleEnd?: ReactNode;
-}> = ({ closeAriaLabel, closeGlyph, onClose, title, titleEnd }) => (
+}> = ({ beforeClose, closeAriaLabel, closeIcon, onClose, title, titleEnd }) => (
   <Box
     sx={{
       alignItems: 'center',
@@ -29,10 +31,9 @@ export const PanelHeader: FC<{
       {typeof title === 'string' ? <Typography variant="h6">{title}</Typography> : title}
       {titleEnd}
     </Box>
-    <IconButton aria-label={closeAriaLabel} edge="end" onClick={onClose} size="small">
-      <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-        {closeGlyph}
-      </Typography>
-    </IconButton>
+    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+      {beforeClose}
+      <IconTooltipButton icon={closeIcon} label={closeAriaLabel} onClick={onClose} />
+    </Box>
   </Box>
 );

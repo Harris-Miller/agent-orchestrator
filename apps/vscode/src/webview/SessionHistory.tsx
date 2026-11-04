@@ -1,13 +1,12 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
-  LucideMuiIcon,
-  OpenDeveloperPanelButton,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
   sessionListScopeAtom,
   sessionsForCwd,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -16,13 +15,13 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Settings } from 'lucide-react';
 import { useContext } from 'react';
 import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { SessionRows } from './SessionRows.tsx';
+import { SettingsButton } from './SettingsButton.tsx';
 
 export const SessionHistory: FC = () => {
   const history = useAtomValue(unifiedSessionHistoryAtom);
@@ -58,17 +57,9 @@ export const SessionHistory: FC = () => {
           </Typography>
         </IconButton>
         <Box sx={{ flex: 1 }} />
-        <OpenDeveloperPanelButton />
+        <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
-        <IconButton
-          aria-label="Settings"
-          onClick={() => {
-            navigate({ to: '/settings' }).catch(() => undefined);
-          }}
-          size="small"
-        >
-          <LucideMuiIcon fontSize="small" icon={Settings} />
-        </IconButton>
+        <SettingsButton />
       </Stack>
 
       {noFolder ? (

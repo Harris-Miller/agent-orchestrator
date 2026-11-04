@@ -5,9 +5,8 @@ import {
   clearSelectedAtomFn,
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
+  IconTooltipButton,
   isSessionActiveOrActivating,
-  LucideMuiIcon,
-  OpenDeveloperPanelButton,
   selectedAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
@@ -17,23 +16,23 @@ import {
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { History } from 'lucide-react';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { RecentSessions } from './RecentSessions.tsx';
+import { SettingsButton } from './SettingsButton.tsx';
 
 /**
  * Chat chrome for Virtual or Selected Session. Parent mounts when Selected is set;
@@ -52,7 +51,6 @@ export const SessionChatPage: FC = () => {
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
-  const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
@@ -113,9 +111,6 @@ export const SessionChatPage: FC = () => {
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <IconButton aria-label="Back to Session History" onClick={onBack} size="small">
-          <LucideMuiIcon fontSize="small" icon={ArrowLeft} />
-        </IconButton>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
         <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           {title}
@@ -128,17 +123,10 @@ export const SessionChatPage: FC = () => {
             onDeleteRequest={requestDelete}
           />
         )}
-        <OpenDeveloperPanelButton />
+        <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
-        <IconButton
-          aria-label="Settings"
-          onClick={() => {
-            navigate({ to: '/settings' }).catch(() => undefined);
-          }}
-          size="small"
-        >
-          <LucideMuiIcon fontSize="small" icon={Settings} />
-        </IconButton>
+        <SettingsButton />
+        <IconTooltipButton icon={History} label="Session History" onClick={onBack} />
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />

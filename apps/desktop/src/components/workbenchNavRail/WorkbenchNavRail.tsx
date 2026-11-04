@@ -4,6 +4,7 @@ import {
   ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
+  IconTooltipButton,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
@@ -21,13 +22,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, Plus, Settings } from 'lucide-react';
+import { Folder, FolderOpen, PanelLeftClose, Plus, Settings } from 'lucide-react';
 import type { FC } from 'react';
 
 import { directoryBasename } from '../../directoryBasename.ts';
@@ -87,7 +85,7 @@ export const WorkbenchNavRail: FC<{
       >
         <PanelHeader
           closeAriaLabel="Close session history panel"
-          closeGlyph="‹"
+          closeIcon={PanelLeftClose}
           onClose={onClose}
           title="Sessions"
           titleEnd={
@@ -198,17 +196,13 @@ export const WorkbenchNavRail: FC<{
         </Box>
         <Divider />
         <Box sx={{ flexShrink: 0, p: 1 }}>
-          <ListItemButton
+          <IconTooltipButton
+            icon={Settings}
+            label="Settings"
             onClick={() => {
               navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
             }}
-            sx={{ borderRadius: 1 }}
-          >
-            <ListItemIcon>
-              <LucideMuiIcon fontSize="small" icon={Settings} />
-            </ListItemIcon>
-            <ListItemText primary="Settings" />
-          </ListItemButton>
+          />
         </Box>
       </Box>
 

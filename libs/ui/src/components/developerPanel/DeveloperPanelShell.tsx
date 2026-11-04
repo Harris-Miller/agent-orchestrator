@@ -13,6 +13,7 @@ import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
@@ -43,6 +44,7 @@ import {
 } from './rpcWireLogFilter.ts';
 import type { RpcWireFilters, RpcWireLaunchTargetFilter } from './rpcWireLogFilter.ts';
 import { SessionStateView } from './SessionStateView.tsx';
+import { CLOSE_DEVELOPER_PANEL_LABEL } from './ToggleDeveloperPanelButton.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
 
@@ -337,7 +339,12 @@ export const DeveloperPanelShell: FC<{
         minHeight: 0,
       }}
     >
-      <PanelHeader closeAriaLabel="Close developer panel" closeGlyph="∨" onClose={onClose} title="Developer panel" />
+      <PanelHeader
+        closeAriaLabel={CLOSE_DEVELOPER_PANEL_LABEL}
+        closeIcon={X}
+        onClose={onClose}
+        title="Developer panel"
+      />
       <Tabs
         onChange={(_event: SyntheticEvent, value: DeveloperPanelTab) => {
           setActiveTab(value);

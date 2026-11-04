@@ -8,8 +8,8 @@ import {
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
+  IconTooltipButton,
   isRecord,
-  OpenDeveloperPanelButton,
   PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedSessionAtom,
@@ -18,16 +18,17 @@ import {
   SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
+  ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
   useSessionDeleteRequest,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
+import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
@@ -181,15 +182,13 @@ export const AgentChatWorkbench: FC<{
                   }}
                 >
                   {layout.sessionHistoryOpen ? null : (
-                    <Button
+                    <IconTooltipButton
+                      icon={PanelLeftOpen}
+                      label="Open session history panel"
                       onClick={() => {
                         commitLayout({ sessionHistoryOpen: true });
                       }}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Sessions
-                    </Button>
+                    />
                   )}
                   {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
                   <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
@@ -198,17 +197,17 @@ export const AgentChatWorkbench: FC<{
                   {entry === undefined ? null : (
                     <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
                   )}
-                  <OpenDeveloperPanelButton />
                   {layout.sessionStateOpen ? null : (
-                    <Button
-                      onClick={() => {
-                        commitLayout({ sessionStateOpen: true });
-                      }}
-                      size="small"
-                      variant="outlined"
-                    >
-                      Panel
-                    </Button>
+                    <>
+                      <ToggleDeveloperPanelButton />
+                      <IconTooltipButton
+                        icon={PanelRightOpen}
+                        label="Open session state panel"
+                        onClick={() => {
+                          commitLayout({ sessionStateOpen: true });
+                        }}
+                      />
+                    </>
                   )}
                 </Box>
 

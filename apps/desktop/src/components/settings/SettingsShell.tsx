@@ -1,5 +1,6 @@
 import {
   filterSettingsCategories,
+  IconTooltipButton,
   isSettingsCategoryId,
   LucideMuiIcon,
   PANEL_HEADER_HEIGHT,
@@ -8,7 +9,6 @@ import {
   UserSettingsLoadFailureAlert,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import InputAdornment from '@mui/material/InputAdornment';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -23,16 +23,14 @@ import type { FC } from 'react';
 const BackToApp: FC = () => {
   const navigate = useNavigate();
   return (
-    <Button
+    <IconTooltipButton
+      icon={ArrowLeft}
+      label="Back to app"
       onClick={() => {
         navigate({ to: '/' }).catch(() => undefined);
       }}
-      startIcon={<LucideMuiIcon icon={ArrowLeft} />}
-      sx={{ justifyContent: 'flex-start' }}
-      variant="text"
-    >
-      Back to app
-    </Button>
+      sx={{ alignSelf: 'flex-start' }}
+    />
   );
 };
 

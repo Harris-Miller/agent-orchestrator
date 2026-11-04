@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { NavSessionGroup, UnifiedHistoryEntry } from '@lib/ui';
 import {
   ConfirmSessionDeleteDialog,
+  directoryBasename,
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
@@ -27,8 +28,6 @@ import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { Folder, FolderOpen, PanelLeftClose, Plus, Settings } from 'lucide-react';
 import type { FC } from 'react';
-
-import { directoryBasename } from '../../directoryBasename.ts';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 

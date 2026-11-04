@@ -125,3 +125,4 @@ export * from './theme/themePaintCache.ts';
 export * from './theme/themes.ts';
 export * from './theme/tokens.ts';
 export { defaultSettings } from '@lib/ao-home';
+export * from './host/directoryBasename.ts';

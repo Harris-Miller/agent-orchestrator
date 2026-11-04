@@ -71,7 +71,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd except sessions classified into the No Folder group. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`), but the UI hides archived rows (`_meta.jetbrains.air.archived`); archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay.
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`), but the UI hides archived rows (`_meta.jetbrains.air.archived`); archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay.
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **No Folder group**:

@@ -3,20 +3,23 @@
  * Does not replace {@link groupAndSortSessionsByCwd} (VS Code Session History).
  */
 
-import { compareHistoryEntriesByUpdatedAtDesc, maxUpdatedAtMs } from './acpSessionBootstrap.ts';
+import { compareHistoryEntriesByUpdatedAtDesc } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
+import { directoryBasename } from './directoryBasename.ts';
 import { isNoFolderSessionCwd } from './noFolderSessionCwd.ts';
 
 export type NavSessionGroup<T extends NormalizedSessionInfo = NormalizedSessionInfo> =
   | { readonly cwd: string; readonly kind: 'cwd'; readonly sessions: readonly T[] }
   | { readonly kind: 'noFolder'; readonly sessions: readonly T[] };
 
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
 export const navSessionGroupStableKey = <T extends NormalizedSessionInfo>(group: NavSessionGroup<T>): string =>
   group.kind === 'cwd' ? group.cwd : 'noFolder';
 
 /**
  * Group history for desktop nav: No Folder sessions collapse into one group; others by
- * exact cwd. Sort groups by max session `updatedAt` desc, then stable key.
+ * exact cwd. Cwd groups sort alphabetically by directory name (case-insensitive, numeric), tie-break full cwd; No Folder last.
  */
 export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   history: readonly T[],
@@ -37,27 +40,19 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
     }
   }
 
-  const groups: NavSessionGroup<T>[] = [...cwdGroups.entries()].map(([cwd, sessions]) => ({
+  const groups: (NavSessionGroup<T> & { readonly kind: 'cwd' })[] = [...cwdGroups.entries()].map(([cwd, sessions]) => ({
     cwd,
     kind: 'cwd' as const,
     sessions: [...sessions].sort(compareHistoryEntriesByUpdatedAtDesc),
   }));
 
-  if (noFolderSessions.length > 0) {
-    groups.push({
-      kind: 'noFolder',
-      sessions: [...noFolderSessions].sort(compareHistoryEntriesByUpdatedAtDesc),
-    });
-  }
+  groups.sort(
+    (left, right) =>
+      collator.compare(directoryBasename(left.cwd), directoryBasename(right.cwd)) ||
+      (left.cwd < right.cwd ? -1 : left.cwd > right.cwd ? 1 : 0),
+  );
 
-  return groups.sort((left, right) => {
-    const leftMax = maxUpdatedAtMs(left.sessions);
-    const rightMax = maxUpdatedAtMs(right.sessions);
-    if (leftMax !== rightMax) {
-      return rightMax - leftMax;
-    }
-    const leftKey = navSessionGroupStableKey(left);
-    const rightKey = navSessionGroupStableKey(right);
-    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
-  });
+  return noFolderSessions.length > 0
+    ? [...groups, { kind: 'noFolder', sessions: [...noFolderSessions].sort(compareHistoryEntriesByUpdatedAtDesc) }]
+    : groups;
 };

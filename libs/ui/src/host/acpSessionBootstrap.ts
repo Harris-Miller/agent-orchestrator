@@ -8,6 +8,7 @@ import { isRecord } from '../isRecord.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import { airCapability } from './airMeta.ts';
+import type { AirCapability } from './airMeta.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
@@ -268,7 +269,7 @@ export const upsertHistoryEntry = (
 export const applySessionInfoTitle = (
   history: readonly NormalizedSessionInfo[],
   sessionId: string,
-  title: string,
+  title: string | undefined,
 ): readonly NormalizedSessionInfo[] =>
   history.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
 
@@ -656,8 +657,7 @@ export const normalizeInitialize = (initializeResult: unknown): NormalizedInitia
   };
 };
 
-/** True when initialize lists AIR `sessionArchive` (served with `sessionIndex`). */
-export const hasSessionArchiveCapability = (initializeResult: unknown): boolean => {
+const hasAirCapability = (initializeResult: unknown, capability: AirCapability): boolean => {
   if (!isRecord(initializeResult) || !isRecord(initializeResult._meta)) {
     return false;
   }
@@ -666,8 +666,20 @@ export const hasSessionArchiveCapability = (initializeResult: unknown): boolean 
     return false;
   }
   const { capabilities } = jetbrains.air;
-  return Array.isArray(capabilities) && capabilities.includes(airCapability.sessionArchive);
+  return Array.isArray(capabilities) && capabilities.includes(capability);
 };
+
+/** True when initialize lists AIR `sessionArchive` (served with `sessionIndex`). */
+export const hasSessionArchiveCapability = (initializeResult: unknown): boolean =>
+  hasAirCapability(initializeResult, airCapability.sessionArchive);
+
+/** True when initialize lists AIR `sessionRename` (`_session/rename`). */
+export const hasSessionRenameCapability = (initializeResult: unknown): boolean =>
+  hasAirCapability(initializeResult, airCapability.sessionRename);
+
+/** Rename needs the AIR capability and a History entry that is not `unavailable`. */
+export const canRename = (entry: Readonly<Record<string, unknown>>, initializeResult: unknown): boolean =>
+  entry.unavailable !== true && hasSessionRenameCapability(initializeResult);
 
 /** True when initialize result `_meta.steering.supported` is `true` (Claude/Codex `_session/steering`). */
 export const hasSteeringSupport = (initializeResult: unknown): boolean =>

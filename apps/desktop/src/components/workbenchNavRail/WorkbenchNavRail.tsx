@@ -59,14 +59,15 @@ const navGroupPresentation = (group: NavSessionGroup<UnifiedHistoryEntry>): NavG
 };
 
 export const WorkbenchNavRail: FC<{
+  readonly onClientError: (error: unknown) => void;
   readonly onClose: () => void;
-}> = ({ onClose }) => {
+}> = ({ onClientError, onClose }) => {
   const history = useAtomValue(unifiedSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest();
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
 
   const navGroups = groupAndSortSessionsForNav(history).filter(group => group.kind !== 'noFolder' || showNoFolderGroup);
@@ -183,6 +184,7 @@ export const WorkbenchNavRail: FC<{
                         <SessionHistoryRow
                           entry={entry}
                           key={`${entry.launchTarget}:${entry.sessionId}`}
+                          onClientError={onClientError}
                           onDeleteRequest={requestDelete}
                           selected={selectedSessionId === entry.sessionId}
                         />

@@ -3,13 +3,13 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
-import { Archive, Ellipsis, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Archive, Ellipsis, Pencil, Trash2, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
 import { archiveSessionAtomFn, deactivateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
+import { canRename, hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -25,8 +25,9 @@ export const SessionActionsMenu: FC<{
   readonly onBeforeAction?: () => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
+  readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
-}> = ({ entry, onBeforeAction, onClientError = noopClientError, onDeleteRequest, sx }) => {
+}> = ({ entry, onBeforeAction, onClientError = noopClientError, onDeleteRequest, onRenameRequest, sx }) => {
   const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
@@ -34,6 +35,9 @@ export const SessionActionsMenu: FC<{
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
+
+  // MUI returns focus to the trigger when the Popover closes; start editing only after that, or the input blur-commits.
+  const renameRequested = useRef(false);
 
   const closeMenu = () => {
     setMenuAnchor(null);
@@ -61,6 +65,16 @@ export const SessionActionsMenu: FC<{
         onClose={closeMenu}
         onKeyDown={stopPropagation}
         open={menuAnchor !== null}
+        slotProps={{
+          transition: {
+            onExited: () => {
+              if (renameRequested.current) {
+                renameRequested.current = false;
+                onRenameRequest?.();
+              }
+            },
+          },
+        }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
@@ -79,6 +93,20 @@ export const SessionActionsMenu: FC<{
               variant="outlined"
             >
               Close
+            </Button>
+          ) : null}
+          {onRenameRequest !== undefined && canRename(entry, snapshot.initializeResult) ? (
+            <Button
+              disabled={snapshot.phase !== 'ready'}
+              onClick={() => {
+                renameRequested.current = true;
+                closeMenu();
+              }}
+              size="small"
+              startIcon={<LucideMuiIcon icon={Pencil} />}
+              variant="outlined"
+            >
+              Rename
             </Button>
           ) : null}
           {hasSessionArchiveCapability(snapshot.initializeResult) ? (

@@ -16,9 +16,11 @@ import {
   sessionChatTitle,
   sessionCwdAtom,
   sessionListScopeAtom,
+  SessionTitleInlineRename,
   ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
+  useSessionTitleRename,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -77,6 +79,7 @@ export const SessionChatPage: FC = () => {
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
   const entry = sessionId === undefined ? undefined : history.find(row => row.sessionId === sessionId);
+  const rename = useSessionTitleRename(entry?.sessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
@@ -112,16 +115,25 @@ export const SessionChatPage: FC = () => {
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
         {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-        <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          {title}
-        </Typography>
-        {entry === undefined ? null : (
-          <SessionActionsMenu
-            entry={entry}
-            onBeforeAction={switchToVirtualSession}
-            onClientError={onClientError}
-            onDeleteRequest={requestDelete}
-          />
+        {entry === undefined ? (
+          <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
+            {title}
+          </Typography>
+        ) : (
+          <>
+            <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
+              <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+                {title}
+              </Typography>
+            </SessionTitleInlineRename>
+            <SessionActionsMenu
+              entry={entry}
+              onBeforeAction={switchToVirtualSession}
+              onClientError={onClientError}
+              onDeleteRequest={requestDelete}
+              onRenameRequest={rename.onRenameRequest}
+            />
+          </>
         )}
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />

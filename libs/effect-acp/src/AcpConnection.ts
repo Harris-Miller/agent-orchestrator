@@ -12,10 +12,12 @@ import {
   ClientRpcs,
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
+  SESSION_RENAME_METHOD,
   SESSION_SET_MODEL_METHOD,
   SESSION_STEERING_METHOD,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
+  UnstableSessionRenameRpcs,
   UnstableSessionSetModelRpcs,
   UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
@@ -203,6 +205,11 @@ export type AcpAgentConnection = {
   >[typeof SESSION_ARCHIVE_METHOD];
   /** Unstable `session/fork`. Not part of stable AgentRpcs. */
   readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
+  /** AIR `_session/rename`. Not part of stable AgentRpcs. */
+  readonly sessionRename: RpcClient.FromGroup<
+    typeof UnstableSessionRenameRpcs,
+    RpcClientError
+  >[typeof SESSION_RENAME_METHOD];
   /** Claude/Codex `_session/steering`. Not part of stable AgentRpcs. */
   readonly sessionSteering: RpcClient.FromGroup<
     typeof UnstableSessionSteeringRpcs,
@@ -329,6 +336,9 @@ export const connectAcpAgent = Effect.fnUntraced(
     const forkClient = yield* RpcClient.make(UnstableSessionForkRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
+    const renameClient = yield* RpcClient.make(UnstableSessionRenameRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
     const setModelClient = yield* RpcClient.make(UnstableSessionSetModelRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
@@ -345,6 +355,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       notify: transport.notify,
       sessionArchive: archiveClient[SESSION_ARCHIVE_METHOD],
       sessionFork: forkClient[SESSION_FORK_METHOD],
+      sessionRename: renameClient[SESSION_RENAME_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
       sessionSteering: steeringClient[SESSION_STEERING_METHOD],
     } as const satisfies AcpAgentConnection;

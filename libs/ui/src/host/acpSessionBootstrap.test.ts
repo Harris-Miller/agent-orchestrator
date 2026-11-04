@@ -8,6 +8,7 @@ import { isRecord } from '../isRecord.ts';
 import {
   applySessionInfoTitle,
   applySetConfigOptionResult,
+  canRename,
   defectsFromActivationFailure,
   defectsFromCause,
   defectsFromWireCause,
@@ -15,6 +16,7 @@ import {
   hasSessionArchiveCapability,
   hasSessionCloseCapability,
   hasSessionForkCapability,
+  hasSessionRenameCapability,
   hasSteeringSupport,
   isConfigProbeCwd,
   normalizeConfigOptions,
@@ -488,6 +490,23 @@ describe('hasSessionArchiveCapability', () => {
       }),
     );
     assert.isFalse(hasSessionArchiveCapability({}));
+  });
+});
+
+describe('hasSessionRenameCapability / canRename', () => {
+  const withRename = { _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionRename'], version: 1 } } } };
+  const withoutRename = { _meta: { jetbrains: { air: { capabilities: ['sessionIndex'], version: 1 } } } };
+
+  it('is true only when AIR capabilities include sessionRename', () => {
+    assert.isTrue(hasSessionRenameCapability(withRename));
+    assert.isFalse(hasSessionRenameCapability(withoutRename));
+    assert.isFalse(hasSessionRenameCapability({}));
+  });
+
+  it('canRename also requires an available entry', () => {
+    assert.isTrue(canRename({}, withRename));
+    assert.isFalse(canRename({ unavailable: true }, withRename));
+    assert.isFalse(canRename({}, withoutRename));
   });
 });
 

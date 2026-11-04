@@ -18,10 +18,12 @@ import {
   SessionActionsMenu,
   SessionChatBody,
   sessionChatTitle,
+  SessionTitleInlineRename,
   ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
   useSessionDeleteRequest,
+  useSessionTitleRename,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -106,6 +108,7 @@ export const AgentChatWorkbench: FC<{
   const entry = selectedSessionId === undefined ? undefined : history.find(row => row.sessionId === selectedSessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
+  const rename = useSessionTitleRename(entry?.sessionId);
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);
@@ -159,6 +162,7 @@ export const AgentChatWorkbench: FC<{
               visible={layout.sessionHistoryOpen}
             >
               <WorkbenchNavRail
+                onClientError={onClientError}
                 onClose={() => {
                   commitLayout({ sessionHistoryOpen: false });
                 }}
@@ -191,11 +195,24 @@ export const AgentChatWorkbench: FC<{
                     />
                   )}
                   {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-                  <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
-                    {title}
-                  </Typography>
-                  {entry === undefined ? null : (
-                    <SessionActionsMenu entry={entry} onClientError={onClientError} onDeleteRequest={requestDelete} />
+                  {entry === undefined ? (
+                    <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
+                      {title}
+                    </Typography>
+                  ) : (
+                    <>
+                      <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
+                        <Typography noWrap variant="h6">
+                          {title}
+                        </Typography>
+                      </SessionTitleInlineRename>
+                      <SessionActionsMenu
+                        entry={entry}
+                        onClientError={onClientError}
+                        onDeleteRequest={requestDelete}
+                        onRenameRequest={rename.onRenameRequest}
+                      />
+                    </>
                   )}
                   {layout.sessionStateOpen ? null : (
                     <>

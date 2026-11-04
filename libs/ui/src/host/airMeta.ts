@@ -3,6 +3,7 @@
 export const airCapability = {
   sessionArchive: 'sessionArchive',
   sessionIndex: 'sessionIndex',
+  sessionRename: 'sessionRename',
 } as const;
 
 export type AirCapability = (typeof airCapability)[keyof typeof airCapability];

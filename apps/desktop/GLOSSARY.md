@@ -83,8 +83,12 @@ The top row of the chat surface (desktop main chat and VS Code Chat) showing the
 _Avoid_: chat header, title bar
 
 **Session actions**:
-The per-session menu of lifecycle actions: Deactivate (UI label "Close") and Archive, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected).
+The per-session menu of lifecycle actions: Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected).
 _Avoid_: dotdotdot menu, kebab menu, session options
+
+**Session title**:
+The display name of a History entry: the agent-reported `title`, which the user may override by renaming it inline (from Session actions or by double-clicking the title). Shown on the History entry row and in the Session header. Rename shows the new title immediately and restores the previous one if the agent rejects it.
+_Avoid_: Thread name, session name, label
 
 **History entry**:
 One row in Session History: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.

@@ -86,6 +86,7 @@ export const {
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
   refreshSessionHistoryAtomFn,
+  renameSessionAtomFn,
   selectSessionAtomFn,
 } = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
 

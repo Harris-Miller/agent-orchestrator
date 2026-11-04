@@ -5,6 +5,7 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
+  applySessionInfoTitle,
   defectsFromActivationFailure,
   isSessionActiveOrActivating,
   normalizeConfigOptions,
@@ -31,6 +32,7 @@ import {
   forkSession,
   listSessions,
   loadSession,
+  renameSession,
   resumeSession,
   setConfigOption,
 } from '../host/sessionRpc.ts';
@@ -469,6 +471,51 @@ export const createSessionLifecycleAtoms = (
     )
     .pipe(Atom.keepAlive);
 
+  /** Optimistic title patch; on RPC failure restore the previous title only if it is still the optimistic one. */
+  const renameSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('renameSessionAtomFn', { root: true })(
+        function* (arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) {
+          yield* sessionSpan(arg);
+          const snapshot = readyHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logWarning('renameSession skipped; backend not ready', arg.launchTarget);
+            return;
+          }
+
+          const entryFor = (current: typeof snapshot) =>
+            current.sessionHistory.find(item => item.sessionId === arg.sessionId);
+          const previousTitle = entryFor(snapshot)?.title;
+          const setTitle = (title: string | undefined) => {
+            const current = get(backendHarnessStateAtom(arg.launchTarget));
+            get.set(
+              backendHarnessStateAtom(arg.launchTarget),
+              replaceSessionHistory(current, applySessionInfoTitle(current.sessionHistory, arg.sessionId, title)),
+            );
+          };
+
+          setTitle(arg.title);
+          yield* renameSession(arg.launchTarget, arg.sessionId, arg.title).pipe(
+            Effect.tapError(() =>
+              Effect.sync(() => {
+                const current = entryFor(get(backendHarnessStateAtom(arg.launchTarget)));
+                if (current?.title === arg.title) {
+                  setTitle(previousTitle);
+                }
+              }),
+            ),
+          );
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('renameSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
   const deleteSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('deleteSessionAtomFn', { root: true })(
@@ -516,6 +563,7 @@ export const createSessionLifecycleAtoms = (
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
     refreshSessionHistoryAtomFn,
+    renameSessionAtomFn,
     selectSessionAtomFn,
   };
 };

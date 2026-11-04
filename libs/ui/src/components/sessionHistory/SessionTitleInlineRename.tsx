@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
@@ -31,13 +31,17 @@ export const SessionTitleInlineRename: FC<{
   const renameSession = useAtomSet(renameSessionAtomFn, { mode: 'promise' });
   const settled = useRef(false);
 
+  // Re-arm for each edit, whichever trigger (double-click or menu) starts it.
+  useEffect(() => {
+    if (editing) settled.current = false;
+  }, [editing]);
+
   if (!editing) {
     return (
       <Box
         onDoubleClick={event => {
           if (!canRename(entry, snapshot.initializeResult)) return;
           event.stopPropagation();
-          settled.current = false;
           onEditingChange(true);
         }}
         sx={{ flex: 1, minWidth: 0 }}

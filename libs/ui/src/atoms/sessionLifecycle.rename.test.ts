@@ -13,14 +13,24 @@ import { runAtomFn } from './runAtomFn.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
-const setup = (sessionRename: (payload: { sessionId: string; title: string }) => Effect.Effect<unknown, unknown>) => {
-  setConnectedAgent('codex-acp', {
-    agent: {},
-    notify: () => Effect.void,
-    sessionArchive: () => Effect.void,
-    sessionFork: () => Effect.void,
-    sessionRename,
-  } as unknown as Parameters<typeof setConnectedAgent>[1]);
+const setup = Effect.fnUntraced(function* (
+  sessionRename: (payload: { sessionId: string; title: string }) => Effect.Effect<unknown, unknown>,
+) {
+  yield* Effect.acquireRelease(
+    Effect.sync(() => {
+      setConnectedAgent('codex-acp', {
+        agent: {},
+        notify: () => Effect.void,
+        sessionArchive: () => Effect.void,
+        sessionFork: () => Effect.void,
+        sessionRename,
+      } as unknown as Parameters<typeof setConnectedAgent>[1]);
+    }),
+    () =>
+      Effect.sync(() => {
+        clearConnectedAgent('codex-acp');
+      }),
+  );
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
   const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
@@ -29,7 +39,11 @@ const setup = (sessionRename: (payload: { sessionId: string; title: string }) =>
     refreshSessionFsListingAtomFn,
     cancelPromptAtomFn,
   );
-  const registry = AtomRegistry.make();
+  const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
+    Effect.sync(() => {
+      r.dispose();
+    }),
+  );
   registry.mount(renameSessionAtomFn);
   registry.set(backendHarnessStateAtom('codex-acp'), {
     ...initialBackendHarnessSnapshot(),
@@ -38,35 +52,31 @@ const setup = (sessionRename: (payload: { sessionId: string; title: string }) =>
   });
   const title = () => registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory[0].title;
   return { registry, renameSessionAtomFn, title };
-};
+});
 
 describe('renameSessionAtomFn', () => {
   it.effect('success keeps the new title', () =>
     Effect.gen(function* () {
-      const { registry, renameSessionAtomFn, title } = setup(() => Effect.void);
+      const { registry, renameSessionAtomFn, title } = yield* setup(() => Effect.void);
       yield* runAtomFn(registry, renameSessionAtomFn, { launchTarget: 'codex-acp', sessionId: 's1', title: 'New' });
       assert.strictEqual(title(), 'New');
-      clearConnectedAgent('codex-acp');
-      registry.dispose();
     }),
   );
 
   it.effect('failure restores the previous title', () =>
     Effect.gen(function* () {
-      const { registry, renameSessionAtomFn, title } = setup(() => Effect.fail('boom'));
+      const { registry, renameSessionAtomFn, title } = yield* setup(() => Effect.fail('boom'));
       yield* Effect.exit(
         runAtomFn(registry, renameSessionAtomFn, { launchTarget: 'codex-acp', sessionId: 's1', title: 'New' }),
       );
       assert.strictEqual(title(), 'Old');
-      clearConnectedAgent('codex-acp');
-      registry.dispose();
     }),
   );
 
   it.effect('failure does not clobber a newer title', () =>
     Effect.gen(function* () {
       let patch: () => void = () => undefined;
-      const { registry, renameSessionAtomFn, title } = setup(() =>
+      const { registry, renameSessionAtomFn, title } = yield* setup(() =>
         Effect.suspend(() => {
           patch();
           return Effect.fail('boom');
@@ -83,8 +93,6 @@ describe('renameSessionAtomFn', () => {
         runAtomFn(registry, renameSessionAtomFn, { launchTarget: 'codex-acp', sessionId: 's1', title: 'New' }),
       );
       assert.strictEqual(title(), 'Agent sanitized');
-      clearConnectedAgent('codex-acp');
-      registry.dispose();
     }),
   );
 });

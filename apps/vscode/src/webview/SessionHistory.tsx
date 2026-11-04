@@ -7,7 +7,7 @@ import {
   sessionListScopeAtom,
   sessionsForCwd,
   ToggleDeveloperPanelButton,
-  unifiedSessionHistoryAtom,
+  visibleSessionHistoryAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,7 +24,7 @@ import { SessionRows } from './SessionRows.tsx';
 import { SettingsButton } from './SettingsButton.tsx';
 
 export const SessionHistory: FC = () => {
-  const history = useAtomValue(unifiedSessionHistoryAtom);
+  const history = useAtomValue(visibleSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);

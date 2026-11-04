@@ -6,6 +6,7 @@ import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
@@ -98,13 +99,21 @@ export const unifiedSessionHistoryAtom = Atom.make(get => {
   return entries;
 }).pipe(Atom.keepAlive);
 
+/** Session History rows the UI shows: archived rows are listed (`archived: 'all'`) but hidden. */
+export const visibleSessionHistoryAtom = Atom.make(get =>
+  get(unifiedSessionHistoryAtom).filter(entry => !isArchivedEntry(entry)),
+).pipe(Atom.keepAlive);
+
 export const findLaunchTargetForSessionId = (
   getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot,
   sessionId: string,
 ): AgentLaunchTarget | undefined => {
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
-    if (sessionId in snapshot.sessions || snapshot.sessionHistory.some(entry => entry.sessionId === sessionId)) {
+    if (
+      sessionId in snapshot.sessions ||
+      snapshot.sessionHistory.some(entry => entry.sessionId === sessionId && !isArchivedEntry(entry))
+    ) {
       return launchTarget;
     }
   }

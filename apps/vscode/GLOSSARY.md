@@ -20,7 +20,7 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar presentation of Session History (see desktop glossary), filtered to History entries for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
+The sidebar presentation of Session History (see desktop glossary), filtered to non-archived History entries for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
 _Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:

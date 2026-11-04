@@ -69,7 +69,7 @@ Per-launch-target result of Config probe: default model, per-model selectable op
 _Avoid_: Provider catalog, harness defaults, config catalog
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached but filtered out by `visibleSessionHistoryAtom`. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:

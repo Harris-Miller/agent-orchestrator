@@ -329,7 +329,7 @@ describe('isConfigProbeCwd / normalizeSessionHistory', () => {
         sessions: [
           { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
           {
-            _meta: { provider: { archived: false } },
+            _meta: { jetbrains: { air: { archived: false } } },
             cwd: '/proj',
             sessionId: 'real',
             title: 'Real',
@@ -339,7 +339,7 @@ describe('isConfigProbeCwd / normalizeSessionHistory', () => {
       }),
       [
         {
-          _meta: { provider: { archived: false } },
+          _meta: { jetbrains: { air: { archived: false } } },
           cwd: '/proj',
           sessionId: 'real',
           title: 'Real',

@@ -12,7 +12,7 @@ import {
   selectedSessionIdAtom,
   SessionHistoryRow,
   showNoFolderGroupAtom,
-  unifiedSessionHistoryAtom,
+  visibleSessionHistoryAtom,
   useSessionDeleteRequest,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -62,7 +62,7 @@ export const WorkbenchNavRail: FC<{
   readonly onClientError: (error: unknown) => void;
   readonly onClose: () => void;
 }> = ({ onClientError, onClose }) => {
-  const history = useAtomValue(unifiedSessionHistoryAtom);
+  const history = useAtomValue(visibleSessionHistoryAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });

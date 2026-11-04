@@ -490,17 +490,11 @@ export const createSessionLifecycleAtoms = (
             const current = get(backendHarnessStateAtom(arg.launchTarget));
             get.set(
               backendHarnessStateAtom(arg.launchTarget),
-              replaceSessionHistory(
-                current,
-                current.sessionHistory.map(item => (item.sessionId === arg.sessionId ? { ...item, title } : item)),
-              ),
+              replaceSessionHistory(current, applySessionInfoTitle(current.sessionHistory, arg.sessionId, title)),
             );
           };
 
-          get.set(
-            backendHarnessStateAtom(arg.launchTarget),
-            replaceSessionHistory(snapshot, applySessionInfoTitle(snapshot.sessionHistory, arg.sessionId, arg.title)),
-          );
+          setTitle(arg.title);
           yield* renameSession(arg.launchTarget, arg.sessionId, arg.title).pipe(
             Effect.tapError(() =>
               Effect.sync(() => {

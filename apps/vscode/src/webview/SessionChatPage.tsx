@@ -20,6 +20,7 @@ import {
   ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
+  useSessionTitleRename,
   virtualLifecycleInFlightAtom,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -27,7 +28,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { History } from 'lucide-react';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
@@ -53,7 +54,6 @@ export const SessionChatPage: FC = () => {
   const clearSelected = useAtomSet(clearSelectedAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const onClientError = useContext(OnClientErrorContext);
-  const [renaming, setRenaming] = useState(false);
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
   /** One activate kick per sessionId until status leaves inactive (avoids effect re-entry storms). */
   const activateKickRef = useRef<string | undefined>(undefined);
@@ -79,6 +79,7 @@ export const SessionChatPage: FC = () => {
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
   const entry = sessionId === undefined ? undefined : history.find(row => row.sessionId === sessionId);
+  const rename = useSessionTitleRename(entry?.sessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
@@ -120,12 +121,7 @@ export const SessionChatPage: FC = () => {
           </Typography>
         ) : (
           <>
-            <SessionTitleInlineRename
-              editing={renaming}
-              entry={entry}
-              onClientError={onClientError}
-              onEditingChange={setRenaming}
-            >
+            <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
               <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
                 {title}
               </Typography>
@@ -135,9 +131,7 @@ export const SessionChatPage: FC = () => {
               onBeforeAction={switchToVirtualSession}
               onClientError={onClientError}
               onDeleteRequest={requestDelete}
-              onRenameRequest={() => {
-                setRenaming(true);
-              }}
+              onRenameRequest={rename.onRenameRequest}
             />
           </>
         )}

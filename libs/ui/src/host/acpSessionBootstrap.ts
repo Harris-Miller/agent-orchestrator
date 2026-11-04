@@ -269,7 +269,7 @@ export const upsertHistoryEntry = (
 export const applySessionInfoTitle = (
   history: readonly NormalizedSessionInfo[],
   sessionId: string,
-  title: string,
+  title: string | undefined,
 ): readonly NormalizedSessionInfo[] =>
   history.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
 

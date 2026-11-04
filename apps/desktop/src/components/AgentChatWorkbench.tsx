@@ -23,6 +23,7 @@ import {
   unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
   useSessionDeleteRequest,
+  useSessionTitleRename,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -92,7 +93,6 @@ export const AgentChatWorkbench: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ onClientError }) => {
   const [layout, setLayout] = useState(loadWorkbenchLayout);
-  const [renaming, setRenaming] = useState(false);
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selected = useAtomValue(selectedAtom);
@@ -108,6 +108,7 @@ export const AgentChatWorkbench: FC<{
   const entry = selectedSessionId === undefined ? undefined : history.find(row => row.sessionId === selectedSessionId);
   const title = sessionChatTitle(isVirtual, entry, launchTarget);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
+  const rename = useSessionTitleRename(entry?.sessionId);
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);
@@ -200,12 +201,7 @@ export const AgentChatWorkbench: FC<{
                     </Typography>
                   ) : (
                     <>
-                      <SessionTitleInlineRename
-                        editing={renaming}
-                        entry={entry}
-                        onClientError={onClientError}
-                        onEditingChange={setRenaming}
-                      >
+                      <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
                         <Typography noWrap variant="h6">
                           {title}
                         </Typography>
@@ -214,9 +210,7 @@ export const AgentChatWorkbench: FC<{
                         entry={entry}
                         onClientError={onClientError}
                         onDeleteRequest={requestDelete}
-                        onRenameRequest={() => {
-                          setRenaming(true);
-                        }}
+                        onRenameRequest={rename.onRenameRequest}
                       />
                     </>
                   )}

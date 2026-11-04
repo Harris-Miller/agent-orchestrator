@@ -73,6 +73,7 @@ export * from './components/sessionHistory/SessionActionsMenu.tsx';
 export * from './components/sessionHistory/SessionHistoryRow.tsx';
 export * from './components/sessionHistory/SessionTitleInlineRename.tsx';
 export * from './components/sessionHistory/useSessionDeleteRequest.ts';
+export * from './components/sessionHistory/useSessionTitleRename.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';
 export * from './components/UserSettingsLoadFailureAlert.tsx';

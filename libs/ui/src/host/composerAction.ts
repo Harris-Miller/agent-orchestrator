@@ -32,7 +32,8 @@ export type TurnActionInput = {
 
 const unavailable = (reason: ComposerUnavailableReason): ComposerAction => ({ _tag: 'Unavailable', reason });
 
-const hasPendingInteraction = (session: SessionSnapshot): boolean =>
+/** A permission or elicitation request awaits the user. */
+export const hasPendingInteraction = (session: SessionSnapshot): boolean =>
   session.pendingElicitation !== undefined || session.pendingPermission !== undefined;
 
 /** What submitting a draft into `session` does right now. */

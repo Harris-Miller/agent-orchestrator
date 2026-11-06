@@ -9,7 +9,6 @@ import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeAgent.testing.ts';
@@ -39,9 +38,7 @@ const harness = (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) =>
     installFakeAgent(calls, opts);
     const registry = yield* freshRegistry;
     const runtime = createHostRuntime(mockHostLayer);
-    const { cancelPromptAtomFn } = createChatAtoms(runtime);
     const { editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(runtime);
-    registry.mount(cancelPromptAtomFn);
     registry.mount(editComposerAtomFn);
     registry.mount(submitComposerAtomFn);
     updateHarnessSnapshot(registry, CODEX, current => ({
@@ -65,7 +62,7 @@ const harness = (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) =>
       startSubmit();
       return submitResult;
     });
-    return { calls, cancelPromptAtomFn, edit, registry, startSubmit, submit, submitResult };
+    return { calls, edit, registry, startSubmit, submit, submitResult };
   });
 
 const patchSession = (registry: Registry, sessionId: string, patch: Partial<SessionSnapshot>) => {

@@ -43,18 +43,16 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     // A Handoff prompt is a new turn, never Steering.
-    const action = turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, {
-      hasContent: trimmed.length > 0,
-      steeringSupported: false,
-    });
+    const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
+    const action = turnAction(session, { hasContent: trimmed.length > 0, steeringSupported: false });
     if (action._tag !== 'Send') {
-      const reason = action._tag === 'Unavailable' ? action.reason : undefined;
+      // Not active is reported first, even with a Pending client request (e.g. mid-Deactivate).
       return yield* new HandoffError({
         message:
-          reason === 'Empty'
-            ? 'Handoff prompt text is empty'
-            : reason === 'NotActive'
-              ? `Session ${sessionId} is not active`
+          session?.status !== 'active'
+            ? `Session ${sessionId} is not active`
+            : action._tag === 'Unavailable' && action.reason === 'Empty'
+              ? 'Handoff prompt text is empty'
               : `Session ${sessionId} cannot accept a prompt right now`,
       });
     }

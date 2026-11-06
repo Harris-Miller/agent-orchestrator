@@ -34,6 +34,7 @@ import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { hasPendingInteraction } from '../../host/composerAction.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
 import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
@@ -121,8 +122,6 @@ const SessionChatBodyInner: FC<{
     submit,
   } = useSessionChatSurface();
   const { action, attachments, availableCommands, canEdit, controlsEnabled, draft, locked: chromeLocked } = composer;
-  const hasPendingInteraction =
-    selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
   const setDraft = useCallback(
     (text: string) => {
       edit({ draft: text });
@@ -510,7 +509,8 @@ const SessionChatBodyInner: FC<{
   })();
 
   const groupedItems = useMemo(() => groupChatItems(chatItems), [chatItems]);
-  const isChatEmpty = chatItems.length === 0 && !hasPendingInteraction;
+  const isChatEmpty =
+    chatItems.length === 0 && (selectedSession === undefined || !hasPendingInteraction(selectedSession));
   const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;
 
   useEffect(() => {

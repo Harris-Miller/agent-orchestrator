@@ -66,17 +66,17 @@ describe('beginClientRequest', () => {
       ...readySnapshot({ s1: activeSession('s1') }),
       phase: 'connecting',
     };
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when session is inactive', () => {
     const snapshot = readySnapshot({ s1: initialSessionSnapshot('s1', 'inactive') });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when a pending client request exists', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1', { pendingClientRequest: 'config' }) });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when pending elicitation exists', () => {
@@ -90,14 +90,14 @@ describe('beginClientRequest', () => {
         },
       }),
     });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('accepts and sets pendingClientRequest kind', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const next = beginClientRequest(snapshot, 's1', 'prompt');
+    const next = beginClientRequest(snapshot, 's1');
     assert.ok(next !== undefined);
-    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'prompt');
+    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'config');
   });
 });
 

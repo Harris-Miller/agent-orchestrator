@@ -125,29 +125,33 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
   const attachments = input.attachments ?? [];
   const { launchTarget, sessionId } = input;
   const startedAt = yield* Clock.currentTimeMillis;
-  const begun = modifyHarnessSnapshot(registry, launchTarget, current => {
-    const result = beginPromptTurn(current, sessionId, {
-      images: slimImageRefsFromAttachments(attachments),
-      startedAt,
-      text,
-    });
-    return [result, result._tag === 'Begun' ? result.snapshot : current];
-  });
-  if (begun._tag === 'Refused') {
-    return yield* refusal('Sending', begun.action);
-  }
-
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
-  return yield* runPrompt(registry, { attachments, launchTarget, sessionId, text }).pipe(
-    Effect.ensuring(
-      Effect.flatMap(Clock.currentTimeMillis, endedAt =>
-        Effect.sync(() => {
-          updateHarnessSnapshot(registry, launchTarget, current =>
-            endPromptTurn(current, sessionId, begun.turnId, endedAt),
-          );
-        }),
-      ),
-    ),
+  // Begin and installing the end run uninterruptibly: no interrupt can land between them (invariant 2).
+  return yield* Effect.uninterruptibleMask(restore =>
+    Effect.gen(function* () {
+      const begun = modifyHarnessSnapshot(registry, launchTarget, current => {
+        const result = beginPromptTurn(current, sessionId, {
+          images: slimImageRefsFromAttachments(attachments),
+          startedAt,
+          text,
+        });
+        return [result, result._tag === 'Begun' ? result.snapshot : current];
+      });
+      if (begun._tag === 'Refused') {
+        return yield* refusal('Sending', begun.action);
+      }
+      return yield* restore(runPrompt(registry, { attachments, launchTarget, sessionId, text })).pipe(
+        Effect.ensuring(
+          Effect.flatMap(Clock.currentTimeMillis, endedAt =>
+            Effect.sync(() => {
+              updateHarnessSnapshot(registry, launchTarget, current =>
+                endPromptTurn(current, sessionId, begun.turnId, endedAt),
+              );
+            }),
+          ),
+        ),
+      );
+    }),
   );
 });
 

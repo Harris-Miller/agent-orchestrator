@@ -2,7 +2,6 @@
 import { Effect } from 'effect';
 import type { Atom } from 'effect/reactivity';
 
-import type { PendingClientRequestKind } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { beginClientRequest, endClientRequest } from '../host/harnessStateTransitions.ts';
 
@@ -12,12 +11,11 @@ export const withSessionClientRequest = <A, E, R>(
   launchTarget: AgentLaunchTarget,
   get: Atom.FnContext,
   sessionId: string,
-  kind: PendingClientRequestKind,
   rpc: Effect.Effect<A, E, R>,
 ): Effect.Effect<A | undefined, E, R> =>
   Effect.gen(function* () {
     const refusedSnapshot = modifyHarnessSnapshot(get.registry, launchTarget, current => {
-      const begun = beginClientRequest(current, sessionId, kind);
+      const begun = beginClientRequest(current, sessionId);
       return begun === undefined ? [current, current] : [undefined, begun];
     });
     if (refusedSnapshot !== undefined) {

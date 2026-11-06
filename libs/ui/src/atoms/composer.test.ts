@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit } from 'effect';
+import { Effect, Exit, Option } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -15,6 +15,7 @@ import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeA
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
+import { ComposerActionUnavailable } from './promptTurn.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { ensureVirtual, select, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -214,7 +215,7 @@ describe('a refused Send gives the draft back', () => {
 
       const exit = yield* h.submit;
 
-      assert.isTrue(Exit.isFailure(exit));
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ComposerActionUnavailable);
       assert.deepStrictEqual(h.calls, []);
       assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
       assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');

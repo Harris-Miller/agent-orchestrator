@@ -26,31 +26,18 @@ const setup = (launchTarget: AgentLaunchTarget, sessionId: string) => {
 };
 
 describe('withSessionClientRequest', () => {
-  it.effect('sets prompt kind and clears pendingClientRequest on interrupt even when get.set no-ops', () =>
+  it.effect('sets config kind and clears it on interrupt even when get.set no-ops', () =>
     Effect.gen(function* () {
       const { get, session } = setup('claude-agent-acp', 's1');
 
-      const fiber = yield* Effect.forkChild(
-        withSessionClientRequest('claude-agent-acp', get, 's1', 'prompt', Effect.never),
-      );
+      const fiber = yield* Effect.forkChild(withSessionClientRequest('claude-agent-acp', get, 's1', Effect.never));
       yield* Effect.yieldNow;
-      assert.strictEqual(session().pendingClientRequest, 'prompt');
+      assert.strictEqual(session().pendingClientRequest, 'config');
 
       yield* Fiber.interrupt(fiber);
 
       assert.strictEqual(session().pendingClientRequest, undefined);
       assert.strictEqual(session().promptCancelRequested, undefined);
-    }),
-  );
-
-  it.effect('sets config kind while RPC runs', () =>
-    Effect.gen(function* () {
-      const { get, session } = setup('codex-acp', 's2');
-
-      const fiber = yield* Effect.forkChild(withSessionClientRequest('codex-acp', get, 's2', 'config', Effect.never));
-      yield* Effect.yieldNow;
-      assert.strictEqual(session().pendingClientRequest, 'config');
-      yield* Fiber.interrupt(fiber);
     }),
   );
 });

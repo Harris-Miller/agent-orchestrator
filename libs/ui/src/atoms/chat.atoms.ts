@@ -207,7 +207,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           }));
         });
 
-        yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, 'config', rpc).pipe(
+        yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, rpc).pipe(
           Effect.tapError(error =>
             Effect.gen(function* () {
               yield* Effect.logError(

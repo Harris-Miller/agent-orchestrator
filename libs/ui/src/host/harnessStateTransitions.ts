@@ -3,7 +3,6 @@ import type {
   BackendHarnessSnapshot,
   HistoryEntry,
   NormalizedSessionInfo,
-  PendingClientRequestKind,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import {
@@ -163,18 +162,20 @@ const clientRequestAction = (
     : { _tag: 'Unavailable', reason: 'NotReady' };
 
 /**
- * Gate for outbound client→agent RPCs (the Composer action rule). Returns undefined when the session cannot accept
- * the request; otherwise the snapshot with pendingClientRequest set.
+ * Gate for a Session Config request (the Composer action rule). Returns undefined when the session cannot accept the
+ * request; otherwise the snapshot with pendingClientRequest `config`. Prompt turns begin only via {@link beginPromptTurn}.
  */
 export const beginClientRequest = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  kind: PendingClientRequestKind,
 ): BackendHarnessSnapshot | undefined =>
   clientRequestAction(snapshot, sessionId, true)._tag === 'Send'
     ? {
         ...snapshot,
-        sessions: patchSession(snapshot.sessions, sessionId, current => ({ ...current, pendingClientRequest: kind })),
+        sessions: patchSession(snapshot.sessions, sessionId, current => ({
+          ...current,
+          pendingClientRequest: 'config',
+        })),
       }
     : undefined;
 

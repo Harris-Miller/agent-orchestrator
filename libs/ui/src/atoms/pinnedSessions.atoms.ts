@@ -3,6 +3,7 @@ import { pinSession, unpinSessions } from '@lib/ao-home';
 import type { PinnedSession } from '@lib/ao-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { compareHistoryEntriesByUpdatedAtDesc } from '../host/acpSessionBootstrap.ts';
@@ -13,7 +14,6 @@ import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
 
 import { visibleSessionHistoryAtom } from './backendState.atoms.ts';
-import type { AtomRw } from './virtualBind.ts';
 
 export const pinnedSessionsAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<readonly PinnedSession[]>([]).pipe(Atom.withLabel(`pinnedSessions:${launchTarget}`), Atom.keepAlive),
@@ -39,12 +39,12 @@ export const pinnedEntriesAtom = Atom.make(get => {
 
 /** Drops pins from disk and state. No-op until pins are loaded; failures only warn. */
 export const removePins = Effect.fn('removePins')(
-  function* (rw: AtomRw, launchTarget: AgentLaunchTarget, sessionIds: readonly string[]) {
-    if (sessionIds.length === 0 || !rw.get(pinsLoadedAtom(launchTarget))) {
+  function* (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget, sessionIds: readonly string[]) {
+    if (sessionIds.length === 0 || !registry.get(pinsLoadedAtom(launchTarget))) {
       return;
     }
     const document = yield* unpinSessions(toLaunchTarget(launchTarget), sessionIds);
-    rw.set(pinnedSessionsAtom(launchTarget), document.pinned);
+    registry.set(pinnedSessionsAtom(launchTarget), document.pinned);
   },
   Effect.catchCause(cause => Effect.logWarning('unpin sessions failed', cause)),
 );
@@ -54,12 +54,12 @@ export const removePins = Effect.fn('removePins')(
  * sent so pins made while it was in flight (session/new races) are never swept.
  */
 export const reconcilePinsAfterList = (
-  rw: AtomRw,
+  registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
   pinsBeforeRequest: readonly PinnedSession[],
   listResult: unknown,
   scope: SessionListScope,
-) => removePins(rw, launchTarget, pinsToUnpinAfterList(pinsBeforeRequest, listResult, scope));
+) => removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBeforeRequest, listResult, scope));
 
 export type PinTarget = {
   readonly launchTarget: AgentLaunchTarget;

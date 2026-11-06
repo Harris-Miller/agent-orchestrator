@@ -18,7 +18,6 @@ import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import type { ConfigIndexEvent } from '../host/configOptionIndexHydrate.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
-import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { historyAfterList } from '../host/harnessStateTransitions.ts';
@@ -32,9 +31,8 @@ import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
-import type { RefreshSessionFsListing } from './virtualBind.ts';
-import { ensureVirtualAcpBound, rwFromRegistry } from './virtualBind.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
+import type { RefreshSessionFsListing } from './sessionFsListing.atoms.ts';
+import { bindVirtualOnUsable, resetVirtualUnsupportedConfig, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export type HarnessEventFold = BackendHarnessCallbacks & {
   /** Lazy hydrate sink: fold one live ACP response into the Config option index. */
@@ -85,18 +83,9 @@ export const makeHarnessEventFold = ({
     updateHarnessSnapshot(registry, launchTarget, transition);
   };
 
-  const resetVirtualConfig = (index: ConfigOptionIndex) => {
-    const virtual = registry.get(virtualSessionAtom);
-    if (virtual?.launchTarget !== launchTarget) return;
-    registry.set(virtualSessionAtom, {
-      ...virtual,
-      configValues: resetUnsupportedConfigValues(index, virtual.configValues),
-    });
-  };
-
   const publishConfigOptionIndex = (index: ConfigOptionIndex) => {
     registry.set(configOptionIndexAtom(launchTarget), index);
-    resetVirtualConfig(index);
+    resetVirtualUnsupportedConfig(registry, launchTarget, index);
     runFork(
       writeConfigOptionIndexCache(toLaunchTarget(launchTarget), index).pipe(
         Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
@@ -157,10 +146,9 @@ export const makeHarnessEventFold = ({
         failure,
         phase,
       }));
-      // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
-      if (phase === 'usable' && registry.get(virtualSessionAtom)?.launchTarget === launchTarget) {
+      if (phase === 'usable') {
         runFork(
-          ensureVirtualAcpBound(rwFromRegistry(registry), refreshFsListing).pipe(
+          bindVirtualOnUsable(registry, launchTarget, refreshFsListing).pipe(
             Effect.catchCause(cause =>
               Effect.logWarning('ensureVirtualAcpBound on usable failed', launchTarget, cause),
             ),
@@ -183,7 +171,7 @@ export const makeHarnessEventFold = ({
         ...current,
         sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
       }));
-      runFork(reconcilePinsAfterList(rwFromRegistry(registry), launchTarget, pinsBeforeStartupList, listResult, scope));
+      runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {
       const { linked, usage } = modifyHarnessSnapshot(registry, launchTarget, current =>

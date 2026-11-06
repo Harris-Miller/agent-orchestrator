@@ -25,8 +25,7 @@ import {
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { rwFromFnContext } from './virtualBind.ts';
-import { selectSessionEffect } from './virtualSession.atoms.ts';
+import { select } from './virtualSession.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
 
@@ -151,7 +150,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
               upsertIntoSnapshot(current, { historyEntry }),
             );
           }
-          yield* selectSessionEffect(rwFromFnContext(get), targetSessionId);
+          yield* select(get.registry, { _tag: 'Session', sessionId: targetSessionId });
 
           const setOption = (diff: ConfigValueDiff) =>
             setConfigOption(

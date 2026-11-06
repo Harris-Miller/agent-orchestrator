@@ -13,8 +13,6 @@ import {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   usableLaunchTargetsAtom,
-  virtualMaterializingAtom,
-  virtualSendPendingAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   forkSessionAtomFn,
@@ -26,7 +24,11 @@ import { composerAttachmentsAtom, draftAtom } from '../../atoms/chat.atoms.ts';
 import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
 import { selectedActiveSessionAtom } from '../../atoms/selectedActiveSession.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
-import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
+import {
+  virtualMaterializingAtom,
+  virtualSendPendingAtom,
+  virtualSessionAtom,
+} from '../../atoms/virtualSession.atoms.ts';
 import {
   hasSessionForkCapability,
   hasSteeringSupport,
@@ -145,7 +147,7 @@ export const useSessionChatSurface = () => {
   const canCancelPromptTurn = !isVirtual && selectedSession?.pendingClientRequest === 'prompt';
   // Bind never locks the composer (optimistic, latest-wins); only Materialize (and handoff) does. A pending Send
   // freezes just the draft text / attachments, not provider or config controls.
-  const virtualSendPending = isVirtual && (sendPendingAtomValue || materializing);
+  const virtualSendPending = isVirtual && sendPendingAtomValue;
   const chromeLocked = handoffInProgress || (isVirtual && materializing);
   const controlsEnabled = isVirtual
     ? !chromeLocked

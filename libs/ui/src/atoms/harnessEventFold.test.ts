@@ -12,13 +12,19 @@ import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { clearPromptSpansForLaunchTarget, getPromptSpan, setPromptSpan } from '../host/promptSpanRegistry.ts';
+import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
-import { configOptionIndexAtom } from './backendState.atoms.ts';
+import { configOptionIndexAtom, providerEnabledMapAtom } from './backendState.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
+import {
+  ensureVirtual,
+  setVirtualConfigOption,
+  setVirtualLaunchTarget,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 const LT = 'codex-acp' as const;
 const CHILD = 'p1:replay-subagent:toolu_A';
@@ -60,6 +66,31 @@ const setup = Effect.fnUntraced(function* () {
   const snapshot = () => registry.get(backendHarnessSnapshotAtom(LT));
   return { drain, fold, layer, notified, registry, snapshot, store };
 });
+
+/** Minimal fake agent whose `session/new` answers with `sessionId`; cleared when the scope closes. */
+const fakeSessionNew = (sessionId: string) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      setConnectedAgent(LT, {
+        agent: { 'session/new': () => Effect.succeed({ sessionId }) },
+      } as unknown as Parameters<typeof setConnectedAgent>[1]);
+    }),
+    () =>
+      Effect.sync(() => {
+        clearConnectedAgent(LT);
+      }),
+  );
+
+/** Selected Virtual on `/a` + this launch target (+ `model`), seeded through the Virtual session verbs while not usable. */
+const seedVirtual = (h: Effect.Success<ReturnType<typeof setup>>, model?: string) =>
+  Effect.gen(function* () {
+    h.registry.set(providerEnabledMapAtom, { [LT]: true });
+    yield* ensureVirtual(h.registry, { cwd: '/a' });
+    yield* setVirtualLaunchTarget(h.registry, LT);
+    if (model !== undefined) {
+      yield* setVirtualConfigOption(h.registry, { configId: 'model', launchTarget: LT, type: 'select', value: model });
+    }
+  });
 
 describe('Harness event fold: session/update', () => {
   it.effect('usage_update sets the session usage and persists it', () =>
@@ -211,6 +242,21 @@ describe('Harness event fold: bootstrap reports', () => {
     }),
   );
 
+  it.effect('usable with the Virtual blob on this launch target Binds it', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* fakeSessionNew('bound');
+      yield* seedVirtual(h);
+      assert.isUndefined(h.registry.get(virtualSessionAtom)?.sessionId);
+
+      h.fold.onPhase('usable');
+      yield* h.drain;
+
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound');
+      assert.strictEqual(h.snapshot().sessions.bound.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('initialize result and wire messages land on the snapshot', () =>
     Effect.gen(function* () {
       const h = yield* setup();
@@ -245,14 +291,11 @@ describe('Harness event fold: Session History list', () => {
             { cwd: '/b', sessionId: 'b-kept' },
           ],
         }));
-        h.registry.set(virtualSessionAtom, {
-          attachments: [],
-          configValues: {},
-          cwd: '/a',
-          draft: '',
-          launchTarget: LT,
-          sessionId: 'bound',
-        });
+        yield* fakeSessionNew('bound');
+        yield* seedVirtual(h);
+        h.fold.onPhase('usable');
+        yield* h.drain;
+        assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound');
         const before = yield* pinSession(toLaunchTarget(LT), { cwd: '/a', sessionId: 'a-gone' }).pipe(
           Effect.provide(h.layer),
         );
@@ -283,7 +326,7 @@ describe('Harness event fold: Session History list', () => {
           h.registry.get(pinnedSessionsAtom(LT)).map(pin => pin.sessionId),
           ['a-new-pin'],
         );
-      }),
+      }).pipe(Effect.scoped),
   );
 });
 
@@ -298,21 +341,11 @@ const modelOption = (currentValue: string) => ({
   type: 'select' as const,
 });
 
-const seedVirtual = (h: Effect.Success<ReturnType<typeof setup>>, configValues: Record<string, string>) => {
-  h.registry.set(virtualSessionAtom, {
-    attachments: [],
-    configValues,
-    cwd: '/proj',
-    draft: '',
-    launchTarget: LT,
-  });
-};
-
 describe('Harness event fold: Config option index', () => {
   it.effect('a publish sets the index, resets unsupported Virtual values, and writes the cache', () =>
     Effect.gen(function* () {
       const h = yield* setup();
-      seedVirtual(h, { model: 'retired' });
+      yield* seedVirtual(h, 'retired');
       const index: ConfigOptionIndex = {
         byModel: { gpt: [modelOption('gpt')] },
         defaultModelId: 'gpt',

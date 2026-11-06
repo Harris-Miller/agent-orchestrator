@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Clock, Effect, Exit } from 'effect';
+import { Clock, Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -12,16 +12,12 @@ import {
   selectionFromSessionConfiguration,
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { needsLazyHydrate } from '../host/configOptionIndexUi.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
-import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
-import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
-import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
 import {
   appendElicitationSummary,
@@ -30,24 +26,11 @@ import {
 } from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
-import {
-  backendHarnessSnapshotAtom,
-  configOptionIndexAtom,
-  selectedAtom,
-  selectedSessionIdAtom,
-  virtualMaterializingAtom,
-  virtualSendPendingAtom,
-} from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, selectedAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { awaitBoundVirtual, rwFromFnContext } from './virtualBind.ts';
-import {
-  hasComposerContent,
-  lastCreateDefaultsAtom,
-  patchVirtualConfigValue,
-  virtualSessionAtom,
-} from './virtualSession.atoms.ts';
+import { sendVirtual, setVirtualConfigOption } from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -247,114 +230,15 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  /**
-   * First Send on Virtual: await provider `usable`, then the latest Bind (requesting one if none), then apply
-   * Virtual Config → history Materialize → draft copy → clear virtual + Select Session → sendChatItem.
-   * Re-awaits when the blob churns meanwhile. The draft stays on the blob until Materialize succeeds; failures
-   * (provider `error`, Bind failure) reject so callers report via `onClientError`. `virtualSendPendingAtom` blocks
-   * double-submit. Materialize lock ends before session/prompt.
-   */
+  /** First Send on Virtual: the Virtual session Materializes, then the draft goes out through the Session-arm send. */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualMaterializingAtom) || get(virtualSendPendingAtom) || get(selectedAtom)?._tag !== 'Virtual') {
-          return;
-        }
-        const initial = get(virtualSessionAtom);
-        if (initial === null || !hasComposerContent(initial)) {
-          return;
-        }
-
-        get.set(virtualSendPendingAtom, true);
-        const target = yield* awaitBoundVirtual(get.registry).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              get.set(virtualSendPendingAtom, false);
-            }),
-          ),
-        );
-        if (target === undefined) {
-          return;
-        }
-        const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
-
-        const materialized = yield* Effect.gen(function* () {
-          get.set(virtualMaterializingAtom, true);
-          yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-          yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-          yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
-
-          const liveSnapshot = get(backendHarnessSnapshotAtom(launchTarget));
-          if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {
-            yield* Effect.logError('materializeVirtualThenSend missing Bound session', launchTarget, sessionId);
-            return undefined;
-          }
-          const liveSession = liveSnapshot.sessions[sessionId];
-
-          const setOption = (diff: ConfigValueDiff) =>
-            setConfigOption(
-              launchTarget,
-              sessionId,
-              diff.configId,
-              diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
-            );
-          const afterOverrides = yield* applyConfigDiffs(liveSession.sessionConfiguration, configValues, setOption);
-          if (afterOverrides.stoppedEarly) {
-            yield* Effect.logWarning(
-              'materializeVirtualThenSend applyConfigDiffs stopped early',
-              launchTarget,
-              sessionId,
-            );
-          }
-
-          const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
-          updateHarnessSnapshot(get.registry, launchTarget, current =>
-            upsertIntoSnapshot(current, {
-              historyEntry,
-              session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
-                availableCommands: liveSession.availableCommands,
-                cwd: liveSession.cwd ?? cwd,
-                transcript: liveSession.transcript,
-                usage: liveSession.usage,
-              }),
-            }),
-          );
-
-          get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
-          get.set(draftAtom(sessionId), draft);
-          get.set(composerAttachmentsAtom(sessionId), attachments);
-          get.set(virtualSessionAtom, null);
-          // User may have navigated away mid-Materialize; only follow the draft if still on Virtual.
-          if (get(selectedAtom)?._tag === 'Virtual') {
-            get.set(selectedAtom, { _tag: 'Session', sessionId });
-          }
-          return { attachments, draft, launchTarget, sessionId } as const;
-        }).pipe(
-          Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
-          Effect.ensuring(
-            Effect.sync(() => {
-              get.set(virtualMaterializingAtom, false);
-            }),
-          ),
-        );
-
-        if (materialized === undefined) {
-          return;
-        }
-
-        get.set(composerAttachmentsAtom(materialized.sessionId), []);
-        get.set(draftAtom(materialized.sessionId), '');
-        yield* sendChatItemEffect(
-          {
-            attachments: materialized.attachments,
-            launchTarget: materialized.launchTarget,
-            sessionId: materialized.sessionId,
-            text: materialized.draft,
-          },
-          get,
+        yield* sendVirtual(get.registry, materialized =>
+          sendChatItemEffect({ ...materialized, text: materialized.draft }, get),
         );
       }),
-      // A second call must not interrupt the pending Send (it no-ops on `virtualSendPendingAtom`).
+      // A second call must not interrupt the pending Send (it no-ops while Send pending).
       { concurrent: true },
     )
     .pipe(Atom.keepAlive);
@@ -512,29 +396,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         get: Atom.FnContext,
       ) {
         if (get(selectedAtom)?._tag === 'Virtual') {
-          // Virtual (Bound or not): blob only. Materialize's applyConfigDiffs pushes it to the live session on Send.
-          // Exception: an advertised model with no hydrated row yet is picked on the Bound session so its row is learned.
-          const boundSessionId = get(virtualSessionAtom)?.sessionId;
-          if (
-            arg.type === 'select' &&
-            arg.configId === 'model' &&
-            boundSessionId !== undefined &&
-            needsLazyHydrate(get(configOptionIndexAtom(arg.launchTarget)), boundSessionId, arg.value)
-          ) {
-            const pick = yield* Effect.exit(
-              setConfigOption(arg.launchTarget, boundSessionId, 'model', { type: 'select', value: arg.value }),
-            );
-            if (Exit.isFailure(pick)) {
-              return;
-            }
-          }
-          patchVirtualConfigValue(
-            rwFromFnContext(get),
-            get(configOptionIndexAtom(arg.launchTarget)),
-            arg.configId,
-            arg.value,
-          );
-          return;
+          return yield* setVirtualConfigOption(get.registry, arg);
         }
 
         // Session arm only.

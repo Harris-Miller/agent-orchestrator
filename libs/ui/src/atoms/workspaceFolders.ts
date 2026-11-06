@@ -16,8 +16,7 @@ import {
 } from './boundHarnessAtoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { rwFromRegistry } from './virtualBind.ts';
-import { applyVirtualSessionFolderChurnEffect } from './virtualSession.atoms.ts';
+import { discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -45,6 +44,10 @@ const clearSelectedIfMatched = (
     registry.set(selectedAtom, undefined);
   }
 };
+
+/** Re-point the Virtual session at the new first folder, or drop it when there is none. */
+const repointVirtual = (registry: AtomRegistry.AtomRegistry, cwd: string | undefined) =>
+  cwd === undefined ? discardVirtual(registry) : ensureVirtual(registry, { cwd, patchCwdIfSelectedVirtual: true });
 
 const anyBackendUsable = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
   MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => isUsablePhase(getSnapshot(launchTarget).phase));
@@ -90,7 +93,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessSnapshotAtom(launchTarget));
   if (!anyBackendUsable(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
-    yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
+    yield* repointVirtual(registry, nextSessionCwd);
     return;
   }
 
@@ -105,6 +108,6 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
   applyWorkspaceFolderPaths(registry, nextPaths);
-  yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
+  yield* repointVirtual(registry, nextSessionCwd);
   yield* runAtomFn(registry, refreshAllSessionHistoriesAtomFn, undefined).pipe(Effect.ignore);
 });

@@ -1,5 +1,6 @@
 /** Pure subagent-session model: wire decode, child snapshot, and nullable-patch reducer. */
 import { isRecord } from '../isRecord.ts';
+import { optString, withoutUndefined } from '../optionalFields.ts';
 
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { emptySessionTranscript, reduceSessionUpdate } from './sessionUpdateReducer.ts';
@@ -70,8 +71,6 @@ export const initialSubagentSnapshot = (sessionId: string, parentSessionId: stri
 const parseCapabilities = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
   isRecord(value) ? value : undefined;
 
-const stringOrUndefined = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
-
 /** Nullable patch: omitted = unchanged, null = clear, concrete = replace whole field. */
 const patchField = <T>(
   update: Readonly<Record<string, unknown>>,
@@ -85,9 +84,6 @@ const patchField = <T>(
   return update[key] === null ? undefined : parse(update[key]);
 };
 
-const withoutUndefined = <T extends object>(value: T): T =>
-  Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
-
 /** Fold a `subagent_spawned` / `subagent_state_update` / `subagent_update` into the child snapshot. */
 export const applySubagentPatch = (
   child: SubagentSnapshot,
@@ -96,9 +92,9 @@ export const applySubagentPatch = (
   withoutUndefined({
     ...child,
     capabilities: patchField(update, 'capabilities', child.capabilities, parseCapabilities),
-    name: patchField(update, 'name', child.name, stringOrUndefined),
+    name: patchField(update, 'name', child.name, optString),
     state: patchField(update, 'state', child.state, parseSubagentWorkState),
-    task: patchField(update, 'task', child.task, stringOrUndefined),
+    task: patchField(update, 'task', child.task, optString),
   });
 
 export const subagentSessionIdOf = (update: unknown): string | undefined =>
@@ -134,14 +130,16 @@ export const reduceSubagentTranscriptUpdate = (child: SubagentSnapshot, update: 
   return transcript === child.transcript ? child : { ...child, transcript };
 };
 
+const MAX_ACTIVITY_LENGTH = 80;
+
 /** One-line latest activity for a row: last tool title, else last agent message truncated. */
-export const subagentLatestActivity = (child: SubagentSnapshot, maxLength = 80): string | undefined => {
+export const subagentLatestActivity = (child: SubagentSnapshot): string | undefined => {
   for (let i = child.transcript.items.length - 1; i >= 0; i -= 1) {
     const item = child.transcript.items[i];
     if (item.kind === 'tool_call') return item.title;
     if (item.kind === 'agent_message' && item.text.trim().length > 0) {
       const line = item.text.trim().replace(/\s+/g, ' ');
-      return line.length > maxLength ? `${line.slice(0, maxLength - 1)}…` : line;
+      return line.length > MAX_ACTIVITY_LENGTH ? `${line.slice(0, MAX_ACTIVITY_LENGTH - 1)}…` : line;
     }
   }
   return undefined;

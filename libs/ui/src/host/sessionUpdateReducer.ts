@@ -3,6 +3,7 @@
 import type { SessionUsageDocument } from '@lib/ao-home';
 
 import { isRecord } from '../isRecord.ts';
+import { optString, withoutUndefined } from '../optionalFields.ts';
 
 import {
   IMAGE_EXT_RE,
@@ -382,8 +383,6 @@ const appendMessageChunk = (
   return { ...transcript, items, messageIndices };
 };
 
-const optString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
-
 /** Cross-transcript refs: a conflicting repeat means the link is ambiguous, so it is dropped. */
 const mergeRef = (existing: string | undefined, incoming: string | undefined): string | undefined =>
   existing === undefined ? incoming : incoming === undefined || incoming === existing ? existing : undefined;
@@ -394,9 +393,6 @@ const refFields = (update: Readonly<Record<string, unknown>>) => ({
   senderMessageId: optString(update.senderMessageId),
   senderSessionId: optString(update.senderSessionId ?? update.sender),
 });
-
-const withoutUndefinedFields = <T extends object>(value: T): T =>
-  Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 
 /** Upsert by `messageId` within this transcript; `append` adds a chunk's text instead of replacing it. */
 const upsertInterSessionMessage = (
@@ -414,7 +410,7 @@ const upsertInterSessionMessage = (
   const existing = index === undefined ? undefined : transcript.items[index];
   if (index !== undefined && existing?.kind === 'inter_session_message') {
     const items = [...transcript.items];
-    items[index] = withoutUndefinedFields({
+    items[index] = withoutUndefined({
       ...existing,
       recipientMessageId: mergeRef(existing.recipientMessageId, refs.recipientMessageId),
       recipientSessionId: refs.recipientSessionId ?? existing.recipientSessionId,
@@ -426,7 +422,7 @@ const upsertInterSessionMessage = (
   }
   const items = [
     ...transcript.items,
-    withoutUndefinedFields({
+    withoutUndefined({
       id: messageId,
       kind: 'inter_session_message' as const,
       messageId,

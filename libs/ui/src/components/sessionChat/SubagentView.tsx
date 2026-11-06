@@ -19,7 +19,7 @@ import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { subagentStateLabel } from './SubagentRows.tsx';
+import { subagentStateLabel } from './subagentStateLabel.ts';
 
 /** Read-only full-pane view of one subagent child: header, task, transcript, approval card. No composer. */
 export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {

@@ -11,28 +11,18 @@ import {
   viewedSubagentAtom,
 } from '../../atoms/backendState.atoms.ts';
 import type { InterSessionMessage } from '../../host/sessionUpdateReducer.ts';
-import {
-  getSubagent,
-  isSubagentFinished,
-  rootAncestorId,
-  subagentLatestActivity,
-  subagentNeedsInput,
-} from '../../host/subagent.ts';
-import type { SubagentSnapshot } from '../../host/subagent.ts';
+import { getSubagent, rootAncestorId, subagentLatestActivity } from '../../host/subagent.ts';
+import { subagentStateLabel } from './subagentStateLabel.ts';
 
-export const subagentStateLabel = (
-  child: SubagentSnapshot,
-): { color: 'default' | 'success' | 'warning'; label: string } => {
-  if (subagentNeedsInput(child)) return { color: 'warning', label: 'Needs input' };
-  if (child.state === undefined) return { color: 'default', label: 'Unknown' };
-  if (isSubagentFinished(child.state)) return { color: 'success', label: 'Finished' };
-  return { color: 'default', label: child.state.state === 'running' ? 'Running' : child.state.state };
+/** Subagent map of the selected session's provider (codex-acp fallback keeps the hook unconditional). */
+const useSelectedSubagents = () => {
+  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom) ?? 'codex-acp';
+  return { launchTarget, subagents: useAtomValue(backendHarnessStateAtom(launchTarget)).subagents };
 };
 
 /** Inline row in the parent transcript; click opens the child's full-pane view. */
 export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> = ({ item }) => {
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom) ?? 'codex-acp';
-  const { subagents } = useAtomValue(backendHarnessStateAtom(launchTarget));
+  const { launchTarget, subagents } = useSelectedSubagents();
   const child = getSubagent(subagents, item.subagentSessionId);
   const setViewed = useAtomSet(viewedSubagentAtom);
   if (child === undefined) return null;
@@ -74,10 +64,9 @@ export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> =
 };
 
 export const InterSessionMessageRow: FC<{ item: InterSessionMessage }> = ({ item }) => {
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom) ?? 'codex-acp';
-  const { subagents } = useAtomValue(backendHarnessStateAtom(launchTarget));
+  const { subagents } = useSelectedSubagents();
   const nameOf = (id: string | undefined) =>
-    id === undefined ? undefined : (getSubagent(subagents, id)?.name ?? 'session');
+    id === undefined ? undefined : (getSubagent(subagents, id)?.name ?? 'another session');
   const to = nameOf(item.recipientSessionId);
   const from = nameOf(item.senderSessionId);
   const caption = to === undefined ? `From ${from ?? 'another session'} · inter-session message` : `To ${to}`;

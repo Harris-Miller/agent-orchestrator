@@ -1,5 +1,6 @@
 /** Pure routing of session/update (and pending interactions) between root sessions and subagent children. */
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
+import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { upsertSubagentRow } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
 import { isRecord } from '../isRecord.ts';
@@ -82,8 +83,8 @@ export const routeSubagentUpdate = (
 };
 
 type PendingHolder = {
-  readonly pendingElicitation?: import('./pendingInteractions.ts').PendingElicitation | undefined;
-  readonly pendingPermission?: import('./pendingInteractions.ts').PendingPermission | undefined;
+  readonly pendingElicitation?: PendingElicitation | undefined;
+  readonly pendingPermission?: PendingPermission | undefined;
   readonly transcript: SessionTranscript;
 };
 

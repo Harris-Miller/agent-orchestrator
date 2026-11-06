@@ -24,23 +24,19 @@ import {
 import {
   activateSessionAtomFn,
   alwaysHiddenGlobsAtom,
-  cancelPromptAtomFn,
   handoffSessionAtomFn,
-  materializeVirtualThenSendAtomFn,
   refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
-  sendChatItemAtomFn,
   setConfigOptionAtomFn,
-  steerChatItemAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
-import { composerTurnActions } from './composerTurnActions.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { mimeTypeForImagePath } from '../../host/composerImageAttachment.ts';
+import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
 import type { FdListingEntry } from '../../host/fdListing.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import { mergeComposerAttachmentsFromPaths, pickComposerImages } from '../../host/pickComposerImages.ts';
@@ -105,22 +101,14 @@ const SessionChatBodyInner: FC<{
   readonly virtualEmptyState?: ReactNode;
 }> = ({ aboveComposer, onClientError, virtualEmptyState }) => {
   const {
-    attachments,
-    availableCommands,
-    canCancelPromptTurn,
-    canEdit,
     canForkBase: canFork,
     canHandoffBase: canHandoff,
-    canSend,
     chatItems,
-    chromeLocked,
+    composer,
     configOptions,
-    controlsEnabled,
-    draft,
+    edit,
     getConfigOptionIndex,
-    hasPendingInteraction,
     isVirtual,
-    pendingClientRequest,
     usableLaunchTargets,
     selectableLaunchTargets,
     unavailableReasons,
@@ -128,20 +116,29 @@ const SessionChatBodyInner: FC<{
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
-    setAttachments,
-    setDraft,
     setVirtualLaunchTarget,
-    steeringSupported,
-    virtualSendPending,
+    stop,
+    submit,
   } = useSessionChatSurface();
+  const { action, attachments, availableCommands, canEdit, controlsEnabled, draft, locked: chromeLocked } = composer;
+  const hasPendingInteraction =
+    selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined;
+  const setDraft = useCallback(
+    (text: string) => {
+      edit({ draft: text });
+    },
+    [edit],
+  );
+  const setAttachments = useCallback(
+    (next: readonly ComposerImageAttachment[]) => {
+      edit({ attachments: next });
+    },
+    [edit],
+  );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
-  const sendChatItem = useAtomSet(sendChatItemAtomFn, { mode: 'promise' });
-  const steerChatItem = useAtomSet(steerChatItemAtomFn, { mode: 'promise' });
-  const materializeVirtualThenSend = useAtomSet(materializeVirtualThenSendAtomFn, { mode: 'promise' });
-  const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
@@ -393,63 +390,25 @@ const SessionChatBodyInner: FC<{
       });
   };
 
-  const latestDraftRef = useRef({ attachments, text: draft });
-  useLayoutEffect(() => {
-    latestDraftRef.current = { attachments, text: draft };
-  }, [attachments, draft]);
-
-  const takeDraft = () => {
-    const taken = { text: draft, toSend: attachments };
-    setDraft('');
-    setAttachments([]);
-    return taken;
+  // Enter and the form perform only Send or Steering, never Prompt turn cancel (desktop ADR-0018).
+  const submitDraft = () => {
+    if (action._tag !== 'Send' && action._tag !== 'Steer') {
+      return;
+    }
+    if (action._tag === 'Send') {
+      setComposerTrigger(null);
+    }
+    submit().catch(onClientError);
   };
 
-  const sendDraft = () => {
-    if (!canSend) {
-      return;
-    }
-
-    setComposerTrigger(null);
-    if (isVirtual) {
-      materializeVirtualThenSend(undefined).catch(onClientError);
-      return;
-    }
-    if (selectedLaunchTarget === undefined) {
-      return;
-    }
-    const { text, toSend } = takeDraft();
-    sendChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch(onClientError);
-  };
-
-  const { canSteer, primaryAction } = composerTurnActions({
-    canCancelPromptTurn,
-    hasPendingInteraction,
-    hasSendableContent: draft.trim().length > 0 || attachments.length > 0,
-    promptCancelRequested: selectedSession?.promptCancelRequested === true,
-    steeringSupported,
-  });
-
-  const sendPending = pendingClientRequest || virtualSendPending;
-  const primaryButton = {
-    send: { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: !canSend },
-    steer: { ariaLabel: 'Steer', disabled: !canSteer },
-    stop: { ariaLabel: 'Prompt turn cancel', disabled: false },
-  }[primaryAction];
-
-  const steerDraft = () => {
-    if (!canSteer || selectedLaunchTarget === undefined) {
-      return;
-    }
-    const { text, toSend } = takeDraft();
-    steerChatItem({ attachments: toSend, launchTarget: selectedLaunchTarget, text }).catch((error: unknown) => {
-      // The Composer stays editable during the RPC; keep anything typed since instead of overwriting it.
-      const typed = latestDraftRef.current;
-      setDraft(typed.text.length === 0 ? text : `${text}\n${typed.text}`);
-      setAttachments([...toSend, ...typed.attachments]);
-      onClientError(error);
-    });
-  };
+  const sendPending =
+    action._tag === 'Unavailable' && (action.reason === 'PendingClientRequest' || action.reason === 'SendPending');
+  const primaryButton =
+    action._tag === 'CancelTurn'
+      ? { ariaLabel: 'Prompt turn cancel', disabled: false }
+      : action._tag === 'Steer'
+        ? { ariaLabel: 'Steer', disabled: false }
+        : { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: action._tag !== 'Send' };
 
   const replyToElicitation = (reply: ElicitationReply) => {
     if (selectedLaunchTarget === undefined || selectedSession?.pendingElicitation === undefined) {
@@ -467,23 +426,16 @@ const SessionChatBodyInner: FC<{
   };
 
   const onCancelPrompt = () => {
-    if (selectedLaunchTarget === undefined || selectedSessionId === undefined || !canCancelPromptTurn) {
-      return;
-    }
-    cancelPrompt({ launchTarget: selectedLaunchTarget, sessionId: selectedSessionId }).catch(onClientError);
+    stop()?.catch(onClientError);
   };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (primaryAction === 'steer') {
-      steerDraft();
-      return;
-    }
-    if (primaryAction === 'stop') {
+    if (action._tag === 'CancelTurn') {
       onCancelPrompt();
       return;
     }
-    sendDraft();
+    submitDraft();
   };
 
   const partitionedConfig = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
@@ -751,7 +703,7 @@ const SessionChatBodyInner: FC<{
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onEscape={selectedSession?.pendingElicitation === undefined ? undefined : onCancelElicitation}
-              onSubmit={canSteer ? steerDraft : sendDraft}
+              onSubmit={submitDraft}
               placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}
               value={draft}
@@ -803,7 +755,7 @@ const SessionChatBodyInner: FC<{
                   aria-label={primaryButton.ariaLabel}
                   disabled={primaryButton.disabled}
                   onClick={
-                    primaryAction === 'stop'
+                    action._tag === 'CancelTurn'
                       ? event => {
                           event.preventDefault();
                           onCancelPrompt();
@@ -811,11 +763,11 @@ const SessionChatBodyInner: FC<{
                       : undefined
                   }
                   sx={{ minWidth: 40, px: 1.5 }}
-                  type={primaryAction === 'stop' ? 'button' : 'submit'}
+                  type={action._tag === 'CancelTurn' ? 'button' : 'submit'}
                 >
-                  {primaryAction === 'stop' ? (
+                  {action._tag === 'CancelTurn' ? (
                     <LucideMuiIcon fontSize="small" icon={Square} />
-                  ) : primaryAction === 'send' && sendPending ? (
+                  ) : sendPending ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
                     <LucideMuiIcon fontSize="small" icon={ArrowUp} />

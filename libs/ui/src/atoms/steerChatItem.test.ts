@@ -42,4 +42,8 @@ describe('steerChatItemEffect gating', () => {
   rejected('when Prompt turn cancel was requested', { pendingClientRequest: 'prompt', promptCancelRequested: true });
   rejected('when the draft is empty', { pendingClientRequest: 'prompt' }, '   ');
   rejected('when the Agent does not advertise Steering supported', { pendingClientRequest: 'prompt' }, 'hello', {});
+  rejected('while a Pending interaction waits', {
+    pendingClientRequest: 'prompt',
+    pendingPermission: { request: {}, resolve: () => undefined } as unknown as SessionSnapshot['pendingPermission'],
+  });
 });

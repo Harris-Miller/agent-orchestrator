@@ -6,6 +6,7 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
@@ -128,7 +129,7 @@ export const createHarnessAtoms = (
             onPhase: (phase, failure) => {
               updateState(current => ({
                 ...current,
-                ...(phase === 'usable' || phase === 'ready' || phase === 'error' || phase === 'connecting'
+                ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting'
                   ? { antigravityAuthUrl: undefined }
                   : {}),
                 failure,

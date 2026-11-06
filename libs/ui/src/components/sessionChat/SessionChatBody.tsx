@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -37,6 +36,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { composerTurnActions } from './composerTurnActions.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
@@ -121,7 +121,7 @@ const SessionChatBodyInner: FC<{
     hasPendingInteraction,
     isVirtual,
     pendingClientRequest,
-    readyLaunchTargets,
+    usableLaunchTargets,
     selectableLaunchTargets,
     unavailableReasons,
     requestFork,
@@ -763,7 +763,7 @@ const SessionChatBodyInner: FC<{
                 onChange={launchTarget => {
                   setVirtualLaunchTarget(launchTarget).catch(() => undefined);
                 }}
-                readyLaunchTargets={readyLaunchTargets}
+                usableLaunchTargets={usableLaunchTargets}
                 selectableLaunchTargets={selectableLaunchTargets}
                 unavailableReasons={unavailableReasons}
                 value={selectedLaunchTarget}
@@ -887,7 +887,7 @@ const SessionChatBodyInner: FC<{
             }).catch(onClientError);
           }}
           open
-          readyLaunchTargets={readyLaunchTargets}
+          usableLaunchTargets={usableLaunchTargets}
           selectableLaunchTargets={selectableLaunchTargets}
           sourceLaunchTarget={selectedLaunchTarget}
           unavailableReasons={unavailableReasons}

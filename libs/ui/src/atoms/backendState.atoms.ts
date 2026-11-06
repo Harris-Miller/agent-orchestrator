@@ -190,7 +190,7 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
 }).pipe(Atom.keepAlive);
 
 /** Launch targets that are usable with a nonempty (possibly cached) Config index. */
-export const readyLaunchTargetsAtom = Atom.make(get =>
+export const usableLaunchTargetsAtom = Atom.make(get =>
   get(enabledLaunchTargetsAtom).filter(
     launchTarget =>
       isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase) &&
@@ -216,7 +216,7 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
 
 /**
  * Picker rows: every enabled provider, even when unavailable (rendered disabled with a reason). Readiness is
- * derived separately in {@link readyLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
+ * derived separately in {@link usableLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
  */
 export const pickerLaunchTargetsAtom = Atom.make(get => get(enabledLaunchTargetsAtom)).pipe(Atom.keepAlive);
 

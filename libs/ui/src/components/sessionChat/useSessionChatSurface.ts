@@ -7,12 +7,12 @@ import {
   configOptionIndexAtom,
   launchTargetUnavailableReasonsAtom,
   pickerLaunchTargetsAtom,
-  readyLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  usableLaunchTargetsAtom,
   virtualLifecycleInFlightAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
@@ -51,7 +51,7 @@ export const useSessionChatSurface = () => {
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
   const lifecycleLockHeld = useAtomValue(virtualLifecycleInFlightAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
-  const readyLaunchTargets = useAtomValue(readyLaunchTargetsAtom);
+  const usableLaunchTargets = useAtomValue(usableLaunchTargetsAtom);
   const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
   const harnessReasons = useAtomValue(launchTargetUnavailableReasonsAtom);
   const providers = useAtomValue(providerViewsAtom);
@@ -152,7 +152,7 @@ export const useSessionChatSurface = () => {
   const virtualReady =
     isVirtual &&
     selectedLaunchTarget !== undefined &&
-    readyLaunchTargets.includes(selectedLaunchTarget) &&
+    usableLaunchTargets.includes(selectedLaunchTarget) &&
     virtualSession?.cwd !== undefined;
   const hasSendableContent = draft.trim().length > 0 || attachments.length > 0;
   const canSend = isVirtual
@@ -211,7 +211,7 @@ export const useSessionChatSurface = () => {
     initializeResult: selectedLaunchTarget !== undefined ? selectedLaunchHarness.initializeResult : undefined,
     isVirtual,
     pendingClientRequest,
-    readyLaunchTargets,
+    usableLaunchTargets,
     selectableLaunchTargets,
     unavailableReasons,
     requestFork,

@@ -165,7 +165,6 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
     handlers.onPhase('usable');
     yield* Effect.logInfo('ACP harness usable', launchTarget);
-    onReady();
 
     // Session list and Config probe run in the background of `usable`; failures still fail this fiber (retry/error).
     const listScope = resolveListScope();
@@ -186,6 +185,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.all([loadHistory, probeConfig], { concurrency: 'unbounded' });
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
+    onReady();
   },
   (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );

@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber } from 'effect';
+import { TestClock } from 'effect/testing';
 import { vi } from 'vitest';
 
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
@@ -92,6 +93,24 @@ describe('runBackendHarness', () => {
       assert.include(events, 'error');
       assert.notInclude(events, 'ready');
       yield* Fiber.interrupt(fiber);
+    }),
+  );
+
+  it.effect('a probe that always fails after usable exhausts retries instead of looping forever', () =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      control.listGate = Effect.never;
+      control.probe = Effect.fail(new Error('probe boom'));
+
+      const fiber = yield* Effect.forkChild(
+        Effect.scoped(runBackendHarness('claude-agent-acp', makeHandlers(events), () => scope)) as Effect.Effect<void>,
+      );
+      yield* TestClock.adjust('1 second');
+      yield* TestClock.adjust('1 second');
+      yield* TestClock.adjust('1 second');
+      yield* Fiber.await(fiber);
+      assert.strictEqual(events.filter(event => event === 'error').length, 3);
+      assert.strictEqual(events.filter(event => event === 'usable').length, 3);
     }),
   );
 });

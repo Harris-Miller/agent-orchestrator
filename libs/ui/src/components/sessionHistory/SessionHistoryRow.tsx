@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
@@ -10,6 +9,7 @@ import type { FC } from 'react';
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';

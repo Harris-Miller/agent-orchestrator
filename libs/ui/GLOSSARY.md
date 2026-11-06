@@ -27,7 +27,7 @@ A long-running Harness worker for one agent launch target: spawns the ACP Agent 
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, so session RPCs (Bind, Materialize, resume) work and a cached Config index makes the launch target selectable; the retry counter resets here. `ready`: session list and Config probe have also published. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, so session RPCs (Bind, Materialize, resume) work and a cached Config index makes the launch target selectable. `ready`: session list and Config probe have also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:

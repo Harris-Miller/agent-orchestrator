@@ -98,6 +98,12 @@ export type UpsertIntoSnapshotArgs =
   | { readonly historyEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
 
 /** Upsert a session snapshot and/or history entry into the Backend harness snapshot (Bind or Materialize). */
+/** Drop one history row by id (e.g. a parallel startup list that landed before the Bound id existed). */
+export const withoutHistoryEntry = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessionHistory: snapshot.sessionHistory.filter(entry => entry.sessionId !== sessionId),
+});
+
 export const upsertIntoSnapshot = (
   snapshot: BackendHarnessSnapshot,
   args: UpsertIntoSnapshotArgs,

@@ -1,9 +1,9 @@
 /** Cross-launch-target session handoff Atom fns. */
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
@@ -38,7 +38,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
 
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     if (!isUsablePhase(snapshot.phase)) {
-      return yield* new HandoffError({ message: `Backend not ready for ${agentLaunchTargetLabel(launchTarget)}` });
+      return yield* new HandoffError({ message: `Backend not available for ${agentLaunchTargetLabel(launchTarget)}` });
     }
 
     const session = snapshot.sessions[sessionId];

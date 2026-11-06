@@ -9,7 +9,7 @@ import {
   configOptionIndexAtom,
   launchTargetUnavailableReasonsAtom,
   providerEnabledMapAtom,
-  readyLaunchTargetsAtom,
+  usableLaunchTargetsAtom,
 } from './backendState.atoms.ts';
 
 const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
@@ -37,19 +37,19 @@ const setup = (phase: AcpBootstrapPhase, withCache: boolean) => {
 describe('launch target picker gating', () => {
   it('usable + cached index → selectable without waiting for ready', () => {
     const registry = setup('usable', true);
-    assert.deepStrictEqual(registry.get(readyLaunchTargetsAtom), ['claude-agent-acp']);
+    assert.deepStrictEqual(registry.get(usableLaunchTargetsAtom), ['claude-agent-acp']);
     assert.isUndefined(registry.get(launchTargetUnavailableReasonsAtom)['claude-agent-acp']);
   });
 
   it('usable + no cache → disabled with Loading models…', () => {
     const registry = setup('usable', false);
-    assert.deepStrictEqual(registry.get(readyLaunchTargetsAtom), []);
+    assert.deepStrictEqual(registry.get(usableLaunchTargetsAtom), []);
     assert.strictEqual(registry.get(launchTargetUnavailableReasonsAtom)['claude-agent-acp'], 'Loading models…');
   });
 
   it('initialized → Starting…', () => {
     const registry = setup('initialized', true);
-    assert.deepStrictEqual(registry.get(readyLaunchTargetsAtom), []);
+    assert.deepStrictEqual(registry.get(usableLaunchTargetsAtom), []);
     assert.strictEqual(registry.get(launchTargetUnavailableReasonsAtom)['claude-agent-acp'], 'Starting…');
   });
 

@@ -1,10 +1,10 @@
 import { useAtomValue } from '@effect/atom-react';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import type { FC } from 'react';
 
 import { enabledLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
 export type AgentLaunchTargetMenuProps = {

@@ -89,7 +89,7 @@ const sessionSpan = (arg: SessionTarget) =>
     'acp.sessionId': arg.sessionId,
   });
 
-const readyHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
+const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
   const snapshot = get(backendHarnessStateAtom(launchTarget));
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
@@ -138,9 +138,9 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.annotateCurrentSpan({
             'acp.agent': launchTarget,
           });
-          const snapshot = get(backendHarnessStateAtom(launchTarget));
-          if (!isUsablePhase(snapshot.phase)) {
-            yield* Effect.logDebug('refreshSessionHistory skipped; backend not ready', launchTarget);
+          const snapshot = usableHarness(get, launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logDebug('refreshSessionHistory skipped; backend not usable', launchTarget);
             return;
           }
 
@@ -179,8 +179,8 @@ export const createSessionLifecycleAtoms = (
           launchTarget =>
             Effect.exit(
               Effect.gen(function* () {
-                const snapshot = get(backendHarnessStateAtom(launchTarget));
-                if (!isUsablePhase(snapshot.phase)) {
+                const snapshot = usableHarness(get, launchTarget);
+                if (snapshot === undefined) {
                   return;
                 }
                 if (listPayload === undefined) {
@@ -222,9 +222,9 @@ export const createSessionLifecycleAtoms = (
           if (blocked !== undefined) {
             return yield* blocked;
           }
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (!isUsablePhase(snapshot.phase)) {
-            yield* Effect.logWarning('createSession skipped; backend not ready', arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logWarning('createSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -265,9 +265,9 @@ export const createSessionLifecycleAtoms = (
         if (blocked !== undefined) {
           return yield* blocked;
         }
-        const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-        if (!isUsablePhase(snapshot.phase)) {
-          yield* Effect.logWarning('activateSession skipped; backend not ready', arg.launchTarget);
+        const snapshot = usableHarness(get, arg.launchTarget);
+        if (snapshot === undefined) {
+          yield* Effect.logWarning('activateSession skipped; backend not usable', arg.launchTarget);
           return;
         }
 
@@ -383,9 +383,9 @@ export const createSessionLifecycleAtoms = (
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (!isUsablePhase(snapshot.phase)) {
-            yield* Effect.logWarning('forkSession skipped; backend not ready', arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logWarning('forkSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -432,9 +432,9 @@ export const createSessionLifecycleAtoms = (
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (!isUsablePhase(snapshot.phase)) {
-            yield* Effect.logWarning('deactivateSession skipped; backend not ready', arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
+          if (snapshot === undefined) {
+            yield* Effect.logWarning('deactivateSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -471,9 +471,9 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('archiveSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = readyHarness(get, arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
           if (snapshot === undefined) {
-            yield* Effect.logWarning('archiveSession skipped; backend not ready', arg.launchTarget);
+            yield* Effect.logWarning('archiveSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -497,9 +497,9 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('renameSessionAtomFn', { root: true })(
         function* (arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = readyHarness(get, arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
           if (snapshot === undefined) {
-            yield* Effect.logWarning('renameSession skipped; backend not ready', arg.launchTarget);
+            yield* Effect.logWarning('renameSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -541,9 +541,9 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('deleteSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = readyHarness(get, arg.launchTarget);
+          const snapshot = usableHarness(get, arg.launchTarget);
           if (snapshot === undefined) {
-            yield* Effect.logWarning('deleteSession skipped; backend not ready', arg.launchTarget);
+            yield* Effect.logWarning('deleteSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 

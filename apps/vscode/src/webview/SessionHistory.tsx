@@ -37,7 +37,7 @@ export const SessionHistory: FC = () => {
   const onClientError = useContext(OnClientErrorContext);
 
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
-  const anyReady = backendPhases.some(entry => isUsablePhase(entry.phase));
+  const anyUsable = backendPhases.some(entry => isUsablePhase(entry.phase));
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
   const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);
@@ -52,7 +52,7 @@ export const SessionHistory: FC = () => {
         </Typography>
         <IconButton
           aria-label="Reload sessions"
-          disabled={noFolder || !anyReady}
+          disabled={noFolder || !anyUsable}
           onClick={() => {
             refreshAllSessionHistories(undefined).catch(onClientError);
           }}
@@ -75,11 +75,11 @@ export const SessionHistory: FC = () => {
       ) : workspaceSessions.length === 0 ? (
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">
-            {anyReady
+            {anyUsable
               ? 'No sessions yet. Create one to get started.'
               : 'No sessions yet. Configure a provider before creating a session.'}
           </Typography>
-          {!anyReady ? (
+          {!anyUsable ? (
             <Button
               onClick={() => {
                 navigate({ to: '/settings' }).catch(() => undefined);

@@ -6,7 +6,12 @@ import { AtomRegistry } from 'effect/reactivity';
 import { isUsablePhase, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
 import type { HistoryEntry, NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { dropSession, mergeListedHistory, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import {
+  dropSession,
+  mergeListedHistory,
+  upsertIntoSnapshot,
+  withoutHistoryEntry,
+} from '../host/harnessStateTransitions.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
 import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
@@ -169,13 +174,13 @@ export const ensureVirtualAcpBound = Effect.fn('ensureVirtualAcpBound')(function
     rw.set(
       backendHarnessStateAtom(launchTarget),
       // Sessions-map upsert only (no history) — not Materialize.
-      {
-        ...upsertIntoSnapshot(afterCreate, {
+      // A parallel startup `session/list` may have landed before this id existed.
+      withoutHistoryEntry(
+        upsertIntoSnapshot(afterCreate, {
           session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
         }),
-        // A parallel startup `session/list` may have landed before this id existed.
-        sessionHistory: excludeBoundVirtualFromHistory(afterCreate.sessionHistory, boundSessionId),
-      },
+        boundSessionId,
+      ),
     );
 
     const latest = rw.get(virtualSessionAtom);

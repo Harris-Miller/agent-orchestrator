@@ -1,0 +1,28 @@
+[
+  {
+    "sessionId": "p1",
+    "update": {
+      "sessionUpdate": "subagent_spawned",
+      "subagentSessionId": "p1:replay-subagent:toolu_A",
+      "name": "Reply alpha",
+      "task": "Reply with exactly the single word \"alpha\" and nothing else.",
+      "capabilities": {}
+    }
+  },
+  {
+    "sessionId": "p1:replay-subagent:toolu_A",
+    "update": {
+      "sessionUpdate": "agent_message_chunk",
+      "content": { "type": "text", "text": "alpha" },
+      "messageId": "msg_A"
+    }
+  },
+  {
+    "sessionId": "p1",
+    "update": {
+      "sessionUpdate": "subagent_state_update",
+      "subagentSessionId": "p1:replay-subagent:toolu_A",
+      "state": "completed"
+    }
+  }
+]

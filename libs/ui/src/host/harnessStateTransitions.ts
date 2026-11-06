@@ -8,6 +8,7 @@ import type {
 } from './acpSessionBootstrap.ts';
 import { initialBackendHarnessSnapshot, upsertHistoryEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
+import { resetSubagentLiveState } from './subagent.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
@@ -154,7 +155,7 @@ export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: st
 
 /** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
 export const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
-  for (const session of Object.values(snapshot.sessions)) {
+  for (const session of [...Object.values(snapshot.sessions), ...Object.values(snapshot.subagents)]) {
     session.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
     session.pendingElicitation?.resolve({ action: 'cancel' });
   }
@@ -175,6 +176,10 @@ export const reconcileStoppedProvider = (snapshot: BackendHarnessSnapshot): Back
         sessionId,
         { ...session, promptCancelRequested: undefined, status: 'inactive' as const },
       ]),
+    ),
+    // Keep child transcripts; drop state/capabilities/pendings until fresh post-response updates.
+    subagents: Object.fromEntries(
+      Object.entries(snapshot.subagents).map(([id, child]) => [id, resetSubagentLiveState(child)]),
     ),
   };
 };

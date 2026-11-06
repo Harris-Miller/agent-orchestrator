@@ -14,3 +14,7 @@ Client inbound RpcServer auto-spans are off on the harness path; only the three 
 
 - Ending a setup span (or omitting ParentSpan from forks) is required — Effect will still parent under an **ended** ParentSpan if it remains in fiber context.
 - Respond-while-turn-open shares the prompt trace; orphan respond is a short root, not a new standing “user action” glossary term.
+
+## Addendum: subagent sessions
+
+Turn-correlated work attributed to a **subagent session** (child updates, permission/elicitation, cancel) parents under the **root ancestor's** in-flight prompt span, found through a child→parent map (`promptSpanRegistry`). If the root turn is closed, the work is a short root, as for any orphan traffic. A child never owns a prompt span.

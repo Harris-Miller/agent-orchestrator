@@ -1,5 +1,5 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
-import { writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
+import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -15,7 +15,9 @@ import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harness
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
-import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
+import { setSubagentParent } from '../host/promptSpanRegistry.ts';
+import { patchPendingHolder, routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
   backendDesiredStateAtom,
@@ -90,8 +92,8 @@ export const createHarnessAtoms = (
             onElicitationCreate: (sessionId, request, resolve) => {
               updateState(current => ({
                 ...current,
-                sessions: patchSession(current.sessions, sessionId, session => ({
-                  ...session,
+                ...patchPendingHolder(current, sessionId, holder => ({
+                  ...holder,
                   pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
                 })),
               }));
@@ -111,8 +113,8 @@ export const createHarnessAtoms = (
             onPermissionRequest: (sessionId, request, resolve) => {
               updateState(current => ({
                 ...current,
-                sessions: patchSession(current.sessions, sessionId, session => ({
-                  ...session,
+                ...patchPendingHolder(current, sessionId, holder => ({
+                  ...holder,
                   pendingPermission: { request, resolve, sessionId },
                 })),
               }));
@@ -173,6 +175,23 @@ export const createHarnessAtoms = (
             },
             onSessionUpdate: (sessionId, update) => {
               const before = registry.get(backendHarnessStateAtom(launchTarget));
+              const routed = routeSubagentUpdate(before, sessionId, update);
+              if (routed !== undefined) {
+                if (routed.snapshot !== before) {
+                  updateState(current => routeSubagentUpdate(current, sessionId, update)?.snapshot ?? current);
+                }
+                if (routed.linked !== undefined) {
+                  setSubagentParent(launchTarget, routed.linked.childId, routed.linked.parentId);
+                  if (routed.linked.migratedRoot) {
+                    hostRunFork(
+                      deleteSessionDir(routed.linked.childId).pipe(
+                        Effect.catchCause(cause => Effect.logWarning('stray usage cleanup failed', cause)),
+                      ),
+                    );
+                  }
+                }
+                return;
+              }
               const result = applySessionUpdate(before.sessions[sessionId], sessionId, before.sessionHistory, update);
               if (result.kind === 'noop') {
                 return;

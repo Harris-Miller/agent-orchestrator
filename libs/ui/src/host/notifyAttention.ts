@@ -12,6 +12,7 @@ import {
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { sessionChatTitle } from './sessionChatTitle.ts';
+import { getSubagent, rootAncestorId } from './subagent.ts';
 
 /** A moment the user should notice (see ui GLOSSARY Attention event). */
 export type AttentionEvent =
@@ -62,12 +63,14 @@ export const notifySessionAttention = (
   launchTarget: AgentLaunchTarget,
   sessionId: string,
   event: AttentionEvent,
-) =>
-  notifyAttention(
-    sessionChatTitle(
-      false,
-      snapshot.sessionHistory.find(entry => entry.sessionId === sessionId),
-      launchTarget,
-    ),
-    event,
+) => {
+  // A subagent's attention event names the child under its root session's title.
+  const child = getSubagent(snapshot.subagents, sessionId);
+  const rootId = rootAncestorId(snapshot.subagents, sessionId);
+  const rootTitle = sessionChatTitle(
+    false,
+    snapshot.sessionHistory.find(entry => entry.sessionId === rootId),
+    launchTarget,
   );
+  return notifyAttention(child === undefined ? rootTitle : `${rootTitle} · ${child.name ?? 'Subagent'}`, event);
+};

@@ -16,7 +16,11 @@ import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
+import {
+  selectedBackendHarnessSnapshotAtom,
+  selectedSessionIdAtom,
+  viewedSubagentAtom,
+} from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
   alwaysHiddenGlobsAtom,
@@ -46,6 +50,7 @@ import { isRecord } from '../../isRecord.ts';
 import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
+import { SubagentView } from './SubagentView.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
 import { groupChatItems, isLiveRegion } from './groupChatItems.ts';
 import { WorkRegionView } from './WorkRegionView.tsx';
@@ -93,7 +98,7 @@ const formatActivationDefect = (defect: unknown): string => {
   return JSON.stringify(defect);
 };
 
-export const SessionChatBody: FC<{
+const SessionChatBodyInner: FC<{
   readonly aboveComposer?: ReactNode;
   readonly onClientError: (error: unknown) => void;
   readonly virtualEmptyState?: ReactNode;
@@ -888,5 +893,19 @@ export const SessionChatBody: FC<{
         />
       ) : null}
     </Box>
+  );
+};
+
+export const SessionChatBody: FC<{
+  readonly aboveComposer?: ReactNode;
+  readonly onClientError: (error: unknown) => void;
+  readonly virtualEmptyState?: ReactNode;
+}> = props => {
+  const viewed = useAtomValue(viewedSubagentAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  return viewed !== undefined && viewed.rootSessionId === selectedSessionId ? (
+    <SubagentView onClientError={props.onClientError} />
+  ) : (
+    <SessionChatBodyInner {...props} />
   );
 };

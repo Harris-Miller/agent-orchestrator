@@ -95,3 +95,6 @@ _Avoid_: Pipe, socket
 **Connection**:
 The full duplex ACP link: transport plus demux routing and typed RPC client/server endpoints. Entered as Client via `connectAcpAgent` (spawn child stdio) or as Agent via `serveAcpAgent` (parent stdio).
 _Avoid_: Session, link
+
+**Subagent update**:
+A `session/update` kind (`subagent_spawned`, `subagent_state_update`, `subagent_update`, `session_message`, `session_message_chunk`) carrying `subagentSessionId`. Decoded tolerantly by the client: unknown kinds and unknown work states never fail decode.

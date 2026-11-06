@@ -85,7 +85,22 @@ export type ChatItem =
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
   | (ElicitationSummary & { readonly id: string; readonly kind: 'elicitation_summary' })
-  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] };
+  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
+  /** Row for a spawned child; live fields come from `BackendHarnessSnapshot.subagents[subagentSessionId]`. */
+  | { readonly id: string; readonly kind: 'subagent'; readonly subagentSessionId: string }
+  | InterSessionMessage;
+
+/** Directed message between sessions (ACP `session_message`); never a user prompt or tool call. */
+export type InterSessionMessage = {
+  readonly id: string;
+  readonly kind: 'inter_session_message';
+  readonly messageId: string;
+  readonly recipientMessageId?: string;
+  readonly recipientSessionId?: string;
+  readonly senderMessageId?: string;
+  readonly senderSessionId?: string;
+  readonly text: string;
+};
 
 export type ElicitationSummaryRow = {
   readonly caption: string | undefined;
@@ -365,6 +380,69 @@ const appendMessageChunk = (
       : new Map(transcript.messageIndices).set(messageId, items.length - 1);
 
   return { ...transcript, items, messageIndices };
+};
+
+const optString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+/** Cross-transcript refs: a conflicting repeat means the link is ambiguous, so it is dropped. */
+const mergeRef = (existing: string | undefined, incoming: string | undefined): string | undefined =>
+  existing === undefined ? incoming : incoming === undefined || incoming === existing ? existing : undefined;
+
+const refFields = (update: Readonly<Record<string, unknown>>) => ({
+  recipientMessageId: optString(update.recipientMessageId),
+  recipientSessionId: optString(update.recipientSessionId ?? update.recipient),
+  senderMessageId: optString(update.senderMessageId),
+  senderSessionId: optString(update.senderSessionId ?? update.sender),
+});
+
+const withoutUndefinedFields = <T extends object>(value: T): T =>
+  Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
+
+/** Upsert by `messageId` within this transcript; `append` adds a chunk's text instead of replacing it. */
+const upsertInterSessionMessage = (
+  transcript: SessionTranscript,
+  update: Readonly<Record<string, unknown>>,
+  append: boolean,
+): SessionTranscript => {
+  const messageId = optString(update.messageId);
+  if (messageId === undefined) {
+    return transcript;
+  }
+  const text = extractTextFromContent(update.content) ?? '';
+  const refs = refFields(update);
+  const index = transcript.messageIndices.get(messageId);
+  const existing = index === undefined ? undefined : transcript.items[index];
+  if (index !== undefined && existing?.kind === 'inter_session_message') {
+    const items = [...transcript.items];
+    items[index] = withoutUndefinedFields({
+      ...existing,
+      recipientMessageId: mergeRef(existing.recipientMessageId, refs.recipientMessageId),
+      recipientSessionId: refs.recipientSessionId ?? existing.recipientSessionId,
+      senderMessageId: mergeRef(existing.senderMessageId, refs.senderMessageId),
+      senderSessionId: refs.senderSessionId ?? existing.senderSessionId,
+      text: append ? `${existing.text}${text}` : text.length > 0 ? text : existing.text,
+    });
+    return { ...transcript, items };
+  }
+  const items = [
+    ...transcript.items,
+    withoutUndefinedFields({
+      id: messageId,
+      kind: 'inter_session_message' as const,
+      messageId,
+      ...refs,
+      text,
+    }),
+  ];
+  return { ...transcript, items, messageIndices: new Map(transcript.messageIndices).set(messageId, items.length - 1) };
+};
+
+/** Insert the `subagent` row once per child id (replayed spawns never duplicate). */
+export const upsertSubagentRow = (transcript: SessionTranscript, subagentSessionId: string): SessionTranscript => {
+  const id = `subagent:${subagentSessionId}`;
+  return transcript.items.some(item => item.kind === 'subagent' && item.subagentSessionId === subagentSessionId)
+    ? transcript
+    : { ...transcript, items: [...transcript.items, { id, kind: 'subagent', subagentSessionId }] };
 };
 
 const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
@@ -656,6 +734,12 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
         [...blockImages, ...lifted.images],
       );
     }
+
+    case 'session_message':
+      return upsertInterSessionMessage(transcript, update, false);
+
+    case 'session_message_chunk':
+      return upsertInterSessionMessage(transcript, update, true);
 
     default:
       return transcript;

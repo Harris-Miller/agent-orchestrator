@@ -44,6 +44,7 @@ export const {
 
 export const {
   cancelPromptAtomFn,
+  cancelSubagentAtomFn,
   materializeVirtualThenSendAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,

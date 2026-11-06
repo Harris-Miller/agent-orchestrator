@@ -4,7 +4,7 @@ import { Atom } from 'effect/reactivity';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   findLaunchTargetForSessionId,
   selectedAtom,
   selectedSessionAtom,
@@ -40,7 +40,7 @@ export const selectedActiveSessionAtom = Atom.make(get => {
     return undefined;
   }
   const { sessionId } = selected;
-  const launchTarget = findLaunchTargetForSessionId(target => get(backendHarnessStateAtom(target)), sessionId);
+  const launchTarget = findLaunchTargetForSessionId(target => get(backendHarnessSnapshotAtom(target)), sessionId);
   if (launchTarget === undefined) {
     return undefined;
   }

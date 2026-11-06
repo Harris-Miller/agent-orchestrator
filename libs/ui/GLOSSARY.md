@@ -26,12 +26,20 @@ _Avoid_: Bind lock, in-flight lock
 The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable` and for the latest Bind, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure) leaves it in place.
 _Avoid_: Queued send, outbox
 
+**Backend harness snapshot**:
+The Harness application state for one launch target: Bootstrap phase and failure, initialize result, RPC wire log, Session History, Session snapshots, and Subagent sessions. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
+_Avoid_: backend state, harness state (unqualified), store
+
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
+**Harness event fold**:
+The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes): folds each into the Backend harness snapshot and carries out its consequences — Usage persisted, a Subagent session's parent recorded for turn-correlated tracing, Attention events, the `usable` Bind.
+_Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
+
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then lists sessions after `usable`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then lists sessions after `usable`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript or the Backend harness snapshot: it reports to the Harness event fold.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:

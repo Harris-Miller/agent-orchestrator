@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
-import { backendHarnessStateAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
 import {
   cancelSubagentAtomFn,
   respondElicitationAtomFn,
@@ -34,7 +34,7 @@ const SubagentViewBody: FC<{
 }> = ({ onClientError, viewed }) => {
   const [cancelRequested, setCancelRequested] = useState(false);
   const setViewed = useAtomSet(viewedSubagentAtom);
-  const snapshot = useAtomValue(backendHarnessStateAtom(viewed.launchTarget));
+  const snapshot = useAtomValue(backendHarnessSnapshotAtom(viewed.launchTarget));
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });

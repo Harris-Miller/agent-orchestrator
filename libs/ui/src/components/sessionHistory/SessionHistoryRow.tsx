@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
-import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
@@ -39,7 +39,7 @@ export const SessionHistoryRow: FC<{
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly selected: boolean;
 }> = ({ caption, entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
-  const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
+  const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const rename = useSessionTitleRename(entry.sessionId);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
 

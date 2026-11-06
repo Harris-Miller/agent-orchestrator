@@ -114,7 +114,7 @@ The desktop right panel (chat header open button, `PanelRightOpen`; panel header
 _Avoid_: Right panel, Panel, state drawer
 
 **Session update apply**:
-Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — that stays at the atom seam.
+Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — the Harness event fold does (ui glossary).
 _Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
 
 **Session status**:

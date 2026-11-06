@@ -3,7 +3,7 @@ import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useCallback, useMemo } from 'react';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   configOptionIndexAtom,
   launchTargetUnavailableReasonsAtom,
   pickerLaunchTargetsAtom,
@@ -74,9 +74,9 @@ export const useSessionChatSurface = () => {
   const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
 
   const selectedLaunchTarget = isVirtual ? virtualSession?.launchTarget : selectedLaunchTargetFromSession;
-  const activeBackendSnapshot = useAtomValue(backendHarnessStateAtom(activeSession?.launchTarget ?? 'codex-acp'));
+  const activeBackendSnapshot = useAtomValue(backendHarnessSnapshotAtom(activeSession?.launchTarget ?? 'codex-acp'));
   const selectedLaunchHarness = useAtomValue(
-    backendHarnessStateAtom(selectedLaunchTarget ?? activeSession?.launchTarget ?? 'codex-acp'),
+    backendHarnessSnapshotAtom(selectedLaunchTarget ?? activeSession?.launchTarget ?? 'codex-acp'),
   );
   const boundVirtualSession =
     isVirtual && activeSession !== undefined ? activeBackendSnapshot.sessions[activeSession.sessionId] : undefined;

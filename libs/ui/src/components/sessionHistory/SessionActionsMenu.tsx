@@ -7,7 +7,7 @@ import { Archive, Ellipsis, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react'
 import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
 
-import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import {
   archiveSessionAtomFn,
   deactivateSessionAtomFn,
@@ -39,7 +39,7 @@ export const SessionActionsMenu: FC<{
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
 }> = ({ entry, onBeforeAction, onClientError = noopClientError, onDeleteRequest, onRenameRequest, sx }) => {
-  const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
+  const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
   const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
   const pinSession = useAtomSet(pinSessionAtomFn, { mode: 'promise' });

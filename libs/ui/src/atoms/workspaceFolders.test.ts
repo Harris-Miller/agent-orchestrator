@@ -7,11 +7,12 @@ import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 import { bindHostRuntime } from '../hostRuntime.ts';
 
 import { mockHostLayer } from './mockHostLayer.testing.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
 const [
-  { backendHarnessStateAtom, selectedAtom },
+  { backendHarnessSnapshotAtom, selectedAtom },
   { sessionListScopeAtom },
   { workspaceFolderPathsAtom },
   workspaceFolders,
@@ -40,8 +41,8 @@ describe('workspace folder policy', () => {
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace', '/old']);
-      registry.set(backendHarnessStateAtom('codex-acp'), {
-        ...registry.get(backendHarnessStateAtom('codex-acp')),
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
+        ...registry.get(backendHarnessSnapshotAtom('codex-acp')),
         phase: 'ready',
         sessions: {
           session: {
@@ -51,12 +52,12 @@ describe('workspace folder policy', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']);
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions.session.status, 'active');
+      assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
       registry.dispose();
     }),
   );

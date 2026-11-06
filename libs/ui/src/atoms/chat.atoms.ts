@@ -31,7 +31,7 @@ import {
 import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   configOptionIndexAtom,
   selectedAtom,
   selectedSessionIdAtom,
@@ -40,6 +40,7 @@ import {
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { awaitBoundVirtual, rwFromFnContext } from './virtualBind.ts';
 import {
   hasComposerContent,
@@ -76,7 +77,7 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   const trimmed = arg.text.trim();
   const attachments = arg.attachments ?? [];
   const { sessionId } = arg;
-  const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+  const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
   const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
   if ((trimmed.length === 0 && attachments.length === 0) || session?.status !== 'active') {
@@ -89,20 +90,21 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   });
 
   const images = slimImageRefsFromAttachments(attachments);
-  get.set(backendHarnessStateAtom(arg.launchTarget), {
-    ...snapshot,
-    sessions: patchSession(snapshot.sessions, session.sessionId, current =>
-      withUserChatMessage(current, trimmed, images.length > 0 ? images : undefined),
+  updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+    ...current,
+    sessions: patchSession(current.sessions, session.sessionId, s =>
+      withUserChatMessage(s, trimmed, images.length > 0 ? images : undefined),
     ),
-  });
+  }));
 
-  const turnId = get(backendHarnessStateAtom(arg.launchTarget)).sessions[session.sessionId].transcript.items.at(-1)?.id;
+  const turnId = get(backendHarnessSnapshotAtom(arg.launchTarget)).sessions[session.sessionId].transcript.items.at(
+    -1,
+  )?.id;
   const stamp = (patch: TurnTiming) =>
     turnId === undefined
       ? Effect.void
       : Effect.sync(() => {
-          // Disposed Atom.fn context makes get.set a no-op; registry.update still lands.
-          get.registry.update(backendHarnessStateAtom(arg.launchTarget), current =>
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             session.sessionId in current.sessions
               ? {
                   ...current,
@@ -147,7 +149,7 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   const trimmed = arg.text.trim();
   const attachments = arg.attachments ?? [];
   const { sessionId } = arg;
-  const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+  const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
   const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
 
   if (
@@ -176,7 +178,7 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   const result = yield* steerSession(arg.launchTarget, session.sessionId, prompt);
 
   if (result.outcome === 'injected') {
-    get.registry.update(backendHarnessStateAtom(arg.launchTarget), current =>
+    updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
       session.sessionId in current.sessions
         ? {
             ...current,
@@ -197,7 +199,7 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
   // The ended turn's `session/prompt` response may still be in flight; sending now would be skipped
   // by beginClientRequest after the user message was appended. Wait (bounded) for it to clear.
   for (let attempt = 0; ; attempt += 1) {
-    const { sessions } = get(backendHarnessStateAtom(arg.launchTarget));
+    const { sessions } = get(backendHarnessSnapshotAtom(arg.launchTarget));
     if (!(session.sessionId in sessions)) {
       return yield* Effect.fail(new Error('Session was removed while steering'));
     }
@@ -282,7 +284,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
           yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
 
-          const liveSnapshot = get(backendHarnessStateAtom(launchTarget));
+          const liveSnapshot = get(backendHarnessSnapshotAtom(launchTarget));
           if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {
             yield* Effect.logError('materializeVirtualThenSend missing Bound session', launchTarget, sessionId);
             return undefined;
@@ -306,10 +308,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           }
 
           const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
-          const configuredSnapshot = get(backendHarnessStateAtom(launchTarget));
-          get.set(
-            backendHarnessStateAtom(launchTarget),
-            upsertIntoSnapshot(configuredSnapshot, {
+          updateHarnessSnapshot(get.registry, launchTarget, current =>
+            upsertIntoSnapshot(current, {
               historyEntry,
               session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
                 availableCommands: liveSession.availableCommands,
@@ -368,7 +368,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.sessionId': arg.sessionId,
           });
 
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
           const session = snapshot.sessions[arg.sessionId];
           if (session.pendingClientRequest !== 'prompt') {
             return;
@@ -384,16 +384,17 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             pendingElicitation.resolve({ action: 'cancel' });
           }
 
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...snapshot,
-            sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
-              ...current,
-              pendingElicitation: undefined,
-              pendingPermission: undefined,
+          // Clear only the interactions just cancelled: one the agent raised during `resolve` stays answerable.
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+            ...current,
+            sessions: patchSession(current.sessions, arg.sessionId, s => ({
+              ...s,
+              pendingElicitation: s.pendingElicitation === pendingElicitation ? undefined : s.pendingElicitation,
+              pendingPermission: s.pendingPermission === pendingPermission ? undefined : s.pendingPermission,
               promptCancelRequested: true,
-              transcript: markNonFinishedToolCallsCancelled(current.transcript),
+              transcript: markNonFinishedToolCallsCancelled(s.transcript),
             })),
-          });
+          }));
 
           yield* cancelSession(arg.launchTarget, arg.sessionId);
         },
@@ -414,7 +415,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const child = getSubagent(get(backendHarnessStateAtom(arg.launchTarget)).subagents, arg.sessionId);
+          const child = getSubagent(get(backendHarnessSnapshotAtom(arg.launchTarget)).subagents, arg.sessionId);
           if (child === undefined || !canCancelSubagent(child)) {
             return;
           }
@@ -441,20 +442,22 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
           const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingElicitation;
           if (pending === undefined) {
             return;
           }
           pending.resolve(arg.response);
-          get.set(
-            backendHarnessStateAtom(arg.launchTarget),
-            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
-              ...current,
-              pendingElicitation: undefined,
-              transcript:
-                'summary' in arg ? appendElicitationSummary(current.transcript, arg.summary) : current.transcript,
-            })),
+          // Clear only the elicitation answered: one the agent raised during `resolve` stays answerable.
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            sessionOrSubagentOf(current, arg.sessionId) === undefined
+              ? current
+              : patchSessionOrSubagent(current, arg.sessionId, holder => ({
+                  ...holder,
+                  pendingElicitation: holder.pendingElicitation === pending ? undefined : holder.pendingElicitation,
+                  transcript:
+                    'summary' in arg ? appendElicitationSummary(holder.transcript, arg.summary) : holder.transcript,
+                })),
           );
         },
         Effect.withSpan('respondElicitationAtomFn', arg => {
@@ -480,18 +483,16 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+          const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
           const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingPermission;
           if (pending === undefined) {
             return;
           }
           pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
-          get.set(
-            backendHarnessStateAtom(arg.launchTarget),
-            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
-              ...current,
-              pendingPermission: undefined,
-            })),
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            sessionOrSubagentOf(current, arg.sessionId)?.pendingPermission === pending
+              ? patchSessionOrSubagent(current, arg.sessionId, holder => ({ ...holder, pendingPermission: undefined }))
+              : current,
           );
         },
         Effect.withSpan('respondPermissionAtomFn', arg => {
@@ -538,7 +539,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
 
         // Session arm only.
         const sessionId = get(selectedActiveSessionAtom)?.sessionId;
-        const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
+        const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
         const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
         const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(
           option => option.id === arg.configId,
@@ -556,18 +557,20 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const previousModeId = session.selectedModeId;
         const previousModelId = session.selectedModelId;
         const previousSessionState = session.sessionConfiguration;
-        const patchedSessionState = patchConfigOptionValue(session.sessionConfiguration, arg.configId, arg.value);
-        const selection = selectionFromSessionConfiguration(patchedSessionState);
 
-        get.set(backendHarnessStateAtom(arg.launchTarget), {
-          ...snapshot,
-          sessions: patchSession(snapshot.sessions, session.sessionId, current => ({
-            ...current,
-            selectedModeId: selection.selectedModeId ?? current.selectedModeId,
-            selectedModelId: selection.selectedModelId ?? current.selectedModelId,
-            sessionConfiguration: patchedSessionState,
-          })),
-        });
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+          ...current,
+          sessions: patchSession(current.sessions, session.sessionId, s => {
+            const patched = patchConfigOptionValue(s.sessionConfiguration, arg.configId, arg.value);
+            const selection = selectionFromSessionConfiguration(patched);
+            return {
+              ...s,
+              selectedModeId: selection.selectedModeId ?? s.selectedModeId,
+              selectedModelId: selection.selectedModelId ?? s.selectedModelId,
+              sessionConfiguration: patched,
+            };
+          }),
+        }));
 
         const rpc = Effect.gen(function* () {
           const result = yield* setConfigOption(
@@ -576,20 +579,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             arg.configId,
             arg.type === 'boolean' ? { type: 'boolean', value: arg.value } : { type: 'select', value: arg.value },
           );
-          const currentSnapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          const applied = applySetConfigOptionResult(
-            currentSnapshot.sessions[session.sessionId].sessionConfiguration,
-            result,
-          );
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...currentSnapshot,
-            sessions: patchSession(currentSnapshot.sessions, session.sessionId, current => ({
-              ...current,
-              selectedModeId: applied.selectedModeId ?? current.selectedModeId,
-              selectedModelId: applied.selectedModelId ?? current.selectedModelId,
-              sessionConfiguration: applied.sessionConfiguration,
-            })),
-          });
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+            ...current,
+            sessions: patchSession(current.sessions, session.sessionId, s => {
+              const applied = applySetConfigOptionResult(s.sessionConfiguration, result);
+              return {
+                ...s,
+                selectedModeId: applied.selectedModeId ?? s.selectedModeId,
+                selectedModelId: applied.selectedModelId ?? s.selectedModelId,
+                sessionConfiguration: applied.sessionConfiguration,
+              };
+            }),
+          }));
         });
 
         yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, 'config', rpc).pipe(
@@ -601,19 +602,15 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
                 arg.configId,
                 error,
               );
-              get.set(backendHarnessStateAtom(arg.launchTarget), {
-                ...get(backendHarnessStateAtom(arg.launchTarget)),
-                sessions: patchSession(
-                  get(backendHarnessStateAtom(arg.launchTarget)).sessions,
-                  session.sessionId,
-                  current => ({
-                    ...current,
-                    selectedModeId: previousModeId,
-                    selectedModelId: previousModelId,
-                    sessionConfiguration: previousSessionState,
-                  }),
-                ),
-              });
+              updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+                ...current,
+                sessions: patchSession(current.sessions, session.sessionId, s => ({
+                  ...s,
+                  selectedModeId: previousModeId,
+                  selectedModelId: previousModelId,
+                  sessionConfiguration: previousSessionState,
+                })),
+              }));
             }),
           ),
         );

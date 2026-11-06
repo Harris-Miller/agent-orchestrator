@@ -8,12 +8,13 @@ import { firstFolderPath, sessionsMatchingSessionCwd } from '../host/sessionsMat
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
-import { backendHarnessStateAtom, selectedAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import {
   deactivateSessionAtomFn,
   ensureVirtualSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
 } from './boundHarnessAtoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rwFromRegistry } from './virtualBind.ts';
 import { applyVirtualSessionFolderChurnEffect } from './virtualSession.atoms.ts';
@@ -31,7 +32,7 @@ const stripPendingOnMatched = (
     byTarget.set(match.launchTarget, list);
   }
   for (const [launchTarget, sessionIds] of byTarget) {
-    registry.update(backendHarnessStateAtom(launchTarget), current => stripSessionPendings(current, sessionIds));
+    updateHarnessSnapshot(registry, launchTarget, current => stripSessionPendings(current, sessionIds));
   }
 };
 
@@ -86,7 +87,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
     return;
   }
 
-  const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessStateAtom(launchTarget));
+  const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessSnapshotAtom(launchTarget));
   if (!anyBackendUsable(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
     yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);

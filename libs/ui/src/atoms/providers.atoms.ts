@@ -27,7 +27,7 @@ import type { CliState, LatestCheck, ProviderView, RuntimeJob } from '../host/pr
 
 import {
   backendDesiredStateAtom,
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   enabledLaunchTargetsAtom,
   providerEnabledMapAtom,
   providerJobAtom,
@@ -101,7 +101,7 @@ export const createProvidersAtoms = (
   const liveSessionCountAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
     Atom.make(
       get =>
-        Object.values(get(backendHarnessStateAtom(launchTarget)).sessions).filter(
+        Object.values(get(backendHarnessSnapshotAtom(launchTarget)).sessions).filter(
           session => session.status === 'active' || session.status === 'activating',
         ).length,
     ).pipe(Atom.keepAlive),
@@ -111,7 +111,7 @@ export const createProvidersAtoms = (
     Atom.make((get): ProviderView => {
       const info = get(providerRuntimeInfoAtom(launchTarget));
       const snapshot = snapshotOf(info);
-      const harnessState = get(backendHarnessStateAtom(launchTarget));
+      const harnessState = get(backendHarnessSnapshotAtom(launchTarget));
       const { auth, harnessError } = authFromHarness(harnessState.phase, harnessState.failure);
       const managed = PROVIDER_META[launchTarget].runtime !== undefined;
       return {

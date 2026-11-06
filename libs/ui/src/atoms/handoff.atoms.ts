@@ -18,7 +18,12 @@ import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '..
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, requireLaunchTargetUsable, unifiedSessionHistoryAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessSnapshotAtom,
+  requireLaunchTargetUsable,
+  unifiedSessionHistoryAtom,
+} from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
 import { selectSessionEffect } from './virtualSession.atoms.ts';
@@ -36,7 +41,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
       return yield* new HandoffError({ message: 'Handoff prompt text is empty' });
     }
 
-    const snapshot = get(backendHarnessStateAtom(launchTarget));
+    const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
     if (!isUsablePhase(snapshot.phase)) {
       return yield* new HandoffError({ message: `Backend not usable for ${agentLaunchTargetLabel(launchTarget)}` });
     }
@@ -54,10 +59,10 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    get.set(backendHarnessStateAtom(launchTarget), {
-      ...snapshot,
-      sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
-    });
+    updateHarnessSnapshot(get.registry, launchTarget, current => ({
+      ...current,
+      sessions: patchSession(current.sessions, sessionId, s => withUserChatMessage(s, trimmed)),
+    }));
 
     const response = yield* withSessionClientRequest(
       launchTarget,
@@ -119,7 +124,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           // Source handoff prompt is the only hard gate: failure means no target session.
           yield* promptPinnedSession(arg.sourceLaunchTarget, get, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
 
-          const sourceChatItems = get(backendHarnessStateAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
+          const sourceChatItems = get(backendHarnessSnapshotAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
             .transcript.items;
           const handoffDocument = extractHandoffDocument(sourceChatItems);
           if (handoffDocument === undefined) {
@@ -127,7 +132,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           }
 
           // After a successful source response, target create / config / seed failures are soft.
-          if (!isUsablePhase(get(backendHarnessStateAtom(arg.targetLaunchTarget)).phase)) {
+          if (!isUsablePhase(get(backendHarnessSnapshotAtom(arg.targetLaunchTarget)).phase)) {
             yield* Effect.logWarning('Handoff soft-abort; target launch target not usable', arg.targetLaunchTarget);
             return;
           }
@@ -142,10 +147,8 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           const historyEntry = historyEntryFromNew(result, cwd);
           if (historyEntry !== undefined) {
-            const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-            get.set(
-              backendHarnessStateAtom(arg.targetLaunchTarget),
-              upsertIntoSnapshot(createdSnapshot, { historyEntry }),
+            updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
+              upsertIntoSnapshot(current, { historyEntry }),
             );
           }
           yield* selectSessionEffect(rwFromFnContext(get), targetSessionId);
@@ -159,10 +162,8 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             );
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
-          const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-          get.set(
-            backendHarnessStateAtom(arg.targetLaunchTarget),
-            upsertIntoSnapshot(configuredSnapshot, {
+          updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
+            upsertIntoSnapshot(current, {
               session: buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
             }),
           );

@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 import type { Deferred } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { initialBackendHarnessSnapshot, isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -11,6 +11,10 @@ import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
+
+import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
+
+export { backendHarnessSnapshotAtom };
 
 export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
 
@@ -114,14 +118,10 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
   return undefined;
 };
 
-export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
-);
-
 export const unifiedSessionHistoryAtom = Atom.make(get => {
   const entries: UnifiedHistoryEntry[] = [];
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
-    for (const entry of get(backendHarnessStateAtom(launchTarget)).sessionHistory) {
+    for (const entry of get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory) {
       entries.push({ ...entry, launchTarget });
     }
   }
@@ -153,7 +153,7 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   if (sessionId === undefined) {
     return undefined;
   }
-  return findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), sessionId);
+  return findLaunchTargetForSessionId(launchTarget => get(backendHarnessSnapshotAtom(launchTarget)), sessionId);
 }).pipe(Atom.keepAlive);
 
 /** Subagent map of the selected session's provider; undefined when no session is selected. */
@@ -161,7 +161,7 @@ export const selectedSubagentsAtom = Atom.make(get => {
   const launchTarget = get(selectedSessionLaunchTargetAtom);
   return launchTarget === undefined
     ? undefined
-    : { launchTarget, subagents: get(backendHarnessStateAtom(launchTarget)).subagents };
+    : { launchTarget, subagents: get(backendHarnessSnapshotAtom(launchTarget)).subagents };
 });
 
 export const selectedSessionAtom = Atom.make(get => {
@@ -170,7 +170,7 @@ export const selectedSessionAtom = Atom.make(get => {
   if (sessionId === undefined || launchTarget === undefined) {
     return undefined;
   }
-  return get(backendHarnessStateAtom(launchTarget)).sessions[sessionId];
+  return get(backendHarnessSnapshotAtom(launchTarget)).sessions[sessionId];
 }).pipe(Atom.keepAlive);
 
 export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
@@ -178,13 +178,13 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   if (launchTarget === undefined) {
     return undefined;
   }
-  return get(backendHarnessStateAtom(launchTarget));
+  return get(backendHarnessSnapshotAtom(launchTarget));
 }).pipe(Atom.keepAlive);
 
 /** RPC wire logs for every mounted launch target (unified Developer panel wire tab). */
 export const allRpcWireCallsAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
-    entries: get(backendHarnessStateAtom(launchTarget)).rpcCalls,
+    entries: get(backendHarnessSnapshotAtom(launchTarget)).rpcCalls,
     launchTarget,
   })),
 ).pipe(Atom.keepAlive);
@@ -192,18 +192,18 @@ export const allRpcWireCallsAtom = Atom.make(get =>
 /** Initialize response per mounted launch target (undefined until that provider has initialized). */
 export const allInitializeResultsAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
-    initializeResult: get(backendHarnessStateAtom(launchTarget)).initializeResult,
+    initializeResult: get(backendHarnessSnapshotAtom(launchTarget)).initializeResult,
     launchTarget,
   })),
 ).pipe(Atom.keepAlive);
 
 export const allLaunchTargetPhasesAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
-    antigravityAuthUrl: get(backendHarnessStateAtom(launchTarget)).antigravityAuthUrl,
-    failure: get(backendHarnessStateAtom(launchTarget)).failure,
+    antigravityAuthUrl: get(backendHarnessSnapshotAtom(launchTarget)).antigravityAuthUrl,
+    failure: get(backendHarnessSnapshotAtom(launchTarget)).failure,
     label: agentLaunchTargetLabel(launchTarget),
     launchTarget,
-    phase: get(backendHarnessStateAtom(launchTarget)).phase,
+    phase: get(backendHarnessSnapshotAtom(launchTarget)).phase,
   })),
 ).pipe(Atom.keepAlive);
 
@@ -217,7 +217,7 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
 export const usableLaunchTargetsAtom = Atom.make(get =>
   get(enabledLaunchTargetsAtom).filter(
     launchTarget =>
-      isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase) &&
+      isUsablePhase(get(backendHarnessSnapshotAtom(launchTarget)).phase) &&
       configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
   ),
 ).pipe(Atom.keepAlive);
@@ -226,7 +226,7 @@ export const usableLaunchTargetsAtom = Atom.make(get =>
 export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
   const reasons: Partial<Record<AgentLaunchTarget, string>> = {};
   for (const launchTarget of get(enabledLaunchTargetsAtom)) {
-    const snapshot = get(backendHarnessStateAtom(launchTarget));
+    const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
     if (snapshot.phase === 'error') {
       reasons[launchTarget] = snapshot.failure?.message ?? 'Unavailable';
     } else if (!isUsablePhase(snapshot.phase)) {
@@ -264,7 +264,7 @@ export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {
     return;
   }
   if (
-    findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), selected.sessionId) ===
+    findLaunchTargetForSessionId(launchTarget => get(backendHarnessSnapshotAtom(launchTarget)), selected.sessionId) ===
     undefined
   ) {
     clearSelected(get);

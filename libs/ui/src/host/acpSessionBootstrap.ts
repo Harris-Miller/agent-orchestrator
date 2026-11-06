@@ -17,7 +17,7 @@ import type { SubagentRecord } from './subagent.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready' | 'signing-in' | 'usable';
 
-/** `usable`: initialize (and Sign in) done, so session RPCs work. `ready`: session list and Config probe done too. */
+/** `usable`: initialize (and Sign in) done and a Config option index exists (cached or probe-seeded), so session RPCs work. `ready`: session list published too. */
 export const isUsablePhase = (phase: AcpBootstrapPhase): boolean => phase === 'usable' || phase === 'ready';
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';

@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 
-import { effortOption, modelOption, rowIds } from './configOptionIndexFixtures.ts';
+import { effortOption, modelSelectOption, rowIds } from './configOptionIndexFixtures.ts';
 import type { NormalizedBooleanConfigOption, NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
 import {
   configOptionIndexIsNonempty,
@@ -87,7 +87,7 @@ describe('runConfigProbe', () => {
       const calls: string[] = [];
       const agent = makeAgent(
         calls,
-        { configOptions: [modelOption('sonnet', ['sonnet', 'opus']), effortOption('high')] },
+        { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus']), effortOption('high')] },
         true,
       );
 

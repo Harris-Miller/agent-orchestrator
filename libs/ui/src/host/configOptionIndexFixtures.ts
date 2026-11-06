@@ -15,7 +15,7 @@ export const configOptionIndexFromProbeResponses = (
   unavailableModelIds,
 });
 
-export const modelOption = (current: string, ids: readonly string[]) => ({
+export const modelSelectOption = (current: string, ids: readonly string[]) => ({
   currentValue: current,
   id: 'model',
   name: 'Model',

@@ -1,13 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { effortOption, modelOption, rowIds } from './configOptionIndexFixtures.ts';
+import { effortOption, modelSelectOption, rowIds } from './configOptionIndexFixtures.ts';
 import { mergeConfigOptionIndex } from './configOptionIndexHydrate.ts';
 
 describe('mergeConfigOptionIndex', () => {
   it('session/new seeds default row and model list from nothing', () => {
     const index = mergeConfigOptionIndex(undefined, {
       _tag: 'SessionNew',
-      response: { configOptions: [modelOption('sonnet', ['sonnet', 'opus'])] },
+      response: { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus'])] },
     });
     assert.strictEqual(index?.defaultModelId, 'sonnet');
     assert.deepStrictEqual(Object.keys(index?.byModel ?? {}), ['sonnet']);
@@ -18,22 +18,22 @@ describe('mergeConfigOptionIndex', () => {
     const prev = mergeConfigOptionIndex(
       mergeConfigOptionIndex(undefined, {
         _tag: 'SessionNew',
-        response: { configOptions: [modelOption('sonnet', ['sonnet', 'opus', 'old'])] },
+        response: { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus', 'old'])] },
       }),
       {
         _tag: 'ModelPicked',
         modelId: 'opus',
-        response: { configOptions: [modelOption('opus', ['sonnet', 'opus', 'old']), effortOption('high')] },
+        response: { configOptions: [modelSelectOption('opus', ['sonnet', 'opus', 'old']), effortOption('high')] },
       },
     );
     const old = mergeConfigOptionIndex(prev, {
       _tag: 'ModelPicked',
       modelId: 'old',
-      response: { configOptions: [modelOption('old', ['sonnet', 'opus', 'old'])] },
+      response: { configOptions: [modelSelectOption('old', ['sonnet', 'opus', 'old'])] },
     });
     const next = mergeConfigOptionIndex(old, {
       _tag: 'SessionNew',
-      response: { configOptions: [modelOption('haiku', ['haiku', 'sonnet', 'opus']), effortOption('low')] },
+      response: { configOptions: [modelSelectOption('haiku', ['haiku', 'sonnet', 'opus']), effortOption('low')] },
     });
     assert.strictEqual(next?.defaultModelId, 'haiku');
     assert.deepStrictEqual(rowIds(next, 'haiku'), ['model', 'effort']);
@@ -45,7 +45,7 @@ describe('mergeConfigOptionIndex', () => {
   it('session/new without a model currentValue leaves the index unchanged', () => {
     const prev = mergeConfigOptionIndex(undefined, {
       _tag: 'SessionNew',
-      response: { configOptions: [modelOption('sonnet', ['sonnet'])] },
+      response: { configOptions: [modelSelectOption('sonnet', ['sonnet'])] },
     });
     assert.strictEqual(mergeConfigOptionIndex(prev, { _tag: 'SessionNew', response: { configOptions: [] } }), prev);
   });
@@ -53,7 +53,7 @@ describe('mergeConfigOptionIndex', () => {
   it('model pick stores that model row and clears unavailable; failed pick marks it unavailable and drops its row', () => {
     const seeded = mergeConfigOptionIndex(undefined, {
       _tag: 'SessionNew',
-      response: { configOptions: [modelOption('sonnet', ['sonnet', 'opus'])] },
+      response: { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus'])] },
     });
     const failed = mergeConfigOptionIndex(seeded, { _tag: 'ModelPickFailed', modelId: 'opus' });
     assert.deepStrictEqual(failed?.unavailableModelIds, ['opus']);
@@ -63,7 +63,7 @@ describe('mergeConfigOptionIndex', () => {
     const ok = mergeConfigOptionIndex(failed, {
       _tag: 'ModelPicked',
       modelId: 'opus',
-      response: { configOptions: [modelOption('opus', ['sonnet', 'opus']), effortOption('high')] },
+      response: { configOptions: [modelSelectOption('opus', ['sonnet', 'opus']), effortOption('high')] },
     });
     assert.deepStrictEqual(ok?.unavailableModelIds, []);
     assert.deepStrictEqual(rowIds(ok, 'opus'), ['model', 'effort']);

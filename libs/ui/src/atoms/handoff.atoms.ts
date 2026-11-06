@@ -38,7 +38,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
 
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     if (!isUsablePhase(snapshot.phase)) {
-      return yield* new HandoffError({ message: `Backend not available for ${agentLaunchTargetLabel(launchTarget)}` });
+      return yield* new HandoffError({ message: `Backend not usable for ${agentLaunchTargetLabel(launchTarget)}` });
     }
 
     const session = snapshot.sessions[sessionId];
@@ -128,7 +128,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           // After a successful source response, target create / config / seed failures are soft.
           if (!isUsablePhase(get(backendHarnessStateAtom(arg.targetLaunchTarget)).phase)) {
-            yield* Effect.logWarning('Handoff soft-abort; target launch target not ready', arg.targetLaunchTarget);
+            yield* Effect.logWarning('Handoff soft-abort; target launch target not usable', arg.targetLaunchTarget);
             return;
           }
 

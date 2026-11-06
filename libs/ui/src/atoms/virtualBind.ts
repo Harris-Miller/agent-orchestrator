@@ -15,7 +15,7 @@ import {
   virtualBindAtom,
   virtualMaterializingAtom,
 } from './backendState.atoms.ts';
-import type { VirtualBind } from './backendState.atoms.ts';
+import type { BindKey, VirtualBind } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { VirtualSession } from './virtualSession.atoms.ts';
 import { hasComposerContent, virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -94,8 +94,8 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
   }
 });
 
-const bindKeyMatches = (virtual: null | VirtualSession, bind: VirtualBind): boolean =>
-  virtual?.launchTarget === bind.launchTarget && virtual.cwd === bind.cwd;
+const bindKeyMatches = (virtual: null | VirtualSession, key: BindKey): boolean =>
+  virtual?.launchTarget === key.launchTarget && virtual.cwd === key.cwd;
 
 /** Clear the Bound id on the blob now and tear the old session down in the background (never blocks Bind/Send). */
 const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function* (rw: AtomRw, bound: BoundRef) {
@@ -289,9 +289,14 @@ export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(func
 });
 
 /** Wait until the provider is usable or errored, or the blob moved off `launchTarget` (whichever comes first). */
-export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
+const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
   Effect.callback<undefined>(resume => {
     const unsubscribes: (() => void)[] = [];
+    const cleanup = () => {
+      unsubscribes.forEach(unsubscribe => {
+        unsubscribe();
+      });
+    };
     const settled = () => {
       const { phase } = registry.get(backendHarnessStateAtom(launchTarget));
       return (
@@ -300,9 +305,7 @@ export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launch
     };
     const check = () => {
       if (settled()) {
-        unsubscribes.forEach(unsubscribe => {
-          unsubscribe();
-        });
+        cleanup();
         resume(Effect.succeed(undefined));
       }
     };
@@ -314,19 +317,14 @@ export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launch
       registry.subscribe(backendHarnessStateAtom(launchTarget), check),
       registry.subscribe(virtualSessionAtom, check),
     );
-    return Effect.sync(() => {
-      unsubscribes.forEach(unsubscribe => {
-        unsubscribe();
-      });
-    });
+    return Effect.sync(cleanup);
   });
 
 /** A Virtual draft with content, a Bound session, and the cwd / launch target it was Bound for. */
-export type BoundVirtualTarget = VirtualSession & {
-  readonly cwd: string;
-  readonly launchTarget: AgentLaunchTarget;
-  readonly sessionId: string;
-};
+export type BoundVirtualTarget = VirtualSession &
+  BindKey & {
+    readonly sessionId: string;
+  };
 
 /**
  * Send gate: wait for the provider to be usable, then for the latest Bind (requesting one if none is in flight).
@@ -339,12 +337,13 @@ export const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
 ): Effect.fn.Return<BoundVirtualTarget | undefined, ProviderUnavailable> {
   const rw = rwFromRegistry(registry);
   for (;;) {
-    const virtual = registry.get(virtualSessionAtom);
+    const virtual = rw.get(virtualSessionAtom);
     if (virtual?.launchTarget === undefined || virtual.cwd === undefined || !hasComposerContent(virtual)) {
       return undefined;
     }
     const { cwd, launchTarget } = virtual;
-    const { failure, phase } = registry.get(backendHarnessStateAtom(launchTarget));
+    const key: BindKey = { cwd, launchTarget };
+    const { failure, phase } = rw.get(backendHarnessStateAtom(launchTarget));
     if (phase === 'error') {
       return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
     }
@@ -353,14 +352,14 @@ export const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
     } else {
       yield* requestVirtualBind(rw);
       const boundId = yield* awaitCurrentVirtualBind(rw);
-      const latest = registry.get(virtualSessionAtom);
+      const latest = rw.get(virtualSessionAtom);
       // Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.
-      if (latest?.launchTarget === launchTarget && latest.cwd === cwd) {
+      if (latest !== null && bindKeyMatches(latest, key)) {
         if (boundId === undefined || latest.sessionId !== boundId) {
           return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
         }
         // Draft cleared while awaiting → nothing left to send.
-        return hasComposerContent(latest) ? { ...latest, cwd, launchTarget, sessionId: boundId } : undefined;
+        return hasComposerContent(latest) ? { ...latest, ...key, sessionId: boundId } : undefined;
       }
     }
   }

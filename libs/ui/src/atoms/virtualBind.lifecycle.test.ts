@@ -799,20 +799,24 @@ describe('setConfigOptionAtomFn Virtual (blob-only)', () => {
 });
 
 describe('awaitBoundVirtual', () => {
-  const setup = () => {
-    const registry = AtomRegistry.make();
-    return { registry, rw: rwFromRegistry(registry) };
-  };
-  const cleanup = (registry: AtomRegistry.AtomRegistry) => {
-    clearConnectedAgent('codex-acp');
-    registry.dispose();
-  };
+  // Scoped, so teardown runs even when an assertion fails.
+  const setup = Effect.acquireRelease(
+    Effect.sync(() => {
+      const registry = AtomRegistry.make();
+      return { registry, rw: rwFromRegistry(registry) };
+    }),
+    ({ registry }) =>
+      Effect.sync(() => {
+        clearConnectedAgent('codex-acp');
+        registry.dispose();
+      }),
+  );
 
   it.effect('unbound, no Bind in flight → requests one and resolves to the Bound draft', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
-      const { registry } = setup();
+      const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
 
       const target = yield* awaitBoundVirtual(registry);
@@ -820,7 +824,6 @@ describe('awaitBoundVirtual', () => {
       assert.deepStrictEqual(calls, ['new']);
       assert.strictEqual(target?.sessionId, 'bound-1');
       assert.strictEqual(target?.draft, 'hello');
-      cleanup(registry);
     }),
   );
 
@@ -828,7 +831,7 @@ describe('awaitBoundVirtual', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
-      const { registry } = setup();
+      const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
       registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
 
@@ -840,7 +843,6 @@ describe('awaitBoundVirtual', () => {
       const target = yield* Fiber.join(gate);
 
       assert.strictEqual(target?.sessionId, 'bound-1');
-      cleanup(registry);
     }),
   );
 
@@ -848,7 +850,7 @@ describe('awaitBoundVirtual', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
-      const { registry } = setup();
+      const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
       registry.set(backendHarnessStateAtom('codex-acp'), {
         ...initialBackendHarnessSnapshot(),
@@ -860,7 +862,6 @@ describe('awaitBoundVirtual', () => {
 
       assert.isTrue(Exit.isFailure(exit));
       assert.deepStrictEqual(calls, []);
-      cleanup(registry);
     }),
   );
 
@@ -868,13 +869,12 @@ describe('awaitBoundVirtual', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls, { failNew: true });
-      const { registry } = setup();
+      const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
 
       const exit = yield* Effect.exit(awaitBoundVirtual(registry));
 
       assert.isTrue(Exit.isFailure(exit));
-      cleanup(registry);
     }),
   );
 
@@ -883,7 +883,7 @@ describe('awaitBoundVirtual', () => {
       const calls: string[] = [];
       const gate = yield* Deferred.make<undefined>();
       installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
-      const { registry, rw } = setup();
+      const { registry, rw } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
       yield* requestVirtualBind(rw);
 
@@ -894,7 +894,6 @@ describe('awaitBoundVirtual', () => {
       const target = yield* Fiber.join(awaiting);
 
       assert.isUndefined(target);
-      cleanup(registry);
     }),
   );
 
@@ -903,7 +902,7 @@ describe('awaitBoundVirtual', () => {
       const calls: string[] = [];
       const gate = yield* Deferred.make<undefined>();
       installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
-      const { registry, rw } = setup();
+      const { registry, rw } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
       yield* requestVirtualBind(rw);
 
@@ -919,7 +918,6 @@ describe('awaitBoundVirtual', () => {
 
       assert.strictEqual(target?.cwd, '/other');
       assert.strictEqual(target?.sessionId, 'bound-2');
-      cleanup(registry);
     }),
   );
 });

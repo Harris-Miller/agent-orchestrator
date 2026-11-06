@@ -31,12 +31,16 @@ export const virtualMaterializingAtom = Atom.make(false).pipe(Atom.keepAlive);
 /** True from Virtual Send until Materialize finishes (or the Send gives up): blocks double-submit, drives the pending UI. */
 export const virtualSendPendingAtom = Atom.make(false).pipe(Atom.keepAlive);
 
-/** One Virtual Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
-export type VirtualBind = {
+/** What a Bind is for: the provider + cwd the Bound session is created in. */
+export type BindKey = {
   readonly cwd: string;
+  readonly launchTarget: AgentLaunchTarget;
+};
+
+/** One Virtual Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
+export type VirtualBind = BindKey & {
   readonly done: Deferred.Deferred<string | undefined>;
   readonly generation: number;
-  readonly launchTarget: AgentLaunchTarget;
 };
 
 /** Latest-wins Bind bookkeeping: `latest` is the newest generation handed out; a Bind is current only while it matches. */

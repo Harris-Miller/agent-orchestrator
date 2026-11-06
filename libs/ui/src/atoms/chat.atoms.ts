@@ -274,8 +274,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         if (target === undefined) {
           return;
         }
-        const virtual = target;
-        const { attachments, cwd, draft, launchTarget, sessionId } = virtual;
+        const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
 
         const materialized = yield* Effect.gen(function* () {
           get.set(virtualMaterializingAtom, true);
@@ -297,11 +296,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
               diff.configId,
               diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
             );
-          const afterOverrides = yield* applyConfigDiffs(
-            liveSession.sessionConfiguration,
-            virtual.configValues,
-            setOption,
-          );
+          const afterOverrides = yield* applyConfigDiffs(liveSession.sessionConfiguration, configValues, setOption);
           if (afterOverrides.stoppedEarly) {
             yield* Effect.logWarning(
               'materializeVirtualThenSend applyConfigDiffs stopped early',
@@ -325,7 +320,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             }),
           );
 
-          get.set(lastCreateDefaultsAtom, { configValues: virtual.configValues, launchTarget });
+          get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(composerAttachmentsAtom(sessionId), attachments);
           get.set(virtualSessionAtom, null);

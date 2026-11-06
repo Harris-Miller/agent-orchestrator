@@ -31,7 +31,7 @@ Pure fold that turns one Backend harness snapshot (and transition args) into the
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, then (in parallel, after `usable`) Config probe and session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then lists sessions after `usable`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:

@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -519,7 +520,7 @@ const SessionChatBodyInner: FC<{
     if (selectedLaunchTarget === undefined) {
       return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
-    if (backendSnapshot?.phase !== 'ready') {
+    if (backendSnapshot === undefined || !isUsablePhase(backendSnapshot.phase)) {
       return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {

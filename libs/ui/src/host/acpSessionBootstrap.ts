@@ -15,7 +15,10 @@ import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 import type { SubagentRecord } from './subagent.ts';
 
-export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in';
+export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'ready' | 'signing-in' | 'usable';
+
+/** `usable`: initialize (and Sign in) done, so session RPCs work. `ready`: session list and Config probe done too. */
+export const isUsablePhase = (phase: AcpBootstrapPhase): boolean => phase === 'usable' || phase === 'ready';
 
 export type SessionStatus = 'activating' | 'active' | 'inactive';
 

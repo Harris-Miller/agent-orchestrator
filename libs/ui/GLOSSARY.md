@@ -15,7 +15,7 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Bind**:
-Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
+Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and the `usable` `onPhase`. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Harness state transition**:
@@ -23,11 +23,11 @@ Pure fold that turns one Backend harness snapshot (and transition args) into the
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, Config probe, and buffered session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, then (in parallel, after `usable`) Config probe and session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, so session RPCs (Bind, Materialize, resume) work and a cached Config index makes the launch target selectable; the retry counter resets here. `ready`: session list and Config probe have also published. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:

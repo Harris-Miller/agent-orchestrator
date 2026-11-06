@@ -1,4 +1,5 @@
 import { Effect } from 'effect';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { stripSessionPendings } from '../host/harnessStateTransitions.ts';
@@ -45,7 +46,7 @@ const clearSelectedIfMatched = (
 };
 
 const anyBackendReady = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
-  MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => getSnapshot(launchTarget).phase === 'ready');
+  MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => isUsablePhase(getSnapshot(launchTarget).phase));
 
 const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {
   registry.set(workspaceFolderPathsAtom, paths);

@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
+  isUsablePhase,
   pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
@@ -36,7 +37,7 @@ export const SessionHistory: FC = () => {
   const onClientError = useContext(OnClientErrorContext);
 
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
-  const anyReady = backendPhases.some(entry => entry.phase === 'ready');
+  const anyReady = backendPhases.some(entry => isUsablePhase(entry.phase));
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
   const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);

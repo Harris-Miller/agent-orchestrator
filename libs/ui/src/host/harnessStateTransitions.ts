@@ -6,7 +6,7 @@ import type {
   PendingClientRequestKind,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
-import { initialBackendHarnessSnapshot, upsertHistoryEntry } from './acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, isUsablePhase, upsertHistoryEntry } from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import { resetSubagentLiveState } from './subagent.ts';
 import type { SessionListScope } from './sessionListScope.ts';
@@ -125,7 +125,7 @@ export const beginClientRequest = (
   }
   const session = snapshot.sessions[sessionId];
   if (
-    snapshot.phase !== 'ready' ||
+    !isUsablePhase(snapshot.phase) ||
     session.status !== 'active' ||
     session.pendingClientRequest !== undefined ||
     session.pendingElicitation !== undefined ||

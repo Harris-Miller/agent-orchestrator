@@ -128,13 +128,13 @@ export const createHarnessAtoms = (
             onPhase: (phase, failure) => {
               updateState(current => ({
                 ...current,
-                ...(phase === 'ready' || phase === 'error' || phase === 'connecting'
+                ...(phase === 'usable' || phase === 'ready' || phase === 'error' || phase === 'connecting'
                   ? { antigravityAuthUrl: undefined }
                   : {}),
                 failure,
                 phase,
               }));
-              if (phase === 'ready') {
+              if (phase === 'usable') {
                 // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
                 const virtual = registry.get(virtualSessionAtom);
                 if (virtual?.launchTarget === launchTarget) {
@@ -144,7 +144,7 @@ export const createHarnessAtoms = (
                       refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
                     ).pipe(
                       Effect.catchCause(cause =>
-                        Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
+                        Effect.logWarning('ensureVirtualAcpBound on usable failed', launchTarget, cause),
                       ),
                     ),
                   );

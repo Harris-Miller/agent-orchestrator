@@ -1,4 +1,5 @@
 /** Cross-launch-target session handoff Atom fns. */
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
@@ -36,7 +37,7 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     const snapshot = get(backendHarnessStateAtom(launchTarget));
-    if (snapshot.phase !== 'ready') {
+    if (!isUsablePhase(snapshot.phase)) {
       return yield* new HandoffError({ message: `Backend not ready for ${agentLaunchTargetLabel(launchTarget)}` });
     }
 
@@ -126,7 +127,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           }
 
           // After a successful source response, target create / config / seed failures are soft.
-          if (get(backendHarnessStateAtom(arg.targetLaunchTarget)).phase !== 'ready') {
+          if (!isUsablePhase(get(backendHarnessStateAtom(arg.targetLaunchTarget)).phase)) {
             yield* Effect.logWarning('Handoff soft-abort; target launch target not ready', arg.targetLaunchTarget);
             return;
           }

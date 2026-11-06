@@ -91,7 +91,7 @@ export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(fu
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + optional Sign in + Config probe + buffered history list through ready. */
+/** Connect + initialize + optional Sign in (`usable`), then Config probe + history list in parallel (`ready`). */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (
     launchTarget: AgentLaunchTarget,
@@ -163,19 +163,29 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);
     }
 
-    handlers.onPhase('probing');
-    yield* Effect.logInfo('ACP harness probing', launchTarget);
+    handlers.onPhase('usable');
+    yield* Effect.logInfo('ACP harness usable', launchTarget);
+    onReady();
 
+    // Session list and Config probe run in the background of `usable`; failures still fail this fiber (retry/error).
     const listScope = resolveListScope();
     const listPayload = listSessionsPayload(listScope);
-    if (listPayload !== undefined) handlers.onSessionHistoryRequest();
-    const listResult = listPayload === undefined ? { sessions: [] } : yield* agent['session/list'](listPayload);
-    const index = yield* runConfigProbe(agent);
-    handlers.onConfigOptionIndexPublish(index);
-    if (listPayload !== undefined) handlers.onSessionHistoryResult(listResult, listScope);
+    const loadHistory = Effect.gen(function* () {
+      if (listPayload === undefined) return;
+      handlers.onSessionHistoryRequest();
+      const listResult = yield* agent['session/list'](listPayload);
+      handlers.onSessionHistoryResult(listResult, listScope);
+    });
+    const probeConfig = runConfigProbe(agent).pipe(
+      Effect.tap(index =>
+        Effect.sync(() => {
+          handlers.onConfigOptionIndexPublish(index);
+        }),
+      ),
+    );
+    yield* Effect.all([loadHistory, probeConfig], { concurrency: 'unbounded' });
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
-    onReady();
   },
   (effect, launchTarget) => effect.pipe(Effect.annotateLogs({ launchTarget, module: 'backendHarness' })),
 );

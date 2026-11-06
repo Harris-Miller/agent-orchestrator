@@ -7,6 +7,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySetConfigOptionResult,
   hasSteeringSupport,
+  isUsablePhase,
   normalizeConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
@@ -260,7 +261,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         if (
           (trimmed.length === 0 && attachments.length === 0) ||
           cwd === undefined ||
-          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
+          !isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase)
         ) {
           return;
         }

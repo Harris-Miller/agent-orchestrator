@@ -1,4 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import type { FC } from 'react';
@@ -25,14 +26,14 @@ export const AgentLaunchTargetMenu: FC<AgentLaunchTargetMenuProps> = ({
     <Menu anchorEl={anchorEl} onClose={onClose} open={anchorEl !== null}>
       {backendPhases.map(entry => (
         <MenuItem
-          disabled={entry.phase !== 'ready' || creating}
+          disabled={!isUsablePhase(entry.phase) || creating}
           key={entry.launchTarget}
           onClick={() => {
             onSelect(entry.launchTarget);
           }}
         >
           {entry.label}
-          {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
+          {!isUsablePhase(entry.phase) ? ` (${entry.phase})` : ''}
         </MenuItem>
       ))}
     </Menu>

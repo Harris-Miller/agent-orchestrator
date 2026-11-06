@@ -4,6 +4,7 @@
  */
 import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/ao-home';
 
+import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { isNotSignedIn } from './harnessFailure.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -249,17 +250,17 @@ export const readyToInstallVersion = (p: ProviderView): string | undefined => p.
  * Map harness phase + published failure to the sign-in axis. Classification comes from the failure tag, not its text.
  */
 export const authFromHarness = (
-  phase: 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in',
+  phase: AcpBootstrapPhase,
   failure: HarnessFailure | undefined,
 ): { readonly auth: AuthState; readonly harnessError: string | undefined } => {
   switch (phase) {
+    case 'usable':
     case 'ready':
       return { auth: 'SignedIn', harnessError: undefined };
     case 'signing-in':
       return { auth: 'SigningIn', harnessError: undefined };
     case 'connecting':
     case 'initialized':
-    case 'probing':
       return { auth: 'Checking', harnessError: undefined };
     case 'error':
       return isNotSignedIn(failure)

@@ -76,4 +76,38 @@ describe('resetUnsupportedConfigValues', () => {
       mode: 'default',
     });
   });
+
+  it('keeps a still-valid user pick when a fresh probe publishes over a cached index', () => {
+    const fresh = configOptionIndexFromProbeResponses('sonnet', {
+      opus: {
+        configOptions: [
+          {
+            currentValue: 'opus',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+      sonnet: {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+    });
+    assert.deepStrictEqual(resetUnsupportedConfigValues(fresh, { model: 'opus' }), { model: 'opus' });
+  });
 });

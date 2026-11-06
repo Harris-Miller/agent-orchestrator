@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
@@ -45,7 +46,7 @@ export const SessionHistoryRow: FC<{
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
-  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
+  const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
 
   const activateHistoryEntry = () => {
     if (unavailable) return;

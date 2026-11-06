@@ -2,7 +2,7 @@
 import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -189,11 +189,11 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
   return get(allLaunchTargetPhasesAtom).filter(entry => enabled.includes(entry.launchTarget));
 }).pipe(Atom.keepAlive);
 
-/** Launch targets that completed Config probe with a nonempty index. */
+/** Launch targets that are usable with a nonempty (possibly cached) Config index. */
 export const readyLaunchTargetsAtom = Atom.make(get =>
   get(enabledLaunchTargetsAtom).filter(
     launchTarget =>
-      get(backendHarnessStateAtom(launchTarget)).phase === 'ready' &&
+      isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase) &&
       configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
   ),
 ).pipe(Atom.keepAlive);
@@ -205,10 +205,10 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     if (snapshot.phase === 'error') {
       reasons[launchTarget] = snapshot.failure?.message ?? 'Unavailable';
-    } else if (snapshot.phase !== 'ready') {
+    } else if (!isUsablePhase(snapshot.phase)) {
       reasons[launchTarget] = 'Starting…';
     } else if (!configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget)))) {
-      reasons[launchTarget] = 'No configuration available';
+      reasons[launchTarget] = snapshot.phase === 'usable' ? 'Loading models…' : 'No configuration available';
     }
   }
   return reasons;

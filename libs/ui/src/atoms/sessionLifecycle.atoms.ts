@@ -8,6 +8,7 @@ import {
   applySessionInfoTitle,
   defectsFromActivationFailure,
   isSessionActiveOrActivating,
+  isUsablePhase,
   normalizeConfigOptions,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
@@ -90,7 +91,7 @@ const sessionSpan = (arg: SessionTarget) =>
 
 const readyHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
   const snapshot = get(backendHarnessStateAtom(launchTarget));
-  return snapshot.phase === 'ready' ? snapshot : undefined;
+  return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
 
 const dropSessionAndClearSelection = Effect.fnUntraced(function* (
@@ -138,7 +139,7 @@ export const createSessionLifecycleAtoms = (
             'acp.agent': launchTarget,
           });
           const snapshot = get(backendHarnessStateAtom(launchTarget));
-          if (snapshot.phase !== 'ready') {
+          if (!isUsablePhase(snapshot.phase)) {
             yield* Effect.logDebug('refreshSessionHistory skipped; backend not ready', launchTarget);
             return;
           }
@@ -179,7 +180,7 @@ export const createSessionLifecycleAtoms = (
             Effect.exit(
               Effect.gen(function* () {
                 const snapshot = get(backendHarnessStateAtom(launchTarget));
-                if (snapshot.phase !== 'ready') {
+                if (!isUsablePhase(snapshot.phase)) {
                   return;
                 }
                 if (listPayload === undefined) {
@@ -222,7 +223,7 @@ export const createSessionLifecycleAtoms = (
             return yield* blocked;
           }
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (snapshot.phase !== 'ready') {
+          if (!isUsablePhase(snapshot.phase)) {
             yield* Effect.logWarning('createSession skipped; backend not ready', arg.launchTarget);
             return;
           }
@@ -265,7 +266,7 @@ export const createSessionLifecycleAtoms = (
           return yield* blocked;
         }
         const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-        if (snapshot.phase !== 'ready') {
+        if (!isUsablePhase(snapshot.phase)) {
           yield* Effect.logWarning('activateSession skipped; backend not ready', arg.launchTarget);
           return;
         }
@@ -383,7 +384,7 @@ export const createSessionLifecycleAtoms = (
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (snapshot.phase !== 'ready') {
+          if (!isUsablePhase(snapshot.phase)) {
             yield* Effect.logWarning('forkSession skipped; backend not ready', arg.launchTarget);
             return;
           }
@@ -432,7 +433,7 @@ export const createSessionLifecycleAtoms = (
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          if (snapshot.phase !== 'ready') {
+          if (!isUsablePhase(snapshot.phase)) {
             yield* Effect.logWarning('deactivateSession skipped; backend not ready', arg.launchTarget);
             return;
           }

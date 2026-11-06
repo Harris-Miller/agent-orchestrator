@@ -15,7 +15,12 @@ import {
   unpinSessionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../../atoms/pinnedSessions.atoms.ts';
-import { canRename, hasSessionArchiveCapability, hasSessionCloseCapability } from '../../host/acpSessionBootstrap.ts';
+import {
+  canRename,
+  hasSessionArchiveCapability,
+  hasSessionCloseCapability,
+  isUsablePhase,
+} from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -44,7 +49,7 @@ export const SessionActionsMenu: FC<{
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
-  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
+  const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
 
   // MUI returns focus to the trigger when the Popover closes; start editing only after that, or the input blur-commits.
   const renameRequested = useRef(false);
@@ -121,7 +126,7 @@ export const SessionActionsMenu: FC<{
           ) : null}
           {onRenameRequest !== undefined && canRename(entry, snapshot.initializeResult) ? (
             <Button
-              disabled={snapshot.phase !== 'ready'}
+              disabled={!isUsablePhase(snapshot.phase)}
               onClick={() => {
                 renameRequested.current = true;
                 closeMenu();

@@ -195,6 +195,35 @@ describe('ensureVirtualAcpBound', () => {
     }),
   );
 
+  it.effect('usable phase (probe not done) → Bind runs; list that landed first has its Bound id dropped', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const registry = AtomRegistry.make();
+      const rw = rwFromRegistry(registry);
+      seedReadyVirtual(registry);
+      registry.set(backendHarnessStateAtom('codex-acp'), {
+        ...initialBackendHarnessSnapshot(),
+        phase: 'usable',
+        sessionHistory: normalizeSessionHistory({
+          sessions: [
+            { cwd: '/proj', sessionId: 'bound-1' },
+            { cwd: '/proj', sessionId: 'other' },
+          ],
+        }),
+      });
+
+      yield* ensureVirtualAcpBound(rw);
+
+      assert.deepStrictEqual(calls, ['new']);
+      assert.deepStrictEqual(
+        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.map(entry => entry.sessionId),
+        ['other'],
+      );
+      clearConnectedAgent('codex-acp');
+    }),
+  );
+
   it.effect('failed Bind → unbound, no fake id', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

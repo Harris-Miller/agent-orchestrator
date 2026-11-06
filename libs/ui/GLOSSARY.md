@@ -7,7 +7,7 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize), sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, Lifecycle lock (Materialize only), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Draft during turn**:
@@ -15,8 +15,16 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Bind**:
-Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and the `usable` `onPhase`. Distinct from Materialize (first-Send promote).
+Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: post-mutate rebind, the `usable` `onPhase`, and Send when none is in flight. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
+
+**Lifecycle lock**:
+Short lock held only while a Virtual session Materializes (Config diffs + history upsert); Virtual edits and cwd/Config controls are inert while it is held. Bind never takes it. Released before the prompt is sent.
+_Avoid_: Bind lock, in-flight lock
+
+**Send pending**:
+The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable` and for the latest Bind, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure) leaves it in place.
+_Avoid_: Queued send, outbox
 
 **Harness state transition**:
 Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.

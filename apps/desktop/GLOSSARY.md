@@ -130,7 +130,7 @@ Normalized config options from a `session/new`, `session/load`, or `session/resu
 _Avoid_: Session state, session/new result
 
 **Bind**:
-Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `ready` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Not a History entry; Selected stays Virtual. Distinct from Materialize.
+Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `usable` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Optimistic and latest-wins (never locks the composer); a superseded Bind's session is torn down in the background. Not a History entry; Selected stays Virtual. Distinct from Materialize.
 _Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
 
 **Materialize**:

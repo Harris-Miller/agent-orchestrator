@@ -1,12 +1,17 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
+import {
+  initialBackendHarnessSnapshot,
+  initialSessionSnapshot,
+  normalizeSessionHistory,
+} from './acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import {
   beginClientRequest,
   cancelPendingRequests,
   dropSession,
   endClientRequest,
+  excludeBoundVirtualFromHistory,
   markHistoryUnavailable,
   markSessionInactive,
   mergeListedHistory,
@@ -241,5 +246,21 @@ describe('stopped provider reconcile', () => {
     assert.deepStrictEqual(reconciled.rpcCalls, []);
     assert.isUndefined(reconciled.antigravityAuthUrl);
     assert.isUndefined(reconciled.failure);
+  });
+});
+
+describe('excludeBoundVirtualFromHistory', () => {
+  it('filters the Bound id; normalizeSessionHistory still returns it', () => {
+    const normalized = normalizeSessionHistory({
+      sessions: [
+        { cwd: '/proj', sessionId: 'bound-1' },
+        { cwd: '/other', sessionId: 'real-1' },
+      ],
+    });
+    assert.strictEqual(normalized.length, 2);
+    assert.deepStrictEqual(
+      excludeBoundVirtualFromHistory(normalized, 'bound-1').map(entry => entry.sessionId),
+      ['real-1'],
+    );
   });
 });

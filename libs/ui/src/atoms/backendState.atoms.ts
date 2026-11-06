@@ -1,6 +1,5 @@
 /** Core ACP backend / session selection Atom state. */
 import { Schema } from 'effect';
-import type { Deferred } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
@@ -24,36 +23,6 @@ export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom
 export const viewedSubagentAtom = Atom.make<
   { readonly childId: string; readonly launchTarget: AgentLaunchTarget; readonly rootSessionId: string } | undefined
 >(undefined).pipe(Atom.keepAlive);
-
-/**
- * True while Virtual Materialize holds the lifecycle lock (Bind never does: it is optimistic, latest-wins).
- * Create / Virtual-mutation helpers no-op while true; navigation (select / clear Selected) never waits on it.
- * Must not stay set during session/prompt.
- */
-export const virtualMaterializingAtom = Atom.make(false).pipe(Atom.keepAlive);
-
-/** True from Virtual Send until Materialize finishes (or the Send gives up): blocks double-submit, drives the pending UI. */
-export const virtualSendPendingAtom = Atom.make(false).pipe(Atom.keepAlive);
-
-/** What a Bind is for: the provider + cwd the Bound session is created in. */
-export type BindKey = {
-  readonly cwd: string;
-  readonly launchTarget: AgentLaunchTarget;
-};
-
-/** One Virtual Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
-export type VirtualBind = BindKey & {
-  readonly done: Deferred.Deferred<string | undefined>;
-  readonly generation: number;
-};
-
-/** Latest-wins Bind bookkeeping: `latest` is the newest generation handed out; a Bind is current only while it matches. */
-export type VirtualBindState = {
-  readonly current: undefined | VirtualBind;
-  readonly latest: number;
-};
-
-export const virtualBindAtom = Atom.make<VirtualBindState>({ current: undefined, latest: 0 }).pipe(Atom.keepAlive);
 
 /** Session arm sessionId only; undefined when Virtual or no Selected. */
 export const selectedSessionIdAtom = Atom.make(get => {
@@ -243,30 +212,3 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
  * derived separately in {@link usableLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
  */
 export const pickerLaunchTargetsAtom = Atom.make(get => get(enabledLaunchTargetsAtom)).pipe(Atom.keepAlive);
-
-export const selectSession = (get: Atom.FnContext, sessionId: string) => {
-  if (get(virtualMaterializingAtom)) {
-    return;
-  }
-  get.set(selectedAtom, { _tag: 'Session', sessionId });
-};
-
-export const clearSelected = (get: Atom.FnContext) => {
-  if (get(virtualMaterializingAtom)) {
-    return;
-  }
-  get.set(selectedAtom, undefined);
-};
-
-export const clearSelectedSessionIfMissing = (get: Atom.FnContext) => {
-  const selected = get(selectedAtom);
-  if (selected?._tag !== 'Session') {
-    return;
-  }
-  if (
-    findLaunchTargetForSessionId(launchTarget => get(backendHarnessSnapshotAtom(launchTarget)), selected.sessionId) ===
-    undefined
-  ) {
-    clearSelected(get);
-  }
-};

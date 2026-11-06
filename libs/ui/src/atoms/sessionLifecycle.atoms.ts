@@ -42,7 +42,6 @@ import {
 
 import {
   backendHarnessSnapshotAtom,
-  clearSelectedSessionIfMissing,
   configOptionIndexAtom,
   requireLaunchTargetUsable,
   selectedAtom,
@@ -55,8 +54,7 @@ import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinned
 import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
-import { rwFromFnContext } from './virtualBind.ts';
-import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 /** Reset an activated session's model/options the Config option index no longer offers; soft-fails to the live configuration. */
 const resetActivatedConfiguration = Effect.fn('resetActivatedConfiguration')(function* (
@@ -122,7 +120,7 @@ const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   updateHarnessSnapshot(get.registry, launchTarget, snapshot => dropSession(snapshot, sessionId));
   const selected = get(selectedAtom);
   if (selected?._tag === 'Session' && selected.sessionId === sessionId) {
-    yield* clearSelectedEffect(rwFromFnContext(get));
+    yield* select(get.registry, undefined);
   }
 });
 
@@ -143,11 +141,11 @@ export const createSessionLifecycleAtoms = (
   const { atomRuntime } = runtime;
 
   const selectSessionAtomFn = atomRuntime
-    .fn((sessionId: string, get: Atom.FnContext) => selectSessionEffect(rwFromFnContext(get), sessionId))
+    .fn((sessionId: string, get: Atom.FnContext) => select(get.registry, { _tag: 'Session', sessionId }))
     .pipe(Atom.keepAlive);
 
   const clearSelectedAtomFn = atomRuntime
-    .fn((_arg: undefined, get: Atom.FnContext) => clearSelectedEffect(rwFromFnContext(get)))
+    .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))
     .pipe(Atom.keepAlive);
 
   const refreshSessionHistoryAtomFn = atomRuntime
@@ -171,8 +169,8 @@ export const createSessionLifecycleAtoms = (
 
           yield* Effect.logDebug('Refreshing session history', launchTarget);
           const { listResult, pinsBefore } = yield* refreshHistoryFor(get, launchTarget, listPayload, scope);
-          clearSelectedSessionIfMissing(get);
-          yield* reconcilePinsAfterList(rwFromFnContext(get), launchTarget, pinsBefore, listResult, scope);
+          clearSelectedIfMissing(get.registry);
+          yield* reconcilePinsAfterList(get.registry, launchTarget, pinsBefore, listResult, scope);
         },
         (effect, launchTarget) =>
           effect.pipe(Effect.tapError(error => Effect.logError('refreshSessionHistory failed', launchTarget, error))),
@@ -199,12 +197,12 @@ export const createSessionLifecycleAtoms = (
                   return;
                 }
                 const { listResult, pinsBefore } = yield* refreshHistoryFor(get, launchTarget, listPayload, scope);
-                yield* reconcilePinsAfterList(rwFromFnContext(get), launchTarget, pinsBefore, listResult, scope);
+                yield* reconcilePinsAfterList(get.registry, launchTarget, pinsBefore, listResult, scope);
               }),
             ),
           { concurrency: 'unbounded' },
         );
-        clearSelectedSessionIfMissing(get);
+        clearSelectedIfMissing(get.registry);
         const failed = exits.find(Exit.isFailure);
         if (failed !== undefined) {
           return yield* failed;
@@ -240,7 +238,7 @@ export const createSessionLifecycleAtoms = (
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             upsertIntoSnapshot(current, { historyEntry, session }),
           );
-          yield* selectSessionEffect(rwFromFnContext(get), sessionId);
+          yield* select(get.registry, { _tag: 'Session', sessionId });
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
           yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId });
         },
@@ -275,7 +273,7 @@ export const createSessionLifecycleAtoms = (
         const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
         const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
 
-        yield* selectSessionEffect(rwFromFnContext(get), arg.sessionId);
+        yield* select(get.registry, { _tag: 'Session', sessionId: arg.sessionId });
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
@@ -448,7 +446,7 @@ export const createSessionLifecycleAtoms = (
 
           const selected = get(selectedAtom);
           if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
-            yield* clearSelectedEffect(rwFromFnContext(get));
+            yield* select(get.registry, undefined);
           }
         },
         (effect, arg) =>
@@ -555,7 +553,7 @@ export const createSessionLifecycleAtoms = (
           );
 
           yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
-          yield* removePins(rwFromFnContext(get), arg.launchTarget, [arg.sessionId]);
+          yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
         },
         (effect, arg) =>
           effect.pipe(

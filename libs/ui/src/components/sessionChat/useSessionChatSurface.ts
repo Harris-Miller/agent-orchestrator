@@ -68,7 +68,7 @@ export const useSessionChatSurface = () => {
   const selectedLaunchTarget = target?.launchTarget;
 
   const submit = useCallback(() => submitComposer(undefined), [submitComposer]);
-  const stop = useCallback((): Promise<unknown> | undefined => {
+  const cancelPromptTurn = useCallback((): Promise<unknown> | undefined => {
     if (target?._tag !== 'Session' || target.launchTarget === undefined || composer.action._tag !== 'CancelTurn') {
       return undefined;
     }
@@ -136,7 +136,7 @@ export const useSessionChatSurface = () => {
     selectedSession,
     selectedSessionId,
     setVirtualLaunchTarget,
-    stop,
+    cancelPromptTurn,
     submit,
     unavailableReasons,
     usableLaunchTargets,

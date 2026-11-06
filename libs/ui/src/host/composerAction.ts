@@ -42,13 +42,13 @@ export const turnAction = (
   { hasContent, steeringSupported }: TurnActionInput,
 ): ComposerAction => {
   if (session?.pendingClientRequest === 'prompt') {
-    const canSteer =
+    const steeringAvailable =
       session.status === 'active' &&
       steeringSupported &&
       session.promptCancelRequested !== true &&
       !hasPendingInteraction(session) &&
       hasContent;
-    return canSteer ? { _tag: 'Steer' } : { _tag: 'CancelTurn' };
+    return steeringAvailable ? { _tag: 'Steer' } : { _tag: 'CancelTurn' };
   }
   if (session?.pendingClientRequest !== undefined) {
     return unavailable('PendingClientRequest');

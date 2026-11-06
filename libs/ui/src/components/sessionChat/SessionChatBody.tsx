@@ -118,7 +118,7 @@ const SessionChatBodyInner: FC<{
     selectedSession,
     selectedSessionId,
     setVirtualLaunchTarget,
-    stop,
+    cancelPromptTurn,
     submit,
   } = useSessionChatSurface();
   const { action, attachments, availableCommands, canEdit, controlsEnabled, draft, locked: chromeLocked } = composer;
@@ -425,7 +425,7 @@ const SessionChatBodyInner: FC<{
   };
 
   const onCancelPrompt = () => {
-    stop()?.catch(onClientError);
+    cancelPromptTurn()?.catch(onClientError);
   };
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {

@@ -6,7 +6,7 @@ import type { Atom } from 'effect/reactivity';
 import type { BackendHarnessSnapshot, SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 
-import { sendChatItemEffect, steerChatItemEffect } from './chat.atoms.ts';
+import { ComposerActionUnavailable, sendChatItemEffect, steerChatItemEffect } from './chat.atoms.ts';
 import { HandoffError, promptPinnedSession } from './handoff.atoms.ts';
 
 const launchTarget = 'claude-agent-acp' as const;
@@ -52,6 +52,7 @@ describe('steerChatItemEffect gating', () => {
       Effect.gen(function* () {
         const { get } = init === undefined ? makeGet(session) : makeGet(session, init);
         const error = yield* Effect.flip(steer(get, text));
+        assert.instanceOf(error, ComposerActionUnavailable);
         assert.match(error.message, /Steering is not available/);
       }),
     );
@@ -70,6 +71,7 @@ describe('sendChatItemEffect gating', () => {
       Effect.gen(function* () {
         const { get, writes } = makeGet(session);
         const error = yield* Effect.flip(send(get, text));
+        assert.instanceOf(error, ComposerActionUnavailable);
         assert.match(error.message, /Sending is not available/);
         assert.strictEqual(writes.count, 0);
       }),

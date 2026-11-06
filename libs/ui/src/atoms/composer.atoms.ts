@@ -200,7 +200,8 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         yield* Effect.annotateCurrentSpan('composer.action', action._tag);
         const arg = { attachments: taken.attachments, launchTarget, sessionId, text: taken.draft };
         if (action._tag === 'Send') {
-          // The message is already in the transcript when a prompt fails, so the draft is not restored.
+          // The draft is not restored. Send's gate reads the state this action was decided from, so it is not refused
+          // here; once the user message is appended, a failed prompt leaves the message in the transcript.
           yield* sendChatItemEffect(arg, get);
           return;
         }

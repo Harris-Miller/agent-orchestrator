@@ -178,7 +178,7 @@ export const createHarnessAtoms = (
               const routed = routeSubagentUpdate(before, sessionId, update);
               if (routed !== undefined) {
                 if (routed.snapshot !== before) {
-                  updateState(current => routeSubagentUpdate(current, sessionId, update)?.snapshot ?? current);
+                  updateState(() => routed.snapshot);
                 }
                 if (routed.linked !== undefined) {
                   setSubagentParent(launchTarget, routed.linked.childId, routed.linked.parentId);

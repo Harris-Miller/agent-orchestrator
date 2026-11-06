@@ -9,10 +9,15 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { backendHarnessStateAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
-import { cancelSubagentAtomFn, respondPermissionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { canCancelSubagent, getSubagent, isSubagentFinished } from '../../host/subagent.ts';
+import {
+  cancelSubagentAtomFn,
+  respondElicitationAtomFn,
+  respondPermissionAtomFn,
+} from '../../atoms/boundHarnessAtoms.ts';
+import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
+import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
 import { subagentStateLabel } from './SubagentRows.tsx';
 
@@ -23,12 +28,13 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
   const snapshot = useAtomValue(backendHarnessStateAtom(viewed?.launchTarget ?? 'codex-acp'));
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
+  const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const child = viewed === undefined ? undefined : getSubagent(snapshot.subagents, viewed.childId);
   if (viewed === undefined || child === undefined) return null;
   const chip = subagentStateLabel(child);
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
-  const running = child.state !== undefined && !isSubagentFinished(child.state);
+  const running = child.state?.state === 'running' || child.state?.state === 'requires_action';
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
       <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, p: 1 }}>
@@ -81,6 +87,37 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
           )}
         </List>
       </Box>
+      {child.pendingElicitation === undefined ? null : (
+        <Box sx={{ maxHeight: '40%', overflowY: 'auto', px: 1, py: 0.5 }}>
+          <PendingElicitationCard
+            agentTitle={child.name ?? 'Subagent'}
+            key={child.pendingElicitation.id}
+            onAccept={(content, summary) => {
+              respondElicitation({
+                launchTarget: viewed.launchTarget,
+                response: { action: 'accept', content },
+                sessionId: child.sessionId,
+                summary,
+              }).catch(onClientError);
+            }}
+            onCancel={() => {
+              respondElicitation({
+                launchTarget: viewed.launchTarget,
+                response: { action: 'cancel' },
+                sessionId: child.sessionId,
+              }).catch(onClientError);
+            }}
+            onDecline={() => {
+              respondElicitation({
+                launchTarget: viewed.launchTarget,
+                response: { action: 'decline' },
+                sessionId: child.sessionId,
+              }).catch(onClientError);
+            }}
+            request={child.pendingElicitation.request}
+          />
+        </Box>
+      )}
       <Alert severity="info" sx={{ m: 1 }}>
         Subagent session — read-only.
       </Alert>

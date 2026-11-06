@@ -903,7 +903,9 @@ export const SessionChatBody: FC<{
 }> = props => {
   const viewed = useAtomValue(viewedSubagentAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  return viewed !== undefined && viewed.rootSessionId === selectedSessionId ? (
+  const viewedChildExists =
+    useAtomValue(selectedBackendHarnessSnapshotAtom)?.subagents[viewed?.childId ?? ''] !== undefined;
+  return viewed !== undefined && viewed.rootSessionId === selectedSessionId && viewedChildExists ? (
     <SubagentView onClientError={props.onClientError} />
   ) : (
     <SessionChatBodyInner {...props} />

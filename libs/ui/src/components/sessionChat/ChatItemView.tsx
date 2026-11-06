@@ -38,7 +38,7 @@ import {
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { ChatMarkdown } from './ChatMarkdown.tsx';
-import { DisclosureButton, DisclosureChevron } from './DisclosureButton.tsx';
+import { DisclosureButton, DisclosureChevron, DisclosureChevronSpacer } from './DisclosureButton.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownBlockMarkers.ts';
 import { ComposerChipContent } from './ComposerChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from './useChatLinkProps.ts';
@@ -439,7 +439,7 @@ const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ i
           {item.status}
         </Typography>
       ) : null}
-      {expandable ? <DisclosureChevron open={open} /> : null}
+      {expandable ? <DisclosureChevron open={open} /> : <DisclosureChevronSpacer />}
     </>
   );
   const rowSx = { alignItems: 'center', display: 'flex', gap: 1, width: '100%' } as const;

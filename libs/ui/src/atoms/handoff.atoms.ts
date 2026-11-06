@@ -34,7 +34,8 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
   message: Schema.String,
 }) {}
 
-const promptPinnedSession = Effect.fn('promptPinnedSession')(
+/** Prompt a Session pinned by launch target as a new turn (never Steering). Exported for the turnAction gate tests. */
+export const promptPinnedSession = Effect.fn('promptPinnedSession')(
   function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext, sessionId: string, text: string) {
     const trimmed = text.trim();
     const snapshot = get(backendHarnessSnapshotAtom(launchTarget));

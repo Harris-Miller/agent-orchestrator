@@ -181,8 +181,8 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
       Effect.fn('submitComposerAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
         const { registry } = get;
         const { action, target } = registry.get(composerAtom);
-        yield* Effect.annotateCurrentSpan('composer.action', action._tag);
         if (target?._tag === 'Virtual') {
+          yield* Effect.annotateCurrentSpan('composer.action', action._tag);
           if (action._tag === 'Send') {
             // The draft stays on the Virtual session until Materialize succeeds (ui ADR-0007).
             yield* sendVirtual(registry, materialized =>
@@ -192,10 +192,12 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
         if (target?.launchTarget === undefined || (action._tag !== 'Send' && action._tag !== 'Steer')) {
+          yield* Effect.annotateCurrentSpan('composer.action', action._tag);
           return;
         }
         const { launchTarget, sessionId } = target;
         const taken = takeSessionDraft(registry, sessionId);
+        yield* Effect.annotateCurrentSpan('composer.action', action._tag);
         const arg = { attachments: taken.attachments, launchTarget, sessionId, text: taken.draft };
         if (action._tag === 'Send') {
           // The message is already in the transcript when a prompt fails, so the draft is not restored.

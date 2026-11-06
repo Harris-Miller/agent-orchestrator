@@ -14,6 +14,7 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { turnAction } from '../host/composerAction.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
@@ -33,28 +34,28 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
   message: Schema.String,
 }) {}
 
-const promptPinnedSession = Effect.fn('promptPinnedSession')(
+/** Prompt a Session pinned by launch target as a new turn (never Steering). Exported for the turnAction gate tests. */
+export const promptPinnedSession = Effect.fn('promptPinnedSession')(
   function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext, sessionId: string, text: string) {
     const trimmed = text.trim();
-    if (trimmed.length === 0) {
-      return yield* new HandoffError({ message: 'Handoff prompt text is empty' });
-    }
-
     const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
     if (!isUsablePhase(snapshot.phase)) {
       return yield* new HandoffError({ message: `Backend not usable for ${agentLaunchTargetLabel(launchTarget)}` });
     }
 
-    const session = snapshot.sessions[sessionId];
-    if (session.status !== 'active') {
-      return yield* new HandoffError({ message: `Session ${sessionId} is not active` });
-    }
-    if (
-      session.pendingClientRequest !== undefined ||
-      session.pendingElicitation !== undefined ||
-      session.pendingPermission !== undefined
-    ) {
-      return yield* new HandoffError({ message: `Session ${sessionId} cannot accept a prompt right now` });
+    // A Handoff prompt is a new turn, never Steering.
+    const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
+    const action = turnAction(session, { hasContent: trimmed.length > 0, steeringSupported: false });
+    if (action._tag !== 'Send') {
+      // Not active is reported first, even with a Pending client request (e.g. mid-Deactivate).
+      return yield* new HandoffError({
+        message:
+          session?.status !== 'active'
+            ? `Session ${sessionId} is not active`
+            : action._tag === 'Unavailable' && action.reason === 'Empty'
+              ? 'Handoff prompt text is empty'
+              : `Session ${sessionId} cannot accept a prompt right now`,
+      });
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });

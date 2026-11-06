@@ -10,8 +10,16 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, Lifecycle lock (Materialize only), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
+**Composer**:
+The draft editor for the Selected target: text and Composer Image Attachments, kept per Session or on the Virtual session, plus the one Composer action it offers. Stays editable during a prompt turn (Draft during turn); not editable while its Session is not active, while a Handoff runs, or while a Virtual Send is pending.
+_Avoid_: chat input, prompt box, input bar
+
+**Composer action**:
+What submitting the Composer does right now: Send, Steering, Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send or Steering, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
+_Avoid_: primary button state, canSend, canSteer
+
 **Draft during turn**:
-Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering; otherwise it stays in the Composer and is sent as a normal prompt after the turn ends.
+Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering; otherwise it stays in the Composer and is sent as a normal prompt after the turn ends. If Steering fails, the message goes back into that Session's Composer, ahead of anything typed since.
 _Avoid_: Queued prompt, pending message, outbox
 
 **Bind**:

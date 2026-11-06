@@ -1,64 +1,55 @@
-/** Derived Virtual-vs-Session composer surface — one branch instead of scattered isVirtual ternaries. */
-import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+/**
+ * The chat surface for the Selected target: the Composer model (draft, Composer action, edit / submit / Prompt turn
+ * cancel) plus transcript, Config rows, provider picker data and Fork / Handoff gates.
+ */
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useCallback, useMemo } from 'react';
 
 import {
-  backendHarnessSnapshotAtom,
-  configOptionIndexAtom,
+  configOptionIndexByLaunchTargetAtom,
   launchTargetUnavailableReasonsAtom,
   pickerLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
   usableLaunchTargetsAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
+  cancelPromptAtomFn,
+  editComposerAtomFn,
   forkSessionAtomFn,
-  patchVirtualSessionAtomFn,
   providerViewsAtom,
   setVirtualLaunchTargetAtomFn,
+  submitComposerAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { composerAttachmentsAtom, draftAtom } from '../../atoms/chat.atoms.ts';
-import { handoffInProgressAtom } from '../../atoms/handoff.atoms.ts';
-import { selectedActiveSessionAtom } from '../../atoms/selectedActiveSession.atoms.ts';
+import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
-import {
-  virtualMaterializingAtom,
-  virtualSendPendingAtom,
-  virtualSessionAtom,
-} from '../../atoms/virtualSession.atoms.ts';
-import {
-  hasSessionForkCapability,
-  hasSteeringSupport,
-  normalizeConfigOptions,
-} from '../../host/acpSessionBootstrap.ts';
+import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
+import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { unavailableReason } from '../../host/providerView.ts';
-import type { ComposerImageAttachment } from '../../host/composerImageAttachment.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import { unavailableReason } from '../../host/providerView.ts';
 
 export const useSessionChatSurface = () => {
-  const selected = useAtomValue(selectedAtom);
-  const isVirtual = selected?._tag === 'Virtual';
+  const composer = useAtomValue(composerAtom);
+  const isVirtual = useAtomValue(selectedAtom)?._tag === 'Virtual';
   const virtualSession = useAtomValue(virtualSessionAtom);
-  const activeSession = useAtomValue(selectedActiveSessionAtom);
-  const selectedLaunchTargetFromSession = useAtomValue(selectedSessionLaunchTargetAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const draftSessionId = selectedSessionId ?? '';
-  const [sessionDraft, setSessionDraft] = useAtom(draftAtom(draftSessionId));
-  const [sessionAttachments, setSessionAttachments] = useAtom(composerAttachmentsAtom(draftSessionId));
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const materializing = useAtomValue(virtualMaterializingAtom);
-  const sendPendingAtomValue = useAtomValue(virtualSendPendingAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const usableLaunchTargets = useAtomValue(usableLaunchTargetsAtom);
   const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
   const harnessReasons = useAtomValue(launchTargetUnavailableReasonsAtom);
   const providers = useAtomValue(providerViewsAtom);
+  const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
+  const edit = useAtomSet(editComposerAtomFn);
+  const submitComposer = useAtomSet(submitComposerAtomFn, { mode: 'promise' });
+  const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
+  const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
+  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
+
   const unavailableReasons = useMemo(() => {
     const reasons = { ...harnessReasons };
     for (const provider of providers) {
@@ -67,70 +58,26 @@ export const useSessionChatSurface = () => {
     }
     return reasons;
   }, [harnessReasons, providers]);
-  const claudeConfigIndex = useAtomValue(configOptionIndexAtom('claude-agent-acp'));
-  const codexConfigIndex = useAtomValue(configOptionIndexAtom('codex-acp'));
-  const cursorConfigIndex = useAtomValue(configOptionIndexAtom('cursor-acp'));
-  const antigravityConfigIndex = useAtomValue(configOptionIndexAtom('antigravity-acp'));
-  const patchVirtualSession = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
-  const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
-  const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
-
-  const selectedLaunchTarget = isVirtual ? virtualSession?.launchTarget : selectedLaunchTargetFromSession;
-  const activeBackendSnapshot = useAtomValue(backendHarnessSnapshotAtom(activeSession?.launchTarget ?? 'codex-acp'));
-  const selectedLaunchHarness = useAtomValue(
-    backendHarnessSnapshotAtom(selectedLaunchTarget ?? activeSession?.launchTarget ?? 'codex-acp'),
-  );
-  const boundVirtualSession =
-    isVirtual && activeSession !== undefined ? activeBackendSnapshot.sessions[activeSession.sessionId] : undefined;
 
   const getConfigOptionIndex = useCallback(
-    (launchTarget: AgentLaunchTarget) => {
-      switch (launchTarget) {
-        case 'antigravity-acp':
-          return antigravityConfigIndex;
-        case 'claude-agent-acp':
-          return claudeConfigIndex;
-        case 'codex-acp':
-          return codexConfigIndex;
-        case 'cursor-acp':
-          return cursorConfigIndex;
-      }
-    },
-    [antigravityConfigIndex, claudeConfigIndex, codexConfigIndex, cursorConfigIndex],
+    (launchTarget: AgentLaunchTarget) => configOptionIndexes[launchTarget],
+    [configOptionIndexes],
   );
 
-  const draft = isVirtual ? (virtualSession?.draft ?? '') : sessionDraft;
-  const setDraft = useCallback(
-    (text: string) => {
-      if (isVirtual) {
-        patchVirtualSession({ draft: text }).catch(() => undefined);
-        return;
-      }
-      setSessionDraft(text);
-    },
-    [isVirtual, patchVirtualSession, setSessionDraft],
-  );
+  const { target } = composer;
+  const selectedLaunchTarget = target?.launchTarget;
 
-  const attachments: readonly ComposerImageAttachment[] = isVirtual
-    ? (virtualSession?.attachments ?? [])
-    : sessionAttachments;
-  const setAttachments = useCallback(
-    (next: readonly ComposerImageAttachment[]) => {
-      if (isVirtual) {
-        patchVirtualSession({ attachments: next }).catch(() => undefined);
-        return;
-      }
-      setSessionAttachments(next);
-    },
-    [isVirtual, patchVirtualSession, setSessionAttachments],
-  );
+  const submit = useCallback(() => submitComposer(undefined), [submitComposer]);
+  const cancelPromptTurn = useCallback((): Promise<unknown> | undefined => {
+    if (target?._tag !== 'Session' || target.launchTarget === undefined || composer.action._tag !== 'CancelTurn') {
+      return undefined;
+    }
+    return cancelPrompt({ launchTarget: target.launchTarget, sessionId: target.sessionId });
+  }, [cancelPrompt, composer.action._tag, target]);
+
   const chatItems = useMemo(
     () => (isVirtual ? [] : (selectedSession?.transcript.items ?? [])),
     [isVirtual, selectedSession?.transcript],
-  );
-  const availableCommands = useMemo(
-    () => (isVirtual ? (boundVirtualSession?.availableCommands ?? []) : (selectedSession?.availableCommands ?? [])),
-    [boundVirtualSession?.availableCommands, isVirtual, selectedSession?.availableCommands],
   );
   const virtualConfigIndex =
     isVirtual && selectedLaunchTarget !== undefined ? getConfigOptionIndex(selectedLaunchTarget) : undefined;
@@ -140,45 +87,19 @@ export const useSessionChatSurface = () => {
   const configOptions = isVirtual
     ? optionsWithValues(rowForModel(virtualConfigIndex, virtualSelectedModelId), virtualConfigValues)
     : normalizeConfigOptions(selectedSession?.sessionConfiguration);
-  const hasPendingInteraction =
-    !isVirtual &&
-    (selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined);
-  const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
-  const canCancelPromptTurn = !isVirtual && selectedSession?.pendingClientRequest === 'prompt';
-  // Bind never locks the composer (optimistic, latest-wins); only Materialize (and handoff) does. A pending Send
-  // freezes just the draft text / attachments, not provider or config controls.
-  const virtualSendPending = isVirtual && sendPendingAtomValue;
-  const chromeLocked = handoffInProgress || (isVirtual && materializing);
-  const controlsEnabled = isVirtual
-    ? !chromeLocked
-    : selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !chromeLocked;
-  // Typing and attaching stay open mid-turn (and during config/interaction waits); only submit is gated.
-  const canEdit = isVirtual
-    ? !chromeLocked && !virtualSendPending
-    : selectedSession?.status === 'active' && !chromeLocked;
-  const virtualReady =
-    isVirtual &&
-    selectedLaunchTarget !== undefined &&
-    selectedLaunchHarness.phase !== 'error' &&
-    virtualSession?.cwd !== undefined;
-  const hasSendableContent = draft.trim().length > 0 || attachments.length > 0;
-  const canSend = isVirtual
-    ? controlsEnabled && virtualReady && hasSendableContent && !virtualSendPending
-    : controlsEnabled && selectedLaunchTarget !== undefined && hasSendableContent;
-  const steeringSupported = hasSteeringSupport(backendSnapshot?.initializeResult);
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );
   const canHandoffBase =
     !isVirtual &&
-    controlsEnabled &&
+    composer.controlsEnabled &&
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sessionCwd !== undefined;
   const canForkBase =
     !isVirtual &&
-    controlsEnabled &&
+    composer.controlsEnabled &&
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     sessionCwd !== undefined &&
@@ -201,34 +122,23 @@ export const useSessionChatSurface = () => {
   }, [canForkBase, forkSession, selectedLaunchTarget, selectedSessionId, sessionCwd]);
 
   return {
-    attachments,
-    availableCommands,
-    canCancelPromptTurn,
-    canEdit,
     canForkBase,
     canHandoffBase,
-    canSend,
     chatItems,
-    chromeLocked,
+    composer,
     configOptions,
-    controlsEnabled,
-    draft,
+    edit,
     getConfigOptionIndex,
-    hasPendingInteraction,
-    initializeResult: selectedLaunchTarget !== undefined ? selectedLaunchHarness.initializeResult : undefined,
     isVirtual,
-    pendingClientRequest,
-    usableLaunchTargets,
-    selectableLaunchTargets,
-    unavailableReasons,
     requestFork,
+    selectableLaunchTargets,
     selectedLaunchTarget,
     selectedSession,
     selectedSessionId,
-    setAttachments,
-    setDraft,
     setVirtualLaunchTarget,
-    steeringSupported,
-    virtualSendPending,
+    cancelPromptTurn,
+    submit,
+    unavailableReasons,
+    usableLaunchTargets,
   };
 };

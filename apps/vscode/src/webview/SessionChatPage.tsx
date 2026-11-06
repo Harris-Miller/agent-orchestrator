@@ -1,7 +1,9 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   activateSessionAtomFn,
+  AgentLaunchTargetIcon,
   clearSelectedAtomFn,
+  ConfirmSessionDeleteDialog,
   ensureVirtualSessionAtomFn,
   IconTooltipButton,
   isSessionActiveOrActivating,
@@ -9,15 +11,22 @@ import {
   selectedSessionAtom,
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
+  SessionActionsMenu,
   SessionChatBody,
+  sessionChatTitle,
   sessionCwdAtom,
-  SessionHeader,
   sessionListScopeAtom,
+  SessionTitleInlineRename,
   ToggleDeveloperPanelButton,
+  unifiedSessionHistoryAtom,
+  useSessionDeleteRequest,
+  useSessionTitleRename,
   virtualMaterializingAtom,
+  virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { History } from 'lucide-react';
 import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
@@ -35,7 +44,9 @@ export const SessionChatPage: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const virtualSession = useAtomValue(virtualSessionAtom);
+  const history = useAtomValue(unifiedSessionHistoryAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
@@ -58,10 +69,18 @@ export const SessionChatPage: FC = () => {
       ensureVirtualSession({ cwd: sessionCwd }).catch(onClientError);
     }
   };
+  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(
+    onClientError,
+    switchToVirtualSession,
+  );
 
   const isVirtual = selected?._tag === 'Virtual';
+  const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
   const sessionId = selectedSessionId;
   const status = selectedSession?.status ?? 'inactive';
+  const entry = sessionId === undefined ? undefined : history.find(row => row.sessionId === sessionId);
+  const rename = useSessionTitleRename(entry?.sessionId);
+  const title = sessionChatTitle(isVirtual, entry, launchTarget);
 
   useEffect(() => {
     if (isVirtual) {
@@ -95,11 +114,27 @@ export const SessionChatPage: FC = () => {
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
       <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
-        <SessionHeader
-          onBeforeAction={switchToVirtualSession}
-          onClientError={onClientError}
-          titleProps={{ sx: { fontWeight: 600 }, variant: 'subtitle1' }}
-        />
+        {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
+        {entry === undefined ? (
+          <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
+            {title}
+          </Typography>
+        ) : (
+          <>
+            <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
+              <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+                {title}
+              </Typography>
+            </SessionTitleInlineRename>
+            <SessionActionsMenu
+              entry={entry}
+              onBeforeAction={switchToVirtualSession}
+              onClientError={onClientError}
+              onDeleteRequest={requestDelete}
+              onRenameRequest={rename.onRenameRequest}
+            />
+          </>
+        )}
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <SettingsButton />
@@ -108,6 +143,12 @@ export const SessionChatPage: FC = () => {
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />
       </Box>
+      <ConfirmSessionDeleteDialog
+        onBeforeDelete={switchToVirtualSession}
+        onCancel={clearDeleteTarget}
+        onClientError={onClientError}
+        target={deleteTarget}
+      />
     </Box>
   );
 };

@@ -12,6 +12,7 @@ import {
   defectsFromActivationFailure,
   defectsFromCause,
   defectsFromWireCause,
+  groupAndSortSessionsByCwd,
   hasSessionArchiveCapability,
   hasSessionCloseCapability,
   hasSessionForkCapability,
@@ -370,8 +371,43 @@ describe('normalizeSessionInfoFromNew', () => {
   });
 });
 
+describe('groupAndSortSessionsByCwd', () => {
+  it('groups by cwd, sorts sessions and groups by updatedAt desc, missing last', () => {
+    const history: readonly UnifiedHistoryEntry[] = [
+      { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'claude-agent-acp', sessionId: 'c', updatedAt: '2024-03-01T00:00:00.000Z' },
+      { cwd: '/new', launchTarget: 'antigravity-acp', sessionId: 'd' },
+      { cwd: '/mid', launchTarget: 'antigravity-acp', sessionId: 'e', updatedAt: '2024-02-01T00:00:00.000Z' },
+    ];
+
+    const groups = groupAndSortSessionsByCwd(history);
+    assert.deepStrictEqual(
+      groups.map(group => group.cwd),
+      ['/new', '/mid', '/old'],
+    );
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['b', 'c', 'd'],
+    );
+  });
+
+  it('tie-breaks equal updatedAt by sessionId', () => {
+    const history: readonly UnifiedHistoryEntry[] = [
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
+    ];
+
+    const groups = groupAndSortSessionsByCwd(history);
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['a', 'z'],
+    );
+  });
+});
+
 describe('sessionsForCwd', () => {
-  it('returns the entries for cwd newest first, missing updatedAt last; empty when none', () => {
+  it('returns the matching cwd group in groupAndSort order; empty when missing', () => {
     const history: readonly UnifiedHistoryEntry[] = [
       { cwd: '/old', launchTarget: 'antigravity-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
       { cwd: '/new', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-06-01T00:00:00.000Z' },
@@ -385,18 +421,6 @@ describe('sessionsForCwd', () => {
     );
     assert.deepStrictEqual(sessionsForCwd(history, '/missing'), []);
     assert.deepStrictEqual(sessionsForCwd(history, undefined), []);
-  });
-
-  it('tie-breaks equal updatedAt by sessionId', () => {
-    const history: readonly UnifiedHistoryEntry[] = [
-      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'z', updatedAt: '2024-01-01T00:00:00.000Z' },
-      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' },
-    ];
-
-    assert.deepStrictEqual(
-      sessionsForCwd(history, '/x').map(entry => entry.sessionId),
-      ['a', 'z'],
-    );
   });
 });
 

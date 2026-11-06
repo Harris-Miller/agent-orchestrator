@@ -16,7 +16,11 @@ import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { selectedBackendHarnessSnapshotAtom, subagentViewAtom } from '../../atoms/backendState.atoms.ts';
+import {
+  selectedBackendHarnessSnapshotAtom,
+  selectedSessionIdAtom,
+  viewedSubagentAtom,
+} from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
   alwaysHiddenGlobsAtom,
@@ -850,10 +854,13 @@ export const SessionChatBody: FC<{
   readonly onClientError: (error: unknown) => void;
   readonly virtualEmptyState?: ReactNode;
 }> = props => {
-  const subagentView = useAtomValue(subagentViewAtom);
-  return subagentView === undefined ? (
-    <SessionChatBodyInner {...props} />
-  ) : (
+  const viewed = useAtomValue(viewedSubagentAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const viewedChildExists =
+    useAtomValue(selectedBackendHarnessSnapshotAtom)?.subagents[viewed?.childId ?? ''] !== undefined;
+  return viewed !== undefined && viewed.rootSessionId === selectedSessionId && viewedChildExists ? (
     <SubagentView onClientError={props.onClientError} />
+  ) : (
+    <SessionChatBodyInner {...props} />
   );
 };

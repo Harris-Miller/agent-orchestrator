@@ -14,7 +14,6 @@ import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 
@@ -163,19 +162,6 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   }
   return get(backendHarnessSnapshotAtom(launchTarget));
 }).pipe(Atom.keepAlive);
-
-/**
- * The Subagent view on screen, if any: the viewed child belongs to the Selected session and still exists in its
- * snapshot. Otherwise the Selected session's own transcript shows (glossary: Subagent view).
- */
-export const subagentViewAtom = Atom.make(get => {
-  const viewed = get(viewedSubagentAtom);
-  if (viewed === undefined || viewed.rootSessionId !== get(selectedSessionIdAtom)) {
-    return undefined;
-  }
-  const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
-  return subagents === undefined || getSubagent(subagents, viewed.childId) === undefined ? undefined : viewed;
-});
 
 /** RPC wire logs for every mounted launch target (unified Developer panel wire tab). */
 export const allRpcWireCallsAtom = Atom.make(get =>

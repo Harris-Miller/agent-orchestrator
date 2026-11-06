@@ -1,6 +1,6 @@
 /**
  * Desktop Sessions panel grouping: exact-cwd groups plus a shared No Folder bucket.
- * VS Code Session History does not group; it uses {@link sessionsForCwd} for the Workspace cwd.
+ * Does not replace {@link groupAndSortSessionsByCwd} (VS Code Session History).
  */
 
 import { compareHistoryEntriesByUpdatedAtDesc } from './acpSessionBootstrap.ts';

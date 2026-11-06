@@ -79,7 +79,7 @@ Session History display group for Session cwds that match vendor Desktop project
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
 **Session header**:
-The top row of the chat surface (desktop main chat and VS Code Chat) showing the Selected session's agent launch target icon and title.
+The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when a Session with a History entry is Selected. Each host adds its own controls before and after it.
 _Avoid_: chat header, title bar
 
 **Pin**:
@@ -90,7 +90,7 @@ _Avoid_: favorite, star, bookmark; "pinned-session handoff prompt" is unrelated 
 The top Session History region listing visible pinned entries newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename ("No Folder" for scratch cwds), shown regardless of the No Folder group setting. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
 
 **Session actions**:
-The per-session menu of actions: Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected).
+The per-session menu of actions: Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).
 _Avoid_: dotdotdot menu, kebab menu, session options
 
 **Session title**:
@@ -290,6 +290,10 @@ _Avoid_: Connection span, live connection, session (when you mean setup)
 **Subagent session**:
 A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, usage file, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
 _Avoid_: Child chat, nested session, sub-session
+
+**Subagent view**:
+The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
+_Avoid_: child view, subagent page, viewed subagent (when you mean what is on screen)
 
 **Work state**:
 A subagent's open-union state: `running`, `requires_action`, `idle`, `completed`, or an unknown string (rendered neutral). `completed` and `idle` both display as finished. Reset to unconfirmed on load, resume, or connection loss.

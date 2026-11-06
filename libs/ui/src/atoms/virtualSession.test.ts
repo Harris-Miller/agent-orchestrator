@@ -44,6 +44,7 @@ import {
   sendVirtual,
   setVirtualConfigOption,
   setVirtualLaunchTarget,
+  updateVirtualDraft,
   virtualMaterializingAtom,
   virtualSendPendingAtom,
   virtualSessionAtom,
@@ -642,6 +643,31 @@ describe('Send', () => {
 
       assert.deepStrictEqual(during, { draft: 'hello', locked: true, pending: true });
       assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a draft update from the latest blob is inert while the Lifecycle lock is held, and with no blob', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = yield* freshRegistry;
+      const during: { draft?: string; locked?: boolean } = {};
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          updateVirtualDraft(registry, () => ({ draft: 'changed' }));
+          during.draft = blob(registry)?.draft;
+          during.locked = registry.get(virtualMaterializingAtom);
+        }),
+      });
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+      const recorder = recordingPrompt(calls);
+
+      yield* sendVirtual(registry, recorder.prompt);
+
+      assert.deepStrictEqual(during, { draft: 'hello', locked: true });
+      assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
+      assert.isNull(blob(registry));
+      updateVirtualDraft(registry, () => ({ draft: 'changed' }));
+      assert.isNull(blob(registry));
     }).pipe(Effect.scoped),
   );
 

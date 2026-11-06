@@ -1,6 +1,6 @@
 /**
- * The chat surface for the Selected target: the Composer model (draft, Composer action, edit / submit / Prompt turn
- * cancel) plus transcript, Config rows, provider picker data and Fork / Handoff gates.
+ * The chat surface for the Selected target: the Composer model (draft, Composer action, edit / attach images / submit /
+ * Prompt turn cancel) plus transcript, Config rows, provider picker data and Fork / Handoff gates.
  */
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useCallback, useMemo } from 'react';
@@ -16,6 +16,7 @@ import {
   usableLaunchTargetsAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
+  attachComposerImagesAtomFn,
   cancelPromptAtomFn,
   editComposerAtomFn,
   forkSessionAtomFn,
@@ -45,6 +46,7 @@ export const useSessionChatSurface = () => {
   const providers = useAtomValue(providerViewsAtom);
   const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
   const edit = useAtomSet(editComposerAtomFn);
+  const attachImages = useAtomSet(attachComposerImagesAtomFn, { mode: 'promise' });
   const submitComposer = useAtomSet(submitComposerAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
@@ -122,6 +124,7 @@ export const useSessionChatSurface = () => {
   }, [canForkBase, forkSession, selectedLaunchTarget, selectedSessionId, sessionCwd]);
 
   return {
+    attachImages,
     canForkBase,
     canHandoffBase,
     chatItems,

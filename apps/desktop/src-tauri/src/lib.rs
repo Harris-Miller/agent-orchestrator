@@ -299,6 +299,10 @@ fn reap_tracked_children(state: &TrackedChildPids) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // GUI launches (Finder/Dock) get a minimal PATH; load the login shell's. No-op on Windows.
+    let _ = fix_path_env::fix();
+
+
     #[cfg(debug_assertions)]
     {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.env.development");

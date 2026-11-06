@@ -2,7 +2,6 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
@@ -19,7 +18,7 @@ import { canCancelSubagent, getSubagent, isSubagentFinished, isSubagentTerminal 
 import { ChatItemView } from './ChatItemView.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { subagentStateLabel } from './subagentStateLabel.ts';
+import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 
 /** Read-only full-pane view of one subagent child: header, task, transcript, approval card. No composer. */
 export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
@@ -31,7 +30,6 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const child = viewed === undefined ? undefined : getSubagent(snapshot.subagents, viewed.childId);
   if (viewed === undefined || child === undefined) return null;
-  const chip = subagentStateLabel(child);
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
   const running =
@@ -49,8 +47,8 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
         >
           ← {parent?.name ?? 'Back'}
         </Button>
+        <SubagentStatusIndicator child={child} />
         <Typography sx={{ fontWeight: 600 }}>{child.name ?? 'Subagent'}</Typography>
-        <Chip color={chip.color} label={chip.label} size="small" variant="outlined" />
         {running && canCancelSubagent(child) ? (
           <Button
             color="warning"

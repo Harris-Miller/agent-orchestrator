@@ -1,25 +1,24 @@
 import { isSubagentFinished, subagentNeedsInput } from '../../host/subagent.ts';
 import type { SubagentSnapshot } from '../../host/subagent.ts';
 
-type StateLabel = { color: 'default' | 'error' | 'success' | 'warning'; label: string };
+export type SubagentStatus = 'cancelled' | 'failed' | 'finished' | 'needs_input' | 'running' | 'unknown';
 
-export const subagentStateLabel = (child: SubagentSnapshot): StateLabel => {
-  if (subagentNeedsInput(child)) return { color: 'warning', label: 'Needs input' };
+/** Presentation bucket for a child; unknown wire strings land in `unknown` (neutral, never an error). */
+export const subagentStatus = (child: SubagentSnapshot): SubagentStatus => {
+  if (subagentNeedsInput(child)) return 'needs_input';
   if (child.state === undefined) {
     // A fresh spawn has not reported yet (Claude never does while working); a reset one is genuinely unconfirmed.
-    return child.stateUnconfirmed === true
-      ? { color: 'default', label: 'Unknown' }
-      : { color: 'default', label: 'Running' };
+    return child.stateUnconfirmed === true ? 'unknown' : 'running';
   }
-  if (isSubagentFinished(child.state)) return { color: 'success', label: 'Finished' };
+  if (isSubagentFinished(child.state)) return 'finished';
   switch (child.state.state) {
     case 'running':
-      return { color: 'default', label: 'Running' };
+      return 'running';
     case 'cancelled':
-      return { color: 'default', label: 'Cancelled' };
+      return 'cancelled';
     case 'failed':
-      return { color: 'error', label: 'Failed' };
+      return 'failed';
     default:
-      return { color: 'default', label: child.state.state };
+      return 'unknown';
   }
 };

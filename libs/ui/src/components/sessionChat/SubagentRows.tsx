@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
@@ -12,7 +11,7 @@ import {
 } from '../../atoms/backendState.atoms.ts';
 import type { InterSessionMessage } from '../../host/sessionUpdateReducer.ts';
 import { getSubagent, rootAncestorId, subagentLatestActivity } from '../../host/subagent.ts';
-import { subagentStateLabel } from './subagentStateLabel.ts';
+import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 
 /** Subagent map of the selected session's provider (codex-acp fallback keeps the hook unconditional). */
 const useSelectedSubagents = () => {
@@ -26,7 +25,6 @@ export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> =
   const child = getSubagent(subagents, item.subagentSessionId);
   const setViewed = useAtomSet(viewedSubagentAtom);
   if (child === undefined) return null;
-  const chip = subagentStateLabel(child);
   const activity = subagentLatestActivity(child);
   return (
     <ListItem sx={{ display: 'block', py: 0.25 }}>
@@ -51,10 +49,10 @@ export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> =
           py: 0.5,
         }}
       >
+        <SubagentStatusIndicator child={child} />
         <Typography sx={{ fontWeight: 600 }} variant="body2">
           {child.name ?? 'Subagent'}
         </Typography>
-        <Chip color={chip.color} label={chip.label} size="small" variant="outlined" />
         <Typography color="text.secondary" noWrap sx={{ flex: 1 }} variant="caption">
           {activity ?? ''}
         </Typography>

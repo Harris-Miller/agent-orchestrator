@@ -1,6 +1,6 @@
 /** Chat effects (Send, Steering) and prompt-cancel / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Clock, Effect } from 'effect';
+import { Clock, Effect, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -43,6 +43,12 @@ export const slimImageRefsFromAttachments = (
     uri: attachment.uri,
   }));
 
+/** A Send or Steering was refused because {@link turnAction} does not decide that Composer action right now. */
+export class ComposerActionUnavailable extends Schema.TaggedError<ComposerActionUnavailable>()(
+  'ComposerActionUnavailable',
+  { message: Schema.String },
+) {}
+
 /** The Composer action {@link turnAction} decides for this draft on `arg.sessionId`, with the session it read. */
 const turnActionFor = (
   arg: {
@@ -80,7 +86,7 @@ export const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   const { action, session } = turnActionFor(arg, trimmed, get);
 
   if (action._tag !== 'Send' || session === undefined) {
-    return yield* Effect.fail(new Error('Sending is not available for this session right now'));
+    return yield* new ComposerActionUnavailable({ message: 'Sending is not available for this session right now' });
   }
 
   yield* Effect.annotateCurrentSpan({
@@ -151,7 +157,7 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
 
   if (action._tag !== 'Steer' || session === undefined) {
     // Caller already cleared the draft; fail so it restores instead of silently dropping the message.
-    return yield* Effect.fail(new Error('Steering is not available for this session right now'));
+    return yield* new ComposerActionUnavailable({ message: 'Steering is not available for this session right now' });
   }
 
   yield* Effect.annotateCurrentSpan({

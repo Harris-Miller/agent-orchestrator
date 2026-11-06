@@ -12,7 +12,11 @@ import {
   normalizeSessionHistory,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
+import { turnAction } from './composerAction.ts';
+import type { ComposerAction } from './composerAction.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
+import { appendUserChatMessage, stampUserMessageTiming } from './sessionUpdateReducer.ts';
+import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
 import { resetSubagentLiveState } from './subagent.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
@@ -143,46 +147,106 @@ export const upsertIntoSnapshot = (
 };
 
 /**
- * Gate for outbound client→agent RPCs. Returns undefined when the session cannot accept the request;
- * otherwise the snapshot with pendingClientRequest set.
+ * Whether `sessionId` can take a client request right now, as the Composer action rule ({@link turnAction}) decides it,
+ * plus a usable Bootstrap phase. Consulted without Steering, so a prompt in flight is `CancelTurn`, never `Steer`.
+ */
+const clientRequestAction = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  hasContent: boolean,
+): ComposerAction =>
+  isUsablePhase(snapshot.phase)
+    ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, {
+        hasContent,
+        steeringSupported: false,
+      })
+    : { _tag: 'Unavailable', reason: 'NotReady' };
+
+/**
+ * Gate for outbound client→agent RPCs (the Composer action rule). Returns undefined when the session cannot accept
+ * the request; otherwise the snapshot with pendingClientRequest set.
  */
 export const beginClientRequest = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
   kind: PendingClientRequestKind,
-): BackendHarnessSnapshot | undefined => {
-  if (!(sessionId in snapshot.sessions)) {
-    return undefined;
+): BackendHarnessSnapshot | undefined =>
+  clientRequestAction(snapshot, sessionId, true)._tag === 'Send'
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, current => ({ ...current, pendingClientRequest: kind })),
+      }
+    : undefined;
+
+/**
+ * Clear pendingClientRequest and promptCancelRequested after a client request completes. A Session no longer in the
+ * map stays dropped.
+ */
+export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, entry => ({
+          ...entry,
+          pendingClientRequest: undefined,
+          promptCancelRequested: undefined,
+        })),
+      }
+    : snapshot;
+
+export type PromptTurnBegin =
+  | { readonly _tag: 'Begun'; readonly snapshot: BackendHarnessSnapshot; readonly turnId: string }
+  | { readonly _tag: 'Refused'; readonly action: ComposerAction };
+
+/**
+ * Prompt turn begin, in one step: the Composer action rule must decide Send; then the Pending client request is set
+ * and the user message appended, stamped `startedAt`. `turnId` is that message's id. Refused leaves nothing changed.
+ */
+export const beginPromptTurn = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  turn: { readonly images?: readonly UserMessageImageRef[]; readonly startedAt: number; readonly text: string },
+): PromptTurnBegin => {
+  const images = turn.images !== undefined && turn.images.length > 0 ? turn.images : undefined;
+  const action = clientRequestAction(snapshot, sessionId, turn.text.length > 0 || images !== undefined);
+  if (action._tag !== 'Send') {
+    return { _tag: 'Refused', action };
   }
   const session = snapshot.sessions[sessionId];
-  if (
-    !isUsablePhase(snapshot.phase) ||
-    session.status !== 'active' ||
-    session.pendingClientRequest !== undefined ||
-    session.pendingElicitation !== undefined ||
-    session.pendingPermission !== undefined
-  ) {
-    return undefined;
-  }
-
+  const appended = appendUserChatMessage(session.transcript, turn.text, images);
+  const turnId = appended.items.at(-1)?.id ?? '';
   return {
-    ...snapshot,
-    sessions: patchSession(snapshot.sessions, sessionId, current => ({
-      ...current,
-      pendingClientRequest: kind,
-    })),
+    _tag: 'Begun',
+    snapshot: {
+      ...snapshot,
+      sessions: upsertSession(snapshot.sessions, {
+        ...session,
+        pendingClientRequest: 'prompt',
+        transcript: stampUserMessageTiming(appended, turnId, { startedAt: turn.startedAt }),
+      }),
+    },
+    turnId,
   };
 };
 
-/** Clear pendingClientRequest and promptCancelRequested after a client request completes. */
-export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
-  ...snapshot,
-  sessions: patchSession(snapshot.sessions, sessionId, entry => ({
-    ...entry,
-    pendingClientRequest: undefined,
-    promptCancelRequested: undefined,
-  })),
-});
+/** Prompt turn end: {@link endClientRequest} and `endedAt` on the turn's user message. A dropped Session stays dropped. */
+export const endPromptTurn = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  turnId: string,
+  endedAt: number,
+): BackendHarnessSnapshot => {
+  const ended = endClientRequest(snapshot, sessionId);
+  return ended === snapshot
+    ? snapshot
+    : {
+        ...ended,
+        sessions: patchSession(ended.sessions, sessionId, session => ({
+          ...session,
+          transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),
+        })),
+      };
+};
 
 /**
  * Connection lost: local state once the provider's ACP Connection is gone. Every session inactive with pendings

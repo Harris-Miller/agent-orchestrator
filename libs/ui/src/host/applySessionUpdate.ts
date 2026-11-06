@@ -3,13 +3,7 @@ import { isRecord } from '../isRecord.ts';
 
 import { applySessionInfoTitle, applySetConfigOptionResult, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
-import {
-  appendUserChatMessage,
-  parseAvailableCommands,
-  parseUsageUpdate,
-  reduceSessionUpdate,
-} from './sessionUpdateReducer.ts';
-import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
+import { parseAvailableCommands, parseUsageUpdate, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
 export type ApplySessionUpdateResult =
   | { readonly kind: 'noop' }
@@ -19,17 +13,6 @@ export type ApplySessionUpdateResult =
       readonly sessionHistory?: readonly NormalizedSessionInfo[];
       readonly usageChanged: boolean;
     };
-
-/** Append a local user prompt to the session transcript; other snapshot fields unchanged. */
-export const withUserChatMessage = (
-  session: SessionSnapshot,
-  text: string,
-  images?: readonly UserMessageImageRef[],
-  options?: { readonly steering?: true },
-): SessionSnapshot => ({
-  ...session,
-  transcript: appendUserChatMessage(session.transcript, text, images, options),
-});
 
 /**
  * Fold one raw session/update into the next session snapshot (and history title when needed).

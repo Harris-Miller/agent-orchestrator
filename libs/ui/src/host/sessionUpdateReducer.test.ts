@@ -2,6 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { ChatItem } from './sessionUpdateReducer.ts';
 import {
+  appendUserChatMessage,
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
   reduceSessionUpdate,
@@ -351,6 +352,37 @@ describe('stampUserMessageTiming', () => {
     const out = stampUserMessageTiming(t, 'b', { startedAt: 5 });
     assert.deepStrictEqual(out.items[0], t.items[0]);
     assert.deepStrictEqual(out.items[1], { ...t.items[1], startedAt: 5 });
+  });
+});
+
+describe('appendUserChatMessage', () => {
+  it('appends a user_message as a new item', () => {
+    const base = emptySessionTranscript();
+    const next = appendUserChatMessage(base, 'hello');
+    assert.strictEqual(next.items.length, 1);
+    assert.deepStrictEqual(next.items[0], { id: next.items[0]?.id, kind: 'user_message', text: 'hello' });
+    assert.notStrictEqual(next, base);
+  });
+
+  it('lifts mid-draft image file:// markdown into images (composer @ mention)', () => {
+    const next = appendUserChatMessage(
+      emptySessionTranscript(),
+      'Testing what happens [@laios_portrait.jpeg](file:///tmp/laios_portrait.jpeg) in the middle',
+    );
+    assert.deepStrictEqual(next.items, [
+      {
+        id: next.items[0]?.id,
+        images: [
+          {
+            mimeType: 'image/jpeg',
+            name: 'laios_portrait.jpeg',
+            uri: 'file:///tmp/laios_portrait.jpeg',
+          },
+        ],
+        kind: 'user_message',
+        text: 'Testing what happens in the middle',
+      },
+    ]);
   });
 });
 

@@ -204,6 +204,24 @@ describe('Composer action and submit agree', () => {
   );
 });
 
+describe('a refused Send gives the draft back', () => {
+  it.effect('when Bootstrap is not usable (the Composer still offers Send)', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      yield* h.edit({ draft: 'hello' });
+      setPhase(h.registry, CODEX, 'initialized');
+      assert.deepStrictEqual(h.registry.get(composerAtom).action, { _tag: 'Send' });
+
+      const exit = yield* h.submit;
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(h.calls, []);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+});
+
 describe('Draft during turn: failed Steering restores the draft (bug A)', () => {
   it.effect('restores ahead of text and attachments typed since', () =>
     Effect.gen(function* () {

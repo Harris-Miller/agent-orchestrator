@@ -10,7 +10,8 @@ import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
-import { configOptionIndexIsNonempty, mergeConfigOptionIndex } from '../host/configProbe.ts';
+import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
+import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
@@ -82,6 +83,7 @@ export const createHarnessAtoms = (
         const next = mergeConfigOptionIndex(previous, event);
         if (next !== undefined && next !== previous) {
           registry.set(configOptionIndexAtom(launchTarget), next);
+          resetVirtualConfig(next);
           persistConfigOptionIndex(next);
         }
       });

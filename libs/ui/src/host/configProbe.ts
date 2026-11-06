@@ -4,9 +4,10 @@ import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
-import { CONFIG_PROBE_CWD_PREFIX, normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
+import { CONFIG_PROBE_CWD_PREFIX } from './acpSessionBootstrap.ts';
+import { mergeConfigOptionIndex } from './configOptionIndexHydrate.ts';
 
-/** Shape is owned by the on-disk cache document; `unavailableModelIds` = advertised on session/new but soft-failed in Config probe. */
+/** Shape is owned by the on-disk cache document; `unavailableModelIds` = advertised on session/new but refused when picked. */
 export type ConfigOptionIndex = ConfigOptionIndexDocument;
 
 export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
@@ -52,62 +53,6 @@ export const preserveConfigValuesOnModelChange = (
   }
   return next;
 };
-
-/** Live ACP response that updates the Config option index (Lazy hydrate). */
-export type ConfigIndexEvent =
-  | { readonly _tag: 'SessionNew'; readonly response: unknown }
-  | { readonly _tag: 'ModelPicked'; readonly modelId: string; readonly response: unknown }
-  | { readonly _tag: 'ModelPickFailed'; readonly modelId: string };
-
-/**
- * Lazy hydrate: fold one live response into the index. `SessionNew` replaces the default row and model list
- * (dropping rows for models no longer advertised); model events need an existing index and are ignored without one.
- */
-export const mergeConfigOptionIndex = (
-  previous: ConfigOptionIndex | undefined,
-  event: ConfigIndexEvent,
-): ConfigOptionIndex | undefined => {
-  if (event._tag === 'SessionNew') {
-    const models = normalizeModels(event.response);
-    if (models.currentId === undefined) {
-      return previous;
-    }
-    const advertised = new Set(models.options.map(entry => entry.id));
-    advertised.add(models.currentId);
-    const kept = Object.entries(previous?.byModel ?? {}).filter(([modelId]) => advertised.has(modelId));
-    return {
-      byModel: { ...Object.fromEntries(kept), [models.currentId]: normalizeConfigOptions(event.response) },
-      defaultModelId: models.currentId,
-      unavailableModelIds: (previous?.unavailableModelIds ?? []).filter(modelId => advertised.has(modelId)),
-    };
-  }
-  if (previous === undefined) {
-    return previous;
-  }
-  const { [event.modelId]: _dropped, ...otherRows } = previous.byModel;
-  const otherUnavailable = previous.unavailableModelIds.filter(modelId => modelId !== event.modelId);
-  if (event._tag === 'ModelPicked') {
-    return {
-      ...previous,
-      byModel: { ...otherRows, [event.modelId]: normalizeConfigOptions(event.response) },
-      unavailableModelIds: otherUnavailable,
-    };
-  }
-  return { ...previous, byModel: otherRows, unavailableModelIds: [...otherUnavailable, event.modelId] };
-};
-
-/** Build index from raw responses stored as-is per model id (no cross-model merge). */
-export const configOptionIndexFromProbeResponses = (
-  defaultModelId: string,
-  byModelRaw: Readonly<Record<string, unknown>>,
-  unavailableModelIds: readonly string[] = [],
-): ConfigOptionIndex => ({
-  byModel: Object.fromEntries(
-    Object.entries(byModelRaw).map(([modelId, raw]) => [modelId, normalizeConfigOptions(raw)]),
-  ),
-  defaultModelId,
-  unavailableModelIds,
-});
 
 export const configOptionIndexIsNonempty = (index: ConfigOptionIndex | undefined): boolean =>
   index !== undefined && Object.keys(index.byModel).length > 0;

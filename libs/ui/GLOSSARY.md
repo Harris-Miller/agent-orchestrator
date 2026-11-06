@@ -69,11 +69,11 @@ Per-launch-target index of default model, per-model selectable option rows, and 
 _Avoid_: Provider catalog, harness defaults, config catalog
 
 **Config probe**:
-Runs only when no cached Config option index exists, before Bootstrap `usable`: one disposable-cwd `session/new` (then best-effort close/delete) that seeds the model list and the default model's row. Not an Active session; never Materialize; never a durable History entry the user should see. Canonical definition in the desktop glossary.
+Cold-cache seed of the Config option index, run before Bootstrap `usable`. Not an Active session; never Materialize. Canonical definition in the desktop glossary.
 _Avoid_: Session create, materialize, activate
 
 **Lazy hydrate**:
-Updating the Config option index from a live `session/new` or `session/set_config_option(model)` response instead of probing. Picking a model with no cached row sends `set_config_option` to the Virtual draft's Bound session to learn its row. Canonical definition in the desktop glossary.
+Keeping the Config option index current from live agent responses instead of probing every model. Canonical definition in the desktop glossary.
 _Avoid_: refresh, re-probe
 
 **Session History**:

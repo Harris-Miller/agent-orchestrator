@@ -21,14 +21,17 @@ export const optionsWithValues = (
     return option;
   });
 
-/** Models advertised by the default row's `model` select (rows for other models hydrate lazily). */
-const advertisedModelIds = (index: ConfigOptionIndex): readonly string[] => {
-  const modelOption = index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
-  return modelOption?.type === 'select' ? modelOption.choices.map(choice => choice.id) : [];
+/** The default row's `model` select: its choices are the advertised models (other rows hydrate lazily). */
+const defaultModelOption = (index: ConfigOptionIndex) =>
+  index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
+
+const isAdvertisedModel = (index: ConfigOptionIndex, modelId: string): boolean => {
+  const modelOption = defaultModelOption(index);
+  return modelOption?.type === 'select' && modelOption.choices.some(choice => choice.id === modelId);
 };
 
 const isKnownModel = (index: ConfigOptionIndex, modelId: string): boolean =>
-  modelId in index.byModel || advertisedModelIds(index).includes(modelId);
+  modelId in index.byModel || isAdvertisedModel(index, modelId);
 
 /** Row for a model; an advertised model with no hydrated row yet degrades to the model select alone. */
 export const rowForModel = (
@@ -41,11 +44,23 @@ export const rowForModel = (
   if (modelId in index.byModel) {
     return index.byModel[modelId];
   }
-  const modelOption = index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
-  return modelOption?.type === 'select' && advertisedModelIds(index).includes(modelId)
+  const modelOption = defaultModelOption(index);
+  return modelOption?.type === 'select' && isAdvertisedModel(index, modelId)
     ? [{ ...modelOption, currentValue: modelId }]
     : [];
 };
+
+/** A Virtual model pick needs a live `set_config_option` when a Bound session exists and the model's row is not hydrated yet. */
+export const needsLazyHydrate = (
+  index: ConfigOptionIndex | undefined,
+  boundSessionId: string | undefined,
+  modelId: string,
+): boolean =>
+  index !== undefined &&
+  boundSessionId !== undefined &&
+  !(modelId in index.byModel) &&
+  !index.unavailableModelIds.includes(modelId) &&
+  isAdvertisedModel(index, modelId);
 
 export const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,

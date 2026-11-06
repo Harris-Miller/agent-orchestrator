@@ -1,9 +1,9 @@
 /** Launch-target-keyed ACP session RPC. Agent handles stay private to this module. */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
-import { Effect, Exit, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import type { ConfigIndexEvent } from './configProbe.ts';
+import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { clearPromptSpan, setPromptSpan } from './promptSpanRegistry.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
@@ -26,16 +26,20 @@ const connectedAgents = new Map<AgentLaunchTarget, ConnectedAgent>();
 /** Lazy hydrate: Config option index updater per launch target, registered by the harness atoms. */
 const configIndexSinks = new Map<AgentLaunchTarget, (event: ConfigIndexEvent) => void>();
 
-export const setConfigIndexSink = (
-  launchTarget: AgentLaunchTarget,
-  sink: ((event: ConfigIndexEvent) => void) | undefined,
-): void => {
-  if (sink === undefined) {
-    configIndexSinks.delete(launchTarget);
-  } else {
-    configIndexSinks.set(launchTarget, sink);
-  }
+export const setConfigIndexSink = (launchTarget: AgentLaunchTarget, sink: (event: ConfigIndexEvent) => void): void => {
+  configIndexSinks.set(launchTarget, sink);
 };
+
+export const clearConfigIndexSink = (launchTarget: AgentLaunchTarget): void => {
+  configIndexSinks.delete(launchTarget);
+};
+
+/** Transport-level failures say nothing about the model, so they never mark it unavailable. */
+const isTransportFailure = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  '_tag' in error &&
+  (error._tag === 'RpcClientError' || error._tag === 'TransportError' || error._tag === 'BackendNotConnected');
 
 const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<ConnectedAgent, BackendNotConnected> => {
   const connected = connectedAgents.get(launchTarget);
@@ -246,15 +250,21 @@ export const setConfigOption = Effect.fn('setConfigOption')(
     if (configId !== 'model' || optionValue.type !== 'select') {
       return yield* call;
     }
-    // Lazy hydrate: a model pick's response is that model's full row; a failed pick marks it unavailable.
-    const exit = yield* Effect.exit(call);
-    const sink = configIndexSinks.get(launchTarget);
-    if (Exit.isSuccess(exit)) {
-      sink?.({ _tag: 'ModelPicked', modelId: optionValue.value, response: exit.value });
-    } else {
-      sink?.({ _tag: 'ModelPickFailed', modelId: optionValue.value });
-    }
-    return yield* exit;
+    // Lazy hydrate: a model pick's response is that model's full row; an agent-refused pick marks it unavailable.
+    return yield* call.pipe(
+      Effect.tap(response =>
+        Effect.sync(() =>
+          configIndexSinks.get(launchTarget)?.({ _tag: 'ModelPicked', modelId: optionValue.value, response }),
+        ),
+      ),
+      Effect.tapError(error =>
+        Effect.sync(() => {
+          if (!isTransportFailure(error)) {
+            configIndexSinks.get(launchTarget)?.({ _tag: 'ModelPickFailed', modelId: optionValue.value });
+          }
+        }),
+      ),
+    );
   },
   (effect, _launchTarget, sessionId, configId) =>
     effect.pipe(

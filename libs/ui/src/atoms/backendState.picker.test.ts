@@ -3,7 +3,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
-import { configOptionIndexFromProbeResponses } from '../host/configProbe.ts';
+import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFixtures.ts';
 import {
   backendHarnessStateAtom,
   configOptionIndexAtom,

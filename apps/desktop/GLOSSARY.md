@@ -142,12 +142,12 @@ Per-launch-target index of `defaultModelId` plus Config options keyed by model i
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
-Connection-setup work that runs only when no cached Config option index exists, before Bootstrap `usable`: one disposable-cwd `session/new` yields the model list and the default model's row → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe History entries). Other models' rows are not probed; see **Lazy hydrate**. Not an Active session; never Materialize; never a durable History entry the user should see.
+Connection-setup work that runs only when no cached Config option index exists, before Bootstrap `usable`: one throwaway session in a disposable directory yields the model list and the default model's row, which are published as the Config option index; the throwaway session is then closed and deleted best-effort so soft-close adapters do not keep it in Session History. Other models' rows are not probed; see **Lazy hydrate**. Not an Active session; never Materialize; never a durable History entry the user should see.
+_Avoid_: Session create, materialize, activate
 
 **Lazy hydrate**:
-Updating the Config option index from a live ACP response instead of probing. A `session/new` response replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). A `session/set_config_option(model)` response replaces that model's row and clears it from Unavailable models; a failed one marks it Unavailable. Rows keep the `currentValue`s the response returned.
+Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models; if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row. Rows keep the values the agent returned.
 _Avoid_: refresh, re-probe
-_Avoid_: Session create, materialize, activate
 
 **Usage**:
 Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.

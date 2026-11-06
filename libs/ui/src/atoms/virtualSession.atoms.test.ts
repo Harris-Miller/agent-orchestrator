@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
-import { configOptionIndexFromProbeResponses } from '../host/configProbe.ts';
+import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFixtures.ts';
 
 import {
   clearSelected,

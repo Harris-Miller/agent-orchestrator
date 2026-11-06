@@ -32,7 +32,7 @@ import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
+import { clearConfigIndexSink, clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
 export { AntigravitySignInTimedOut };
 
@@ -82,6 +82,7 @@ const getOrCreateBoolRef = (
 
 export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
   clearConnectedAgent(launchTarget);
+  clearConfigIndexSink(launchTarget);
   clearPromptSpansForLaunchTarget(launchTarget);
 };
 

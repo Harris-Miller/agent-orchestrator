@@ -2,11 +2,12 @@ import { assert, describe, it } from '@effect/vitest';
 
 import {
   hardResetForAgent,
+  needsLazyHydrate,
   resetUnsupportedConfigValues,
   rowForModel,
   sanitizeConfigValuesForIndex,
 } from './configOptionIndexUi.ts';
-import { configOptionIndexFromProbeResponses } from './configProbe.ts';
+import { configOptionIndexFromProbeResponses } from './configOptionIndexFixtures.ts';
 
 describe('sanitizeConfigValuesForIndex', () => {
   it('maps unavailable model to defaultModelId', () => {
@@ -139,5 +140,45 @@ describe('uncached (lazily hydrated) models', () => {
 
   it('reset still falls back to default for a model that is not advertised', () => {
     assert.strictEqual(resetUnsupportedConfigValues(seeded, { model: 'nope' }).model, 'sonnet');
+  });
+});
+
+describe('needsLazyHydrate', () => {
+  const index = configOptionIndexFromProbeResponses(
+    'sonnet',
+    {
+      sonnet: {
+        configOptions: [
+          {
+            currentValue: 'sonnet',
+            id: 'model',
+            name: 'Model',
+            options: [
+              { name: 'Sonnet', value: 'sonnet' },
+              { name: 'Opus', value: 'opus' },
+              { name: 'Haiku', value: 'haiku' },
+            ],
+            type: 'select',
+          },
+        ],
+      },
+      haiku: { configOptions: [] },
+    },
+    [],
+  );
+
+  it('is true for an advertised uncached model with a Bound session', () => {
+    assert.isTrue(needsLazyHydrate(index, 'bound-1', 'opus'));
+  });
+
+  it('is false without a Bound session (model select only, no RPC)', () => {
+    assert.isFalse(needsLazyHydrate(index, undefined, 'opus'));
+  });
+
+  it('is false for a cached, unadvertised, or unavailable model', () => {
+    assert.isFalse(needsLazyHydrate(index, 'bound-1', 'haiku'));
+    assert.isFalse(needsLazyHydrate(index, 'bound-1', 'nope'));
+    assert.isFalse(needsLazyHydrate({ ...index, unavailableModelIds: ['opus'] }, 'bound-1', 'opus'));
+    assert.isFalse(needsLazyHydrate(undefined, 'bound-1', 'opus'));
   });
 });

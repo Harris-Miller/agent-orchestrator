@@ -5,9 +5,14 @@ import type { FC, ReactNode } from 'react';
 
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
+const DISCLOSURE_CHEVRON_SIZE = 16;
+
 export const DisclosureChevron: FC<{ open: boolean }> = ({ open }) => (
-  <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: 16 }} />
+  <LucideMuiIcon icon={open ? ChevronDown : ChevronRight} sx={{ fontSize: DISCLOSURE_CHEVRON_SIZE }} />
 );
+
+/** Empty slot as wide as {@link DisclosureChevron}, so rows without a chevron stay column-aligned. */
+export const DisclosureChevronSpacer: FC = () => <Box sx={{ flexShrink: 0, width: DISCLOSURE_CHEVRON_SIZE }} />;
 
 /** Unstyled native button with `aria-expanded` and visible keyboard focus. */
 export const DisclosureButton: FC<{

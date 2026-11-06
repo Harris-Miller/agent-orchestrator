@@ -81,11 +81,19 @@ export const parseSubagentWorkState = (value: unknown): SubagentWorkState | unde
   };
 };
 
-export const initialSubagentSnapshot = (sessionId: string, parentSessionId: string): SubagentSnapshot => ({
-  parentSessionId,
-  sessionId,
-  transcript: emptySessionTranscript(),
-});
+/** `early` is a stray root entry holding updates and requests that arrived before the spawn. */
+export const initialSubagentSnapshot = (
+  sessionId: string,
+  parentSessionId: string,
+  early?: Pick<SubagentSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+): SubagentSnapshot =>
+  withoutUndefined({
+    parentSessionId,
+    pendingElicitation: early?.pendingElicitation,
+    pendingPermission: early?.pendingPermission,
+    sessionId,
+    transcript: early?.transcript ?? emptySessionTranscript(),
+  });
 
 const parseCapabilities = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
   isRecord(value) ? value : undefined;

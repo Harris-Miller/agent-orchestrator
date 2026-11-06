@@ -61,8 +61,10 @@ export const routeSubagentUpdate = (
     }
     const parentId = existing?.parentSessionId ?? sessionId;
     const migratedRoot = existing === undefined && childId in snapshot.sessions;
-    const { [childId]: _stray, ...sessions } = snapshot.sessions;
-    const child = applySubagentPatch(existing ?? initialSubagentSnapshot(childId, parentId), update);
+    const { [childId]: stray, ...sessions } = snapshot.sessions;
+    // Updates and requests that raced ahead of the spawn landed on a stray root entry; keep them on the child.
+    const seed = existing ?? initialSubagentSnapshot(childId, parentId, migratedRoot ? stray : undefined);
+    const child = applySubagentPatch(seed, update);
     const withChild: BackendHarnessSnapshot = {
       ...snapshot,
       sessions: migratedRoot ? sessions : snapshot.sessions,

@@ -4,6 +4,7 @@ import fixture from '../../fixtures/claude_subagent_session_updates.json' with {
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { reconcileStoppedProvider } from './harnessStateTransitions.ts';
+import type { PendingPermission } from './pendingInteractions.ts';
 import { resetSubagentsOfRoot, routeSubagentUpdate } from './subagentRouting.ts';
 
 const CHILD = 'p1:replay-subagent:toolu_A';
@@ -48,6 +49,33 @@ describe('routeSubagentUpdate', () => {
     assert.notProperty(result.snapshot.sessions, CHILD);
     const again = routeSubagentUpdate(result.snapshot, 'other', spawn.update)!;
     assert.strictEqual(again.snapshot.subagents[CHILD].parentSessionId, 'p1');
+  });
+
+  it('keeps the transcript and pending request that arrived before the spawn', () => {
+    const early = routeSubagentUpdate(withRoot(), CHILD, childMessage.update);
+    assert.isUndefined(early);
+    const resolved: unknown[] = [];
+    const permission = {
+      request: {} as PendingPermission['request'],
+      resolve: (value: unknown) => resolved.push(value),
+      sessionId: CHILD,
+    };
+    const stray = {
+      ...initialSessionSnapshot(CHILD, 'active'),
+      pendingPermission: permission,
+      transcript: {
+        ...initialSessionSnapshot(CHILD, 'active').transcript,
+        items: [{ id: 'm', kind: 'agent_message', text: 'hi' }],
+      },
+    };
+    const base = { ...withRoot(), sessions: { ...withRoot().sessions, [CHILD]: stray } } as never as ReturnType<
+      typeof withRoot
+    >;
+    const result = routeSubagentUpdate(base, 'p1', spawn.update)!;
+    assert.notProperty(result.snapshot.sessions, CHILD);
+    assert.strictEqual(result.snapshot.subagents[CHILD].transcript.items.length, 1);
+    assert.strictEqual(result.snapshot.subagents[CHILD].pendingPermission, permission);
+    assert.lengthOf(resolved, 0);
   });
 
   it('rejects self-reference and cycles; supports nesting', () => {

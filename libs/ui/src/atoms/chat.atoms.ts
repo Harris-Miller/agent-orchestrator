@@ -555,17 +555,19 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         const previousModeId = session.selectedModeId;
         const previousModelId = session.selectedModelId;
         const previousSessionState = session.sessionConfiguration;
-        const patchedSessionState = patchConfigOptionValue(session.sessionConfiguration, arg.configId, arg.value);
-        const selection = selectionFromSessionConfiguration(patchedSessionState);
 
         updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
           ...current,
-          sessions: patchSession(current.sessions, session.sessionId, s => ({
-            ...s,
-            selectedModeId: selection.selectedModeId ?? s.selectedModeId,
-            selectedModelId: selection.selectedModelId ?? s.selectedModelId,
-            sessionConfiguration: patchedSessionState,
-          })),
+          sessions: patchSession(current.sessions, session.sessionId, s => {
+            const patched = patchConfigOptionValue(s.sessionConfiguration, arg.configId, arg.value);
+            const selection = selectionFromSessionConfiguration(patched);
+            return {
+              ...s,
+              selectedModeId: selection.selectedModeId ?? s.selectedModeId,
+              selectedModelId: selection.selectedModelId ?? s.selectedModelId,
+              sessionConfiguration: patched,
+            };
+          }),
         }));
 
         const rpc = Effect.gen(function* () {

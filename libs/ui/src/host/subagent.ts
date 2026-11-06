@@ -23,6 +23,8 @@ export type SubagentSnapshot = {
   readonly sessionId: string;
   /** Undefined until a state update arrives (and again after load/resume/connection loss). */
   readonly state?: SubagentWorkState;
+  /** Set by a reset (load/resume/connection loss) while `state` is missing; cleared by the next state update. */
+  readonly stateUnconfirmed?: true;
   readonly task?: string;
   readonly transcript: SessionTranscript;
 };
@@ -34,6 +36,12 @@ export const getSubagent = (subagents: SubagentRecord, sessionId: string): Subag
   sessionId in subagents ? subagents[sessionId] : undefined;
 
 const FINISHED_STATES = new Set(['completed', 'idle']);
+
+/** Final states: safe to keep across load/resume/connection loss. */
+const TERMINAL_STATES = new Set(['cancelled', 'completed', 'failed']);
+
+export const isSubagentTerminal = (state: SubagentWorkState | undefined): boolean =>
+  state !== undefined && TERMINAL_STATES.has(state.state);
 
 export const isSubagentFinished = (state: SubagentWorkState | undefined): boolean =>
   state !== undefined && FINISHED_STATES.has(state.state);
@@ -94,6 +102,7 @@ export const applySubagentPatch = (
     capabilities: patchField(update, 'capabilities', child.capabilities, parseCapabilities),
     name: patchField(update, 'name', child.name, optString),
     state: patchField(update, 'state', child.state, parseSubagentWorkState),
+    stateUnconfirmed: update.state === undefined ? child.stateUnconfirmed : undefined,
     task: patchField(update, 'task', child.task, optString),
   });
 
@@ -106,8 +115,16 @@ export const subagentSessionIdOf = (update: unknown): string | undefined =>
 export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapshot => {
   child.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
   child.pendingElicitation?.resolve({ action: 'cancel' });
-  const { capabilities: _c, pendingElicitation: _e, pendingPermission: _p, state: _s, ...rest } = child;
-  return rest;
+  const {
+    capabilities: _c,
+    pendingElicitation: _e,
+    pendingPermission: _p,
+    state,
+    stateUnconfirmed: _u,
+    ...rest
+  } = child;
+  // Terminal states cannot revert; anything else (running, idle, requires_action, missing) may be stale.
+  return isSubagentTerminal(state) ? { ...rest, state } : { ...rest, stateUnconfirmed: true };
 };
 
 /** Root ancestor of a child (walks parentSessionId through `subagents`); cycle-safe. */

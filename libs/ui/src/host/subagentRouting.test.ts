@@ -63,12 +63,12 @@ describe('routeSubagentUpdate', () => {
 });
 
 describe('load / connection loss', () => {
-  it('keeps transcripts but clears state and capabilities', () => {
+  it('keeps transcripts and terminal state, clears capabilities', () => {
     const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
     const replied = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
     const { snapshot } = routeSubagentUpdate(replied, 'p1', done.update)!;
     for (const next of [resetSubagentsOfRoot(snapshot, 'p1'), reconcileStoppedProvider(snapshot)]) {
-      assert.isUndefined(next.subagents[CHILD].state);
+      assert.deepStrictEqual(next.subagents[CHILD].state, { state: 'completed' });
       assert.isUndefined(next.subagents[CHILD].capabilities);
       assert.strictEqual(next.subagents[CHILD].transcript.items.length, 1);
     }

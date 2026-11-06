@@ -9,6 +9,7 @@ import {
   isSubagentFinished,
   parseSubagentWorkState,
   reduceSubagentTranscriptUpdate,
+  resetSubagentLiveState,
   rootAncestorId,
   subagentLatestActivity,
   subagentNeedsInput,
@@ -125,5 +126,26 @@ describe('rootAncestorId', () => {
     const x = initialSubagentSnapshot('x', 'y');
     const y = initialSubagentSnapshot('y', 'x');
     assert.isString(rootAncestorId({ x, y }, 'x'));
+  });
+});
+
+describe('resetSubagentLiveState', () => {
+  it('keeps terminal states, clears the rest as unconfirmed', () => {
+    const done = applySubagentPatch(child(), { capabilities: { cancel: {} }, state: 'completed' });
+    const keptDone = resetSubagentLiveState(done);
+    assert.deepStrictEqual(keptDone.state, { state: 'completed' });
+    assert.isUndefined(keptDone.capabilities);
+    assert.isUndefined(keptDone.stateUnconfirmed);
+    const cancelled = resetSubagentLiveState(applySubagentPatch(child(), { state: 'cancelled' }));
+    assert.deepStrictEqual(cancelled.state, { state: 'cancelled' });
+    for (const state of ['running', 'idle', 'requires_action', 'mystery']) {
+      const reset = resetSubagentLiveState(applySubagentPatch(child(), { state }));
+      assert.isUndefined(reset.state);
+      assert.isTrue(reset.stateUnconfirmed);
+    }
+    const revived = applySubagentPatch(resetSubagentLiveState(applySubagentPatch(child(), { state: 'running' })), {
+      state: 'completed',
+    });
+    assert.isUndefined(revived.stateUnconfirmed);
   });
 });

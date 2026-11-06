@@ -14,7 +14,7 @@ import {
   respondElicitationAtomFn,
   respondPermissionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
+import { canCancelSubagent, getSubagent, isSubagentFinished, isSubagentTerminal } from '../../host/subagent.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
@@ -34,7 +34,10 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
   const chip = subagentStateLabel(child);
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
-  const running = child.state?.state === 'running' || child.state?.state === 'requires_action';
+  const running =
+    child.state === undefined
+      ? child.stateUnconfirmed !== true
+      : !isSubagentTerminal(child.state) && !isSubagentFinished(child.state);
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
       <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, p: 1 }}>

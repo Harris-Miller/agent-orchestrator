@@ -414,14 +414,17 @@ describe('Bind', () => {
       const calls: string[] = [];
       installFakeAgent(calls);
       const registry = yield* freshRegistry;
-      yield* seedBound(registry, calls);
+      // Unbound and ready with no Bind in flight: any Bind request here would reach `session/new`.
+      yield* seedUnbound(registry);
 
       yield* editVirtual(registry, { draft: 'hello' });
       yield* editVirtual(registry, { attachments: [] });
       yield* setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' });
+      yield* Effect.yieldNow;
 
       assert.deepStrictEqual(calls, []);
-      assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
+      assert.isUndefined(blob(registry)?.sessionId);
+      assert.deepStrictEqual(sessionsOf(registry), {});
     }).pipe(Effect.scoped),
   );
 

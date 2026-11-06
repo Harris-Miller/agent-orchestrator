@@ -172,28 +172,29 @@ type SeedOpts = {
 };
 
 /** Selected Virtual on `cwd` + `launchTarget` (+ `model`, `draft`), unbound with no Bind in flight, provider `ready`. */
-const seedUnbound = (registry: Registry, { cwd = '/proj', draft, launchTarget = CODEX, model }: SeedOpts = {}) =>
-  Effect.gen(function* () {
-    // Not usable yet, so none of the seeding verbs Binds; flipping the phase directly (no fold) triggers nothing.
-    setPhase(registry, launchTarget, 'connecting');
-    yield* ensureVirtual(registry, { cwd });
-    yield* setVirtualLaunchTarget(registry, launchTarget);
-    if (model !== undefined) {
-      yield* setVirtualConfigOption(registry, { configId: 'model', launchTarget, type: 'select', value: model });
-    }
-    if (draft !== undefined) {
-      yield* editVirtual(registry, { draft });
-    }
-    setPhase(registry, launchTarget, 'ready');
-  });
+const seedUnbound = Effect.fnUntraced(function* (
+  registry: Registry,
+  { cwd = '/proj', draft, launchTarget = CODEX, model }: SeedOpts = {},
+) {
+  // Not usable yet, so none of the seeding verbs Binds; flipping the phase directly (no fold) triggers nothing.
+  setPhase(registry, launchTarget, 'connecting');
+  yield* ensureVirtual(registry, { cwd });
+  yield* setVirtualLaunchTarget(registry, launchTarget);
+  if (model !== undefined) {
+    yield* setVirtualConfigOption(registry, { configId: 'model', launchTarget, type: 'select', value: model });
+  }
+  if (draft !== undefined) {
+    yield* editVirtual(registry, { draft });
+  }
+  setPhase(registry, launchTarget, 'ready');
+});
 
 /** {@link seedUnbound}, then a real Bind against the fake agent (Codex: `bound-1`); `calls` is reset afterwards. */
-const seedBound = (registry: Registry, calls: string[], opts: SeedOpts = {}) =>
-  Effect.gen(function* () {
-    yield* seedUnbound(registry, opts);
-    yield* bindVirtualOnUsable(registry, opts.launchTarget ?? CODEX);
-    calls.length = 0;
-  });
+const seedBound = Effect.fnUntraced(function* (registry: Registry, calls: string[], opts: SeedOpts = {}) {
+  yield* seedUnbound(registry, opts);
+  yield* bindVirtualOnUsable(registry, opts.launchTarget ?? CODEX);
+  calls.length = 0;
+});
 
 /** A `prompt` for {@link sendVirtual} that records `prompt:<id>` into `calls` and keeps what it was handed. */
 const recordingPrompt = (calls: string[]) => {
@@ -1129,13 +1130,12 @@ const atomFnHarness = Effect.gen(function* () {
 });
 
 /** Virtual on `/proj` + Codex, unbound with no Bind in flight, provider `ready` — seeded through the AtomFns. */
-const seedUnboundViaAtomFns = (h: Effect.Success<typeof atomFnHarness>) =>
-  Effect.gen(function* () {
-    setPhase(h.registry, CODEX, 'connecting');
-    yield* runAtomFn(h.registry, h.ensureVirtualSessionAtomFn, { cwd: '/proj' });
-    yield* runAtomFn(h.registry, h.setVirtualLaunchTargetAtomFn, CODEX);
-    setPhase(h.registry, CODEX, 'ready');
-  });
+const seedUnboundViaAtomFns = Effect.fnUntraced(function* (h: Effect.Success<typeof atomFnHarness>) {
+  setPhase(h.registry, CODEX, 'connecting');
+  yield* runAtomFn(h.registry, h.ensureVirtualSessionAtomFn, { cwd: '/proj' });
+  yield* runAtomFn(h.registry, h.setVirtualLaunchTargetAtomFn, CODEX);
+  setPhase(h.registry, CODEX, 'ready');
+});
 
 describe('AtomFns', () => {
   it.effect('Send through the AtomFn reaches the agent via the Session-arm send', () =>

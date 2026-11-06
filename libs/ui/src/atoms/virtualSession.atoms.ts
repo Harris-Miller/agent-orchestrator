@@ -621,30 +621,34 @@ const materialize = Effect.fn('materialize')(
 // Verbs
 
 /** Create New Session / cwd-group (+) / boot: Select Virtual, creating or seeding the blob, then Bind. */
-export const ensureVirtual = (
+export const ensureVirtual = Effect.fn('ensureVirtual')(function* (
   registry: Registry,
   arg: EnsureVirtualSessionArg = {},
   refreshFsListing?: RefreshSessionFsListing,
-) =>
-  mutateThenRebind(registry, {
+) {
+  yield* mutateThenRebind(registry, {
     mutate: () => {
       ensureBlob(registry, arg);
     },
     refreshFsListing,
   });
+});
 
 /** Draft, attachments or cwd. Only a cwd change tears down the Bound session and rebinds. */
-export const editVirtual = (registry: Registry, edit: VirtualEdit, refreshFsListing?: RefreshSessionFsListing) =>
-  Effect.suspend(() => {
-    const before = registry.get(virtualSessionAtom);
-    return mutateThenRebind(registry, {
-      mutate: () => {
-        patchBlob(registry, edit);
-      },
-      rebind: before !== null && edit.cwd !== undefined && edit.cwd !== before.cwd,
-      refreshFsListing,
-    });
+export const editVirtual = Effect.fn('editVirtual')(function* (
+  registry: Registry,
+  edit: VirtualEdit,
+  refreshFsListing?: RefreshSessionFsListing,
+) {
+  const before = registry.get(virtualSessionAtom);
+  yield* mutateThenRebind(registry, {
+    mutate: () => {
+      patchBlob(registry, edit);
+    },
+    rebind: before !== null && edit.cwd !== undefined && edit.cwd !== before.cwd,
+    refreshFsListing,
   });
+});
 
 /** Launch target change: hard reset (or last-create defaults), tear down + rebind. Fails when the provider is unusable. */
 export const setVirtualLaunchTarget = Effect.fn('setVirtualLaunchTarget')(function* (
@@ -762,14 +766,15 @@ export const select = Effect.fn('select')(function* (
 });
 
 /** Workspace folder gone: drop the blob regardless of content (background Bound teardown) and clear Selected. */
-export const discardVirtual = (registry: Registry) =>
-  mutateThenRebind(registry, {
+export const discardVirtual = Effect.fn('discardVirtual')(function* (registry: Registry) {
+  yield* mutateThenRebind(registry, {
     mutate: () => {
       discardBlob(registry);
       registry.set(selectedAtom, undefined);
     },
     rebind: false,
   });
+});
 
 // Provider hooks + Selected hygiene
 

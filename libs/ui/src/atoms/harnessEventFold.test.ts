@@ -82,15 +82,14 @@ const fakeSessionNew = (sessionId: string) =>
   );
 
 /** Selected Virtual on `/a` + this launch target (+ `model`), seeded through the Virtual session verbs while not usable. */
-const seedVirtual = (h: Effect.Success<ReturnType<typeof setup>>, model?: string) =>
-  Effect.gen(function* () {
-    h.registry.set(providerEnabledMapAtom, { [LT]: true });
-    yield* ensureVirtual(h.registry, { cwd: '/a' });
-    yield* setVirtualLaunchTarget(h.registry, LT);
-    if (model !== undefined) {
-      yield* setVirtualConfigOption(h.registry, { configId: 'model', launchTarget: LT, type: 'select', value: model });
-    }
-  });
+const seedVirtual = Effect.fnUntraced(function* (h: Effect.Success<ReturnType<typeof setup>>, model?: string) {
+  h.registry.set(providerEnabledMapAtom, { [LT]: true });
+  yield* ensureVirtual(h.registry, { cwd: '/a' });
+  yield* setVirtualLaunchTarget(h.registry, LT);
+  if (model !== undefined) {
+    yield* setVirtualConfigOption(h.registry, { configId: 'model', launchTarget: LT, type: 'select', value: model });
+  }
+});
 
 describe('Harness event fold: session/update', () => {
   it.effect('usage_update sets the session usage and persists it', () =>

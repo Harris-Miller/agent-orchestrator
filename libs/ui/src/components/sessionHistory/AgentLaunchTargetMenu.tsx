@@ -4,6 +4,7 @@ import MenuItem from '@mui/material/MenuItem';
 import type { FC } from 'react';
 
 import { enabledLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
 export type AgentLaunchTargetMenuProps = {
@@ -25,14 +26,14 @@ export const AgentLaunchTargetMenu: FC<AgentLaunchTargetMenuProps> = ({
     <Menu anchorEl={anchorEl} onClose={onClose} open={anchorEl !== null}>
       {backendPhases.map(entry => (
         <MenuItem
-          disabled={entry.phase !== 'ready' || creating}
+          disabled={!isUsablePhase(entry.phase) || creating}
           key={entry.launchTarget}
           onClick={() => {
             onSelect(entry.launchTarget);
           }}
         >
           {entry.label}
-          {entry.phase !== 'ready' ? ` (${entry.phase})` : ''}
+          {!isUsablePhase(entry.phase) ? ` (${entry.phase})` : ''}
         </MenuItem>
       ))}
     </Menu>

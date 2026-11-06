@@ -4,9 +4,10 @@ import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
-import { CONFIG_PROBE_CWD_PREFIX, normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
+import { CONFIG_PROBE_CWD_PREFIX } from './acpSessionBootstrap.ts';
+import { mergeConfigOptionIndex } from './configOptionIndexHydrate.ts';
 
-/** Shape is owned by the on-disk cache document; `unavailableModelIds` = advertised on session/new but soft-failed in Config probe. */
+/** Shape is owned by the on-disk cache document; `unavailableModelIds` = advertised on session/new but refused when picked. */
 export type ConfigOptionIndex = ConfigOptionIndexDocument;
 
 export type ConfigOptionValues = Readonly<Record<string, boolean | string>>;
@@ -53,19 +54,6 @@ export const preserveConfigValuesOnModelChange = (
   return next;
 };
 
-/** Build index from raw probe responses stored as-is per model id (no cross-model merge). */
-export const configOptionIndexFromProbeResponses = (
-  defaultModelId: string,
-  byModelRaw: Readonly<Record<string, unknown>>,
-  unavailableModelIds: readonly string[] = [],
-): ConfigOptionIndex => ({
-  byModel: Object.fromEntries(
-    Object.entries(byModelRaw).map(([modelId, raw]) => [modelId, normalizeConfigOptions(raw)]),
-  ),
-  defaultModelId,
-  unavailableModelIds,
-});
-
 export const configOptionIndexIsNonempty = (index: ConfigOptionIndex | undefined): boolean =>
   index !== undefined && Object.keys(index.byModel).length > 0;
 
@@ -76,11 +64,6 @@ type ProbeAgent<E = never> = {
     cwd: string;
     mcpServers: readonly [];
   }) => Effect.Effect<{ readonly sessionId: string }, E>;
-  readonly 'session/set_config_option': (params: {
-    configId: string;
-    sessionId: string;
-    value: string;
-  }) => Effect.Effect<unknown, E>;
 };
 
 const bestEffort = Effect.fn('configProbeBestEffort')(function* <E>(label: string, effect: Effect.Effect<unknown, E>) {
@@ -91,8 +74,8 @@ const bestEffort = Effect.fn('configProbeBestEffort')(function* <E>(label: strin
 });
 
 /**
- * Disposable-cwd Config probe. Publishes nothing itself — caller clears/publishes the index Atom.
- * Close/delete/temp cleanup failures are not probe failure (warn + still return index).
+ * Cold-cache Config probe: one disposable-cwd `session/new` seeds the model list and default row; other rows
+ * arrive by Lazy hydrate. Publishes nothing itself. Close/delete/temp cleanup failures warn but do not fail the probe.
  */
 export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: ProbeAgent<E>) {
   const fs = yield* FileSystem;
@@ -107,33 +90,10 @@ export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: P
   });
 
   return yield* Effect.gen(function* () {
-    const models = normalizeModels(sessionNew);
-    if (models.currentId === undefined) {
+    const index = mergeConfigOptionIndex(undefined, { _tag: 'SessionNew', response: sessionNew });
+    if (index === undefined) {
       return yield* new ConfigProbeError({ message: 'Config probe: session/new has no model currentValue' });
     }
-
-    const defaultModelId = models.currentId;
-    const byModelRaw: Record<string, unknown> = { [defaultModelId]: sessionNew };
-
-    for (const model of models.options.filter(entry => entry.id !== defaultModelId)) {
-      const setExit = yield* Effect.exit(
-        agent['session/set_config_option']({
-          configId: 'model',
-          sessionId: sessionNew.sessionId,
-          value: model.id,
-        }),
-      );
-      if (Exit.isFailure(setExit)) {
-        yield* Effect.logWarning('Config probe set_config_option failed for model', model.id, setExit.cause);
-      } else {
-        byModelRaw[model.id] = setExit.value;
-      }
-    }
-
-    const unavailableModelIds = models.options
-      .map(entry => entry.id)
-      .filter(modelId => !Object.hasOwn(byModelRaw, modelId));
-
-    return configOptionIndexFromProbeResponses(defaultModelId, byModelRaw, unavailableModelIds);
+    return index;
   }).pipe(Effect.ensuring(cleanup));
 });

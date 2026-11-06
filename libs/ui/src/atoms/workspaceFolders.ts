@@ -1,6 +1,7 @@
 import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { stripSessionPendings } from '../host/harnessStateTransitions.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { firstFolderPath, sessionsMatchingSessionCwd } from '../host/sessionsMatchingSessionCwd.ts';
@@ -44,8 +45,8 @@ const clearSelectedIfMatched = (
   }
 };
 
-const anyBackendReady = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
-  MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => getSnapshot(launchTarget).phase === 'ready');
+const anyBackendUsable = (getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot): boolean =>
+  MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => isUsablePhase(getSnapshot(launchTarget).phase));
 
 const applyWorkspaceFolderPaths = (registry: AtomRegistry.AtomRegistry, paths: readonly string[]): void => {
   registry.set(workspaceFolderPathsAtom, paths);
@@ -86,7 +87,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   }
 
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessStateAtom(launchTarget));
-  if (!anyBackendReady(getSnapshot)) {
+  if (!anyBackendUsable(getSnapshot)) {
     applyWorkspaceFolderPaths(registry, nextPaths);
     yield* applyVirtualSessionFolderChurnEffect(rwFromRegistry(registry), nextSessionCwd);
     return;

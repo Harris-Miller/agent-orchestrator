@@ -130,7 +130,7 @@ Normalized config options from a `session/new`, `session/load`, or `session/resu
 _Avoid_: Session state, session/new result
 
 **Bind**:
-Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `ready` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Not a History entry; Selected stays Virtual. Distinct from Materialize.
+Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `usable` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Optimistic and latest-wins (never locks the composer); a superseded Bind's session is torn down in the background. Not a History entry; Selected stays Virtual. Distinct from Materialize.
 _Avoid_: Materialize, session create (when you mean this Virtual-only step), activate
 
 **Materialize**:
@@ -138,12 +138,16 @@ Harness step on first Send that promotes a Bound Virtual session into a History 
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
-Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache and refreshed by Config probe during Bootstrap; consumed by Handoff. Not Session configuration or User settings.
+Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache, seeded by Config probe when the cache is missing, then kept current by Lazy hydrate; consumed by Handoff. Not Session configuration or User settings.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
-Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe History entries). Not an Active session; never Materialize; never a durable History entry the user should see.
+Connection-setup work that runs only when no cached Config option index exists, before Bootstrap `usable`: one throwaway session in a disposable directory yields the model list and the default model's row, which are published as the Config option index; the throwaway session is then closed and deleted best-effort so soft-close adapters do not keep it in Session History. Other models' rows are not probed; see **Lazy hydrate**. Not an Active session; never Materialize; never a durable History entry the user should see.
 _Avoid_: Session create, materialize, activate
+
+**Lazy hydrate**:
+Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models; if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row. Rows keep the values the agent returned.
+_Avoid_: refresh, re-probe
 
 **Usage**:
 Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.

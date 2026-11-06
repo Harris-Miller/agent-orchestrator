@@ -1,8 +1,9 @@
 /** Core ACP backend / session selection Atom state. */
 import { Schema } from 'effect';
+import type { Deferred } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -21,11 +22,34 @@ export const viewedSubagentAtom = Atom.make<
 >(undefined).pipe(Atom.keepAlive);
 
 /**
- * True while Virtual Bind or Materialize holds the lifecycle lock.
+ * True while Virtual Materialize holds the lifecycle lock (Bind never does: it is optimistic, latest-wins).
  * Create / Virtual-mutation helpers no-op while true; navigation (select / clear Selected) never waits on it.
  * Must not stay set during session/prompt.
  */
-export const virtualLifecycleInFlightAtom = Atom.make(false).pipe(Atom.keepAlive);
+export const virtualMaterializingAtom = Atom.make(false).pipe(Atom.keepAlive);
+
+/** True from Virtual Send until Materialize finishes (or the Send gives up): blocks double-submit, drives the pending UI. */
+export const virtualSendPendingAtom = Atom.make(false).pipe(Atom.keepAlive);
+
+/** What a Bind is for: the provider + cwd the Bound session is created in. */
+export type BindKey = {
+  readonly cwd: string;
+  readonly launchTarget: AgentLaunchTarget;
+};
+
+/** One Virtual Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
+export type VirtualBind = BindKey & {
+  readonly done: Deferred.Deferred<string | undefined>;
+  readonly generation: number;
+};
+
+/** Latest-wins Bind bookkeeping: `latest` is the newest generation handed out; a Bind is current only while it matches. */
+export type VirtualBindState = {
+  readonly current: undefined | VirtualBind;
+  readonly latest: number;
+};
+
+export const virtualBindAtom = Atom.make<VirtualBindState>({ current: undefined, latest: 0 }).pipe(Atom.keepAlive);
 
 /** Session arm sessionId only; undefined when Virtual or no Selected. */
 export const selectedSessionIdAtom = Atom.make(get => {
@@ -189,11 +213,11 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
   return get(allLaunchTargetPhasesAtom).filter(entry => enabled.includes(entry.launchTarget));
 }).pipe(Atom.keepAlive);
 
-/** Launch targets that completed Config probe with a nonempty index. */
-export const readyLaunchTargetsAtom = Atom.make(get =>
+/** Launch targets that are usable with a nonempty (possibly cached) Config index. */
+export const usableLaunchTargetsAtom = Atom.make(get =>
   get(enabledLaunchTargetsAtom).filter(
     launchTarget =>
-      get(backendHarnessStateAtom(launchTarget)).phase === 'ready' &&
+      isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase) &&
       configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
   ),
 ).pipe(Atom.keepAlive);
@@ -205,10 +229,10 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
     const snapshot = get(backendHarnessStateAtom(launchTarget));
     if (snapshot.phase === 'error') {
       reasons[launchTarget] = snapshot.failure?.message ?? 'Unavailable';
-    } else if (snapshot.phase !== 'ready') {
+    } else if (!isUsablePhase(snapshot.phase)) {
       reasons[launchTarget] = 'Starting…';
     } else if (!configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget)))) {
-      reasons[launchTarget] = 'No configuration available';
+      reasons[launchTarget] = snapshot.phase === 'usable' ? 'Loading models…' : 'No configuration available';
     }
   }
   return reasons;
@@ -216,19 +240,19 @@ export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
 
 /**
  * Picker rows: every enabled provider, even when unavailable (rendered disabled with a reason). Readiness is
- * derived separately in {@link readyLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
+ * derived separately in {@link usableLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
  */
 export const pickerLaunchTargetsAtom = Atom.make(get => get(enabledLaunchTargetsAtom)).pipe(Atom.keepAlive);
 
 export const selectSession = (get: Atom.FnContext, sessionId: string) => {
-  if (get(virtualLifecycleInFlightAtom)) {
+  if (get(virtualMaterializingAtom)) {
     return;
   }
   get.set(selectedAtom, { _tag: 'Session', sessionId });
 };
 
 export const clearSelected = (get: Atom.FnContext) => {
-  if (get(virtualLifecycleInFlightAtom)) {
+  if (get(virtualMaterializingAtom)) {
     return;
   }
   get.set(selectedAtom, undefined);

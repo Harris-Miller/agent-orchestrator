@@ -9,6 +9,7 @@ import type { FC } from 'react';
 import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
@@ -45,7 +46,7 @@ export const SessionHistoryRow: FC<{
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
-  const unavailable = entry.unavailable === true || snapshot.phase !== 'ready';
+  const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
 
   const activateHistoryEntry = () => {
     if (unavailable) return;

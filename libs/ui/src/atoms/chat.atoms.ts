@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Clock, Effect } from 'effect';
+import { Clock, Effect, Exit } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -12,6 +12,7 @@ import {
   selectionFromSessionConfiguration,
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { needsLazyHydrate } from '../host/configOptionIndexUi.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
@@ -34,12 +35,18 @@ import {
   configOptionIndexAtom,
   selectedAtom,
   selectedSessionIdAtom,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
+  virtualSendPendingAtom,
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { rwFromFnContext } from './virtualBind.ts';
-import { lastCreateDefaultsAtom, patchVirtualConfigValue, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { awaitBoundVirtual, rwFromFnContext } from './virtualBind.ts';
+import {
+  hasComposerContent,
+  lastCreateDefaultsAtom,
+  patchVirtualConfigValue,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -239,34 +246,38 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * First send on already-Bound Virtual: apply Virtual Config → history Materialize →
-   * draft copy → clear virtual + Select Session → sendChatItem.
-   * Does not Bind (sole Bind triggers: mutateVirtualThenRebind + Ready). No-op if unbound / in-flight.
-   * Materialize lock ends before session/prompt.
+   * First Send on Virtual: await provider `usable`, then the latest Bind (requesting one if none), then apply
+   * Virtual Config → history Materialize → draft copy → clear virtual + Select Session → sendChatItem.
+   * Re-awaits when the blob churns meanwhile. The draft stays on the blob until Materialize succeeds; failures
+   * (provider `error`, Bind failure) reject so callers report via `onClientError`. `virtualSendPendingAtom` blocks
+   * double-submit. Materialize lock ends before session/prompt.
    */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualLifecycleInFlightAtom)) {
+        if (get(virtualMaterializingAtom) || get(virtualSendPendingAtom) || get(selectedAtom)?._tag !== 'Virtual') {
           return;
         }
-        const selected = get(selectedAtom);
-        const virtual = get(virtualSessionAtom);
-        if (selected?._tag !== 'Virtual' || virtual?.sessionId === undefined || virtual.launchTarget === undefined) {
-          return;
-        }
-        const { attachments, cwd, draft, launchTarget, sessionId } = virtual;
-        const trimmed = draft.trim();
-        if (
-          (trimmed.length === 0 && attachments.length === 0) ||
-          cwd === undefined ||
-          get(backendHarnessStateAtom(launchTarget)).phase !== 'ready'
-        ) {
+        const initial = get(virtualSessionAtom);
+        if (initial === null || !hasComposerContent(initial)) {
           return;
         }
 
+        get.set(virtualSendPendingAtom, true);
+        const target = yield* awaitBoundVirtual(get.registry).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.set(virtualSendPendingAtom, false);
+            }),
+          ),
+        );
+        if (target === undefined) {
+          return;
+        }
+        const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
+
         const materialized = yield* Effect.gen(function* () {
-          get.set(virtualLifecycleInFlightAtom, true);
+          get.set(virtualMaterializingAtom, true);
           yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
           yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
@@ -285,11 +296,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
               diff.configId,
               diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
             );
-          const afterOverrides = yield* applyConfigDiffs(
-            liveSession.sessionConfiguration,
-            virtual.configValues,
-            setOption,
-          );
+          const afterOverrides = yield* applyConfigDiffs(liveSession.sessionConfiguration, configValues, setOption);
           if (afterOverrides.stoppedEarly) {
             yield* Effect.logWarning(
               'materializeVirtualThenSend applyConfigDiffs stopped early',
@@ -313,7 +320,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             }),
           );
 
-          get.set(lastCreateDefaultsAtom, { configValues: virtual.configValues, launchTarget });
+          get.set(lastCreateDefaultsAtom, { configValues, launchTarget });
           get.set(draftAtom(sessionId), draft);
           get.set(composerAttachmentsAtom(sessionId), attachments);
           get.set(virtualSessionAtom, null);
@@ -326,7 +333,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
           Effect.ensuring(
             Effect.sync(() => {
-              get.set(virtualLifecycleInFlightAtom, false);
+              get.set(virtualMaterializingAtom, false);
             }),
           ),
         );
@@ -347,6 +354,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           get,
         );
       }),
+      // A second call must not interrupt the pending Send (it no-ops on `virtualSendPendingAtom`).
+      { concurrent: true },
     )
     .pipe(Atom.keepAlive);
 
@@ -503,6 +512,21 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
       ) {
         if (get(selectedAtom)?._tag === 'Virtual') {
           // Virtual (Bound or not): blob only. Materialize's applyConfigDiffs pushes it to the live session on Send.
+          // Exception: an advertised model with no hydrated row yet is picked on the Bound session so its row is learned.
+          const boundSessionId = get(virtualSessionAtom)?.sessionId;
+          if (
+            arg.type === 'select' &&
+            arg.configId === 'model' &&
+            boundSessionId !== undefined &&
+            needsLazyHydrate(get(configOptionIndexAtom(arg.launchTarget)), boundSessionId, arg.value)
+          ) {
+            const pick = yield* Effect.exit(
+              setConfigOption(arg.launchTarget, boundSessionId, 'model', { type: 'select', value: arg.value }),
+            );
+            if (Exit.isFailure(pick)) {
+              return;
+            }
+          }
           patchVirtualConfigValue(
             rwFromFnContext(get),
             get(configOptionIndexAtom(arg.launchTarget)),

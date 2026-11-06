@@ -18,7 +18,7 @@ export const SessionAgentChip: FC<{
   readonly interactive: boolean;
   readonly onChange?: (launchTarget: AgentLaunchTarget) => void;
   /** Rows not listed here render disabled with their reason. Omit to treat every row as ready. */
-  readonly readyLaunchTargets?: readonly AgentLaunchTarget[];
+  readonly usableLaunchTargets?: readonly AgentLaunchTarget[];
   readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
   readonly unavailableReasons?: Readonly<Partial<Record<AgentLaunchTarget, string>>>;
   readonly value: AgentLaunchTarget | undefined;
@@ -26,7 +26,7 @@ export const SessionAgentChip: FC<{
   disabled = false,
   interactive,
   onChange,
-  readyLaunchTargets,
+  usableLaunchTargets,
   selectableLaunchTargets,
   unavailableReasons,
   value,
@@ -46,7 +46,7 @@ export const SessionAgentChip: FC<{
         <Menu {...menu.menuProps}>
           {selectableLaunchTargets.map(launchTarget => (
             <MenuItem
-              disabled={readyLaunchTargets !== undefined && !readyLaunchTargets.includes(launchTarget)}
+              disabled={usableLaunchTargets !== undefined && !usableLaunchTargets.includes(launchTarget)}
               key={launchTarget}
               onClick={() => {
                 onChange?.(launchTarget);

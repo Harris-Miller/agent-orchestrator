@@ -20,17 +20,17 @@ import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
 
 const initialLaunchTarget = (
-  readyLaunchTargets: readonly AgentLaunchTarget[],
+  usableLaunchTargets: readonly AgentLaunchTarget[],
   sourceLaunchTarget: AgentLaunchTarget,
 ): AgentLaunchTarget | undefined =>
-  readyLaunchTargets.includes(sourceLaunchTarget) ? sourceLaunchTarget : readyLaunchTargets[0];
+  usableLaunchTargets.includes(sourceLaunchTarget) ? sourceLaunchTarget : usableLaunchTargets[0];
 
 export const HandoffModal: FC<{
   readonly getConfigOptionIndex: (launchTarget: AgentLaunchTarget) => ConfigOptionIndex | undefined;
   readonly onCancel: () => void;
   readonly onConfirm: (arg: { configValues: ConfigOptionValues; targetLaunchTarget: AgentLaunchTarget }) => void;
   readonly open: boolean;
-  readonly readyLaunchTargets: readonly AgentLaunchTarget[];
+  readonly usableLaunchTargets: readonly AgentLaunchTarget[];
   readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
   readonly sourceLaunchTarget: AgentLaunchTarget;
   readonly unavailableReasons?: Readonly<Partial<Record<AgentLaunchTarget, string>>>;
@@ -39,16 +39,16 @@ export const HandoffModal: FC<{
   onCancel,
   onConfirm,
   open,
-  readyLaunchTargets,
+  usableLaunchTargets,
   selectableLaunchTargets,
   sourceLaunchTarget,
   unavailableReasons,
 }) => {
   const [targetLaunchTarget, setTargetLaunchTarget] = useState<AgentLaunchTarget | undefined>(() =>
-    initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget),
+    initialLaunchTarget(usableLaunchTargets, sourceLaunchTarget),
   );
   const [configValues, setConfigValues] = useState<ConfigOptionValues>(() => {
-    const launchTarget = initialLaunchTarget(readyLaunchTargets, sourceLaunchTarget);
+    const launchTarget = initialLaunchTarget(usableLaunchTargets, sourceLaunchTarget);
     return hardResetForAgent(launchTarget === undefined ? undefined : getConfigOptionIndex(launchTarget)).values;
   });
 
@@ -57,7 +57,7 @@ export const HandoffModal: FC<{
   const configOptions = optionsWithValues(rowForModel(index, selectedModelId), configValues);
   const partitioned = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
 
-  const canConfirm = targetLaunchTarget !== undefined && readyLaunchTargets.includes(targetLaunchTarget);
+  const canConfirm = targetLaunchTarget !== undefined && usableLaunchTargets.includes(targetLaunchTarget);
 
   const onConfigOptionChange = (diff: ConfigValueDiff) => {
     setConfigValues(current => {
@@ -83,7 +83,7 @@ export const HandoffModal: FC<{
               setTargetLaunchTarget(next);
               setConfigValues(hardResetForAgent(getConfigOptionIndex(next)).values);
             }}
-            readyLaunchTargets={readyLaunchTargets}
+            usableLaunchTargets={usableLaunchTargets}
             selectableLaunchTargets={selectableLaunchTargets}
             unavailableReasons={unavailableReasons}
             value={targetLaunchTarget}

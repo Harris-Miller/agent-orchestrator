@@ -26,7 +26,6 @@ export {
 export type { RefreshSessionFsListing } from './atoms/virtualBind.ts';
 export {
   ensureVirtualAcpBound,
-  excludeBoundVirtualFromHistory,
   mutateVirtualThenRebind,
   rwFromFnContext,
   rwFromRegistry,

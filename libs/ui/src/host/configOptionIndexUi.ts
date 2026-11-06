@@ -21,6 +21,24 @@ export const optionsWithValues = (
     return option;
   });
 
+/** The default row's `model` select: its choices are the advertised models (other rows hydrate lazily). */
+const defaultModelOption = (index: ConfigOptionIndex) =>
+  index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
+
+/** The default row's `model` select when `modelId` is one of its choices (an advertised model). */
+const advertisedModelSelect = (index: ConfigOptionIndex, modelId: string) => {
+  const modelOption = defaultModelOption(index);
+  return modelOption?.type === 'select' && modelOption.choices.some(choice => choice.id === modelId)
+    ? modelOption
+    : undefined;
+};
+
+const isHydrated = (index: ConfigOptionIndex, modelId: string): boolean => modelId in index.byModel;
+
+const isKnownModel = (index: ConfigOptionIndex, modelId: string): boolean =>
+  isHydrated(index, modelId) || advertisedModelSelect(index, modelId) !== undefined;
+
+/** Row for a model; an advertised model with no hydrated row yet degrades to the model select alone. */
 export const rowForModel = (
   index: ConfigOptionIndex | undefined,
   modelId: string | undefined,
@@ -28,8 +46,24 @@ export const rowForModel = (
   if (index === undefined || modelId === undefined) {
     return [];
   }
-  return index.byModel[modelId] ?? [];
+  if (isHydrated(index, modelId)) {
+    return index.byModel[modelId];
+  }
+  const modelOption = advertisedModelSelect(index, modelId);
+  return modelOption === undefined ? [] : [{ ...modelOption, currentValue: modelId }];
 };
+
+/** A Virtual model pick needs a live `set_config_option` when a Bound session exists and the model's row is not hydrated yet. */
+export const needsLazyHydrate = (
+  index: ConfigOptionIndex | undefined,
+  boundSessionId: string | undefined,
+  modelId: string,
+): boolean =>
+  index !== undefined &&
+  boundSessionId !== undefined &&
+  !isHydrated(index, modelId) &&
+  !index.unavailableModelIds.includes(modelId) &&
+  advertisedModelSelect(index, modelId) !== undefined;
 
 export const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,
@@ -53,10 +87,12 @@ export const sanitizeConfigValuesForIndex = (
     return values;
   }
   const modelId = typeof values.model === 'string' ? values.model : index.defaultModelId;
-  const modelOk = modelId in index.byModel && !index.unavailableModelIds.includes(modelId);
+  const modelOk = isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId);
   const effectiveModel = modelOk ? modelId : index.defaultModelId;
-  const row = rowForModel(index, effectiveModel);
-  return preserveConfigValuesOnModelChange({ ...values, model: effectiveModel }, row);
+  if (!isHydrated(index, effectiveModel)) {
+    return { ...values, model: effectiveModel };
+  }
+  return preserveConfigValuesOnModelChange({ ...values, model: effectiveModel }, index.byModel[effectiveModel]);
 };
 
 export const resetUnsupportedConfigValues = (
@@ -65,8 +101,11 @@ export const resetUnsupportedConfigValues = (
 ): ConfigOptionValues => {
   if (index === undefined) return values;
   const modelId = values.model;
-  if (typeof modelId !== 'string' || !(modelId in index.byModel) || index.unavailableModelIds.includes(modelId)) {
+  if (typeof modelId !== 'string' || !isKnownModel(index, modelId) || index.unavailableModelIds.includes(modelId)) {
     return hardResetForAgent(index).values;
+  }
+  if (!isHydrated(index, modelId)) {
+    return values;
   }
   const next: Record<string, boolean | string> = { model: modelId };
   for (const option of index.byModel[modelId]) {

@@ -1,8 +1,9 @@
 /** Launch-target-keyed ACP session RPC. Agent handles stay private to this module. */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
-import { Effect, Schema } from 'effect';
+import { Effect, Predicate, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { clearPromptSpan, setPromptSpan } from './promptSpanRegistry.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
@@ -21,6 +22,27 @@ export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>
 }) {}
 
 const connectedAgents = new Map<AgentLaunchTarget, ConnectedAgent>();
+
+/** Lazy hydrate: Config option index updater per launch target, registered by the harness atoms. */
+const configIndexSinks = new Map<AgentLaunchTarget, (event: ConfigIndexEvent) => void>();
+
+export const setConfigIndexSink = (launchTarget: AgentLaunchTarget, sink: (event: ConfigIndexEvent) => void): void => {
+  configIndexSinks.set(launchTarget, sink);
+};
+
+const emitConfigIndexEvent = (launchTarget: AgentLaunchTarget, event: ConfigIndexEvent): void => {
+  configIndexSinks.get(launchTarget)?.(event);
+};
+
+export const clearConfigIndexSink = (launchTarget: AgentLaunchTarget): void => {
+  configIndexSinks.delete(launchTarget);
+};
+
+/** Transport-level failures say nothing about the model, so they never mark it unavailable. */
+const isTransportFailure = (error: unknown): boolean =>
+  Predicate.isTagged(error, 'RpcClientError') ||
+  Predicate.isTagged(error, 'TransportError') ||
+  Predicate.isTagged(error, 'BackendNotConnected');
 
 const requireConnectedAgent = (launchTarget: AgentLaunchTarget): Effect.Effect<ConnectedAgent, BackendNotConnected> => {
   const connected = connectedAgents.get(launchTarget);
@@ -68,6 +90,7 @@ export const createSession = Effect.fn('createSession')(
     yield* Effect.logInfo('Creating ACP session', { cwd });
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
+    emitConfigIndexEvent(launchTarget, { _tag: 'SessionNew', response: result });
     return { cwd, result };
   },
   Effect.tapError(error => Effect.logError('session/new failed', error)),
@@ -223,19 +246,28 @@ export const setConfigOption = Effect.fn('setConfigOption')(
   ) {
     const { agent } = yield* requireConnectedAgent(launchTarget);
     yield* Effect.logDebug('session/set_config_option', sessionId, configId, optionValue);
-    if (optionValue.type === 'boolean') {
-      return yield* agent['session/set_config_option']({
-        configId,
-        sessionId,
-        type: 'boolean',
-        value: optionValue.value,
-      });
+    const call =
+      optionValue.type === 'boolean'
+        ? agent['session/set_config_option']({ configId, sessionId, type: 'boolean', value: optionValue.value })
+        : agent['session/set_config_option']({ configId, sessionId, value: optionValue.value });
+    if (configId !== 'model' || optionValue.type !== 'select') {
+      return yield* call;
     }
-    return yield* agent['session/set_config_option']({
-      configId,
-      sessionId,
-      value: optionValue.value,
-    });
+    // Lazy hydrate: a model pick's response is that model's full row; an agent-refused pick marks it unavailable.
+    return yield* call.pipe(
+      Effect.tap(response =>
+        Effect.sync(() => {
+          emitConfigIndexEvent(launchTarget, { _tag: 'ModelPicked', modelId: optionValue.value, response });
+        }),
+      ),
+      Effect.tapError(error =>
+        Effect.sync(() => {
+          if (!isTransportFailure(error)) {
+            emitConfigIndexEvent(launchTarget, { _tag: 'ModelPickFailed', modelId: optionValue.value });
+          }
+        }),
+      ),
+    );
   },
   (effect, _launchTarget, sessionId, configId) =>
     effect.pipe(

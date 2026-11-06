@@ -2,14 +2,14 @@ import { assert, describe, it } from '@effect/vitest';
 import { AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
-import { configOptionIndexFromProbeResponses } from '../host/configProbe.ts';
+import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFixtures.ts';
 
 import {
   clearSelected,
   configOptionIndexAtom,
   selectedAtom,
   selectSession,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
 } from './backendState.atoms.ts';
 import { rwFromRegistry } from './virtualBind.ts';
 import {
@@ -86,7 +86,7 @@ describe('ensureVirtualSession', () => {
   it('no-ops while lifecycle in-flight', () => {
     const registry = AtomRegistry.make();
     const rw = rwFromRegistry(registry);
-    registry.set(virtualLifecycleInFlightAtom, true);
+    registry.set(virtualMaterializingAtom, true);
     ensureVirtualSession(rw);
     assert.isNull(registry.get(virtualSessionAtom));
     assert.isUndefined(registry.get(selectedAtom));
@@ -102,7 +102,7 @@ describe('selection in-flight guards', () => {
       },
     });
     registry.set(selectedAtom, { _tag: 'Virtual' });
-    registry.set(virtualLifecycleInFlightAtom, true);
+    registry.set(virtualMaterializingAtom, true);
     selectSession(get, 's1');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
     clearSelected(get);
@@ -122,7 +122,7 @@ describe('selection in-flight guards', () => {
     });
     const rw = rwFromRegistry(registry);
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
-    registry.set(virtualLifecycleInFlightAtom, false);
+    registry.set(virtualMaterializingAtom, false);
 
     selectSession(get, 's2');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 's2' });

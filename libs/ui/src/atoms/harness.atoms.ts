@@ -6,18 +6,22 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
+import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
-import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
+import { cancelPendingRequests, historyAfterList, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/promptSpanRegistry.ts';
 import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
+import { setConfigIndexSink } from '../host/sessionRpc.ts';
 import { upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
@@ -29,7 +33,7 @@ import {
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { ensureVirtualAcpBound, historyAfterList, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
+import { ensureVirtualAcpBound, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
@@ -74,6 +78,16 @@ export const createHarnessAtoms = (
       // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
       let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
 
+      setConfigIndexSink(launchTarget, event => {
+        const previous = registry.get(configOptionIndexAtom(launchTarget));
+        const next = mergeConfigOptionIndex(previous, event);
+        if (next !== undefined && next !== previous) {
+          registry.set(configOptionIndexAtom(launchTarget), next);
+          resetVirtualConfig(next);
+          persistConfigOptionIndex(next);
+        }
+      });
+
       lifecycle.start(
         launchTarget,
         runBackendHarness(
@@ -85,6 +99,7 @@ export const createHarnessAtoms = (
                 antigravityAuthUrl: url,
               }));
             },
+            hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
             onConfigOptionIndexPublish: index => {
               registry.set(configOptionIndexAtom(launchTarget), index);
               resetVirtualConfig(index);
@@ -128,13 +143,13 @@ export const createHarnessAtoms = (
             onPhase: (phase, failure) => {
               updateState(current => ({
                 ...current,
-                ...(phase === 'ready' || phase === 'error' || phase === 'connecting'
+                ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting'
                   ? { antigravityAuthUrl: undefined }
                   : {}),
                 failure,
                 phase,
               }));
-              if (phase === 'ready') {
+              if (phase === 'usable') {
                 // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
                 const virtual = registry.get(virtualSessionAtom);
                 if (virtual?.launchTarget === launchTarget) {
@@ -144,7 +159,7 @@ export const createHarnessAtoms = (
                       refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
                     ).pipe(
                       Effect.catchCause(cause =>
-                        Effect.logWarning('ensureVirtualAcpBound on Ready failed', launchTarget, cause),
+                        Effect.logWarning('ensureVirtualAcpBound on usable failed', launchTarget, cause),
                       ),
                     ),
                   );

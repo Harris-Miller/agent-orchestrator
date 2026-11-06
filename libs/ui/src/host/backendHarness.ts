@@ -32,7 +32,7 @@ import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
 import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
+import { clearConfigIndexSink, clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
 
 export { AntigravitySignInTimedOut };
 
@@ -45,6 +45,7 @@ export type RpcWireEntry = {
 
 export type BackendHarnessCallbacks = {
   readonly onAntigravityAuthUrl?: (url: string) => void;
+  readonly hasConfigOptionIndex: () => boolean;
   readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
   readonly onElicitationCreate: (
     sessionId: string,
@@ -81,6 +82,7 @@ const getOrCreateBoolRef = (
 
 export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
   clearConnectedAgent(launchTarget);
+  clearConfigIndexSink(launchTarget);
   clearPromptSpansForLaunchTarget(launchTarget);
 };
 
@@ -91,7 +93,7 @@ export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(fu
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + optional Sign in + Config probe + buffered history list through ready. */
+/** Connect + initialize + optional Sign in + Config probe when the index cache is missing (`usable`), then history list (`ready`). */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (
     launchTarget: AgentLaunchTarget,
@@ -163,16 +165,22 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);
     }
 
-    handlers.onPhase('probing');
-    yield* Effect.logInfo('ACP harness probing', launchTarget);
+    // Cold cache only: one probe session seeds the index; later rows arrive by Lazy hydrate.
+    if (!handlers.hasConfigOptionIndex()) {
+      handlers.onConfigOptionIndexPublish(yield* runConfigProbe(agent));
+    }
 
+    handlers.onPhase('usable');
+    yield* Effect.logInfo('ACP harness usable', launchTarget);
+
+    // Session list runs in the background of `usable`; failure still fails this fiber (retry/error).
     const listScope = resolveListScope();
     const listPayload = listSessionsPayload(listScope);
-    if (listPayload !== undefined) handlers.onSessionHistoryRequest();
-    const listResult = listPayload === undefined ? { sessions: [] } : yield* agent['session/list'](listPayload);
-    const index = yield* runConfigProbe(agent);
-    handlers.onConfigOptionIndexPublish(index);
-    if (listPayload !== undefined) handlers.onSessionHistoryResult(listResult, listScope);
+    if (listPayload !== undefined) {
+      handlers.onSessionHistoryRequest();
+      const listResult = yield* agent['session/list'](listPayload);
+      handlers.onSessionHistoryResult(listResult, listScope);
+    }
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
     onReady();

@@ -69,8 +69,9 @@ describe('provider status', () => {
 
   it('maps real harness phases from the failure tag, not its wording', () => {
     assert.deepStrictEqual(authFromHarness('connecting', undefined), { auth: 'Checking', harnessError: undefined });
-    assert.deepStrictEqual(authFromHarness('probing', undefined), { auth: 'Checking', harnessError: undefined });
+    assert.deepStrictEqual(authFromHarness('initialized', undefined), { auth: 'Checking', harnessError: undefined });
     assert.deepStrictEqual(authFromHarness('signing-in', undefined), { auth: 'SigningIn', harnessError: undefined });
+    assert.deepStrictEqual(authFromHarness('usable', undefined), { auth: 'SignedIn', harnessError: undefined });
     assert.deepStrictEqual(authFromHarness('ready', undefined), { auth: 'SignedIn', harnessError: undefined });
     // The tag decides, so instruction wording can change freely...
     assert.deepStrictEqual(authFromHarness('error', { _tag: 'NotSignedIn', message: 'lorem ipsum' }), {

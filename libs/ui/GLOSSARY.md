@@ -7,7 +7,7 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 ## Language
 
 **Harness application state**:
-The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, virtual lifecycle in-flight lock (Bind or Materialize), sessions, chat, handoff, and User settings projections.
+The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, Lifecycle lock (Materialize only), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Draft during turn**:
@@ -15,19 +15,27 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Bind**:
-Eager `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `ready` are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Sole triggers: post-mutate rebind and Ready `onPhase`. Distinct from Materialize (first-Send promote).
+Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: post-mutate rebind, the `usable` `onPhase`, and Send when none is in flight. Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
+
+**Lifecycle lock**:
+Short lock held only while a Virtual session Materializes (Config diffs + history upsert); Virtual edits and cwd/Config controls are inert while it is held. Bind never takes it. Released before the prompt is sent.
+_Avoid_: Bind lock, in-flight lock
+
+**Send pending**:
+The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable` and for the latest Bind, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure) leaves it in place.
+_Avoid_: Queued send, outbox
 
 **Harness state transition**:
 Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn) apply the result; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, Config probe, and buffered session list, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then lists sessions after `usable`, and retries on failure. One per mounted target; runs in parallel with siblings. Does not own the session transcript.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → probing → ready, or error. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: session list has also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:
@@ -65,16 +73,24 @@ OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in 
 _Avoid_: elicitation URL
 
 **Config option index**:
-Per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, then refreshed and persisted after a successful probe.
+Per-launch-target index of default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, seeded by Config probe when the cache is missing, then kept current and persisted by Lazy hydrate. Rows may be missing for models not yet selected.
 _Avoid_: Provider catalog, harness defaults, config catalog
+
+**Config probe**:
+Cold-cache seed of the Config option index, run before Bootstrap `usable`. Not an Active session; never Materialize. Canonical definition in the desktop glossary.
+_Avoid_: Session create, materialize, activate
+
+**Lazy hydrate**:
+Keeping the Config option index current from live agent responses instead of probing every model. Canonical definition in the desktop glossary.
+_Avoid_: refresh, re-probe
 
 **Session History**:
 Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached but filtered out by `visibleSessionHistoryAtom`. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
-A model id advertised on `session/new` whose probe `session/set_config_option` soft-failed; kept visible in model selects as disabled `(unavailable)`, not present in the probed per-model rows.
-_Avoid_: Missing model, failed model, disabled model (when you mean this probe outcome)
+A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
+_Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Developer panel**:
 Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs.

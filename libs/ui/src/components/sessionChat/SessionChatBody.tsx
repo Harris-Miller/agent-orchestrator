@@ -36,6 +36,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { composerTurnActions } from './composerTurnActions.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
@@ -120,7 +121,7 @@ const SessionChatBodyInner: FC<{
     hasPendingInteraction,
     isVirtual,
     pendingClientRequest,
-    readyLaunchTargets,
+    usableLaunchTargets,
     selectableLaunchTargets,
     unavailableReasons,
     requestFork,
@@ -131,7 +132,7 @@ const SessionChatBodyInner: FC<{
     setDraft,
     setVirtualLaunchTarget,
     steeringSupported,
-    virtualLifecycleInFlight,
+    virtualSendPending,
   } = useSessionChatSurface();
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
@@ -429,7 +430,7 @@ const SessionChatBodyInner: FC<{
     steeringSupported,
   });
 
-  const sendPending = pendingClientRequest || virtualLifecycleInFlight;
+  const sendPending = pendingClientRequest || virtualSendPending;
   const primaryButton = {
     send: { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: !canSend },
     steer: { ariaLabel: 'Steer', disabled: !canSteer },
@@ -519,7 +520,7 @@ const SessionChatBodyInner: FC<{
     if (selectedLaunchTarget === undefined) {
       return <Alert severity="info">No session selected — create or select a session.</Alert>;
     }
-    if (backendSnapshot?.phase !== 'ready') {
+    if (backendSnapshot === undefined || !isUsablePhase(backendSnapshot.phase)) {
       return <Alert severity="info">Starting {agentLaunchTargetLabel(selectedLaunchTarget)} over ACP…</Alert>;
     }
     if (selectedSession === undefined) {
@@ -762,7 +763,7 @@ const SessionChatBodyInner: FC<{
                 onChange={launchTarget => {
                   setVirtualLaunchTarget(launchTarget).catch(() => undefined);
                 }}
-                readyLaunchTargets={readyLaunchTargets}
+                usableLaunchTargets={usableLaunchTargets}
                 selectableLaunchTargets={selectableLaunchTargets}
                 unavailableReasons={unavailableReasons}
                 value={selectedLaunchTarget}
@@ -886,7 +887,7 @@ const SessionChatBodyInner: FC<{
             }).catch(onClientError);
           }}
           open
-          readyLaunchTargets={readyLaunchTargets}
+          usableLaunchTargets={usableLaunchTargets}
           selectableLaunchTargets={selectableLaunchTargets}
           sourceLaunchTarget={selectedLaunchTarget}
           unavailableReasons={unavailableReasons}

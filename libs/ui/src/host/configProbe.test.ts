@@ -2,9 +2,9 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 
+import { effortOption, modelSelectOption, rowIds } from './configOptionIndexFixtures.ts';
 import type { NormalizedBooleanConfigOption, NormalizedSelectConfigOption } from './acpSessionBootstrap.ts';
 import {
-  configOptionIndexFromProbeResponses,
   configOptionIndexIsNonempty,
   configValuesFromOptions,
   preserveConfigValuesOnModelChange,
@@ -29,140 +29,6 @@ const booleanOption = (id: string, currentValue: boolean): NormalizedBooleanConf
 const probeServices = layerNoop({
   makeTempDirectory: () => Effect.succeed('/tmp/ao-config-probe-test'),
   remove: () => Effect.void,
-});
-
-type ModelChoice = { readonly name: string; readonly value: string };
-
-const makeProbeAgent = (options: {
-  readonly calls: string[];
-  readonly close?: Effect.Effect<unknown, string>;
-  readonly delete?: Effect.Effect<unknown, string>;
-  readonly extraNewOptions?: readonly unknown[];
-  readonly failModels?: ReadonlySet<string>;
-  readonly modelChoices: readonly ModelChoice[];
-}) => {
-  const {
-    calls,
-    close = Effect.void,
-    delete: deleteEffect = Effect.void,
-    extraNewOptions = [],
-    failModels = new Set<string>(),
-    modelChoices,
-  } = options;
-  const defaultModelId = modelChoices[0]?.value;
-  return {
-    'session/close': () => {
-      calls.push('close');
-      return close;
-    },
-    'session/delete': () => {
-      calls.push('delete');
-      return deleteEffect;
-    },
-    'session/new': () => {
-      calls.push('new');
-      return Effect.succeed({
-        configOptions: [
-          {
-            currentValue: defaultModelId,
-            id: 'model',
-            name: 'Model',
-            options: modelChoices,
-            type: 'select',
-          },
-          ...extraNewOptions,
-        ],
-        sessionId: 'probe-1',
-      });
-    },
-    'session/set_config_option': ({ value }: { value: string }) => {
-      calls.push(`set:${value}`);
-      if (failModels.has(value)) {
-        return Effect.fail('Rate limit exceeded');
-      }
-      return Effect.succeed({
-        configOptions: [
-          {
-            currentValue: value,
-            id: 'model',
-            name: 'Model',
-            options: modelChoices,
-            type: 'select',
-          },
-          {
-            currentValue: 'high',
-            id: 'effort',
-            name: 'Effort',
-            options: [{ name: 'High', value: 'high' }],
-            type: 'select',
-          },
-        ],
-      });
-    },
-  };
-};
-
-describe('configOptionIndexFromProbeResponses', () => {
-  it('stores each model response as-is without cross-model merge', () => {
-    const index = configOptionIndexFromProbeResponses('sonnet', {
-      opus: {
-        configOptions: [
-          {
-            currentValue: 'opus',
-            id: 'model',
-            name: 'Model',
-            options: [{ name: 'Opus', value: 'opus' }],
-            type: 'select',
-          },
-          {
-            currentValue: 'max',
-            id: 'effort',
-            name: 'Effort',
-            options: [{ name: 'Max', value: 'max' }],
-            type: 'select',
-          },
-        ],
-      },
-      sonnet: {
-        configOptions: [
-          {
-            currentValue: 'sonnet',
-            id: 'model',
-            name: 'Model',
-            options: [
-              { name: 'Sonnet', value: 'sonnet' },
-              { name: 'Opus', value: 'opus' },
-            ],
-            type: 'select',
-          },
-          {
-            currentValue: 'default',
-            id: 'mode',
-            name: 'Mode',
-            options: [{ name: 'Default', value: 'default' }],
-            type: 'select',
-          },
-          {
-            currentValue: false,
-            id: 'fast-mode',
-            name: 'Fast mode',
-            type: 'boolean',
-          },
-        ],
-      },
-    });
-
-    assert.strictEqual(index.defaultModelId, 'sonnet');
-    assert.deepStrictEqual(
-      index.byModel.sonnet.map(option => option.id),
-      ['model', 'mode', 'fast-mode'],
-    );
-    assert.deepStrictEqual(
-      index.byModel.opus.map(option => option.id),
-      ['model', 'effort'],
-    );
-    assert.deepStrictEqual(index.unavailableModelIds, []);
-  });
 });
 
 describe('preserveConfigValuesOnModelChange', () => {
@@ -201,90 +67,46 @@ describe('configValuesFromOptions / nonempty', () => {
 });
 
 describe('runConfigProbe', () => {
-  it.effect('builds index; close/delete/cleanup failure still returns Ready-eligible index', () =>
+  const makeAgent = (calls: string[], response: unknown, closeFails = false) => ({
+    'session/close': () => {
+      calls.push('close');
+      return closeFails ? Effect.fail('close-failed') : Effect.void;
+    },
+    'session/delete': () => {
+      calls.push('delete');
+      return closeFails ? Effect.fail('delete-failed') : Effect.void;
+    },
+    'session/new': () => {
+      calls.push('new');
+      return Effect.succeed({ sessionId: 'probe-1', ...(response as object) });
+    },
+  });
+
+  it.effect('seeds model list and default row from one session/new; close/delete failure still returns index', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const agent = makeProbeAgent({
+      const agent = makeAgent(
         calls,
-        close: Effect.fail('close-failed'),
-        delete: Effect.fail('delete-failed'),
-        extraNewOptions: [
-          {
-            currentValue: 'default',
-            id: 'mode',
-            name: 'Mode',
-            options: [{ name: 'Default', value: 'default' }],
-            type: 'select',
-          },
-        ],
-        modelChoices: [
-          { name: 'Sonnet', value: 'sonnet' },
-          { name: 'Opus', value: 'opus' },
-        ],
-      });
+        { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus']), effortOption('high')] },
+        true,
+      );
 
       const index = yield* runConfigProbe(agent);
       assert.strictEqual(index.defaultModelId, 'sonnet');
-      assert.deepStrictEqual(
-        index.byModel.sonnet.map(option => option.id),
-        ['model', 'mode'],
-      );
-      assert.deepStrictEqual(
-        index.byModel.opus.map(option => option.id),
-        ['model', 'effort'],
-      );
+      assert.deepStrictEqual(Object.keys(index.byModel), ['sonnet']);
+      assert.deepStrictEqual(rowIds(index, 'sonnet'), ['model', 'effort']);
       assert.deepStrictEqual(index.unavailableModelIds, []);
-      assert.deepStrictEqual(calls, ['new', 'set:opus', 'close', 'delete']);
-    }).pipe(Effect.provide(probeServices)),
-  );
-
-  it.effect('soft-fails mid-loop set_config_option; continues, cleans up, marks unavailable', () =>
-    Effect.gen(function* () {
-      const calls: string[] = [];
-      const agent = makeProbeAgent({
-        calls,
-        failModels: new Set(['opus']),
-        modelChoices: [
-          { name: 'Sonnet', value: 'sonnet' },
-          { name: 'Opus', value: 'opus' },
-          { name: 'Haiku', value: 'haiku' },
-        ],
-      });
-
-      const index = yield* runConfigProbe(agent);
-      assert.strictEqual(index.defaultModelId, 'sonnet');
-      assert.isUndefined(index.byModel.opus);
-      assert.deepStrictEqual(
-        index.byModel.haiku.map(option => option.id),
-        ['model', 'effort'],
-      );
-      assert.deepStrictEqual(index.unavailableModelIds, ['opus']);
-      assert.deepStrictEqual(calls, ['new', 'set:opus', 'set:haiku', 'close', 'delete']);
+      assert.deepStrictEqual(calls, ['new', 'close', 'delete']);
     }).pipe(Effect.provide(probeServices)),
   );
 
   it.effect('fails when session/new has no model currentValue; still cleans up', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const agent = {
-        'session/close': () => {
-          calls.push('close');
-          return Effect.void;
-        },
-        'session/delete': () => {
-          calls.push('delete');
-          return Effect.void;
-        },
-        'session/new': () =>
-          Effect.succeed({
-            configOptions: [{ id: 'mode', name: 'Mode', type: 'select' }],
-            sessionId: 'probe-1',
-          }),
-        'session/set_config_option': () => Effect.succeed({}),
-      };
+      const agent = makeAgent(calls, { configOptions: [{ id: 'mode', name: 'Mode', type: 'select' }] });
       const exit = yield* Effect.exit(runConfigProbe(agent));
       assert.isTrue(Exit.isFailure(exit));
-      assert.deepStrictEqual(calls, ['close', 'delete']);
+      assert.deepStrictEqual(calls, ['new', 'close', 'delete']);
     }).pipe(Effect.provide(probeServices)),
   );
 });

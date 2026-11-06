@@ -306,57 +306,12 @@ export const compareHistoryEntriesByUpdatedAtDesc = (
   return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
 };
 
-export const maxUpdatedAtMs = (sessions: readonly Pick<NormalizedSessionInfo, 'updatedAt'>[]): number => {
-  let max = Number.NEGATIVE_INFINITY;
-  for (const entry of sessions) {
-    if (entry.updatedAt !== undefined) {
-      const parsed = Date.parse(entry.updatedAt);
-      if (Number.isFinite(parsed) && parsed > max) {
-        max = parsed;
-      }
-    }
-  }
-  return max;
-};
-
-export const groupAndSortSessionsByCwd = <T extends NormalizedSessionInfo>(
-  history: readonly T[],
-): readonly { cwd: string; sessions: readonly T[] }[] => {
-  const groups = new Map<string, T[]>();
-  for (const entry of history) {
-    const existing = groups.get(entry.cwd);
-    if (existing === undefined) {
-      groups.set(entry.cwd, [entry]);
-    } else {
-      existing.push(entry);
-    }
-  }
-
-  return [...groups.entries()]
-    .map(([cwd, sessions]) => ({
-      cwd,
-      sessions: [...sessions].sort(compareHistoryEntriesByUpdatedAtDesc),
-    }))
-    .sort((left, right) => {
-      const leftMax = maxUpdatedAtMs(left.sessions);
-      const rightMax = maxUpdatedAtMs(right.sessions);
-      if (leftMax !== rightMax) {
-        return rightMax - leftMax;
-      }
-      return left.cwd < right.cwd ? -1 : left.cwd > right.cwd ? 1 : 0;
-    });
-};
-
-/** Same group/sort as the desktop history; keep only the group for `cwd` (empty if none). */
+/** History entries for `cwd`, newest first (empty when `cwd` is undefined). */
 export const sessionsForCwd = <T extends NormalizedSessionInfo>(
   history: readonly T[],
   cwd: string | undefined,
-): readonly T[] => {
-  if (cwd === undefined) {
-    return [];
-  }
-  return groupAndSortSessionsByCwd(history).find(group => group.cwd === cwd)?.sessions ?? [];
-};
+): readonly T[] =>
+  cwd === undefined ? [] : history.filter(entry => entry.cwd === cwd).sort(compareHistoryEntriesByUpdatedAtDesc);
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   if (!Array.isArray(value)) {

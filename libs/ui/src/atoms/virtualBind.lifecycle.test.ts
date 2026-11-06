@@ -899,7 +899,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
   it.effect('Send mid-Bind awaits the Bind, then Materializes and prompts the Bound session', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<undefined>();
       installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
       const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
@@ -965,7 +965,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
   it.effect('Send then provider switch while awaiting → follows the latest Bind and prompts the new provider', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<undefined>();
       installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
       const clearClaude = installClaudeAgent(calls);
       const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
@@ -1038,7 +1038,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
   it.effect('second Send while one is pending is ignored (single prompt)', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<undefined>();
       installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
       const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });

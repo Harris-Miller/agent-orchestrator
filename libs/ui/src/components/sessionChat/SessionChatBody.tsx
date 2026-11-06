@@ -132,7 +132,7 @@ const SessionChatBodyInner: FC<{
     setDraft,
     setVirtualLaunchTarget,
     steeringSupported,
-    virtualLifecycleInFlight,
+    virtualSendPending,
   } = useSessionChatSurface();
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
@@ -430,7 +430,7 @@ const SessionChatBodyInner: FC<{
     steeringSupported,
   });
 
-  const sendPending = pendingClientRequest || virtualLifecycleInFlight;
+  const sendPending = pendingClientRequest || virtualSendPending;
   const primaryButton = {
     send: { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: !canSend },
     steer: { ariaLabel: 'Steer', disabled: !canSteer },

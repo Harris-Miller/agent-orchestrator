@@ -280,19 +280,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             }
             if (!isUsablePhase(phase)) {
               yield* awaitProviderSettled(get.registry, launchTarget);
-              continue;
+            } else {
+              yield* requestVirtualBind(rw);
+              const boundId = yield* awaitCurrentVirtualBind(rw);
+              const latest = get(virtualSessionAtom);
+              // Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.
+              if (latest?.launchTarget === launchTarget && latest.cwd === cwd) {
+                if (boundId === undefined || latest.sessionId !== boundId) {
+                  return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
+                }
+                return { ...latest, cwd, launchTarget, sessionId: boundId };
+              }
             }
-
-            yield* requestVirtualBind(rw);
-            const boundId = yield* awaitCurrentVirtualBind(rw);
-            const latest = get(virtualSessionAtom);
-            if (latest?.launchTarget !== launchTarget || latest.cwd !== cwd) {
-              continue;
-            }
-            if (boundId === undefined || latest.sessionId !== boundId) {
-              return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
-            }
-            return { ...latest, cwd, launchTarget, sessionId: boundId };
           }
         }).pipe(
           Effect.ensuring(

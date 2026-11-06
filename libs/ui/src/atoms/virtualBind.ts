@@ -312,7 +312,7 @@ export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(func
 
 /** Wait until the provider is usable or errored, or the blob moved off `launchTarget` (whichever comes first). */
 export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
-  Effect.callback<void>(resume => {
+  Effect.callback<undefined>(resume => {
     const unsubscribes: (() => void)[] = [];
     const settled = () => {
       const { phase } = registry.get(backendHarnessStateAtom(launchTarget));
@@ -325,11 +325,11 @@ export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launch
         unsubscribes.forEach(unsubscribe => {
           unsubscribe();
         });
-        resume(Effect.void);
+        resume(Effect.succeed(undefined));
       }
     };
     if (settled()) {
-      resume(Effect.void);
+      resume(Effect.succeed(undefined));
       return;
     }
     unsubscribes.push(

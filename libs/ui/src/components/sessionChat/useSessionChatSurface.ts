@@ -14,6 +14,7 @@ import {
   selectedSessionLaunchTargetAtom,
   usableLaunchTargetsAtom,
   virtualMaterializingAtom,
+  virtualSendPendingAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   forkSessionAtomFn,
@@ -49,7 +50,8 @@ export const useSessionChatSurface = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const lifecycleLockHeld = useAtomValue(virtualMaterializingAtom);
+  const materializing = useAtomValue(virtualMaterializingAtom);
+  const sendPendingAtomValue = useAtomValue(virtualSendPendingAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const usableLaunchTargets = useAtomValue(usableLaunchTargetsAtom);
   const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
@@ -141,22 +143,25 @@ export const useSessionChatSurface = () => {
     (selectedSession?.pendingElicitation !== undefined || selectedSession?.pendingPermission !== undefined);
   const pendingClientRequest = selectedSession?.pendingClientRequest !== undefined;
   const canCancelPromptTurn = !isVirtual && selectedSession?.pendingClientRequest === 'prompt';
-  // The Virtual lifecycle lock only gates the Virtual composer; Sessions navigated to mid-Bind stay usable.
-  const virtualLifecycleInFlight = isVirtual && lifecycleLockHeld;
-  const chromeLocked = handoffInProgress || virtualLifecycleInFlight;
+  // Bind never locks the composer (optimistic, latest-wins); only Materialize (and handoff) does. A pending Send
+  // freezes just the draft text / attachments, not provider or config controls.
+  const virtualSendPending = isVirtual && (sendPendingAtomValue || materializing);
+  const chromeLocked = handoffInProgress || (isVirtual && materializing);
   const controlsEnabled = isVirtual
     ? !chromeLocked
     : selectedSession?.status === 'active' && !pendingClientRequest && !hasPendingInteraction && !chromeLocked;
   // Typing and attaching stay open mid-turn (and during config/interaction waits); only submit is gated.
-  const canEdit = isVirtual ? !chromeLocked : selectedSession?.status === 'active' && !chromeLocked;
+  const canEdit = isVirtual
+    ? !chromeLocked && !virtualSendPending
+    : selectedSession?.status === 'active' && !chromeLocked;
   const virtualReady =
     isVirtual &&
     selectedLaunchTarget !== undefined &&
-    usableLaunchTargets.includes(selectedLaunchTarget) &&
+    selectedLaunchHarness.phase !== 'error' &&
     virtualSession?.cwd !== undefined;
   const hasSendableContent = draft.trim().length > 0 || attachments.length > 0;
   const canSend = isVirtual
-    ? controlsEnabled && virtualReady && hasSendableContent
+    ? controlsEnabled && virtualReady && hasSendableContent && !virtualSendPending
     : controlsEnabled && selectedLaunchTarget !== undefined && hasSendableContent;
   const steeringSupported = hasSteeringSupport(backendSnapshot?.initializeResult);
   const hasTranscriptMessage = chatItems.some(
@@ -222,6 +227,6 @@ export const useSessionChatSurface = () => {
     setDraft,
     setVirtualLaunchTarget,
     steeringSupported,
-    virtualLifecycleInFlight,
+    virtualSendPending,
   };
 };

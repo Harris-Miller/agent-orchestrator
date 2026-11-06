@@ -1,26 +1,24 @@
-/** Virtual ACP Bind lifecycle: teardown, ensure Bind, mutate-then-rebind. */
+/** Virtual ACP Bind lifecycle: teardown, ensure Bind, mutate-then-rebind, await-bound gate for Send. */
 import { Deferred, Effect, Exit } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { isUsablePhase, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
-import type { HistoryEntry, NormalizedSessionInfo } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import {
-  dropSession,
-  mergeListedHistory,
-  upsertIntoSnapshot,
-  withoutHistoryEntry,
-} from '../host/harnessStateTransitions.ts';
-import type { SessionListScope } from '../host/sessionListScope.ts';
+import { dropSession, upsertIntoSnapshot, withoutHistoryEntry } from '../host/harnessStateTransitions.ts';
 import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom, virtualBindAtom, virtualMaterializingAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  ProviderUnavailable,
+  virtualBindAtom,
+  virtualMaterializingAtom,
+} from './backendState.atoms.ts';
 import type { VirtualBind } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { VirtualSession } from './virtualSession.atoms.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
+import { hasComposerContent, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 
@@ -61,26 +59,6 @@ export const rwFromRegistry = (registry: AtomRegistry.AtomRegistry): AtomRw => (
     registry.set(atom, value);
   },
 });
-
-/** Publish-policy filter: drop Bound Virtual id from history until Materialize. */
-export const excludeBoundVirtualFromHistory = (
-  history: readonly NormalizedSessionInfo[],
-  boundSessionId: string | undefined,
-): readonly NormalizedSessionInfo[] =>
-  boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
-
-/** Next history after a successful `session/list`: normalize, hide Bound Virtual, merge by scope. */
-export const historyAfterList = (
-  current: readonly HistoryEntry[],
-  listResult: unknown,
-  scope: SessionListScope,
-  boundSessionId: string | undefined,
-): readonly HistoryEntry[] =>
-  mergeListedHistory(
-    current,
-    excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
-    scope,
-  );
 
 /** ACP v1 cwd must be absolute; no post-create cwd mutator (teardown + Bind on change). */
 const isAbsoluteCwd = (cwd: string): boolean =>
@@ -342,3 +320,48 @@ export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launch
       });
     });
   });
+
+/** A Virtual draft with content, a Bound session, and the cwd / launch target it was Bound for. */
+export type BoundVirtualTarget = VirtualSession & {
+  readonly cwd: string;
+  readonly launchTarget: AgentLaunchTarget;
+  readonly sessionId: string;
+};
+
+/**
+ * Send gate: wait for the provider to be usable, then for the latest Bind (requesting one if none is in flight).
+ * Follows the blob when provider / cwd churn mid-wait. Resolves to the Bound draft, or `undefined` when there is
+ * nothing to send (no blob, no cwd / launch target, or the draft was cleared). Fails with {@link ProviderUnavailable}
+ * on a provider `error` phase or when the Bind failed.
+ */
+export const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
+  registry: AtomRegistry.AtomRegistry,
+): Effect.fn.Return<BoundVirtualTarget | undefined, ProviderUnavailable> {
+  const rw = rwFromRegistry(registry);
+  for (;;) {
+    const virtual = registry.get(virtualSessionAtom);
+    if (virtual?.launchTarget === undefined || virtual.cwd === undefined || !hasComposerContent(virtual)) {
+      return undefined;
+    }
+    const { cwd, launchTarget } = virtual;
+    const { failure, phase } = registry.get(backendHarnessStateAtom(launchTarget));
+    if (phase === 'error') {
+      return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
+    }
+    if (!isUsablePhase(phase)) {
+      yield* awaitProviderSettled(registry, launchTarget);
+    } else {
+      yield* requestVirtualBind(rw);
+      const boundId = yield* awaitCurrentVirtualBind(rw);
+      const latest = registry.get(virtualSessionAtom);
+      // Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.
+      if (latest?.launchTarget === launchTarget && latest.cwd === cwd) {
+        if (boundId === undefined || latest.sessionId !== boundId) {
+          return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
+        }
+        // Draft cleared while awaiting → nothing left to send.
+        return hasComposerContent(latest) ? { ...latest, cwd, launchTarget, sessionId: boundId } : undefined;
+      }
+    }
+  }
+});

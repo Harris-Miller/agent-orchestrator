@@ -6,7 +6,12 @@ import type {
   PendingClientRequestKind,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
-import { initialBackendHarnessSnapshot, isUsablePhase, upsertHistoryEntry } from './acpSessionBootstrap.ts';
+import {
+  initialBackendHarnessSnapshot,
+  isUsablePhase,
+  normalizeSessionHistory,
+  upsertHistoryEntry,
+} from './acpSessionBootstrap.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import { resetSubagentLiveState } from './subagent.ts';
 import type { SessionListScope } from './sessionListScope.ts';
@@ -27,6 +32,26 @@ export const mergeListedHistory = (
   for (const entry of listed) byId.set(entry.sessionId, entry);
   return [...byId.values()];
 };
+
+/** Publish-policy filter: drop Bound Virtual id from history until Materialize. */
+export const excludeBoundVirtualFromHistory = (
+  history: readonly NormalizedSessionInfo[],
+  boundSessionId: string | undefined,
+): readonly NormalizedSessionInfo[] =>
+  boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
+
+/** Next history after a successful `session/list`: normalize, hide Bound Virtual, merge by scope. */
+export const historyAfterList = (
+  current: readonly HistoryEntry[],
+  listResult: unknown,
+  scope: SessionListScope,
+  boundSessionId: string | undefined,
+): readonly HistoryEntry[] =>
+  mergeListedHistory(
+    current,
+    excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
+    scope,
+  );
 
 /** Clear pending client request / elicitation / permission on the listed sessions. */
 export const stripSessionPendings = (

@@ -4,6 +4,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import { excludeBoundVirtualFromHistory } from '../host/harnessStateTransitions.ts';
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
@@ -18,9 +19,9 @@ import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import {
+  awaitBoundVirtual,
   awaitCurrentVirtualBind,
   ensureVirtualAcpBound,
-  excludeBoundVirtualFromHistory,
   mutateVirtualThenRebind,
   requestVirtualBind,
   rwFromRegistry,
@@ -795,6 +796,132 @@ describe('setConfigOptionAtomFn Virtual (blob-only)', () => {
   );
 
   it.effect('unbound Virtual Config change → blob updated, no RPC', () => selectO1OnVirtual());
+});
+
+describe('awaitBoundVirtual', () => {
+  const setup = () => {
+    const registry = AtomRegistry.make();
+    return { registry, rw: rwFromRegistry(registry) };
+  };
+  const cleanup = (registry: AtomRegistry.AtomRegistry) => {
+    clearConnectedAgent('codex-acp');
+    registry.dispose();
+  };
+
+  it.effect('unbound, no Bind in flight → requests one and resolves to the Bound draft', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const { registry } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+
+      const target = yield* awaitBoundVirtual(registry);
+
+      assert.deepStrictEqual(calls, ['new']);
+      assert.strictEqual(target?.sessionId, 'bound-1');
+      assert.strictEqual(target?.draft, 'hello');
+      cleanup(registry);
+    }),
+  );
+
+  it.effect('waits for the provider to become usable', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const { registry } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+
+      const gate = yield* Effect.forkChild(awaitBoundVirtual(registry));
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(calls, []);
+
+      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'usable' });
+      const target = yield* Fiber.join(gate);
+
+      assert.strictEqual(target?.sessionId, 'bound-1');
+      cleanup(registry);
+    }),
+  );
+
+  it.effect('provider error phase → fails with ProviderUnavailable', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const { registry } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      registry.set(backendHarnessStateAtom('codex-acp'), {
+        ...initialBackendHarnessSnapshot(),
+        failure: { _tag: 'Failed', message: 'boom' },
+        phase: 'error',
+      });
+
+      const exit = yield* Effect.exit(awaitBoundVirtual(registry));
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(calls, []);
+      cleanup(registry);
+    }),
+  );
+
+  it.effect('Bind failure → fails with ProviderUnavailable', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls, { failNew: true });
+      const { registry } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+
+      const exit = yield* Effect.exit(awaitBoundVirtual(registry));
+
+      assert.isTrue(Exit.isFailure(exit));
+      cleanup(registry);
+    }),
+  );
+
+  it.effect('draft cleared while awaiting the Bind → undefined', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* Deferred.make<undefined>();
+      installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
+      const { registry, rw } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      yield* requestVirtualBind(rw);
+
+      const awaiting = yield* Effect.forkChild(awaitBoundVirtual(registry));
+      yield* Effect.yieldNow;
+      patchVirtualSession(rw, { draft: '' });
+      yield* Deferred.succeed(gate, undefined);
+      const target = yield* Fiber.join(awaiting);
+
+      assert.isUndefined(target);
+      cleanup(registry);
+    }),
+  );
+
+  it.effect('cwd churn while awaiting → follows the newest Bind', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* Deferred.make<undefined>();
+      installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
+      const { registry, rw } = setup();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      yield* requestVirtualBind(rw);
+
+      const awaiting = yield* Effect.forkChild(awaitBoundVirtual(registry));
+      yield* Effect.yieldNow;
+      yield* mutateVirtualThenRebind(rw, {
+        mutate: r => {
+          patchVirtualSession(r, { cwd: '/other' });
+        },
+      });
+      yield* Deferred.succeed(gate, undefined);
+      const target = yield* Fiber.join(awaiting);
+
+      assert.strictEqual(target?.cwd, '/other');
+      assert.strictEqual(target?.sessionId, 'bound-2');
+      cleanup(registry);
+    }),
+  );
 });
 
 describe('materializeVirtualThenSendAtomFn', () => {

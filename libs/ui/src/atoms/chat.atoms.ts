@@ -7,7 +7,6 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySetConfigOptionResult,
   hasSteeringSupport,
-  isUsablePhase,
   normalizeConfigOptions,
   patchConfigOptionValue,
   selectionFromSessionConfiguration,
@@ -34,7 +33,6 @@ import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../hos
 import {
   backendHarnessStateAtom,
   configOptionIndexAtom,
-  ProviderUnavailable,
   selectedAtom,
   selectedSessionIdAtom,
   virtualMaterializingAtom,
@@ -42,7 +40,7 @@ import {
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { awaitCurrentVirtualBind, awaitProviderSettled, requestVirtualBind, rwFromFnContext } from './virtualBind.ts';
+import { awaitBoundVirtual, rwFromFnContext } from './virtualBind.ts';
 import {
   hasComposerContent,
   lastCreateDefaultsAtom,
@@ -265,36 +263,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           return;
         }
 
-        const rw = rwFromFnContext(get);
         get.set(virtualSendPendingAtom, true);
-        const target = yield* Effect.gen(function* () {
-          for (;;) {
-            const virtual = get(virtualSessionAtom);
-            if (virtual?.launchTarget === undefined || virtual.cwd === undefined || !hasComposerContent(virtual)) {
-              return undefined;
-            }
-            const { cwd, launchTarget } = virtual;
-            const { failure, phase } = get(backendHarnessStateAtom(launchTarget));
-            if (phase === 'error') {
-              return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
-            }
-            if (!isUsablePhase(phase)) {
-              yield* awaitProviderSettled(get.registry, launchTarget);
-            } else {
-              yield* requestVirtualBind(rw);
-              const boundId = yield* awaitCurrentVirtualBind(rw);
-              const latest = get(virtualSessionAtom);
-              // Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.
-              if (latest?.launchTarget === launchTarget && latest.cwd === cwd) {
-                if (boundId === undefined || latest.sessionId !== boundId) {
-                  return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
-                }
-                // Draft cleared while awaiting → nothing left to send.
-                return hasComposerContent(latest) ? { ...latest, cwd, launchTarget, sessionId: boundId } : undefined;
-              }
-            }
-          }
-        }).pipe(
+        const target = yield* awaitBoundVirtual(get.registry).pipe(
           Effect.ensuring(
             Effect.sync(() => {
               get.set(virtualSendPendingAtom, false);

@@ -14,7 +14,7 @@ import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
-import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
+import { cancelPendingRequests, historyAfterList, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
@@ -33,7 +33,7 @@ import {
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { ensureVirtualAcpBound, historyAfterList, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
+import { ensureVirtualAcpBound, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];

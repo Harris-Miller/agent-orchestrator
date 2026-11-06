@@ -16,6 +16,7 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
   dropSession,
+  historyAfterList,
   markSessionInactive,
   replaceSessionHistory,
   upsertIntoSnapshot,
@@ -52,7 +53,7 @@ import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
-import { historyAfterList, rwFromFnContext } from './virtualBind.ts';
+import { rwFromFnContext } from './virtualBind.ts';
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 /** Reset an activated session's model/options the Config option index no longer offers; soft-fails to the live configuration. */

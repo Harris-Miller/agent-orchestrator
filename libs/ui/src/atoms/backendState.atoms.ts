@@ -15,6 +15,11 @@ export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } 
 
 export const selectedAtom = Atom.make<Selected | undefined>(undefined).pipe(Atom.keepAlive);
 
+/** Child session currently shown full-pane (a view of `subagents[childId]`, not a Selected arm). */
+export const viewedSubagentAtom = Atom.make<
+  { readonly childId: string; readonly launchTarget: AgentLaunchTarget; readonly rootSessionId: string } | undefined
+>(undefined).pipe(Atom.keepAlive);
+
 /**
  * True while Virtual Bind or Materialize holds the lifecycle lock.
  * Create / Virtual-mutation helpers no-op while true; navigation (select / clear Selected) never waits on it.
@@ -126,6 +131,14 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   }
   return findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), sessionId);
 }).pipe(Atom.keepAlive);
+
+/** Subagent map of the selected session's provider; undefined when no session is selected. */
+export const selectedSubagentsAtom = Atom.make(get => {
+  const launchTarget = get(selectedSessionLaunchTargetAtom);
+  return launchTarget === undefined
+    ? undefined
+    : { launchTarget, subagents: get(backendHarnessStateAtom(launchTarget)).subagents };
+});
 
 export const selectedSessionAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);

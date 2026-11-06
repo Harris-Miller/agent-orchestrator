@@ -49,6 +49,7 @@ import { runAtomFn } from './runAtomFn.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
+import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
 import { historyAfterList, rwFromFnContext } from './virtualBind.ts';
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -305,15 +306,21 @@ export const createSessionLifecycleAtoms = (
           mode: useResume ? 'resume' : 'load',
         });
 
-        get.set(backendHarnessStateAtom(arg.launchTarget), {
-          ...snapshot,
-          sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
-            ...session,
-            cwd,
-            defects: undefined,
-            status: 'activating',
-          })),
-        });
+        get.set(
+          backendHarnessStateAtom(arg.launchTarget),
+          resetSubagentsOfRoot(
+            {
+              ...snapshot,
+              sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
+                ...session,
+                cwd,
+                defects: undefined,
+                status: 'activating',
+              })),
+            },
+            arg.sessionId,
+          ),
+        );
 
         const exit = yield* Effect.exit(
           useResume

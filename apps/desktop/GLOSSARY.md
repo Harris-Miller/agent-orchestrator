@@ -282,3 +282,13 @@ _Avoid_: RPC child, notification, demux event, action root (for respond-while-tu
 **Connection setup**:
 The short setup slice of bringing a backend harness online (spawn, connect, initialize, first Session History list). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
 _Avoid_: Connection span, live connection, session (when you mean setup)
+
+**Subagent session**:
+A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, usage file, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
+_Avoid_: Child chat, nested session, sub-session
+
+**Work state**:
+A subagent's open-union state: `running`, `requires_action`, `idle`, `completed`, or an unknown string (rendered neutral). `completed` and `idle` both display as finished. Reset to unconfirmed on load, resume, or connection loss.
+
+**Inter-session message**:
+A directed message between sessions (`session_message` / `session_message_chunk`), upserted by `messageId` within its owning transcript. Shown with sender/recipient; never rendered as a user prompt or tool call.

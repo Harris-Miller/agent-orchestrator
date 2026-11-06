@@ -181,6 +181,7 @@ export class ClientCapabilities extends Schema.Opaque<ClientCapabilities>()(
     elicitation: optional(Schema.NullOr(ElicitationCapabilities)),
     fs: optional(FileSystemCapabilities),
     session: optional(Schema.NullOr(ClientSessionCapabilities)),
+    subagents: optional(Schema.Struct({})),
     terminal: optional(Schema.Boolean),
   }),
 ) {}

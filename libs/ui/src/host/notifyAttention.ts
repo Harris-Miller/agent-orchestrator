@@ -12,6 +12,7 @@ import {
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { sessionChatTitle } from './sessionChatTitle.ts';
+import { getSubagent, rootAncestorId } from './subagent.ts';
 
 /** A moment the user should notice (see ui GLOSSARY Attention event). */
 export type AttentionEvent =
@@ -57,17 +58,25 @@ export const notifyAttention = (title: string, event: AttentionEvent) =>
   }).pipe(Effect.ignore);
 
 /** {@link notifyAttention} titled with the session's chat title (history entry title or launch target label; `Chat` before a history entry exists). */
+/** A subagent's attention event names the child under its root session's title. */
+const attentionTitle = (
+  snapshot: BackendHarnessSnapshot,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+): string => {
+  const rootId = rootAncestorId(snapshot.subagents, sessionId);
+  const rootTitle = sessionChatTitle(
+    false,
+    snapshot.sessionHistory.find(entry => entry.sessionId === rootId),
+    launchTarget,
+  );
+  const child = getSubagent(snapshot.subagents, sessionId);
+  return child === undefined ? rootTitle : `${rootTitle} · ${child.name ?? 'Subagent'}`;
+};
+
 export const notifySessionAttention = (
   snapshot: BackendHarnessSnapshot,
   launchTarget: AgentLaunchTarget,
   sessionId: string,
   event: AttentionEvent,
-) =>
-  notifyAttention(
-    sessionChatTitle(
-      false,
-      snapshot.sessionHistory.find(entry => entry.sessionId === sessionId),
-      launchTarget,
-    ),
-    event,
-  );
+) => notifyAttention(attentionTitle(snapshot, launchTarget, sessionId), event);

@@ -17,6 +17,8 @@ import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
+import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
+import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
@@ -394,6 +396,29 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
+  /** Child cancel: only with a current `cancel: {}` grant; never touches root prompt state. */
+  const cancelSubagentAtomFn = atomRuntime
+    .fn(
+      Effect.fnUntraced(
+        function* (arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) {
+          yield* Effect.annotateCurrentSpan({
+            'acp.agent': arg.launchTarget,
+            'acp.sessionId': arg.sessionId,
+          });
+          const child = getSubagent(get(backendHarnessStateAtom(arg.launchTarget)).subagents, arg.sessionId);
+          if (child === undefined || !canCancelSubagent(child)) {
+            return;
+          }
+          yield* cancelSession(arg.launchTarget, arg.sessionId);
+        },
+        Effect.withSpan('cancelSubagentAtomFn', arg => {
+          const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
+          return parent !== undefined ? { parent } : { root: true };
+        }),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
   type RespondElicitationArg = {
     launchTarget: AgentLaunchTarget;
     sessionId: string;
@@ -408,20 +433,20 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          const pending = snapshot.sessions[arg.sessionId].pendingElicitation;
+          const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingElicitation;
           if (pending === undefined) {
             return;
           }
           pending.resolve(arg.response);
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...snapshot,
-            sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
               ...current,
               pendingElicitation: undefined,
               transcript:
                 'summary' in arg ? appendElicitationSummary(current.transcript, arg.summary) : current.transcript,
             })),
-          });
+          );
         },
         Effect.withSpan('respondElicitationAtomFn', arg => {
           const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
@@ -447,18 +472,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          const pending = snapshot.sessions[arg.sessionId].pendingPermission;
+          const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingPermission;
           if (pending === undefined) {
             return;
           }
           pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...snapshot,
-            sessions: patchSession(snapshot.sessions, arg.sessionId, current => ({
+          get.set(
+            backendHarnessStateAtom(arg.launchTarget),
+            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
               ...current,
               pendingPermission: undefined,
             })),
-          });
+          );
         },
         Effect.withSpan('respondPermissionAtomFn', arg => {
           const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
@@ -574,6 +599,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
 
   return {
     cancelPromptAtomFn,
+    cancelSubagentAtomFn,
     materializeVirtualThenSendAtomFn,
     respondElicitationAtomFn,
     respondPermissionAtomFn,

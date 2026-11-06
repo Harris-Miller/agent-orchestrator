@@ -13,6 +13,7 @@ import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
+import type { SubagentRecord } from './subagent.ts';
 
 export type AcpBootstrapPhase = 'connecting' | 'error' | 'initialized' | 'probing' | 'ready' | 'signing-in';
 
@@ -127,6 +128,8 @@ export type BackendHarnessSnapshot = {
   readonly rpcCalls: readonly RpcWireEntry[];
   readonly sessionHistory: readonly HistoryEntry[];
   readonly sessions: Readonly<Record<string, SessionSnapshot>>;
+  /** Subagent child sessions keyed by child id; never top-level sessions (no history, activation, prompts, usage). */
+  readonly subagents: SubagentRecord;
 };
 
 export type NormalizedModel = {
@@ -213,6 +216,7 @@ export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
   rpcCalls: [],
   sessionHistory: [],
   sessions: {},
+  subagents: {},
 });
 
 export const initialSessionSnapshot = (sessionId: string, status: SessionStatus = 'inactive'): SessionSnapshot => ({

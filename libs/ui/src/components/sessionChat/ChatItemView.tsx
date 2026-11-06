@@ -37,6 +37,7 @@ import {
 } from '../../host/openChatLink.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
+import { InterSessionMessageRow, SubagentRow } from './SubagentRows.tsx';
 import { ChatMarkdown } from './ChatMarkdown.tsx';
 import { DisclosureButton, DisclosureChevron, DisclosureChevronSpacer } from './DisclosureButton.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './escapeMarkdownBlockMarkers.ts';
@@ -557,6 +558,12 @@ export const ChatItemView: FC<{
           </Stack>
         </ListItem>
       );
+
+    case 'inter_session_message':
+      return <InterSessionMessageRow item={item} />;
+
+    case 'subagent':
+      return <SubagentRow item={item} />;
 
     case 'tool_call':
       return <ToolCallRow item={item} />;

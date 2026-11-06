@@ -24,6 +24,7 @@ import {
   useDeveloperPanelOpen,
   useSessionDeleteRequest,
   useSessionTitleRename,
+  viewedSubagentAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -98,6 +99,8 @@ export const AgentChatWorkbench: FC<{
   const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  // The actions menu targets the root session, so hide it while a subagent child is on screen.
+  const viewingSubagent = useAtomValue(viewedSubagentAtom)?.rootSessionId === selectedSessionId;
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
   const history = useAtomValue(unifiedSessionHistoryAtom);
@@ -206,12 +209,14 @@ export const AgentChatWorkbench: FC<{
                           {title}
                         </Typography>
                       </SessionTitleInlineRename>
-                      <SessionActionsMenu
-                        entry={entry}
-                        onClientError={onClientError}
-                        onDeleteRequest={requestDelete}
-                        onRenameRequest={rename.onRenameRequest}
-                      />
+                      {viewingSubagent ? null : (
+                        <SessionActionsMenu
+                          entry={entry}
+                          onClientError={onClientError}
+                          onDeleteRequest={requestDelete}
+                          onRenameRequest={rename.onRenameRequest}
+                        />
+                      )}
                     </>
                   )}
                   {layout.sessionStateOpen ? null : (

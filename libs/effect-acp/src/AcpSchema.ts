@@ -48,6 +48,7 @@ export * from './schema/common.ts';
 export * from './schema/contentBlock.ts';
 export * from './schema/elicitation.ts';
 export * from './schema/protocol.ts';
+export * from './schema/subagent.ts';
 
 // =============================================================================
 // Encoded helpers

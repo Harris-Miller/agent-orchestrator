@@ -12,6 +12,7 @@ import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const setup = Effect.fnUntraced(function* (
   sessionRename: (payload: { sessionId: string; title: string }) => Effect.Effect<unknown, unknown>,
@@ -45,11 +46,11 @@ const setup = Effect.fnUntraced(function* (
     }),
   );
   registry.mount(renameSessionAtomFn);
-  registry.set(backendHarnessStateAtom('codex-acp'), {
+  updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
     phase: 'ready',
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
-  });
+  }));
   const title = () => registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory[0].title;
   return { registry, renameSessionAtomFn, title };
 });
@@ -84,10 +85,10 @@ describe('renameSessionAtomFn', () => {
       );
       patch = () => {
         const current = registry.get(backendHarnessStateAtom('codex-acp'));
-        registry.set(backendHarnessStateAtom('codex-acp'), {
+        updateHarnessSnapshot(registry, 'codex-acp', () => ({
           ...current,
           sessionHistory: [{ ...current.sessionHistory[0], title: 'Agent sanitized' }],
-        });
+        }));
       };
       yield* Effect.exit(
         runAtomFn(registry, renameSessionAtomFn, { launchTarget: 'codex-acp', sessionId: 's1', title: 'New' }),

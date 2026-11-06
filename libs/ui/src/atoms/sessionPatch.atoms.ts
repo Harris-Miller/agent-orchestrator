@@ -12,6 +12,7 @@ import { sendPrompt } from '../host/sessionRpc.ts';
 import { patchSession, upsertSession } from '../host/sessionSnapshot.ts';
 
 import { backendHarnessStateAtom } from './backendState.atoms.ts';
+import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 export { patchSession, upsertSession };
 
@@ -59,27 +60,26 @@ export const withSessionClientRequest = <A, E, R>(
   rpc: Effect.Effect<A, E, R>,
 ): Effect.Effect<A | undefined, E, R> =>
   Effect.gen(function* () {
-    const snapshot = get(backendHarnessStateAtom(launchTarget));
-    const begun = beginClientRequest(snapshot, sessionId, kind);
-    if (begun === undefined) {
-      const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
+    const skipped = modifyHarnessSnapshot(get.registry, launchTarget, current => {
+      const begun = beginClientRequest(current, sessionId, kind);
+      return begun === undefined ? [current, current] : [undefined, begun];
+    });
+    if (skipped !== undefined) {
+      const session = sessionId in skipped.sessions ? skipped.sessions[sessionId] : undefined;
       yield* Effect.logDebug('Skipping session client request', launchTarget, sessionId, {
         pendingClientRequest: session?.pendingClientRequest,
         pendingElicitation: session?.pendingElicitation !== undefined,
         pendingPermission: session?.pendingPermission !== undefined,
-        phase: snapshot.phase,
+        phase: skipped.phase,
         status: session?.status,
       });
       return undefined;
     }
 
-    get.set(backendHarnessStateAtom(launchTarget), begun);
-
     return yield* rpc.pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          // Atom.fn dispose marks get disposed before interrupt finalizers; disposed get.set no-ops.
-          get.registry.update(backendHarnessStateAtom(launchTarget), current => endClientRequest(current, sessionId));
+          updateHarnessSnapshot(get.registry, launchTarget, current => endClientRequest(current, sessionId));
         }),
       ),
     );

@@ -14,6 +14,7 @@ import { runAtomFn } from './runAtomFn.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createVirtualSessionAtoms, lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const config = {
   configOptions: [
@@ -52,7 +53,7 @@ const setup = () => {
   registry.mount(lifecycle.deleteSessionAtomFn);
   registry.mount(ensureVirtualSessionAtomFn);
 
-  registry.set(backendHarnessStateAtom('codex-acp'), {
+  updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
     phase: 'ready',
     sessions: {
@@ -64,7 +65,7 @@ const setup = () => {
         transcript: emptySessionTranscript(),
       },
     },
-  });
+  }));
   registry.set(selectedAtom, { _tag: 'Session', sessionId: 'old-1' });
   registry.set(lastCreateDefaultsAtom, { configValues: {}, launchTarget: 'codex-acp' });
   return { ensureVirtualSessionAtomFn, lifecycle, registry };

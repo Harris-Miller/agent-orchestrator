@@ -16,6 +16,7 @@ import {
   virtualMaterializingAtom,
 } from './backendState.atoms.ts';
 import type { BindKey, VirtualBind } from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { VirtualSession } from './virtualSession.atoms.ts';
 import { hasComposerContent, virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -24,6 +25,8 @@ type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAto
 
 export type AtomRw = {
   readonly get: <A>(atom: Atom.Atom<A>) => A;
+  /** For Backend harness snapshot transitions (`updateHarnessSnapshot`). */
+  readonly registry: AtomRegistry.AtomRegistry;
   readonly set: <R, W>(atom: Atom.Writable<R, W>, value: W) => void;
 };
 
@@ -48,6 +51,7 @@ export const refreshFsListingViaRegistry =
 
 export const rwFromFnContext = (get: Atom.FnContext): AtomRw => ({
   get: atom => get(atom),
+  registry: get.registry,
   set: (atom, value) => {
     get.set(atom, value);
   },
@@ -55,6 +59,7 @@ export const rwFromFnContext = (get: Atom.FnContext): AtomRw => ({
 
 export const rwFromRegistry = (registry: AtomRegistry.AtomRegistry): AtomRw => ({
   get: atom => registry.get(atom),
+  registry,
   set: (atom, value) => {
     registry.set(atom, value);
   },
@@ -83,10 +88,11 @@ export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(functi
   }
   yield* Effect.exit(deleteSession(bound.launchTarget, bound.sessionId));
 
-  const after = rw.get(backendHarnessStateAtom(bound.launchTarget));
-  if (bound.sessionId in after.sessions || after.sessionHistory.some(entry => entry.sessionId === bound.sessionId)) {
-    rw.set(backendHarnessStateAtom(bound.launchTarget), dropSession(after, bound.sessionId));
-  }
+  updateHarnessSnapshot(rw.registry, bound.launchTarget, current =>
+    bound.sessionId in current.sessions || current.sessionHistory.some(entry => entry.sessionId === bound.sessionId)
+      ? dropSession(current, bound.sessionId)
+      : current,
+  );
 
   const virtual = rw.get(virtualSessionAtom);
   if (virtual?.sessionId === bound.sessionId) {
@@ -126,13 +132,11 @@ const runVirtualBind = Effect.fn('runVirtualBind')(function* (
   const boundSessionId = result.sessionId;
   yield* Effect.annotateCurrentSpan('acp.sessionId', boundSessionId);
 
-  const afterCreate = rw.get(backendHarnessStateAtom(launchTarget));
-  rw.set(
-    backendHarnessStateAtom(launchTarget),
+  updateHarnessSnapshot(rw.registry, launchTarget, current =>
     // Sessions-map upsert only (no history) — not Materialize.
     // A parallel startup `session/list` may have landed before this id existed.
     withoutHistoryEntry(
-      upsertIntoSnapshot(afterCreate, {
+      upsertIntoSnapshot(current, {
         session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
       }),
       boundSessionId,

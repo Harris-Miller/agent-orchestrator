@@ -14,6 +14,7 @@ import {
   ensureVirtualSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
 } from './boundHarnessAtoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rwFromRegistry } from './virtualBind.ts';
 import { applyVirtualSessionFolderChurnEffect } from './virtualSession.atoms.ts';
@@ -31,7 +32,7 @@ const stripPendingOnMatched = (
     byTarget.set(match.launchTarget, list);
   }
   for (const [launchTarget, sessionIds] of byTarget) {
-    registry.update(backendHarnessStateAtom(launchTarget), current => stripSessionPendings(current, sessionIds));
+    updateHarnessSnapshot(registry, launchTarget, current => stripSessionPendings(current, sessionIds));
   }
 };
 

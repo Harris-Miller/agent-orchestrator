@@ -23,7 +23,6 @@ import {
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
-import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
@@ -54,6 +53,7 @@ import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { patchSession } from './sessionPatch.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
 import { clearSelectedEffect, selectSessionEffect, virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -97,15 +97,6 @@ const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => 
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
 
-/** Read-modify-write the Backend harness snapshot (re-reads, so concurrent writers are not clobbered). */
-const updateHarness = (
-  get: Atom.FnContext,
-  launchTarget: AgentLaunchTarget,
-  update: (snapshot: BackendHarnessSnapshot) => BackendHarnessSnapshot,
-) => {
-  get.set(backendHarnessStateAtom(launchTarget), update(get(backendHarnessStateAtom(launchTarget))));
-};
-
 /** Fetch one launch target's session list and fold it into the harness history (minus the Bound id). */
 const refreshHistoryFor = Effect.fnUntraced(function* (
   get: Atom.FnContext,
@@ -116,7 +107,7 @@ const refreshHistoryFor = Effect.fnUntraced(function* (
   const pinsBefore = get(pinnedSessionsAtom(launchTarget));
   const listResult = yield* listSessions(launchTarget, listPayload);
   const boundSessionId = get(virtualSessionAtom)?.sessionId;
-  updateHarness(get, launchTarget, current =>
+  updateHarnessSnapshot(get.registry, launchTarget, current =>
     replaceSessionHistory(current, historyAfterList(current.sessionHistory, listResult, scope, boundSessionId)),
   );
   return { listResult, pinsBefore };
@@ -128,7 +119,7 @@ const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   sessionId: string,
 ) {
   // Re-read: a concurrent Bind may have upserted its session while the RPC was in flight.
-  updateHarness(get, launchTarget, snapshot => dropSession(snapshot, sessionId));
+  updateHarnessSnapshot(get.registry, launchTarget, snapshot => dropSession(snapshot, sessionId));
   const selected = get(selectedAtom);
   if (selected?._tag === 'Session' && selected.sessionId === sessionId) {
     yield* clearSelectedEffect(rwFromFnContext(get));
@@ -246,7 +237,9 @@ export const createSessionLifecycleAtoms = (
 
           const session = buildActivatedSession(sessionId, result, { cwd });
           const historyEntry = historyEntryFromNew(result, cwd);
-          updateHarness(get, arg.launchTarget, current => upsertIntoSnapshot(current, { historyEntry, session }));
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            upsertIntoSnapshot(current, { historyEntry, session }),
+          );
           yield* selectSessionEffect(rwFromFnContext(get), sessionId);
           yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
           yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId });
@@ -293,14 +286,14 @@ export const createSessionLifecycleAtoms = (
 
         if (cwd === undefined) {
           yield* Effect.logError('Session activation failed; session cwd missing', arg.launchTarget, arg.sessionId);
-          get.set(backendHarnessStateAtom(arg.launchTarget), {
-            ...snapshot,
-            sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+            ...current,
+            sessions: patchSession(current.sessions, arg.sessionId, session => ({
               ...session,
               defects: [{ message: 'Session cwd missing from snapshot and history' }],
               status: 'inactive',
             })),
-          });
+          }));
           return;
         }
 
@@ -313,12 +306,11 @@ export const createSessionLifecycleAtoms = (
           mode: useResume ? 'resume' : 'load',
         });
 
-        get.set(
-          backendHarnessStateAtom(arg.launchTarget),
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
           resetSubagentsOfRoot(
             {
-              ...snapshot,
-              sessions: patchSession(snapshot.sessions, arg.sessionId, session => ({
+              ...current,
+              sessions: patchSession(current.sessions, arg.sessionId, session => ({
                 ...session,
                 cwd,
                 defects: undefined,
@@ -337,7 +329,7 @@ export const createSessionLifecycleAtoms = (
 
         if (Exit.isFailure(exit)) {
           yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
-          updateHarness(get, arg.launchTarget, current => ({
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
             ...current,
             sessions: patchSession(current.sessions, arg.sessionId, session => ({
               ...session,
@@ -360,14 +352,14 @@ export const createSessionLifecycleAtoms = (
           activatedSession.sessionConfiguration,
           get(configOptionIndexAtom(arg.launchTarget)),
         );
-        get.set(backendHarnessStateAtom(arg.launchTarget), {
-          ...get(backendHarnessStateAtom(arg.launchTarget)),
-          sessions: patchSession(get(backendHarnessStateAtom(arg.launchTarget)).sessions, arg.sessionId, session => ({
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+          ...current,
+          sessions: patchSession(current.sessions, arg.sessionId, session => ({
             ...buildActivatedSession(arg.sessionId, exit.value, session),
             sessionConfiguration,
             usage: persistedUsage,
           })),
-        });
+        }));
         yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
         yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId: arg.sessionId });
       }),
@@ -407,7 +399,9 @@ export const createSessionLifecycleAtoms = (
           const historyEntry =
             parentEntry?.title !== undefined ? { ...createdEntry, title: parentEntry.title } : createdEntry;
 
-          updateHarness(get, arg.launchTarget, current => upsertIntoSnapshot(current, { historyEntry }));
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            upsertIntoSnapshot(current, { historyEntry }),
+          );
 
           yield* get.setResult(activateSessionAtomFn, {
             launchTarget: arg.launchTarget,
@@ -450,7 +444,7 @@ export const createSessionLifecycleAtoms = (
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
           yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
 
-          updateHarness(get, arg.launchTarget, current => markSessionInactive(current, arg.sessionId));
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => markSessionInactive(current, arg.sessionId));
 
           const selected = get(selectedAtom);
           if (selected?._tag === 'Session' && selected.sessionId === arg.sessionId) {
@@ -508,7 +502,7 @@ export const createSessionLifecycleAtoms = (
             current.sessionHistory.find(item => item.sessionId === arg.sessionId);
           const previousTitle = entryFor(snapshot)?.title;
           const setTitle = (title: string | undefined) => {
-            updateHarness(get, arg.launchTarget, current =>
+            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
               replaceSessionHistory(current, applySessionInfoTitle(current.sessionHistory, arg.sessionId, title)),
             );
           };

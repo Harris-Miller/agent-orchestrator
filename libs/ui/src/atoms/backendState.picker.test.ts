@@ -5,12 +5,12 @@ import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFixtures.ts';
 import {
-  backendHarnessStateAtom,
   configOptionIndexAtom,
   launchTargetUnavailableReasonsAtom,
   providerEnabledMapAtom,
   usableLaunchTargetsAtom,
 } from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
   sonnet: {
@@ -29,7 +29,7 @@ const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
 const setup = (phase: AcpBootstrapPhase, withCache: boolean) => {
   const registry = AtomRegistry.make();
   registry.set(providerEnabledMapAtom, { 'claude-agent-acp': true });
-  registry.set(backendHarnessStateAtom('claude-agent-acp'), { ...initialBackendHarnessSnapshot(), phase });
+  updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({ ...initialBackendHarnessSnapshot(), phase }));
   if (withCache) registry.set(configOptionIndexAtom('claude-agent-acp'), cachedIndex);
   return registry;
 };

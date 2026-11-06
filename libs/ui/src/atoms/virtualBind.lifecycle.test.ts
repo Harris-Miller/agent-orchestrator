@@ -34,6 +34,7 @@ import {
   setVirtualLaunchTarget,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const selectableConfig = {
   configOptions: [
@@ -115,10 +116,10 @@ const seedReadyVirtual = (
     readonly sessionId?: string;
   } = {},
 ) => {
-  registry.set(backendHarnessStateAtom('codex-acp'), {
+  updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
     phase: 'ready',
-  });
+  }));
   registry.set(selectedAtom, { _tag: 'Virtual' });
   registry.set(virtualSessionAtom, {
     attachments: [],
@@ -131,7 +132,7 @@ const seedReadyVirtual = (
 };
 
 const seedBoundSession = (registry: AtomRegistry.AtomRegistry, sessionId: string) => {
-  registry.set(backendHarnessStateAtom('codex-acp'), {
+  updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
     phase: 'ready',
     sessions: {
@@ -143,7 +144,7 @@ const seedBoundSession = (registry: AtomRegistry.AtomRegistry, sessionId: string
         transcript: emptySessionTranscript(),
       },
     },
-  });
+  }));
 };
 
 describe('excludeBoundVirtualFromHistory', () => {
@@ -211,7 +212,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry);
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'usable',
         sessionHistory: normalizeSessionHistory({
@@ -220,7 +221,7 @@ describe('ensureVirtualAcpBound', () => {
             { cwd: '/proj', sessionId: 'other' },
           ],
         }),
-      });
+      }));
 
       yield* ensureVirtualAcpBound(rw);
 
@@ -274,7 +275,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -286,7 +287,7 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       patchVirtualSession(rw, { draft: 'hello' });
       patchVirtualSession(rw, { configValues: { model: 'o1' } });
@@ -305,7 +306,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -317,7 +318,7 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       // Blob cwd ahead of Bound session cwd — ensure tears down and recreates.
       const current = registry.get(virtualSessionAtom);
@@ -365,7 +366,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { draft: 'keep me', sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -377,11 +378,11 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
-      registry.set(backendHarnessStateAtom('claude-agent-acp'), {
+      }));
+      updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
-      });
+      }));
 
       yield* teardownVirtualAcpBind(rw, { launchTarget: 'codex-acp', sessionId: 'bound-1' });
       setVirtualLaunchTarget(rw, 'claude-agent-acp');
@@ -406,7 +407,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { cwd: '/proj', sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -418,7 +419,7 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* teardownVirtualAcpBind(rw, { launchTarget: 'codex-acp', sessionId: 'bound-1' });
       patchVirtualSession(rw, { cwd: '/other' });
@@ -438,7 +439,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -450,7 +451,7 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* clearSelectedEffect(rw);
       // Teardown runs in the background.
@@ -472,7 +473,7 @@ describe('ensureVirtualAcpBound', () => {
       const registry = AtomRegistry.make();
       const rw = rwFromRegistry(registry);
       seedReadyVirtual(registry, { sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -484,7 +485,7 @@ describe('ensureVirtualAcpBound', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* selectSessionEffect(rw, 'real-1');
       // Teardown runs in the background.
@@ -649,7 +650,10 @@ describe('latest-wins Bind', () => {
       });
       const clearClaude = installClaudeAgent(calls);
       seedReadyVirtual(registry);
-      registry.set(backendHarnessStateAtom('claude-agent-acp'), { ...initialBackendHarnessSnapshot(), phase: 'ready' });
+      updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({
+        ...initialBackendHarnessSnapshot(),
+        phase: 'ready',
+      }));
 
       yield* ensureVirtualAcpBound(rw);
       yield* awaitCurrentVirtualBind(rw);
@@ -679,7 +683,10 @@ describe('latest-wins Bind', () => {
       });
       const clearClaude = installClaudeAgent(calls);
       seedReadyVirtual(registry);
-      registry.set(backendHarnessStateAtom('claude-agent-acp'), { ...initialBackendHarnessSnapshot(), phase: 'ready' });
+      updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({
+        ...initialBackendHarnessSnapshot(),
+        phase: 'ready',
+      }));
 
       yield* ensureVirtualAcpBound(rw);
       yield* awaitCurrentVirtualBind(rw);
@@ -761,11 +768,11 @@ const selectO1OnVirtual = (liveModel?: string) =>
     const live = liveModel === undefined ? undefined : sessionWithModelValue('bound-1', liveModel);
     seedReadyVirtual(registry, { configValues: { model: 'gpt' }, ...(live && { sessionId: 'bound-1' }) });
     if (live !== undefined) {
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: { 'bound-1': live },
-      });
+      }));
     }
 
     yield* runAtomFn(registry, setConfigOptionAtomFn, {
@@ -833,13 +840,13 @@ describe('awaitBoundVirtual', () => {
       installMockAgent(calls);
       const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({ ...initialBackendHarnessSnapshot(), phase: 'connecting' }));
 
       const gate = yield* Effect.forkChild(awaitBoundVirtual(registry));
       yield* Effect.yieldNow;
       assert.deepStrictEqual(calls, []);
 
-      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'usable' });
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({ ...initialBackendHarnessSnapshot(), phase: 'usable' }));
       const target = yield* Fiber.join(gate);
 
       assert.strictEqual(target?.sessionId, 'bound-1');
@@ -852,11 +859,11 @@ describe('awaitBoundVirtual', () => {
       installMockAgent(calls);
       const { registry } = yield* setup;
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         failure: { _tag: 'Failed', message: 'boom' },
         phase: 'error',
-      });
+      }));
 
       const exit = yield* Effect.exit(awaitBoundVirtual(registry));
 
@@ -933,7 +940,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
       registry.mount(materializeVirtualThenSendAtomFn);
 
       seedReadyVirtual(registry, { draft: 'hello world', sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: {
@@ -945,7 +952,7 @@ describe('materializeVirtualThenSendAtomFn', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
 
@@ -972,11 +979,11 @@ describe('materializeVirtualThenSendAtomFn', () => {
       registry.mount(materializeVirtualThenSendAtomFn);
 
       seedReadyVirtual(registry, { configValues: { model: 'o1' }, draft: 'hello world', sessionId: 'bound-1' });
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         phase: 'ready',
         sessions: { 'bound-1': sessionWithModelValue('bound-1', 'gpt') },
-      });
+      }));
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
 
@@ -1071,14 +1078,14 @@ describe('materializeVirtualThenSendAtomFn', () => {
       installMockAgent(calls);
       const { materializeVirtualThenSendAtomFn, registry } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({ ...initialBackendHarnessSnapshot(), phase: 'connecting' }));
 
       const send = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
       yield* Effect.yieldNow;
       assert.deepStrictEqual(calls, []);
       assert.isTrue(registry.get(virtualSendPendingAtom));
 
-      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'usable' });
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({ ...initialBackendHarnessSnapshot(), phase: 'usable' }));
       yield* Fiber.join(send);
 
       assert.deepStrictEqual(calls, ['new', 'prompt', 'prompt:bound-1']);
@@ -1095,7 +1102,10 @@ describe('materializeVirtualThenSendAtomFn', () => {
       const clearClaude = installClaudeAgent(calls);
       const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(backendHarnessStateAtom('claude-agent-acp'), { ...initialBackendHarnessSnapshot(), phase: 'ready' });
+      updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({
+        ...initialBackendHarnessSnapshot(),
+        phase: 'ready',
+      }));
 
       const send = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
       yield* Effect.yieldNow;
@@ -1119,17 +1129,17 @@ describe('materializeVirtualThenSendAtomFn', () => {
       installMockAgent(calls);
       const { materializeVirtualThenSendAtomFn, registry } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({ ...initialBackendHarnessSnapshot(), phase: 'connecting' }));
 
       const send = yield* Effect.forkChild(
         Effect.exit(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined)),
       );
       yield* Effect.yieldNow;
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...initialBackendHarnessSnapshot(),
         failure: { _tag: 'Failed', message: 'boom' },
         phase: 'error',
-      });
+      }));
       const exit = yield* Fiber.join(send);
 
       assert.isTrue(Exit.isFailure(exit));

@@ -6,6 +6,7 @@ import type { FC, ReactNode } from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { backendHarnessStateAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
+import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
@@ -29,7 +30,7 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
               if (Exit.isFailure(historyRead)) {
                 yield* Effect.logWarning('session index hydrate failed', launchTarget, historyRead.cause);
               }
-              registry.update(backendHarnessStateAtom(launchTarget), current => ({
+              updateHarnessSnapshot(registry, launchTarget, current => ({
                 ...current,
                 sessionHistory: markHistoryUnavailable(history.sessions),
               }));

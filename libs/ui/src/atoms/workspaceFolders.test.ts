@@ -7,6 +7,7 @@ import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 import { bindHostRuntime } from '../hostRuntime.ts';
 
 import { mockHostLayer } from './mockHostLayer.testing.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
@@ -40,7 +41,7 @@ describe('workspace folder policy', () => {
     Effect.gen(function* () {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace', '/old']);
-      registry.set(backendHarnessStateAtom('codex-acp'), {
+      updateHarnessSnapshot(registry, 'codex-acp', () => ({
         ...registry.get(backendHarnessStateAtom('codex-acp')),
         phase: 'ready',
         sessions: {
@@ -51,7 +52,7 @@ describe('workspace folder policy', () => {
             transcript: emptySessionTranscript(),
           },
         },
-      });
+      }));
 
       yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']);
 

@@ -1,39 +1,25 @@
 /** ACP backend harness lifecycle Atoms (mount + restart). */
-import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
-import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import type { ConfigOptionIndex } from '../host/configProbe.ts';
-import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
-import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { applySessionUpdate } from '../host/applySessionUpdate.ts';
-import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
-import { cancelPendingRequests, historyAfterList, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
+import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
-import { notifySessionAttention } from '../host/notifyAttention.ts';
-import { setSubagentParent } from '../host/promptSpanRegistry.ts';
-import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
-import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 import { setConfigIndexSink } from '../host/sessionRpc.ts';
-import { upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
   backendDesiredStateAtom,
   backendHarnessStateAtom,
   clearSelectedSessionIfMissing,
-  configOptionIndexAtom,
 } from './backendState.atoms.ts';
+import { makeHarnessEventFold } from './harnessEventFold.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
-import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { ensureVirtualAcpBound, refreshFsListingViaRegistry, rwFromRegistry } from './virtualBind.ts';
+import { refreshFsListingViaRegistry } from './virtualBind.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
@@ -54,185 +40,18 @@ export const createHarnessAtoms = (
         return;
       }
       const { registry } = get;
-      const updateState = (patch: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot) => {
-        registry.update(backendHarnessStateAtom(launchTarget), patch);
-      };
-
-      const resetVirtualConfig = (index: ConfigOptionIndex) => {
-        const virtual = registry.get(virtualSessionAtom);
-        if (virtual?.launchTarget !== launchTarget) return;
-        registry.set(virtualSessionAtom, {
-          ...virtual,
-          configValues: resetUnsupportedConfigValues(index, virtual.configValues),
-        });
-      };
-
-      const persistConfigOptionIndex = (index: ConfigOptionIndex) => {
-        hostRunFork(
-          writeConfigOptionIndexCache(toLaunchTarget(launchTarget), index).pipe(
-            Effect.catchCause(cause => Effect.logWarning('config option index persist failed', launchTarget, cause)),
-          ),
-        );
-      };
-
-      // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
-      let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
-
-      setConfigIndexSink(launchTarget, event => {
-        const previous = registry.get(configOptionIndexAtom(launchTarget));
-        const next = mergeConfigOptionIndex(previous, event);
-        if (next !== undefined && next !== previous) {
-          registry.set(configOptionIndexAtom(launchTarget), next);
-          resetVirtualConfig(next);
-          persistConfigOptionIndex(next);
-        }
+      const fold = makeHarnessEventFold({
+        launchTarget,
+        refreshFsListing: refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
+        registry,
+        runFork: effect => {
+          hostRunFork(effect);
+        },
       });
-
+      setConfigIndexSink(launchTarget, fold.onConfigIndexEvent);
       lifecycle.start(
         launchTarget,
-        runBackendHarness(
-          launchTarget,
-          {
-            onAntigravityAuthUrl: url => {
-              updateState(current => ({
-                ...current,
-                antigravityAuthUrl: url,
-              }));
-            },
-            hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
-            onConfigOptionIndexPublish: index => {
-              registry.set(configOptionIndexAtom(launchTarget), index);
-              resetVirtualConfig(index);
-              persistConfigOptionIndex(index);
-            },
-            onElicitationCreate: (sessionId, request, resolve) => {
-              updateState(current => ({
-                ...current,
-                ...patchSessionOrSubagent(current, sessionId, holder => ({
-                  ...holder,
-                  pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
-                })),
-              }));
-              hostRunFork(
-                notifySessionAttention(registry.get(backendHarnessStateAtom(launchTarget)), launchTarget, sessionId, {
-                  kind: 'elicitation',
-                }),
-              );
-            },
-            onInitializeResult: initializeResult => {
-              updateState(current => ({
-                ...current,
-                initializeResult,
-                phase: 'initialized',
-              }));
-            },
-            onPermissionRequest: (sessionId, request, resolve) => {
-              updateState(current => ({
-                ...current,
-                ...patchSessionOrSubagent(current, sessionId, holder => ({
-                  ...holder,
-                  pendingPermission: { request, resolve, sessionId },
-                })),
-              }));
-              hostRunFork(
-                notifySessionAttention(registry.get(backendHarnessStateAtom(launchTarget)), launchTarget, sessionId, {
-                  kind: 'permission',
-                }),
-              );
-            },
-            onPhase: (phase, failure) => {
-              updateState(current => ({
-                ...current,
-                ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting'
-                  ? { antigravityAuthUrl: undefined }
-                  : {}),
-                failure,
-                phase,
-              }));
-              if (phase === 'usable') {
-                // Sole non-mutator Bind trigger (mutator side: mutateVirtualThenRebind).
-                const virtual = registry.get(virtualSessionAtom);
-                if (virtual?.launchTarget === launchTarget) {
-                  hostRunFork(
-                    ensureVirtualAcpBound(
-                      rwFromRegistry(registry),
-                      refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
-                    ).pipe(
-                      Effect.catchCause(cause =>
-                        Effect.logWarning('ensureVirtualAcpBound on usable failed', launchTarget, cause),
-                      ),
-                    ),
-                  );
-                }
-              }
-            },
-            onRpcMessage: (direction, message) => {
-              updateState(current => ({
-                ...current,
-                rpcCalls: [
-                  ...current.rpcCalls,
-                  { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() },
-                ],
-              }));
-            },
-            onSessionHistoryRequest: () => {
-              pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
-            },
-            onSessionHistoryResult: (listResult, scope) => {
-              const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-              const pinsBefore = pinsBeforeStartupList;
-              updateState(current => ({
-                ...current,
-                sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
-              }));
-              hostRunFork(
-                reconcilePinsAfterList(rwFromRegistry(registry), launchTarget, pinsBefore, listResult, scope),
-              );
-            },
-            onSessionUpdate: (sessionId, update) => {
-              const onSubagentLinked = (linked: NonNullable<SubagentRouteResult['linked']>) => {
-                setSubagentParent(launchTarget, linked.childId, linked.parentId);
-                if (linked.migratedRoot) {
-                  hostRunFork(
-                    deleteSessionDir(linked.childId).pipe(
-                      Effect.catchCause(cause => Effect.logWarning('stray usage cleanup failed', cause)),
-                    ),
-                  );
-                }
-              };
-              const before = registry.get(backendHarnessStateAtom(launchTarget));
-              const routed = routeSubagentUpdate(before, sessionId, update);
-              if (routed !== undefined) {
-                if (routed.snapshot !== before) {
-                  updateState(() => routed.snapshot);
-                }
-                if (routed.linked !== undefined) {
-                  onSubagentLinked(routed.linked);
-                }
-                return;
-              }
-              const result = applySessionUpdate(before.sessions[sessionId], sessionId, before.sessionHistory, update);
-              if (result.kind === 'noop') {
-                return;
-              }
-
-              updateState(current => ({
-                ...current,
-                sessionHistory: result.sessionHistory ?? current.sessionHistory,
-                sessions: upsertSession(current.sessions, result.session),
-              }));
-
-              if (result.usageChanged && result.session.usage !== undefined) {
-                hostRunFork(
-                  writeSessionUsage(sessionId, result.session.usage).pipe(
-                    Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
-                  ),
-                );
-              }
-            },
-          },
-          () => registry.get(sessionListScopeAtom),
-        ),
+        runBackendHarness(launchTarget, fold, () => registry.get(sessionListScopeAtom)),
       );
     }).pipe(Atom.keepAlive),
   );
@@ -245,9 +64,8 @@ export const createHarnessAtoms = (
   const stopAndReconcile = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
     yield* lifecycle.stop(launchTarget);
     resetBackendHarnessState(launchTarget);
-    const current = get.registry.get(backendHarnessStateAtom(launchTarget));
-    cancelPendingRequests(current);
-    get.set(backendHarnessStateAtom(launchTarget), reconcileStoppedProvider(current));
+    cancelPendingRequests(get.registry.get(backendHarnessStateAtom(launchTarget)));
+    updateHarnessSnapshot(get.registry, launchTarget, reconcileStoppedProvider);
     const virtual = get.registry.get(virtualSessionAtom);
     if (virtual?.launchTarget === launchTarget) {
       // The Virtual target is gone with the process: unbind and drop the target so the composer cannot send to it.

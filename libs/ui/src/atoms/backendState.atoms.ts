@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 import type { Deferred } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { initialBackendHarnessSnapshot, isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -11,6 +11,10 @@ import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
+
+import { backendHarnessStateAtom } from './harnessSnapshot.ts';
+
+export { backendHarnessStateAtom };
 
 export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
 
@@ -113,10 +117,6 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
   }
   return undefined;
 };
-
-export const backendHarnessStateAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
-);
 
 export const unifiedSessionHistoryAtom = Atom.make(get => {
   const entries: UnifiedHistoryEntry[] = [];

@@ -9,7 +9,7 @@ import type { Atom } from 'effect/reactivity';
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom } from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { sendPromptSoftCancel } from './sessionPatch.atoms.ts';
 
 type Sent = { body: string; sound: boolean; title: string };
@@ -17,12 +17,12 @@ type Sent = { body: string; sound: boolean; title: string };
 const setup = (prompt: Effect.Effect<{ stopReason: string }, string>) => {
   const sent: Sent[] = [];
   const registry = AtomRegistry.make();
-  registry.set(backendHarnessStateAtom('codex-acp'), {
+  updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
     phase: 'initialized',
     sessionHistory: [{ cwd: '/w', sessionId: 's1', title: 'My chat' }] as never,
     sessions: { s1: initialSessionSnapshot('s1') },
-  });
+  }));
   setConnectedAgent('codex-acp', {
     agent: { 'session/prompt': () => prompt },
     notify: () => Effect.void,

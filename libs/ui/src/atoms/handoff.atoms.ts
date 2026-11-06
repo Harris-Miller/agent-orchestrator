@@ -19,6 +19,7 @@ import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
 
 import { backendHarnessStateAtom, requireLaunchTargetUsable, unifiedSessionHistoryAtom } from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { rwFromFnContext } from './virtualBind.ts';
 import { selectSessionEffect } from './virtualSession.atoms.ts';
@@ -54,10 +55,10 @@ const promptPinnedSession = Effect.fn('promptPinnedSession')(
     }
 
     yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    get.set(backendHarnessStateAtom(launchTarget), {
-      ...snapshot,
-      sessions: patchSession(snapshot.sessions, sessionId, current => withUserChatMessage(current, trimmed)),
-    });
+    updateHarnessSnapshot(get.registry, launchTarget, current => ({
+      ...current,
+      sessions: patchSession(current.sessions, sessionId, s => withUserChatMessage(s, trimmed)),
+    }));
 
     const response = yield* withSessionClientRequest(
       launchTarget,
@@ -142,10 +143,8 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
 
           const historyEntry = historyEntryFromNew(result, cwd);
           if (historyEntry !== undefined) {
-            const createdSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-            get.set(
-              backendHarnessStateAtom(arg.targetLaunchTarget),
-              upsertIntoSnapshot(createdSnapshot, { historyEntry }),
+            updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
+              upsertIntoSnapshot(current, { historyEntry }),
             );
           }
           yield* selectSessionEffect(rwFromFnContext(get), targetSessionId);
@@ -159,10 +158,8 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             );
           const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
 
-          const configuredSnapshot = get(backendHarnessStateAtom(arg.targetLaunchTarget));
-          get.set(
-            backendHarnessStateAtom(arg.targetLaunchTarget),
-            upsertIntoSnapshot(configuredSnapshot, {
+          updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
+            upsertIntoSnapshot(current, {
               session: buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
             }),
           );

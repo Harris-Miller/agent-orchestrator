@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -7,7 +7,12 @@ import { initialBackendHarnessSnapshot, normalizeSessionHistory } from '../host/
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessStateAtom, selectedAtom, virtualMaterializingAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessStateAtom,
+  selectedAtom,
+  virtualMaterializingAtom,
+  virtualSendPendingAtom,
+} from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -17,6 +22,7 @@ import {
   ensureVirtualAcpBound,
   excludeBoundVirtualFromHistory,
   mutateVirtualThenRebind,
+  requestVirtualBind,
   rwFromRegistry,
   teardownVirtualAcpBind,
 } from './virtualBind.ts';
@@ -584,6 +590,11 @@ const installClaudeAgent = (calls: string[]) => {
         nextId += 1;
         return Effect.succeed({ ...selectableConfig, sessionId });
       },
+      'session/prompt': ({ sessionId }: { sessionId: string }) => {
+        calls.push(`prompt:${sessionId}`);
+        return Effect.succeed({ stopReason: 'end_turn' as const });
+      },
+      'session/set_config_option': () => Effect.succeed(selectableConfig),
     },
     notify: () => Effect.void,
     sessionArchive: () => Effect.fail('no-archive'),
@@ -877,44 +888,194 @@ describe('materializeVirtualThenSendAtomFn', () => {
     }),
   );
 
-  it.effect('Send while Bind in-flight → no-op', () =>
+  const setupSend = () => {
+    const runtime = createHostRuntime(mockHostLayer);
+    const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
+    const registry = AtomRegistry.make();
+    registry.mount(materializeVirtualThenSendAtomFn);
+    return { materializeVirtualThenSendAtomFn, registry, rw: rwFromRegistry(registry) };
+  };
+
+  it.effect('Send mid-Bind awaits the Bind, then Materializes and prompts the Bound session', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installMockAgent(calls);
-      const runtime = createHostRuntime(mockHostLayer);
-      const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
-      const registry = AtomRegistry.make();
-      registry.mount(materializeVirtualThenSendAtomFn);
-
+      const gate = yield* Deferred.make<void>();
+      installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
+      const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
-      registry.set(virtualMaterializingAtom, true);
+      yield* requestVirtualBind(rw);
 
-      yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
+      const send = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+      yield* Effect.yieldNow;
 
-      assert.deepStrictEqual(calls, []);
-      assert.isUndefined(registry.get(virtualSessionAtom)?.sessionId);
-      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
+      assert.deepStrictEqual(calls, ['new']);
+      assert.isTrue(registry.get(virtualSendPendingAtom));
+      assert.strictEqual(registry.get(virtualSessionAtom)?.draft, 'hello');
+
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(send);
+
+      assert.deepStrictEqual(calls, ['new', 'prompt', 'prompt:bound-1']);
+      assert.isFalse(registry.get(virtualSendPendingAtom));
+      assert.isNull(registry.get(virtualSessionAtom));
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
       clearConnectedAgent('codex-acp');
       registry.dispose();
     }),
   );
 
-  it.effect('Send while unbound → no-op (Materialize does not Bind)', () =>
+  it.effect('Send while unbound with no Bind in flight → requests a Bind itself, then sends', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       installMockAgent(calls);
-      const runtime = createHostRuntime(mockHostLayer);
-      const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
-      const registry = AtomRegistry.make();
-      registry.mount(materializeVirtualThenSendAtomFn);
-
+      const { materializeVirtualThenSendAtomFn, registry } = setupSend();
       seedReadyVirtual(registry, { draft: 'hello' });
 
       yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
 
+      assert.deepStrictEqual(calls, ['new', 'prompt', 'prompt:bound-1']);
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('Send before the provider is usable waits for it', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const { materializeVirtualThenSendAtomFn, registry } = setupSend();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+
+      const send = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+      yield* Effect.yieldNow;
       assert.deepStrictEqual(calls, []);
-      assert.isUndefined(registry.get(virtualSessionAtom)?.sessionId);
+      assert.isTrue(registry.get(virtualSendPendingAtom));
+
+      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'usable' });
+      yield* Fiber.join(send);
+
+      assert.deepStrictEqual(calls, ['new', 'prompt', 'prompt:bound-1']);
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('Send then provider switch while awaiting → follows the latest Bind and prompts the new provider', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* Deferred.make<void>();
+      installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
+      const clearClaude = installClaudeAgent(calls);
+      const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      registry.set(backendHarnessStateAtom('claude-agent-acp'), { ...initialBackendHarnessSnapshot(), phase: 'ready' });
+
+      const send = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+      yield* Effect.yieldNow;
+      yield* switchLaunchTarget(rw, 'claude-agent-acp');
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(send);
+
+      assert.ok(calls.includes('prompt:claude-1'));
+      assert.isFalse(calls.includes('prompt:bound-1'));
+      assert.ok(calls.includes('delete:bound-1'));
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'claude-1' });
+      clearClaude();
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('Send when the provider ends in error → fails, draft kept, no longer pending', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls);
+      const { materializeVirtualThenSendAtomFn, registry } = setupSend();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      registry.set(backendHarnessStateAtom('codex-acp'), { ...initialBackendHarnessSnapshot(), phase: 'connecting' });
+
+      const send = yield* Effect.forkChild(
+        Effect.exit(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined)),
+      );
+      yield* Effect.yieldNow;
+      registry.set(backendHarnessStateAtom('codex-acp'), {
+        ...initialBackendHarnessSnapshot(),
+        failure: { _tag: 'Failed', message: 'boom' },
+        phase: 'error',
+      });
+      const exit = yield* Fiber.join(send);
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(calls, []);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.draft, 'hello');
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
+      assert.isFalse(registry.get(virtualSendPendingAtom));
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('Send when Bind fails → fails, draft kept, no prompt', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      installMockAgent(calls, { failNew: true });
+      const { materializeVirtualThenSendAtomFn, registry } = setupSend();
+      seedReadyVirtual(registry, { draft: 'hello' });
+
+      const exit = yield* Effect.exit(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(calls, ['new']);
+      assert.strictEqual(registry.get(virtualSessionAtom)?.draft, 'hello');
+      assert.isFalse(registry.get(virtualSendPendingAtom));
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('second Send while one is pending is ignored (single prompt)', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* Deferred.make<void>();
+      installMockAgent(calls, { duringNew: onlyFirst(Deferred.await(gate)) });
+      const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
+      seedReadyVirtual(registry, { draft: 'hello' });
+      yield* requestVirtualBind(rw);
+
+      const first = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+      yield* Effect.yieldNow;
+      const second = yield* Effect.forkChild(runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined));
+      yield* Effect.yieldNow;
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(first);
+      yield* Fiber.join(second);
+
+      assert.strictEqual(calls.filter(call => call === 'prompt').length, 1);
+      clearConnectedAgent('codex-acp');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('edits during Materialize are ignored', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const { materializeVirtualThenSendAtomFn, registry, rw } = setupSend();
+      let draftAfterEdit: string | undefined;
+      installMockAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          patchVirtualSession(rw, { draft: 'changed' });
+          draftAfterEdit = registry.get(virtualSessionAtom)?.draft;
+        }),
+      });
+      seedReadyVirtual(registry, { configValues: { model: 'o1' }, draft: 'hello', sessionId: 'bound-1' });
+      seedBoundSession(registry, 'bound-1');
+
+      yield* runAtomFn(registry, materializeVirtualThenSendAtomFn, undefined);
+
+      assert.strictEqual(draftAfterEdit, 'hello');
+      assert.ok(calls.includes('prompt:bound-1'));
       clearConnectedAgent('codex-acp');
       registry.dispose();
     }),

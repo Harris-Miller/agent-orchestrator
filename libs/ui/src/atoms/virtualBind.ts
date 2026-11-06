@@ -309,3 +309,36 @@ export const mutateVirtualThenRebind = Effect.fn('mutateVirtualThenRebind')(func
     yield* requestVirtualBind(rw, options.refreshFsListing);
   }
 });
+
+/** Wait until the provider is usable or errored, or the blob moved off `launchTarget` (whichever comes first). */
+export const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
+  Effect.callback<void>(resume => {
+    const unsubscribes: (() => void)[] = [];
+    const settled = () => {
+      const { phase } = registry.get(backendHarnessStateAtom(launchTarget));
+      return (
+        isUsablePhase(phase) || phase === 'error' || registry.get(virtualSessionAtom)?.launchTarget !== launchTarget
+      );
+    };
+    const check = () => {
+      if (settled()) {
+        unsubscribes.forEach(unsubscribe => {
+          unsubscribe();
+        });
+        resume(Effect.void);
+      }
+    };
+    if (settled()) {
+      resume(Effect.void);
+      return;
+    }
+    unsubscribes.push(
+      registry.subscribe(backendHarnessStateAtom(launchTarget), check),
+      registry.subscribe(virtualSessionAtom, check),
+    );
+    return Effect.sync(() => {
+      unsubscribes.forEach(unsubscribe => {
+        unsubscribe();
+      });
+    });
+  });

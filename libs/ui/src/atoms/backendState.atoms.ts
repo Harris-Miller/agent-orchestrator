@@ -28,6 +28,9 @@ export const viewedSubagentAtom = Atom.make<
  */
 export const virtualMaterializingAtom = Atom.make(false).pipe(Atom.keepAlive);
 
+/** True from Virtual Send until Materialize finishes (or the Send gives up): blocks double-submit, drives the pending UI. */
+export const virtualSendPendingAtom = Atom.make(false).pipe(Atom.keepAlive);
+
 /** One Virtual Bind attempt. `done` resolves to the Bound id, or `undefined` when failed / superseded. */
 export type VirtualBind = {
   readonly cwd: string;

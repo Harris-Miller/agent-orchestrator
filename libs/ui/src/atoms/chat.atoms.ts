@@ -34,14 +34,21 @@ import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../hos
 import {
   backendHarnessStateAtom,
   configOptionIndexAtom,
+  ProviderUnavailable,
   selectedAtom,
   selectedSessionIdAtom,
   virtualMaterializingAtom,
+  virtualSendPendingAtom,
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
-import { rwFromFnContext } from './virtualBind.ts';
-import { lastCreateDefaultsAtom, patchVirtualConfigValue, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { awaitCurrentVirtualBind, awaitProviderSettled, requestVirtualBind, rwFromFnContext } from './virtualBind.ts';
+import {
+  hasComposerContent,
+  lastCreateDefaultsAtom,
+  patchVirtualConfigValue,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
 
@@ -241,31 +248,64 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
     .pipe(Atom.keepAlive);
 
   /**
-   * First send on already-Bound Virtual: apply Virtual Config → history Materialize →
-   * draft copy → clear virtual + Select Session → sendChatItem.
-   * Does not Bind (sole Bind triggers: mutateVirtualThenRebind + Ready). No-op if unbound / in-flight.
-   * Materialize lock ends before session/prompt.
+   * First Send on Virtual: await provider `usable`, then the latest Bind (requesting one if none), then apply
+   * Virtual Config → history Materialize → draft copy → clear virtual + Select Session → sendChatItem.
+   * Re-awaits when the blob churns meanwhile. The draft stays on the blob until Materialize succeeds; failures
+   * (provider `error`, Bind failure) reject so callers report via `onClientError`. `virtualSendPendingAtom` blocks
+   * double-submit. Materialize lock ends before session/prompt.
    */
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualMaterializingAtom)) {
+        if (get(virtualMaterializingAtom) || get(virtualSendPendingAtom) || get(selectedAtom)?._tag !== 'Virtual') {
           return;
         }
-        const selected = get(selectedAtom);
-        const virtual = get(virtualSessionAtom);
-        if (selected?._tag !== 'Virtual' || virtual?.sessionId === undefined || virtual.launchTarget === undefined) {
+        const initial = get(virtualSessionAtom);
+        if (initial === null || !hasComposerContent(initial)) {
           return;
         }
+
+        const rw = rwFromFnContext(get);
+        get.set(virtualSendPendingAtom, true);
+        const target = yield* Effect.gen(function* () {
+          for (;;) {
+            const virtual = get(virtualSessionAtom);
+            if (virtual?.launchTarget === undefined || virtual.cwd === undefined || !hasComposerContent(virtual)) {
+              return undefined;
+            }
+            const { cwd, launchTarget } = virtual;
+            const { failure, phase } = get(backendHarnessStateAtom(launchTarget));
+            if (phase === 'error') {
+              return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
+            }
+            if (!isUsablePhase(phase)) {
+              yield* awaitProviderSettled(get.registry, launchTarget);
+              continue;
+            }
+
+            yield* requestVirtualBind(rw);
+            const boundId = yield* awaitCurrentVirtualBind(rw);
+            const latest = get(virtualSessionAtom);
+            if (latest?.launchTarget !== launchTarget || latest.cwd !== cwd) {
+              continue;
+            }
+            if (boundId === undefined || latest.sessionId !== boundId) {
+              return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
+            }
+            return { ...latest, cwd, launchTarget, sessionId: boundId };
+          }
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.set(virtualSendPendingAtom, false);
+            }),
+          ),
+        );
+        if (target === undefined) {
+          return;
+        }
+        const virtual = target;
         const { attachments, cwd, draft, launchTarget, sessionId } = virtual;
-        const trimmed = draft.trim();
-        if (
-          (trimmed.length === 0 && attachments.length === 0) ||
-          cwd === undefined ||
-          !isUsablePhase(get(backendHarnessStateAtom(launchTarget)).phase)
-        ) {
-          return;
-        }
 
         const materialized = yield* Effect.gen(function* () {
           get.set(virtualMaterializingAtom, true);
@@ -349,6 +389,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           get,
         );
       }),
+      // A second call must not interrupt the pending Send (it no-ops on `virtualSendPendingAtom`).
+      { concurrent: true },
     )
     .pipe(Atom.keepAlive);
 

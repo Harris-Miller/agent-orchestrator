@@ -1,13 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
-import { Atom, AtomRegistry } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
-import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
-import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -15,7 +14,17 @@ import {
   providerEnabledMapAtom,
   selectedAtom,
 } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
+import { createComposerAtoms } from './composer.atoms.ts';
+import {
+  CLAUDE,
+  CODEX,
+  freshRegistry,
+  gated,
+  installFakeAgent,
+  onlyFirst,
+  selectableConfig,
+  setPhase,
+} from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -42,127 +51,9 @@ import {
 
 type Registry = AtomRegistry.AtomRegistry;
 
-const CODEX = 'codex-acp' as const;
-const CLAUDE = 'claude-agent-acp' as const;
-
-const selectableConfig = {
-  configOptions: [
-    {
-      currentValue: 'gpt',
-      id: 'model',
-      name: 'Model',
-      options: [
-        { name: 'gpt', value: 'gpt' },
-        { name: 'o1', value: 'o1' },
-      ],
-      type: 'select' as const,
-    },
-  ],
-};
-
-type FakeAgentOpts = {
-  readonly failDelete?: boolean;
-  readonly failNew?: boolean;
-  readonly failSetConfig?: boolean;
-  /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
-  readonly duringNew?: Effect.Effect<void>;
-  /** Runs inside `session/set_config_option` before it resolves (a user action mid-Materialize). */
-  readonly duringSetConfig?: Effect.Effect<void>;
-  /** Runs inside `session/prompt`. */
-  readonly duringPrompt?: Effect.Effect<void>;
-};
-
-/**
- * Fake ACP agent for `launchTarget`. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`
- * and `prompt:<id>` in `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude.
- */
-const installFakeAgent = (calls: string[], opts: FakeAgentOpts = {}, launchTarget: AgentLaunchTarget = CODEX) => {
-  const isClaude = launchTarget === CLAUDE;
-  let nextId = 1;
-  setConnectedAgent(launchTarget, {
-    agent: {
-      'session/close': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`close:${sessionId}`);
-        return Effect.void;
-      },
-      'session/delete': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`delete:${sessionId}`);
-        return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
-      },
-      'session/new': () => {
-        calls.push(isClaude ? 'new:claude' : 'new');
-        if (opts.failNew === true) {
-          return Effect.fail('new-fail');
-        }
-        const sessionId = `${isClaude ? 'claude' : 'bound'}-${nextId}`;
-        nextId += 1;
-        return Effect.as(opts.duringNew ?? Effect.void, { ...selectableConfig, sessionId });
-      },
-      'session/prompt': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`prompt:${sessionId}`);
-        return Effect.as(opts.duringPrompt ?? Effect.void, { stopReason: 'end_turn' as const });
-      },
-      'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
-        calls.push(`set:${configId}:${String(value)}`);
-        if (opts.failSetConfig === true) {
-          return Effect.fail('set-fail');
-        }
-        return Effect.as(opts.duringSetConfig ?? Effect.void, {
-          configOptions: [{ ...selectableConfig.configOptions[0], currentValue: value, id: configId }],
-        });
-      },
-    },
-    notify: () => Effect.void,
-    sessionArchive: () => Effect.fail('no-archive'),
-    sessionFork: () => Effect.fail('no-fork'),
-  } as unknown as Parameters<typeof setConnectedAgent>[1]);
-};
-
-/** Run `effect` only the first time it is invoked (the fake `session/new` fires once per Bind). */
-const onlyFirst = (effect: Effect.Effect<void>): Effect.Effect<void> => {
-  let ran = false;
-  return Effect.suspend(() => {
-    if (ran) {
-      return Effect.void;
-    }
-    ran = true;
-    return effect;
-  });
-};
-
-/** A first `session/new` that signals `started` and then waits for `release`. */
-const gatedNew = Effect.gen(function* () {
-  const started = yield* Deferred.make<undefined>();
-  const release = yield* Deferred.make<undefined>();
-  return {
-    duringNew: onlyFirst(Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))),
-    release: Deferred.succeed(release, undefined),
-    started: Deferred.await(started),
-  };
-});
-
-const setPhase = (registry: Registry, launchTarget: AgentLaunchTarget, phase: AcpBootstrapPhase) => {
-  updateHarnessSnapshot(registry, launchTarget, current => ({ ...current, phase }));
-};
-
 const blob = (registry: Registry) => registry.get(virtualSessionAtom);
 const sessionsOf = (registry: Registry, launchTarget: AgentLaunchTarget = CODEX) =>
   registry.get(backendHarnessSnapshotAtom(launchTarget)).sessions;
-
-/** Registry with Codex and Claude enabled. Fake agents are cleared and the registry disposed when the scope closes. */
-const freshRegistry = Effect.acquireRelease(
-  Effect.sync(() => {
-    const registry = AtomRegistry.make();
-    registry.set(providerEnabledMapAtom, { [CLAUDE]: true, [CODEX]: true });
-    return registry;
-  }),
-  registry =>
-    Effect.sync(() => {
-      clearConnectedAgent(CODEX);
-      clearConnectedAgent(CLAUDE);
-      registry.dispose();
-    }),
-);
 
 type SeedOpts = {
   readonly cwd?: string;
@@ -815,8 +706,8 @@ describe('Send', () => {
   it.effect('mid-Bind: Send pending with the draft kept until the Bind lands, then Materializes and prompts it', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const binding = yield* Effect.forkChild(bindVirtualOnUsable(registry, CODEX));
@@ -903,8 +794,8 @@ describe('Send', () => {
   it.effect('a draft cleared while awaiting the Bind sends nothing', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const recorder = recordingPrompt(calls);
@@ -924,8 +815,8 @@ describe('Send', () => {
   it.effect('a cwd change while awaiting follows the newest Bind', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
 
@@ -944,8 +835,8 @@ describe('Send', () => {
   it.effect('a provider switch while awaiting follows the latest Bind and prompts the new provider', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       installFakeAgent(calls, {}, CLAUDE);
       const registry = yield* freshRegistry;
       setPhase(registry, CLAUDE, 'ready');
@@ -967,8 +858,8 @@ describe('Send', () => {
   it.effect('a second Send while one is pending is ignored (one prompt)', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const recorder = recordingPrompt(calls);
@@ -1114,18 +1005,18 @@ describe('Provider hooks', () => {
   );
 });
 
-/** Registry + real AtomFns (Virtual mutators and the chat Send) on a mock host. Disposed when the scope closes. */
+/** Registry + real AtomFns (Virtual mutators and the Composer submit) on a mock host. Disposed when the scope closes. */
 const atomFnHarness = Effect.gen(function* () {
   const registry = yield* freshRegistry;
   const runtime = createHostRuntime(mockHostLayer);
   const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
   const virtual = createVirtualSessionAtoms(runtime, refreshSessionFsListingAtomFn);
-  const { materializeVirtualThenSendAtomFn } = createChatAtoms(runtime);
+  const { submitComposerAtomFn } = createComposerAtoms(runtime);
   registry.mount(virtual.ensureVirtualSessionAtomFn);
   registry.mount(virtual.patchVirtualSessionAtomFn);
   registry.mount(virtual.setVirtualLaunchTargetAtomFn);
-  registry.mount(materializeVirtualThenSendAtomFn);
-  return { ...virtual, materializeVirtualThenSendAtomFn, registry };
+  registry.mount(submitComposerAtomFn);
+  return { ...virtual, registry, submitComposerAtomFn };
 });
 
 /** Virtual on `/proj` + Codex, unbound with no Bind in flight, provider `ready` — seeded through the AtomFns. */
@@ -1138,7 +1029,7 @@ const seedUnboundViaAtomFns = (h: Effect.Success<typeof atomFnHarness>) =>
   });
 
 describe('AtomFns', () => {
-  it.effect('Send through the AtomFn reaches the agent via the Session-arm send', () =>
+  it.effect('Send through the Composer submit reaches the agent via the Session-arm send', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       installFakeAgent(calls);
@@ -1146,7 +1037,7 @@ describe('AtomFns', () => {
       yield* seedUnboundViaAtomFns(h);
       yield* runAtomFn(h.registry, h.patchVirtualSessionAtomFn, { draft: 'hello' });
 
-      yield* runAtomFn(h.registry, h.materializeVirtualThenSendAtomFn, undefined);
+      yield* runAtomFn(h.registry, h.submitComposerAtomFn, undefined);
 
       assert.deepStrictEqual(calls, ['new', 'prompt:bound-1']);
       assert.isNull(h.registry.get(virtualSessionAtom));
@@ -1159,8 +1050,8 @@ describe('AtomFns', () => {
   it.effect('a draft edit while a cwd Bind is in flight does not drop the Bind (bug A)', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
-      installFakeAgent(calls, { duringNew: gate.duringNew });
+      const gate = yield* gated;
+      installFakeAgent(calls, { duringNew: gate.during });
       const h = yield* atomFnHarness;
       yield* seedUnboundViaAtomFns(h);
 
@@ -1169,7 +1060,7 @@ describe('AtomFns', () => {
       // Re-invoking the same AtomFn disposes the context the Bind was started from.
       yield* runAtomFn(h.registry, h.patchVirtualSessionAtomFn, { draft: 'hello' });
       yield* gate.release;
-      yield* runAtomFn(h.registry, h.materializeVirtualThenSendAtomFn, undefined);
+      yield* runAtomFn(h.registry, h.submitComposerAtomFn, undefined);
 
       assert.deepStrictEqual(calls, ['new', 'prompt:bound-1']);
       assert.deepStrictEqual(h.registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
@@ -1179,17 +1070,17 @@ describe('AtomFns', () => {
   it.effect('a second Send while one is pending leaves one prompt and a finished Materialize (bug B)', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      const gate = yield* gatedNew;
+      const gate = yield* gated;
       const prompted = yield* Deferred.make<undefined>();
-      installFakeAgent(calls, { duringNew: gate.duringNew, duringPrompt: Deferred.succeed(prompted, undefined) });
+      installFakeAgent(calls, { duringNew: gate.during, duringPrompt: Deferred.succeed(prompted, undefined) });
       const h = yield* atomFnHarness;
       yield* seedUnboundViaAtomFns(h);
       yield* runAtomFn(h.registry, h.patchVirtualSessionAtomFn, { draft: 'hello' });
 
-      h.registry.set(h.materializeVirtualThenSendAtomFn, undefined);
+      h.registry.set(h.submitComposerAtomFn, undefined);
       yield* gate.started;
-      // Enter pressed again before React re-renders `canSend` (not awaited: the concurrent fn stays waiting).
-      h.registry.set(h.materializeVirtualThenSendAtomFn, undefined);
+      // Enter pressed again before React re-renders the Composer action (not awaited: the concurrent fn stays waiting).
+      h.registry.set(h.submitComposerAtomFn, undefined);
       yield* Effect.yieldNow;
       yield* gate.release;
       yield* Deferred.await(prompted);

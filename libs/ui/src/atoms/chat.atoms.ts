@@ -1,4 +1,4 @@
-/** Chat prompt / permission / elicitation / config Atom fns. */
+/** Chat effects (Send, Steering) and prompt-cancel / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Clock, Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
@@ -19,6 +19,7 @@ import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
 import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
+import { turnAction } from '../host/composerAction.ts';
 import {
   appendElicitationSummary,
   markNonFinishedToolCallsCancelled,
@@ -26,17 +27,11 @@ import {
 } from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary, TurnTiming, UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessSnapshotAtom, selectedAtom, selectedSessionIdAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { sendVirtual, setVirtualConfigOption } from './virtualSession.atoms.ts';
-
-export const draftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
-
-export const composerAttachmentsAtom = Atom.family((_sessionId: string) =>
-  Atom.make<readonly ComposerImageAttachment[]>([]).pipe(Atom.keepAlive),
-);
+import { setVirtualConfigOption } from './virtualSession.atoms.ts';
 
 export const slimImageRefsFromAttachments = (
   attachments: readonly ComposerImageAttachment[],
@@ -48,7 +43,30 @@ export const slimImageRefsFromAttachments = (
     uri: attachment.uri,
   }));
 
-const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
+/** The Composer action {@link turnAction} decides for this draft on `arg.sessionId`, with the session it read. */
+const turnActionFor = (
+  arg: {
+    attachments?: readonly ComposerImageAttachment[];
+    launchTarget: AgentLaunchTarget;
+    sessionId: string | undefined;
+  },
+  trimmed: string,
+  get: Atom.FnContext,
+) => {
+  const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
+  const session = arg.sessionId === undefined ? undefined : snapshot.sessions[arg.sessionId];
+  const action = turnAction(session, {
+    hasContent: trimmed.length > 0 || (arg.attachments ?? []).length > 0,
+    steeringSupported: hasSteeringSupport(snapshot.initializeResult),
+  });
+  return { action, session, snapshot };
+};
+
+/**
+ * Send the draft as a new prompt turn. Fails before appending the user message unless {@link turnAction} is Send, so
+ * a caller that already took the draft can restore it.
+ */
+export const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   arg: {
     attachments?: readonly ComposerImageAttachment[];
     launchTarget: AgentLaunchTarget;
@@ -59,12 +77,10 @@ const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
 ) {
   const trimmed = arg.text.trim();
   const attachments = arg.attachments ?? [];
-  const { sessionId } = arg;
-  const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
-  const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+  const { action, session } = turnActionFor(arg, trimmed, get);
 
-  if ((trimmed.length === 0 && attachments.length === 0) || session?.status !== 'active') {
-    return;
+  if (action._tag !== 'Send' || session === undefined) {
+    return yield* Effect.fail(new Error('Sending is not available for this session right now'));
   }
 
   yield* Effect.annotateCurrentSpan({
@@ -116,8 +132,8 @@ const PROMPT_CLEAR_MAX_POLLS = 50;
 const PROMPT_CLEAR_POLL_INTERVAL = '100 millis';
 
 /**
- * `_session/steering` into the in-flight turn. Needs steering support, a `prompt` pending request and no
- * Pending interaction; otherwise no-op. `promptRequired` (turn already ended) falls back to a normal prompt.
+ * `_session/steering` into the in-flight turn. Fails unless {@link turnAction} is Steer (so the caller restores the
+ * draft). `promptRequired` (turn already ended) falls back to a normal prompt.
  * A steered message joins the in-flight turn, so it gets no turn timing of its own.
  */
 export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
@@ -131,19 +147,9 @@ export const steerChatItemEffect = Effect.fn('steerChatItemEffect')(function* (
 ) {
   const trimmed = arg.text.trim();
   const attachments = arg.attachments ?? [];
-  const { sessionId } = arg;
-  const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
-  const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
+  const { action, session, snapshot } = turnActionFor(arg, trimmed, get);
 
-  if (
-    (trimmed.length === 0 && attachments.length === 0) ||
-    session?.status !== 'active' ||
-    session.pendingClientRequest !== 'prompt' ||
-    session.promptCancelRequested === true ||
-    session.pendingElicitation !== undefined ||
-    session.pendingPermission !== undefined ||
-    !hasSteeringSupport(snapshot.initializeResult)
-  ) {
+  if (action._tag !== 'Steer' || session === undefined) {
     // Caller already cleared the draft; fail so it restores instead of silently dropping the message.
     return yield* Effect.fail(new Error('Steering is not available for this session right now'));
   }
@@ -205,43 +211,6 @@ export type ElicitationReply =
 
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
-
-  const sendChatItemAtomFn = atomRuntime
-    .fn(
-      Effect.fn('sendChatItemAtomFn', { root: true })(function* (
-        arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
-        get: Atom.FnContext,
-      ) {
-        yield* sendChatItemEffect({ ...arg, sessionId: get(selectedSessionIdAtom) }, get);
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
-  const steerChatItemAtomFn = atomRuntime
-    .fn(
-      Effect.fn('steerChatItemAtomFn', {
-        root: true,
-      })(function* (
-        arg: { attachments?: readonly ComposerImageAttachment[]; launchTarget: AgentLaunchTarget; text: string },
-        get: Atom.FnContext,
-      ) {
-        yield* steerChatItemEffect({ ...arg, sessionId: get(selectedSessionIdAtom) }, get);
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
-  /** First Send on Virtual: the Virtual session Materializes, then the draft goes out through the Session-arm send. */
-  const materializeVirtualThenSendAtomFn = atomRuntime
-    .fn(
-      Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        yield* sendVirtual(get.registry, materialized =>
-          sendChatItemEffect({ ...materialized, text: materialized.draft }, get),
-        );
-      }),
-      // A second call must not interrupt the pending Send (it no-ops while Send pending).
-      { concurrent: true },
-    )
-    .pipe(Atom.keepAlive);
 
   const cancelPromptAtomFn = atomRuntime
     .fn(
@@ -483,11 +452,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   return {
     cancelPromptAtomFn,
     cancelSubagentAtomFn,
-    materializeVirtualThenSendAtomFn,
     respondElicitationAtomFn,
     respondPermissionAtomFn,
-    sendChatItemAtomFn,
     setConfigOptionAtomFn,
-    steerChatItemAtomFn,
   };
 };

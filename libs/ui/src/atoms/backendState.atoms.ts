@@ -4,7 +4,11 @@ import { Atom } from 'effect/reactivity';
 
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import {
+  agentLaunchTargetLabel,
+  ALL_AGENT_LAUNCH_TARGETS,
+  MOUNTED_AGENT_LAUNCH_TARGETS,
+} from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
@@ -36,6 +40,15 @@ export const configOptionIndexAtom = Atom.family((launchTarget: AgentLaunchTarge
     Atom.keepAlive,
   ),
 );
+
+/** Config option index of every launch target, for lookups by an arbitrary target (Handoff picker, event handlers). */
+export const configOptionIndexByLaunchTargetAtom = Atom.make(get => {
+  const indexes: Partial<Record<AgentLaunchTarget, ConfigOptionIndex>> = {};
+  for (const launchTarget of ALL_AGENT_LAUNCH_TARGETS) {
+    indexes[launchTarget] = get(configOptionIndexAtom(launchTarget));
+  }
+  return indexes;
+}).pipe(Atom.keepAlive);
 
 /**
  * Whether the provider's backend may run. `stopped` blocks start (disabled / stopping); only an explicit

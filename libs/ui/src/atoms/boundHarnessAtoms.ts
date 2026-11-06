@@ -5,6 +5,7 @@
 import { atomRuntime, hostRun, hostRunFork, hostRunPromise, hostRunPromiseExit, hostRuntime } from '../hostRuntime.ts';
 
 import { createChatAtoms } from './chat.atoms.ts';
+import { createComposerAtoms } from './composer.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
@@ -45,13 +46,12 @@ export const {
 export const {
   cancelPromptAtomFn,
   cancelSubagentAtomFn,
-  materializeVirtualThenSendAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
-  sendChatItemAtomFn,
   setConfigOptionAtomFn,
-  steerChatItemAtomFn,
 } = createChatAtoms(hostBag);
+
+export const { editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(hostBag);
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 

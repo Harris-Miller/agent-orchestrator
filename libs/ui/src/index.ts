@@ -1,7 +1,7 @@
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
-export { createChatAtoms, draftAtom } from './atoms/chat.atoms.ts';
+export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
 export { createHarnessAtoms } from './atoms/harness.atoms.ts';

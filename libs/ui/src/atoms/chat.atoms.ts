@@ -64,7 +64,7 @@ const turnActionFor = (
 
 /**
  * Send the draft as a new prompt turn. Fails before appending the user message unless {@link turnAction} is Send, so
- * a caller that already took the draft can restore it.
+ * the Harness never prompts a Session the Composer would not offer Send for.
  */
 export const sendChatItemEffect = Effect.fn('sendChatItemEffect')(function* (
   arg: {

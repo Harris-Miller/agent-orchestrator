@@ -7,8 +7,9 @@
  *   {@link lastCreateDefaultsAtom} is the (writable) seed source for new blobs.
  * - Verbs, all taking the `AtomRegistry`: {@link ensureVirtual}, {@link editVirtual}, {@link setVirtualLaunchTarget},
  *   {@link setVirtualConfigOption}, {@link sendVirtual}, {@link select}, {@link discardVirtual}.
- * - Provider hooks: {@link bindVirtualOnUsable}, {@link resetVirtualOnProviderStopped},
- *   {@link resetVirtualUnsupportedConfig}; Selected hygiene: {@link clearSelectedIfMissing}.
+ * - Provider hooks: {@link bindVirtualOnUsable}, {@link unbindVirtualOnConnectionLost},
+ *   {@link resetVirtualOnProviderStopped}, {@link resetVirtualUnsupportedConfig}; Selected hygiene:
+ *   {@link clearSelectedIfMissing}.
  * - AtomFns: {@link createVirtualSessionAtoms}.
  *
  * Invariants:
@@ -790,6 +791,24 @@ export const bindVirtualOnUsable = Effect.fn('bindVirtualOnUsable')(function* (
   yield* requestBind(registry, refreshFsListing);
   yield* awaitCurrentBind(registry);
 });
+
+/**
+ * Connection lost: the Bound session died with the connection. Drop it from the snapshot and clear the Bound id; keep
+ * draft, cwd, launch target and Config so the next `usable` Binds again. No RPC (nothing to reach). Inert under the
+ * Lifecycle lock: Materialize owns the blob there and fails or finishes on its own.
+ */
+export const unbindVirtualOnConnectionLost = (registry: Registry, launchTarget: AgentLaunchTarget): void => {
+  if (registry.get(virtualMaterializingAtom)) {
+    return;
+  }
+  const virtual = registry.get(virtualSessionAtom);
+  if (virtual?.launchTarget !== launchTarget || virtual.sessionId === undefined) {
+    return;
+  }
+  const { sessionId } = virtual;
+  updateHarnessSnapshot(registry, launchTarget, current => dropSession(current, sessionId));
+  setBlob(registry, { ...virtual, sessionId: undefined });
+};
 
 /** Provider stopped: the Virtual target is gone with the process; unbind and drop the target and its Config. */
 export const resetVirtualOnProviderStopped = (registry: Registry, launchTarget: AgentLaunchTarget): void => {

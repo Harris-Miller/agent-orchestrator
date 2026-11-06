@@ -1,6 +1,6 @@
 /**
  * Backend harness lifecycle: spawn, connect, bootstrap retry.
- * Live agent handles are registered with sessionRpc; atoms never see them.
+ * Live agent handles are registered with sessionRpc for the attempt's scope; every attempt ends with Connection lost.
  * Inbound session/update is forwarded whole; Session update apply owns demux.
  */
 import { connectAcpAgent } from '@libs/effect-acp';
@@ -30,9 +30,9 @@ import { runConfigProbe } from './configProbe.ts';
 import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
-import { clearPromptSpansForLaunchTarget } from './promptSpanRegistry.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { clearConfigIndexSink, clearConnectedAgent, setConnectedAgent } from './sessionRpc.ts';
+import type { BackendConnectionReports } from './sessionRpc.ts';
+import { registerBackendConnection } from './sessionRpc.ts';
 
 export { AntigravitySignInTimedOut };
 
@@ -43,7 +43,7 @@ export type RpcWireEntry = {
   readonly receivedAt: number;
 };
 
-export type BackendHarnessCallbacks = {
+export type BackendHarnessCallbacks = BackendConnectionReports & {
   readonly onAntigravityAuthUrl?: (url: string) => void;
   readonly hasConfigOptionIndex: () => boolean;
   readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
@@ -80,12 +80,6 @@ const getOrCreateBoolRef = (
   return created;
 };
 
-export const resetBackendHarnessState = (launchTarget: AgentLaunchTarget): void => {
-  clearConnectedAgent(launchTarget);
-  clearConfigIndexSink(launchTarget);
-  clearPromptSpansForLaunchTarget(launchTarget);
-};
-
 /** Mark Antigravity harness to run Sign in (`authenticate`) on the next bootstrap. */
 export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(function* () {
   yield* Ref.set(getOrCreateBoolRef(pendingSignInRefs, 'antigravity-acp'), true);
@@ -106,7 +100,6 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     });
     yield* Effect.logInfo('ACP harness connecting', launchTarget);
     handlers.onPhase('connecting');
-    clearPromptSpansForLaunchTarget(launchTarget);
 
     const command = yield* makeAcpLaunchCommand(launchTarget);
     const connection = yield* connectAcpAgent(
@@ -125,7 +118,8 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     );
 
     const { agent } = connection;
-    setConnectedAgent(launchTarget, connection);
+    // Released with this attempt's scope (Stop, retry, retries exhausted): Connection lost.
+    yield* registerBackendConnection(launchTarget, connection, handlers);
     yield* Effect.logInfo('ACP harness connected', launchTarget, { pid: connection.handle.pid });
 
     const initializeResult = yield* agent.initialize({
@@ -247,8 +241,6 @@ export const runBackendHarness = Effect.fnUntraced(
         attempt: consecutiveFailures.count,
         maxAttempts: MAX_CONNECT_ATTEMPTS,
       });
-      clearConnectedAgent(launchTarget);
-      clearPromptSpansForLaunchTarget(launchTarget);
       yield* Effect.sleep('1 second');
     }
   },

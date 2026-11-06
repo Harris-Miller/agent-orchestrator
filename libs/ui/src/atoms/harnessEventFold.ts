@@ -1,8 +1,10 @@
 /**
- * Harness event fold: the one consumer of what a Backend harness reports for its launch target. Folds each report
- * into the latest Backend harness snapshot (atomically) and carries out its consequences — Usage persisted, a
- * Subagent session's parent recorded for turn-correlated tracing, Attention events, the `usable` Bind, pin reconcile,
- * Config option index publish. Consequences run fire-and-forget through `runFork` and never fail the fold.
+ * Harness event fold: the one consumer of what a Backend harness reports for its launch target (including its Backend
+ * connection's Lazy-hydrate events and Connection lost). Folds each report into the latest Backend harness snapshot
+ * (atomically) and carries out its consequences — Usage persisted, a Subagent session's parent recorded for
+ * turn-correlated tracing, Attention events, the `usable` Bind, pin reconcile, Config option index publish, and on
+ * Connection lost: pending interactions cancelled and the Virtual session unbound. Consequences run fire-and-forget
+ * through `runFork` and never fail the fold.
  */
 import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
 import type { SessionUsageDocument } from '@lib/ao-home';
@@ -16,14 +18,13 @@ import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
-import type { ConfigIndexEvent } from '../host/configOptionIndexHydrate.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { historyAfterList } from '../host/harnessStateTransitions.ts';
+import { historyAfterList, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
-import { setSubagentParent } from '../host/promptSpanRegistry.ts';
+import { setSubagentParent } from '../host/sessionRpc.ts';
 import { upsertSession } from '../host/sessionSnapshot.ts';
 import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
@@ -32,12 +33,14 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import type { RefreshSessionFsListing } from './sessionFsListing.atoms.ts';
-import { bindVirtualOnUsable, resetVirtualUnsupportedConfig, virtualSessionAtom } from './virtualSession.atoms.ts';
+import {
+  bindVirtualOnUsable,
+  resetVirtualUnsupportedConfig,
+  unbindVirtualOnConnectionLost,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
-export type HarnessEventFold = BackendHarnessCallbacks & {
-  /** Lazy hydrate sink: fold one live ACP response into the Config option index. */
-  readonly onConfigIndexEvent: (event: ConfigIndexEvent) => void;
-};
+export type HarnessEventFold = BackendHarnessCallbacks;
 
 /** What one session/update changed beyond the snapshot. */
 type SessionUpdateConsequences = {
@@ -66,6 +69,14 @@ const routeAndApplySessionUpdate = (
       sessions: upsertSession(current.sessions, result.session),
     },
   ];
+};
+
+/** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
+const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
+  for (const session of [...Object.values(snapshot.sessions), ...Object.values(snapshot.subagents)]) {
+    session.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
+    session.pendingElicitation?.resolve({ action: 'cancel' });
+  }
 };
 
 export const makeHarnessEventFold = ({
@@ -122,6 +133,14 @@ export const makeHarnessEventFold = ({
       }
     },
     onConfigOptionIndexPublish: publishConfigOptionIndex,
+    onConnectionLost: () => {
+      const lost = modifyHarnessSnapshot(registry, launchTarget, current => [
+        current,
+        reconcileConnectionLost(current),
+      ]);
+      cancelPendingRequests(lost);
+      unbindVirtualOnConnectionLost(registry, launchTarget);
+    },
     onElicitationCreate: (sessionId, request, resolve) => {
       setPending(sessionId, { kind: 'elicitation' }, holder => ({
         ...holder,

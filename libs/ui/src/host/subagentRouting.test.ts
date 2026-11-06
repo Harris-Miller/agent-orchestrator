@@ -3,7 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
-import { reconcileStoppedProvider } from './harnessStateTransitions.ts';
+import { reconcileConnectionLost } from './harnessStateTransitions.ts';
 import type { PendingPermission } from './pendingInteractions.ts';
 import { resetSubagentsOfRoot, routeSubagentUpdate } from './subagentRouting.ts';
 
@@ -95,7 +95,7 @@ describe('load / connection loss', () => {
     const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
     const replied = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
     const { snapshot } = routeSubagentUpdate(replied, 'p1', done.update)!;
-    for (const next of [resetSubagentsOfRoot(snapshot, 'p1'), reconcileStoppedProvider(snapshot)]) {
+    for (const next of [resetSubagentsOfRoot(snapshot, 'p1'), reconcileConnectionLost(snapshot)]) {
       assert.deepStrictEqual(next.subagents[CHILD].state, { state: 'completed' });
       assert.isUndefined(next.subagents[CHILD].capabilities);
       assert.strictEqual(next.subagents[CHILD].transcript.items.length, 1);

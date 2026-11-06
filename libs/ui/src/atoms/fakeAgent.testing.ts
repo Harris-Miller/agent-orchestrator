@@ -1,11 +1,16 @@
-/** Test-only stand-ins: a fake ACP agent on `sessionRpc`, a disposable registry, and a phase flip. */
+/**
+ * Test-only stand-ins: a fake ACP agent registered as the Backend connection (through the real
+ * `registerBackendConnection`, released with the test's scope), a disposable registry, and a phase flip.
+ */
 import type { SessionSteeringResponse } from '@libs/effect-acp';
 import { Deferred, Effect } from 'effect';
+import type { Scope } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
+import type { BackendConnectionReports } from '../host/sessionRpc.ts';
+import { registerBackendConnection } from '../host/sessionRpc.ts';
 
 import { providerEnabledMapAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -46,8 +51,26 @@ export type FakeAgentOpts = {
   readonly steering?: 'fail' | SessionSteeringResponse['outcome'];
 };
 
+type FakeConnection = Parameters<typeof registerBackendConnection>[1];
+
+const noReports: BackendConnectionReports = {
+  onConfigIndexEvent: () => undefined,
+  onConnectionLost: () => undefined,
+};
+
 /**
- * Fake ACP agent for `launchTarget`. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
+ * Register a hand-rolled partial connection for `launchTarget` until the current scope closes. Pass the Harness event
+ * fold as `reports` to see Connection lost when the scope closes; the default reports ignore everything.
+ */
+export const connectFakeAgent = (
+  launchTarget: AgentLaunchTarget,
+  partial: object,
+  reports: BackendConnectionReports = noReports,
+): Effect.Effect<void, never, Scope.Scope> =>
+  registerBackendConnection(launchTarget, partial as FakeConnection, reports);
+
+/**
+ * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
  * `prompt:<id>` and `steer:<id>` in `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude.
  */
 export const installFakeAgent = (
@@ -57,7 +80,7 @@ export const installFakeAgent = (
 ) => {
   const isClaude = launchTarget === CLAUDE;
   let nextId = 1;
-  setConnectedAgent(launchTarget, {
+  return connectFakeAgent(launchTarget, {
     agent: {
       'session/close': ({ sessionId }: { sessionId: string }) => {
         calls.push(`close:${sessionId}`);
@@ -100,14 +123,14 @@ export const installFakeAgent = (
         ? Effect.andThen(during, Effect.fail('steer-fail'))
         : Effect.as(during, { outcome: opts.steering ?? 'injected' });
     },
-  } as unknown as Parameters<typeof setConnectedAgent>[1]);
+  });
 };
 
 export const setPhase = (registry: Registry, launchTarget: AgentLaunchTarget, phase: AcpBootstrapPhase) => {
   updateHarnessSnapshot(registry, launchTarget, current => ({ ...current, phase }));
 };
 
-/** Registry with Codex and Claude enabled. Fake agents are cleared and the registry disposed when the scope closes. */
+/** Registry with Codex and Claude enabled, disposed when the scope closes. */
 export const freshRegistry = Effect.acquireRelease(
   Effect.sync(() => {
     const registry = AtomRegistry.make();
@@ -116,8 +139,6 @@ export const freshRegistry = Effect.acquireRelease(
   }),
   registry =>
     Effect.sync(() => {
-      clearConnectedAgent(CODEX);
-      clearConnectedAgent(CLAUDE);
       registry.dispose();
     }),
 );

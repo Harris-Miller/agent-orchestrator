@@ -35,7 +35,7 @@ const image = (id: string): ComposerImageAttachment => ({
 const harness = (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) =>
   Effect.gen(function* () {
     const calls: string[] = [];
-    installFakeAgent(calls, opts);
+    yield* installFakeAgent(calls, opts);
     const registry = yield* freshRegistry;
     const runtime = createHostRuntime(mockHostLayer);
     const { editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(runtime);

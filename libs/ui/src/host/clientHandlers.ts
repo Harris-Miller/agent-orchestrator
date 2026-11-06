@@ -14,7 +14,7 @@ import type { Tracer } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
-import { getPromptSpan } from './promptSpanRegistry.ts';
+import { getPromptSpan } from './sessionRpc.ts';
 
 export type ClientHandlerCallbacks = {
   readonly onElicitationCreate: (

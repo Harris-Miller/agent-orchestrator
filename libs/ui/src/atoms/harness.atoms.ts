@@ -52,12 +52,16 @@ export const createHarnessAtoms = (
    * Stop the provider and reconcile local state. `lifecycle.stop` awaits process exit; a live connection's release
    * runs Connection lost (pending requests cancelled, sessions inactive with history and transcripts preserved,
    * Virtual unbound). The reconcile is applied once more so a Stop with no live connection (retry sleep, retries
-   * exhausted, launch-prerequisite failure) still clears a Bootstrap `error`; it is idempotent. Stop alone also drops
-   * the Virtual session's launch target and Config. Sessions are not reopened automatically.
+   * exhausted, launch-prerequisite failure) still clears a Bootstrap `error`; it is idempotent. Stop alone also clears
+   * the RPC wire log (Connection lost keeps it across retries; Stop is its only bound) and drops the Virtual session's
+   * launch target and Config. Sessions are not reopened automatically.
    */
   const stopAndReconcile = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
     yield* lifecycle.stop(launchTarget);
-    updateHarnessSnapshot(get.registry, launchTarget, reconcileConnectionLost);
+    updateHarnessSnapshot(get.registry, launchTarget, snapshot => ({
+      ...reconcileConnectionLost(snapshot),
+      rpcCalls: [],
+    }));
     resetVirtualOnProviderStopped(get.registry, launchTarget);
   });
 

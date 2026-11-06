@@ -55,8 +55,12 @@ A long-running Harness worker for one agent launch target: spawns the ACP Agent 
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Connection lost**:
-The end of a Backend harness's ACP Connection by Stop (any action that stops the Provider: Restart, Disable, Sign in, runtime Install or Remove, Recheck), a failed bootstrap attempt before its retry, or the last failed attempt when retries run out. A Provider process that dies after `ready` is not yet noticed and does not cause it. Every Session goes `inactive` with its pending interactions cancelled, Session History stays but is unavailable until the next list, and the Virtual session loses its Bound session while keeping its draft, launch target, and Config. Stop additionally drops the Virtual session's launch target and Config, and clears a Bootstrap `error` even when no Connection was live.
+The end of a Backend connection, by the user stopping the Provider (Stop) or by a failed bootstrap attempt. Every Session goes `inactive` with its pending interactions cancelled, Session History stays but is unavailable until the next list, and the Virtual session loses its Bound session while keeping its draft, launch target, and Config. Stop additionally drops the Virtual session's launch target and Config.
 _Avoid_: disconnect, provider stopped, harness reset
+
+**Backend connection**:
+A Backend harness's live ACP Connection together with what lives exactly as long as it: in-flight Turn tracing, Subagent session parent links, and the Lazy hydrate route into the Config option index. At most one per launch target; ends with Connection lost.
+_Avoid_: connected agent, Connection (unqualified)
 
 **Bootstrap phase**:
 Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: session list has also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.

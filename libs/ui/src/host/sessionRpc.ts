@@ -1,7 +1,9 @@
 /**
  * Backend connection: the live ACP Connection per launch target and the state that lives exactly as long (RPC
- * handles, prompt spans, subagent links, Lazy-hydrate sink). Registered only by `registerBackendConnection`, for the
- * lifetime of a Scope; agent handles stay private to this module.
+ * handles, prompt spans, subagent links, Lazy hydrate sink). Registered only by `registerBackendConnection`, for the
+ * lifetime of a Scope; agent handles stay private to this module. The scope closes on Stop (Restart, Disable, Sign in,
+ * runtime Install or Remove, Recheck), on a failed bootstrap attempt before its retry, and on the last failed attempt.
+ * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
 import { Effect, Predicate, Schema } from 'effect';

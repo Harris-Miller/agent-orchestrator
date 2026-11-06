@@ -35,7 +35,7 @@ export const SessionChatPage: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
@@ -69,7 +69,7 @@ export const SessionChatPage: FC = () => {
       return;
     }
 
-    if (sessionId === undefined || launchTarget === undefined) {
+    if (sessionId === undefined || selectedSessionLaunchTarget === undefined) {
       activateKickRef.current = undefined;
       clearSelected(undefined).catch(() => undefined);
       return;
@@ -84,8 +84,8 @@ export const SessionChatPage: FC = () => {
       return;
     }
     activateKickRef.current = sessionId;
-    activateSessionRef.current({ launchTarget, sessionId }).catch(onClientError);
-  }, [clearSelected, isVirtual, launchTarget, onClientError, sessionId, status]);
+    activateSessionRef.current({ launchTarget: selectedSessionLaunchTarget, sessionId }).catch(onClientError);
+  }, [clearSelected, isVirtual, onClientError, selectedSessionLaunchTarget, sessionId, status]);
 
   const onBack = () => {
     activateKickRef.current = undefined;

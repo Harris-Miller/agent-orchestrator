@@ -30,7 +30,7 @@ export const SessionHeader: FC<{
     readonly variant?: TypographyProps['variant'];
   };
 }> = ({ onBeforeAction, onClientError, titleProps }) => {
-  const { entry, launchTarget, showActions, title } = useAtomValue(sessionHeaderAtom);
+  const { actionsEntry, entry, launchTarget, title } = useAtomValue(sessionHeaderAtom);
   const rename = useSessionTitleRename(entry?.sessionId);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError, onBeforeAction);
 
@@ -48,15 +48,15 @@ export const SessionHeader: FC<{
           </Typography>
         </SessionTitleInlineRename>
       )}
-      {entry !== undefined && showActions ? (
+      {actionsEntry === undefined ? null : (
         <SessionActionsMenu
-          entry={entry}
+          entry={actionsEntry}
           onBeforeAction={onBeforeAction}
           onClientError={onClientError}
           onDeleteRequest={requestDelete}
           onRenameRequest={rename.onRenameRequest}
         />
-      ) : null}
+      )}
       {/* Outside the entry branch: Delete clears Selected (so `entry`) before the dialog closes itself. */}
       <ConfirmSessionDeleteDialog
         onBeforeDelete={onBeforeAction}

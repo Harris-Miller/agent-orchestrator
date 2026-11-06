@@ -79,7 +79,7 @@ Session History display group for Session cwds that match vendor Desktop project
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
 **Session header**:
-The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when a Session with a History entry is Selected. Each host adds its own controls before and after it.
+The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when they apply (see **Session actions**). Each host adds its own controls before and after it.
 _Avoid_: chat header, title bar
 
 **Pin**:

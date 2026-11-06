@@ -24,7 +24,8 @@ describe('sessionHeaderAtom', () => {
     const header = registry.get(sessionHeaderAtom);
     assert.strictEqual(header.title, 'Fix the build');
     assert.strictEqual(header.launchTarget, 'claude-agent-acp');
-    assert.isTrue(header.showActions);
+    assert.strictEqual(header.entry?.sessionId, 's1');
+    assert.strictEqual(header.actionsEntry, header.entry);
   });
 
   it('Session missing a History row → no entry, Session actions hidden', () => {
@@ -32,7 +33,7 @@ describe('sessionHeaderAtom', () => {
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 'no-row' });
     const header = registry.get(sessionHeaderAtom);
     assert.isUndefined(header.entry);
-    assert.isFalse(header.showActions);
+    assert.isUndefined(header.actionsEntry);
   });
 
   it('Subagent view of the Selected session → Session actions hidden', () => {
@@ -41,21 +42,21 @@ describe('sessionHeaderAtom', () => {
     registry.set(viewedSubagentAtom, { childId: 'c1', launchTarget: 'claude-agent-acp', rootSessionId: 's1' });
     const header = registry.get(sessionHeaderAtom);
     assert.strictEqual(header.title, 'Fix the build');
-    assert.isFalse(header.showActions);
+    assert.isUndefined(header.actionsEntry);
   });
 
   it('viewed child no longer exists → Session actions shown (body shows the root transcript)', () => {
     const registry = setup();
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
     registry.set(viewedSubagentAtom, { childId: 'gone', launchTarget: 'claude-agent-acp', rootSessionId: 's1' });
-    assert.isTrue(registry.get(sessionHeaderAtom).showActions);
+    assert.isDefined(registry.get(sessionHeaderAtom).actionsEntry);
   });
 
   it('viewed subagent belongs to another root → Session actions shown', () => {
     const registry = setup();
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
     registry.set(viewedSubagentAtom, { childId: 'c1', launchTarget: 'claude-agent-acp', rootSessionId: 'other' });
-    assert.isTrue(registry.get(sessionHeaderAtom).showActions);
+    assert.isDefined(registry.get(sessionHeaderAtom).actionsEntry);
   });
 
   it('Virtual → New Session, Session actions hidden', () => {
@@ -64,7 +65,7 @@ describe('sessionHeaderAtom', () => {
     const header = registry.get(sessionHeaderAtom);
     assert.strictEqual(header.title, 'New Session');
     assert.isUndefined(header.entry);
-    assert.isFalse(header.showActions);
+    assert.isUndefined(header.actionsEntry);
   });
 
   it('Selected unset → Chat, Session actions hidden', () => {
@@ -72,6 +73,6 @@ describe('sessionHeaderAtom', () => {
     const header = registry.get(sessionHeaderAtom);
     assert.strictEqual(header.title, 'Chat');
     assert.isUndefined(header.launchTarget);
-    assert.isFalse(header.showActions);
+    assert.isUndefined(header.actionsEntry);
   });
 });

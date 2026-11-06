@@ -1,6 +1,10 @@
 /** Pure subagent-session model: wire decode, child snapshot, and nullable-patch reducer. */
+import { SubagentUpdate } from '@libs/effect-acp';
+import type { Option } from 'effect';
+import { Schema } from 'effect';
+
 import { isRecord } from '../isRecord.ts';
-import { optString, withoutUndefined } from '../optionalFields.ts';
+import { withoutUndefined } from '../optionalFields.ts';
 
 import { rootAncestor } from './ancestry.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
@@ -66,20 +70,18 @@ export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
 export const canCancelSubagent = (child: SubagentSnapshot): boolean =>
   isRecord(child.capabilities?.cancel) && Object.keys(child.capabilities.cancel).length === 0;
 
-/** Accepts `"completed"` or RFD `{state, stopReason?, error?}`; anything else is undefined. */
-export const parseSubagentWorkState = (value: unknown): SubagentWorkState | undefined => {
-  if (typeof value === 'string') {
-    return { state: value };
-  }
-  if (!isRecord(value) || typeof value.state !== 'string') {
-    return undefined;
-  }
-  return {
-    state: value.state,
-    ...(typeof value.stopReason === 'string' ? { stopReason: value.stopReason } : {}),
-    ...(value.error === undefined || value.error === null ? {} : { error: value.error }),
-  };
-};
+/** Decode a subagent announcement/patch; none when the id is missing or a field is malformed. */
+export const decodeSubagentUpdate: (update: unknown) => Option.Option<SubagentUpdate> =
+  Schema.decodeUnknownOption(SubagentUpdate);
+
+const toWorkState = (value: NonNullable<SubagentUpdate['state']>): SubagentWorkState =>
+  typeof value === 'string'
+    ? { state: value }
+    : {
+        state: value.state,
+        ...(value.stopReason === undefined || value.stopReason === null ? {} : { stopReason: value.stopReason }),
+        ...(value.error === undefined || value.error === null ? {} : { error: value.error }),
+      };
 
 /** `early` is a stray root entry holding updates and requests that arrived before the spawn. */
 export const initialSubagentSnapshot = (
@@ -95,40 +97,25 @@ export const initialSubagentSnapshot = (
     transcript: early?.transcript ?? emptySessionTranscript(),
   });
 
-const parseCapabilities = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
-  isRecord(value) ? value : undefined;
-
 /** Nullable patch: omitted = unchanged, null = clear, concrete = replace whole field. */
-const patchField = <T>(
-  update: Readonly<Record<string, unknown>>,
-  key: string,
+const patchField = <T, U>(
+  incoming: U | null | undefined,
   current: T | undefined,
-  parse: (value: unknown) => T | undefined,
-): T | undefined => {
-  if (!(key in update) || update[key] === undefined) {
-    return current;
-  }
-  return update[key] === null ? undefined : parse(update[key]);
-};
+  map: (value: U) => T,
+): T | undefined => (incoming === undefined ? current : incoming === null ? undefined : map(incoming));
 
-/** Fold a `subagent_spawned` / `subagent_state_update` / `subagent_update` into the child snapshot. */
-export const applySubagentPatch = (
-  child: SubagentSnapshot,
-  update: Readonly<Record<string, unknown>>,
-): SubagentSnapshot =>
+const identity = <T>(value: T): T => value;
+
+/** Fold a decoded `subagent_spawned` / `subagent_state_update` / `subagent_update` into the child snapshot. */
+export const applySubagentPatch = (child: SubagentSnapshot, update: SubagentUpdate): SubagentSnapshot =>
   withoutUndefined({
     ...child,
-    capabilities: patchField(update, 'capabilities', child.capabilities, parseCapabilities),
-    name: patchField(update, 'name', child.name, optString),
-    state: patchField(update, 'state', child.state, parseSubagentWorkState),
+    capabilities: patchField(update.capabilities, child.capabilities, identity),
+    name: patchField(update.name, child.name, identity),
+    state: patchField(update.state, child.state, toWorkState),
     stateUnconfirmed: update.state === undefined ? child.stateUnconfirmed : undefined,
-    task: patchField(update, 'task', child.task, optString),
+    task: patchField(update.task, child.task, identity),
   });
-
-export const subagentSessionIdOf = (update: unknown): string | undefined =>
-  isRecord(update) && typeof update.subagentSessionId === 'string' && update.subagentSessionId.length > 0
-    ? update.subagentSessionId
-    : undefined;
 
 /** Connection loss / load / resume: keep transcripts, drop anything that could be stale. */
 export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapshot => {

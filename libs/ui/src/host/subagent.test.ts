@@ -1,13 +1,14 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Option } from 'effect';
 
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 
 import {
   applySubagentPatch,
   canCancelSubagent,
+  decodeSubagentUpdate,
   initialSubagentSnapshot,
   isSubagentFinished,
-  parseSubagentWorkState,
   reduceSubagentTranscriptUpdate,
   resetSubagentLiveState,
   rootAncestorId,
@@ -19,15 +20,22 @@ import { emptySessionTranscript, reduceSessionUpdate, upsertSubagentRow } from '
 const [, fixtureMessage] = fixture;
 const child = () => initialSubagentSnapshot('c1', 'p1');
 
-describe('parseSubagentWorkState', () => {
-  it('accepts string, object, and unknown values without failing', () => {
-    assert.deepStrictEqual(parseSubagentWorkState('completed'), { state: 'completed' });
-    assert.deepStrictEqual(parseSubagentWorkState({ state: 'idle', stopReason: 'end_turn' }), {
+const patchChild = (current: ReturnType<typeof child>, fields: object) =>
+  applySubagentPatch(
+    current,
+    decodeSubagentUpdate({ sessionUpdate: 'subagent_update', subagentSessionId: 'c1', ...fields }).pipe(
+      Option.getOrThrow,
+    ),
+  );
+
+describe('subagent work state', () => {
+  it('maps string and object states to a work state', () => {
+    assert.deepStrictEqual(patchChild(child(), { state: 'completed' }).state, { state: 'completed' });
+    assert.deepStrictEqual(patchChild(child(), { state: { state: 'idle', stopReason: 'end_turn' } }).state, {
       state: 'idle',
       stopReason: 'end_turn',
     });
-    assert.deepStrictEqual(parseSubagentWorkState({ state: 'mystery' }), { state: 'mystery' });
-    assert.strictEqual(parseSubagentWorkState(42), undefined);
+    assert.deepStrictEqual(patchChild(child(), { state: { state: 'mystery' } }).state, { state: 'mystery' });
   });
 
   it('treats completed and idle as finished', () => {
@@ -41,30 +49,30 @@ describe('parseSubagentWorkState', () => {
 describe('applySubagentPatch', () => {
   it('applies the captured spawn then state update', () => {
     const [spawn, , done] = fixture;
-    const spawned = applySubagentPatch(child(), spawn.update);
+    const spawned = patchChild(child(), spawn.update);
     assert.strictEqual(spawned.name, 'Reply alpha');
     assert.deepStrictEqual(spawned.capabilities, {});
     assert.isFalse(canCancelSubagent(spawned));
-    const finished = applySubagentPatch(spawned, done.update);
+    const finished = patchChild(spawned, done.update);
     assert.deepStrictEqual(finished.state, { state: 'completed' });
     assert.strictEqual(finished.name, 'Reply alpha');
   });
 
   it('omit = unchanged, null = clear, concrete = replace whole', () => {
-    const base = applySubagentPatch(child(), { capabilities: { cancel: {} }, name: 'A', state: 'running' });
+    const base = patchChild(child(), { capabilities: { cancel: {} }, name: 'A', state: 'running' });
     assert.isTrue(canCancelSubagent(base));
-    const unchanged = applySubagentPatch(base, {});
+    const unchanged = patchChild(base, {});
     assert.deepStrictEqual(unchanged, base);
-    const cleared = applySubagentPatch(base, { capabilities: null, name: null });
+    const cleared = patchChild(base, { capabilities: null, name: null });
     assert.isUndefined(cleared.capabilities);
     assert.isUndefined(cleared.name);
-    const replaced = applySubagentPatch(base, { capabilities: { other: {} } });
+    const replaced = patchChild(base, { capabilities: { other: {} } });
     assert.isFalse(canCancelSubagent(replaced));
-    assert.isFalse(canCancelSubagent(applySubagentPatch(base, { capabilities: { cancel: null } })));
+    assert.isFalse(canCancelSubagent(patchChild(base, { capabilities: { cancel: null } })));
   });
 
   it('flags needs-input from requires_action', () => {
-    assert.isTrue(subagentNeedsInput(applySubagentPatch(child(), { state: { state: 'requires_action' } })));
+    assert.isTrue(subagentNeedsInput(patchChild(child(), { state: { state: 'requires_action' } })));
   });
 });
 
@@ -131,19 +139,19 @@ describe('rootAncestorId', () => {
 
 describe('resetSubagentLiveState', () => {
   it('keeps terminal states, clears the rest as unconfirmed', () => {
-    const done = applySubagentPatch(child(), { capabilities: { cancel: {} }, state: 'completed' });
+    const done = patchChild(child(), { capabilities: { cancel: {} }, state: 'completed' });
     const keptDone = resetSubagentLiveState(done);
     assert.deepStrictEqual(keptDone.state, { state: 'completed' });
     assert.isUndefined(keptDone.capabilities);
     assert.isUndefined(keptDone.stateUnconfirmed);
-    const cancelled = resetSubagentLiveState(applySubagentPatch(child(), { state: 'cancelled' }));
+    const cancelled = resetSubagentLiveState(patchChild(child(), { state: 'cancelled' }));
     assert.deepStrictEqual(cancelled.state, { state: 'cancelled' });
     for (const state of ['running', 'idle', 'requires_action', 'mystery']) {
-      const reset = resetSubagentLiveState(applySubagentPatch(child(), { state }));
+      const reset = resetSubagentLiveState(patchChild(child(), { state }));
       assert.isUndefined(reset.state);
       assert.isTrue(reset.stateUnconfirmed);
     }
-    const revived = applySubagentPatch(resetSubagentLiveState(applySubagentPatch(child(), { state: 'running' })), {
+    const revived = patchChild(resetSubagentLiveState(patchChild(child(), { state: 'running' })), {
       state: 'completed',
     });
     assert.isUndefined(revived.stateUnconfirmed);

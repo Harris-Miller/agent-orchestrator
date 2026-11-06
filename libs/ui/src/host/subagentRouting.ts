@@ -1,4 +1,6 @@
 /** Pure routing of session/update (and pending interactions) between root sessions and subagent children. */
+import { Option } from 'effect';
+
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { upsertSubagentRow } from './sessionUpdateReducer.ts';
@@ -7,12 +9,12 @@ import { isRecord } from '../isRecord.ts';
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import {
   applySubagentPatch,
+  decodeSubagentUpdate,
   getSubagent,
   initialSubagentSnapshot,
   reduceSubagentTranscriptUpdate,
   resetSubagentLiveState,
   rootAncestorId,
-  subagentSessionIdOf,
 } from './subagent.ts';
 
 const SUBAGENT_KINDS = new Set(['subagent_spawned', 'subagent_state_update', 'subagent_update']);
@@ -49,8 +51,10 @@ export const routeSubagentUpdate = (
   update: unknown,
 ): SubagentRouteResult | undefined => {
   if (isRecord(update) && typeof update.sessionUpdate === 'string' && SUBAGENT_KINDS.has(update.sessionUpdate)) {
-    const childId = subagentSessionIdOf(update);
-    if (childId === undefined) return { snapshot };
+    const decoded = decodeSubagentUpdate(update);
+    if (Option.isNone(decoded)) return { snapshot };
+    const patch = decoded.value;
+    const childId = patch.subagentSessionId;
     const existing = getSubagent(snapshot.subagents, childId);
     // Never self-reference, cycle, or reparent.
     if (
@@ -64,7 +68,7 @@ export const routeSubagentUpdate = (
     const { [childId]: stray, ...sessions } = snapshot.sessions;
     // Updates and requests that raced ahead of the spawn landed on a stray root entry; keep them on the child.
     const seed = existing ?? initialSubagentSnapshot(childId, parentId, migratedRoot ? stray : undefined);
-    const child = applySubagentPatch(seed, update);
+    const child = applySubagentPatch(seed, patch);
     const withChild: BackendHarnessSnapshot = {
       ...snapshot,
       sessions: migratedRoot ? sessions : snapshot.sessions,

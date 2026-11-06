@@ -79,15 +79,6 @@ const SubagentViewBody: FC<{
           </Button>
         ) : null}
       </Box>
-      {child.task === undefined ? null : (
-        <Typography
-          color="text.secondary"
-          sx={{ maxHeight: '4.5em', overflowY: 'auto', px: 1.5, whiteSpace: 'pre-wrap' }}
-          variant="body2"
-        >
-          {child.task}
-        </Typography>
-      )}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}>
         <List dense disablePadding>
           {child.transcript.items
@@ -137,7 +128,7 @@ const SubagentViewBody: FC<{
   );
 };
 
-/** Read-only full-pane view of one subagent child: header, task, transcript, approval card. No composer. */
+/** Read-only full-pane view of one subagent child: header, transcript, approval card. No composer. */
 export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
   const viewed = useAtomValue(viewedSubagentAtom);
   return viewed === undefined ? null : (

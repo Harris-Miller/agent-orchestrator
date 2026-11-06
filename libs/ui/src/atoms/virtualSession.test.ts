@@ -523,7 +523,7 @@ describe('latest-wins Bind', () => {
         duringNew: onlyFirst(
           Effect.orDie(
             Effect.gen(function* () {
-              yield* setVirtualLaunchTarget(registry, CLAUDE);
+              yield* Effect.orDie(setVirtualLaunchTarget(registry, CLAUDE));
               yield* setVirtualLaunchTarget(registry, CODEX);
             }),
           ),
@@ -744,6 +744,34 @@ describe('Send', () => {
 
       assert.deepStrictEqual(during, { draft: 'hello', locked: true, pending: true });
       assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('ensure, launch target change and discard are inert while the Lifecycle lock is held', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = yield* freshRegistry;
+      const during: { blob?: ReturnType<typeof blob>; selected?: unknown } = {};
+      installFakeAgent(calls, {
+        duringSetConfig: Effect.gen(function* () {
+          yield* ensureVirtual(registry, { cwd: '/other', patchCwdIfSelectedVirtual: true });
+          yield* Effect.orDie(setVirtualLaunchTarget(registry, CLAUDE));
+          yield* discardVirtual(registry);
+          during.blob = blob(registry);
+          during.selected = registry.get(selectedAtom);
+        }),
+      });
+      setPhase(registry, CLAUDE, 'ready');
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+
+      yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+      assert.strictEqual(during.blob?.cwd, '/proj');
+      assert.strictEqual(during.blob?.launchTarget, CODEX);
+      assert.strictEqual(during.blob?.sessionId, 'bound-1');
+      assert.deepStrictEqual(during.selected, { _tag: 'Virtual' });
+      assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
+      assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
     }).pipe(Effect.scoped),
   );
 

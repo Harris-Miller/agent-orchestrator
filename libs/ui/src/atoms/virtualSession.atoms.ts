@@ -283,7 +283,7 @@ const bindKeyMatches = (virtual: null | VirtualSession, key: BindKey): boolean =
   virtual?.launchTarget === key.launchTarget && virtual.cwd === key.cwd;
 
 /** Best-effort close+delete Bound session (no session dir). Failed delete must not block replacement Bind. */
-const teardownBound = Effect.fn('teardownVirtualAcpBind')(function* (registry: Registry, bound: BoundRef) {
+const teardownBound = Effect.fn('teardownBound')(function* (registry: Registry, bound: BoundRef) {
   const snapshot = registry.get(backendHarnessSnapshotAtom(bound.launchTarget));
   const session = bound.sessionId in snapshot.sessions ? snapshot.sessions[bound.sessionId] : undefined;
   if (session !== undefined && session.status !== 'inactive') {
@@ -313,18 +313,18 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 });
 
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
-const runBind = Effect.fn('runVirtualBind')(function* (
+const runBind = Effect.fn('runBind')(function* (
   registry: Registry,
   bind: VirtualBind,
   refreshFsListing?: RefreshSessionFsListing,
 ) {
   const { cwd, launchTarget } = bind;
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-  yield* Effect.logInfo('UI ensureVirtualAcpBound', launchTarget, { cwd });
+  yield* Effect.logInfo('UI runBind', launchTarget, { cwd });
 
   const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
   if (Exit.isFailure(createExit)) {
-    yield* Effect.logError('ensureVirtualAcpBound session/new failed', launchTarget, createExit.cause);
+    yield* Effect.logError('runBind session/new failed', launchTarget, createExit.cause);
     return undefined;
   }
 
@@ -353,7 +353,7 @@ const runBind = Effect.fn('runVirtualBind')(function* (
   if (refreshFsListing !== undefined) {
     yield* refreshFsListing({ cwd: createdCwd, sessionId: boundSessionId });
   }
-  yield* Effect.logInfo('UI ensureVirtualAcpBound complete', launchTarget, boundSessionId);
+  yield* Effect.logInfo('UI runBind complete', launchTarget, boundSessionId);
   return boundSessionId;
 });
 
@@ -362,7 +362,7 @@ const runBind = Effect.fn('runVirtualBind')(function* (
  * `{launchTarget, cwd}` supersedes any in-flight Bind (its session is torn down when it lands); the same key joins it.
  * Returns `undefined` when nothing needs binding (unusable, no valid key, already Bound, Materializing).
  */
-const requestBind = Effect.fn('requestVirtualBind')(function* (
+const requestBind = Effect.fn('requestBind')(function* (
   registry: Registry,
   refreshFsListing?: RefreshSessionFsListing,
 ) {
@@ -406,7 +406,7 @@ const requestBind = Effect.fn('requestVirtualBind')(function* (
   // Detached: a re-invoked AtomFn must not interrupt a `session/new` already on the wire.
   yield* Effect.forkDetach(
     runBind(registry, bind, refreshFsListing).pipe(
-      Effect.tapError(error => Effect.logError('ensureVirtualAcpBound failed', error)),
+      Effect.tapError(error => Effect.logError('requestBind runBind failed', error)),
       Effect.catchCause(() => Effect.succeed(undefined)),
       Effect.tap(boundSessionId => Deferred.succeed(bind.done, boundSessionId)),
       Effect.ensuring(
@@ -426,7 +426,7 @@ const requestBind = Effect.fn('requestVirtualBind')(function* (
  * Wait for the newest Bind to settle (re-awaiting if a newer one supersedes it meanwhile).
  * Resolves to the Bound id on the blob, or `undefined` when nothing is bound.
  */
-const awaitCurrentBind = Effect.fn('awaitCurrentVirtualBind')(function* (registry: Registry) {
+const awaitCurrentBind = Effect.fn('awaitCurrentBind')(function* (registry: Registry) {
   let awaited: undefined | VirtualBind;
   for (;;) {
     const { current } = registry.get(virtualBindAtom);
@@ -442,7 +442,7 @@ const awaitCurrentBind = Effect.fn('awaitCurrentVirtualBind')(function* (registr
  * Sync-mutate Virtual, release the Bound session in the background when cwd/LT/id no longer matches, then
  * optionally request a Bind. Never waits on a Bind. Inert under the Lifecycle lock.
  */
-const mutateThenRebind = Effect.fn('mutateVirtualThenRebind')(function* (
+const mutateThenRebind = Effect.fn('mutateThenRebind')(function* (
   registry: Registry,
   options: {
     readonly mutate: () => void;
@@ -559,17 +559,17 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
  * Under the Lifecycle lock: apply Virtual Config diffs to the Bound session (`stoppedEarly` continues), upsert the
  * History row, record last-create defaults, clear the blob, and Select the Session only if Selected is still Virtual.
  */
-const materialize = (registry: Registry, target: BoundVirtualTarget) =>
-  Effect.gen(function* () {
+const materialize = Effect.fn('materialize')(
+  function* (registry: Registry, target: BoundVirtualTarget) {
     const { attachments, configValues, cwd, draft, launchTarget, sessionId } = target;
     registry.set(writableMaterializingAtom, true);
     yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
     yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-    yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
+    yield* Effect.logInfo('UI materialize', launchTarget, { cwd, sessionId });
 
     const liveSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
     if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {
-      yield* Effect.logError('materializeVirtualThenSend missing Bound session', launchTarget, sessionId);
+      yield* Effect.logError('materialize missing Bound session', launchTarget, sessionId);
       return undefined;
     }
     const liveSession = liveSnapshot.sessions[sessionId];
@@ -583,7 +583,7 @@ const materialize = (registry: Registry, target: BoundVirtualTarget) =>
       );
     const afterOverrides = yield* applyConfigDiffs(liveSession.sessionConfiguration, configValues, setOption);
     if (afterOverrides.stoppedEarly) {
-      yield* Effect.logWarning('materializeVirtualThenSend applyConfigDiffs stopped early', launchTarget, sessionId);
+      yield* Effect.logWarning('materialize applyConfigDiffs stopped early', launchTarget, sessionId);
     }
 
     const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
@@ -606,14 +606,17 @@ const materialize = (registry: Registry, target: BoundVirtualTarget) =>
       registry.set(selectedAtom, { _tag: 'Session', sessionId });
     }
     return { attachments, draft, launchTarget, sessionId } satisfies MaterializedVirtual;
-  }).pipe(
-    Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
-    Effect.ensuring(
-      Effect.sync(() => {
-        registry.set(writableMaterializingAtom, false);
-      }),
+  },
+  (effect, registry) =>
+    effect.pipe(
+      Effect.tapError(error => Effect.logError('materialize failed', error)),
+      Effect.ensuring(
+        Effect.sync(() => {
+          registry.set(writableMaterializingAtom, false);
+        }),
+      ),
     ),
-  );
+);
 
 // Verbs
 
@@ -694,39 +697,38 @@ export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(functi
  * the blob until Materialize succeeds. Resolves without prompting when there is nothing to send (no blob, no content,
  * not Selected, already pending, or locked). Fails with {@link ProviderUnavailable} on provider `error` or a failed Bind.
  */
-export const sendVirtual = <E, R>(
+export const sendVirtual = Effect.fn('sendVirtual')(function* <E, R>(
   registry: Registry,
   prompt: (materialized: MaterializedVirtual) => Effect.Effect<unknown, E, R>,
-): Effect.Effect<void, E | ProviderUnavailable, R> =>
-  Effect.gen(function* () {
-    if (
-      registry.get(virtualMaterializingAtom) ||
-      registry.get(virtualSendPendingAtom) ||
-      registry.get(selectedAtom)?._tag !== 'Virtual'
-    ) {
-      return;
-    }
-    const initial = registry.get(virtualSessionAtom);
-    if (initial === null || !hasComposerContent(initial)) {
-      return;
-    }
+): Effect.fn.Return<void, E | ProviderUnavailable, R> {
+  if (
+    registry.get(virtualMaterializingAtom) ||
+    registry.get(virtualSendPendingAtom) ||
+    registry.get(selectedAtom)?._tag !== 'Virtual'
+  ) {
+    return;
+  }
+  const initial = registry.get(virtualSessionAtom);
+  if (initial === null || !hasComposerContent(initial)) {
+    return;
+  }
 
-    registry.set(writableSendPendingAtom, true);
-    const materialized = yield* awaitBoundVirtual(registry).pipe(
-      Effect.flatMap(target => (target === undefined ? Effect.succeed(undefined) : materialize(registry, target))),
-      Effect.ensuring(
-        Effect.sync(() => {
-          registry.set(writableSendPendingAtom, false);
-        }),
-      ),
-    );
-    if (materialized !== undefined) {
-      yield* prompt(materialized);
-    }
-  });
+  registry.set(writableSendPendingAtom, true);
+  const materialized = yield* awaitBoundVirtual(registry).pipe(
+    Effect.flatMap(target => (target === undefined ? Effect.succeed(undefined) : materialize(registry, target))),
+    Effect.ensuring(
+      Effect.sync(() => {
+        registry.set(writableSendPendingAtom, false);
+      }),
+    ),
+  );
+  if (materialized !== undefined) {
+    yield* prompt(materialized);
+  }
+});
 
 /** Leaving Virtual: content keeps the blob (+ Bound); empty discards it with background teardown. Never waits. */
-const leaveVirtual = Effect.fn('leaveVirtualEffect')(function* (registry: Registry, next: Selected | undefined) {
+const leaveVirtual = Effect.fn('leaveVirtual')(function* (registry: Registry, next: Selected | undefined) {
   const virtual = registry.get(virtualSessionAtom);
   if (virtual !== null && hasComposerContent(virtual)) {
     registry.set(selectedAtom, next);
@@ -772,7 +774,7 @@ export const discardVirtual = (registry: Registry) =>
 // Provider hooks + Selected hygiene
 
 /** Provider became `usable`: request and await the newest Bind when the blob is on `launchTarget`. */
-export const bindVirtualOnUsable = Effect.fn('ensureVirtualAcpBound')(function* (
+export const bindVirtualOnUsable = Effect.fn('bindVirtualOnUsable')(function* (
   registry: Registry,
   launchTarget: AgentLaunchTarget,
   refreshFsListing?: RefreshSessionFsListing,

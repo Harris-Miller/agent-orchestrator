@@ -149,9 +149,7 @@ export const makeHarnessEventFold = ({
       if (phase === 'usable') {
         runFork(
           bindVirtualOnUsable(registry, launchTarget, refreshFsListing).pipe(
-            Effect.catchCause(cause =>
-              Effect.logWarning('ensureVirtualAcpBound on usable failed', launchTarget, cause),
-            ),
+            Effect.catchCause(cause => Effect.logWarning('bindVirtualOnUsable failed', launchTarget, cause)),
           ),
         );
       }

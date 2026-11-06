@@ -94,11 +94,7 @@ export const {
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 
-export const {
-  discardVirtualSessionAtomFn,
-  ensureVirtualSessionAtomFn,
-  patchVirtualSessionAtomFn,
-  setVirtualLaunchTargetAtomFn,
-} = createVirtualSessionAtoms(hostBag, refreshSessionFsListingAtomFn);
+export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } =
+  createVirtualSessionAtoms(hostBag, refreshSessionFsListingAtomFn);
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);

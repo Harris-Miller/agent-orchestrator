@@ -15,7 +15,7 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Bind**:
-Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: post-mutate rebind, the `usable` `onPhase`, and Send when none is in flight. Distinct from Materialize (first-Send promote).
+Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: creating or re-selecting the Virtual session, a launch target or cwd change, the provider becoming `usable`, and Send when none is in flight (draft, attachment, and Config edits never Bind). Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Lifecycle lock**:
@@ -25,6 +25,10 @@ _Avoid_: Bind lock, in-flight lock
 **Send pending**:
 The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable` and for the latest Bind, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure) leaves it in place.
 _Avoid_: Queued send, outbox
+
+**Leaving Virtual**:
+Navigating off the Virtual session by Selecting a Session or clearing Selected. Never waits on Bind or the Lifecycle lock. With Composer content the Virtual blob and its Bound session are kept (an in-flight Bind or Materialize finishes in the background); with an empty Composer the blob is discarded and its Bound session torn down in the background. Distinct from discarding the Virtual session when the Workspace folder goes away, which drops it regardless of content.
+_Avoid_: close Virtual, cancel draft, discard (when the Composer has content)
 
 **Backend harness snapshot**:
 The Harness application state for one launch target: Bootstrap phase and failure, initialize result, RPC wire log, Session History, Session snapshots, and Subagent sessions. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.

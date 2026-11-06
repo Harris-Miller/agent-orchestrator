@@ -10,19 +10,13 @@ import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
 import { setConfigIndexSink } from '../host/sessionRpc.ts';
 
-import {
-  backendDesiredStateAtom,
-  backendHarnessSnapshotAtom,
-  clearSelectedSessionIfMissing,
-} from './backendState.atoms.ts';
+import { backendDesiredStateAtom, backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+import { refreshFsListingViaRegistry } from './sessionFsListing.atoms.ts';
+import type { RefreshSessionFsListingAtomFn } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { refreshFsListingViaRegistry } from './virtualBind.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
-
-type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
+import { clearSelectedIfMissing, resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
 export const createHarnessAtoms = (
   runtime: HostRuntimeBag,
@@ -66,12 +60,8 @@ export const createHarnessAtoms = (
     resetBackendHarnessState(launchTarget);
     cancelPendingRequests(get.registry.get(backendHarnessSnapshotAtom(launchTarget)));
     updateHarnessSnapshot(get.registry, launchTarget, reconcileStoppedProvider);
-    const virtual = get.registry.get(virtualSessionAtom);
-    if (virtual?.launchTarget === launchTarget) {
-      // The Virtual target is gone with the process: unbind and drop the target so the composer cannot send to it.
-      get.set(virtualSessionAtom, { ...virtual, configValues: {}, launchTarget: undefined, sessionId: undefined });
-    }
-    clearSelectedSessionIfMissing(get);
+    resetVirtualOnProviderStopped(get.registry, launchTarget);
+    clearSelectedIfMissing(get.registry);
   });
 
   const startBackend = (launchTarget: AgentLaunchTarget, get: Atom.FnContext): void => {

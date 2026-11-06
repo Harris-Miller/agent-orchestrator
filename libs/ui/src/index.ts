@@ -23,29 +23,14 @@ export {
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
-export type { RefreshSessionFsListing } from './atoms/virtualBind.ts';
-export {
-  ensureVirtualAcpBound,
-  mutateVirtualThenRebind,
-  rwFromFnContext,
-  rwFromRegistry,
-  teardownVirtualAcpBind,
-} from './atoms/virtualBind.ts';
 export { sessionCwdAtom, workspaceFolderPathsAtom } from './atoms/workspaceFolderPaths.atoms.ts';
 export { bootWorkspaceFolders, handleWorkspaceFoldersChanged } from './atoms/workspaceFolders.ts';
 export {
-  applyVirtualSessionFolderChurn,
-  clearSelectedEffect,
   createVirtualSessionAtoms,
-  discardVirtualSession,
-  ensureVirtualSession,
-  lastCreateDefaultsAtom,
-  patchVirtualSession,
-  selectSessionEffect,
-  setVirtualLaunchTarget,
+  virtualMaterializingAtom,
   virtualSessionAtom,
 } from './atoms/virtualSession.atoms.ts';
-export type { EnsureVirtualSessionArg, LastCreateDefaults, VirtualSession } from './atoms/virtualSession.atoms.ts';
+export type { EnsureVirtualSessionArg, VirtualSession } from './atoms/virtualSession.atoms.ts';
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/HarnessCacheGate.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';

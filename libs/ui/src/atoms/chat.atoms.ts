@@ -289,7 +289,8 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
                 if (boundId === undefined || latest.sessionId !== boundId) {
                   return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
                 }
-                return { ...latest, cwd, launchTarget, sessionId: boundId };
+                // Draft cleared while awaiting → nothing left to send.
+                return hasComposerContent(latest) ? { ...latest, cwd, launchTarget, sessionId: boundId } : undefined;
               }
             }
           }

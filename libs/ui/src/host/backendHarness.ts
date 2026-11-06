@@ -135,6 +135,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
           : {}),
         elicitation: { form: {} },
         session: { configOptions: { boolean: {} } },
+        subagents: {},
       },
       protocolVersion: 1,
     });

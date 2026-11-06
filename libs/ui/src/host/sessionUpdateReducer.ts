@@ -741,3 +741,18 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
       return transcript;
   }
 };
+
+const MAX_ACTIVITY_LENGTH = 80;
+
+/** Last tool title, else last agent message collapsed to one truncated line. */
+export const latestTranscriptActivity = (transcript: SessionTranscript): string | undefined => {
+  for (let i = transcript.items.length - 1; i >= 0; i -= 1) {
+    const item = transcript.items[i];
+    if (item.kind === 'tool_call') return item.title;
+    if (item.kind === 'agent_message' && item.text.trim().length > 0) {
+      const line = item.text.trim().replace(/\s+/g, ' ');
+      return line.length > MAX_ACTIVITY_LENGTH ? `${line.slice(0, MAX_ACTIVITY_LENGTH - 1)}…` : line;
+    }
+  }
+  return undefined;
+};

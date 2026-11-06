@@ -1,4 +1,4 @@
-import { isSubagentFinished, subagentNeedsInput } from '../../host/subagent.ts';
+import { isSubagentFinished, subagentNeedsInput, WORK_STATE } from '../../host/subagent.ts';
 import type { SubagentSnapshot } from '../../host/subagent.ts';
 
 export type SubagentStatus = 'cancelled' | 'failed' | 'finished' | 'needs_input' | 'running' | 'unknown';
@@ -12,11 +12,11 @@ export const subagentStatus = (child: SubagentSnapshot): SubagentStatus => {
   }
   if (isSubagentFinished(child.state)) return 'finished';
   switch (child.state.state) {
-    case 'running':
+    case WORK_STATE.running:
       return 'running';
-    case 'cancelled':
+    case WORK_STATE.cancelled:
       return 'cancelled';
-    case 'failed':
+    case WORK_STATE.failed:
       return 'failed';
     default:
       return 'unknown';

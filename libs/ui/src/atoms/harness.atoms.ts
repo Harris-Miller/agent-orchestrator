@@ -16,7 +16,8 @@ import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/promptSpanRegistry.ts';
-import { patchPendingHolder, routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
+import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 import { upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
@@ -92,7 +93,7 @@ export const createHarnessAtoms = (
             onElicitationCreate: (sessionId, request, resolve) => {
               updateState(current => ({
                 ...current,
-                ...patchPendingHolder(current, sessionId, holder => ({
+                ...patchSessionOrSubagent(current, sessionId, holder => ({
                   ...holder,
                   pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
                 })),
@@ -113,7 +114,7 @@ export const createHarnessAtoms = (
             onPermissionRequest: (sessionId, request, resolve) => {
               updateState(current => ({
                 ...current,
-                ...patchPendingHolder(current, sessionId, holder => ({
+                ...patchSessionOrSubagent(current, sessionId, holder => ({
                   ...holder,
                   pendingPermission: { request, resolve, sessionId },
                 })),
@@ -174,6 +175,16 @@ export const createHarnessAtoms = (
               );
             },
             onSessionUpdate: (sessionId, update) => {
+              const onSubagentLinked = (linked: NonNullable<SubagentRouteResult['linked']>) => {
+                setSubagentParent(launchTarget, linked.childId, linked.parentId);
+                if (linked.migratedRoot) {
+                  hostRunFork(
+                    deleteSessionDir(linked.childId).pipe(
+                      Effect.catchCause(cause => Effect.logWarning('stray usage cleanup failed', cause)),
+                    ),
+                  );
+                }
+              };
               const before = registry.get(backendHarnessStateAtom(launchTarget));
               const routed = routeSubagentUpdate(before, sessionId, update);
               if (routed !== undefined) {
@@ -181,14 +192,7 @@ export const createHarnessAtoms = (
                   updateState(() => routed.snapshot);
                 }
                 if (routed.linked !== undefined) {
-                  setSubagentParent(launchTarget, routed.linked.childId, routed.linked.parentId);
-                  if (routed.linked.migratedRoot) {
-                    hostRunFork(
-                      deleteSessionDir(routed.linked.childId).pipe(
-                        Effect.catchCause(cause => Effect.logWarning('stray usage cleanup failed', cause)),
-                      ),
-                    );
-                  }
+                  onSubagentLinked(routed.linked);
                 }
                 return;
               }

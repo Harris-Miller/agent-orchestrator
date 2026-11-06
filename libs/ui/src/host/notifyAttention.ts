@@ -58,19 +58,25 @@ export const notifyAttention = (title: string, event: AttentionEvent) =>
   }).pipe(Effect.ignore);
 
 /** {@link notifyAttention} titled with the session's chat title (history entry title or launch target label; `Chat` before a history entry exists). */
-export const notifySessionAttention = (
+/** A subagent's attention event names the child under its root session's title. */
+const attentionTitle = (
   snapshot: BackendHarnessSnapshot,
   launchTarget: AgentLaunchTarget,
   sessionId: string,
-  event: AttentionEvent,
-) => {
-  // A subagent's attention event names the child under its root session's title.
-  const child = getSubagent(snapshot.subagents, sessionId);
+): string => {
   const rootId = rootAncestorId(snapshot.subagents, sessionId);
   const rootTitle = sessionChatTitle(
     false,
     snapshot.sessionHistory.find(entry => entry.sessionId === rootId),
     launchTarget,
   );
-  return notifyAttention(child === undefined ? rootTitle : `${rootTitle} · ${child.name ?? 'Subagent'}`, event);
+  const child = getSubagent(snapshot.subagents, sessionId);
+  return child === undefined ? rootTitle : `${rootTitle} · ${child.name ?? 'Subagent'}`;
 };
+
+export const notifySessionAttention = (
+  snapshot: BackendHarnessSnapshot,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+  event: AttentionEvent,
+) => notifyAttention(attentionTitle(snapshot, launchTarget, sessionId), event);

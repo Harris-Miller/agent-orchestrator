@@ -4,27 +4,18 @@ import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
-import {
-  backendHarnessStateAtom,
-  selectedSessionLaunchTargetAtom,
-  viewedSubagentAtom,
-} from '../../atoms/backendState.atoms.ts';
+import { selectedSubagentsAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
 import type { InterSessionMessage } from '../../host/sessionUpdateReducer.ts';
 import { getSubagent, rootAncestorId, subagentLatestActivity } from '../../host/subagent.ts';
 import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 
-/** Subagent map of the selected session's provider (codex-acp fallback keeps the hook unconditional). */
-const useSelectedSubagents = () => {
-  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom) ?? 'codex-acp';
-  return { launchTarget, subagents: useAtomValue(backendHarnessStateAtom(launchTarget)).subagents };
-};
-
 /** Inline row in the parent transcript; click opens the child's full-pane view. */
 export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> = ({ item }) => {
-  const { launchTarget, subagents } = useSelectedSubagents();
-  const child = getSubagent(subagents, item.subagentSessionId);
+  const selected = useAtomValue(selectedSubagentsAtom);
   const setViewed = useAtomSet(viewedSubagentAtom);
-  if (child === undefined) return null;
+  const child = selected === undefined ? undefined : getSubagent(selected.subagents, item.subagentSessionId);
+  if (selected === undefined || child === undefined) return null;
+  const { launchTarget, subagents } = selected;
   const activity = subagentLatestActivity(child);
   return (
     <ListItem sx={{ display: 'block', py: 0.25 }}>
@@ -62,7 +53,7 @@ export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> =
 };
 
 export const InterSessionMessageRow: FC<{ item: InterSessionMessage }> = ({ item }) => {
-  const { subagents } = useSelectedSubagents();
+  const subagents = useAtomValue(selectedSubagentsAtom)?.subagents ?? {};
   const nameOf = (id: string | undefined) =>
     id === undefined ? undefined : (getSubagent(subagents, id)?.name ?? 'another session');
   const to = nameOf(item.recipientSessionId);

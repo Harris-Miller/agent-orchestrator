@@ -82,17 +82,17 @@ export const routeSubagentUpdate = (
   };
 };
 
-type PendingHolder = {
+type SessionOrSubagent = {
   readonly pendingElicitation?: PendingElicitation | undefined;
   readonly pendingPermission?: PendingPermission | undefined;
   readonly transcript: SessionTranscript;
 };
 
-/** Patch the root session or subagent child that owns `sessionId` (pending interactions, transcript). */
-export const patchPendingHolder = (
+/** Apply `patch` to whichever of root session or subagent child owns `sessionId`. */
+export const patchSessionOrSubagent = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  patch: <T extends PendingHolder>(current: T) => T,
+  patch: <T extends SessionOrSubagent>(current: T) => T,
 ): BackendHarnessSnapshot => {
   const child = getSubagent(snapshot.subagents, sessionId);
   if (child !== undefined) {
@@ -102,7 +102,10 @@ export const patchPendingHolder = (
   return { ...snapshot, sessions: { ...snapshot.sessions, [sessionId]: patch(session) } };
 };
 
-export const pendingHolderOf = (snapshot: BackendHarnessSnapshot, sessionId: string): PendingHolder | undefined =>
+export const sessionOrSubagentOf = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+): SessionOrSubagent | undefined =>
   getSubagent(snapshot.subagents, sessionId) ??
   (sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined);
 

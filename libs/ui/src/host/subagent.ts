@@ -2,8 +2,9 @@
 import { isRecord } from '../isRecord.ts';
 import { optString, withoutUndefined } from '../optionalFields.ts';
 
+import { rootAncestor } from './ancestry.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
-import { emptySessionTranscript, reduceSessionUpdate } from './sessionUpdateReducer.ts';
+import { emptySessionTranscript, latestTranscriptActivity, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
 
 /** Open union: `completed`/`idle` finished, `running`/`requires_action` live, anything else renders neutral. */
@@ -35,10 +36,20 @@ export type SubagentRecord = Readonly<Record<string, SubagentSnapshot>>;
 export const getSubagent = (subagents: SubagentRecord, sessionId: string): SubagentSnapshot | undefined =>
   sessionId in subagents ? subagents[sessionId] : undefined;
 
-const FINISHED_STATES = new Set(['completed', 'idle']);
+/** Known work-state wire strings; the wire type stays an open string. */
+export const WORK_STATE = {
+  cancelled: 'cancelled',
+  completed: 'completed',
+  failed: 'failed',
+  idle: 'idle',
+  requiresAction: 'requires_action',
+  running: 'running',
+} as const;
+
+const FINISHED_STATES = new Set<string>([WORK_STATE.completed, WORK_STATE.idle]);
 
 /** Final states: safe to keep across load/resume/connection loss. */
-const TERMINAL_STATES = new Set(['cancelled', 'completed', 'failed']);
+const TERMINAL_STATES = new Set<string>([WORK_STATE.cancelled, WORK_STATE.completed, WORK_STATE.failed]);
 
 export const isSubagentTerminal = (state: SubagentWorkState | undefined): boolean =>
   state !== undefined && TERMINAL_STATES.has(state.state);
@@ -49,7 +60,7 @@ export const isSubagentFinished = (state: SubagentWorkState | undefined): boolea
 export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
   child.pendingPermission !== undefined ||
   child.pendingElicitation !== undefined ||
-  child.state?.state === 'requires_action';
+  child.state?.state === WORK_STATE.requiresAction;
 
 /** Child cancel is offered only for an explicit `cancel: {}` grant (missing/null = unsupported). */
 export const canCancelSubagent = (child: SubagentSnapshot): boolean =>
@@ -128,15 +139,8 @@ export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapsho
 };
 
 /** Root ancestor of a child (walks parentSessionId through `subagents`); cycle-safe. */
-export const rootAncestorId = (subagents: SubagentRecord, sessionId: string): string => {
-  const seen = new Set<string>();
-  let current = sessionId;
-  while (current in subagents && !seen.has(current)) {
-    seen.add(current);
-    current = subagents[current].parentSessionId;
-  }
-  return current;
-};
+export const rootAncestorId = (subagents: SubagentRecord, sessionId: string): string =>
+  rootAncestor(id => getSubagent(subagents, id)?.parentSessionId, sessionId);
 
 export const directChildren = (subagents: SubagentRecord, parentSessionId: string): readonly SubagentSnapshot[] =>
   Object.values(subagents).filter(child => child.parentSessionId === parentSessionId);
@@ -147,17 +151,6 @@ export const reduceSubagentTranscriptUpdate = (child: SubagentSnapshot, update: 
   return transcript === child.transcript ? child : { ...child, transcript };
 };
 
-const MAX_ACTIVITY_LENGTH = 80;
-
-/** One-line latest activity for a row: last tool title, else last agent message truncated. */
-export const subagentLatestActivity = (child: SubagentSnapshot): string | undefined => {
-  for (let i = child.transcript.items.length - 1; i >= 0; i -= 1) {
-    const item = child.transcript.items[i];
-    if (item.kind === 'tool_call') return item.title;
-    if (item.kind === 'agent_message' && item.text.trim().length > 0) {
-      const line = item.text.trim().replace(/\s+/g, ' ');
-      return line.length > MAX_ACTIVITY_LENGTH ? `${line.slice(0, MAX_ACTIVITY_LENGTH - 1)}…` : line;
-    }
-  }
-  return undefined;
-};
+/** One-line latest activity for a row. */
+export const subagentLatestActivity = (child: SubagentSnapshot): string | undefined =>
+  latestTranscriptActivity(child.transcript);

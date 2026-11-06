@@ -132,6 +132,14 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   return findLaunchTargetForSessionId(launchTarget => get(backendHarnessStateAtom(launchTarget)), sessionId);
 }).pipe(Atom.keepAlive);
 
+/** Subagent map of the selected session's provider; undefined when no session is selected. */
+export const selectedSubagentsAtom = Atom.make(get => {
+  const launchTarget = get(selectedSessionLaunchTargetAtom);
+  return launchTarget === undefined
+    ? undefined
+    : { launchTarget, subagents: get(backendHarnessStateAtom(launchTarget)).subagents };
+});
+
 export const selectedSessionAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);
   const launchTarget = get(selectedSessionLaunchTargetAtom);

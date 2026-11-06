@@ -1,6 +1,8 @@
 /** Active `sendPrompt` spans for turn-correlated Agent→Client work. */
 import type { Tracer } from 'effect';
 
+import { rootAncestor } from './ancestry.ts';
+
 const promptSpans = new Map<string, Tracer.AnySpan>();
 
 const key = (launchTarget: string, sessionId: string): string => `${launchTarget}:${sessionId}`;
@@ -18,20 +20,14 @@ export const setSubagentParent = (launchTarget: string, childId: string, parentI
   }
 };
 
-const rootAncestor = (launchTarget: string, sessionId: string): string => {
-  const seen = new Set<string>();
-  let current = sessionId;
-  for (;;) {
-    const parent = subagentParents.get(key(launchTarget, current));
-    if (parent === undefined || seen.has(current)) return current;
-    seen.add(current);
-    current = parent;
-  }
-};
-
 /** Child ids resolve to the root ancestor's in-flight prompt span; a closed root turn yields undefined (short root). */
 export const getPromptSpan = (launchTarget: string, sessionId: string): Tracer.AnySpan | undefined =>
-  promptSpans.get(key(launchTarget, rootAncestor(launchTarget, sessionId)));
+  promptSpans.get(
+    key(
+      launchTarget,
+      rootAncestor(id => subagentParents.get(key(launchTarget, id)), sessionId),
+    ),
+  );
 
 export const clearPromptSpan = (launchTarget: string, sessionId: string): void => {
   promptSpans.delete(key(launchTarget, sessionId));

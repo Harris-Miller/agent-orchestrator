@@ -18,7 +18,7 @@ import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
 import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
-import { patchPendingHolder, pendingHolderOf } from '../host/subagentRouting.ts';
+import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
@@ -433,14 +433,14 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          const pending = pendingHolderOf(snapshot, arg.sessionId)?.pendingElicitation;
+          const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingElicitation;
           if (pending === undefined) {
             return;
           }
           pending.resolve(arg.response);
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
-            patchPendingHolder(snapshot, arg.sessionId, current => ({
+            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
               ...current,
               pendingElicitation: undefined,
               transcript:
@@ -472,14 +472,14 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             'acp.sessionId': arg.sessionId,
           });
           const snapshot = get(backendHarnessStateAtom(arg.launchTarget));
-          const pending = pendingHolderOf(snapshot, arg.sessionId)?.pendingPermission;
+          const pending = sessionOrSubagentOf(snapshot, arg.sessionId)?.pendingPermission;
           if (pending === undefined) {
             return;
           }
           pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
           get.set(
             backendHarnessStateAtom(arg.launchTarget),
-            patchPendingHolder(snapshot, arg.sessionId, current => ({
+            patchSessionOrSubagent(snapshot, arg.sessionId, current => ({
               ...current,
               pendingPermission: undefined,
             })),

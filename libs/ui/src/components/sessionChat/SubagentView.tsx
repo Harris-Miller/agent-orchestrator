@@ -5,37 +5,50 @@ import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 import type { FC } from 'react';
 
+import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { backendHarnessStateAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
 import {
   cancelSubagentAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
-import { canCancelSubagent, getSubagent, isSubagentFinished, isSubagentTerminal } from '../../host/subagent.ts';
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
 
 import { ChatItemView } from './ChatItemView.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './PendingPermissionCard.tsx';
 import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
+import { subagentStatus } from './subagentStateLabel.ts';
 
-/** Read-only full-pane view of one subagent child: header, task, transcript, approval card. No composer. */
-export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
-  const viewed = useAtomValue(viewedSubagentAtom);
+const SubagentViewBody: FC<{
+  readonly onClientError: (error: unknown) => void;
+  readonly viewed: {
+    readonly childId: string;
+    readonly launchTarget: AgentLaunchTarget;
+    readonly rootSessionId: string;
+  };
+}> = ({ onClientError, viewed }) => {
+  const [cancelRequested, setCancelRequested] = useState(false);
   const setViewed = useAtomSet(viewedSubagentAtom);
-  const snapshot = useAtomValue(backendHarnessStateAtom(viewed?.launchTarget ?? 'codex-acp'));
+  const snapshot = useAtomValue(backendHarnessStateAtom(viewed.launchTarget));
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
-  const child = viewed === undefined ? undefined : getSubagent(snapshot.subagents, viewed.childId);
-  if (viewed === undefined || child === undefined) return null;
+  const child = getSubagent(snapshot.subagents, viewed.childId);
+  if (child === undefined) return null;
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
-  const running =
-    child.state === undefined
-      ? child.stateUnconfirmed !== true
-      : !isSubagentTerminal(child.state) && !isSubagentFinished(child.state);
+  const status = subagentStatus(child);
+  const running = status === 'running' || status === 'needs_input';
+  const respond = (reply: ElicitationReply) => {
+    respondElicitation({ launchTarget: viewed.launchTarget, sessionId: child.sessionId, ...reply }).catch(
+      onClientError,
+    );
+  };
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
       <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, p: 1 }}>
@@ -52,8 +65,13 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
         {running && canCancelSubagent(child) ? (
           <Button
             color="warning"
+            disabled={cancelRequested}
             onClick={() => {
-              cancel({ launchTarget: viewed.launchTarget, sessionId: child.sessionId }).catch(onClientError);
+              setCancelRequested(true);
+              cancel({ launchTarget: viewed.launchTarget, sessionId: child.sessionId }).catch((error: unknown) => {
+                setCancelRequested(false);
+                onClientError(error);
+              });
             }}
             size="small"
           >
@@ -100,26 +118,13 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
             agentTitle={child.name ?? 'Subagent'}
             key={child.pendingElicitation.id}
             onAccept={(content, summary) => {
-              respondElicitation({
-                launchTarget: viewed.launchTarget,
-                response: { action: 'accept', content },
-                sessionId: child.sessionId,
-                summary,
-              }).catch(onClientError);
+              respond({ response: { action: 'accept', content }, summary });
             }}
             onCancel={() => {
-              respondElicitation({
-                launchTarget: viewed.launchTarget,
-                response: { action: 'cancel' },
-                sessionId: child.sessionId,
-              }).catch(onClientError);
+              respond({ response: { action: 'cancel' } });
             }}
             onDecline={() => {
-              respondElicitation({
-                launchTarget: viewed.launchTarget,
-                response: { action: 'decline' },
-                sessionId: child.sessionId,
-              }).catch(onClientError);
+              respond({ response: { action: 'decline' } });
             }}
             request={child.pendingElicitation.request}
           />
@@ -129,5 +134,13 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
         Subagent session — read-only.
       </Alert>
     </Box>
+  );
+};
+
+/** Read-only full-pane view of one subagent child: header, task, transcript, approval card. No composer. */
+export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
+  const viewed = useAtomValue(viewedSubagentAtom);
+  return viewed === undefined ? null : (
+    <SubagentViewBody key={viewed.childId} onClientError={onClientError} viewed={viewed} />
   );
 };

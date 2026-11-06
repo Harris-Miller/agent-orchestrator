@@ -47,7 +47,7 @@ type SessionUpdateConsequences = {
   readonly usage?: SessionUsageDocument;
 };
 
-const foldSessionUpdate = (
+const routeAndApplySessionUpdate = (
   current: BackendHarnessSnapshot,
   sessionId: string,
   update: unknown,
@@ -187,7 +187,7 @@ export const makeHarnessEventFold = ({
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {
       const { linked, usage } = modifyHarnessSnapshot(registry, launchTarget, current =>
-        foldSessionUpdate(current, sessionId, sessionUpdate),
+        routeAndApplySessionUpdate(current, sessionId, sessionUpdate),
       );
       if (linked !== undefined) {
         setSubagentParent(launchTarget, linked.childId, linked.parentId);

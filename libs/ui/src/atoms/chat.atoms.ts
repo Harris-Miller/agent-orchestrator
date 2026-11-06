@@ -382,12 +382,13 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             pendingElicitation.resolve({ action: 'cancel' });
           }
 
+          // Clear only the interactions just cancelled: one the agent raised during `resolve` stays answerable.
           updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
             ...current,
             sessions: patchSession(current.sessions, arg.sessionId, s => ({
               ...s,
-              pendingElicitation: undefined,
-              pendingPermission: undefined,
+              pendingElicitation: s.pendingElicitation === pendingElicitation ? undefined : s.pendingElicitation,
+              pendingPermission: s.pendingPermission === pendingPermission ? undefined : s.pendingPermission,
               promptCancelRequested: true,
               transcript: markNonFinishedToolCallsCancelled(s.transcript),
             })),
@@ -445,15 +446,16 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
             return;
           }
           pending.resolve(arg.response);
+          // Clear only the elicitation answered: one the agent raised during `resolve` stays answerable.
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            sessionOrSubagentOf(current, arg.sessionId)?.pendingElicitation === pending
-              ? patchSessionOrSubagent(current, arg.sessionId, holder => ({
+            sessionOrSubagentOf(current, arg.sessionId) === undefined
+              ? current
+              : patchSessionOrSubagent(current, arg.sessionId, holder => ({
                   ...holder,
-                  pendingElicitation: undefined,
+                  pendingElicitation: holder.pendingElicitation === pending ? undefined : holder.pendingElicitation,
                   transcript:
                     'summary' in arg ? appendElicitationSummary(holder.transcript, arg.summary) : holder.transcript,
-                }))
-              : current,
+                })),
           );
         },
         Effect.withSpan('respondElicitationAtomFn', arg => {

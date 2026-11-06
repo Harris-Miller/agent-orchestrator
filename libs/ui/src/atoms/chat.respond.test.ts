@@ -4,7 +4,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import type { PendingPermission } from '../host/pendingInteractions.ts';
+import type { PendingElicitation, PendingPermission } from '../host/pendingInteractions.ts';
 
 import { backendHarnessStateAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
@@ -21,7 +21,11 @@ const setup = Effect.fnUntraced(function* () {
       r.dispose();
     }),
   );
-  const { respondPermissionAtomFn } = createChatAtoms(createHostRuntime(mockHostLayer));
+  const { cancelPromptAtomFn, respondElicitationAtomFn, respondPermissionAtomFn } = createChatAtoms(
+    createHostRuntime(mockHostLayer),
+  );
+  registry.mount(cancelPromptAtomFn);
+  registry.mount(respondElicitationAtomFn);
   registry.mount(respondPermissionAtomFn);
   const fold = makeHarnessEventFold({
     launchTarget: LT,
@@ -29,15 +33,18 @@ const setup = Effect.fnUntraced(function* () {
     registry,
     runFork: () => undefined,
   });
-  return { fold, registry, respondPermissionAtomFn };
+  return { cancelPromptAtomFn, fold, registry, respondElicitationAtomFn, respondPermissionAtomFn };
 });
+
+const elicitationRequest = {} as PendingElicitation['request'];
+const permissionRequest = {} as PendingPermission['request'];
 
 describe('respondPermissionAtomFn', () => {
   it.effect('keeps what the agent reported as soon as the permission was answered', () =>
     Effect.gen(function* () {
       const { fold, registry, respondPermissionAtomFn } = yield* setup();
       const pendingPermission: PendingPermission = {
-        request: {} as PendingPermission['request'],
+        request: permissionRequest,
         // The agent resumes the turn the moment it is answered; its next session/update is folded right away.
         resolve: () => {
           fold.onSessionUpdate('s1', {
@@ -61,6 +68,72 @@ describe('respondPermissionAtomFn', () => {
         session.transcript.items.map(item => item.kind),
         ['agent_message'],
       );
+    }),
+  );
+});
+
+describe('respondElicitationAtomFn', () => {
+  it.effect('appends the summary and keeps an elicitation the agent raised while the answer resolved', () =>
+    Effect.gen(function* () {
+      const { fold, registry, respondElicitationAtomFn } = yield* setup();
+      const pendingElicitation: PendingElicitation = {
+        id: 'e1',
+        request: elicitationRequest,
+        resolve: () => {
+          fold.onElicitationCreate('s1', elicitationRequest, () => undefined);
+        },
+        sessionId: 's1',
+      };
+      updateHarnessSnapshot(registry, LT, current => ({
+        ...current,
+        phase: 'ready',
+        sessions: { s1: { ...initialSessionSnapshot('s1', 'active'), pendingElicitation } },
+      }));
+
+      yield* runAtomFn(registry, respondElicitationAtomFn, {
+        launchTarget: LT,
+        response: { action: 'accept', content: {} },
+        sessionId: 's1',
+        summary: { message: 'Pick', rows: [{ caption: undefined, label: 'Color', value: 'red' }] },
+      });
+
+      const session = registry.get(backendHarnessStateAtom(LT)).sessions.s1;
+      assert.isDefined(session.pendingElicitation);
+      assert.notStrictEqual(session.pendingElicitation, pendingElicitation);
+      assert.deepStrictEqual(
+        session.transcript.items.map(item => item.kind),
+        ['elicitation_summary'],
+      );
+    }),
+  );
+});
+
+describe('cancelPromptAtomFn', () => {
+  it.effect('clears the cancelled permission but keeps one the agent raised while it resolved', () =>
+    Effect.gen(function* () {
+      const { cancelPromptAtomFn, fold, registry } = yield* setup();
+      const raisedDuringResolve: PendingPermission['resolve'] = () => undefined;
+      const pendingPermission: PendingPermission = {
+        request: permissionRequest,
+        resolve: () => {
+          fold.onPermissionRequest('s1', permissionRequest, raisedDuringResolve);
+        },
+        sessionId: 's1',
+      };
+      updateHarnessSnapshot(registry, LT, current => ({
+        ...current,
+        phase: 'ready',
+        sessions: {
+          s1: { ...initialSessionSnapshot('s1', 'active'), pendingClientRequest: 'prompt', pendingPermission },
+        },
+      }));
+
+      // No connected agent: session/cancel fails after the snapshot is written.
+      yield* Effect.exit(runAtomFn(registry, cancelPromptAtomFn, { launchTarget: LT, sessionId: 's1' }));
+
+      const session = registry.get(backendHarnessStateAtom(LT)).sessions.s1;
+      assert.strictEqual(session.promptCancelRequested, true);
+      assert.strictEqual(session.pendingPermission?.resolve, raisedDuringResolve);
     }),
   );
 });

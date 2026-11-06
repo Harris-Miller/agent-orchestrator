@@ -84,8 +84,7 @@ describe('renameSessionAtomFn', () => {
         }),
       );
       patch = () => {
-        const current = registry.get(backendHarnessStateAtom('codex-acp'));
-        updateHarnessSnapshot(registry, 'codex-acp', () => ({
+        updateHarnessSnapshot(registry, 'codex-acp', current => ({
           ...current,
           sessionHistory: [{ ...current.sessionHistory[0], title: 'Agent sanitized' }],
         }));

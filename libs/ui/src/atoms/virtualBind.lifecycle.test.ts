@@ -9,7 +9,7 @@ import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   selectedAtom,
   virtualMaterializingAtom,
   virtualSendPendingAtom,
@@ -183,7 +183,7 @@ describe('ensureVirtualAcpBound', () => {
 
       assert.deepStrictEqual(calls, ['new']);
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
-      const snapshot = registry.get(backendHarnessStateAtom('codex-acp'));
+      const snapshot = registry.get(backendHarnessSnapshotAtom('codex-acp'));
       assert.strictEqual(snapshot.sessions['bound-1'].status, 'active');
       assert.strictEqual(snapshot.sessionHistory.length, 0);
       // `@` FS listing keys off active session (Bound Virtual), not Session-arm Selected.
@@ -227,7 +227,7 @@ describe('ensureVirtualAcpBound', () => {
 
       assert.deepStrictEqual(calls, ['new']);
       assert.deepStrictEqual(
-        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.map(entry => entry.sessionId),
+        registry.get(backendHarnessSnapshotAtom('codex-acp')).sessionHistory.map(entry => entry.sessionId),
         ['other'],
       );
       clearConnectedAgent('codex-acp');
@@ -246,7 +246,7 @@ describe('ensureVirtualAcpBound', () => {
 
       assert.deepStrictEqual(calls, ['new']);
       assert.isUndefined(registry.get(virtualSessionAtom)?.sessionId);
-      assert.deepStrictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions, {});
+      assert.deepStrictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions, {});
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -263,7 +263,10 @@ describe('ensureVirtualAcpBound', () => {
 
       assert.deepStrictEqual(calls, ['new']);
       assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'].selectedModelId, 'gpt');
+      assert.strictEqual(
+        registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions['bound-1'].selectedModelId,
+        'gpt',
+      );
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -333,7 +336,7 @@ describe('ensureVirtualAcpBound', () => {
       assert.ok(calls.includes('delete:bound-1'));
       assert.ok(calls.includes('new'));
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'].cwd, '/other');
+      assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions['bound-1'].cwd, '/other');
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -461,7 +464,7 @@ describe('ensureVirtualAcpBound', () => {
       assert.ok(calls.includes('delete:bound-1'));
       assert.isNull(registry.get(virtualSessionAtom));
       assert.isUndefined(registry.get(selectedAtom));
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.length, 0);
+      assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessionHistory.length, 0);
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -549,7 +552,7 @@ describe('ensureVirtualAcpBound', () => {
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'real-1' });
       assert.isNull(registry.get(virtualSessionAtom));
       assert.ok(calls.includes('delete:bound-1'));
-      assert.notProperty(registry.get(backendHarnessStateAtom('codex-acp')).sessions, 'bound-1');
+      assert.notProperty(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions, 'bound-1');
       clearConnectedAgent('codex-acp');
     }),
   );
@@ -662,7 +665,7 @@ describe('latest-wins Bind', () => {
       assert.strictEqual(registry.get(virtualSessionAtom)?.launchTarget, 'claude-agent-acp');
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'claude-1');
       assert.ok(calls.includes('delete:bound-1'));
-      assert.notProperty(registry.get(backendHarnessStateAtom('codex-acp')).sessions, 'bound-1');
+      assert.notProperty(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions, 'bound-1');
       clearClaude();
       clearConnectedAgent('codex-acp');
     }),
@@ -693,8 +696,8 @@ describe('latest-wins Bind', () => {
 
       assert.strictEqual(registry.get(virtualSessionAtom)?.launchTarget, 'codex-acp');
       assert.strictEqual(registry.get(virtualSessionAtom)?.sessionId, 'bound-2');
-      assert.deepStrictEqual(Object.keys(registry.get(backendHarnessStateAtom('codex-acp')).sessions), ['bound-2']);
-      assert.deepStrictEqual(Object.keys(registry.get(backendHarnessStateAtom('claude-agent-acp')).sessions), []);
+      assert.deepStrictEqual(Object.keys(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions), ['bound-2']);
+      assert.deepStrictEqual(Object.keys(registry.get(backendHarnessSnapshotAtom('claude-agent-acp')).sessions), []);
       assert.ok(calls.includes('delete:bound-1'));
       assert.ok(calls.includes('delete:claude-1'));
       clearClaude();
@@ -786,7 +789,7 @@ const selectO1OnVirtual = (liveModel?: string) =>
     assert.strictEqual(registry.get(virtualSessionAtom)?.configValues.model, 'o1');
     assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
     if (live !== undefined) {
-      assert.deepStrictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions['bound-1'], live);
+      assert.deepStrictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions['bound-1'], live);
     }
     clearConnectedAgent('codex-acp');
     registry.dispose();
@@ -961,7 +964,9 @@ describe('materializeVirtualThenSendAtomFn', () => {
       assert.isNull(registry.get(virtualSessionAtom));
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
       assert.strictEqual(
-        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.some(entry => entry.sessionId === 'bound-1'),
+        registry
+          .get(backendHarnessSnapshotAtom('codex-acp'))
+          .sessionHistory.some(entry => entry.sessionId === 'bound-1'),
         true,
       );
       clearConnectedAgent('codex-acp');
@@ -1012,7 +1017,9 @@ describe('materializeVirtualThenSendAtomFn', () => {
       assert.isNull(registry.get(virtualSessionAtom));
       assert.ok(calls.includes('prompt:bound-1'));
       assert.strictEqual(
-        registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory.some(entry => entry.sessionId === 'bound-1'),
+        registry
+          .get(backendHarnessSnapshotAtom('codex-acp'))
+          .sessionHistory.some(entry => entry.sessionId === 'bound-1'),
         true,
       );
       clearConnectedAgent('codex-acp');

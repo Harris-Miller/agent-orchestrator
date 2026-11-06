@@ -41,7 +41,7 @@ import {
 } from '../host/sessionRpc.ts';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   clearSelectedSessionIfMissing,
   configOptionIndexAtom,
   requireLaunchTargetUsable,
@@ -93,7 +93,7 @@ const sessionSpan = (arg: SessionTarget) =>
   });
 
 const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => {
-  const snapshot = get(backendHarnessStateAtom(launchTarget));
+  const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
 
@@ -344,7 +344,7 @@ export const createSessionLifecycleAtoms = (
         const activatedSession = buildActivatedSession(
           arg.sessionId,
           exit.value,
-          get(backendHarnessStateAtom(arg.launchTarget)).sessions[arg.sessionId],
+          get(backendHarnessSnapshotAtom(arg.launchTarget)).sessions[arg.sessionId],
         );
         const sessionConfiguration = yield* resetActivatedConfiguration(
           arg.launchTarget,
@@ -511,7 +511,7 @@ export const createSessionLifecycleAtoms = (
           yield* renameSession(arg.launchTarget, arg.sessionId, arg.title).pipe(
             Effect.tapError(() =>
               Effect.sync(() => {
-                const current = entryFor(get(backendHarnessStateAtom(arg.launchTarget)));
+                const current = entryFor(get(backendHarnessSnapshotAtom(arg.launchTarget)));
                 if (current?.title === arg.title) {
                   setTitle(previousTitle);
                 }

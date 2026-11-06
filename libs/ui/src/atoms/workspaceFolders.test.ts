@@ -12,7 +12,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
 const [
-  { backendHarnessStateAtom, selectedAtom },
+  { backendHarnessSnapshotAtom, selectedAtom },
   { sessionListScopeAtom },
   { workspaceFolderPathsAtom },
   workspaceFolders,
@@ -42,7 +42,7 @@ describe('workspace folder policy', () => {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace', '/old']);
       updateHarnessSnapshot(registry, 'codex-acp', () => ({
-        ...registry.get(backendHarnessStateAtom('codex-acp')),
+        ...registry.get(backendHarnessSnapshotAtom('codex-acp')),
         phase: 'ready',
         sessions: {
           session: {
@@ -57,7 +57,7 @@ describe('workspace folder policy', () => {
       yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']);
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
-      assert.strictEqual(registry.get(backendHarnessStateAtom('codex-acp')).sessions.session.status, 'active');
+      assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
       registry.dispose();
     }),
   );

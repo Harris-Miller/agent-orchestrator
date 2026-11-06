@@ -6,7 +6,7 @@ import type { Atom } from 'effect/reactivity';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
-import { backendHarnessStateAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { withSessionClientRequest } from './sessionPatch.atoms.ts';
 
 /** An Atom.fn context whose `get.set` no-ops (as after AtomRegistry Lifetime.dispose); its registry still writes. */
@@ -21,7 +21,7 @@ const setup = (launchTarget: AgentLaunchTarget, sessionId: string) => {
     registry,
     set: () => undefined,
   }) as unknown as Atom.FnContext;
-  const session = () => registry.get(backendHarnessStateAtom(launchTarget)).sessions[sessionId];
+  const session = () => registry.get(backendHarnessSnapshotAtom(launchTarget)).sessions[sessionId];
   return { get, session };
 };
 

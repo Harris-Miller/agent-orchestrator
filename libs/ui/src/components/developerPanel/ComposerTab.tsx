@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
-import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import { promptBlocksFromComposerDraft } from '../../host/draftToContentBlocks.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
@@ -17,7 +17,7 @@ const FALLBACK_LAUNCH_TARGET = 'claude-agent-acp' as const;
 export const ComposerTab: FC = () => {
   const { attachments, draft, isVirtual, selectedLaunchTarget, selectedSession } = useSessionChatSurface();
   const virtualSession = useAtomValue(virtualSessionAtom);
-  const harness = useAtomValue(backendHarnessStateAtom(selectedLaunchTarget ?? FALLBACK_LAUNCH_TARGET));
+  const harness = useAtomValue(backendHarnessSnapshotAtom(selectedLaunchTarget ?? FALLBACK_LAUNCH_TARGET));
 
   const cwd = isVirtual ? virtualSession?.cwd : selectedSession?.cwd;
   const initializeResult = selectedLaunchTarget === undefined ? undefined : harness.initializeResult;

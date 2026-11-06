@@ -11,11 +11,11 @@ import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
 const writableHarnessSnapshotAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`backendState:${launchTarget}`), Atom.keepAlive),
+  Atom.make(initialBackendHarnessSnapshot()).pipe(Atom.withLabel(`harnessSnapshot:${launchTarget}`), Atom.keepAlive),
 );
 
 /** Backend harness snapshot for one launch target (read-only; write via {@link updateHarnessSnapshot}). */
-export const backendHarnessStateAtom: (launchTarget: AgentLaunchTarget) => Atom.Atom<BackendHarnessSnapshot> =
+export const backendHarnessSnapshotAtom: (launchTarget: AgentLaunchTarget) => Atom.Atom<BackendHarnessSnapshot> =
   writableHarnessSnapshotAtom;
 
 /** Apply `transition` to the latest snapshot. An identity transition notifies nobody. */

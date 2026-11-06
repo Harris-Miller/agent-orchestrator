@@ -12,7 +12,7 @@ import { setConfigIndexSink } from '../host/sessionRpc.ts';
 
 import {
   backendDesiredStateAtom,
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   clearSelectedSessionIfMissing,
 } from './backendState.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
@@ -64,7 +64,7 @@ export const createHarnessAtoms = (
   const stopAndReconcile = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
     yield* lifecycle.stop(launchTarget);
     resetBackendHarnessState(launchTarget);
-    cancelPendingRequests(get.registry.get(backendHarnessStateAtom(launchTarget)));
+    cancelPendingRequests(get.registry.get(backendHarnessSnapshotAtom(launchTarget)));
     updateHarnessSnapshot(get.registry, launchTarget, reconcileStoppedProvider);
     const virtual = get.registry.get(virtualSessionAtom);
     if (virtual?.launchTarget === launchTarget) {

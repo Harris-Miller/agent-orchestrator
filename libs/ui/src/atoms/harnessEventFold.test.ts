@@ -13,7 +13,7 @@ import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { clearPromptSpansForLaunchTarget, getPromptSpan, setPromptSpan } from '../host/promptSpanRegistry.ts';
 
-import { backendHarnessStateAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -24,8 +24,12 @@ const LT = 'codex-acp' as const;
 const CHILD = 'p1:replay-subagent:toolu_A';
 const [spawn] = fixture;
 
-const setup = () => {
-  const registry = AtomRegistry.make();
+const setup = Effect.fnUntraced(function* () {
+  const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
+    Effect.sync(() => {
+      r.dispose();
+    }),
+  );
   const store = new Map<string, MapFsEntry>();
   const notified: { readonly body: string; readonly title: string }[] = [];
   const forked: Effect.Effect<unknown, never, HostServices>[] = [];
@@ -53,14 +57,14 @@ const setup = () => {
   const drain = Effect.suspend(() => Effect.forEach(forked.splice(0), effect => effect, { discard: true })).pipe(
     Effect.provide(layer),
   );
-  const snapshot = () => registry.get(backendHarnessStateAtom(LT));
+  const snapshot = () => registry.get(backendHarnessSnapshotAtom(LT));
   return { drain, fold, layer, notified, registry, snapshot, store };
-};
+});
 
 describe('Harness event fold: session/update', () => {
   it.effect('usage_update sets the session usage and persists it', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessions: { s1: initialSessionSnapshot('s1', 'active') },
@@ -83,7 +87,7 @@ describe('Harness event fold: session/update', () => {
 
   it.effect('a message chunk for an unseen id seeds its transcript and persists no usage', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
 
       h.fold.onSessionUpdate('s1', { content: { text: 'hello', type: 'text' }, sessionUpdate: 'agent_message_chunk' });
       yield* h.drain;
@@ -98,7 +102,7 @@ describe('Harness event fold: session/update', () => {
 
   it.effect('session_info_update retitles the Session History entry', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
@@ -116,7 +120,7 @@ describe('Harness event fold: session/update', () => {
 describe('Harness event fold: subagent link', () => {
   it.effect('migrates a stray root, deletes its session dir, and parents the child under the root prompt span', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessions: { [CHILD]: initialSessionSnapshot(CHILD, 'active'), p1: initialSessionSnapshot('p1', 'active') },
@@ -145,7 +149,7 @@ describe('Harness event fold: subagent link', () => {
 describe('Harness event fold: pending interactions', () => {
   it.effect('a permission request becomes pending on the root session and raises one Attention event', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'My chat' }],
@@ -162,7 +166,7 @@ describe('Harness event fold: pending interactions', () => {
 
   it.effect('an elicitation for a subagent becomes pending on the child and names it in the Attention event', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessionHistory: [{ cwd: '/proj', sessionId: 'p1', title: 'My chat' }],
@@ -189,7 +193,7 @@ describe('Harness event fold: pending interactions', () => {
 describe('Harness event fold: bootstrap reports', () => {
   it.effect('usable and error clear the Sign in URL; error records the failure', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       h.fold.onPhase('signing-in');
       h.fold.onAntigravityAuthUrl?.('https://auth.example');
       assert.strictEqual(h.snapshot().antigravityAuthUrl, 'https://auth.example');
@@ -209,7 +213,7 @@ describe('Harness event fold: bootstrap reports', () => {
 
   it.effect('initialize result and wire messages land on the snapshot', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       h.fold.onInitializeResult({ protocolVersion: 1 });
       h.fold.onRpcMessage('out', { method: 'initialize' });
       h.fold.onRpcMessage('in', { result: {} });
@@ -233,7 +237,7 @@ describe('Harness event fold: Session History list', () => {
     'merges the listed scope, hides the Bound Virtual id, and keeps pins made while the list was in flight',
     () =>
       Effect.gen(function* () {
-        const h = setup();
+        const h = yield* setup();
         updateHarnessSnapshot(h.registry, LT, current => ({
           ...current,
           sessionHistory: [
@@ -294,7 +298,7 @@ const modelOption = (currentValue: string) => ({
   type: 'select' as const,
 });
 
-const seedVirtual = (h: ReturnType<typeof setup>, configValues: Record<string, string>) => {
+const seedVirtual = (h: Effect.Success<ReturnType<typeof setup>>, configValues: Record<string, string>) => {
   h.registry.set(virtualSessionAtom, {
     attachments: [],
     configValues,
@@ -307,7 +311,7 @@ const seedVirtual = (h: ReturnType<typeof setup>, configValues: Record<string, s
 describe('Harness event fold: Config option index', () => {
   it.effect('a publish sets the index, resets unsupported Virtual values, and writes the cache', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       seedVirtual(h, { model: 'retired' });
       const index: ConfigOptionIndex = {
         byModel: { gpt: [modelOption('gpt')] },
@@ -328,7 +332,7 @@ describe('Harness event fold: Config option index', () => {
 
   it.effect('Lazy hydrate merges a picked model row into the published index', () =>
     Effect.gen(function* () {
-      const h = setup();
+      const h = yield* setup();
       assert.isFalse(h.fold.hasConfigOptionIndex());
       h.fold.onConfigOptionIndexPublish({
         byModel: { gpt: [modelOption('gpt')] },

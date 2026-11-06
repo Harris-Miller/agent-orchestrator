@@ -4,7 +4,7 @@ import InputBase from '@mui/material/InputBase';
 import { useEffect, useRef } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
-import { backendHarnessStateAtom } from '../../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { renameSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { canRename } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
@@ -27,7 +27,7 @@ export const SessionTitleInlineRename: FC<{
   readonly onClientError?: (error: unknown) => void;
   readonly onEditingChange: (editing: boolean) => void;
 }> = ({ children, editing, entry, onClientError = noopClientError, onEditingChange }) => {
-  const snapshot = useAtomValue(backendHarnessStateAtom(entry.launchTarget));
+  const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const renameSession = useAtomSet(renameSessionAtomFn, { mode: 'promise' });
   const settled = useRef(false);
 

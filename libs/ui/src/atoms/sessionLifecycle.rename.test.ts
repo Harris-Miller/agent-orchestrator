@@ -6,7 +6,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 
-import { backendHarnessStateAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -51,7 +51,7 @@ const setup = Effect.fnUntraced(function* (
     phase: 'ready',
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
   }));
-  const title = () => registry.get(backendHarnessStateAtom('codex-acp')).sessionHistory[0].title;
+  const title = () => registry.get(backendHarnessSnapshotAtom('codex-acp')).sessionHistory[0].title;
   return { registry, renameSessionAtomFn, title };
 });
 

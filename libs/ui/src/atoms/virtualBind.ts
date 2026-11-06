@@ -10,7 +10,7 @@ import { buildActivatedSession } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import {
-  backendHarnessStateAtom,
+  backendHarnessSnapshotAtom,
   ProviderUnavailable,
   virtualBindAtom,
   virtualMaterializingAtom,
@@ -81,7 +81,7 @@ const boundRefOf = (virtual: null | VirtualSession): BoundRef | undefined =>
 
 /** Best-effort close+delete Bound session (no session dir). Failed delete must not block replacement Bind. */
 export const teardownVirtualAcpBind = Effect.fn('teardownVirtualAcpBind')(function* (rw: AtomRw, bound: BoundRef) {
-  const snapshot = rw.get(backendHarnessStateAtom(bound.launchTarget));
+  const snapshot = rw.get(backendHarnessSnapshotAtom(bound.launchTarget));
   const session = bound.sessionId in snapshot.sessions ? snapshot.sessions[bound.sessionId] : undefined;
   if (session !== undefined && session.status !== 'inactive') {
     yield* Effect.exit(closeSession(bound.launchTarget, bound.sessionId));
@@ -178,11 +178,11 @@ export const requestVirtualBind = Effect.fn('requestVirtualBind')(function* (
   if (launchTarget === undefined || cwd === undefined || !isAbsoluteCwd(cwd)) {
     return undefined;
   }
-  if (!isUsablePhase(rw.get(backendHarnessStateAtom(launchTarget)).phase)) {
+  if (!isUsablePhase(rw.get(backendHarnessSnapshotAtom(launchTarget)).phase)) {
     return undefined;
   }
 
-  const snapshot = rw.get(backendHarnessStateAtom(launchTarget));
+  const snapshot = rw.get(backendHarnessSnapshotAtom(launchTarget));
   if (sessionId !== undefined && sessionId in snapshot.sessions && snapshot.sessions[sessionId].cwd === cwd) {
     return undefined;
   }
@@ -302,7 +302,7 @@ const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget:
       });
     };
     const settled = () => {
-      const { phase } = registry.get(backendHarnessStateAtom(launchTarget));
+      const { phase } = registry.get(backendHarnessSnapshotAtom(launchTarget));
       return (
         isUsablePhase(phase) || phase === 'error' || registry.get(virtualSessionAtom)?.launchTarget !== launchTarget
       );
@@ -318,7 +318,7 @@ const awaitProviderSettled = (registry: AtomRegistry.AtomRegistry, launchTarget:
       return;
     }
     unsubscribes.push(
-      registry.subscribe(backendHarnessStateAtom(launchTarget), check),
+      registry.subscribe(backendHarnessSnapshotAtom(launchTarget), check),
       registry.subscribe(virtualSessionAtom, check),
     );
     return Effect.sync(cleanup);
@@ -347,7 +347,7 @@ export const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
     }
     const { cwd, launchTarget } = virtual;
     const key: BindKey = { cwd, launchTarget };
-    const { failure, phase } = rw.get(backendHarnessStateAtom(launchTarget));
+    const { failure, phase } = rw.get(backendHarnessSnapshotAtom(launchTarget));
     if (phase === 'error') {
       return yield* new ProviderUnavailable({ message: failure?.message ?? 'Provider unavailable' });
     }

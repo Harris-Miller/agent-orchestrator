@@ -6,7 +6,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { PendingElicitation, PendingPermission } from '../host/pendingInteractions.ts';
 
-import { backendHarnessStateAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -62,7 +62,7 @@ describe('respondPermissionAtomFn', () => {
 
       yield* runAtomFn(registry, respondPermissionAtomFn, { launchTarget: LT, optionId: 'allow', sessionId: 's1' });
 
-      const session = registry.get(backendHarnessStateAtom(LT)).sessions.s1;
+      const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
       assert.isUndefined(session.pendingPermission);
       assert.deepStrictEqual(
         session.transcript.items.map(item => item.kind),
@@ -97,7 +97,7 @@ describe('respondElicitationAtomFn', () => {
         summary: { message: 'Pick', rows: [{ caption: undefined, label: 'Color', value: 'red' }] },
       });
 
-      const session = registry.get(backendHarnessStateAtom(LT)).sessions.s1;
+      const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
       assert.isDefined(session.pendingElicitation);
       assert.notStrictEqual(session.pendingElicitation, pendingElicitation);
       assert.deepStrictEqual(
@@ -131,7 +131,7 @@ describe('cancelPromptAtomFn', () => {
       // No connected agent: session/cancel fails after the snapshot is written.
       yield* Effect.exit(runAtomFn(registry, cancelPromptAtomFn, { launchTarget: LT, sessionId: 's1' }));
 
-      const session = registry.get(backendHarnessStateAtom(LT)).sessions.s1;
+      const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
       assert.strictEqual(session.promptCancelRequested, true);
       assert.strictEqual(session.pendingPermission?.resolve, raisedDuringResolve);
     }),

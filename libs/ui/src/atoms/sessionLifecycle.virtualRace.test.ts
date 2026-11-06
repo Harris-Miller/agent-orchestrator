@@ -7,7 +7,7 @@ import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessStateAtom, selectedAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -84,7 +84,7 @@ describe('Header Archive/Delete races the Bind kicked by switchToVirtualSession'
         yield* Effect.sleep('100 millis');
 
         const boundId = registry.get(virtualSessionAtom)?.sessionId;
-        const { sessions } = registry.get(backendHarnessStateAtom('codex-acp'));
+        const { sessions } = registry.get(backendHarnessSnapshotAtom('codex-acp'));
         assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Virtual' });
         assert.strictEqual(boundId, 'bound-1');
         assert.ok(

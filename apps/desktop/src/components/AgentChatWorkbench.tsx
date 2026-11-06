@@ -2,33 +2,20 @@ import 'allotment/dist/style.css';
 
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
-  AgentLaunchTargetIcon,
   allotmentSashSx,
-  ConfirmSessionDeleteDialog,
   DEVELOPER_PANEL_HEIGHT,
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
   IconTooltipButton,
   isRecord,
   PANEL_HEADER_HEIGHT,
-  selectedAtom,
   selectedSessionAtom,
-  selectedSessionIdAtom,
-  selectedSessionLaunchTargetAtom,
-  SessionActionsMenu,
   SessionChatBody,
-  sessionChatTitle,
-  SessionTitleInlineRename,
+  SessionHeader,
   ToggleDeveloperPanelButton,
-  unifiedSessionHistoryAtom,
   useDeveloperPanelOpen,
-  useSessionDeleteRequest,
-  useSessionTitleRename,
-  viewedSubagentAtom,
-  virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
@@ -96,22 +83,8 @@ export const AgentChatWorkbench: FC<{
   const [layout, setLayout] = useState(loadWorkbenchLayout);
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
-  const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  // The actions menu targets the root session, so hide it while a subagent child is on screen.
-  const viewingSubagent = useAtomValue(viewedSubagentAtom)?.rootSessionId === selectedSessionId;
-  const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
-  const virtualSession = useAtomValue(virtualSessionAtom);
-  const history = useAtomValue(unifiedSessionHistoryAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
-
-  const isVirtual = selected?._tag === 'Virtual';
-  const launchTarget = isVirtual ? virtualSession?.launchTarget : selectedSessionLaunchTarget;
-  const entry = selectedSessionId === undefined ? undefined : history.find(row => row.sessionId === selectedSessionId);
-  const title = sessionChatTitle(isVirtual, entry, launchTarget);
-  const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
-  const rename = useSessionTitleRename(entry?.sessionId);
 
   useEffect(() => {
     ensureVirtualSession(undefined).catch(() => undefined);
@@ -197,28 +170,7 @@ export const AgentChatWorkbench: FC<{
                       }}
                     />
                   )}
-                  {launchTarget === undefined ? null : <AgentLaunchTargetIcon launchTarget={launchTarget} />}
-                  {entry === undefined ? (
-                    <Typography noWrap sx={{ flexGrow: 1 }} variant="h6">
-                      {title}
-                    </Typography>
-                  ) : (
-                    <>
-                      <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
-                        <Typography noWrap variant="h6">
-                          {title}
-                        </Typography>
-                      </SessionTitleInlineRename>
-                      {viewingSubagent ? null : (
-                        <SessionActionsMenu
-                          entry={entry}
-                          onClientError={onClientError}
-                          onDeleteRequest={requestDelete}
-                          onRenameRequest={rename.onRenameRequest}
-                        />
-                      )}
-                    </>
-                  )}
+                  <SessionHeader onClientError={onClientError} titleProps={{ variant: 'h6' }} />
                   {layout.sessionStateOpen ? null : (
                     <>
                       <ToggleDeveloperPanelButton />
@@ -266,7 +218,6 @@ export const AgentChatWorkbench: FC<{
           />
         </Allotment.Pane>
       </Allotment>
-      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>
   );
 };

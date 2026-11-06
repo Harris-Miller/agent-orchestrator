@@ -12,7 +12,7 @@ import {
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { turnAction } from './composerAction.ts';
-import type { ComposerAction } from './composerAction.ts';
+import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import { appendUserChatMessage, stampUserMessageTiming } from './sessionUpdateReducer.ts';
 import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
@@ -146,20 +146,21 @@ export const upsertIntoSnapshot = (
 };
 
 /**
- * Whether `sessionId` can take a client request right now, as the Composer action rule ({@link turnAction}) decides it,
- * plus a usable Bootstrap phase. Consulted without Steering, so a prompt in flight is `CancelTurn`, never `Steer`.
+ * The Harness gate for `sessionId`: the Composer action rule ({@link turnAction}) plus a usable Bootstrap phase. Send,
+ * Steering and every client-request begin consult it, so the Harness refuses whatever the Composer would not offer.
  */
-const clientRequestAction = (
+export const sessionTurnAction = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  hasContent: boolean,
+  input: TurnActionInput,
 ): ComposerAction =>
   isUsablePhase(snapshot.phase)
-    ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, {
-        hasContent,
-        steeringSupported: false,
-      })
+    ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, input)
     : { _tag: 'Unavailable', reason: 'NotReady' };
+
+/** A request that starts work (Send or Session Config) never steers: a prompt in flight is `CancelTurn`. */
+const startAction = (snapshot: BackendHarnessSnapshot, sessionId: string, hasContent: boolean): ComposerAction =>
+  sessionTurnAction(snapshot, sessionId, { hasContent, steeringSupported: false });
 
 /**
  * Gate for a Session Config request (the Composer action rule). Returns undefined when the session cannot accept the
@@ -169,7 +170,7 @@ export const beginClientRequest = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
 ): BackendHarnessSnapshot | undefined =>
-  clientRequestAction(snapshot, sessionId, true)._tag === 'Send'
+  startAction(snapshot, sessionId, true)._tag === 'Send'
     ? {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, sessionId, current => ({
@@ -209,7 +210,7 @@ export const beginPromptTurn = (
   turn: { readonly images?: readonly UserMessageImageRef[]; readonly startedAt: number; readonly text: string },
 ): PromptTurnBegin => {
   const images = turn.images !== undefined && turn.images.length > 0 ? turn.images : undefined;
-  const action = clientRequestAction(snapshot, sessionId, turn.text.length > 0 || images !== undefined);
+  const action = startAction(snapshot, sessionId, turn.text.length > 0 || images !== undefined);
   if (action._tag !== 'Send') {
     return { _tag: 'Refused', action };
   }

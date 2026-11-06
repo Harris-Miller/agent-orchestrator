@@ -315,6 +315,10 @@ layer(hostLayer)('Steering', layeredIt => {
   refused('while a Pending interaction waits', registry => {
     patch(registry, 's1', { pendingClientRequest: 'prompt', pendingPermission });
   });
+  refused('while Bootstrap is not usable', registry => {
+    patch(registry, 's1', { pendingClientRequest: 'prompt' });
+    setPhase(registry, CODEX, 'connecting');
+  });
 
   layeredIt.effect('an injected Steering message joins the turn without timing or touching the request', () =>
     Effect.gen(function* () {

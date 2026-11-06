@@ -16,7 +16,7 @@
  * 3. Soft-cancel. A `session/prompt` failure after Prompt turn cancel succeeds as `{ stopReason: 'cancelled' }`.
  * 4. Attention. Exactly one turn-end Attention event (fire-and-forget) for a stop reason other than `cancelled`; none on
  *    failure.
- * 5. Steering. Only when the Composer action rule decides Steer. `injected` appends a Steering user message (no turn
+ * 5. Steering. Only when the Composer action rule decides Steer (and Bootstrap is usable). `injected` appends a Steering user message (no turn
  *    timing) and leaves the Pending client request alone. Any other outcome waits (bounded, no polling) until the
  *    Session has no Pending client request, then runs a full Send; on timeout it fails with
  *    {@link ComposerActionUnavailable} and appends nothing.
@@ -33,11 +33,10 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import { hasSteeringSupport } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { turnAction } from '../host/composerAction.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
-import { beginPromptTurn, endPromptTurn } from '../host/harnessStateTransitions.ts';
+import { beginPromptTurn, endPromptTurn, sessionTurnAction } from '../host/harnessStateTransitions.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
 import { patchSession } from '../host/sessionSnapshot.ts';
@@ -180,7 +179,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   const { launchTarget, sessionId } = input;
   const snapshot = snapshotOf(registry, launchTarget);
   const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
-  const action = turnAction(session, {
+  const action = sessionTurnAction(snapshot, sessionId, {
     hasContent: text.length > 0 || attachments.length > 0,
     steeringSupported: hasSteeringSupport(snapshot.initializeResult),
   });

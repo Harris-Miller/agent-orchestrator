@@ -13,7 +13,7 @@ import {
   selectedSessionIdAtom,
   selectedSessionLaunchTargetAtom,
   usableLaunchTargetsAtom,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   forkSessionAtomFn,
@@ -49,7 +49,7 @@ export const useSessionChatSurface = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const handoffInProgress = useAtomValue(handoffInProgressAtom);
-  const lifecycleLockHeld = useAtomValue(virtualLifecycleInFlightAtom);
+  const lifecycleLockHeld = useAtomValue(virtualMaterializingAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const usableLaunchTargets = useAtomValue(usableLaunchTargetsAtom);
   const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);

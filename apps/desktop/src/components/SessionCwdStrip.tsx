@@ -5,7 +5,7 @@ import {
   patchVirtualSessionAtomFn,
   selectedAtom,
   selectedSessionAtom,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -20,7 +20,7 @@ export const SessionCwdStrip: FC = () => {
   const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
-  const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
+  const inFlight = useAtomValue(virtualMaterializingAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 

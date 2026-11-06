@@ -13,7 +13,7 @@ import {
   configOptionIndexAtom,
   requireLaunchTargetUsable,
   selectedAtom,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
 } from './backendState.atoms.ts';
 import type { Selected } from './backendState.atoms.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
@@ -73,7 +73,7 @@ const seedFromLastDefaults = (rw: AtomRw): Pick<VirtualSession, 'configValues' |
 
 /** Ensure one Virtual blob + Select Virtual. See EnsureVirtualSessionArg for cwd-group vs Create. */
 export const ensureVirtualSession = (rw: AtomRw, arg: EnsureVirtualSessionArg = {}): void => {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
+  if (rw.get(virtualMaterializingAtom)) {
     return;
   }
 
@@ -103,7 +103,7 @@ export const ensureVirtualSession = (rw: AtomRw, arg: EnsureVirtualSessionArg = 
 };
 
 export const discardVirtualSession = (rw: AtomRw): void => {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
+  if (rw.get(virtualMaterializingAtom)) {
     return;
   }
   rw.set(virtualSessionAtom, null);
@@ -111,7 +111,7 @@ export const discardVirtualSession = (rw: AtomRw): void => {
 
 /** First-path Workspace folder churn: patch cwd + ensure Virtual, or discard when no cwd. */
 export const applyVirtualSessionFolderChurn = (rw: AtomRw, nextCwd: string | undefined): void => {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
+  if (rw.get(virtualMaterializingAtom)) {
     return;
   }
   if (nextCwd === undefined) {
@@ -123,7 +123,7 @@ export const applyVirtualSessionFolderChurn = (rw: AtomRw, nextCwd: string | und
 };
 
 export const patchVirtualSession = (rw: AtomRw, patch: Partial<VirtualSession>): void => {
-  if (rw.get(virtualLifecycleInFlightAtom)) {
+  if (rw.get(virtualMaterializingAtom)) {
     return;
   }
   const current = rw.get(virtualSessionAtom);
@@ -152,7 +152,7 @@ export const patchVirtualConfigValue = (
 /** LT change on Virtual: Handoff-style hard reset; keep draft + cwd; clear Bound id when LT changes; prefer lastCreateDefaults when LT matches. */
 export const setVirtualLaunchTarget = (rw: AtomRw, launchTarget: AgentLaunchTarget | undefined): void => {
   const current = rw.get(virtualSessionAtom);
-  if (current === null || rw.get(virtualLifecycleInFlightAtom)) {
+  if (current === null || rw.get(virtualMaterializingAtom)) {
     return;
   }
   if (launchTarget === current.launchTarget) {
@@ -193,7 +193,8 @@ export const hasComposerContent = (virtual: Pick<VirtualSession, 'attachments' |
 
 /**
  * Navigate off Virtual (never blocked by the lifecycle lock). Composer content → keep blob + Bound
- * (in-flight Bind / Materialize finish in the background). Empty → best-effort Bound teardown + clear blob.
+ * (in-flight Bind / Materialize finish in the background). Empty → background Bound teardown + clear blob;
+ * an in-flight Bind sees the cleared blob and tears down its orphan.
  */
 const leaveVirtualEffect = Effect.fn('leaveVirtualEffect')(function* (rw: AtomRw, next: Selected | undefined) {
   const virtual = rw.get(virtualSessionAtom);
@@ -201,8 +202,7 @@ const leaveVirtualEffect = Effect.fn('leaveVirtualEffect')(function* (rw: AtomRw
     rw.set(selectedAtom, next);
     return;
   }
-  if (rw.get(virtualLifecycleInFlightAtom)) {
-    // In-flight Bind sees the cleared blob after session/new and tears down its orphan.
+  if (rw.get(virtualMaterializingAtom)) {
     rw.set(virtualSessionAtom, null);
     rw.set(selectedAtom, next);
     return;

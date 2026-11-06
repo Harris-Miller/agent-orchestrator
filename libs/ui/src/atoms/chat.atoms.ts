@@ -36,7 +36,7 @@ import {
   configOptionIndexAtom,
   selectedAtom,
   selectedSessionIdAtom,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
 } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
@@ -249,7 +249,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const materializeVirtualThenSendAtomFn = atomRuntime
     .fn(
       Effect.fn('materializeVirtualThenSendAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        if (get(virtualLifecycleInFlightAtom)) {
+        if (get(virtualMaterializingAtom)) {
           return;
         }
         const selected = get(selectedAtom);
@@ -268,7 +268,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
         }
 
         const materialized = yield* Effect.gen(function* () {
-          get.set(virtualLifecycleInFlightAtom, true);
+          get.set(virtualMaterializingAtom, true);
           yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
           yield* Effect.logInfo('UI materializeVirtualThenSend', launchTarget, { cwd, sessionId });
@@ -328,7 +328,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           Effect.tapError(error => Effect.logError('materializeVirtualThenSendAtomFn failed', error)),
           Effect.ensuring(
             Effect.sync(() => {
-              get.set(virtualLifecycleInFlightAtom, false);
+              get.set(virtualMaterializingAtom, false);
             }),
           ),
         );

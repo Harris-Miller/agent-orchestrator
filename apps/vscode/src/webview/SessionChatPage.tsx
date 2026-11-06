@@ -21,7 +21,7 @@ import {
   unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
   useSessionTitleRename,
-  virtualLifecycleInFlightAtom,
+  virtualMaterializingAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -47,7 +47,7 @@ export const SessionChatPage: FC = () => {
   const selectedSessionLaunchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
   const virtualSession = useAtomValue(virtualSessionAtom);
   const history = useAtomValue(unifiedSessionHistoryAtom);
-  const inFlight = useAtomValue(virtualLifecycleInFlightAtom);
+  const inFlight = useAtomValue(virtualMaterializingAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });

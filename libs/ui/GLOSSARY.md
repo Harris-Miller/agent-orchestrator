@@ -27,7 +27,7 @@ A long-running Harness worker for one agent launch target: spawns the ACP Agent 
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, so session RPCs (Bind, Materialize, resume) work and a cached Config index makes the launch target selectable. `ready`: session list and Config probe have also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: session list has also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:
@@ -65,16 +65,24 @@ OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in 
 _Avoid_: elicitation URL
 
 **Config option index**:
-Per-launch-target result of Config probe: default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, then refreshed and persisted after a successful probe.
+Per-launch-target index of default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, seeded by Config probe when the cache is missing, then kept current and persisted by Lazy hydrate. Rows may be missing for models not yet selected.
 _Avoid_: Provider catalog, harness defaults, config catalog
+
+**Config probe**:
+Runs only when no cached Config option index exists, before Bootstrap `usable`: one disposable-cwd `session/new` (then best-effort close/delete) that seeds the model list and the default model's row. Not an Active session; never Materialize; never a durable History entry the user should see. Canonical definition in the desktop glossary.
+_Avoid_: Session create, materialize, activate
+
+**Lazy hydrate**:
+Updating the Config option index from a live `session/new` or `session/set_config_option(model)` response instead of probing. Picking a model with no cached row sends `set_config_option` to the Virtual draft's Bound session to learn its row. Canonical definition in the desktop glossary.
+_Avoid_: refresh, re-probe
 
 **Session History**:
 Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached but filtered out by `visibleSessionHistoryAtom`. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
-A model id advertised on `session/new` whose probe `session/set_config_option` soft-failed; kept visible in model selects as disabled `(unavailable)`, not present in the probed per-model rows.
-_Avoid_: Missing model, failed model, disabled model (when you mean this probe outcome)
+A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
+_Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Developer panel**:
 Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs.

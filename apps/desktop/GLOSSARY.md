@@ -138,11 +138,15 @@ Harness step on first Send that promotes a Bound Virtual session into a History 
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
-Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache and refreshed by Config probe during Bootstrap; consumed by Handoff. Not Session configuration or User settings.
+Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache, seeded by Config probe when the cache is missing, then kept current by Lazy hydrate; consumed by Handoff. Not Session configuration or User settings.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
-Connection-setup work during Bootstrap `probing`: disposable-cwd `session/new` → capture by model → sequential `set_config_option` per other model → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe History entries). Not an Active session; never Materialize; never a durable History entry the user should see.
+Connection-setup work that runs only when no cached Config option index exists, before Bootstrap `usable`: one disposable-cwd `session/new` yields the model list and the default model's row → publish Config option index → best-effort `session/close` then best-effort `session/delete` (so soft-close adapters do not keep probe History entries). Other models' rows are not probed; see **Lazy hydrate**. Not an Active session; never Materialize; never a durable History entry the user should see.
+
+**Lazy hydrate**:
+Updating the Config option index from a live ACP response instead of probing. A `session/new` response replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). A `session/set_config_option(model)` response replaces that model's row and clears it from Unavailable models; a failed one marks it Unavailable. Rows keep the `currentValue`s the response returned.
+_Avoid_: refresh, re-probe
 _Avoid_: Session create, materialize, activate
 
 **Usage**:

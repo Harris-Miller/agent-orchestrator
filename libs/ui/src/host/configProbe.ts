@@ -53,7 +53,50 @@ export const preserveConfigValuesOnModelChange = (
   return next;
 };
 
-/** Build index from raw probe responses stored as-is per model id (no cross-model merge). */
+/** Live ACP response that updates the Config option index (Lazy hydrate). */
+export type ConfigIndexEvent =
+  | { readonly _tag: 'SessionNew'; readonly response: unknown }
+  | { readonly _tag: 'ModelPicked'; readonly modelId: string; readonly response: unknown }
+  | { readonly _tag: 'ModelPickFailed'; readonly modelId: string };
+
+/**
+ * Lazy hydrate: fold one live response into the index. `SessionNew` replaces the default row and model list
+ * (dropping rows for models no longer advertised); model events need an existing index and are ignored without one.
+ */
+export const mergeConfigOptionIndex = (
+  previous: ConfigOptionIndex | undefined,
+  event: ConfigIndexEvent,
+): ConfigOptionIndex | undefined => {
+  if (event._tag === 'SessionNew') {
+    const models = normalizeModels(event.response);
+    if (models.currentId === undefined) {
+      return previous;
+    }
+    const advertised = new Set(models.options.map(entry => entry.id));
+    advertised.add(models.currentId);
+    const kept = Object.entries(previous?.byModel ?? {}).filter(([modelId]) => advertised.has(modelId));
+    return {
+      byModel: { ...Object.fromEntries(kept), [models.currentId]: normalizeConfigOptions(event.response) },
+      defaultModelId: models.currentId,
+      unavailableModelIds: (previous?.unavailableModelIds ?? []).filter(modelId => advertised.has(modelId)),
+    };
+  }
+  if (previous === undefined) {
+    return previous;
+  }
+  const { [event.modelId]: _dropped, ...otherRows } = previous.byModel;
+  const otherUnavailable = previous.unavailableModelIds.filter(modelId => modelId !== event.modelId);
+  if (event._tag === 'ModelPicked') {
+    return {
+      ...previous,
+      byModel: { ...otherRows, [event.modelId]: normalizeConfigOptions(event.response) },
+      unavailableModelIds: otherUnavailable,
+    };
+  }
+  return { ...previous, byModel: otherRows, unavailableModelIds: [...otherUnavailable, event.modelId] };
+};
+
+/** Build index from raw responses stored as-is per model id (no cross-model merge). */
 export const configOptionIndexFromProbeResponses = (
   defaultModelId: string,
   byModelRaw: Readonly<Record<string, unknown>>,
@@ -76,11 +119,6 @@ type ProbeAgent<E = never> = {
     cwd: string;
     mcpServers: readonly [];
   }) => Effect.Effect<{ readonly sessionId: string }, E>;
-  readonly 'session/set_config_option': (params: {
-    configId: string;
-    sessionId: string;
-    value: string;
-  }) => Effect.Effect<unknown, E>;
 };
 
 const bestEffort = Effect.fn('configProbeBestEffort')(function* <E>(label: string, effect: Effect.Effect<unknown, E>) {
@@ -91,8 +129,8 @@ const bestEffort = Effect.fn('configProbeBestEffort')(function* <E>(label: strin
 });
 
 /**
- * Disposable-cwd Config probe. Publishes nothing itself — caller clears/publishes the index Atom.
- * Close/delete/temp cleanup failures are not probe failure (warn + still return index).
+ * Cold-cache Config probe: one disposable-cwd `session/new` seeds the model list and default row; other rows
+ * arrive by Lazy hydrate. Publishes nothing itself. Close/delete/temp cleanup failures warn but do not fail the probe.
  */
 export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: ProbeAgent<E>) {
   const fs = yield* FileSystem;
@@ -107,33 +145,10 @@ export const runConfigProbe = Effect.fn('runConfigProbe')(function* <E>(agent: P
   });
 
   return yield* Effect.gen(function* () {
-    const models = normalizeModels(sessionNew);
-    if (models.currentId === undefined) {
+    const index = mergeConfigOptionIndex(undefined, { _tag: 'SessionNew', response: sessionNew });
+    if (index === undefined) {
       return yield* new ConfigProbeError({ message: 'Config probe: session/new has no model currentValue' });
     }
-
-    const defaultModelId = models.currentId;
-    const byModelRaw: Record<string, unknown> = { [defaultModelId]: sessionNew };
-
-    for (const model of models.options.filter(entry => entry.id !== defaultModelId)) {
-      const setExit = yield* Effect.exit(
-        agent['session/set_config_option']({
-          configId: 'model',
-          sessionId: sessionNew.sessionId,
-          value: model.id,
-        }),
-      );
-      if (Exit.isFailure(setExit)) {
-        yield* Effect.logWarning('Config probe set_config_option failed for model', model.id, setExit.cause);
-      } else {
-        byModelRaw[model.id] = setExit.value;
-      }
-    }
-
-    const unavailableModelIds = models.options
-      .map(entry => entry.id)
-      .filter(modelId => !Object.hasOwn(byModelRaw, modelId));
-
-    return configOptionIndexFromProbeResponses(defaultModelId, byModelRaw, unavailableModelIds);
+    return index;
   }).pipe(Effect.ensuring(cleanup));
 });

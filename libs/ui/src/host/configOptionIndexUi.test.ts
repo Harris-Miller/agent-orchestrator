@@ -3,6 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import {
   hardResetForAgent,
   resetUnsupportedConfigValues,
+  rowForModel,
   sanitizeConfigValuesForIndex,
 } from './configOptionIndexUi.ts';
 import { configOptionIndexFromProbeResponses } from './configProbe.ts';
@@ -94,5 +95,49 @@ describe('resetUnsupportedConfigValues', () => {
     });
     const fresh = configOptionIndexFromProbeResponses('sonnet', { opus: probe('opus'), sonnet: probe('sonnet') });
     assert.deepStrictEqual(resetUnsupportedConfigValues(fresh, { model: 'opus' }), { model: 'opus' });
+  });
+});
+
+describe('uncached (lazily hydrated) models', () => {
+  const seeded = configOptionIndexFromProbeResponses('sonnet', {
+    sonnet: {
+      configOptions: [
+        {
+          currentValue: 'sonnet',
+          id: 'model',
+          name: 'Model',
+          options: [
+            { name: 'Sonnet', value: 'sonnet' },
+            { name: 'Opus', value: 'opus' },
+          ],
+          type: 'select',
+        },
+      ],
+    },
+  });
+
+  it('rowForModel falls back to the model select alone for an advertised model without a row', () => {
+    const row = rowForModel(seeded, 'opus');
+    assert.deepStrictEqual(
+      row.map(option => option.id),
+      ['model'],
+    );
+    assert.strictEqual(row[0]?.currentValue, 'opus');
+    assert.deepStrictEqual(rowForModel(seeded, 'nope'), []);
+  });
+
+  it('sanitize and reset keep an advertised-but-uncached model and its values', () => {
+    assert.deepStrictEqual(sanitizeConfigValuesForIndex(seeded, { effort: 'high', model: 'opus' }), {
+      effort: 'high',
+      model: 'opus',
+    });
+    assert.deepStrictEqual(resetUnsupportedConfigValues(seeded, { effort: 'high', model: 'opus' }), {
+      effort: 'high',
+      model: 'opus',
+    });
+  });
+
+  it('reset still falls back to default for a model that is not advertised', () => {
+    assert.strictEqual(resetUnsupportedConfigValues(seeded, { model: 'nope' }).model, 'sonnet');
   });
 });

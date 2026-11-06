@@ -423,6 +423,7 @@ describe('auth messages through bootstrap publication', () => {
       yield* runBackendHarness(
         'claude-agent-acp',
         {
+          hasConfigOptionIndex: () => true,
           onConfigOptionIndexPublish: noop,
           onElicitationCreate: noop,
           onInitializeResult: noop,

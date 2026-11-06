@@ -10,6 +10,7 @@ import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { configOptionIndexIsNonempty, mergeConfigOptionIndex } from '../host/configProbe.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
@@ -19,6 +20,7 @@ import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/promptSpanRegistry.ts';
 import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
+import { setConfigIndexSink } from '../host/sessionRpc.ts';
 import { upsertSession } from '../host/sessionSnapshot.ts';
 
 import {
@@ -75,6 +77,15 @@ export const createHarnessAtoms = (
       // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
       let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
 
+      setConfigIndexSink(launchTarget, event => {
+        const previous = registry.get(configOptionIndexAtom(launchTarget));
+        const next = mergeConfigOptionIndex(previous, event);
+        if (next !== undefined && next !== previous) {
+          registry.set(configOptionIndexAtom(launchTarget), next);
+          persistConfigOptionIndex(next);
+        }
+      });
+
       lifecycle.start(
         launchTarget,
         runBackendHarness(
@@ -86,6 +97,7 @@ export const createHarnessAtoms = (
                 antigravityAuthUrl: url,
               }));
             },
+            hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
             onConfigOptionIndexPublish: index => {
               registry.set(configOptionIndexAtom(launchTarget), index);
               resetVirtualConfig(index);

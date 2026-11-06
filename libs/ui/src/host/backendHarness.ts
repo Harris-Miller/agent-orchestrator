@@ -45,6 +45,7 @@ export type RpcWireEntry = {
 
 export type BackendHarnessCallbacks = {
   readonly onAntigravityAuthUrl?: (url: string) => void;
+  readonly hasConfigOptionIndex: () => boolean;
   readonly onConfigOptionIndexPublish: (index: ConfigOptionIndex) => void;
   readonly onElicitationCreate: (
     sessionId: string,
@@ -91,7 +92,7 @@ export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(fu
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + optional Sign in (`usable`), then Config probe + history list in parallel (`ready`). */
+/** Connect + initialize + optional Sign in + Config probe when the index cache is missing (`usable`), then history list (`ready`). */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
   function* (
     launchTarget: AgentLaunchTarget,
@@ -163,26 +164,22 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       yield* Effect.logInfo('ACP harness Antigravity Sign in complete', launchTarget);
     }
 
+    // Cold cache only: one probe session seeds the index; later rows arrive by Lazy hydrate.
+    if (!handlers.hasConfigOptionIndex()) {
+      handlers.onConfigOptionIndexPublish(yield* runConfigProbe(agent));
+    }
+
     handlers.onPhase('usable');
     yield* Effect.logInfo('ACP harness usable', launchTarget);
 
-    // Session list and Config probe run in the background of `usable`; failures still fail this fiber (retry/error).
+    // Session list runs in the background of `usable`; failure still fails this fiber (retry/error).
     const listScope = resolveListScope();
     const listPayload = listSessionsPayload(listScope);
-    const loadHistory = Effect.gen(function* () {
-      if (listPayload === undefined) return;
+    if (listPayload !== undefined) {
       handlers.onSessionHistoryRequest();
       const listResult = yield* agent['session/list'](listPayload);
       handlers.onSessionHistoryResult(listResult, listScope);
-    });
-    const probeConfig = runConfigProbe(agent).pipe(
-      Effect.tap(index =>
-        Effect.sync(() => {
-          handlers.onConfigOptionIndexPublish(index);
-        }),
-      ),
-    );
-    yield* Effect.all([loadHistory, probeConfig], { concurrency: 'unbounded' });
+    }
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
     onReady();

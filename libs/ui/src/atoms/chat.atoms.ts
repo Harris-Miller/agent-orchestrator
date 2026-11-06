@@ -1,6 +1,6 @@
 /** Chat prompt / permission / elicitation / config Atom fns. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
-import { Clock, Effect } from 'effect';
+import { Clock, Effect, Exit } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -13,6 +13,7 @@ import {
   selectionFromSessionConfiguration,
 } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { rowForModel } from '../host/configOptionIndexUi.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
@@ -504,6 +505,25 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
       ) {
         if (get(selectedAtom)?._tag === 'Virtual') {
           // Virtual (Bound or not): blob only. Materialize's applyConfigDiffs pushes it to the live session on Send.
+          // Exception: an advertised model with no hydrated row yet is picked on the Bound session so its row is learned.
+          const virtualIndex = get(configOptionIndexAtom(arg.launchTarget));
+          const boundSessionId = get(virtualSessionAtom)?.sessionId;
+          if (
+            arg.configId === 'model' &&
+            arg.type === 'select' &&
+            virtualIndex !== undefined &&
+            boundSessionId !== undefined &&
+            !(arg.value in virtualIndex.byModel) &&
+            !virtualIndex.unavailableModelIds.includes(arg.value) &&
+            rowForModel(virtualIndex, arg.value).length > 0
+          ) {
+            const pick = yield* Effect.exit(
+              setConfigOption(arg.launchTarget, boundSessionId, 'model', { type: 'select', value: arg.value }),
+            );
+            if (Exit.isFailure(pick)) {
+              return;
+            }
+          }
           patchVirtualConfigValue(
             rwFromFnContext(get),
             get(configOptionIndexAtom(arg.launchTarget)),

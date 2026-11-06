@@ -61,15 +61,21 @@ export const SubagentView: FC<{ readonly onClientError: (error: unknown) => void
         ) : null}
       </Box>
       {child.task === undefined ? null : (
-        <Typography color="text.secondary" sx={{ px: 1.5 }} variant="body2">
+        <Typography
+          color="text.secondary"
+          sx={{ maxHeight: '4.5em', overflowY: 'auto', px: 1.5, whiteSpace: 'pre-wrap' }}
+          variant="body2"
+        >
           {child.task}
         </Typography>
       )}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}>
         <List dense disablePadding>
-          {child.transcript.items.map(item => (
-            <ChatItemView item={item} key={item.id} />
-          ))}
+          {child.transcript.items
+            .filter(item => item.kind !== 'config_options')
+            .map(item => (
+              <ChatItemView item={item} key={item.id} />
+            ))}
           {child.pendingPermission === undefined ? null : (
             <ListItem sx={{ display: 'block' }}>
               <PendingPermissionCard

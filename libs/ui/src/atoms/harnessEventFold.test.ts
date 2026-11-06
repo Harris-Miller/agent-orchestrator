@@ -22,9 +22,12 @@ import { connectFakeAgent, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import {
+  editVirtual,
   ensureVirtual,
+  sendVirtual,
   setVirtualConfigOption,
   setVirtualLaunchTarget,
+  virtualMaterializingAtom,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
@@ -348,6 +351,33 @@ describe('Harness event fold: Connection lost', () => {
 
       assert.strictEqual(h.registry.get(virtualSessionAtom), bound);
       assert.strictEqual(h.snapshot().sessions.bound.status, 'active');
+    }),
+  );
+
+  it.effect('leaves the Bound Virtual session alone under the Lifecycle lock (Materialize owns it)', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const calls: string[] = [];
+      const during: { inSnapshot?: boolean; locked?: boolean; sessionId?: string } = {};
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          h.fold.onConnectionLost();
+          during.locked = h.registry.get(virtualMaterializingAtom);
+          during.sessionId = h.registry.get(virtualSessionAtom)?.sessionId;
+          during.inSnapshot = 'bound-1' in h.snapshot().sessions;
+        }),
+      });
+      yield* seedVirtual(h, 'o1');
+      yield* editVirtual(h.registry, { draft: 'hello' });
+      h.fold.onPhase('usable');
+      yield* h.drain;
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+
+      yield* sendVirtual(h.registry, () => Effect.void);
+      yield* h.drain;
+
+      assert.deepStrictEqual(during, { inSnapshot: true, locked: true, sessionId: 'bound-1' });
+      assert.deepStrictEqual(calls, ['new', 'set:model:o1']);
     }),
   );
 

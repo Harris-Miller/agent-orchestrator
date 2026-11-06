@@ -39,7 +39,7 @@ export class BackendNotConnected extends Schema.TaggedError<BackendNotConnected>
   launchTarget: Schema.String,
 }) {}
 
-const connections = new Map<AgentLaunchTarget, BackendConnection>();
+const backendConnections = new Map<AgentLaunchTarget, BackendConnection>();
 
 /**
  * Make `launchTarget`'s session RPCs reach `connection` for the lifetime of the current Scope. On scope close, if this
@@ -65,28 +65,28 @@ export const registerBackendConnection = (
         sessionSteering: connection.sessionSteering,
         subagentParents: new Map(),
       };
-      connections.set(launchTarget, record);
+      backendConnections.set(launchTarget, record);
       return record;
     }),
     record =>
       Effect.sync(() => {
-        if (connections.get(launchTarget) !== record) {
+        if (backendConnections.get(launchTarget) !== record) {
           return;
         }
-        connections.delete(launchTarget);
+        backendConnections.delete(launchTarget);
         reports.onConnectionLost();
       }),
   ).pipe(Effect.asVoid);
 
 /** Child ids resolve to the root ancestor's in-flight prompt span; a closed root turn yields undefined (short root). */
 export const getPromptSpan = (launchTarget: AgentLaunchTarget, sessionId: string): Tracer.AnySpan | undefined => {
-  const connection = connections.get(launchTarget);
+  const connection = backendConnections.get(launchTarget);
   return connection?.promptSpans.get(rootAncestor(id => connection.subagentParents.get(id), sessionId));
 };
 
 /** Record `childId`'s announcing parent on the live connection (first link wins; no-op when not connected). */
 export const setSubagentParent = (launchTarget: AgentLaunchTarget, childId: string, parentId: string): void => {
-  const parents = connections.get(launchTarget)?.subagentParents;
+  const parents = backendConnections.get(launchTarget)?.subagentParents;
   if (parents !== undefined && !parents.has(childId)) {
     parents.set(childId, parentId);
   }
@@ -98,8 +98,10 @@ const isTransportFailure = (error: unknown): boolean =>
   Predicate.isTagged(error, 'TransportError') ||
   Predicate.isTagged(error, 'BackendNotConnected');
 
-const requireConnection = (launchTarget: AgentLaunchTarget): Effect.Effect<BackendConnection, BackendNotConnected> => {
-  const connection = connections.get(launchTarget);
+const requireBackendConnection = (
+  launchTarget: AgentLaunchTarget,
+): Effect.Effect<BackendConnection, BackendNotConnected> => {
+  const connection = backendConnections.get(launchTarget);
   if (connection === undefined) {
     return Effect.fail(new BackendNotConnected({ launchTarget }));
   }
@@ -108,7 +110,7 @@ const requireConnection = (launchTarget: AgentLaunchTarget): Effect.Effect<Backe
 
 export const listSessions = Effect.fn('listSessions')(
   function* (launchTarget: AgentLaunchTarget, payload: ListSessionsPayload) {
-    const { agent } = yield* requireConnection(launchTarget);
+    const { agent } = yield* requireBackendConnection(launchTarget);
     return yield* agent['session/list'](payload);
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
@@ -117,7 +119,7 @@ export const listSessions = Effect.fn('listSessions')(
 
 export const createSession = Effect.fn('createSession')(
   function* (launchTarget: AgentLaunchTarget, cwd: string) {
-    const { agent, onConfigIndexEvent } = yield* requireConnection(launchTarget);
+    const { agent, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Creating ACP session', { cwd });
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
@@ -130,7 +132,7 @@ export const createSession = Effect.fn('createSession')(
 /** Unstable `session/fork`. Caller owns any UI materialize of the response. */
 export const forkSession = Effect.fn('forkSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { sessionFork } = yield* requireConnection(launchTarget);
+    const { sessionFork } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Forking ACP session', sessionId, { cwd });
     const result = yield* sessionFork({ cwd, mcpServers: [], sessionId });
     yield* Effect.logInfo('Forked ACP session', {
@@ -145,7 +147,7 @@ export const forkSession = Effect.fn('forkSession')(
 
 export const loadSession = Effect.fn('loadSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { agent } = yield* requireConnection(launchTarget);
+    const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Loading ACP session', sessionId, { cwd });
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
   },
@@ -155,7 +157,7 @@ export const loadSession = Effect.fn('loadSession')(
 
 export const resumeSession = Effect.fn('resumeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { agent } = yield* requireConnection(launchTarget);
+    const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd });
     return yield* agent['session/resume']({ cwd, sessionId });
   },
@@ -165,7 +167,7 @@ export const resumeSession = Effect.fn('resumeSession')(
 
 export const closeSession = Effect.fn('closeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-    const { agent } = yield* requireConnection(launchTarget);
+    const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Closing ACP session', sessionId);
     yield* agent['session/close']({ sessionId });
   },
@@ -175,7 +177,7 @@ export const closeSession = Effect.fn('closeSession')(
 
 export const archiveSession = Effect.fn('archiveSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-    const { sessionArchive } = yield* requireConnection(launchTarget);
+    const { sessionArchive } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Archiving ACP session', sessionId);
     yield* sessionArchive({ sessionId });
   },
@@ -185,7 +187,7 @@ export const archiveSession = Effect.fn('archiveSession')(
 
 export const renameSession = Effect.fn('renameSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, title: string) {
-    const { sessionRename } = yield* requireConnection(launchTarget);
+    const { sessionRename } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Renaming ACP session', sessionId);
     yield* sessionRename({ sessionId, title });
   },
@@ -195,7 +197,7 @@ export const renameSession = Effect.fn('renameSession')(
 
 export const deleteSession = Effect.fn('deleteSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-    const { agent } = yield* requireConnection(launchTarget);
+    const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Deleting ACP session', sessionId);
     yield* agent['session/delete']({ sessionId });
   },
@@ -205,7 +207,7 @@ export const deleteSession = Effect.fn('deleteSession')(
 
 export const sendPrompt = Effect.fn('sendPrompt')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
-    const { agent, promptSpans } = yield* requireConnection(launchTarget);
+    const { agent, promptSpans } = yield* requireBackendConnection(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
       'acp.sessionId': sessionId,
@@ -235,7 +237,7 @@ export const sendPrompt = Effect.fn('sendPrompt')(
  */
 export const steerSession = Effect.fn('steerSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
-    const { sessionSteering } = yield* requireConnection(launchTarget);
+    const { sessionSteering } = yield* requireBackendConnection(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
       'acp.sessionId': sessionId,
@@ -254,7 +256,7 @@ export const steerSession = Effect.fn('steerSession')(
 /** ACP Client→Agent notification (no JSON-RPC id). Must use transport.notify, not RpcClient. */
 export const cancelSession = Effect.fn('cancelSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-    const { notify } = yield* requireConnection(launchTarget);
+    const { notify } = yield* requireBackendConnection(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
       'acp.sessionId': sessionId,
@@ -275,7 +277,7 @@ export const setConfigOption = Effect.fn('setConfigOption')(
       | { readonly type: 'boolean'; readonly value: boolean }
       | { readonly type: 'select'; readonly value: string },
   ) {
-    const { agent, onConfigIndexEvent } = yield* requireConnection(launchTarget);
+    const { agent, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logDebug('session/set_config_option', sessionId, configId, optionValue);
     const call =
       optionValue.type === 'boolean'

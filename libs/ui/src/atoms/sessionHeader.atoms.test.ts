@@ -27,6 +27,14 @@ describe('sessionHeaderAtom', () => {
     assert.isTrue(header.showActions);
   });
 
+  it('Session missing a History row → no entry, Session actions hidden', () => {
+    const registry = setup();
+    registry.set(selectedAtom, { _tag: 'Session', sessionId: 'no-row' });
+    const header = registry.get(sessionHeaderAtom);
+    assert.isUndefined(header.entry);
+    assert.isFalse(header.showActions);
+  });
+
   it('Subagent view of the Selected session → Session actions hidden', () => {
     const registry = setup();
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });

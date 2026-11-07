@@ -12,6 +12,7 @@ import { TestClock } from 'effect/testing';
 
 import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { dropSession, markSessionInactive } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -47,7 +48,7 @@ const hostLayer = Layer.mergeAll(
   posixPathLayer,
 );
 
-const steeringInitializeResult = { _meta: { steering: { supported: true } } };
+const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steering: true };
 
 const pendingPermission = { request: {}, resolve: () => undefined } as unknown as SessionSnapshot['pendingPermission'];
 
@@ -62,7 +63,7 @@ const harness = Effect.fnUntraced(function* (opts: FakeAgentOpts = {}, ids: read
   const registry = yield* freshRegistry;
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
-    initializeResult: steeringInitializeResult,
+    agentCapabilities: steeringCapabilities,
     phase: 'ready',
     sessionHistory: ids.map(sessionId => ({ cwd: '/w', sessionId, title: 'My chat' })),
     sessions: Object.fromEntries(ids.map(id => [id, initialSessionSnapshot(id, 'active')])),
@@ -310,7 +311,7 @@ layer(hostLayer)('Steering', layeredIt => {
   );
   refused('when the Agent does not advertise Steering supported', registry => {
     patch(registry, 's1', { pendingClientRequest: 'prompt' });
-    updateHarnessSnapshot(registry, CODEX, current => ({ ...current, initializeResult: {} }));
+    updateHarnessSnapshot(registry, CODEX, current => ({ ...current, agentCapabilities: NO_AGENT_CAPABILITIES }));
   });
   refused('while a Pending interaction waits', registry => {
     patch(registry, 's1', { pendingClientRequest: 'prompt', pendingPermission });

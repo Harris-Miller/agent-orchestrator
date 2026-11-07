@@ -12,6 +12,8 @@ import {
   normalizeConfigOptions,
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
+import { requireAgentCapability } from '../host/agentCapabilities.ts';
+import type { AgentCapabilities } from '../host/agentCapabilities.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import {
@@ -124,14 +126,11 @@ const dropSessionAndClearSelection = Effect.fnUntraced(function* (
   }
 });
 
-/** Cursor / Antigravity: best-effort close (agent may omit close). Other providers: fail-closed. */
-const closeSessionForLaunchTarget = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-  if (launchTarget === 'cursor-acp' || launchTarget === 'antigravity-acp') {
-    yield* Effect.exit(closeSession(launchTarget, sessionId));
-    return;
-  }
-  yield* closeSession(launchTarget, sessionId);
-});
+/** `session/close`: fail-closed when the Agent advertises close, otherwise best-effort (it may still serve it). Never refused. */
+const closeOnAgent = (capabilities: AgentCapabilities, launchTarget: AgentLaunchTarget, sessionId: string) =>
+  capabilities.sessionClose
+    ? closeSession(launchTarget, sessionId)
+    : Effect.asVoid(Effect.exit(closeSession(launchTarget, sessionId)));
 
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
@@ -295,10 +294,9 @@ export const createSessionLifecycleAtoms = (
           return;
         }
 
-        // Cursor always `session/load` this issue (no resume heuristic). Codex/Claude keep ADR 0004.
-        const alwaysLoad = arg.launchTarget === 'cursor-acp';
+        // ADR 0004 heuristic, only when the Agent capabilities permit resume (never for Cursor, ADR 0013).
         const hasHistory = existingSession !== undefined && existingSession.transcript.items.length > 0;
-        const useResume = !alwaysLoad && hasHistory;
+        const useResume = snapshot.agentCapabilities.sessionResume && hasHistory;
         yield* Effect.logInfo('Activating session', arg.launchTarget, arg.sessionId, {
           cwd,
           mode: useResume ? 'resume' : 'load',
@@ -383,6 +381,7 @@ export const createSessionLifecycleAtoms = (
             yield* Effect.logWarning('forkSession skipped; backend not usable', arg.launchTarget);
             return;
           }
+          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionFork');
 
           const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
           const forkedSessionId = result.sessionId;
@@ -440,7 +439,7 @@ export const createSessionLifecycleAtoms = (
           }
 
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
-          yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
+          yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
 
           updateHarnessSnapshot(get.registry, arg.launchTarget, current => markSessionInactive(current, arg.sessionId));
 
@@ -469,6 +468,7 @@ export const createSessionLifecycleAtoms = (
             yield* Effect.logWarning('archiveSession skipped; backend not usable', arg.launchTarget);
             return;
           }
+          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
 
           yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
           yield* archiveSession(arg.launchTarget, arg.sessionId);
@@ -495,6 +495,7 @@ export const createSessionLifecycleAtoms = (
             yield* Effect.logWarning('renameSession skipped; backend not usable', arg.launchTarget);
             return;
           }
+          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionRename');
 
           const entryFor = (current: typeof snapshot) =>
             current.sessionHistory.find(item => item.sessionId === arg.sessionId);
@@ -541,7 +542,7 @@ export const createSessionLifecycleAtoms = (
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           if (session !== undefined && session.status !== 'inactive') {
             yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
-            yield* closeSessionForLaunchTarget(arg.launchTarget, arg.sessionId);
+            yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
           }
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);

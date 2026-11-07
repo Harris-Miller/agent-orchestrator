@@ -9,6 +9,7 @@ import { AtomRegistry } from 'effect/reactivity';
 import { createHostRuntime } from '../createHostRuntime.ts';
 import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { ImageAttachmentRejected } from '../host/composerImageAttachment.ts';
@@ -33,7 +34,7 @@ import {
 
 type Registry = AtomRegistry.AtomRegistry;
 
-const steeringInitializeResult = { _meta: { steering: { supported: true } } };
+const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steering: true };
 
 const image = (id: string): ComposerImageAttachment => ({
   byteLength: 4,
@@ -62,7 +63,7 @@ const harness = (
     registry.mount(submitComposerAtomFn);
     updateHarnessSnapshot(registry, CODEX, current => ({
       ...current,
-      initializeResult: steeringInitializeResult,
+      agentCapabilities: steeringCapabilities,
       phase: 'ready',
       sessions: Object.fromEntries(ids.map(id => [id, initialSessionSnapshot(id, 'active')])),
     }));
@@ -151,7 +152,7 @@ describe('Composer action and submit agree', () => {
       name: 'prompt in flight without Steering supported: submit never cancels',
       seed: registry => {
         patchSession(registry, 's1', { pendingClientRequest: 'prompt' });
-        updateHarnessSnapshot(registry, CODEX, current => ({ ...current, initializeResult: {} }));
+        updateHarnessSnapshot(registry, CODEX, current => ({ ...current, agentCapabilities: NO_AGENT_CAPABILITIES }));
       },
     },
     {

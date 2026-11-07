@@ -21,7 +21,7 @@ import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { historyAfterList, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
+import { applyInitializeResult, historyAfterList, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
@@ -148,7 +148,7 @@ export const makeHarnessEventFold = ({
       }));
     },
     onInitializeResult: initializeResult => {
-      update(current => ({ ...current, initializeResult, phase: 'initialized' }));
+      update(current => applyInitializeResult(current, launchTarget, initializeResult));
     },
     onPermissionRequest: (sessionId, request, resolve) => {
       setPending(sessionId, { kind: 'permission' }, holder => ({

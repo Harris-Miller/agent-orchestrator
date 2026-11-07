@@ -1,5 +1,7 @@
 # Activate chooses `session/load` or `session/resume` from local session transcript
 
+> **Amended (Agent capabilities).** `session/resume` is used only when the Agent capabilities allow it (`sessionCapabilities.resume` advertised, and not Cursor per ADR 0013); otherwise activate always calls `session/load`.
+
 When the user activates an inactive History entry, the Harness calls `session/resume` if that `sessionId` already has a session snapshot with a non-empty session transcript (`transcript.items`); otherwise it calls `session/load`.
 
 ACP does not tell the Client which RPC to use on re-activation. `session/load` replays history via `session/update` notifications (needed when the Harness has no local transcript). `session/resume` re-attaches without replay (appropriate when the Harness already holds the transcript, e.g. after Deactivate). Using local session transcript length as the signal avoids replaying a transcript the UI already shows.

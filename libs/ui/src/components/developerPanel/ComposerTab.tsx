@@ -9,6 +9,7 @@ import type { FC } from 'react';
 import { backendHarnessSnapshotAtom, selectedSessionAtom } from '../../atoms/backendState.atoms.ts';
 import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
+import { NO_AGENT_CAPABILITIES } from '../../host/agentCapabilities.ts';
 import { promptBlocksFromComposerDraft } from '../../host/draftToContentBlocks.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
 
@@ -22,7 +23,7 @@ export const ComposerTab: FC = () => {
   const harness = useAtomValue(backendHarnessSnapshotAtom(selectedLaunchTarget ?? FALLBACK_LAUNCH_TARGET));
 
   const cwd = target?._tag === 'Virtual' ? virtualSession?.cwd : selectedSession?.cwd;
-  const initializeResult = selectedLaunchTarget === undefined ? undefined : harness.initializeResult;
+  const agentCapabilities = selectedLaunchTarget === undefined ? NO_AGENT_CAPABILITIES : harness.agentCapabilities;
   const text = draft.trim();
 
   const [blocks, setBlocks] = useState<readonly ContentBlock[] | undefined>(undefined);
@@ -32,8 +33,8 @@ export const ComposerTab: FC = () => {
     hostRunPromise(
       promptBlocksFromComposerDraft(text, {
         attachments,
+        agentCapabilities,
         cwd,
-        initializeResult,
       }),
     )
       .then(next => {
@@ -49,7 +50,7 @@ export const ComposerTab: FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [attachments, cwd, initializeResult, text]);
+  }, [agentCapabilities, attachments, cwd, text]);
 
   return (
     <Box

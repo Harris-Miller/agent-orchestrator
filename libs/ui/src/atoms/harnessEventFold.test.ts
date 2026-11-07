@@ -250,12 +250,16 @@ describe('Harness event fold: bootstrap reports', () => {
   it.effect('initialize result and wire messages land on the snapshot', () =>
     Effect.gen(function* () {
       const h = yield* setup();
-      h.fold.onInitializeResult({ protocolVersion: 1 });
+      h.fold.onInitializeResult({ _meta: { steering: { supported: true } }, protocolVersion: 1 });
       h.fold.onRpcMessage('out', { method: 'initialize' });
       h.fold.onRpcMessage('in', { result: {} });
 
       assert.strictEqual(h.snapshot().phase, 'initialized');
-      assert.deepStrictEqual(h.snapshot().initializeResult, { protocolVersion: 1 });
+      assert.deepStrictEqual(h.snapshot().initializeResult, {
+        _meta: { steering: { supported: true } },
+        protocolVersion: 1,
+      });
+      assert.isTrue(h.snapshot().agentCapabilities.steering);
       assert.deepStrictEqual(
         h.snapshot().rpcCalls.map(({ direction, message }) => ({ direction, message })),
         [

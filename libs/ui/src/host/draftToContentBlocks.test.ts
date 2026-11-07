@@ -5,6 +5,7 @@ import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
 
+import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
 import {
   IMAGE_ATTACH_MAX_BYTES_PER,
   IMAGE_ATTACH_MAX_COUNT,
@@ -16,7 +17,6 @@ import {
   BLOB_EMBED_MAX_BYTES,
   draftToContentBlocks,
   findMarkdownLinks,
-  hasEmbeddedContextCapability,
   promptBlocksFromComposerDraft,
   TEXT_EMBED_MAX_BYTES,
 } from './draftToContentBlocks.ts';
@@ -95,22 +95,6 @@ describe('findMarkdownLinks', () => {
   });
 });
 
-describe('hasEmbeddedContextCapability', () => {
-  it('reads normalizeInitialize capability path', () => {
-    assert.isTrue(
-      hasEmbeddedContextCapability({
-        agentCapabilities: { promptCapabilities: { embeddedContext: true } },
-      }),
-    );
-    assert.isFalse(
-      hasEmbeddedContextCapability({
-        agentCapabilities: { promptCapabilities: { embeddedContext: false } },
-      }),
-    );
-    assert.isFalse(hasEmbeddedContextCapability({}));
-  });
-});
-
 describe('validateImageAttachments', () => {
   it.effect('rejects unsupported MIME', () =>
     Effect.gen(function* () {
@@ -141,14 +125,14 @@ describe('validateImageAttachments', () => {
 });
 
 describe('promptBlocksFromComposerDraft images', () => {
-  const init = { agentCapabilities: { promptCapabilities: { embeddedContext: false } } };
+  const init = NO_AGENT_CAPABILITIES;
 
   it.effect('attachments → resource_link with mime/size/uri/name (no capability gate)', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('hi', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: {},
+        agentCapabilities: NO_AGENT_CAPABILITIES,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -168,7 +152,7 @@ describe('promptBlocksFromComposerDraft images', () => {
       const blocks = yield* promptBlocksFromComposerDraft('see [a](/session/a.txt)', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: init,
+        agentCapabilities: init,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -189,7 +173,7 @@ describe('promptBlocksFromComposerDraft images', () => {
       const blocks = yield* promptBlocksFromComposerDraft('', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: init,
+        agentCapabilities: init,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -207,7 +191,7 @@ describe('promptBlocksFromComposerDraft images', () => {
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('', {
         cwd: '/session',
-        initializeResult: init,
+        agentCapabilities: init,
       });
       assert.deepStrictEqual(blocks, [{ text: '', type: 'text' }]);
     }).pipe(Effect.provide(withFs(new Map()))),
@@ -217,7 +201,7 @@ describe('promptBlocksFromComposerDraft images', () => {
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('before [@shot.png](file:///session/shot.png) after', {
         cwd: '/session',
-        initializeResult: init,
+        agentCapabilities: init,
       });
       assert.deepStrictEqual(blocks, [
         { name: 'shot.png', type: 'resource_link', uri: 'file:///session/shot.png' },
@@ -234,7 +218,7 @@ describe('promptBlocksFromComposerDraft images', () => {
       const blocks = yield* promptBlocksFromComposerDraft('see [@a.png](file:///tmp/a.png)', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: init,
+        agentCapabilities: init,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -251,14 +235,14 @@ describe('promptBlocksFromComposerDraft images', () => {
 });
 
 describe('promptBlocksFromComposerDraft images with promptCapabilities.image', () => {
-  const initImage = { agentCapabilities: { promptCapabilities: { embeddedContext: false, image: true } } };
+  const initImage = { ...NO_AGENT_CAPABILITIES, promptImage: true };
 
   it.effect('attachments → type image with data/mimeType/uri', () =>
     Effect.gen(function* () {
       const blocks = yield* promptBlocksFromComposerDraft('hi', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: initImage,
+        agentCapabilities: initImage,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -277,7 +261,7 @@ describe('promptBlocksFromComposerDraft images with promptCapabilities.image', (
       const blocks = yield* promptBlocksFromComposerDraft('', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: initImage,
+        agentCapabilities: initImage,
       });
       assert.deepStrictEqual(blocks, [
         {
@@ -295,7 +279,7 @@ describe('promptBlocksFromComposerDraft images with promptCapabilities.image', (
       const blocks = yield* promptBlocksFromComposerDraft('see [@a.png](file:///tmp/a.png)', {
         attachments: [pngAttachment()],
         cwd: '/session',
-        initializeResult: initImage,
+        agentCapabilities: initImage,
       });
       assert.deepStrictEqual(blocks, [
         {

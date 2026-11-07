@@ -4,6 +4,7 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
@@ -40,6 +41,7 @@ const setup = Effect.fnUntraced(function* (
   registry.mount(renameSessionAtomFn);
   updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
+    agentCapabilities: { ...NO_AGENT_CAPABILITIES, sessionRename: true },
     phase: 'ready',
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
   }));

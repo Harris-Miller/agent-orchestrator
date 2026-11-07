@@ -39,7 +39,6 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { hasSteeringSupport } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { composerGates } from '../host/composerAction.ts';
 import type { ComposerGates } from '../host/composerAction.ts';
@@ -159,7 +158,7 @@ export const composerAtom = Atom.make((get): Composer => {
       handoffInProgress,
       hasContent: hasContent(draft),
       session,
-      steeringSupported: hasSteeringSupport(get(selectedBackendHarnessSnapshotAtom)?.initializeResult),
+      steeringSupported: get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steering ?? false,
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
     target:

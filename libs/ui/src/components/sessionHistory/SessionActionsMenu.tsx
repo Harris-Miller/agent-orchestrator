@@ -15,12 +15,7 @@ import {
   unpinSessionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../../atoms/pinnedSessions.atoms.ts';
-import {
-  canRename,
-  hasSessionArchiveCapability,
-  hasSessionCloseCapability,
-  isUsablePhase,
-} from '../../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -107,7 +102,7 @@ export const SessionActionsMenu: FC<{
           >
             {pinned ? 'Unpin' : 'Pin'}
           </Button>
-          {hasSessionCloseCapability(snapshot.initializeResult) ? (
+          {snapshot.agentCapabilities.sessionClose ? (
             <Button
               disabled={unavailable || session?.status !== 'active'}
               onClick={() => {
@@ -124,7 +119,7 @@ export const SessionActionsMenu: FC<{
               Close
             </Button>
           ) : null}
-          {onRenameRequest !== undefined && canRename(entry, snapshot.initializeResult) ? (
+          {onRenameRequest !== undefined && entry.unavailable !== true && snapshot.agentCapabilities.sessionRename ? (
             <Button
               disabled={!isUsablePhase(snapshot.phase)}
               onClick={() => {
@@ -138,7 +133,7 @@ export const SessionActionsMenu: FC<{
               Rename
             </Button>
           ) : null}
-          {hasSessionArchiveCapability(snapshot.initializeResult) ? (
+          {snapshot.agentCapabilities.sessionArchive ? (
             <Button
               disabled={unavailable}
               onClick={() => {

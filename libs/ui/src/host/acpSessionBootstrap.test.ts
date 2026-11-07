@@ -8,15 +8,9 @@ import { isRecord } from '../isRecord.ts';
 import {
   applySessionInfoTitle,
   applySetConfigOptionResult,
-  canRename,
   defectsFromActivationFailure,
   defectsFromCause,
   defectsFromWireCause,
-  hasSessionArchiveCapability,
-  hasSessionCloseCapability,
-  hasSessionForkCapability,
-  hasSessionRenameCapability,
-  hasSteeringSupport,
   isConfigProbeCwd,
   normalizeConfigOptions,
   normalizeModels,
@@ -450,81 +444,5 @@ describe('defectsFromWireCause', () => {
       ]),
       [{ message: 'Internal error' }],
     );
-  });
-});
-
-describe('hasSessionArchiveCapability', () => {
-  it('is true only when AIR capabilities include sessionArchive', () => {
-    assert.isTrue(
-      hasSessionArchiveCapability({
-        _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionArchive'], version: 1 } } },
-      }),
-    );
-    assert.isFalse(
-      hasSessionArchiveCapability({
-        _meta: { jetbrains: { air: { capabilities: ['sessionIndex'], version: 1 } } },
-      }),
-    );
-    assert.isFalse(hasSessionArchiveCapability({}));
-  });
-});
-
-describe('hasSessionRenameCapability / canRename', () => {
-  const withRename = { _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionRename'], version: 1 } } } };
-  const withoutRename = { _meta: { jetbrains: { air: { capabilities: ['sessionIndex'], version: 1 } } } };
-
-  it('is true only when AIR capabilities include sessionRename', () => {
-    assert.isTrue(hasSessionRenameCapability(withRename));
-    assert.isFalse(hasSessionRenameCapability(withoutRename));
-    assert.isFalse(hasSessionRenameCapability({}));
-  });
-
-  it('canRename also requires an available entry', () => {
-    assert.isTrue(canRename({}, withRename));
-    assert.isFalse(canRename({ unavailable: true }, withRename));
-    assert.isFalse(canRename({}, withoutRename));
-  });
-});
-
-describe('hasSteeringSupport', () => {
-  it('is true only when initialize _meta.steering.supported is true', () => {
-    assert.isTrue(hasSteeringSupport({ _meta: { steering: { supported: true } } }));
-    assert.isFalse(hasSteeringSupport({ _meta: { steering: { supported: false } } }));
-    assert.isFalse(hasSteeringSupport({ _meta: { steering: {} } }));
-    assert.isFalse(hasSteeringSupport({ _meta: {} }));
-    assert.isFalse(hasSteeringSupport({ agentCapabilities: { _meta: { steering: { supported: true } } } }));
-    assert.isFalse(hasSteeringSupport(undefined));
-  });
-});
-
-describe('hasSessionForkCapability', () => {
-  it('treats sessionCapabilities.fork {} as enabled', () => {
-    assert.isTrue(
-      hasSessionForkCapability({
-        agentCapabilities: { sessionCapabilities: { fork: {} } },
-      }),
-    );
-    assert.isFalse(
-      hasSessionForkCapability({
-        agentCapabilities: { sessionCapabilities: { list: {} } },
-      }),
-    );
-    assert.isFalse(hasSessionForkCapability({}));
-  });
-});
-
-describe('hasSessionCloseCapability', () => {
-  it('treats sessionCapabilities.close {} as enabled', () => {
-    assert.isTrue(
-      hasSessionCloseCapability({
-        agentCapabilities: { sessionCapabilities: { close: {} } },
-      }),
-    );
-    assert.isFalse(
-      hasSessionCloseCapability({
-        agentCapabilities: { sessionCapabilities: { list: {} } },
-      }),
-    );
-    assert.isFalse(hasSessionCloseCapability({}));
   });
 });

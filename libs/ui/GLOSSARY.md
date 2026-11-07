@@ -43,7 +43,7 @@ Navigating off the Virtual session by Selecting a Session or clearing Selected. 
 _Avoid_: close Virtual, cancel draft, discard (when the Composer has content)
 
 **Backend harness snapshot**:
-The Harness application state for one launch target: Bootstrap phase and failure, initialize result, RPC wire log, Session History, Session snapshots, and Subagent sessions. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
+The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, RPC wire log, Session History, Session snapshots, and Subagent sessions. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:
@@ -65,6 +65,10 @@ _Avoid_: disconnect, provider stopped, harness reset
 **Backend connection**:
 A Backend harness's live ACP Connection together with what lives exactly as long as it: in-flight Turn tracing, Subagent session parent links, and the Lazy hydrate route into the Config option index. At most one per launch target; ends with Connection lost.
 _Avoid_: connected agent, Connection (unqualified)
+
+**Agent capabilities**:
+What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, and Session close, fork, resume, archive and rename. Read once from the initialize result (ACP `agentCapabilities` plus the top-level `_meta` extensions for Steering and AIR) and narrowed per Provider where the advertisement is not yet trusted (Cursor never resumes); none until initialize, and gone with Connection lost. The UI offers only what they allow, and the Harness refuses Fork, Archive and Rename on an Agent without them. Deactivate is never refused: an Agent that does not advertise close gets a best-effort close.
+_Avoid_: initialize result (the raw response), ACP `agentCapabilities` (the wire field: only part of what is read, and not narrowed), capability helpers, advertised capabilities (when a Provider narrows them)
 
 **Bootstrap phase**:
 Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: session list has also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.

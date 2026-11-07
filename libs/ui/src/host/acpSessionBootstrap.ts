@@ -5,10 +5,10 @@ import type { Cause } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
 
+import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
+import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
-import { airCapability } from './airMeta.ts';
-import type { AirCapability } from './airMeta.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import type { AvailableCommand, SessionTranscript } from './sessionUpdateReducer.ts';
@@ -123,9 +123,12 @@ export type UnifiedHistoryEntry = {
 } & NormalizedSessionInfo;
 
 export type BackendHarnessSnapshot = {
+  /** What the Harness may use on this Backend connection; read once from the initialize result. */
+  readonly agentCapabilities: AgentCapabilities;
   /** Google OAuth URL captured from Antigravity BROWSER helper during Sign in. */
   readonly antigravityAuthUrl?: string;
   readonly failure?: HarnessFailure;
+  /** Raw initialize response, Developer panel only; Harness decisions read `agentCapabilities`. */
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
   readonly rpcCalls: readonly RpcWireEntry[];
@@ -215,6 +218,7 @@ export type NormalizedSessionState = {
 };
 
 export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
+  agentCapabilities: NO_AGENT_CAPABILITIES,
   phase: 'connecting',
   rpcCalls: [],
   sessionHistory: [],
@@ -617,57 +621,6 @@ export const normalizeInitialize = (initializeResult: unknown): NormalizedInitia
     protocolVersion:
       typeof initializeResult.protocolVersion === 'number' ? initializeResult.protocolVersion : undefined,
   };
-};
-
-const hasAirCapability = (initializeResult: unknown, capability: AirCapability): boolean => {
-  if (!isRecord(initializeResult) || !isRecord(initializeResult._meta)) {
-    return false;
-  }
-  const { jetbrains } = initializeResult._meta;
-  if (!isRecord(jetbrains) || !isRecord(jetbrains.air)) {
-    return false;
-  }
-  const { capabilities } = jetbrains.air;
-  return Array.isArray(capabilities) && capabilities.includes(capability);
-};
-
-/** True when initialize lists AIR `sessionArchive` (served with `sessionIndex`). */
-export const hasSessionArchiveCapability = (initializeResult: unknown): boolean =>
-  hasAirCapability(initializeResult, airCapability.sessionArchive);
-
-/** True when initialize lists AIR `sessionRename` (`_session/rename`). */
-export const hasSessionRenameCapability = (initializeResult: unknown): boolean =>
-  hasAirCapability(initializeResult, airCapability.sessionRename);
-
-/** Rename needs the AIR capability and a History entry that is not `unavailable`. */
-export const canRename = (entry: Readonly<Record<string, unknown>>, initializeResult: unknown): boolean =>
-  entry.unavailable !== true && hasSessionRenameCapability(initializeResult);
-
-/** True when initialize result `_meta.steering.supported` is `true` (Claude/Codex `_session/steering`). */
-export const hasSteeringSupport = (initializeResult: unknown): boolean =>
-  isRecord(initializeResult) &&
-  isRecord(initializeResult._meta) &&
-  isRecord(initializeResult._meta.steering) &&
-  initializeResult._meta.steering.supported === true;
-
-/** True when initialize advertises `sessionCapabilities.fork` (`{}`). */
-export const hasSessionForkCapability = (initializeResult: unknown): boolean => {
-  const normalized = normalizeInitialize(initializeResult);
-  return (
-    normalized?.capabilities.some(
-      capability => capability.path === 'sessionCapabilities.fork' && capability.enabled,
-    ) === true
-  );
-};
-
-/** True when initialize advertises `sessionCapabilities.close` (`{}`). */
-export const hasSessionCloseCapability = (initializeResult: unknown): boolean => {
-  const normalized = normalizeInitialize(initializeResult);
-  return (
-    normalized?.capabilities.some(
-      capability => capability.path === 'sessionCapabilities.close' && capability.enabled,
-    ) === true
-  );
 };
 
 export const normalizeConfigOptions = (sessionNew: unknown): readonly NormalizedConfigOption[] => {

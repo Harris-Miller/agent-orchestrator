@@ -3,16 +3,14 @@
  *
  * FS markdown links become `resource` / `resource_link`; everything else stays in `text`.
  * Image attachments / image-like `resource_link`s are moved to the front and de-duplicated by uri.
- * With `promptCapabilities.image`, attachments become `type: "image"`; otherwise `resource_link`.
+ * With the Agent capability `promptImage`, attachments become `type: "image"`; otherwise `resource_link`.
  */
 import type { ContentBlock } from '@libs/effect-acp';
 import { ByteSize, Effect, Option } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { isRecord } from '../isRecord.ts';
-
-import { normalizeInitialize } from './acpSessionBootstrap.ts';
+import type { AgentCapabilities } from './agentCapabilities.ts';
 import {
   attachmentToImageBlock,
   attachmentToResourceLinkBlock,
@@ -53,27 +51,6 @@ export const findMarkdownLinks = (text: string): readonly MarkdownLinkMatch[] =>
   }
   return matches;
 };
-
-const hasPromptCapability = (initializeResult: unknown, path: string, rawKey: string): boolean => {
-  const normalized = normalizeInitialize(initializeResult);
-  if (normalized?.capabilities.some(capability => capability.path === path && capability.enabled) === true) {
-    return true;
-  }
-
-  if (!isRecord(initializeResult) || !isRecord(initializeResult.agentCapabilities)) {
-    return false;
-  }
-  const { promptCapabilities } = initializeResult.agentCapabilities;
-  return isRecord(promptCapabilities) && promptCapabilities[rawKey] === true;
-};
-
-/** True when initialize advertises `promptCapabilities.embeddedContext`. */
-export const hasEmbeddedContextCapability = (initializeResult: unknown): boolean =>
-  hasPromptCapability(initializeResult, 'promptCapabilities.embeddedContext', 'embeddedContext');
-
-/** True when initialize advertises `promptCapabilities.image`. */
-export const hasImagePromptCapability = (initializeResult: unknown): boolean =>
-  hasPromptCapability(initializeResult, 'promptCapabilities.image', 'image');
 
 const uriOfImageOrResourceLink = (block: ContentBlock): string | undefined => {
   if (block.type === 'resource_link') {
@@ -294,7 +271,7 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
   options: {
     readonly attachments?: readonly ComposerImageAttachment[];
     readonly cwd: string | undefined;
-    readonly initializeResult: unknown;
+    readonly agentCapabilities: AgentCapabilities;
   },
 ) {
   const attachments = options.attachments ?? [];
@@ -307,7 +284,7 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
       ? [textBlock(text)]
       : yield* draftToContentBlocks(text, {
           cwd: options.cwd,
-          embeddedContext: hasEmbeddedContextCapability(options.initializeResult),
+          embeddedContext: options.agentCapabilities.promptEmbeddedContext,
         });
 
   const body: ContentBlock[] = [];
@@ -320,7 +297,7 @@ export const promptBlocksFromComposerDraft = Effect.fn('promptBlocksFromComposer
     }
   }
 
-  const sendAsImage = hasImagePromptCapability(options.initializeResult);
+  const sendAsImage = options.agentCapabilities.promptImage;
   const attachmentBlocks: ContentBlock[] = sendAsImage
     ? yield* Effect.forEach(attachments, attachmentToImageBlock)
     : attachments.map(attachmentToResourceLinkBlock);

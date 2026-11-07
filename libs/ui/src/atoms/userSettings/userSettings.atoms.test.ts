@@ -1,18 +1,14 @@
 import { assert, describe, it } from '@effect/vitest';
 import { defaultSettings, readUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
-import { BundledResource, Clipboard, FileDialog, OpenUrl, OS } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
-import { FetchHttpClient } from 'effect/http';
-import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
-import { ChildProcessSpawner } from 'effect/process';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
-import { mockAtomicFileLayer, mockNotifierLayer, mockOpenFileLayer } from '../mockHostLayer.testing.ts';
+import { mockHostLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
@@ -21,31 +17,6 @@ const HOME = `${HOMEDIR}/.ao`;
 const SETTINGS = `${HOME}/settings.json`;
 
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };
-
-const osLayer = Layer.succeed(OS, {
-  arch: () => 'arm64',
-  cwd: () => HOMEDIR,
-  env: () => ({}),
-  homedir: () => HOMEDIR,
-  platform: () => 'linux',
-});
-
-const bundledResourceLayer = Layer.succeed(BundledResource, {
-  resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
-});
-
-const clipboardLayer = Layer.succeed(Clipboard, {
-  readText: () => Effect.succeed(''),
-  writeText: () => Effect.void,
-});
-
-const fileDialogLayer = Layer.succeed(FileDialog, {
-  pickFiles: () => Effect.succeed([]),
-});
-
-const openUrlLayer = Layer.succeed(OpenUrl, {
-  open: () => Effect.void,
-});
 
 const notFound = (method: string, path: string) =>
   PlatformError.systemError({
@@ -86,26 +57,8 @@ const mapFsLayer = (
         })),
   });
 
-const mockSpawnerLayer = Layer.succeed(
-  ChildProcessSpawner.ChildProcessSpawner,
-  ChildProcessSpawner.make(() => Effect.die(new Error('ChildProcessSpawner not used in userSettings atom test'))),
-);
-
 const hostLayer = (store: Map<string, FsEntry>, overrides?: Parameters<typeof mapFsLayer>[1]) =>
-  Layer.mergeAll(
-    mockAtomicFileLayer,
-    bundledResourceLayer,
-    clipboardLayer,
-    fileDialogLayer,
-    mockNotifierLayer,
-    openUrlLayer,
-    mockOpenFileLayer,
-    osLayer,
-    mapFsLayer(store, overrides),
-    posixPathLayer,
-    mockSpawnerLayer,
-    FetchHttpClient.layer,
-  );
+  Layer.merge(mockHostLayer, mapFsLayer(store, overrides));
 
 const awaitSettled = <A, E>(
   registry: AtomRegistry.AtomRegistry,

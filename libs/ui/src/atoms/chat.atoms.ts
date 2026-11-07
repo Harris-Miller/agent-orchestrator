@@ -1,26 +1,20 @@
-/** Chat Atom fns: Prompt turn cancel, subagent cancel, permission / elicitation replies, Session Config. */
+/** Chat Atom fns: Prompt turn cancel, subagent cancel, permission / elicitation replies, Config change. */
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import {
-  applySetConfigOptionResult,
-  normalizeConfigOptions,
-  patchConfigOptionValue,
-  selectionFromSessionConfiguration,
-} from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
-import { cancelSession, getPromptSpan, setConfigOption } from '../host/sessionRpc.ts';
-import { patchSession } from '../host/sessionSnapshot.ts';
+import type { ConfigValueDiff } from '../host/sessionConfiguration.ts';
+import { cancelSession, getPromptSpan } from '../host/sessionRpc.ts';
 import { appendElicitationSummary } from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
-import { withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { setSessionConfigOption } from './sessionConfigChange.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { cancelPromptTurn } from './promptTurn.ts';
 import { setVirtualConfigOption } from './virtualSession.atoms.ts';
@@ -153,81 +147,18 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
 
         // Session arm only.
         const sessionId = get(selectedActiveSessionAtom)?.sessionId;
-        const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
-        const session = sessionId === undefined ? undefined : snapshot.sessions[sessionId];
-        const currentValue = normalizeConfigOptions(session?.sessionConfiguration).find(
-          option => option.id === arg.configId,
-        )?.currentValue;
-
-        if (session?.status !== 'active' || currentValue === arg.value) {
+        if (sessionId === undefined) {
           return;
         }
-
         yield* Effect.annotateCurrentSpan({
           'acp.agent': arg.launchTarget,
-          'acp.sessionId': session.sessionId,
+          'acp.sessionId': sessionId,
         });
-
-        const previousModeId = session.selectedModeId;
-        const previousModelId = session.selectedModelId;
-        const previousSessionState = session.sessionConfiguration;
-
-        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-          ...current,
-          sessions: patchSession(current.sessions, session.sessionId, s => {
-            const patched = patchConfigOptionValue(s.sessionConfiguration, arg.configId, arg.value);
-            const selection = selectionFromSessionConfiguration(patched);
-            return {
-              ...s,
-              selectedModeId: selection.selectedModeId ?? s.selectedModeId,
-              selectedModelId: selection.selectedModelId ?? s.selectedModelId,
-              sessionConfiguration: patched,
-            };
-          }),
-        }));
-
-        const rpc = Effect.gen(function* () {
-          const result = yield* setConfigOption(
-            arg.launchTarget,
-            session.sessionId,
-            arg.configId,
-            arg.type === 'boolean' ? { type: 'boolean', value: arg.value } : { type: 'select', value: arg.value },
-          );
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-            ...current,
-            sessions: patchSession(current.sessions, session.sessionId, s => {
-              const applied = applySetConfigOptionResult(s.sessionConfiguration, result);
-              return {
-                ...s,
-                selectedModeId: applied.selectedModeId ?? s.selectedModeId,
-                selectedModelId: applied.selectedModelId ?? s.selectedModelId,
-                sessionConfiguration: applied.sessionConfiguration,
-              };
-            }),
-          }));
-        });
-
-        yield* withSessionClientRequest(arg.launchTarget, get, session.sessionId, rpc).pipe(
-          Effect.tapError(error =>
-            Effect.gen(function* () {
-              yield* Effect.logError(
-                'setConfigOptionAtomFn failed; rolling back',
-                arg.launchTarget,
-                arg.configId,
-                error,
-              );
-              updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-                ...current,
-                sessions: patchSession(current.sessions, session.sessionId, s => ({
-                  ...s,
-                  selectedModeId: previousModeId,
-                  selectedModelId: previousModelId,
-                  sessionConfiguration: previousSessionState,
-                })),
-              }));
-            }),
-          ),
-        );
+        const change: ConfigValueDiff =
+          arg.type === 'boolean'
+            ? { configId: arg.configId, type: 'boolean', value: arg.value }
+            : { configId: arg.configId, type: 'select', value: arg.value };
+        yield* setSessionConfigOption(get.registry, { launchTarget: arg.launchTarget, sessionId }, change);
       }),
     )
     .pipe(Atom.keepAlive);

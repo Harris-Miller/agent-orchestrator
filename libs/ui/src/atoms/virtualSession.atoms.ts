@@ -28,7 +28,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import {
@@ -41,9 +41,8 @@ import {
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
 import { dropSession, upsertIntoSnapshot, withoutHistoryEntry } from '../host/harnessStateTransitions.ts';
-import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
-import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
-import { closeSession, createSession, deleteSession, setConfigOption } from '../host/sessionRpc.ts';
+import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -55,6 +54,7 @@ import {
 } from './backendState.atoms.ts';
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { refreshFsListingViaRegistry } from './sessionFsListing.atoms.ts';
 import type { RefreshSessionFsListing, RefreshSessionFsListingAtomFn } from './sessionFsListing.atoms.ts';
 
@@ -342,7 +342,7 @@ const runBind = Effect.fn('runBind')(function* (
     // A parallel startup `session/list` may have landed before this id existed.
     withoutHistoryEntry(
       upsertIntoSnapshot(current, {
-        session: buildActivatedSession(boundSessionId, result, { cwd: createdCwd }),
+        session: buildActivatedSession(boundSessionId, normalizeConfigOptions(result), { cwd: createdCwd }),
       }),
       boundSessionId,
     ),
@@ -561,8 +561,8 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
 });
 
 /**
- * Under the Lifecycle lock: apply Virtual Config diffs to the Bound session (`stoppedEarly` continues), upsert the
- * History row, record last-create defaults, clear the blob, and Select the Session only if Selected is still Virtual.
+ * Under the Lifecycle lock: apply Virtual Config diffs to the Bound session (each response folded into the latest
+ * snapshot; `stoppedEarly` continues), upsert the History row, record last-create defaults, clear the blob, and Select the Session only if Selected is still Virtual.
  */
 const materialize = Effect.fn('materialize')(
   function* (registry: Registry, target: BoundVirtualTarget) {
@@ -579,30 +579,15 @@ const materialize = Effect.fn('materialize')(
     }
     const liveSession = liveSnapshot.sessions[sessionId];
 
-    const setOption = (diff: ConfigValueDiff) =>
-      setConfigOption(
-        launchTarget,
-        sessionId,
-        diff.configId,
-        diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
-      );
-    const afterOverrides = yield* applyConfigDiffs(liveSession.sessionConfiguration, configValues, setOption);
+    const afterOverrides = yield* applySessionConfigValues(registry, { launchTarget, sessionId }, configValues);
     if (afterOverrides.stoppedEarly) {
-      yield* Effect.logWarning('materialize applyConfigDiffs stopped early', launchTarget, sessionId);
+      yield* Effect.logWarning('materialize Config diffs stopped early', launchTarget, sessionId);
     }
 
     const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
-    updateHarnessSnapshot(registry, launchTarget, current =>
-      upsertIntoSnapshot(current, {
-        historyEntry,
-        session: buildActivatedSession(sessionId, afterOverrides.sessionConfiguration, {
-          availableCommands: liveSession.availableCommands,
-          cwd: liveSession.cwd ?? cwd,
-          transcript: liveSession.transcript,
-          usage: liveSession.usage,
-        }),
-      }),
-    );
+    if (historyEntry !== undefined) {
+      updateHarnessSnapshot(registry, launchTarget, current => upsertIntoSnapshot(current, { historyEntry }));
+    }
 
     registry.set(lastCreateDefaultsAtom, { configValues, launchTarget });
     setBlob(registry, null);
@@ -698,8 +683,8 @@ export const setVirtualLaunchTarget = Effect.fn('setVirtualLaunchTarget')(functi
 
 /**
  * Config while Selected is Virtual (Bound or not): blob only; Materialize applies diffs to the live session on Send.
- * Exception (Lazy hydrate): an advertised model with no hydrated row yet is picked on the Bound session first so its
- * row is learned; if that pick fails nothing is written.
+ * Exception (Lazy hydrate): an advertised model with no hydrated row yet is picked on the Bound session first (recorded
+ * on its Session configuration) so its row is learned; if that pick fails nothing is written.
  */
 export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(function* (
   registry: Registry,
@@ -713,7 +698,11 @@ export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(functi
     needsLazyHydrate(registry.get(configOptionIndexAtom(arg.launchTarget)), boundSessionId, arg.value)
   ) {
     const pick = yield* Effect.exit(
-      setConfigOption(arg.launchTarget, boundSessionId, 'model', { type: 'select', value: arg.value }),
+      applySessionConfigValue(
+        registry,
+        { launchTarget: arg.launchTarget, sessionId: boundSessionId },
+        { configId: 'model', type: 'select', value: arg.value },
+      ),
     );
     if (Exit.isFailure(pick)) {
       return;

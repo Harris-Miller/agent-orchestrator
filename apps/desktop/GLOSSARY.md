@@ -126,8 +126,12 @@ An agent-reported session setting — a select (named choices such as model or m
 _Avoid_: Setting, preference, parameter
 
 **Session configuration**:
-Normalized config options from a `session/new`, `session/load`, or `session/resume` response. Cached on the session snapshot; drives model and mode selection in the Harness UI.
-_Avoid_: Session state, session/new result
+The Config options of one Session as the agent last reported them: first from its `session/new`, `session/load`, or `session/resume` response, then from each `session/set_config_option` response and config option update, plus a user Config change the agent has not answered yet. Held on the session snapshot; the selected model and mode are its `model` and `mode` options, not separate values.
+_Avoid_: Session state, session/new result, live Config, selected model id (as a separate value)
+
+**Config change**:
+A user's change to one Config option of an active Session: shown at once, sent with `session/set_config_option`, and withdrawn if that request fails, unless the agent has since reported a different value for the option. Refused outright while the Session cannot take a client request. Not the Config diffs that Materialize, Handoff, and activation apply themselves.
+_Avoid_: set config, config update (ambiguous with the agent's config option update)
 
 **Bind**:
 Eager `session/new` for the Virtual session draft once absolute Session cwd, agent launch target, and Bootstrap `usable` are known: upserts the session snapshot into the harness sessions map and stores the Bound `sessionId` on the Virtual blob. Optimistic and latest-wins (never locks the composer); a superseded Bind's session is torn down in the background. Not a History entry; Selected stays Virtual. Distinct from Materialize.
@@ -146,7 +150,7 @@ Connection-setup work that runs only when no cached Config option index exists, 
 _Avoid_: Session create, materialize, activate
 
 **Lazy hydrate**:
-Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models; if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row. Rows keep the values the agent returned.
+Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models; if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row, and the Bound session's Session configuration then shows that pick. Rows keep the values the agent returned.
 _Avoid_: refresh, re-probe
 
 **Usage**:

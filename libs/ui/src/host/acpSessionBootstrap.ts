@@ -40,9 +40,8 @@ export type SessionSnapshot = {
   readonly pendingPermission?: PendingPermission;
   /** Set when the user requested Prompt turn cancel; cleared with pending client request. */
   readonly promptCancelRequested?: boolean;
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
-  readonly sessionConfiguration?: unknown;
+  /** Session configuration (glossary): the agent's last-reported Config options. Absent until reported. */
+  readonly configuration?: SessionConfiguration;
   readonly sessionId: string;
   readonly status: SessionStatus;
   readonly transcript: SessionTranscript;
@@ -144,20 +143,9 @@ export type NormalizedModel = {
   readonly name: string;
 };
 
-export type NormalizedMode = {
-  readonly description?: string;
-  readonly id: string;
-  readonly name: string;
-};
-
 export type NormalizedModels = {
   readonly currentId?: string;
   readonly options: readonly NormalizedModel[];
-};
-
-export type NormalizedModes = {
-  readonly currentId?: string;
-  readonly options: readonly NormalizedMode[];
 };
 
 export type NormalizedCapability = {
@@ -210,12 +198,8 @@ export type NormalizedBooleanConfigOption = {
 
 export type NormalizedConfigOption = NormalizedBooleanConfigOption | NormalizedSelectConfigOption;
 
-export type NormalizedSessionState = {
-  readonly configOptions: readonly NormalizedConfigOption[];
-  readonly models: NormalizedModels;
-  readonly modes: NormalizedModes;
-  readonly sessionId?: string;
-};
+/** Session configuration (glossary): one Session's Config options as the agent last reported them. */
+export type SessionConfiguration = readonly NormalizedConfigOption[];
 
 export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
   agentCapabilities: NO_AGENT_CAPABILITIES,
@@ -344,74 +328,14 @@ const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   });
 };
 
-const parseModeOptions = (value: unknown): readonly NormalizedMode[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap(entry => {
-    if (!isRecord(entry)) {
-      return [];
-    }
-
-    const modeId = typeof entry.id === 'string' ? entry.id : typeof entry.value === 'string' ? entry.value : undefined;
-    const name = typeof entry.name === 'string' ? entry.name : modeId;
-    if (modeId === undefined || name === undefined) {
-      return [];
-    }
-
-    return [
-      {
-        description: typeof entry.description === 'string' ? entry.description : undefined,
-        id: modeId,
-        name,
-      },
-    ];
-  });
-};
-
-const findConfigOption = (sessionConfiguration: unknown, id: string): Record<string, unknown> | undefined => {
-  if (!isRecord(sessionConfiguration) || !Array.isArray(sessionConfiguration.configOptions)) {
+const findConfigOption = (response: unknown, id: string): Record<string, unknown> | undefined => {
+  if (!isRecord(response) || !Array.isArray(response.configOptions)) {
     return undefined;
   }
 
-  return sessionConfiguration.configOptions.find(
+  return response.configOptions.find(
     (option): option is Record<string, unknown> => isRecord(option) && option.id === id,
   );
-};
-
-/**
- * Response `configOptions` is the full id set for the current model — drop ids not in the
- * response; for present ids, fill `options` from previous when incoming omits `options`.
- */
-const mergeConfigOptions = (existing: unknown, incoming: readonly unknown[]): readonly unknown[] => {
-  if (!Array.isArray(existing) || existing.length === 0) {
-    return incoming;
-  }
-
-  const existingOptions = existing.filter((option): option is Record<string, unknown> => isRecord(option));
-  const existingById = new Map(
-    existingOptions.flatMap(option => (typeof option.id === 'string' ? [[option.id, option] as const] : [])),
-  );
-
-  return incoming.flatMap(incomingOption => {
-    if (!isRecord(incomingOption) || typeof incomingOption.id !== 'string') {
-      return [incomingOption];
-    }
-
-    const previous = existingById.get(incomingOption.id);
-    if (previous === undefined) {
-      return [incomingOption];
-    }
-
-    return [
-      {
-        ...previous,
-        ...incomingOption,
-        options: Array.isArray(incomingOption.options) ? incomingOption.options : previous.options,
-      },
-    ];
-  });
 };
 
 /** Reads model selection from session config options. */
@@ -428,59 +352,6 @@ export const normalizeModels = (sessionNew: unknown): NormalizedModels => {
   return {
     currentId: typeof modelOption.currentValue === 'string' ? modelOption.currentValue : undefined,
     options: parseModelOptions(modelOption.options),
-  };
-};
-
-/** Reads mode selection from session config options. */
-export const normalizeModes = (sessionNew: unknown): NormalizedModes => {
-  if (!isRecord(sessionNew)) {
-    return { options: [] };
-  }
-
-  const modeOption = findConfigOption(sessionNew, 'mode');
-  if (modeOption === undefined) {
-    return { options: [] };
-  }
-
-  return {
-    currentId: typeof modeOption.currentValue === 'string' ? modeOption.currentValue : undefined,
-    options: parseModeOptions(modeOption.options),
-  };
-};
-
-export const selectionFromSessionConfiguration = (
-  result: unknown,
-): {
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
-} => {
-  const models = normalizeModels(result);
-  const modes = normalizeModes(result);
-  return {
-    selectedModeId: modes.currentId,
-    selectedModelId: models.currentId,
-  };
-};
-
-export const applySetConfigOptionResult = (
-  sessionConfiguration: unknown,
-  result: unknown,
-): {
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
-  readonly sessionConfiguration: unknown;
-} => {
-  const base: Record<string, unknown> = isRecord(sessionConfiguration) ? { ...sessionConfiguration } : {};
-
-  if (isRecord(result) && Array.isArray(result.configOptions)) {
-    base.configOptions = mergeConfigOptions(base.configOptions, result.configOptions);
-  }
-
-  const selection = selectionFromSessionConfiguration(base);
-  return {
-    selectedModeId: selection.selectedModeId,
-    selectedModelId: selection.selectedModelId,
-    sessionConfiguration: base,
   };
 };
 
@@ -663,42 +534,4 @@ export const normalizeConfigOptions = (sessionNew: unknown): readonly Normalized
 
     return [];
   });
-};
-
-export const normalizeSelectableConfigOptions = (
-  sessionConfiguration: unknown,
-): readonly NormalizedSelectConfigOption[] =>
-  normalizeConfigOptions(sessionConfiguration).flatMap(option =>
-    option.type === 'select' && option.choices.length > 0 ? [option] : [],
-  );
-
-export const patchConfigOptionValue = (
-  sessionConfiguration: unknown,
-  configId: string,
-  value: boolean | string,
-): unknown => {
-  if (!isRecord(sessionConfiguration) || !Array.isArray(sessionConfiguration.configOptions)) {
-    return sessionConfiguration;
-  }
-
-  const configOptions: readonly unknown[] = sessionConfiguration.configOptions;
-  return {
-    ...sessionConfiguration,
-    configOptions: configOptions.map(option =>
-      isRecord(option) && option.id === configId ? { ...option, currentValue: value } : option,
-    ),
-  };
-};
-
-export const normalizeSession = (sessionNew: unknown): NormalizedSessionState | undefined => {
-  if (!isRecord(sessionNew)) {
-    return undefined;
-  }
-
-  return {
-    configOptions: normalizeConfigOptions(sessionNew),
-    models: normalizeModels(sessionNew),
-    modes: normalizeModes(sessionNew),
-    sessionId: typeof sessionNew.sessionId === 'string' ? sessionNew.sessionId : undefined,
-  };
 };

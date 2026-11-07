@@ -4,9 +4,10 @@ import type { AtomRegistry } from 'effect/reactivity';
 import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
-import { normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import { normalizeConfigOptions, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { configValue } from '../host/sessionConfiguration.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -25,6 +26,7 @@ import {
   selectableConfig,
   setPhase,
 } from './fakeAgent.testing.ts';
+import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -300,7 +302,7 @@ describe('Bind', () => {
 
       assert.deepStrictEqual(calls, ['new']);
       assert.strictEqual(blob(registry)?.configValues.model, 'o1');
-      assert.strictEqual(sessionsOf(registry)['bound-1'].selectedModelId, 'gpt');
+      assert.strictEqual(configValue(sessionsOf(registry)['bound-1'].configuration, 'model'), 'gpt');
     }).pipe(Effect.scoped),
   );
 
@@ -627,6 +629,35 @@ describe('Send', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('a session/update landing during the Config diffs survives Materialize', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = yield* freshRegistry;
+      const fold = makeHarnessEventFold({
+        launchTarget: CODEX,
+        refreshFsListing: () => Effect.void,
+        registry,
+        runFork: () => undefined,
+      });
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          fold.onSessionUpdate('bound-1', {
+            availableCommands: [{ description: 'Review the diff', name: 'review' }],
+            sessionUpdate: 'available_commands_update',
+          });
+        }),
+      });
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+
+      yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+      assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
+      assert.deepStrictEqual(sessionsOf(registry)['bound-1'].availableCommands, [
+        { description: 'Review the diff', name: 'review' },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('Send pending covers Materialize, and edits are inert while the Lifecycle lock is held', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
@@ -925,9 +956,9 @@ const selectO1OnVirtual = (liveModel: string | undefined) =>
           ...current.sessions,
           'bound-1': {
             ...current.sessions['bound-1'],
-            sessionConfiguration: {
+            configuration: normalizeConfigOptions({
               configOptions: [{ ...selectableConfig.configOptions[0], currentValue: liveModel }],
-            },
+            }),
           },
         },
       }));
@@ -986,6 +1017,38 @@ describe('Config (blob only while Virtual)', () => {
       assert.deepStrictEqual(calls, ['set:model:o1']);
       assert.strictEqual(blob(registry)?.configValues.model, 'o1');
     }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    'Lazy hydrate: the pick is recorded on the Bound session, so Materialize sets a later blob-only pick back',
+    () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        yield* installFakeAgent(calls);
+        const registry = yield* freshRegistry;
+        yield* seedBound(registry, calls, { draft: 'hello' });
+        registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+
+        yield* setVirtualConfigOption(registry, {
+          configId: 'model',
+          launchTarget: CODEX,
+          type: 'select',
+          value: 'o1',
+        });
+        assert.deepStrictEqual(calls, ['set:model:o1']);
+        assert.strictEqual(configValue(sessionsOf(registry)['bound-1'].configuration, 'model'), 'o1');
+
+        // `gpt` has a row: blob only.
+        yield* setVirtualConfigOption(registry, {
+          configId: 'model',
+          launchTarget: CODEX,
+          type: 'select',
+          value: 'gpt',
+        });
+        yield* sendVirtual(registry, recordingPrompt(calls).prompt);
+
+        assert.deepStrictEqual(calls, ['set:model:o1', 'set:model:gpt', 'prompt:bound-1']);
+      }).pipe(Effect.scoped),
   );
 
   it.effect('Lazy hydrate: a failed pick writes nothing', () =>

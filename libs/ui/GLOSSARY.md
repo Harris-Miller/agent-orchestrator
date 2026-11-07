@@ -27,7 +27,7 @@ The Harness side of one ACP Turn the user starts on a Session, by Send or by Han
 _Avoid_: request, generation, Turn (unqualified: the ACP cycle)
 
 **Bind**:
-Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: creating or re-selecting the Virtual session, a launch target or cwd change, the provider becoming `usable`, and Send when none is in flight (draft, attachment, and Config edits never Bind). Distinct from Materialize (first-Send promote).
+Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config edits write only the Virtual blob (a Lazy hydrate pick also sets the model on the Bound session); the Bound session's Session configuration may differ until Materialize applies diffs. Triggers: creating or re-selecting the Virtual session, a launch target or cwd change, the provider becoming `usable`, and Send when none is in flight (draft, attachment, and Config edits never Bind). Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
 
 **Lifecycle lock**:
@@ -47,7 +47,7 @@ The Harness application state for one launch target: Bootstrap phase and failure
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request and Prompt turn begin/end. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, Config change and Prompt turn begin/end, a `session/set_config_option` response applied to a Session configuration. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:
@@ -111,6 +111,14 @@ _Avoid_: elicitation URL
 **Config option index**:
 Per-launch-target index of default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, seeded by Config probe when the cache is missing, then kept current and persisted by Lazy hydrate. Rows may be missing for models not yet selected.
 _Avoid_: Provider catalog, harness defaults, config catalog
+
+**Session configuration**:
+The Config options of one Session as the agent last reported them, plus a Config change it has not answered yet; the selected model and mode are its `model` and `mode` options. Canonical definition in the desktop glossary.
+_Avoid_: live Config, session/new result, Config option index (that is per launch target)
+
+**Config change**:
+A user's optimistic change to one Config option of an active Session, withdrawn if its request fails unless the agent has since reported a different value. Canonical definition in the desktop glossary.
+_Avoid_: set config, config update (ambiguous with the agent's config option update)
 
 **Config probe**:
 Cold-cache seed of the Config option index, run before Bootstrap `usable`. Not an Active session; never Materialize. Canonical definition in the desktop glossary.

@@ -1,8 +1,9 @@
 /** Session update apply: one inbound session/update → next snapshot (+ history title). */
 import { isRecord } from '../isRecord.ts';
 
-import { applySessionInfoTitle, applySetConfigOptionResult, initialSessionSnapshot } from './acpSessionBootstrap.ts';
+import { applySessionInfoTitle, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
+import { foldConfigOptions } from './sessionConfiguration.ts';
 import { parseAvailableCommands, parseUsageUpdate, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
 export type ApplySessionUpdateResult =
@@ -43,15 +44,7 @@ export const applySessionUpdate = (
       }
       case 'config_option_update': {
         if (Array.isArray(update.configOptions)) {
-          const applied = applySetConfigOptionResult(next.sessionConfiguration, {
-            configOptions: update.configOptions,
-          });
-          next = {
-            ...next,
-            selectedModeId: applied.selectedModeId ?? next.selectedModeId,
-            selectedModelId: applied.selectedModelId ?? next.selectedModelId,
-            sessionConfiguration: applied.sessionConfiguration,
-          };
+          next = { ...next, configuration: foldConfigOptions(next.configuration, update) };
           sessionChanged = true;
         }
         break;

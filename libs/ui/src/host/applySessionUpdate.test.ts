@@ -3,6 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
 import { applySessionUpdate } from './applySessionUpdate.ts';
+import { configValue } from './sessionConfiguration.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 const emptyHistory: readonly NormalizedSessionInfo[] = [];
@@ -73,25 +74,36 @@ describe('applySessionUpdate', () => {
   it('applies config_option_update onto session configuration', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, {
-      configOptions: [{ id: 'mode', name: 'Mode' }],
+      configOptions: [
+        {
+          currentValue: 'code',
+          id: 'mode',
+          name: 'Mode',
+          options: [
+            { name: 'Ask', value: 'ask' },
+            { name: 'Code', value: 'code' },
+          ],
+          type: 'select',
+        },
+      ],
       sessionUpdate: 'config_option_update',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.strictEqual(result.usageChanged, false);
-      assert.ok(result.session.sessionConfiguration !== undefined);
+      assert.strictEqual(configValue(result.session.configuration, 'mode'), 'code');
     }
   });
 
   it('applies config while activating', () => {
     const session = initialSessionSnapshot('s1', 'activating');
     const result = applySessionUpdate(session, 's1', emptyHistory, {
-      configOptions: [{ currentValue: 'ask', id: 'mode', name: 'Mode' }],
+      configOptions: [{ currentValue: 'ask', id: 'mode', name: 'Mode', options: [{ value: 'ask' }], type: 'select' }],
       sessionUpdate: 'config_option_update',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.ok(result.session.sessionConfiguration !== undefined);
+      assert.strictEqual(configValue(result.session.configuration, 'mode'), 'ask');
     }
   });
 

@@ -3,16 +3,20 @@ import { assert, describe, it } from '@effect/vitest';
 import {
   initialBackendHarnessSnapshot,
   initialSessionSnapshot,
+  normalizeConfigOptions,
   normalizeSessionHistory,
 } from './acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom, NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
+import { configValue } from './sessionConfiguration.ts';
 import {
+  applyConfigResult,
   applyInitializeResult,
-  beginClientRequest,
+  beginConfigChange,
   beginPromptTurn,
   dropSession,
   endClientRequest,
+  endConfigChange,
   endPromptTurn,
   excludeBoundVirtualFromHistory,
   markHistoryUnavailable,
@@ -62,44 +66,126 @@ const activeSession = (sessionId: string, overrides: Partial<SessionSnapshot> = 
   sessionId,
 });
 
-describe('beginClientRequest', () => {
-  it('rejects when backend is not ready', () => {
-    const snapshot: BackendHarnessSnapshot = {
-      ...readySnapshot({ s1: activeSession('s1') }),
-      phase: 'connecting',
-    };
-    assert.isUndefined(beginClientRequest(snapshot, 's1'));
+const modelOption = (currentValue: string | undefined) =>
+  normalizeConfigOptions({
+    configOptions: [
+      {
+        currentValue,
+        id: 'model',
+        name: 'Model',
+        options: [
+          { name: 'gpt', value: 'gpt' },
+          { name: 'o1', value: 'o1' },
+          { name: 'gpt-5', value: 'gpt-5' },
+        ],
+        type: 'select',
+      },
+    ],
   });
 
-  it('rejects when session is inactive', () => {
-    const snapshot = readySnapshot({ s1: initialSessionSnapshot('s1', 'inactive') });
-    assert.isUndefined(beginClientRequest(snapshot, 's1'));
+const modelToO1 = { configId: 'model', type: 'select', value: 'o1' } as const;
+
+describe('beginConfigChange', () => {
+  const refusedFor = (snapshot: BackendHarnessSnapshot) => beginConfigChange(snapshot, 's1', modelToO1)._tag;
+
+  it('refuses when Bootstrap is not usable, the Session is inactive, or a client request or elicitation is pending', () => {
+    const configuration = modelOption('gpt');
+    assert.strictEqual(
+      refusedFor({ ...readySnapshot({ s1: activeSession('s1', { configuration }) }), phase: 'connecting' }),
+      'Refused',
+    );
+    assert.strictEqual(
+      refusedFor(readySnapshot({ s1: { ...initialSessionSnapshot('s1', 'inactive'), configuration } })),
+      'Refused',
+    );
+    assert.strictEqual(
+      refusedFor(readySnapshot({ s1: activeSession('s1', { configuration, pendingClientRequest: 'config' }) })),
+      'Refused',
+    );
+    assert.strictEqual(
+      refusedFor(
+        readySnapshot({
+          s1: activeSession('s1', {
+            configuration,
+            pendingElicitation: { id: 'e1', request: {} as never, resolve: () => undefined, sessionId: 's1' },
+          }),
+        }),
+      ),
+      'Refused',
+    );
   });
 
-  it('rejects when a pending client request exists', () => {
-    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingClientRequest: 'config' }) });
-    assert.isUndefined(beginClientRequest(snapshot, 's1'));
-  });
-
-  it('rejects when pending elicitation exists', () => {
+  it('refuses without changing anything, reporting the decided action', () => {
     const snapshot = readySnapshot({
+      s1: activeSession('s1', { configuration: modelOption('gpt'), pendingClientRequest: 'prompt' }),
+    });
+    assert.deepStrictEqual(beginConfigChange(snapshot, 's1', modelToO1), {
+      _tag: 'Refused',
+      action: { _tag: 'CancelTurn' },
+    });
+  });
+
+  it('begins in one snapshot: Pending client request config and the new value, with the previous value', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { configuration: modelOption('gpt') }) });
+    const begun = beginConfigChange(snapshot, 's1', modelToO1);
+    assert.strictEqual(begun._tag, 'Begun');
+    if (begun._tag !== 'Begun') return;
+    assert.strictEqual(begun.previous, 'gpt');
+    assert.strictEqual(begun.snapshot.sessions.s1.pendingClientRequest, 'config');
+    assert.strictEqual(configValue(begun.snapshot.sessions.s1.configuration, 'model'), 'o1');
+  });
+
+  it('is Unchanged when the option already holds the value, even with a Pending client request', () => {
+    const snapshot = readySnapshot({
+      s1: activeSession('s1', { configuration: modelOption('o1'), pendingClientRequest: 'prompt' }),
+    });
+    assert.deepStrictEqual(beginConfigChange(snapshot, 's1', modelToO1), { _tag: 'Unchanged' });
+  });
+});
+
+describe('endConfigChange', () => {
+  const inFlight = (model: string) =>
+    readySnapshot({
       s1: activeSession('s1', {
-        pendingElicitation: {
-          id: 'e1',
-          request: {} as never,
-          resolve: () => undefined,
-          sessionId: 's1',
-        },
+        configuration: modelOption(model),
+        pendingClientRequest: 'config',
+        promptCancelRequested: true,
       }),
     });
-    assert.isUndefined(beginClientRequest(snapshot, 's1'));
+
+  it('reverts the option while it still holds the value the change wrote, and clears the request', () => {
+    const next = endConfigChange(inFlight('o1'), 's1', { change: modelToO1, previous: 'gpt' });
+    assert.strictEqual(configValue(next.sessions.s1.configuration, 'model'), 'gpt');
+    assert.isUndefined(next.sessions.s1.pendingClientRequest);
+    assert.isUndefined(next.sessions.s1.promptCancelRequested);
   });
 
-  it('accepts and sets pendingClientRequest kind', () => {
-    const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const next = beginClientRequest(snapshot, 's1');
-    assert.ok(next !== undefined);
-    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'config');
+  it('leaves a newer value alone', () => {
+    const next = endConfigChange(inFlight('gpt-5'), 's1', { change: modelToO1, previous: 'gpt' });
+    assert.strictEqual(configValue(next.sessions.s1.configuration, 'model'), 'gpt-5');
+    assert.isUndefined(next.sessions.s1.pendingClientRequest);
+  });
+
+  it('without a revert only clears the request', () => {
+    const next = endConfigChange(inFlight('o1'), 's1');
+    assert.strictEqual(configValue(next.sessions.s1.configuration, 'model'), 'o1');
+    assert.isUndefined(next.sessions.s1.pendingClientRequest);
+  });
+
+  it('leaves a Session that is no longer in the map dropped (end and response fold)', () => {
+    const snapshot = readySnapshot();
+    assert.strictEqual(endConfigChange(snapshot, 's1', { change: modelToO1, previous: 'gpt' }), snapshot);
+    assert.strictEqual(applyConfigResult(snapshot, 's1', modelToO1, { configOptions: [] }), snapshot);
+  });
+});
+
+describe('applyConfigResult', () => {
+  it('writes the value, then folds the response into the latest configuration', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { configuration: modelOption('gpt') }) });
+    const next = applyConfigResult(snapshot, 's1', modelToO1, {
+      configOptions: [{ id: 'model', type: 'select' }],
+    });
+    assert.deepStrictEqual(next.sessions.s1.configuration, modelOption('o1'));
   });
 });
 

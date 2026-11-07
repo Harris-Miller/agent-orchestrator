@@ -33,7 +33,7 @@ import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../host/composerAction.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
-import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
 import { isRecord } from '../../isRecord.ts';
 import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';

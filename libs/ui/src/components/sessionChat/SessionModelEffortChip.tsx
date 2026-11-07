@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { NormalizedSelectConfigOption } from '../../host/acpSessionBootstrap.ts';
-import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';

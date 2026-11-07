@@ -10,12 +10,12 @@ import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
 import type {
+  NormalizedConfigChoice,
   NormalizedConfigOption,
-  NormalizedMode,
-  NormalizedModel,
+  NormalizedSelectConfigOption,
+  SessionConfiguration,
   SessionSnapshot,
 } from '../../host/acpSessionBootstrap.ts';
-import { normalizeSession } from '../../host/acpSessionBootstrap.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
@@ -49,7 +49,7 @@ export const Section: FC<{ children: ReactNode; pending?: boolean; title: string
 
 const OptionChips: FC<{
   readonly currentId?: string;
-  readonly options: readonly (NormalizedMode | NormalizedModel)[];
+  readonly options: readonly NormalizedConfigChoice[];
 }> = ({ currentId, options }) => {
   if (options.length === 0) {
     return (
@@ -140,22 +140,25 @@ const ConfigOptionCard: FC<{ readonly option: NormalizedConfigOption }> = ({ opt
   </Paper>
 );
 
+/** The `id` select option of a Session configuration (the selected model is the `model` option). */
+const selectOption = (configuration: SessionConfiguration, id: string): NormalizedSelectConfigOption | undefined =>
+  configuration.find((option): option is NormalizedSelectConfigOption => option.id === id && option.type === 'select');
+
 export const SessionStateContent: FC<{
   readonly availableCommands?: readonly AvailableCommand[];
-  readonly selectedModeId?: string;
-  readonly selectedModelId?: string;
   readonly session?: SessionSnapshot;
   readonly showSessionDetails: boolean;
-}> = ({ availableCommands, selectedModeId, selectedModelId, session, showSessionDetails }) => {
-  const sessionConfiguration =
-    session?.sessionConfiguration !== undefined ? normalizeSession(session.sessionConfiguration) : undefined;
+}> = ({ availableCommands, session, showSessionDetails }) => {
+  const configuration = session?.configuration;
+  const model = configuration === undefined ? undefined : selectOption(configuration, 'model');
+  const mode = configuration === undefined ? undefined : selectOption(configuration, 'mode');
 
   return (
     <Stack spacing={2}>
       {showSessionDetails ? (
         <>
-          <Section pending={sessionConfiguration === undefined} title="Session">
-            {sessionConfiguration !== undefined ? (
+          <Section pending={configuration === undefined} title="Session">
+            {configuration !== undefined ? (
               <Stack spacing={1.5}>
                 {session?.sessionId !== undefined ? (
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -189,29 +192,23 @@ export const SessionStateContent: FC<{
                   <Typography color="text.secondary" variant="caption">
                     Models
                   </Typography>
-                  <OptionChips
-                    currentId={selectedModelId ?? sessionConfiguration.models.currentId}
-                    options={sessionConfiguration.models.options}
-                  />
+                  <OptionChips currentId={model?.currentValue} options={model?.choices ?? []} />
                 </Stack>
 
                 <Stack spacing={0.75}>
                   <Typography color="text.secondary" variant="caption">
                     Modes
                   </Typography>
-                  <OptionChips
-                    currentId={selectedModeId ?? sessionConfiguration.modes.currentId}
-                    options={sessionConfiguration.modes.options}
-                  />
+                  <OptionChips currentId={mode?.currentValue} options={mode?.choices ?? []} />
                 </Stack>
 
-                {sessionConfiguration.configOptions.length > 0 ? (
+                {configuration.length > 0 ? (
                   <Stack spacing={0.75}>
                     <Typography color="text.secondary" variant="caption">
                       Config options
                     </Typography>
                     <Stack spacing={1}>
-                      {sessionConfiguration.configOptions.map(option => (
+                      {configuration.map(option => (
                         <ConfigOptionCard key={option.id} option={option} />
                       ))}
                     </Stack>
@@ -259,8 +256,6 @@ export const SessionStateView: FC<{
 }> = ({ session }) => (
   <SessionStateContent
     availableCommands={session?.availableCommands}
-    selectedModeId={session?.selectedModeId}
-    selectedModelId={session?.selectedModelId}
     session={session}
     showSessionDetails={session?.status === 'active'}
   />

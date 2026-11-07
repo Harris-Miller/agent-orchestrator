@@ -1,0 +1,175 @@
+/** Archived History entries: activating one unarchives it first; Archive marks the row in place. */
+import { assert, describe, it } from '@effect/vitest';
+import { Effect, Fiber } from 'effect';
+import { Atom } from 'effect/reactivity';
+
+import { createHostRuntime } from '../createHostRuntime.ts';
+import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import { AgentCapabilityMissing } from '../host/agentCapabilities.ts';
+import { isArchivedEntry } from '../host/airMeta.ts';
+
+import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
+import { createChatAtoms } from './chat.atoms.ts';
+import type { FakeAgentOpts } from './fakeAgent.testing.ts';
+import { advertise, CODEX, connectFakeAgent, freshRegistry, gated, installFakeAgent } from './fakeAgent.testing.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { mockHostLayer } from './mockHostLayer.testing.ts';
+import { runAtomFn } from './runAtomFn.ts';
+import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
+import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+
+const advertisesArchive = {
+  _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionArchive'], version: 1 } } },
+};
+
+const archivedMeta = { jetbrains: { air: { archived: true, version: 1 } } };
+
+const makeAtoms = () => {
+  const runtime = createHostRuntime(mockHostLayer);
+  const { cancelPromptAtomFn } = createChatAtoms(runtime);
+  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
+  return createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+};
+
+const setup = Effect.fnUntraced(function* (
+  initializeResult: unknown,
+  options: { readonly archived: boolean; readonly fake?: FakeAgentOpts; readonly status?: 'active' | 'inactive' },
+) {
+  const calls: string[] = [];
+  const registry = yield* freshRegistry;
+  yield* installFakeAgent(calls, options.fake);
+  const atoms = makeAtoms();
+  updateHarnessSnapshot(registry, CODEX, current => ({
+    ...current,
+    sessionHistory: [
+      { cwd: '/proj', sessionId: 's1', title: 'Old', ...(options.archived ? { _meta: archivedMeta } : {}) },
+    ],
+    sessions: { s1: { ...initialSessionSnapshot('s1', options.status ?? 'inactive'), cwd: '/proj' } },
+  }));
+  advertise(registry, CODEX, initializeResult);
+  const snapshot = () => registry.get(backendHarnessSnapshotAtom(CODEX));
+  const row = () => snapshot().sessionHistory.find(entry => entry.sessionId === 's1');
+  const target = { launchTarget: CODEX, sessionId: 's1' };
+  return { atoms, calls, registry, row, snapshot, target };
+});
+
+describe('Activating an archived History entry', () => {
+  it.effect('unarchives, then loads; the row ends up unarchived', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('is refused without sessionArchive: no RPC, row still archived', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({}, { archived: true });
+      const error = yield* Effect.flip(runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target));
+      assert.instanceOf(error, AgentCapabilityMissing);
+      assert.strictEqual(error.capability, 'sessionArchive');
+      assert.deepStrictEqual(s.calls, []);
+      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('sends no load when the unarchive fails; the session is inactive with a defect', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true, fake: { failUnarchive: true } });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
+      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
+      assert.isNotEmpty(s.snapshot().sessions.s1.defects ?? []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('keeps the row unarchived when the load fails after the unarchive', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true, fake: { failLoad: true } });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('unarchives an already-active row (archived elsewhere) without a second load', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true, status: 'active' });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('an unarchived row loads without an unarchive', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: false });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['load:s1']);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('Archive', () => {
+  it.effect('marks the row archived in place, drops the session snapshot and clears Selected', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: false });
+      s.registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
+      yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['archive:s1']);
+      assert.strictEqual(s.row()?.title, 'Old');
+      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.registry.get(selectedAtom));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a list finishing during _session/archive does not bring back a stale snapshot', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      const gate = yield* gated;
+      yield* connectFakeAgent(CODEX, {
+        agent: {
+          'session/list': () =>
+            Effect.succeed({
+              sessions: [
+                { cwd: '/proj', sessionId: 's1', title: 'Old' },
+                { cwd: '/proj', sessionId: 's2', title: 'Listed meanwhile' },
+              ],
+            }),
+        },
+        sessionArchive: () => gate.during,
+      });
+      const atoms = makeAtoms();
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
+        sessions: { s1: { ...initialSessionSnapshot('s1', 'active'), cwd: '/proj' } },
+      }));
+      advertise(registry, CODEX, advertisesArchive);
+
+      const archiving = yield* Effect.forkChild(
+        runAtomFn(registry, atoms.archiveSessionAtomFn, { launchTarget: CODEX, sessionId: 's1' }),
+      );
+      yield* gate.started;
+      yield* runAtomFn(registry, atoms.refreshSessionHistoryAtomFn, CODEX);
+      yield* gate.release;
+      yield* Fiber.join(archiving);
+
+      const snapshot = registry.get(backendHarnessSnapshotAtom(CODEX));
+      assert.deepStrictEqual(
+        snapshot.sessionHistory.map(entry => [entry.sessionId, isArchivedEntry(entry)]),
+        [
+          ['s1', true],
+          ['s2', false],
+        ],
+      );
+      assert.notProperty(snapshot.sessions, 's1');
+    }).pipe(Effect.scoped),
+  );
+});

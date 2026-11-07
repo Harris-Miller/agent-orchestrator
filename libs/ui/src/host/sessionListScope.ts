@@ -8,7 +8,7 @@ export type SessionListScope =
 
 export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
 
-/** AIR session index list filter: all rows (UI hides archived). */
+/** AIR session index list filter: always all rows; Show archived filters in the app (libs/ui ADR-0008). */
 const sessionListArchivedAll = {
   _meta: {
     jetbrains: {

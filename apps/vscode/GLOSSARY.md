@@ -24,7 +24,7 @@ The absolute path the sidebar treats as the project cwd — the first Workspace 
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar presentation of Session History (see desktop glossary), filtered to non-archived History entries for the current Workspace cwd. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Pinned entries for the Workspace cwd render once in a Pinned section above the rest (see desktop glossary). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
+The sidebar presentation of Session History (see desktop glossary), filtered to History entries for the current Workspace cwd, archived ones only when Show archived is on. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings is `/settings` with list→detail category routes). Pinned entries for the Workspace cwd render once in a Pinned section above the rest (see desktop glossary). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
 _Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:
@@ -32,7 +32,7 @@ The sidebar view that shows Virtual or Selected Session transcript/composer (sam
 _Avoid_: Main chat, AgentChatMain, conversation pane
 
 **Recent sessions**:
-The up-to-5 newest Session History entries for the Workspace cwd, listed in an empty Virtual Chat. None → blank Chat body.
+The up-to-5 newest unarchived Session History entries for the Workspace cwd, listed in an empty Virtual Chat; never archived ones, whatever Show archived says. None → blank Chat body.
 _Avoid_: Session History (when you mean this short list), recents
 
 For Host / Host services / Host IPC vocabulary, see [`../../libs/context-services/GLOSSARY.md`](../../libs/context-services/GLOSSARY.md) and [`../../libs/context-services-vscode-webview/GLOSSARY.md`](../../libs/context-services-vscode-webview/GLOSSARY.md). For Session cwd / Session History / Virtual session / Selected / Active session / Session header / Session actions, see [`../desktop/GLOSSARY.md`](../desktop/GLOSSARY.md).

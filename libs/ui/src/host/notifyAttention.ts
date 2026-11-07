@@ -1,4 +1,4 @@
-import { readUserSettings } from '@lib/ao-home';
+import type { UserSettings } from '@lib/ao-home';
 import { Notifier } from '@lib/context-services';
 import type { StopReason } from '@libs/effect-acp';
 import { Effect } from 'effect';
@@ -36,12 +36,11 @@ export const attentionBody = (event: AttentionEvent): string => {
 export const isAttentionStopReason = (stopReason: StopReason): boolean => stopReason !== 'cancelled';
 
 /**
- * Raise a Notification for an Attention event, honoring User settings. Never fails:
- * settings read, focus probe and notify errors are swallowed so a turn is never affected.
+ * Raise a Notification for an Attention event, honoring `settings` (the in-memory User settings). Never fails:
+ * focus probe and notify errors are swallowed so a turn is never affected.
  */
-export const notifyAttention = (title: string, event: AttentionEvent) =>
+export const notifyAttention = (settings: UserSettings, title: string, event: AttentionEvent) =>
   Effect.gen(function* () {
-    const settings = yield* readUserSettings();
     if (!notificationsEnabled(settings)) {
       return;
     }
@@ -75,8 +74,9 @@ const attentionTitle = (
 };
 
 export const notifySessionAttention = (
+  settings: UserSettings,
   snapshot: BackendHarnessSnapshot,
   launchTarget: AgentLaunchTarget,
   sessionId: string,
   event: AttentionEvent,
-) => notifyAttention(attentionTitle(snapshot, launchTarget, sessionId), event);
+) => notifyAttention(settings, attentionTitle(snapshot, launchTarget, sessionId), event);

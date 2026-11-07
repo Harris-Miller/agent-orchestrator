@@ -17,8 +17,13 @@ import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
+import {
+  showArchivedAtom,
+  unwrapUserSettings,
+  userSettingsDocumentAtom,
+} from './userSettings/userSettingsDocument.atoms.ts';
 
-export { backendHarnessSnapshotAtom };
+export { backendHarnessSnapshotAtom, showArchivedAtom };
 
 export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
 
@@ -62,18 +67,18 @@ export const backendDesiredStateAtom = Atom.family((launchTarget: AgentLaunchTar
 );
 
 /**
- * Per-provider enabled preference, mirrored from User settings once bootstrap has loaded them (and seeded first-run
- * defaults). `undefined` until then, so nothing mounts, launches, or appears in a picker before settings are known.
+ * Provider bootstrap has seeded first-run defaults and cleaned up runtimes (`ProviderBootstrapGate`). Until then no
+ * launch target is enabled, so nothing mounts, launches, or appears in a picker.
  */
-export const providerEnabledMapAtom = Atom.make<Readonly<Record<string, boolean>> | undefined>(undefined).pipe(
-  Atom.withLabel('providerEnabledMap'),
-  Atom.keepAlive,
-);
+export const providerBootstrapDoneAtom = Atom.make(false).pipe(Atom.withLabel('providerBootstrapDone'), Atom.keepAlive);
 
-/** Launch targets in this build (beta flags applied) whose enabled preference is on. */
+/** Launch targets in this build (beta flags applied) whose User settings enabled preference is on. */
 export const enabledLaunchTargetsAtom = Atom.make(get => {
-  const enabled = get(providerEnabledMapAtom);
-  return enabled === undefined ? [] : MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget]);
+  if (!get(providerBootstrapDoneAtom)) {
+    return [];
+  }
+  const enabled = unwrapUserSettings(get(userSettingsDocumentAtom)).providerEnabled ?? {};
+  return MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget] === true);
 }).pipe(Atom.keepAlive);
 
 /** Runtime job state per provider (Download / Install / Remove). Install and Remove mean "switching". */
@@ -111,20 +116,23 @@ export const unifiedSessionHistoryAtom = Atom.make(get => {
   return entries;
 }).pipe(Atom.keepAlive);
 
-/** Session History rows the UI shows: archived rows are listed (`archived: 'all'`) but hidden. */
-export const visibleSessionHistoryAtom = Atom.make(get =>
-  get(unifiedSessionHistoryAtom).filter(entry => !isArchivedEntry(entry)),
-).pipe(Atom.keepAlive);
+/** Session History rows the UI shows: every row is listed (`archived: 'all'`); archived ones only with Show archived. */
+export const visibleSessionHistoryAtom = Atom.make(get => {
+  const history = get(unifiedSessionHistoryAtom);
+  return get(showArchivedAtom) ? history : history.filter(entry => !isArchivedEntry(entry));
+}).pipe(Atom.keepAlive);
 
 export const findLaunchTargetForSessionId = (
   getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot,
   sessionId: string,
+  showArchived: boolean,
 ): AgentLaunchTarget | undefined => {
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
     const entry = snapshot.sessionHistory.find(candidate => candidate.sessionId === sessionId);
-    // A session archived elsewhere counts as missing even while loaded.
-    if ((entry !== undefined && !isArchivedEntry(entry)) || (entry === undefined && sessionId in snapshot.sessions)) {
+    // While Show archived is off, an archived row counts as missing even while loaded.
+    const visible = entry !== undefined && (showArchived || !isArchivedEntry(entry));
+    if (visible || (entry === undefined && sessionId in snapshot.sessions)) {
       return launchTarget;
     }
   }
@@ -136,7 +144,11 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   if (sessionId === undefined) {
     return undefined;
   }
-  return findLaunchTargetForSessionId(launchTarget => get(backendHarnessSnapshotAtom(launchTarget)), sessionId);
+  return findLaunchTargetForSessionId(
+    launchTarget => get(backendHarnessSnapshotAtom(launchTarget)),
+    sessionId,
+    get(showArchivedAtom),
+  );
 }).pipe(Atom.keepAlive);
 
 /** Subagent map of the selected session's provider; undefined when no session is selected. */

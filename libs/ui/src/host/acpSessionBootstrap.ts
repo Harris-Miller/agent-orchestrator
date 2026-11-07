@@ -6,6 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
+import { isArchivedEntry } from './airMeta.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -294,12 +295,26 @@ export const compareHistoryEntriesByUpdatedAtDesc = (
   return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
 };
 
-/** History entries for `cwd`, newest first (empty when `cwd` is undefined). */
+/** Session History order: unarchived rows before archived ones, each newest `updatedAt` first. */
+export const compareHistoryEntries = (left: NormalizedSessionInfo, right: NormalizedSessionInfo): number =>
+  Number(isArchivedEntry(left)) - Number(isArchivedEntry(right)) || compareHistoryEntriesByUpdatedAtDesc(left, right);
+
+/** History entries for `cwd` in Session History order (empty when `cwd` is undefined). */
 export const sessionsForCwd = <T extends NormalizedSessionInfo>(
   history: readonly T[],
   cwd: string | undefined,
+): readonly T[] => (cwd === undefined ? [] : history.filter(entry => entry.cwd === cwd).sort(compareHistoryEntries));
+
+/** VS Code Recent sessions: the newest `limit` unarchived entries for `cwd`, whatever Show archived says. */
+export const recentSessionsForCwd = <T extends NormalizedSessionInfo>(
+  history: readonly T[],
+  cwd: string | undefined,
+  limit: number,
 ): readonly T[] =>
-  cwd === undefined ? [] : history.filter(entry => entry.cwd === cwd).sort(compareHistoryEntriesByUpdatedAtDesc);
+  sessionsForCwd(
+    history.filter(entry => !isArchivedEntry(entry)),
+    cwd,
+  ).slice(0, limit);
 
 const parseModelOptions = (value: unknown): readonly NormalizedModel[] => {
   if (!Array.isArray(value)) {

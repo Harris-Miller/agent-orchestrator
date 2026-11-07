@@ -8,6 +8,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
+import { showArchivedAtom } from '../backendState.atoms.ts';
 import { mockHostLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
@@ -77,6 +78,46 @@ const awaitSettled = <A, E>(
       { immediate: true },
     );
   });
+
+describe('showArchivedSettingAtom', () => {
+  it.effect('toggling patches User settings, and Show archived follows the document', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { showArchivedSettingAtom, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
+      const registry = AtomRegistry.make();
+      registry.mount(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+
+      assert.isFalse(registry.get(showArchivedSettingAtom));
+      registry.set(showArchivedSettingAtom, true);
+      assert.isTrue(registry.get(showArchivedAtom));
+      assert.isTrue(registry.get(showArchivedSettingAtom));
+      assert.isTrue(unwrapUserSettings(registry.get(userSettingsAtom)).showArchived);
+      registry.dispose();
+    }),
+  );
+
+  it.effect('follows any User settings change: a whole-document write and a re-read of settings.json', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
+      const registry = AtomRegistry.make();
+      registry.mount(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+
+      registry.set(userSettingsAtom, { showArchived: true });
+      assert.isTrue(registry.get(showArchivedAtom));
+
+      store.set(SETTINGS, { content: '{"showArchived":false}', kind: 'file' });
+      registry.refresh(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+      assert.isFalse(registry.get(showArchivedAtom));
+      registry.dispose();
+    }),
+  );
+});
 
 describe('userSettingsAtom', () => {
   it.effect('subscribe loads Initial then Success defaults when settings file missing', () =>

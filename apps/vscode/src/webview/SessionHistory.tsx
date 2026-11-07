@@ -8,6 +8,7 @@ import {
   sessionCwdAtom,
   sessionListScopeAtom,
   sessionsForCwd,
+  ShowArchivedToggle,
   ToggleDeveloperPanelButton,
   visibleSessionHistoryAtom,
 } from '@lib/ui';
@@ -50,6 +51,7 @@ export const SessionHistory: FC = () => {
         <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>
+        <ShowArchivedToggle />
         <IconButton
           aria-label="Reload sessions"
           disabled={noFolder || !anyUsable}

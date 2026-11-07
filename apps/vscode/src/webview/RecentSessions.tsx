@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { sessionCwdAtom, sessionsForCwd, visibleSessionHistoryAtom } from '@lib/ui';
+import { recentSessionsForCwd, sessionCwdAtom, unifiedSessionHistoryAtom } from '@lib/ui';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
@@ -8,10 +8,11 @@ import { SessionRows } from './SessionRows.tsx';
 
 const RECENT_LIMIT = 5;
 
-/** Empty Virtual Chat slot: newest Sessions for this Workspace cwd. Renders inside a `List`. */
+/** Empty Virtual Chat slot: newest unarchived Sessions for this Workspace cwd. Renders inside a `List`. */
 export const RecentSessions: FC = () => {
-  const sessions = sessionsForCwd(useAtomValue(visibleSessionHistoryAtom), useAtomValue(sessionCwdAtom)).slice(
-    0,
+  const sessions = recentSessionsForCwd(
+    useAtomValue(unifiedSessionHistoryAtom),
+    useAtomValue(sessionCwdAtom),
     RECENT_LIMIT,
   );
 

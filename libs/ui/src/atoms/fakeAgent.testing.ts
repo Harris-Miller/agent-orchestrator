@@ -5,7 +5,7 @@
 import type { SessionSteeringResponse, StopReason } from '@libs/effect-acp';
 import { Deferred, Effect } from 'effect';
 import type { Scope } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -13,8 +13,9 @@ import { applyInitializeResult } from '../host/harnessStateTransitions.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
 import { registerBackendConnection } from '../host/sessionRpc.ts';
 
-import { providerEnabledMapAtom } from './backendState.atoms.ts';
+import { providerBootstrapDoneAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -54,7 +55,9 @@ type FakeSetConfig =
 export type FakeAgentOpts = FakeSetConfig & {
   readonly failClose?: boolean;
   readonly failDelete?: boolean;
+  readonly failLoad?: boolean;
   readonly failNew?: boolean;
+  readonly failUnarchive?: boolean;
   /** Receives what the Backend connection reports (pass the Harness event fold); ignores everything by default. */
   readonly reports?: BackendConnectionReports;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
@@ -89,7 +92,7 @@ export const connectFakeAgent = (
 
 /**
  * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
- * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
+ * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `unarchive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
  * `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude; a fork is `fork-1`. It answers every RPC it knows whatever it advertises: seed what
  * it advertises with {@link advertise}. `setConfig` replaces the canned `session/set_config_option` answer; `reports` (e.g. the
  * Harness event fold) receives Lazy hydrate and Connection lost.
@@ -115,7 +118,7 @@ export const installFakeAgent = (
         },
         'session/load': ({ sessionId }: { sessionId: string }) => {
           calls.push(`load:${sessionId}`);
-          return Effect.succeed(selectableConfig);
+          return opts.failLoad === true ? Effect.fail('load-fail') : Effect.succeed(selectableConfig);
         },
         'session/new': () => {
           calls.push(isClaude ? 'new:claude' : 'new');
@@ -175,6 +178,11 @@ export const installFakeAgent = (
           ? Effect.andThen(during, Effect.fail('steer-fail'))
           : Effect.as(during, { outcome: opts.steering ?? 'injected' });
       },
+      sessionUnarchive: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`unarchive:${sessionId}`);
+        // Agent errors reach the Harness as defects, like a real JSON-RPC error.
+        return opts.failUnarchive === true ? Effect.die('unarchive-fail') : Effect.void;
+      },
     },
     opts.reports,
   );
@@ -192,11 +200,20 @@ export const advertise = (registry: Registry, launchTarget: AgentLaunchTarget, i
   }));
 };
 
+/** Enable exactly `launchTargets` through User settings (as after provider bootstrap). */
+export const enableProviders = (registry: Registry, launchTargets: readonly AgentLaunchTarget[]) => {
+  registry.set(
+    userSettingsDocumentAtom,
+    AsyncResult.success({ providerEnabled: Object.fromEntries(launchTargets.map(target => [target, true])) }),
+  );
+  registry.set(providerBootstrapDoneAtom, true);
+};
+
 /** Registry with Codex and Claude enabled, disposed when the scope closes. */
 export const freshRegistry = Effect.acquireRelease(
   Effect.sync(() => {
     const registry = AtomRegistry.make();
-    registry.set(providerEnabledMapAtom, { [CLAUDE]: true, [CODEX]: true });
+    enableProviders(registry, [CLAUDE, CODEX]);
     return registry;
   }),
   registry =>

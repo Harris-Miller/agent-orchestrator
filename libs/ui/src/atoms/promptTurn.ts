@@ -45,6 +45,7 @@ import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -108,10 +109,16 @@ const runPrompt = Effect.fnUntraced(function* (
     const { stopReason } = exit.value;
     if (isAttentionStopReason(stopReason)) {
       yield* Effect.forkDetach(
-        notifySessionAttention(snapshotOf(registry, launchTarget), launchTarget, sessionId, {
-          kind: 'turn-ended',
-          stopReason,
-        }),
+        notifySessionAttention(
+          currentUserSettings(registry),
+          snapshotOf(registry, launchTarget),
+          launchTarget,
+          sessionId,
+          {
+            kind: 'turn-ended',
+            stopReason,
+          },
+        ),
       );
     }
     return { stopReason };

@@ -13,6 +13,7 @@ import {
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { withArchived } from './airMeta.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
@@ -113,6 +114,22 @@ export const dropSession = (snapshot: BackendHarnessSnapshot, sessionId: string)
     sessionHistory: snapshot.sessionHistory.filter(entry => entry.sessionId !== sessionId),
     sessions: remainingSessions,
   };
+};
+
+/** Set the History entry's archived mark. Archiving also drops the session snapshot; the row stays. */
+export const setSessionArchived = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  archived: boolean,
+): BackendHarnessSnapshot => {
+  const sessionHistory = snapshot.sessionHistory.map(entry =>
+    entry.sessionId === sessionId ? withArchived(entry, archived) : entry,
+  );
+  if (!archived) {
+    return { ...snapshot, sessionHistory };
+  }
+  const { [sessionId]: _removed, ...sessions } = snapshot.sessions;
+  return { ...snapshot, sessionHistory, sessions };
 };
 
 /** Replace the session history (refresh / Skip-empty). */

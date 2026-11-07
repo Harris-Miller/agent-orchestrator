@@ -16,11 +16,14 @@ import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import type { AgentCapabilities } from '../host/agentCapabilities.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { isArchivedEntry } from '../host/airMeta.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import {
   dropSession,
   historyAfterList,
   markSessionInactive,
   replaceSessionHistory,
+  setSessionArchived,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
@@ -39,6 +42,7 @@ import {
   loadSession,
   renameSession,
   resumeSession,
+  unarchiveSession,
 } from '../host/sessionRpc.ts';
 
 import {
@@ -92,13 +96,14 @@ const refreshHistoryFor = Effect.fnUntraced(function* (
   return { listResult, pinsBefore };
 });
 
-const dropSessionAndClearSelection = Effect.fnUntraced(function* (
+const updateAndClearSelection = Effect.fnUntraced(function* (
   get: Atom.FnContext,
   launchTarget: AgentLaunchTarget,
   sessionId: string,
+  update: (snapshot: BackendHarnessSnapshot) => BackendHarnessSnapshot,
 ) {
-  // Re-read: a concurrent Bind may have upserted its session while the RPC was in flight.
-  updateHarnessSnapshot(get.registry, launchTarget, snapshot => dropSession(snapshot, sessionId));
+  // Re-read: a concurrent Bind or list may have changed the snapshot while the RPC was in flight.
+  updateHarnessSnapshot(get.registry, launchTarget, update);
   const selected = get(selectedAtom);
   if (selected?._tag === 'Session' && selected.sessionId === sessionId) {
     yield* select(get.registry, undefined);
@@ -250,12 +255,23 @@ export const createSessionLifecycleAtoms = (
         const existingSession = hasLocalSnapshot ? snapshot.sessions[arg.sessionId] : undefined;
         const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
         const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
+        const archived = historyEntry !== undefined && isArchivedEntry(historyEntry);
+        if (archived) {
+          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
+        }
 
         yield* select(get.registry, { _tag: 'Session', sessionId: arg.sessionId });
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
         if (existingSession !== undefined && isSessionActiveOrActivating(existingSession.status)) {
+          // Archived elsewhere while loaded here: still unarchive, but send no second load.
+          if (archived) {
+            yield* unarchiveSession(arg.launchTarget, arg.sessionId);
+            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+              setSessionArchived(current, arg.sessionId, false),
+            );
+          }
           yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
           return;
         }
@@ -296,10 +312,26 @@ export const createSessionLifecycleAtoms = (
           ),
         );
 
+        // Loading never unarchives (Claude, Codex): unarchive first, and send no load if that fails. A load that fails
+        // after a successful unarchive leaves the row unarchived.
+        const unarchiveFirst = archived
+          ? unarchiveSession(arg.launchTarget, arg.sessionId).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+                    setSessionArchived(current, arg.sessionId, false),
+                  );
+                }),
+              ),
+            )
+          : Effect.void;
         const exit = yield* Effect.exit(
-          useResume
-            ? resumeSession(arg.launchTarget, arg.sessionId, cwd)
-            : loadSession(arg.launchTarget, arg.sessionId, cwd),
+          Effect.andThen(
+            unarchiveFirst,
+            useResume
+              ? resumeSession(arg.launchTarget, arg.sessionId, cwd)
+              : loadSession(arg.launchTarget, arg.sessionId, cwd),
+          ),
         );
 
         if (Exit.isFailure(exit)) {
@@ -453,7 +485,9 @@ export const createSessionLifecycleAtoms = (
 
           yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
           yield* archiveSession(arg.launchTarget, arg.sessionId);
-          yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
+          yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
+            setSessionArchived(current, arg.sessionId, true),
+          );
         },
         (effect, arg) =>
           effect.pipe(
@@ -534,7 +568,9 @@ export const createSessionLifecycleAtoms = (
             ),
           );
 
-          yield* dropSessionAndClearSelection(get, arg.launchTarget, arg.sessionId);
+          yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
+            dropSession(current, arg.sessionId),
+          );
           yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
         },
         (effect, arg) =>

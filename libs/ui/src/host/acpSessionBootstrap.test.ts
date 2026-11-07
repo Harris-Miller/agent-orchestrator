@@ -7,6 +7,7 @@ import { isRecord } from '../isRecord.ts';
 
 import {
   applySessionInfoTitle,
+  compareHistoryEntries,
   defectsFromActivationFailure,
   defectsFromCause,
   defectsFromWireCause,
@@ -16,6 +17,7 @@ import {
   normalizeSessionHistory,
   normalizeSessionInfo,
   normalizeSessionInfoFromNew,
+  recentSessionsForCwd,
   resolveSessionCwd,
   sessionsForCwd,
 } from './acpSessionBootstrap.ts';
@@ -201,6 +203,53 @@ describe('sessionsForCwd', () => {
     assert.deepStrictEqual(
       sessionsForCwd(history, '/x').map(entry => entry.sessionId),
       ['a', 'z'],
+    );
+  });
+});
+
+describe('recentSessionsForCwd', () => {
+  it('lists the newest unarchived entries for cwd, never archived ones', () => {
+    const archived = { _meta: { jetbrains: { air: { archived: true } } } };
+    const history: readonly UnifiedHistoryEntry[] = [
+      { ...archived, cwd: '/x', launchTarget: 'codex-acp', sessionId: 'archived', updatedAt: '2024-09-01T00:00:00Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-03-01T00:00:00Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'b', updatedAt: '2024-02-01T00:00:00Z' },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'c', updatedAt: '2024-01-01T00:00:00Z' },
+      { cwd: '/y', launchTarget: 'codex-acp', sessionId: 'other', updatedAt: '2024-05-01T00:00:00Z' },
+    ];
+
+    assert.deepStrictEqual(
+      recentSessionsForCwd(history, '/x', 2).map(entry => entry.sessionId),
+      ['a', 'b'],
+    );
+  });
+});
+
+describe('compareHistoryEntries', () => {
+  it('puts unarchived rows before archived ones, each newest updatedAt first', () => {
+    const archived = { _meta: { jetbrains: { air: { archived: true } } } };
+    const history: readonly UnifiedHistoryEntry[] = [
+      {
+        ...archived,
+        cwd: '/x',
+        launchTarget: 'codex-acp',
+        sessionId: 'old-archived',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'old', updatedAt: '2024-02-01T00:00:00Z' },
+      {
+        ...archived,
+        cwd: '/x',
+        launchTarget: 'codex-acp',
+        sessionId: 'new-archived',
+        updatedAt: '2024-09-01T00:00:00Z',
+      },
+      { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'new', updatedAt: '2024-03-01T00:00:00Z' },
+    ];
+
+    assert.deepStrictEqual(
+      [...history].sort(compareHistoryEntries).map(entry => entry.sessionId),
+      ['new', 'old', 'new-archived', 'old-archived'],
     );
   });
 });

@@ -6,7 +6,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { compareHistoryEntriesByUpdatedAtDesc } from '../host/acpSessionBootstrap.ts';
+import { compareHistoryEntries } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -24,7 +24,7 @@ export const pinsLoadedAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(false).pipe(Atom.withLabel(`pinsLoaded:${launchTarget}`), Atom.keepAlive),
 );
 
-/** Visible (non-archived) pinned rows across launch targets, newest `updatedAt` first. Archived pins stay stored, hidden. */
+/** Visible pinned rows across launch targets, in Session History order. Hidden archived pins stay stored. */
 export const pinnedEntriesAtom = Atom.make(get => {
   const pinnedIds = new Map(
     MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => [
@@ -34,7 +34,7 @@ export const pinnedEntriesAtom = Atom.make(get => {
   );
   return get(visibleSessionHistoryAtom)
     .filter((entry: UnifiedHistoryEntry) => pinnedIds.get(entry.launchTarget)?.has(entry.sessionId) === true)
-    .sort(compareHistoryEntriesByUpdatedAtDesc);
+    .sort(compareHistoryEntries);
 }).pipe(Atom.keepAlive);
 
 /** Drops pins from disk and state. No-op until pins are loaded; failures only warn. */

@@ -8,6 +8,7 @@ import {
   findLaunchTargetForSessionId,
   selectedAtom,
   selectedSessionAtom,
+  showArchivedAtom,
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
@@ -40,7 +41,11 @@ export const selectedActiveSessionAtom = Atom.make(get => {
     return undefined;
   }
   const { sessionId } = selected;
-  const launchTarget = findLaunchTargetForSessionId(target => get(backendHarnessSnapshotAtom(target)), sessionId);
+  const launchTarget = findLaunchTargetForSessionId(
+    target => get(backendHarnessSnapshotAtom(target)),
+    sessionId,
+    get(showArchivedAtom),
+  );
   if (launchTarget === undefined) {
     return undefined;
   }

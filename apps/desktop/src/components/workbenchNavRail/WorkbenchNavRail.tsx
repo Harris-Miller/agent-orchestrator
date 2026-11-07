@@ -14,6 +14,7 @@ import {
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   SessionHistoryRow,
+  ShowArchivedToggle,
   showNoFolderGroupAtom,
   useSessionDeleteRequest,
   visibleSessionHistoryAtom,
@@ -29,6 +30,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, Settings } from 'lucide-react';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
@@ -79,6 +81,20 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
+  // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
+  // archived, a list refresh) keeps its state; only a header click changes it.
+  const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
+  const sectionExpansion = (key: string) => ({
+    expanded: !collapsedSections.has(key),
+    onChange: (_event: unknown, expanded: boolean) => {
+      setCollapsedSections(current => {
+        const next = new Set(current);
+        if (expanded) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    },
+  });
 
   const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
   // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+").
@@ -104,17 +120,20 @@ export const WorkbenchNavRail: FC<{
           onClose={onClose}
           title="Sessions"
           titleEnd={
-            <IconButton
-              aria-label="Reload sessions"
-              onClick={() => {
-                refreshAllSessionHistories(undefined).catch(() => undefined);
-              }}
-              size="small"
-            >
-              <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-                ↻
-              </Typography>
-            </IconButton>
+            <>
+              <ShowArchivedToggle />
+              <IconButton
+                aria-label="Reload sessions"
+                onClick={() => {
+                  refreshAllSessionHistories(undefined).catch(() => undefined);
+                }}
+                size="small"
+              >
+                <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                  ↻
+                </Typography>
+              </IconButton>
+            </>
           }
         />
         <Box sx={{ flexShrink: 0, p: 2 }}>
@@ -137,7 +156,11 @@ export const WorkbenchNavRail: FC<{
           ) : (
             <Box sx={{ py: 0.5 }}>
               {pinnedEntries.length > 0 ? (
-                <Accordion defaultExpanded key={PINNED_SECTION_KEY} sx={{ bgcolor: 'transparent' }}>
+                <Accordion
+                  {...sectionExpansion(PINNED_SECTION_KEY)}
+                  key={PINNED_SECTION_KEY}
+                  sx={{ bgcolor: 'transparent' }}
+                >
                   <AccordionSummary
                     sx={{
                       '&:hover': { bgcolor: 'action.hover' },
@@ -171,7 +194,11 @@ export const WorkbenchNavRail: FC<{
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;
                 return (
-                  <Accordion defaultExpanded key={presentation.key} sx={{ bgcolor: 'transparent' }}>
+                  <Accordion
+                    {...sectionExpansion(presentation.key)}
+                    key={presentation.key}
+                    sx={{ bgcolor: 'transparent' }}
+                  >
                     <AccordionSummary
                       sx={{
                         '&:hover': {

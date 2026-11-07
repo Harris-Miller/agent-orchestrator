@@ -8,7 +8,7 @@ import { AsyncResult } from 'effect/reactivity';
 import { useCallback, useContext, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { providerEnabledMapAtom } from '../atoms/backendState.atoms.ts';
+import { providerBootstrapDoneAtom } from '../atoms/backendState.atoms.ts';
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { seedProviderEnabledIfAbsent } from '../host/providerBootstrap.ts';
@@ -54,7 +54,7 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
         registry.set(userSettingsAtom, exit.value.settings);
       }
       // Only now do providers mount: the enabled preference is known and first-run defaults are persisted.
-      registry.set(providerEnabledMapAtom, exit.value.settings.providerEnabled);
+      registry.set(providerBootstrapDoneAtom, true);
       setPhase({ _tag: 'ready' });
     },
     [attempt, loaded, registry],

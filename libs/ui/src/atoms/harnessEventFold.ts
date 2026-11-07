@@ -33,6 +33,7 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import type { RefreshSessionFsListing } from './sessionFsListing.atoms.ts';
+import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   bindVirtualOnUsable,
   resetVirtualUnsupportedConfig,
@@ -114,7 +115,7 @@ export const makeHarnessEventFold = ({
       const patched = patchSessionOrSubagent(current, sessionId, patch);
       return [patched, patched];
     });
-    runFork(notifySessionAttention(next, launchTarget, sessionId, event));
+    runFork(notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event));
   };
 
   // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.

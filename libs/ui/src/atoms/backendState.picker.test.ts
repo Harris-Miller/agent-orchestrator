@@ -7,9 +7,9 @@ import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFi
 import {
   configOptionIndexAtom,
   launchTargetUnavailableReasonsAtom,
-  providerEnabledMapAtom,
   usableLaunchTargetsAtom,
 } from './backendState.atoms.ts';
+import { enableProviders } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
@@ -28,7 +28,7 @@ const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
 
 const setup = (phase: AcpBootstrapPhase, withCache: boolean) => {
   const registry = AtomRegistry.make();
-  registry.set(providerEnabledMapAtom, { 'claude-agent-acp': true });
+  enableProviders(registry, ['claude-agent-acp']);
   updateHarnessSnapshot(registry, 'claude-agent-acp', () => ({ ...initialBackendHarnessSnapshot(), phase }));
   if (withCache) registry.set(configOptionIndexAtom('claude-agent-acp'), cachedIndex);
   return registry;

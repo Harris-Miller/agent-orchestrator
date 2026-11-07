@@ -4,11 +4,11 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
+import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
@@ -29,8 +29,8 @@ const config = {
 };
 
 /** `session/new` and the archive/delete RPC are slow so the header's `switchToVirtualSession` Bind lands mid-RPC. */
-const installSlowAgent = () => {
-  setConnectedAgent('codex-acp', {
+const installSlowAgent = () =>
+  connectFakeAgent('codex-acp', {
     agent: {
       'session/close': () => Effect.sleep('50 millis'),
       'session/delete': () => Effect.sleep('50 millis'),
@@ -39,8 +39,7 @@ const installSlowAgent = () => {
     notify: () => Effect.void,
     sessionArchive: () => Effect.sleep('50 millis'),
     sessionFork: () => Effect.fail('no-fork'),
-  } as unknown as Parameters<typeof setConnectedAgent>[1]);
-};
+  });
 
 const setup = () => {
   const runtime = createHostRuntime(mockHostLayer);
@@ -75,7 +74,7 @@ describe('Header Archive/Delete races the Bind kicked by switchToVirtualSession'
   for (const action of ['archiveSessionAtomFn', 'deactivateSessionAtomFn', 'deleteSessionAtomFn'] as const) {
     it.live(`${action}: Bound Virtual session survives the stale snapshot write`, () =>
       Effect.gen(function* () {
-        installSlowAgent();
+        yield* installSlowAgent();
         const { ensureVirtualSessionAtomFn, lifecycle, registry } = setup();
 
         // Same order as SessionChatPage: switchToVirtualSession (not awaited), then the action.
@@ -91,7 +90,6 @@ describe('Header Archive/Delete races the Bind kicked by switchToVirtualSession'
           boundId !== undefined && boundId in sessions,
           'Bound id is on the Virtual blob but missing from sessions',
         );
-        clearConnectedAgent('codex-acp');
         registry.dispose();
       }),
     );

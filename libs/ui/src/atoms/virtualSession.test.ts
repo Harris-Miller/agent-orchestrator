@@ -216,7 +216,7 @@ describe('Bind', () => {
       Effect.gen(function* () {
         const calls: string[] = [];
         const preloaded: { cwd: string; sessionId: string }[] = [];
-        installFakeAgent(calls);
+        yield* installFakeAgent(calls);
         const registry = yield* freshRegistry;
         yield* seedUnbound(registry);
         const refreshFsListing = (arg: { cwd: string; sessionId: string }) =>
@@ -247,7 +247,7 @@ describe('Bind', () => {
   it.effect('usable (probe not done) still Binds; a list that landed first has its Bound id dropped', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry);
       updateHarnessSnapshot(registry, CODEX, current => ({
@@ -274,7 +274,7 @@ describe('Bind', () => {
   it.effect('a failed Bind leaves the blob unbound', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls, { failNew: true });
+      yield* installFakeAgent(calls, { failNew: true });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry);
 
@@ -289,7 +289,7 @@ describe('Bind', () => {
   it.effect('Bind does not apply the Virtual Config', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { model: 'o1' });
 
@@ -304,7 +304,7 @@ describe('Bind', () => {
   it.effect('draft, attachment and Config edits never Bind', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       // Unbound and ready with no Bind in flight: any Bind request here would reach `session/new`.
       yield* seedUnbound(registry);
@@ -323,7 +323,7 @@ describe('Bind', () => {
   it.effect('a cwd change tears down the Bound session and rebinds in the new cwd', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls);
 
@@ -343,8 +343,8 @@ describe('Bind', () => {
     () =>
       Effect.gen(function* () {
         const calls: string[] = [];
-        installFakeAgent(calls);
-        installFakeAgent(calls, {}, CLAUDE);
+        yield* installFakeAgent(calls);
+        yield* installFakeAgent(calls, {}, CLAUDE);
         const registry = yield* freshRegistry;
         setPhase(registry, CLAUDE, 'ready');
         yield* seedBound(registry, calls, { draft: 'keep me', model: 'o1' });
@@ -368,7 +368,7 @@ describe('Bind', () => {
   it.effect('a failed delete of the old session does not block the replacement Bind', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls, { failDelete: true });
+      yield* installFakeAgent(calls, { failDelete: true });
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls);
 
@@ -388,7 +388,7 @@ describe('latest-wins Bind', () => {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
       let lockDuringBind: boolean | undefined;
-      installFakeAgent(calls, {
+      yield* installFakeAgent(calls, {
         duringNew: onlyFirst(
           Effect.gen(function* () {
             lockDuringBind = registry.get(virtualMaterializingAtom);
@@ -396,7 +396,7 @@ describe('latest-wins Bind', () => {
           }),
         ),
       });
-      installFakeAgent(calls, {}, CLAUDE);
+      yield* installFakeAgent(calls, {}, CLAUDE);
       setPhase(registry, CLAUDE, 'ready');
       yield* seedUnbound(registry);
 
@@ -414,7 +414,7 @@ describe('latest-wins Bind', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, {
+      yield* installFakeAgent(calls, {
         duringNew: onlyFirst(
           Effect.orDie(
             Effect.gen(function* () {
@@ -424,7 +424,7 @@ describe('latest-wins Bind', () => {
           ),
         ),
       });
-      installFakeAgent(calls, {}, CLAUDE);
+      yield* installFakeAgent(calls, {}, CLAUDE);
       setPhase(registry, CLAUDE, 'ready');
       yield* seedUnbound(registry);
 
@@ -443,7 +443,10 @@ describe('latest-wins Bind', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, { duringNew: onlyFirst(editVirtual(registry, { cwd: '/other' })), failDelete: true });
+      yield* installFakeAgent(calls, {
+        duringNew: onlyFirst(editVirtual(registry, { cwd: '/other' })),
+        failDelete: true,
+      });
       yield* seedUnbound(registry);
 
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -458,7 +461,7 @@ describe('latest-wins Bind', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, { duringNew: onlyFirst(ensureVirtual(registry)) });
+      yield* installFakeAgent(calls, { duringNew: onlyFirst(ensureVirtual(registry)) });
       yield* seedUnbound(registry);
 
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -473,7 +476,7 @@ describe('Leaving Virtual', () => {
   it.effect('with an empty Composer, Selecting a Session discards the blob and tears down its Bound session', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls);
 
@@ -489,7 +492,7 @@ describe('Leaving Virtual', () => {
   it.effect('with an empty Composer, clearing Selected discards the blob without a History row', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls);
 
@@ -506,7 +509,7 @@ describe('Leaving Virtual', () => {
   it.effect('with Composer content the blob and its Bound session are kept', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls, { draft: 'half-typed' });
 
@@ -527,7 +530,7 @@ describe('Leaving Virtual', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, { duringNew: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
+      yield* installFakeAgent(calls, { duringNew: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
       yield* seedUnbound(registry);
 
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -543,7 +546,7 @@ describe('Leaving Virtual', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, { duringNew: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
+      yield* installFakeAgent(calls, { duringNew: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
       yield* seedUnbound(registry, { draft: 'half-typed' });
 
       yield* bindVirtualOnUsable(registry, CODEX);
@@ -558,7 +561,7 @@ describe('Leaving Virtual', () => {
   it.effect('discarding (Workspace folder gone) drops a blob with content and tears down its Bound session', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls, { draft: 'half-typed' });
 
@@ -578,7 +581,7 @@ describe('Send', () => {
     () =>
       Effect.gen(function* () {
         const calls: string[] = [];
-        installFakeAgent(calls);
+        yield* installFakeAgent(calls);
         const registry = yield* freshRegistry;
         yield* seedBound(registry, calls, { draft: 'hello world' });
         const recorder = recordingPrompt(calls);
@@ -609,7 +612,7 @@ describe('Send', () => {
   it.effect('Config diffs are applied to the Bound session before the prompt', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
 
@@ -624,7 +627,7 @@ describe('Send', () => {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
       const during: { draft?: string; locked?: boolean; pending?: boolean } = {};
-      installFakeAgent(calls, {
+      yield* installFakeAgent(calls, {
         duringSetConfig: Effect.gen(function* () {
           yield* editVirtual(registry, { draft: 'changed' });
           during.draft = blob(registry)?.draft;
@@ -647,7 +650,7 @@ describe('Send', () => {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
       const during: { blob?: ReturnType<typeof blob>; selected?: unknown } = {};
-      installFakeAgent(calls, {
+      yield* installFakeAgent(calls, {
         duringSetConfig: Effect.gen(function* () {
           yield* ensureVirtual(registry, { cwd: '/other', patchCwdIfSelectedVirtual: true });
           yield* Effect.orDie(setVirtualLaunchTarget(registry, CLAUDE));
@@ -674,7 +677,7 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
-      installFakeAgent(calls, { duringSetConfig: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
+      yield* installFakeAgent(calls, { duringSetConfig: select(registry, { _tag: 'Session', sessionId: 'real-1' }) });
       yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
 
       yield* sendVirtual(registry, recordingPrompt(calls).prompt);
@@ -693,7 +696,7 @@ describe('Send', () => {
   it.effect('unbound with no Bind in flight: requests a Bind itself, then sends', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
 
@@ -708,7 +711,7 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const binding = yield* Effect.forkChild(bindVirtualOnUsable(registry, CODEX));
@@ -734,7 +737,7 @@ describe('Send', () => {
   it.effect('waits for the provider to become usable', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       setPhase(registry, CODEX, 'connecting');
@@ -754,7 +757,7 @@ describe('Send', () => {
   it.effect('a provider ending in error fails with ProviderUnavailable; draft kept, still Virtual, not pending', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       setPhase(registry, CODEX, 'connecting');
@@ -779,7 +782,7 @@ describe('Send', () => {
   it.effect('a failed Bind fails with ProviderUnavailable; draft kept, no prompt, not pending', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls, { failNew: true });
+      yield* installFakeAgent(calls, { failNew: true });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
 
@@ -796,7 +799,7 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const recorder = recordingPrompt(calls);
@@ -817,7 +820,7 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
 
@@ -837,8 +840,8 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
-      installFakeAgent(calls, {}, CLAUDE);
+      yield* installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, {}, CLAUDE);
       const registry = yield* freshRegistry;
       setPhase(registry, CLAUDE, 'ready');
       yield* seedUnbound(registry, { draft: 'hello' });
@@ -860,7 +863,7 @@ describe('Send', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { duringNew: gate.during });
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry, { draft: 'hello' });
       const recorder = recordingPrompt(calls);
@@ -880,7 +883,7 @@ describe('Send', () => {
 const selectO1OnVirtual = (liveModel: string | undefined) =>
   Effect.gen(function* () {
     const calls: string[] = [];
-    installFakeAgent(calls);
+    yield* installFakeAgent(calls);
     const registry = yield* freshRegistry;
     if (liveModel === undefined) {
       yield* seedUnbound(registry, { model: 'gpt' });
@@ -943,7 +946,7 @@ describe('Config (blob only while Virtual)', () => {
   it.effect('Lazy hydrate: an advertised model with no row is picked on the Bound session, then written', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls);
       registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
@@ -958,7 +961,7 @@ describe('Config (blob only while Virtual)', () => {
   it.effect('Lazy hydrate: a failed pick writes nothing', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls, { failSetConfig: true });
+      yield* installFakeAgent(calls, { failSetConfig: true });
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls, { model: 'gpt' });
       registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
@@ -975,7 +978,7 @@ describe('Provider hooks', () => {
   it.effect('a stopped provider unbinds the blob and drops its launch target and Config; the draft stays', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedBound(registry, calls, { draft: 'keep', model: 'o1' });
 
@@ -1032,7 +1035,7 @@ describe('AtomFns', () => {
   it.effect('Send through the Composer submit reaches the agent via the Session-arm send', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      installFakeAgent(calls);
+      yield* installFakeAgent(calls);
       const h = yield* atomFnHarness;
       yield* seedUnboundViaAtomFns(h);
       yield* runAtomFn(h.registry, h.patchVirtualSessionAtomFn, { draft: 'hello' });
@@ -1051,7 +1054,7 @@ describe('AtomFns', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const gate = yield* gated;
-      installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { duringNew: gate.during });
       const h = yield* atomFnHarness;
       yield* seedUnboundViaAtomFns(h);
 
@@ -1072,7 +1075,7 @@ describe('AtomFns', () => {
       const calls: string[] = [];
       const gate = yield* gated;
       const prompted = yield* Deferred.make<undefined>();
-      installFakeAgent(calls, { duringNew: gate.during, duringPrompt: Deferred.succeed(prompted, undefined) });
+      yield* installFakeAgent(calls, { duringNew: gate.during, duringPrompt: Deferred.succeed(prompted, undefined) });
       const h = yield* atomFnHarness;
       yield* seedUnboundViaAtomFns(h);
       yield* runAtomFn(h.registry, h.patchVirtualSessionAtomFn, { draft: 'hello' });

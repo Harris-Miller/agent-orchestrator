@@ -8,14 +8,13 @@ import {
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import {
   beginClientRequest,
-  cancelPendingRequests,
   dropSession,
   endClientRequest,
   excludeBoundVirtualFromHistory,
   markHistoryUnavailable,
   markSessionInactive,
   mergeListedHistory,
-  reconcileStoppedProvider,
+  reconcileConnectionLost,
   replaceSessionHistory,
   stripSessionPendings,
   upsertIntoSnapshot,
@@ -185,7 +184,7 @@ describe('replaceSessionHistory', () => {
   });
 });
 
-describe('stopped provider reconcile', () => {
+describe('reconcileConnectionLost', () => {
   const pending = (): {
     snapshot: BackendHarnessSnapshot;
     elicitation: unknown[];
@@ -221,16 +220,9 @@ describe('stopped provider reconcile', () => {
     };
   };
 
-  it('cancels outstanding permission and elicitation requests', () => {
-    const { elicitation, permission, snapshot } = pending();
-    cancelPendingRequests(snapshot);
-    assert.deepStrictEqual(permission, [{ outcome: { outcome: 'cancelled' } }]);
-    assert.deepStrictEqual(elicitation, [{ action: 'cancel' }]);
-  });
-
-  it('marks every session inactive, drops pendings, keeps transcripts and marks history unavailable', () => {
+  it('marks every session inactive, drops pendings, keeps transcripts and the wire log, marks history unavailable', () => {
     const { snapshot } = pending();
-    const reconciled = reconcileStoppedProvider(snapshot);
+    const reconciled = reconcileConnectionLost(snapshot);
     assert.deepStrictEqual(
       Object.values(reconciled.sessions).map(session => [session.sessionId, session.status]),
       [
@@ -243,9 +235,26 @@ describe('stopped provider reconcile', () => {
     assert.deepStrictEqual(reconciled.sessions.s1.transcript, snapshot.sessions.s1.transcript);
     assert.deepStrictEqual(reconciled.sessionHistory, [{ cwd: '/a', sessionId: 's1', unavailable: true }]);
     assert.strictEqual(reconciled.phase, 'connecting');
-    assert.deepStrictEqual(reconciled.rpcCalls, []);
+    assert.deepStrictEqual(reconciled.rpcCalls, [{ direction: 'in', id: 'r', message: {}, receivedAt: 1 }]);
     assert.isUndefined(reconciled.antigravityAuthUrl);
     assert.isUndefined(reconciled.failure);
+  });
+
+  it('clears a stale error and is idempotent', () => {
+    const snapshot: BackendHarnessSnapshot = {
+      ...readySnapshot({ s1: activeSession('s1') }),
+      antigravityAuthUrl: 'https://auth.example',
+      failure: { _tag: 'Failed', message: 'boom' },
+      phase: 'error',
+      rpcCalls: [{ direction: 'out', id: 'r', message: {}, receivedAt: 1 }],
+    };
+    const once = reconcileConnectionLost(snapshot);
+    assert.strictEqual(once.phase, 'connecting');
+    assert.isUndefined(once.failure);
+    assert.isUndefined(once.antigravityAuthUrl);
+    assert.strictEqual(once.sessions.s1.status, 'inactive');
+    assert.deepStrictEqual(once.rpcCalls, [{ direction: 'out', id: 'r', message: {}, receivedAt: 1 }]);
+    assert.deepStrictEqual(reconcileConnectionLost(once), once);
   });
 });
 

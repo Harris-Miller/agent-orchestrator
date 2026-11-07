@@ -17,4 +17,4 @@ Client inbound RpcServer auto-spans are off on the harness path; only the three 
 
 ## Addendum: subagent sessions
 
-Turn-correlated work attributed to a **subagent session** (child updates, permission/elicitation, cancel) parents under the **root ancestor's** in-flight prompt span, found through a child→parent map (`promptSpanRegistry`). If the root turn is closed, the work is a short root, as for any orphan traffic. A child never owns a prompt span.
+Turn-correlated work attributed to a **subagent session** (child updates, permission/elicitation, cancel) parents under the **root ancestor's** in-flight prompt span, found through the child→parent map held with the live ACP Connection (`sessionRpc`). If the root turn is closed, the work is a short root, as for any orphan traffic. A child never owns a prompt span.

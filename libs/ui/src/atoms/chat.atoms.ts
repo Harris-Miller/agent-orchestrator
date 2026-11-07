@@ -15,10 +15,9 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
-import { getPromptSpan } from '../host/promptSpanRegistry.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
-import { cancelSession, setConfigOption, steerSession } from '../host/sessionRpc.ts';
+import { cancelSession, getPromptSpan, setConfigOption, steerSession } from '../host/sessionRpc.ts';
 import { turnAction } from '../host/composerAction.ts';
 import {
   appendElicitationSummary,

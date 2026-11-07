@@ -4,10 +4,10 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
+import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
@@ -17,21 +17,13 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 const setup = Effect.fnUntraced(function* (
   sessionRename: (payload: { sessionId: string; title: string }) => Effect.Effect<unknown, unknown>,
 ) {
-  yield* Effect.acquireRelease(
-    Effect.sync(() => {
-      setConnectedAgent('codex-acp', {
-        agent: {},
-        notify: () => Effect.void,
-        sessionArchive: () => Effect.void,
-        sessionFork: () => Effect.void,
-        sessionRename,
-      } as unknown as Parameters<typeof setConnectedAgent>[1]);
-    }),
-    () =>
-      Effect.sync(() => {
-        clearConnectedAgent('codex-acp');
-      }),
-  );
+  yield* connectFakeAgent('codex-acp', {
+    agent: {},
+    notify: () => Effect.void,
+    sessionArchive: () => Effect.void,
+    sessionFork: () => Effect.void,
+    sessionRename,
+  });
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
   const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));

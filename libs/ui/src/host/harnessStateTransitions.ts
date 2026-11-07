@@ -184,23 +184,17 @@ export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: st
   })),
 });
 
-/** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
-export const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
-  for (const session of [...Object.values(snapshot.sessions), ...Object.values(snapshot.subagents)]) {
-    session.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
-    session.pendingElicitation?.resolve({ action: 'cancel' });
-  }
-};
-
 /**
- * Local state after the provider process is gone: every session inactive with pendings cleared, history and
- * transcripts preserved (history marked unavailable), connection-scoped state reset. Sessions are not reopened.
- * Caller clears invalid selection / Virtual binding.
+ * Connection lost: local state once the provider's ACP Connection is gone. Every session inactive with pendings
+ * cleared, history and transcripts preserved (history marked unavailable), connection-scoped state reset to a fresh
+ * bootstrap (phase, failure, initialize result, Sign in URL). The RPC wire log is kept. Idempotent. Sessions are not
+ * reopened; the caller cancels pending interactions and unbinds the Virtual session.
  */
-export const reconcileStoppedProvider = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => {
+export const reconcileConnectionLost = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => {
   const stripped = stripSessionPendings(snapshot, Object.keys(snapshot.sessions));
   return {
     ...initialBackendHarnessSnapshot(),
+    rpcCalls: snapshot.rpcCalls,
     sessionHistory: markHistoryUnavailable(snapshot.sessionHistory),
     sessions: Object.fromEntries(
       Object.entries(stripped.sessions).map(([sessionId, session]) => [

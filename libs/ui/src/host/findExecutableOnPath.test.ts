@@ -424,7 +424,9 @@ describe('auth messages through bootstrap publication', () => {
         'claude-agent-acp',
         {
           hasConfigOptionIndex: () => true,
+          onConfigIndexEvent: noop,
           onConfigOptionIndexPublish: noop,
+          onConnectionLost: noop,
           onElicitationCreate: noop,
           onInitializeResult: noop,
           onPermissionRequest: noop,

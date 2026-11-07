@@ -4,25 +4,30 @@ import { mapFsTestServices } from '@lib/ao-home/testing';
 import type { MapFsEntry } from '@lib/ao-home/testing';
 import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
-import { Effect, Layer, Option, Tracer } from 'effect';
+import type { Tracer } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { clearPromptSpansForLaunchTarget, getPromptSpan, setPromptSpan } from '../host/promptSpanRegistry.ts';
-import { clearConnectedAgent, setConnectedAgent } from '../host/sessionRpc.ts';
+import type { BackendConnectionReports } from '../host/sessionRpc.ts';
+import { getPromptSpan, sendPrompt } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { configOptionIndexAtom, providerEnabledMapAtom } from './backendState.atoms.ts';
+import { connectFakeAgent, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import {
+  editVirtual,
   ensureVirtual,
+  sendVirtual,
   setVirtualConfigOption,
   setVirtualLaunchTarget,
+  virtualMaterializingAtom,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
@@ -67,19 +72,9 @@ const setup = Effect.fnUntraced(function* () {
   return { drain, fold, layer, notified, registry, snapshot, store };
 });
 
-/** Minimal fake agent whose `session/new` answers with `sessionId`; cleared when the scope closes. */
-const fakeSessionNew = (sessionId: string) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      setConnectedAgent(LT, {
-        agent: { 'session/new': () => Effect.succeed({ sessionId }) },
-      } as unknown as Parameters<typeof setConnectedAgent>[1]);
-    }),
-    () =>
-      Effect.sync(() => {
-        clearConnectedAgent(LT);
-      }),
-  );
+/** Minimal fake agent whose `session/new` answers with `sessionId`; released (with `reports`) when the scope closes. */
+const fakeSessionNew = (sessionId: string, reports?: BackendConnectionReports) =>
+  connectFakeAgent(LT, { agent: { 'session/new': () => Effect.succeed({ sessionId }) } }, reports);
 
 /** Selected Virtual on `/a` + this launch target (+ `model`), seeded through the Virtual session verbs while not usable. */
 const seedVirtual = Effect.fnUntraced(function* (h: Effect.Success<ReturnType<typeof setup>>, model?: string) {
@@ -156,23 +151,25 @@ describe('Harness event fold: subagent link', () => {
         sessions: { [CHILD]: initialSessionSnapshot(CHILD, 'active'), p1: initialSessionSnapshot('p1', 'active') },
       }));
       yield* writeSessionUsage(CHILD, { size: 1, used: 1 }).pipe(Effect.provide(h.layer));
-      const rootSpan = Tracer.externalSpan({ spanId: 'root-span', traceId: 'trace' });
-      setPromptSpan(LT, 'p1', rootSpan);
+      const spans: { child?: Tracer.AnySpan; root?: Tracer.AnySpan } = {};
+      yield* installFakeAgent([], {
+        duringPrompt: Effect.sync(() => {
+          h.fold.onSessionUpdate('p1', spawn.update);
+          spans.child = getPromptSpan(LT, CHILD);
+          spans.root = getPromptSpan(LT, 'p1');
+        }),
+      });
 
-      h.fold.onSessionUpdate('p1', spawn.update);
+      yield* sendPrompt(LT, 'p1', []);
       yield* h.drain;
 
       assert.notProperty(h.snapshot().sessions, CHILD);
       assert.strictEqual(h.snapshot().subagents[CHILD].parentSessionId, 'p1');
       assert.isTrue(Option.isNone(yield* readSessionUsage(CHILD).pipe(Effect.provide(h.layer))));
-      assert.strictEqual(getPromptSpan(LT, CHILD), rootSpan);
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          clearPromptSpansForLaunchTarget(LT);
-        }),
-      ),
-    ),
+      assert.isDefined(spans.root);
+      assert.strictEqual(spans.child, spans.root);
+      assert.isUndefined(getPromptSpan(LT, CHILD));
+    }),
   );
 });
 
@@ -210,13 +207,7 @@ describe('Harness event fold: pending interactions', () => {
       assert.strictEqual(h.snapshot().subagents[CHILD].pendingElicitation?.sessionId, CHILD);
       assert.notProperty(h.snapshot().sessions, CHILD);
       assert.deepStrictEqual(h.notified, [{ body: 'Needs input', title: 'My chat · Reply alpha' }]);
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          clearPromptSpansForLaunchTarget(LT);
-        }),
-      ),
-    ),
+    }),
   );
 });
 
@@ -273,6 +264,160 @@ describe('Harness event fold: bootstrap reports', () => {
         ],
       );
       yield* h.drain;
+    }),
+  );
+});
+
+describe('Harness event fold: Connection lost', () => {
+  it.effect('sessions inactive, pendings cancelled, history unavailable, wire log kept', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const permission: unknown[] = [];
+      const elicitation: unknown[] = [];
+      updateHarnessSnapshot(h.registry, LT, current => ({
+        ...current,
+        phase: 'ready',
+        sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'My chat' }],
+        sessions: { s1: initialSessionSnapshot('s1', 'active') },
+      }));
+      h.fold.onRpcMessage('out', { method: 'session/prompt' });
+      h.fold.onPermissionRequest('s1', {} as never, response => {
+        permission.push(response);
+      });
+      h.fold.onElicitationCreate('s1', {}, response => {
+        elicitation.push(response);
+      });
+
+      h.fold.onConnectionLost();
+      yield* h.drain;
+
+      const { phase, rpcCalls, sessionHistory, sessions } = h.snapshot();
+      assert.strictEqual(sessions.s1.status, 'inactive');
+      assert.isUndefined(sessions.s1.pendingPermission);
+      assert.isUndefined(sessions.s1.pendingElicitation);
+      assert.deepStrictEqual(permission, [{ outcome: { outcome: 'cancelled' } }]);
+      assert.deepStrictEqual(elicitation, [{ action: 'cancel' }]);
+      assert.deepStrictEqual(sessionHistory, [{ cwd: '/proj', sessionId: 's1', title: 'My chat', unavailable: true }]);
+      assert.deepStrictEqual(
+        rpcCalls.map(({ message }) => message),
+        [{ method: 'session/prompt' }],
+      );
+      assert.strictEqual(phase, 'connecting');
+    }),
+  );
+
+  it.effect('unbinds the Virtual session but keeps draft, launch target and Config', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const calls: string[] = [];
+      yield* installFakeAgent(calls);
+      yield* seedVirtual(h, 'gpt');
+      h.fold.onPhase('usable');
+      yield* h.drain;
+      const bound = h.registry.get(virtualSessionAtom);
+      assert.strictEqual(bound?.sessionId, 'bound-1');
+
+      h.fold.onConnectionLost();
+      yield* h.drain;
+
+      const after = h.registry.get(virtualSessionAtom);
+      assert.isUndefined(after?.sessionId);
+      assert.strictEqual(after?.launchTarget, LT);
+      assert.strictEqual(after?.cwd, '/a');
+      assert.strictEqual(after?.draft, bound?.draft);
+      assert.deepStrictEqual(after?.configValues, bound?.configValues);
+      assert.notProperty(h.snapshot().sessions, 'bound-1');
+      assert.deepStrictEqual(calls, ['new']);
+    }),
+  );
+
+  it.effect('leaves a Virtual session Bound on another launch target alone', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const other = makeHarnessEventFold({
+        launchTarget: 'claude-agent-acp',
+        refreshFsListing: () => Effect.void,
+        registry: h.registry,
+        runFork: () => undefined,
+      });
+      yield* fakeSessionNew('bound');
+      yield* seedVirtual(h);
+      h.fold.onPhase('usable');
+      yield* h.drain;
+      const bound = h.registry.get(virtualSessionAtom);
+      assert.strictEqual(bound?.sessionId, 'bound');
+
+      other.onConnectionLost();
+
+      assert.strictEqual(h.registry.get(virtualSessionAtom), bound);
+      assert.strictEqual(h.snapshot().sessions.bound.status, 'active');
+    }),
+  );
+
+  it.effect('leaves the Bound Virtual session alone under the Lifecycle lock (Materialize owns it)', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const calls: string[] = [];
+      const during: { inSnapshot?: boolean; locked?: boolean; sessionId?: string } = {};
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          h.fold.onConnectionLost();
+          during.locked = h.registry.get(virtualMaterializingAtom);
+          during.sessionId = h.registry.get(virtualSessionAtom)?.sessionId;
+          during.inSnapshot = 'bound-1' in h.snapshot().sessions;
+        }),
+      });
+      yield* seedVirtual(h, 'o1');
+      yield* editVirtual(h.registry, { draft: 'hello' });
+      h.fold.onPhase('usable');
+      yield* h.drain;
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
+
+      yield* sendVirtual(h.registry, () => Effect.void);
+      yield* h.drain;
+
+      assert.deepStrictEqual(during, { inSnapshot: true, locked: true, sessionId: 'bound-1' });
+      assert.deepStrictEqual(calls, ['new', 'set:model:o1']);
+    }),
+  );
+
+  it.effect('after Connection lost the next usable Binds a fresh session', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* seedVirtual(h);
+      yield* Effect.gen(function* () {
+        yield* fakeSessionNew('old', h.fold);
+        h.fold.onPhase('usable');
+        yield* h.drain;
+        assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'old');
+      }).pipe(Effect.scoped);
+      // Let the detached Bind fiber settle its bookkeeping (the harness's retry sleep does this in the app).
+      yield* Effect.yieldNow;
+
+      yield* fakeSessionNew('new', h.fold);
+      h.fold.onPhase('usable');
+      yield* h.drain;
+
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'new');
+      assert.notProperty(h.snapshot().sessions, 'old');
+    }),
+  );
+
+  it.effect('a Bind in flight at Connection lost does not bind the dead session', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, {
+        duringNew: Effect.sync(() => {
+          h.fold.onConnectionLost();
+        }),
+      });
+      yield* seedVirtual(h);
+      h.fold.onPhase('usable');
+      yield* h.drain;
+
+      assert.isUndefined(h.registry.get(virtualSessionAtom)?.sessionId);
+      assert.notProperty(h.snapshot().sessions, 'bound-1');
     }),
   );
 });

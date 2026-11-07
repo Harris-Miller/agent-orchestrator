@@ -80,7 +80,6 @@ export * from './host/handoffDocument.ts';
 export * from './host/harnessStateTransitions.ts';
 export * from './host/noFolderSessionCwd.ts';
 export * from './host/pendingInteractions.ts';
-export * from './host/promptSpanRegistry.ts';
 export * from './host/resolveFdBinary.ts';
 export * from './host/runFdInstallCommand.ts';
 export * from './host/notifyAttention.ts';

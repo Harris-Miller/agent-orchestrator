@@ -5,18 +5,17 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { cancelPendingRequests, reconcileStoppedProvider } from '../host/harnessStateTransitions.ts';
+import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
-import { requestAntigravitySignIn, resetBackendHarnessState, runBackendHarness } from '../host/backendHarness.ts';
-import { setConfigIndexSink } from '../host/sessionRpc.ts';
+import { requestAntigravitySignIn, runBackendHarness } from '../host/backendHarness.ts';
 
-import { backendDesiredStateAtom, backendHarnessSnapshotAtom } from './backendState.atoms.ts';
+import { backendDesiredStateAtom } from './backendState.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { refreshFsListingViaRegistry } from './sessionFsListing.atoms.ts';
 import type { RefreshSessionFsListingAtomFn } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { clearSelectedIfMissing, resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
+import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
 export const createHarnessAtoms = (
   runtime: HostRuntimeBag,
@@ -42,7 +41,6 @@ export const createHarnessAtoms = (
           hostRunFork(effect);
         },
       });
-      setConfigIndexSink(launchTarget, fold.onConfigIndexEvent);
       lifecycle.start(
         launchTarget,
         runBackendHarness(launchTarget, fold, () => registry.get(sessionListScopeAtom)),
@@ -51,17 +49,20 @@ export const createHarnessAtoms = (
   );
 
   /**
-   * Stop the provider and reconcile local state: await process exit, cancel pending requests, mark sessions
-   * inactive (history and transcripts preserved), clear invalid selection / Virtual binding. Sessions are not
-   * reopened automatically.
+   * Stop the provider and reconcile local state. `lifecycle.stop` awaits process exit; a live connection's release
+   * runs Connection lost (pending requests cancelled, sessions inactive with history and transcripts preserved,
+   * Virtual unbound). The reconcile is applied once more so a Stop with no live connection (retry sleep, retries
+   * exhausted, launch-prerequisite failure) still clears a Bootstrap `error`; it is idempotent. Stop alone also clears
+   * the RPC wire log (Connection lost keeps it across retries; Stop is its only bound) and drops the Virtual session's
+   * launch target and Config. Sessions are not reopened automatically.
    */
   const stopAndReconcile = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
     yield* lifecycle.stop(launchTarget);
-    resetBackendHarnessState(launchTarget);
-    cancelPendingRequests(get.registry.get(backendHarnessSnapshotAtom(launchTarget)));
-    updateHarnessSnapshot(get.registry, launchTarget, reconcileStoppedProvider);
+    updateHarnessSnapshot(get.registry, launchTarget, snapshot => ({
+      ...reconcileConnectionLost(snapshot),
+      rpcCalls: [],
+    }));
     resetVirtualOnProviderStopped(get.registry, launchTarget);
-    clearSelectedIfMissing(get.registry);
   });
 
   const startBackend = (launchTarget: AgentLaunchTarget, get: Atom.FnContext): void => {

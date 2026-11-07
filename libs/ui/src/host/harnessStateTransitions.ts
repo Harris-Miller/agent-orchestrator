@@ -11,6 +11,8 @@ import {
   normalizeSessionHistory,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
+import { agentCapabilitiesFrom } from './agentCapabilities.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
@@ -250,10 +252,22 @@ export const endPromptTurn = (
       };
 };
 
+/** Initialize answered: store the raw result (Developer panel) and the Agent capabilities read from it, once. */
+export const applyInitializeResult = (
+  snapshot: BackendHarnessSnapshot,
+  launchTarget: AgentLaunchTarget,
+  initializeResult: unknown,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  agentCapabilities: agentCapabilitiesFrom(launchTarget, initializeResult),
+  initializeResult,
+  phase: 'initialized',
+});
+
 /**
  * Connection lost: local state once the provider's ACP Connection is gone. Every session inactive with pendings
  * cleared, history and transcripts preserved (history marked unavailable), connection-scoped state reset to a fresh
- * bootstrap (phase, failure, initialize result, Sign in URL). The RPC wire log is kept. Idempotent. Sessions are not
+ * bootstrap (phase, failure, initialize result and Agent capabilities, Sign in URL). The RPC wire log is kept. Idempotent. Sessions are not
  * reopened; the caller cancels pending interactions and unbinds the Virtual session.
  */
 export const reconcileConnectionLost = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => {

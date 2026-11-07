@@ -6,7 +6,6 @@ import type { FC, ReactNode, SyntheticEvent } from 'react';
 
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { renameSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { canRename } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 
 import { noopClientError } from './noopClientError.ts';
@@ -17,7 +16,7 @@ const stopPropagation = (event: SyntheticEvent) => {
 };
 
 /**
- * Session title: `children` while idle (double-click starts editing when `canRename`), an inline input while
+ * Session title: `children` while idle (double-click starts editing when the entry is available and the Agent supports rename), an inline input while
  * `editing`. Enter / blur commit the trimmed title; Esc, empty or unchanged cancel without an RPC.
  */
 export const SessionTitleInlineRename: FC<{
@@ -40,7 +39,7 @@ export const SessionTitleInlineRename: FC<{
     return (
       <Box
         onDoubleClick={event => {
-          if (!canRename(entry, snapshot.initializeResult)) return;
+          if (entry.unavailable === true || !snapshot.agentCapabilities.sessionRename) return;
           event.stopPropagation();
           onEditingChange(true);
         }}

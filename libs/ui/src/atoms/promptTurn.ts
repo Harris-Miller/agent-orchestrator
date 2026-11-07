@@ -32,7 +32,6 @@
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { hasSteeringSupport } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
@@ -101,7 +100,7 @@ const runPrompt = Effect.fnUntraced(function* (
   const prompt = yield* promptBlocksFromComposerDraft(text, {
     attachments,
     cwd: sessionIn(registry, launchTarget, sessionId)?.cwd,
-    initializeResult: snapshotOf(registry, launchTarget).initializeResult,
+    agentCapabilities: snapshotOf(registry, launchTarget).agentCapabilities,
   });
 
   const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, prompt));
@@ -187,7 +186,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
   const action = sessionTurnAction(snapshot, sessionId, {
     hasContent: text.length > 0 || attachments.length > 0,
-    steeringSupported: hasSteeringSupport(snapshot.initializeResult),
+    steeringSupported: snapshot.agentCapabilities.steeringSupported,
   });
   if (action._tag !== 'Steer' || session === undefined) {
     return yield* refusal('Steering', action);
@@ -197,7 +196,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   const prompt = yield* promptBlocksFromComposerDraft(text, {
     attachments,
     cwd: session.cwd,
-    initializeResult: snapshot.initializeResult,
+    agentCapabilities: snapshot.agentCapabilities,
   });
   const result = yield* steerSession(launchTarget, sessionId, prompt);
 

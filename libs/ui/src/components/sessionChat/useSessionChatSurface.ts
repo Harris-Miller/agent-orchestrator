@@ -27,7 +27,7 @@ import {
 import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
-import { hasSessionForkCapability, normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 import { unavailableReason } from '../../host/providerView.ts';
@@ -105,7 +105,7 @@ export const useSessionChatSurface = () => {
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     sessionCwd !== undefined &&
-    hasSessionForkCapability(backendSnapshot?.initializeResult);
+    backendSnapshot?.agentCapabilities.sessionFork === true;
 
   const requestFork = useCallback((): Promise<unknown> | undefined => {
     if (

@@ -6,7 +6,9 @@ import {
   normalizeSessionHistory,
 } from './acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
+import { agentCapabilitiesFrom, NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
 import {
+  applyInitializeResult,
   beginClientRequest,
   beginPromptTurn,
   dropSession,
@@ -332,6 +334,39 @@ describe('reconcileConnectionLost', () => {
     assert.strictEqual(once.sessions.s1.status, 'inactive');
     assert.deepStrictEqual(once.rpcCalls, [{ direction: 'out', id: 'r', message: {}, receivedAt: 1 }]);
     assert.deepStrictEqual(reconcileConnectionLost(once), once);
+  });
+});
+
+describe('applyInitializeResult', () => {
+  const initializeResult = {
+    _meta: { steering: { supported: true } },
+    agentCapabilities: { sessionCapabilities: { close: {}, fork: {} } },
+  };
+
+  it('stores the raw result and the Agent capabilities read from it, and leaves sessions and history alone', () => {
+    const before: BackendHarnessSnapshot = {
+      ...readySnapshot({ s1: activeSession('s1') }),
+      phase: 'connecting',
+      sessionHistory: [{ cwd: '/a', sessionId: 's1' }],
+    };
+    const after = applyInitializeResult(before, 'claude-agent-acp', initializeResult);
+    assert.strictEqual(after.initializeResult, initializeResult);
+    assert.deepStrictEqual(after.agentCapabilities, {
+      ...NO_AGENT_CAPABILITIES,
+      sessionClose: true,
+      sessionFork: true,
+      steeringSupported: true,
+    });
+    assert.deepStrictEqual(after.agentCapabilities, agentCapabilitiesFrom('claude-agent-acp', initializeResult));
+    assert.strictEqual(after.phase, 'initialized');
+    assert.strictEqual(after.sessions, before.sessions);
+    assert.strictEqual(after.sessionHistory, before.sessionHistory);
+  });
+
+  it('Connection lost resets the Agent capabilities', () => {
+    const initialized = applyInitializeResult(readySnapshot(), 'claude-agent-acp', initializeResult);
+    assert.deepStrictEqual(reconcileConnectionLost(initialized).agentCapabilities, NO_AGENT_CAPABILITIES);
+    assert.deepStrictEqual(initialBackendHarnessSnapshot().agentCapabilities, NO_AGENT_CAPABILITIES);
   });
 });
 

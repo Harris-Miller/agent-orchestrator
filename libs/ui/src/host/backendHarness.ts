@@ -15,7 +15,7 @@ import { Cause, Effect, Exit, Ref } from 'effect';
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { airCapability, airMeta } from './airMeta.ts';
+import { clientCapabilitiesFor } from './agentCapabilities.ts';
 import {
   ANTIGRAVITY_OAUTH_PERSONAL,
   ANTIGRAVITY_SIGN_IN_TIMEOUT,
@@ -123,16 +123,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.logInfo('ACP harness connected', launchTarget, { pid: connection.handle.pid });
 
     const initializeResult = yield* agent.initialize({
-      clientCapabilities: {
-        ...(launchTarget === 'claude-agent-acp' || launchTarget === 'codex-acp'
-          ? {
-              _meta: airMeta({ capabilities: [airCapability.sessionIndex] }),
-            }
-          : {}),
-        elicitation: { form: {} },
-        session: { configOptions: { boolean: {} } },
-        subagents: {},
-      },
+      clientCapabilities: clientCapabilitiesFor(launchTarget),
       protocolVersion: 1,
     });
     handlers.onInitializeResult(initializeResult);

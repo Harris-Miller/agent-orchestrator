@@ -9,6 +9,7 @@ import { AtomRegistry } from 'effect/reactivity';
 
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { applyInitializeResult } from '../host/harnessStateTransitions.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
 import { registerBackendConnection } from '../host/sessionRpc.ts';
 
@@ -36,6 +37,7 @@ export const selectableConfig = {
 };
 
 export type FakeAgentOpts = {
+  readonly failClose?: boolean;
   readonly failDelete?: boolean;
   readonly failNew?: boolean;
   readonly failSetConfig?: boolean;
@@ -73,7 +75,9 @@ export const connectFakeAgent = (
 
 /**
  * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
- * `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude.
+ * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
+ * `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude; a fork is `fork-1`. It answers every RPC it knows whatever it advertises: seed what
+ * it advertises with {@link advertise}.
  */
 export const installFakeAgent = (
   calls: string[],
@@ -86,11 +90,15 @@ export const installFakeAgent = (
     agent: {
       'session/close': ({ sessionId }: { sessionId: string }) => {
         calls.push(`close:${sessionId}`);
-        return Effect.void;
+        return opts.failClose === true ? Effect.fail('close-fail') : Effect.void;
       },
       'session/delete': ({ sessionId }: { sessionId: string }) => {
         calls.push(`delete:${sessionId}`);
         return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
+      },
+      'session/load': ({ sessionId }: { sessionId: string }) => {
+        calls.push(`load:${sessionId}`);
+        return Effect.succeed(selectableConfig);
       },
       'session/new': () => {
         calls.push(isClaude ? 'new:claude' : 'new');
@@ -108,6 +116,10 @@ export const installFakeAgent = (
           ? Effect.andThen(during, Effect.fail('prompt-fail'))
           : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
       },
+      'session/resume': ({ sessionId }: { sessionId: string }) => {
+        calls.push(`resume:${sessionId}`);
+        return Effect.succeed(selectableConfig);
+      },
       'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
         calls.push(`set:${configId}:${String(value)}`);
         if (opts.failSetConfig === true) {
@@ -124,8 +136,18 @@ export const installFakeAgent = (
       }
       return Effect.void;
     },
-    sessionArchive: () => Effect.fail('no-archive'),
-    sessionFork: () => Effect.fail('no-fork'),
+    sessionArchive: ({ sessionId }: { sessionId: string }) => {
+      calls.push(`archive:${sessionId}`);
+      return Effect.void;
+    },
+    sessionFork: ({ sessionId }: { sessionId: string }) => {
+      calls.push(`fork:${sessionId}`);
+      return Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
+    },
+    sessionRename: ({ sessionId }: { sessionId: string }) => {
+      calls.push(`rename:${sessionId}`);
+      return Effect.void;
+    },
     sessionSteering: ({ sessionId }: { sessionId: string }) => {
       calls.push(`steer:${sessionId}`);
       const during = opts.duringSteering ?? Effect.void;
@@ -138,6 +160,14 @@ export const installFakeAgent = (
 
 export const setPhase = (registry: Registry, launchTarget: AgentLaunchTarget, phase: AcpBootstrapPhase) => {
   updateHarnessSnapshot(registry, launchTarget, current => ({ ...current, phase }));
+};
+
+/** What the Agent advertises: apply a raw initialize result through the real Harness state transition, then go `ready`. */
+export const advertise = (registry: Registry, launchTarget: AgentLaunchTarget, initializeResult: unknown) => {
+  updateHarnessSnapshot(registry, launchTarget, current => ({
+    ...applyInitializeResult(current, launchTarget, initializeResult),
+    phase: 'ready',
+  }));
 };
 
 /** Registry with Codex and Claude enabled, disposed when the scope closes. */

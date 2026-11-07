@@ -4,6 +4,7 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
@@ -54,6 +55,7 @@ const setup = () => {
 
   updateHarnessSnapshot(registry, 'codex-acp', () => ({
     ...initialBackendHarnessSnapshot(),
+    agentCapabilities: { ...NO_AGENT_CAPABILITIES, sessionArchive: true, sessionClose: true },
     phase: 'ready',
     sessions: {
       'old-1': {

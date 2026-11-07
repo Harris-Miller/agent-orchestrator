@@ -170,7 +170,7 @@ Harness action that injects a new user message into the in-flight prompt turn vi
 _Avoid_: Queue, interrupt, follow-up message
 
 **Steering supported**:
-Agent advertises `_meta.steering.supported: true` on the `initialize` result (top level, not under `agentCapabilities`). Gates Steering; when absent, the Composer is still editable mid-turn but cannot send and Prompt turn cancel stays the primary action.
+Agent advertises `_meta.steering.supported: true` on the `initialize` result (top level, not under the ACP `agentCapabilities` field). One of the Agent capabilities (ui context); gates Steering. When absent, the Composer is still editable mid-turn but cannot send and Prompt turn cancel stays the primary action.
 _Avoid_: promptQueueing (a separate Claude-only flag we ignore), steer capability
 
 **Pending elicitation**:
@@ -198,7 +198,7 @@ A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/re
 _Avoid_: Open session, live session
 
 **Deactivate**:
-Harness action that sends ACP `session/close` for an Active session (after a Prompt turn cancel if a prompt is in flight) and marks it `inactive`. The session stays in Session History with its transcript; clicking the row reactivates it. Labeled **Close** in the Harness UI and shown only when the agent advertises `sessionCapabilities.close`. Memory savings depend on the adapter (soft close for Gemini/Antigravity per ADR 0010; best-effort for Cursor/Antigravity per ADR 0013/0014).
+Harness action that sends ACP `session/close` for an Active session (after a Prompt turn cancel if a prompt is in flight) and marks it `inactive`. The session stays in Session History with its transcript; clicking the row reactivates it. Labeled **Close** in the Harness UI and shown only when the agent advertises `sessionCapabilities.close`. Close failure policy: ADR 0013/0014. Memory savings depend on the adapter.
 _Avoid_: End session, Close (UI label only — use Deactivate in code/docs)
 
 ## Agent backends

@@ -801,6 +801,11 @@ export const unbindVirtualOnConnectionLost = (registry: Registry, launchTarget: 
   if (registry.get(virtualMaterializingAtom)) {
     return;
   }
+  // Supersede an in-flight Bind: its `session/new` may land after the loss with a dead id; it now tears that down.
+  const bind = registry.get(virtualBindAtom);
+  if (bind.current?.launchTarget === launchTarget) {
+    registry.set(virtualBindAtom, { current: undefined, latest: bind.latest + 1 });
+  }
   const virtual = registry.get(virtualSessionAtom);
   if (virtual?.launchTarget !== launchTarget || virtual.sessionId === undefined) {
     return;

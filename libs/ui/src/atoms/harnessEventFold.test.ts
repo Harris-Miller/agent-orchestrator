@@ -402,6 +402,24 @@ describe('Harness event fold: Connection lost', () => {
       assert.notProperty(h.snapshot().sessions, 'old');
     }),
   );
+
+  it.effect('a Bind in flight at Connection lost does not bind the dead session', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, {
+        duringNew: Effect.sync(() => {
+          h.fold.onConnectionLost();
+        }),
+      });
+      yield* seedVirtual(h);
+      h.fold.onPhase('usable');
+      yield* h.drain;
+
+      assert.isUndefined(h.registry.get(virtualSessionAtom)?.sessionId);
+      assert.notProperty(h.snapshot().sessions, 'bound-1');
+    }),
+  );
 });
 
 describe('Harness event fold: Session History list', () => {

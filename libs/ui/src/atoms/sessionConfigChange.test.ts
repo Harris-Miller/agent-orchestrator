@@ -107,7 +107,7 @@ describe('setSessionConfigOption (Config change)', () => {
         setConfig: () =>
           Effect.andThen(
             Effect.sync(() => {
-              fold.onSessionUpdate('s1', configUpdate(report('gpt', 'plan').configOptions));
+              fold.onSessionUpdate('s1', configUpdate(report('o1', 'plan').configOptions));
             }),
             Effect.fail('set-fail'),
           ),

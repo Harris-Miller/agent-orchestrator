@@ -15,7 +15,7 @@ import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeA
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { ComposerActionUnavailable } from './promptTurn.ts';
+import { ComposerActionUnavailable, SteerFallbackTurnFailed } from './promptTurn.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { ensureVirtual, select, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -201,6 +201,28 @@ describe('Composer action and submit agree', () => {
       assert.isTrue(Exit.isSuccess(exit));
       assert.deepStrictEqual(h.calls, ['steer:s1', 'prompt:s1']);
       assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a fallback Send that began and then failed keeps the message and does not restore the draft', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({
+        duringSteering: Effect.suspend(() => {
+          patchSession(h.registry, 's1', { pendingClientRequest: undefined });
+          return Effect.void;
+        }),
+        prompt: 'fail',
+        steering: 'promptRequired',
+      });
+      yield* h.edit({ draft: 'hello' });
+      patchSession(h.registry, 's1', { pendingClientRequest: 'prompt' });
+
+      const exit = yield* h.submit;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), SteerFallbackTurnFailed);
+      assert.deepStrictEqual(h.calls, ['steer:s1', 'prompt:s1']);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, '');
     }).pipe(Effect.scoped),
   );
 });

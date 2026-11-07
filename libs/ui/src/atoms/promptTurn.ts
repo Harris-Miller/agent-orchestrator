@@ -26,7 +26,8 @@
  *    only through {@link sendPromptTurn}.
  *
  * Error modes: {@link ComposerActionUnavailable} (refused, or the Steer fallback timed out); `ImageAttachmentRejected`
- * (prompt blocks); `BackendNotConnected` and RPC errors. After a turn has begun, its user message stays.
+ * (prompt blocks); `BackendNotConnected` and RPC errors. After a turn has begun, its user message stays; the Steer
+ * fallback wraps any other failure of its Send in {@link SteerFallbackTurnFailed} so callers can tell it apart.
  */
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
@@ -53,6 +54,11 @@ export class ComposerActionUnavailable extends Schema.TaggedError<ComposerAction
   'ComposerActionUnavailable',
   { message: Schema.String },
 ) {}
+
+/** The Steer fallback's Send failed for a reason other than a refusal: its turn may have begun (user message stays). */
+export class SteerFallbackTurnFailed extends Schema.TaggedError<SteerFallbackTurnFailed>()('SteerFallbackTurnFailed', {
+  cause: Schema.Defect(),
+}) {}
 
 export type PromptTurnInput = {
   readonly attachments?: readonly ComposerImageAttachment[];
@@ -216,7 +222,11 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
   // The ended turn's `session/prompt` response may still be in flight; Send once it has cleared the request.
   yield* awaitNoClientRequest(registry, launchTarget, sessionId);
-  yield* sendPromptTurn(registry, input);
+  yield* sendPromptTurn(registry, input).pipe(
+    Effect.mapError(error =>
+      error instanceof ComposerActionUnavailable ? error : new SteerFallbackTurnFailed({ cause: error }),
+    ),
+  );
 });
 
 /** Prompt turn cancel. No-op unless a prompt is in flight on that Session. */

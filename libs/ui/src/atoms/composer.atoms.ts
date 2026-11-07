@@ -14,11 +14,12 @@
  * - Submit reads the Composer action and takes the draft from the registry in one synchronous step, so the action
  *   performed is the one decided for that draft.
  * - Submit is concurrent: a later submit never interrupts an earlier in-flight Send or Steering.
- * - A failed Steering puts the message back into the steered Session's draft, ahead of anything typed since.
+ * - A failed Steering puts the message back into the steered Session's draft, ahead of anything typed since, unless
+ *   its fallback Send had begun (the message is in the transcript then).
  * - A refused Send puts the draft back the same way (nothing was appended). A Send that started does not.
  * - Every write goes through the registry (a re-invoked AtomFn's `FnContext.set` is a no-op).
  */
-import { Cause, Effect } from 'effect';
+import { Cause, Effect, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -38,7 +39,7 @@ import {
   selectedSessionLaunchTargetAtom,
 } from './backendState.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
-import { sendPromptTurn, steerPromptTurn } from './promptTurn.ts';
+import { sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
 import {
   editVirtual,
   sendVirtual,
@@ -215,7 +216,8 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         }
         yield* steerPromptTurn(registry, arg).pipe(
           Effect.onError(cause =>
-            Cause.hasInterruptsOnly(cause)
+            Cause.hasInterruptsOnly(cause) ||
+            Cause.findErrorOption(cause).pipe(Option.exists(error => error instanceof SteerFallbackTurnFailed))
               ? Effect.void
               : Effect.sync(() => {
                   restoreSessionDraft(registry, sessionId, taken);

@@ -1,8 +1,8 @@
 /**
  * The Composer action, decided once (glossary: Composer action; desktop ADR-0018, ui ADR-0007).
  *
- * - {@link turnAction}: the rule for one Session. Every effect that prompts or steers consults it, so the Harness
- *   refuses whatever the Composer would not offer.
+ * - {@link turnAction}: the rule for one Session. The Prompt turn and every client-request begin consult it, so the
+ *   Harness refuses whatever the Composer would not offer.
  * - {@link composerGates}: the Composer's view over the Selected target. For a Session it is {@link turnAction} plus
  *   the Handoff lock; the Virtual arm adds readiness, the Lifecycle lock and Send pending. It can only be stricter
  *   than {@link turnAction}, never laxer.

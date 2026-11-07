@@ -22,6 +22,10 @@ _Avoid_: primary button state, canSend, canSteer
 Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering; otherwise it stays in the Composer and is sent as a normal prompt after the turn ends. If Steering fails, the message goes back into that Session's Composer, ahead of anything typed since.
 _Avoid_: Queued prompt, pending message, outbox
 
+**Prompt turn**:
+The Harness side of one ACP Turn the user starts on a Session, by Send or by Handoff: the user message with its turn timing, the Pending client request while the Turn runs, Steering into it, Prompt turn cancel of it, and an Attention event when it ends. Starts only when the Composer action's rule would offer Send for that Session (a running Handoff's own lock aside) and Bootstrap is `usable` (or `ready`); a refused start leaves the transcript as it was.
+_Avoid_: request, generation, Turn (unqualified: the ACP cycle)
+
 **Bind**:
 Eager, optimistic `session/new` for the Virtual draft once absolute cwd, launch target, and Bootstrap `usable` (or `ready`) are known: sessions-map upsert + Bound id on the Virtual blob; not a History entry; no Config apply (Materialize alone applies Config). Selected stays Virtual. Never locks the composer or Config controls: the latest `{launch target, cwd}` wins, and a superseded Bind's session is torn down in the background. While Selected is Virtual, Config changes write only the Virtual blob; the Bound session's live Config may differ until Materialize applies diffs. Triggers: creating or re-selecting the Virtual session, a launch target or cwd change, the provider becoming `usable`, and Send when none is in flight (draft, attachment, and Config edits never Bind). Distinct from Materialize (first-Send promote).
 _Avoid_: Materialize, activate, session create (when you mean this Virtual-only step)
@@ -43,11 +47,11 @@ The Harness application state for one launch target: Bootstrap phase and failure
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request begin/end. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot — pending strip, inactive/drop, Session History replace, Materialize upsert, client-request and Prompt turn begin/end. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:
-The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot and carries out its consequences — Usage persisted, a Subagent session's parent recorded for turn-correlated tracing, Attention events, the `usable` Bind, the Connection lost unbind.
+The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot and carries out its consequences — Usage persisted, a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
 _Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
 
 **Backend harness**:
@@ -156,7 +160,7 @@ A draft-side image picked via Host FileDialog, held in-memory as metadata plus a
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Attention event**:
-A moment the user should notice in any session (not only the Selected one): a prompt turn ending with any stop reason except `cancelled` (including the handoff prompt for a pinned session — `promptPinnedSession`, unrelated to Pin, the user mark in the desktop glossary), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
+A moment the user should notice in any session (not only the Selected one): a Prompt turn ending with any stop reason except `cancelled` (Handoff's Prompt turns included), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
 **Copy message**:

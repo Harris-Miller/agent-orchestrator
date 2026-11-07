@@ -14,10 +14,12 @@
  * - Submit reads the Composer action and takes the draft from the registry in one synchronous step, so the action
  *   performed is the one decided for that draft.
  * - Submit is concurrent: a later submit never interrupts an earlier in-flight Send or Steering.
- * - A failed Steering puts the message back into the steered Session's draft, ahead of anything typed since.
+ * - A failed Steering puts the message back into the steered Session's draft, ahead of anything typed since, unless
+ *   its fallback Send had begun (the message is in the transcript then).
+ * - A refused Send puts the draft back the same way (nothing was appended). A Send that started does not.
  * - Every write goes through the registry (a re-invoked AtomFn's `FnContext.set` is a no-op).
  */
-import { Cause, Effect } from 'effect';
+import { Cause, Effect, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -36,8 +38,8 @@ import {
   selectedSessionAtom,
   selectedSessionLaunchTargetAtom,
 } from './backendState.atoms.ts';
-import { sendChatItemEffect, steerChatItemEffect } from './chat.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
+import { sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
 import {
   editVirtual,
   sendVirtual,
@@ -151,7 +153,7 @@ const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {
   return taken;
 };
 
-/** Put a failed Steering message back into its Session's draft, ahead of anything typed since. */
+/** Put a failed Steering or refused Send back into its Session's draft, ahead of anything typed since. */
 const restoreSessionDraft = (registry: Registry, sessionId: string, taken: Draft): void => {
   const current = registry.get(sessionDraftAtom(sessionId));
   setSessionDraft(registry, sessionId, {
@@ -186,7 +188,7 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           if (action._tag === 'Send') {
             // The draft stays on the Virtual session until Materialize succeeds (ui ADR-0007).
             yield* sendVirtual(registry, materialized =>
-              sendChatItemEffect({ ...materialized, text: materialized.draft }, get),
+              sendPromptTurn(registry, { ...materialized, text: materialized.draft }),
             );
           }
           return;
@@ -200,14 +202,22 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         yield* Effect.annotateCurrentSpan('composer.action', action._tag);
         const arg = { attachments: taken.attachments, launchTarget, sessionId, text: taken.draft };
         if (action._tag === 'Send') {
-          // The draft is not restored. Send's gate reads the state this action was decided from, so it is not refused
-          // here; once the user message is appended, a failed prompt leaves the message in the transcript.
-          yield* sendChatItemEffect(arg, get);
+          // Once the Prompt turn has begun, a failed prompt leaves the message in the transcript, so the draft stays
+          // taken. The Harness can still refuse a Send the Composer offered (it also checks Bootstrap phase); nothing
+          // was appended then, so the draft goes back.
+          yield* sendPromptTurn(registry, arg).pipe(
+            Effect.tapErrorTag('ComposerActionUnavailable', () =>
+              Effect.sync(() => {
+                restoreSessionDraft(registry, sessionId, taken);
+              }),
+            ),
+          );
           return;
         }
-        yield* steerChatItemEffect(arg, get).pipe(
+        yield* steerPromptTurn(registry, arg).pipe(
           Effect.onError(cause =>
-            Cause.hasInterruptsOnly(cause)
+            Cause.hasInterruptsOnly(cause) ||
+            Cause.findErrorOption(cause).pipe(Option.exists(error => error instanceof SteerFallbackTurnFailed))
               ? Effect.void
               : Effect.sync(() => {
                   restoreSessionDraft(registry, sessionId, taken);

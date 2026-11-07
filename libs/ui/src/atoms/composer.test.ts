@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit } from 'effect';
+import { Effect, Exit, Option } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -15,6 +15,7 @@ import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeA
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
+import { ComposerActionUnavailable, SteerFallbackTurnFailed } from './promptTurn.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { ensureVirtual, select, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -200,6 +201,46 @@ describe('Composer action and submit agree', () => {
       assert.isTrue(Exit.isSuccess(exit));
       assert.deepStrictEqual(h.calls, ['steer:s1', 'prompt:s1']);
       assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a fallback Send that began and then failed keeps the message and does not restore the draft', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({
+        duringSteering: Effect.suspend(() => {
+          patchSession(h.registry, 's1', { pendingClientRequest: undefined });
+          return Effect.void;
+        }),
+        prompt: 'fail',
+        steering: 'promptRequired',
+      });
+      yield* h.edit({ draft: 'hello' });
+      patchSession(h.registry, 's1', { pendingClientRequest: 'prompt' });
+
+      const exit = yield* h.submit;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), SteerFallbackTurnFailed);
+      assert.deepStrictEqual(h.calls, ['steer:s1', 'prompt:s1']);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, '');
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('a refused Send gives the draft back', () => {
+  it.effect('when Bootstrap is not usable (the Composer still offers Send)', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      yield* h.edit({ draft: 'hello' });
+      setPhase(h.registry, CODEX, 'initialized');
+      assert.deepStrictEqual(h.registry.get(composerAtom).action, { _tag: 'Send' });
+
+      const exit = yield* h.submit;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ComposerActionUnavailable);
+      assert.deepStrictEqual(h.calls, []);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
     }).pipe(Effect.scoped),
   );
 });

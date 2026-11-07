@@ -2,49 +2,10 @@ import { assert, describe, it } from '@effect/vitest';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
-import { applySessionUpdate, withUserChatMessage } from './applySessionUpdate.ts';
+import { applySessionUpdate } from './applySessionUpdate.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 const emptyHistory: readonly NormalizedSessionInfo[] = [];
-
-describe('withUserChatMessage', () => {
-  it('appends a user_message and preserves other session fields', () => {
-    const session = { ...initialSessionSnapshot('s1', 'active'), cwd: '/proj' };
-    const next = withUserChatMessage(session, 'hello');
-    assert.strictEqual(next.cwd, '/proj');
-    assert.strictEqual(next.sessionId, 's1');
-    assert.strictEqual(next.status, 'active');
-    assert.strictEqual(next.transcript.items.length, 1);
-    assert.deepStrictEqual(next.transcript.items[0], {
-      id: next.transcript.items[0]?.id,
-      kind: 'user_message',
-      text: 'hello',
-    });
-    assert.notStrictEqual(next.transcript, session.transcript);
-  });
-
-  it('lifts mid-draft image file:// markdown into images (composer @ mention)', () => {
-    const session = initialSessionSnapshot('s1', 'active');
-    const next = withUserChatMessage(
-      session,
-      'Testing what happens [@laios_portrait.jpeg](file:///tmp/laios_portrait.jpeg) in the middle',
-    );
-    assert.deepStrictEqual(next.transcript.items, [
-      {
-        id: next.transcript.items[0]?.id,
-        images: [
-          {
-            mimeType: 'image/jpeg',
-            name: 'laios_portrait.jpeg',
-            uri: 'file:///tmp/laios_portrait.jpeg',
-          },
-        ],
-        kind: 'user_message',
-        text: 'Testing what happens in the middle',
-      },
-    ]);
-  });
-});
 
 describe('applySessionUpdate', () => {
   it('returns noop for unrecognized updates with no side effects', () => {

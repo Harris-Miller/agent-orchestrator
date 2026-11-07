@@ -1,12 +1,11 @@
 /** Cross-launch-target session handoff Atom fns. */
 import { Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
-import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { withUserChatMessage } from '../host/applySessionUpdate.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import {
   buildTargetHandoffSeedPrompt,
@@ -14,7 +13,6 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
-import { turnAction } from '../host/composerAction.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
 import { createSession, setConfigOption } from '../host/sessionRpc.ts';
@@ -25,7 +23,7 @@ import {
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { patchSession, sendPromptSoftCancel, withSessionClientRequest } from './sessionPatch.atoms.ts';
+import { sendPromptTurn } from './promptTurn.ts';
 import { select } from './virtualSession.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
@@ -34,54 +32,22 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
   message: Schema.String,
 }) {}
 
-/** Prompt a Session pinned by launch target as a new turn (never Steering). Exported for the turnAction gate tests. */
-export const promptPinnedSession = Effect.fn('promptPinnedSession')(
-  function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext, sessionId: string, text: string) {
-    const trimmed = text.trim();
-    const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
-    if (!isUsablePhase(snapshot.phase)) {
-      return yield* new HandoffError({ message: `Backend not usable for ${agentLaunchTargetLabel(launchTarget)}` });
-    }
-
-    // A Handoff prompt is a new turn, never Steering.
-    const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
-    const action = turnAction(session, { hasContent: trimmed.length > 0, steeringSupported: false });
-    if (action._tag !== 'Send') {
-      // Not active is reported first, even with a Pending client request (e.g. mid-Deactivate).
-      return yield* new HandoffError({
-        message:
-          session?.status !== 'active'
-            ? `Session ${sessionId} is not active`
-            : action._tag === 'Unavailable' && action.reason === 'Empty'
-              ? 'Handoff prompt text is empty'
-              : `Session ${sessionId} cannot accept a prompt right now`,
-      });
-    }
-
-    yield* Effect.logInfo('Pinned session prompt', launchTarget, sessionId, { chars: trimmed.length });
-    updateHarnessSnapshot(get.registry, launchTarget, current => ({
-      ...current,
-      sessions: patchSession(current.sessions, sessionId, s => withUserChatMessage(s, trimmed)),
-    }));
-
-    const response = yield* withSessionClientRequest(
-      launchTarget,
-      get,
-      sessionId,
-      'prompt',
-      sendPromptSoftCancel(launchTarget, get, sessionId, trimmed),
+/**
+ * Run one Handoff step's Prompt turn on `sessionId` (a full Send, never Steering). A refused or cancelled turn fails
+ * the Handoff.
+ */
+export const handoffPrompt = Effect.fn('handoffPrompt')(
+  function* (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget, sessionId: string, text: string) {
+    yield* Effect.logInfo('Handoff prompt', launchTarget, sessionId, { chars: text.trim().length });
+    const { stopReason } = yield* sendPromptTurn(registry, { launchTarget, sessionId, text }).pipe(
+      Effect.catchTag('ComposerActionUnavailable', error => Effect.fail(new HandoffError({ message: error.message }))),
     );
-    if (response === undefined) {
-      return yield* new HandoffError({ message: `Session ${sessionId} skipped prompt` });
-    }
-    if (response.stopReason === 'cancelled') {
+    if (stopReason === 'cancelled') {
       return yield* new HandoffError({ message: `Session ${sessionId} prompt was cancelled` });
     }
   },
-  (effect, launchTarget, _get, sessionId) =>
-    effect.pipe(
-      Effect.tapError(error => Effect.logError('promptPinnedSession failed', launchTarget, sessionId, error)),
-    ),
+  (effect, _registry, launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('handoffPrompt failed', launchTarget, sessionId, error))),
 );
 
 export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
@@ -122,7 +88,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           }
 
           // Source handoff prompt is the only hard gate: failure means no target session.
-          yield* promptPinnedSession(arg.sourceLaunchTarget, get, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
+          yield* handoffPrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
 
           const sourceChatItems = get(backendHarnessSnapshotAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
             .transcript.items;
@@ -169,9 +135,9 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           );
 
           const seedExit = yield* Effect.exit(
-            promptPinnedSession(
+            handoffPrompt(
+              get.registry,
               arg.targetLaunchTarget,
-              get,
               targetSessionId,
               buildTargetHandoffSeedPrompt(handoffDocument),
             ),

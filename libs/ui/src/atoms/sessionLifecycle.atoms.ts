@@ -22,6 +22,7 @@ import {
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
+import { patchSession } from '../host/sessionSnapshot.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
 import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
@@ -53,7 +54,6 @@ import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { patchSession } from './sessionPatch.atoms.ts';
 import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 /** Reset an activated session's model/options the Config option index no longer offers; soft-fails to the live configuration. */

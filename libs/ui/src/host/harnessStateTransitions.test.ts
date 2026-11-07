@@ -8,8 +8,10 @@ import {
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import {
   beginClientRequest,
+  beginPromptTurn,
   dropSession,
   endClientRequest,
+  endPromptTurn,
   excludeBoundVirtualFromHistory,
   markHistoryUnavailable,
   markSessionInactive,
@@ -64,17 +66,17 @@ describe('beginClientRequest', () => {
       ...readySnapshot({ s1: activeSession('s1') }),
       phase: 'connecting',
     };
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when session is inactive', () => {
     const snapshot = readySnapshot({ s1: initialSessionSnapshot('s1', 'inactive') });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when a pending client request exists', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1', { pendingClientRequest: 'config' }) });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('rejects when pending elicitation exists', () => {
@@ -88,14 +90,14 @@ describe('beginClientRequest', () => {
         },
       }),
     });
-    assert.isUndefined(beginClientRequest(snapshot, 's1', 'prompt'));
+    assert.isUndefined(beginClientRequest(snapshot, 's1'));
   });
 
   it('accepts and sets pendingClientRequest kind', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const next = beginClientRequest(snapshot, 's1', 'prompt');
+    const next = beginClientRequest(snapshot, 's1');
     assert.ok(next !== undefined);
-    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'prompt');
+    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'config');
   });
 });
 
@@ -107,6 +109,81 @@ describe('endClientRequest', () => {
     const next = endClientRequest(snapshot, 's1');
     assert.isUndefined(next.sessions.s1.pendingClientRequest);
     assert.isUndefined(next.sessions.s1.promptCancelRequested);
+  });
+
+  it('leaves a Session that is no longer in the map dropped', () => {
+    const snapshot = readySnapshot();
+    assert.strictEqual(endClientRequest(snapshot, 's1'), snapshot);
+  });
+});
+
+describe('beginPromptTurn', () => {
+  it('refuses with the decided action when Bootstrap is not usable', () => {
+    const snapshot: BackendHarnessSnapshot = { ...readySnapshot({ s1: activeSession('s1') }), phase: 'initialized' };
+    assert.deepStrictEqual(beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'hi' }), {
+      _tag: 'Refused',
+      action: { _tag: 'Unavailable', reason: 'NotReady' },
+    });
+  });
+
+  it('refuses with CancelTurn while a prompt is in flight (a Send never sees Steer)', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingClientRequest: 'prompt' }) });
+    assert.deepStrictEqual(beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'hi' }), {
+      _tag: 'Refused',
+      action: { _tag: 'CancelTurn' },
+    });
+  });
+
+  it('refuses an empty prompt', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    assert.deepStrictEqual(beginPromptTurn(snapshot, 's1', { startedAt: 1, text: '' }), {
+      _tag: 'Refused',
+      action: { _tag: 'Unavailable', reason: 'Empty' },
+    });
+  });
+
+  it('sets the Pending client request and appends the user message stamped startedAt', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    const begun = beginPromptTurn(snapshot, 's1', { startedAt: 42, text: 'hello' });
+    assert.strictEqual(begun._tag, 'Begun');
+    if (begun._tag !== 'Begun') return;
+    const session = begun.snapshot.sessions.s1;
+    assert.strictEqual(session.pendingClientRequest, 'prompt');
+    assert.deepStrictEqual(session.transcript.items, [
+      { id: begun.turnId, kind: 'user_message', startedAt: 42, text: 'hello' },
+    ]);
+  });
+});
+
+describe('endPromptTurn', () => {
+  it('clears the request and Prompt turn cancel, and stamps endedAt only on its own turn', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    const first = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });
+    assert.strictEqual(first._tag, 'Begun');
+    if (first._tag !== 'Begun') return;
+    const ended = endPromptTurn(first.snapshot, 's1', first.turnId, 5);
+    const second = beginPromptTurn(ended, 's1', { startedAt: 6, text: 'two' });
+    assert.strictEqual(second._tag, 'Begun');
+    if (second._tag !== 'Begun') return;
+    const cancelling: BackendHarnessSnapshot = {
+      ...second.snapshot,
+      sessions: { s1: { ...second.snapshot.sessions.s1, promptCancelRequested: true } },
+    };
+    const next = endPromptTurn(cancelling, 's1', second.turnId, 9).sessions.s1;
+    assert.isUndefined(next.pendingClientRequest);
+    assert.isUndefined(next.promptCancelRequested);
+    assert.deepStrictEqual(
+      next.transcript.items.map(item => (item.kind === 'user_message' ? [item.startedAt, item.endedAt] : [])),
+      [
+        [1, 5],
+        [6, 9],
+      ],
+    );
+  });
+
+  it('leaves a Session that is no longer in the map dropped', () => {
+    const snapshot = readySnapshot();
+    assert.strictEqual(endPromptTurn(snapshot, 's1', 'turn', 9), snapshot);
   });
 });
 

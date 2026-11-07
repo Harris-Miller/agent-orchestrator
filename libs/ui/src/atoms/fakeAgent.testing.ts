@@ -2,7 +2,7 @@
  * Test-only stand-ins: a fake ACP agent registered as the Backend connection (through the real
  * `registerBackendConnection`, released with the test's scope), a disposable registry, and a phase flip.
  */
-import type { SessionSteeringResponse } from '@libs/effect-acp';
+import type { SessionSteeringResponse, StopReason } from '@libs/effect-acp';
 import { Deferred, Effect } from 'effect';
 import type { Scope } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
@@ -45,6 +45,8 @@ export type FakeAgentOpts = {
   readonly duringSetConfig?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
   readonly duringPrompt?: Effect.Effect<void>;
+  /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`. */
+  readonly prompt?: 'fail' | StopReason;
   /** Runs inside `_session/steering` before it resolves. */
   readonly duringSteering?: Effect.Effect<void>;
   /** `_session/steering` result (default `injected`); `fail` makes the RPC fail. */
@@ -71,7 +73,7 @@ export const connectFakeAgent = (
 
 /**
  * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
- * `prompt:<id>` and `steer:<id>` in `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude.
+ * `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude.
  */
 export const installFakeAgent = (
   calls: string[],
@@ -101,7 +103,10 @@ export const installFakeAgent = (
       },
       'session/prompt': ({ sessionId }: { sessionId: string }) => {
         calls.push(`prompt:${sessionId}`);
-        return Effect.as(opts.duringPrompt ?? Effect.void, { stopReason: 'end_turn' as const });
+        const during = opts.duringPrompt ?? Effect.void;
+        return opts.prompt === 'fail'
+          ? Effect.andThen(during, Effect.fail('prompt-fail'))
+          : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
       },
       'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
         calls.push(`set:${configId}:${String(value)}`);
@@ -113,7 +118,12 @@ export const installFakeAgent = (
         });
       },
     },
-    notify: () => Effect.void,
+    notify: (method: string, params: { sessionId?: string }) => {
+      if (method === 'session/cancel') {
+        calls.push(`cancel:${params.sessionId}`);
+      }
+      return Effect.void;
+    },
     sessionArchive: () => Effect.fail('no-archive'),
     sessionFork: () => Effect.fail('no-fork'),
     sessionSteering: ({ sessionId }: { sessionId: string }) => {

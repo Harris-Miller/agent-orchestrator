@@ -84,7 +84,7 @@ _Avoid_: chat header, title bar
 
 **Pin**:
 A user mark on a History entry (per launch target, persisted in ao-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned but hidden. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
-_Avoid_: favorite, star, bookmark; "pinned-session handoff prompt" is unrelated (see `promptPinnedSession`)
+_Avoid_: favorite, star, bookmark
 
 **Pinned section**:
 The top Session History region listing visible pinned entries newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename ("No Folder" for scratch cwds), shown regardless of the No Folder group setting. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
@@ -166,7 +166,7 @@ Harness action that sends ACP `session/cancel` for an in-flight prompt turn on a
 _Avoid_: Stop generation (vendor-specific), abort session, Close (that is Deactivate)
 
 **Steering**:
-Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a normal `session/prompt`. Not a prompt queue — there is none.
+Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a new prompt turn once the ended turn's `session/prompt` response has arrived; if it does not arrive within a few seconds, the Steering fails. Not a prompt queue — there is none.
 _Avoid_: Queue, interrupt, follow-up message
 
 **Steering supported**:

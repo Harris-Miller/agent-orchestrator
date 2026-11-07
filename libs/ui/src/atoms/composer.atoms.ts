@@ -158,7 +158,7 @@ export const composerAtom = Atom.make((get): Composer => {
       handoffInProgress,
       hasContent: hasContent(draft),
       session,
-      steeringSupported: get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steering ?? false,
+      steeringSupported: get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
     target:

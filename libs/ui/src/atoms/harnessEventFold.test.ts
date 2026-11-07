@@ -259,7 +259,7 @@ describe('Harness event fold: bootstrap reports', () => {
         _meta: { steering: { supported: true } },
         protocolVersion: 1,
       });
-      assert.isTrue(h.snapshot().agentCapabilities.steering);
+      assert.isTrue(h.snapshot().agentCapabilities.steeringSupported);
       assert.deepStrictEqual(
         h.snapshot().rpcCalls.map(({ direction, message }) => ({ direction, message })),
         [

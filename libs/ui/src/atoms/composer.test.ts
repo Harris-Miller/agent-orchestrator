@@ -34,7 +34,7 @@ import {
 
 type Registry = AtomRegistry.AtomRegistry;
 
-const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steering: true };
+const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steeringSupported: true };
 
 const image = (id: string): ComposerImageAttachment => ({
   byteLength: 4,

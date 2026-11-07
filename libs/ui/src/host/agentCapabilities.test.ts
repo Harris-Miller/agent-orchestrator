@@ -12,7 +12,7 @@ const ALL: AgentCapabilities = {
   sessionFork: true,
   sessionRename: true,
   sessionResume: true,
-  steering: true,
+  steeringSupported: true,
 };
 
 const claudeWithAir = {
@@ -44,7 +44,7 @@ describe('agentCapabilitiesFrom', () => {
       'Codex without AIR _meta has no archive, rename or steering',
       'codex-acp',
       codexWithoutAir,
-      { ...ALL, sessionArchive: false, sessionRename: false, steering: false },
+      { ...ALL, sessionArchive: false, sessionRename: false, steeringSupported: false },
     ],
     [
       'Antigravity-like list + resume only',
@@ -84,14 +84,17 @@ describe('agentCapabilitiesFrom', () => {
   });
 
   it('reads Steering only from top-level _meta.steering.supported === true', () => {
-    assert.isTrue(agentCapabilitiesFrom('codex-acp', { _meta: { steering: { supported: true } } }).steering);
+    assert.isTrue(agentCapabilitiesFrom('codex-acp', { _meta: { steering: { supported: true } } }).steeringSupported);
     for (const initializeResult of [
       { _meta: { steering: { supported: 'true' } } },
       { _meta: { steering: { supported: false } } },
       { _meta: { steering: {} } },
       { agentCapabilities: { _meta: { steering: { supported: true } } } },
     ]) {
-      assert.isFalse(agentCapabilitiesFrom('codex-acp', initializeResult).steering, JSON.stringify(initializeResult));
+      assert.isFalse(
+        agentCapabilitiesFrom('codex-acp', initializeResult).steeringSupported,
+        JSON.stringify(initializeResult),
+      );
     }
   });
 

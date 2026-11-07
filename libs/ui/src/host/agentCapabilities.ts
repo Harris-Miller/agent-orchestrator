@@ -21,7 +21,7 @@ const AGENT_CAPABILITY_KEYS = [
   'sessionFork',
   'sessionRename',
   'sessionResume',
-  'steering',
+  'steeringSupported',
 ] as const;
 
 export type AgentCapability = (typeof AGENT_CAPABILITY_KEYS)[number];
@@ -30,7 +30,7 @@ export type AgentCapability = (typeof AGENT_CAPABILITY_KEYS)[number];
  * - `promptEmbeddedContext` / `promptImage`: `agentCapabilities.promptCapabilities.*`
  * - `sessionArchive` / `sessionRename`: AIR `_meta.jetbrains.air.capabilities`
  * - `sessionClose` / `sessionFork` / `sessionResume`: `agentCapabilities.sessionCapabilities.*` (resume minus never-resume Providers)
- * - `steering`: top-level `_meta.steering.supported === true`
+ * - `steeringSupported`: top-level `_meta.steering.supported === true`
  */
 export type AgentCapabilities = Readonly<Record<AgentCapability, boolean>>;
 
@@ -42,7 +42,7 @@ export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
   sessionFork: false,
   sessionRename: false,
   sessionResume: false,
-  steering: false,
+  steeringSupported: false,
 };
 
 type ProviderQuirks = {
@@ -88,7 +88,7 @@ export const agentCapabilitiesFrom = (
     sessionFork: session('fork'),
     sessionRename: air.includes(airCapability.sessionRename),
     sessionResume: !PROVIDER_QUIRKS[launchTarget].neverResume && session('resume'),
-    steering: at(initializeResult, ['_meta', 'steering', 'supported']) === true,
+    steeringSupported: at(initializeResult, ['_meta', 'steering', 'supported']) === true,
   };
 };
 

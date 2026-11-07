@@ -48,7 +48,7 @@ const hostLayer = Layer.mergeAll(
   posixPathLayer,
 );
 
-const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steering: true };
+const steeringCapabilities = { ...NO_AGENT_CAPABILITIES, steeringSupported: true };
 
 const pendingPermission = { request: {}, resolve: () => undefined } as unknown as SessionSnapshot['pendingPermission'];
 

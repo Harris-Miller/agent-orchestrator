@@ -355,7 +355,7 @@ describe('applyInitializeResult', () => {
       ...NO_AGENT_CAPABILITIES,
       sessionClose: true,
       sessionFork: true,
-      steering: true,
+      steeringSupported: true,
     });
     assert.deepStrictEqual(after.agentCapabilities, agentCapabilitiesFrom('claude-agent-acp', initializeResult));
     assert.strictEqual(after.phase, 'initialized');

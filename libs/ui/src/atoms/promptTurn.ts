@@ -186,7 +186,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
   const action = sessionTurnAction(snapshot, sessionId, {
     hasContent: text.length > 0 || attachments.length > 0,
-    steeringSupported: snapshot.agentCapabilities.steering,
+    steeringSupported: snapshot.agentCapabilities.steeringSupported,
   });
   if (action._tag !== 'Steer' || session === undefined) {
     return yield* refusal('Steering', action);

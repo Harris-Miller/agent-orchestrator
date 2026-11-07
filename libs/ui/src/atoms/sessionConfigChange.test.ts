@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Fiber } from 'effect';
+import { Effect, Fiber } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { initialSessionSnapshot, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
@@ -113,9 +113,10 @@ describe('setSessionConfigOption (Config change)', () => {
           ),
       }));
 
-      const exit = yield* Effect.exit(setSessionConfigOption(h.registry, target, modelToO1));
+      const error = yield* Effect.flip(setSessionConfigOption(h.registry, target, modelToO1));
 
-      assert.isTrue(Exit.isFailure(exit));
+      // The fake agent fails with a bare string, outside the RPC error type.
+      assert.strictEqual<unknown>(error, 'set-fail');
       assert.strictEqual(configValue(h.s1().configuration, 'model'), 'gpt');
       assert.strictEqual(configValue(h.s1().configuration, 'mode'), 'plan');
       assert.isUndefined(h.s1().pendingClientRequest);
@@ -134,9 +135,10 @@ describe('setSessionConfigOption (Config change)', () => {
           ),
       }));
 
-      const exit = yield* Effect.exit(setSessionConfigOption(h.registry, target, modelToO1));
+      const error = yield* Effect.flip(setSessionConfigOption(h.registry, target, modelToO1));
 
-      assert.isTrue(Exit.isFailure(exit));
+      // The fake agent fails with a bare string, outside the RPC error type.
+      assert.strictEqual<unknown>(error, 'set-fail');
       assert.strictEqual(configValue(h.s1().configuration, 'model'), 'gpt-5');
     }).pipe(Effect.scoped),
   );
@@ -180,9 +182,10 @@ describe('setSessionConfigOption (Config change)', () => {
       };
       h.registry.set(configOptionIndexAtom(CODEX), index);
 
-      const exit = yield* Effect.exit(setSessionConfigOption(h.registry, target, modelToO1));
+      const error = yield* Effect.flip(setSessionConfigOption(h.registry, target, modelToO1));
 
-      assert.isTrue(Exit.isFailure(exit));
+      // The fake agent fails with a bare string, outside the RPC error type.
+      assert.strictEqual<unknown>(error, 'refused');
       assert.strictEqual(configValue(h.s1().configuration, 'model'), 'gpt');
       assert.deepStrictEqual(h.registry.get(configOptionIndexAtom(CODEX))?.unavailableModelIds, ['o1']);
     }).pipe(Effect.scoped),

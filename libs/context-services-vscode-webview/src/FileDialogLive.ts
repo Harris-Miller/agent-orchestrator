@@ -9,12 +9,11 @@ export const makeFileDialogLive = (client: IpcClient): Layer.Layer<FileDialog> =
   Layer.succeed(FileDialog, {
     pickFiles: Effect.fn('FileDialog.pickFiles')(function* (options?: PickFilesOptions) {
       const response = yield* client
-        .request(id => ({
-          _tag: 'FileDialogPickFiles' as const,
+        .request({
+          _tag: 'FileDialogPickFiles',
           filters: options?.filters === undefined ? undefined : cloneFileDialogFilters(options.filters),
-          id,
           multiple: options?.multiple === true ? true : undefined,
-        }))
+        })
         .pipe(
           Effect.mapError(
             cause =>
@@ -24,11 +23,6 @@ export const makeFileDialogLive = (client: IpcClient): Layer.Layer<FileDialog> =
               }),
           ),
         );
-      if (response._tag !== 'FileDialogPickFilesResult') {
-        return yield* new FileDialogFailed({
-          message: `Unexpected FileDialog response: ${response._tag}`,
-        });
-      }
       return response.paths;
     }),
   });

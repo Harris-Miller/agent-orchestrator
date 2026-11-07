@@ -7,25 +7,14 @@ import type { IpcClient } from './protocol/ipcClient.ts';
 export const makeOpenUrlLive = (client: IpcClient): Layer.Layer<OpenUrl> =>
   Layer.succeed(OpenUrl, {
     open: Effect.fn('OpenUrl.open')(function* (url: string) {
-      const response = yield* client
-        .request(id => ({
-          _tag: 'OpenUrl' as const,
-          id,
-          url,
-        }))
-        .pipe(
-          Effect.mapError(
-            cause =>
-              new OpenUrlFailed({
-                cause,
-                message: cause instanceof Error ? cause.message : String(cause),
-              }),
-          ),
-        );
-      if (response._tag !== 'OpenUrlResult') {
-        return yield* new OpenUrlFailed({
-          message: `Unexpected OpenUrl response: ${response._tag}`,
-        });
-      }
+      yield* client.request({ _tag: 'OpenUrl', url }).pipe(
+        Effect.mapError(
+          cause =>
+            new OpenUrlFailed({
+              cause,
+              message: cause instanceof Error ? cause.message : String(cause),
+            }),
+        ),
+      );
     }),
   });

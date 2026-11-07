@@ -1,7 +1,14 @@
 import { Effect, Schema } from 'effect';
 
-import { decodeIpcMessage, encodeIpcMessage, getIpcTransferList, unknownBytesToUint8Array } from './messages.ts';
-import type { HandleId, IpcMessage } from './messages.ts';
+import { decodeIpcMessage, postIpcMessage, resultTagOf, unknownBytesToUint8Array } from './messages.ts';
+import type {
+  HandleId,
+  HostIpcRequestInput,
+  HostIpcRequestTag,
+  HostIpcResult,
+  IpcMessage,
+  WebviewPush,
+} from './messages.ts';
 import type { IpcPort } from './port.ts';
 
 export class IpcClientError extends Schema.TaggedError<IpcClientError>()('IpcClientError', {
@@ -10,6 +17,7 @@ export class IpcClientError extends Schema.TaggedError<IpcClientError>()('IpcCli
 }) {}
 
 type Pending = {
+  readonly requestTag: HostIpcRequestTag;
   readonly resume: (effect: Effect.Effect<IpcMessage, IpcClientError>) => void;
 };
 
@@ -57,11 +65,6 @@ export class IpcClient {
     });
   }
 
-  public readonly allocateCorrelationId = (): string => {
-    this.nextId += 1;
-    return `c-${this.nextId}`;
-  };
-
   public readonly dispose = (): void => {
     this.disposeListen();
     for (const [, pending] of this.pending) {
@@ -83,14 +86,9 @@ export class IpcClient {
     };
   };
 
-  public readonly post = (message: IpcMessage): void => {
-    const encoded = encodeIpcMessage(message);
-    const transfer = getIpcTransferList(message);
-    if (transfer !== undefined) {
-      this.port.postMessage(encoded, transfer);
-      return;
-    }
-    this.port.postMessage(encoded);
+  /** Send a **Host IPC push** (no reply). Requests go through {@link IpcClient.request}. */
+  public readonly post = (message: WebviewPush): void => {
+    postIpcMessage(this.port, message);
   };
 
   public readonly registerProcess = (handleId: HandleId, listeners: ProcessListeners): void => {
@@ -98,14 +96,20 @@ export class IpcClient {
   };
 
   /**
-   * Send a correlated request and wait for a matching response (same `id`) or `Error`.
+   * Send a **Host IPC request** and wait for its Result (same `id`). An `Error` reply, any other reply
+   * tag, a post failure or {@link IpcClient.dispose} fail with {@link IpcClientError}.
    */
-  public readonly request = (build: (id: string) => IpcMessage): Effect.Effect<IpcMessage, IpcClientError> => {
-    const id = this.allocateCorrelationId();
-    return Effect.callback<IpcMessage, IpcClientError>(resume => {
-      this.pending.set(id, { resume });
+  public readonly request = <T extends HostIpcRequestTag>(
+    message: HostIpcRequestInput<T>,
+  ): Effect.Effect<HostIpcResult<T>, IpcClientError> =>
+    Effect.callback<HostIpcResult<T>, IpcClientError>(resume => {
+      const id = this.allocateCorrelationId();
+      this.pending.set(id, {
+        requestTag: message._tag,
+        resume: resume as Pending['resume'],
+      });
       try {
-        this.post(build(id));
+        postIpcMessage(this.port, { ...message, id } as IpcMessage);
       } catch (cause) {
         this.pending.delete(id);
         resume(
@@ -118,10 +122,14 @@ export class IpcClient {
         );
       }
     });
-  };
 
   public readonly unregisterProcess = (handleId: HandleId): void => {
     this.processes.delete(handleId);
+  };
+
+  private readonly allocateCorrelationId = (): string => {
+    this.nextId += 1;
+    return `c-${this.nextId}`;
   };
 
   private readonly onPortMessage = (raw: unknown, _transfer: readonly ArrayBuffer[] | undefined): void => {
@@ -171,6 +179,12 @@ export class IpcClient {
     this.pending.delete(message.id);
     if (message._tag === 'Error') {
       pending.resume(Effect.fail(new IpcClientError({ message: message.message })));
+      return;
+    }
+    if (message._tag !== resultTagOf(pending.requestTag)) {
+      pending.resume(
+        Effect.fail(new IpcClientError({ message: `Unexpected ${pending.requestTag} response: ${message._tag}` })),
+      );
       return;
     }
     pending.resume(Effect.succeed(message));

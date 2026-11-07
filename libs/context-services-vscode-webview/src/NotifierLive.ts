@@ -15,12 +15,10 @@ const notifyFailed = (cause: unknown): NotifyFailed =>
  */
 export const makeNotifierLive = (client: IpcClient): Layer.Layer<Notifier> =>
   Layer.succeed(Notifier, {
-    isWindowFocused: client
-      .request(id => ({ _tag: 'WindowFocus' as const, id }))
-      .pipe(
-        Effect.map(response => response._tag === 'WindowFocusResult' && response.focused),
-        Effect.orElseSucceed(() => false),
-      ),
+    isWindowFocused: client.request({ _tag: 'WindowFocus' }).pipe(
+      Effect.map(response => response.focused),
+      Effect.orElseSucceed(() => false),
+    ),
     notify: Effect.fn('Notifier.notify')(function* (input: { body: string; sound: boolean; title: string }) {
       yield* Effect.tryPromise({
         catch: notifyFailed,

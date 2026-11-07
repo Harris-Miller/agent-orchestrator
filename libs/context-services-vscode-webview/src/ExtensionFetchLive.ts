@@ -33,17 +33,13 @@ export const makeExtensionFetchLive = (client: IpcClient): Layer.Layer<never> =>
             const buf = await request.arrayBuffer();
             return buf.byteLength > 0 ? buf : undefined;
           });
-          const response = yield* client.request(id => ({
-            _tag: 'HttpFetch' as const,
+          const response = yield* client.request({
+            _tag: 'HttpFetch',
             body: bodyAb,
             headers,
-            id,
             method: request.method,
             url: request.url,
-          }));
-          if (response._tag !== 'HttpFetchResult') {
-            return yield* Effect.die(`Unexpected HttpFetch response: ${response._tag}`);
-          }
+          });
           return new Response(response.body !== undefined ? bodyInitFromUnknown(response.body) : null, {
             headers: response.headers,
             status: response.status,

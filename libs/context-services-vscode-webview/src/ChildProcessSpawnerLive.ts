@@ -27,11 +27,10 @@ const spawnStandard = Effect.fnUntraced(function* (
   });
 
   const response = yield* client
-    .request(id => ({
-      _tag: 'Spawn' as const,
+    .request({
+      _tag: 'Spawn',
       args: [...command.args],
       command: command.command,
-      id,
       options: {
         cwd: command.options.cwd,
         env: command.options.env as Record<string, string> | undefined,
@@ -40,12 +39,8 @@ const spawnStandard = Effect.fnUntraced(function* (
         stdin: toStdioMode(command.options.stdin),
         stdout: toStdioMode(command.options.stdout),
       },
-    }))
+    })
     .pipe(Effect.mapError(cause => mapSpawnError('spawn', cause)));
-
-  if (response._tag !== 'SpawnResult') {
-    return yield* mapSpawnError('spawn', new Error(response._tag));
-  }
 
   const { handleId, pid } = response;
 
@@ -68,12 +63,10 @@ const spawnStandard = Effect.fnUntraced(function* (
   });
 
   const handle = yield* stdio.finalize({
-    kill: client
-      .request(id => ({ _tag: 'Kill' as const, handleId, id }))
-      .pipe(
-        Effect.mapError(cause => mapSpawnError('kill', cause)),
-        Effect.asVoid,
-      ),
+    kill: client.request({ _tag: 'Kill', handleId }).pipe(
+      Effect.mapError(cause => mapSpawnError('kill', cause)),
+      Effect.asVoid,
+    ),
     pid,
     writeStdin: chunk =>
       Effect.sync(() => {

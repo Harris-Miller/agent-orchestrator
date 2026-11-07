@@ -10,7 +10,7 @@ import {
 } from '../protocol/index.ts';
 import type { IpcMessage } from '../protocol/index.ts';
 
-import { connectFakePeers } from './fakePeer.ts';
+import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
 
 describe('extension↔webview IPC protocol (fake peer)', () => {
   it.effect('round-trips OsSnapshot request and result over duplex ports', () =>

@@ -131,7 +131,7 @@ export const App: FC = () => (
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <FdPrerequisiteGate
           onExit={() => {
-            Effect.runPromise(hostIpcClient.request(id => ({ _tag: 'AppExit' as const, id }))).catch(() => undefined);
+            Effect.runPromise(hostIpcClient.request({ _tag: 'AppExit' })).catch(() => undefined);
           }}
         >
           <NodePrerequisiteGate>

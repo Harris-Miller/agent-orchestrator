@@ -3,7 +3,7 @@ import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 export type WorkRegion = {
   readonly id: string;
   readonly isLastTurn: boolean;
-  /** Last region of its turn: only this one carries the timed label and auto-opens. */
+  /** Last region of its turn: only this one carries the timed label. */
   readonly isLastInTurn: boolean;
   readonly items: readonly ChatItem[];
   readonly kind: 'work_region';
@@ -13,8 +13,51 @@ export type WorkRegion = {
 /** The region a running prompt is still adding to: last region of the last turn. */
 export const isLiveRegion = (region: WorkRegion): boolean => region.isLastTurn && region.isLastInTurn;
 
-const isWork = (item: ChatItem) =>
+type WorkItem = Extract<ChatItem, { kind: 'agent_thought' | 'plan' | 'subagent' | 'tool_call' }>;
+
+const isWork = (item: ChatItem): item is WorkItem =>
   item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought' || item.kind === 'subagent';
+
+/** Consecutive Work items of a region between Interim agent messages; `id` is its first item's. */
+export type WorkSegment = {
+  readonly id: string;
+  readonly items: readonly ChatItem[];
+  readonly kind: 'work_segment';
+};
+
+/** Split a region's items into Work segments, with Interim agent messages between them. */
+export const splitWorkSegments = (
+  items: readonly ChatItem[],
+): readonly (Extract<ChatItem, { kind: 'agent_message' }> | WorkSegment)[] =>
+  items.reduce<(Extract<ChatItem, { kind: 'agent_message' }> | WorkSegment)[]>((out, item) => {
+    if (item.kind === 'agent_message') return [...out, item];
+    const last = out.at(-1);
+    if (last?.kind === 'work_segment') return [...out.slice(0, -1), { ...last, items: [...last.items, item] }];
+    return [...out, { id: item.id, items: [item], kind: 'work_segment' }];
+  }, []);
+
+const SEGMENT_KIND_NOUNS: readonly (readonly [WorkItem['kind'], string])[] = [
+  ['tool_call', 'tool call'],
+  ['agent_thought', 'thought'],
+  ['plan', 'plan'],
+  ['subagent', 'subagent'],
+];
+
+/** Per-kind Work item counts, e.g. `3 tool calls, 1 thought`; zero counts left out. */
+export const workSegmentLabel = (segment: WorkSegment): string =>
+  SEGMENT_KIND_NOUNS.flatMap(([kind, noun]) => {
+    const count = segment.items.filter(item => item.kind === kind).length;
+    return count === 0 ? [] : [`${String(count)} ${noun}${count === 1 ? '' : 's'}`];
+  }).join(', ');
+
+/** One-line preview of an agent thought (first non-empty line) or plan (progress). */
+export const workItemPreviewText = (item: Extract<ChatItem, { kind: 'agent_thought' | 'plan' }>): string =>
+  item.kind === 'plan'
+    ? `Plan · ${String(item.entries.filter(entry => entry.status === 'completed').length)}/${String(item.entries.length)} completed`
+    : (item.text
+        .split('\n')
+        .map(line => line.trim())
+        .find(line => line.length > 0) ?? '');
 
 /** Cut a turn body into runs separated by (and including, as singleton runs) Elicitation summaries. */
 const splitAtSummaries = (body: readonly ChatItem[]): readonly (readonly ChatItem[])[] =>

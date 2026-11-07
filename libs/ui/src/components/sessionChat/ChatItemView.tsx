@@ -414,9 +414,13 @@ const TitleLink: FC<{ href: string; text: string }> = ({ href, text }) => {
   );
 };
 
-const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }> }> = ({ item }) => {
+/** `preview`: header row only, never expandable (collapsed Work region's latest item). */
+export const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }>; preview?: boolean }> = ({
+  item,
+  preview = false,
+}) => {
   const [open, setOpen] = useState(false);
-  const expandable = item.command !== undefined || item.resultText !== undefined;
+  const expandable = !preview && (item.command !== undefined || item.resultText !== undefined);
   const icon = item.toolKind === undefined ? Wrench : TOOL_KIND_ICONS[item.toolKind];
   const row = (
     <>

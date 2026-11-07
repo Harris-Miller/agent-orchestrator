@@ -27,3 +27,11 @@ export const isArchivedEntry = (entry: Readonly<Record<string, unknown>>): boole
   }
   return meta.jetbrains.air.archived === true;
 };
+
+/** `entry` with `_meta.jetbrains.air.archived` set to `archived`; the rest of `_meta` is kept. */
+export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry: T, archived: boolean): T => {
+  const meta = isRecord(entry._meta) ? entry._meta : {};
+  const jetbrains = isRecord(meta.jetbrains) ? meta.jetbrains : {};
+  const air = isRecord(jetbrains.air) ? jetbrains.air : {};
+  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, archived } } } };
+};

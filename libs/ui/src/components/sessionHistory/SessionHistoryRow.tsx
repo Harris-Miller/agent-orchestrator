@@ -1,25 +1,30 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { Archive } from 'lucide-react';
 import type { FC } from 'react';
 
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
+import { isArchivedEntry } from '../../host/airMeta.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
 import { SessionActionsMenu } from './SessionActionsMenu.tsx';
 import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 import { useSessionTitleRename } from './useSessionTitleRename.ts';
 
-const sessionCardSx = (selected: boolean) =>
+const sessionCardSx = (selected: boolean, archived: boolean) =>
   ({
     border: 1,
+    borderStyle: archived ? 'dashed' : 'solid',
     borderColor: selected ? 'primary.main' : 'divider',
     borderRadius: 1,
     cursor: 'pointer',
@@ -47,10 +52,12 @@ export const SessionHistoryRow: FC<{
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
   const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
+  const archived = isArchivedEntry(entry);
+  const shownCaption = archived ? (caption === undefined ? 'Archived' : `Archived · ${caption}`) : caption;
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
-    // activateSession selects + no-ops when already active/activating (Codex-safe).
+    // activateSession selects + no-ops when already active/activating (Codex-safe); unarchives an archived entry first.
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
 
@@ -68,14 +75,17 @@ export const SessionHistoryRow: FC<{
           }
         }}
         role="button"
-        sx={{ ...sessionCardSx(selected), ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}) }}
+        sx={{ ...sessionCardSx(selected, archived), ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}) }}
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
-          <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
+          <Box sx={{ display: 'inline-flex', opacity: archived ? 0.5 : 1 }}>
+            <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
+          </Box>
           <Stack sx={{ flex: 1, minWidth: 0 }}>
             <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
               <Typography
+                color={archived ? 'text.secondary' : undefined}
                 sx={{
                   display: '-webkit-box',
                   fontWeight: selected ? 600 : 400,
@@ -90,12 +100,15 @@ export const SessionHistoryRow: FC<{
                 {displayTitle}
               </Typography>
             </SessionTitleInlineRename>
-            {caption === undefined ? null : (
+            {shownCaption === undefined ? null : (
               <Typography color="text.secondary" noWrap variant="caption">
-                {caption}
+                {shownCaption}
               </Typography>
             )}
           </Stack>
+          {archived ? (
+            <LucideMuiIcon icon={Archive} titleAccess="Archived" sx={{ color: 'text.disabled', fontSize: '0.9rem' }} />
+          ) : null}
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}

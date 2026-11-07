@@ -14,6 +14,7 @@ import {
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   SessionHistoryRow,
+  ShowArchivedToggle,
   showNoFolderGroupAtom,
   useSessionDeleteRequest,
   visibleSessionHistoryAtom,
@@ -104,17 +105,20 @@ export const WorkbenchNavRail: FC<{
           onClose={onClose}
           title="Sessions"
           titleEnd={
-            <IconButton
-              aria-label="Reload sessions"
-              onClick={() => {
-                refreshAllSessionHistories(undefined).catch(() => undefined);
-              }}
-              size="small"
-            >
-              <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-                ↻
-              </Typography>
-            </IconButton>
+            <>
+              <ShowArchivedToggle />
+              <IconButton
+                aria-label="Reload sessions"
+                onClick={() => {
+                  refreshAllSessionHistories(undefined).catch(() => undefined);
+                }}
+                size="small"
+              >
+                <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                  ↻
+                </Typography>
+              </IconButton>
+            </>
           }
         />
         <Box sx={{ flexShrink: 0, p: 2 }}>

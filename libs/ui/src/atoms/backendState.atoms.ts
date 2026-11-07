@@ -111,20 +111,29 @@ export const unifiedSessionHistoryAtom = Atom.make(get => {
   return entries;
 }).pipe(Atom.keepAlive);
 
-/** Session History rows the UI shows: archived rows are listed (`archived: 'all'`) but hidden. */
-export const visibleSessionHistoryAtom = Atom.make(get =>
-  get(unifiedSessionHistoryAtom).filter(entry => !isArchivedEntry(entry)),
-).pipe(Atom.keepAlive);
+/**
+ * Show archived, mirrored from User settings once bootstrap has loaded them (off until then and when unset). Toggle
+ * through `showArchivedSettingAtom`, which writes this and User settings.
+ */
+export const showArchivedAtom = Atom.make(false).pipe(Atom.withLabel('showArchived'), Atom.keepAlive);
+
+/** Session History rows the UI shows: every row is listed (`archived: 'all'`); archived ones only with Show archived. */
+export const visibleSessionHistoryAtom = Atom.make(get => {
+  const history = get(unifiedSessionHistoryAtom);
+  return get(showArchivedAtom) ? history : history.filter(entry => !isArchivedEntry(entry));
+}).pipe(Atom.keepAlive);
 
 export const findLaunchTargetForSessionId = (
   getSnapshot: (launchTarget: AgentLaunchTarget) => BackendHarnessSnapshot,
   sessionId: string,
+  showArchived: boolean,
 ): AgentLaunchTarget | undefined => {
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
     const entry = snapshot.sessionHistory.find(candidate => candidate.sessionId === sessionId);
-    // A session archived elsewhere counts as missing even while loaded.
-    if ((entry !== undefined && !isArchivedEntry(entry)) || (entry === undefined && sessionId in snapshot.sessions)) {
+    // While Show archived is off, an archived row counts as missing even while loaded.
+    const visible = entry !== undefined && (showArchived || !isArchivedEntry(entry));
+    if (visible || (entry === undefined && sessionId in snapshot.sessions)) {
       return launchTarget;
     }
   }
@@ -136,7 +145,11 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   if (sessionId === undefined) {
     return undefined;
   }
-  return findLaunchTargetForSessionId(launchTarget => get(backendHarnessSnapshotAtom(launchTarget)), sessionId);
+  return findLaunchTargetForSessionId(
+    launchTarget => get(backendHarnessSnapshotAtom(launchTarget)),
+    sessionId,
+    get(showArchivedAtom),
+  );
 }).pipe(Atom.keepAlive);
 
 /** Subagent map of the selected session's provider; undefined when no session is selected. */

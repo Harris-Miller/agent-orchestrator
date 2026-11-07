@@ -5,6 +5,7 @@ import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../../createHostRuntime.ts';
+import { showArchivedAtom } from '../backendState.atoms.ts';
 import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
@@ -26,6 +27,9 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
+
+/** Show archived is off when the Settings field is unset. */
+export const showArchivedEnabled = (settings: UserSettings): boolean => settings.showArchived === true;
 
 /** Notifications are on when the Settings field is unset. */
 export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
@@ -89,6 +93,15 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     get => showNoFolderGroupEnabled(unwrapUserSettings(get(userSettingsAtom))),
     (ctx, enabled: boolean) => {
       ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showNoFolderGroup: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Show archived (off when unset): reads the mirror bootstrap seeds; write sets it and patches User settings. */
+  const showArchivedSettingAtom = Atom.writable(
+    get => get(showArchivedAtom),
+    (ctx, enabled: boolean) => {
+      ctx.set(showArchivedAtom, enabled);
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showArchived: enabled });
     },
   ).pipe(Atom.keepAlive);
 
@@ -162,6 +175,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     notificationsEnabledAtom,
     notifyOnlyWhenUnfocusedAtom,
     persistUserSettingsAtomFn,
+    showArchivedSettingAtom,
     showNoFolderGroupAtom,
     themeAtom,
     userSettingsAtom,

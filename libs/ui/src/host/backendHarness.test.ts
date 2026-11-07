@@ -27,6 +27,7 @@ vi.mock('@libs/effect-acp', async importOriginal => ({
       sessionFork: () => Effect.void,
       sessionRename: () => Effect.void,
       sessionSteering: () => Effect.void,
+      sessionUnarchive: () => Effect.void,
       handle: { pid: 1, stderr: undefined },
     }),
 }));

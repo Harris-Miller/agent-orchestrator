@@ -15,6 +15,7 @@ import {
   SESSION_RENAME_METHOD,
   SESSION_SET_MODEL_METHOD,
   SESSION_STEERING_METHOD,
+  SESSION_UNARCHIVE_METHOD,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
   UnstableSessionRenameRpcs,
@@ -215,6 +216,11 @@ export type AcpAgentConnection = {
     typeof UnstableSessionSteeringRpcs,
     RpcClientError
   >[typeof SESSION_STEERING_METHOD];
+  /** AIR `_session/unarchive`. Not part of stable AgentRpcs. */
+  readonly sessionUnarchive: RpcClient.FromGroup<
+    typeof UnstableSessionArchiveRpcs,
+    RpcClientError
+  >[typeof SESSION_UNARCHIVE_METHOD];
   /** Unstable `session/set_model` (Gemini). Not part of stable AgentRpcs. */
   readonly sessionSetModel: RpcClient.FromGroup<
     typeof UnstableSessionSetModelRpcs,
@@ -358,6 +364,7 @@ export const connectAcpAgent = Effect.fnUntraced(
       sessionRename: renameClient[SESSION_RENAME_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
       sessionSteering: steeringClient[SESSION_STEERING_METHOD],
+      sessionUnarchive: archiveClient[SESSION_UNARCHIVE_METHOD],
     } as const satisfies AcpAgentConnection;
   },
   // Short setup span only — lifetime Agent→Client traffic must not parent under connect.

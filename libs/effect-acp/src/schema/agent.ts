@@ -65,6 +65,9 @@ export const SESSION_FORK_METHOD = 'session/fork' as const;
 /** AIR `_session/archive`. Not in stable AgentRpcs. */
 export const SESSION_ARCHIVE_METHOD = '_session/archive' as const;
 
+/** AIR `_session/unarchive`. Not in stable AgentRpcs. */
+export const SESSION_UNARCHIVE_METHOD = '_session/unarchive' as const;
+
 /** AIR `_session/rename`. Not in stable AgentRpcs. */
 export const SESSION_RENAME_METHOD = '_session/rename' as const;
 
@@ -213,7 +216,7 @@ export class ResumeSessionResponse extends Schema.Opaque<ResumeSessionResponse>(
   }),
 ) {}
 
-/** `sessionId` plus `_meta`. Shared by `session/close` and `_session/archive`. */
+/** `sessionId` plus `_meta`. Shared by `session/close`, `_session/archive` and `_session/unarchive`. */
 const sessionIdRequest = Schema.Struct({
   _meta: MetaField,
   sessionId: SessionId,
@@ -228,6 +231,11 @@ export class SessionArchiveRequest extends Schema.Opaque<SessionArchiveRequest>(
 
 export const SessionArchiveResponse = EmptyResult;
 export type SessionArchiveResponse = EmptyResult;
+
+export class SessionUnarchiveRequest extends Schema.Opaque<SessionUnarchiveRequest>()(sessionIdRequest) {}
+
+export const SessionUnarchiveResponse = EmptyResult;
+export type SessionUnarchiveResponse = EmptyResult;
 
 export class SessionRenameRequest extends Schema.Opaque<SessionRenameRequest>()(
   Schema.Struct({
@@ -393,6 +401,13 @@ export class SessionArchive extends Rpc.make(SESSION_ARCHIVE_METHOD, {
   error: AcpError,
   payload: SessionArchiveRequest,
   success: SessionArchiveResponse,
+}) {}
+
+/** AIR `_session/unarchive`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionUnarchive. */
+export class SessionUnarchive extends Rpc.make(SESSION_UNARCHIVE_METHOD, {
+  error: AcpError,
+  payload: SessionUnarchiveRequest,
+  success: SessionUnarchiveResponse,
 }) {}
 
 /** AIR `_session/rename`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionRename. */

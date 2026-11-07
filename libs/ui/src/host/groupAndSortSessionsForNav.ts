@@ -3,7 +3,7 @@
  * VS Code Session History does not group; it uses {@link sessionsForCwd} for the Workspace cwd.
  */
 
-import { compareHistoryEntriesByUpdatedAtDesc } from './acpSessionBootstrap.ts';
+import { compareHistoryEntries } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
 import { directoryBasename } from './directoryBasename.ts';
 import { isNoFolderSessionCwd } from './noFolderSessionCwd.ts';
@@ -19,7 +19,7 @@ export const navSessionGroupStableKey = <T extends NormalizedSessionInfo>(group:
 
 /**
  * Group history for desktop nav: No Folder sessions collapse into one group; others by
- * exact cwd. Cwd groups sort alphabetically by directory name (case-insensitive, numeric), tie-break full cwd; No Folder last.
+ * exact cwd; sessions within a group in Session History order. Cwd groups sort alphabetically by directory name (case-insensitive, numeric), tie-break full cwd; No Folder last.
  */
 export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   history: readonly T[],
@@ -43,7 +43,7 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   const groups: (NavSessionGroup<T> & { readonly kind: 'cwd' })[] = [...cwdGroups.entries()].map(([cwd, sessions]) => ({
     cwd,
     kind: 'cwd' as const,
-    sessions: [...sessions].sort(compareHistoryEntriesByUpdatedAtDesc),
+    sessions: [...sessions].sort(compareHistoryEntries),
   }));
 
   groups.sort(
@@ -53,6 +53,6 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   );
 
   return noFolderSessions.length > 0
-    ? [...groups, { kind: 'noFolder', sessions: [...noFolderSessions].sort(compareHistoryEntriesByUpdatedAtDesc) }]
+    ? [...groups, { kind: 'noFolder', sessions: [...noFolderSessions].sort(compareHistoryEntries) }]
     : groups;
 };

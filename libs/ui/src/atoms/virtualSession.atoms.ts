@@ -51,6 +51,7 @@ import {
   ProviderUnavailable,
   requireLaunchTargetUsable,
   selectedAtom,
+  showArchivedAtom,
 } from './backendState.atoms.ts';
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -858,7 +859,7 @@ export const clearSelectedIfMissing = (registry: Registry): void => {
     return;
   }
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessSnapshotAtom(launchTarget));
-  if (findLaunchTargetForSessionId(getSnapshot, selected.sessionId) === undefined) {
+  if (findLaunchTargetForSessionId(getSnapshot, selected.sessionId, registry.get(showArchivedAtom)) === undefined) {
     registry.set(selectedAtom, undefined);
   }
 };

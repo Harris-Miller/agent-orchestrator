@@ -55,6 +55,7 @@ export * from './components/sessionHistory/AgentLaunchTargetMenu.tsx';
 
 export * from './components/sessionHistory/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionHistory/SessionHistoryRow.tsx';
+export * from './components/sessionHistory/ShowArchivedToggle.tsx';
 export * from './components/sessionHistory/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';

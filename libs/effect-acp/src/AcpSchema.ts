@@ -26,6 +26,7 @@ import {
   SessionSetMode,
   SessionSetModel,
   SessionSteering,
+  SessionUnarchive,
 } from './schema/agent.ts';
 import {
   ElicitationComplete,
@@ -162,8 +163,8 @@ export class UnstableSessionSetModelRpcs extends RpcGroup.make(SessionSetModel) 
 /** Unstable Client→Agent session fork; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionForkRpcs extends RpcGroup.make(SessionFork) {}
 
-/** AIR `_session/archive`; not part of stable AgentRpcs allowlist. */
-export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive) {}
+/** AIR `_session/archive` and `_session/unarchive`; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive, SessionUnarchive) {}
 
 /** AIR `_session/rename`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionRenameRpcs extends RpcGroup.make(SessionRename) {}

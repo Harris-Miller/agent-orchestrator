@@ -7,6 +7,7 @@ import type { FC, ReactNode, SyntheticEvent } from 'react';
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { renameSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
+import { isArchivedEntry } from '../../host/airMeta.ts';
 
 import { noopClientError } from './noopClientError.ts';
 
@@ -16,7 +17,7 @@ const stopPropagation = (event: SyntheticEvent) => {
 };
 
 /**
- * Session title: `children` while idle (double-click starts editing when the entry is available and the Agent supports rename), an inline input while
+ * Session title: `children` while idle (double-click starts editing when the entry is available, not archived, and the Agent supports rename), an inline input while
  * `editing`. Enter / blur commit the trimmed title; Esc, empty or unchanged cancel without an RPC.
  */
 export const SessionTitleInlineRename: FC<{
@@ -39,7 +40,8 @@ export const SessionTitleInlineRename: FC<{
     return (
       <Box
         onDoubleClick={event => {
-          if (entry.unavailable === true || !snapshot.agentCapabilities.sessionRename) return;
+          // Codex rejects renaming archived sessions.
+          if (entry.unavailable === true || isArchivedEntry(entry) || !snapshot.agentCapabilities.sessionRename) return;
           event.stopPropagation();
           onEditingChange(true);
         }}

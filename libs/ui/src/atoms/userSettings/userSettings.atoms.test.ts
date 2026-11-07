@@ -8,6 +8,7 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../../createHostRuntime.ts';
+import { showArchivedAtom } from '../backendState.atoms.ts';
 import { mockHostLayer } from '../mockHostLayer.testing.ts';
 
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
@@ -77,6 +78,26 @@ const awaitSettled = <A, E>(
       { immediate: true },
     );
   });
+
+describe('showArchivedSettingAtom', () => {
+  it.effect('toggling sets the Show archived mirror and patches User settings', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { showArchivedSettingAtom, userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
+      const registry = AtomRegistry.make();
+      registry.mount(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+
+      assert.isFalse(registry.get(showArchivedSettingAtom));
+      registry.set(showArchivedSettingAtom, true);
+      assert.isTrue(registry.get(showArchivedAtom));
+      assert.isTrue(registry.get(showArchivedSettingAtom));
+      assert.isTrue(unwrapUserSettings(registry.get(userSettingsAtom)).showArchived);
+      registry.dispose();
+    }),
+  );
+});
 
 describe('userSettingsAtom', () => {
   it.effect('subscribe loads Initial then Success defaults when settings file missing', () =>

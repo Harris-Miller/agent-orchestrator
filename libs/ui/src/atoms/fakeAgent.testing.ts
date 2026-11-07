@@ -54,7 +54,9 @@ type FakeSetConfig =
 export type FakeAgentOpts = FakeSetConfig & {
   readonly failClose?: boolean;
   readonly failDelete?: boolean;
+  readonly failLoad?: boolean;
   readonly failNew?: boolean;
+  readonly failUnarchive?: boolean;
   /** Receives what the Backend connection reports (pass the Harness event fold); ignores everything by default. */
   readonly reports?: BackendConnectionReports;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
@@ -89,7 +91,7 @@ export const connectFakeAgent = (
 
 /**
  * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
- * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
+ * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `unarchive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
  * `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude; a fork is `fork-1`. It answers every RPC it knows whatever it advertises: seed what
  * it advertises with {@link advertise}. `setConfig` replaces the canned `session/set_config_option` answer; `reports` (e.g. the
  * Harness event fold) receives Lazy hydrate and Connection lost.
@@ -115,7 +117,7 @@ export const installFakeAgent = (
         },
         'session/load': ({ sessionId }: { sessionId: string }) => {
           calls.push(`load:${sessionId}`);
-          return Effect.succeed(selectableConfig);
+          return opts.failLoad === true ? Effect.fail('load-fail') : Effect.succeed(selectableConfig);
         },
         'session/new': () => {
           calls.push(isClaude ? 'new:claude' : 'new');
@@ -174,6 +176,11 @@ export const installFakeAgent = (
         return opts.steering === 'fail'
           ? Effect.andThen(during, Effect.fail('steer-fail'))
           : Effect.as(during, { outcome: opts.steering ?? 'injected' });
+      },
+      sessionUnarchive: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`unarchive:${sessionId}`);
+        // Agent errors reach the Harness as defects, like a real JSON-RPC error.
+        return opts.failUnarchive === true ? Effect.die('unarchive-fail') : Effect.void;
       },
     },
     opts.reports,

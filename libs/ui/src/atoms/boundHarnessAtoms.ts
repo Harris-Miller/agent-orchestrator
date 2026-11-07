@@ -38,6 +38,7 @@ export const {
   notificationsEnabledAtom,
   notifyOnlyWhenUnfocusedAtom,
   persistUserSettingsAtomFn,
+  showArchivedSettingAtom,
   showNoFolderGroupAtom,
   themeAtom,
   userSettingsAtom,

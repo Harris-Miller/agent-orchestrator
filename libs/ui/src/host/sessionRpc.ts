@@ -24,7 +24,7 @@ export type BackendConnectionReports = {
 
 type ConnectionHandles = Pick<
   AcpAgentConnection,
-  'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionRename' | 'sessionSteering'
+  'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionRename' | 'sessionSteering' | 'sessionUnarchive'
 >;
 
 type BackendConnection = ConnectionHandles & {
@@ -63,6 +63,7 @@ export const registerBackendConnection = (
         sessionFork: connection.sessionFork,
         sessionRename: connection.sessionRename,
         sessionSteering: connection.sessionSteering,
+        sessionUnarchive: connection.sessionUnarchive,
         subagentParents: new Map(),
       };
       backendConnections.set(launchTarget, record);
@@ -183,6 +184,16 @@ export const archiveSession = Effect.fn('archiveSession')(
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('_session/archive failed', sessionId, error))),
+);
+
+export const unarchiveSession = Effect.fn('unarchiveSession')(
+  function* (launchTarget: AgentLaunchTarget, sessionId: string) {
+    const { sessionUnarchive } = yield* requireBackendConnection(launchTarget);
+    yield* Effect.logInfo('Unarchiving ACP session', sessionId);
+    yield* sessionUnarchive({ sessionId });
+  },
+  (effect, _launchTarget, sessionId) =>
+    effect.pipe(Effect.tapError(error => Effect.logError('_session/unarchive failed', sessionId, error))),
 );
 
 export const renameSession = Effect.fn('renameSession')(

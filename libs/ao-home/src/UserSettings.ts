@@ -12,6 +12,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
     notificationsEnabled: Schema.optionalKey(Schema.Boolean),
     notifyOnlyWhenUnfocused: Schema.optionalKey(Schema.Boolean),
     providerEnabled: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+    showArchived: Schema.optionalKey(Schema.Boolean),
     showProvidersOnStartup: Schema.optionalKey(Schema.Boolean),
     showNoFolderGroup: Schema.optionalKey(Schema.Boolean),
     theme: Schema.optionalKey(Schema.String),

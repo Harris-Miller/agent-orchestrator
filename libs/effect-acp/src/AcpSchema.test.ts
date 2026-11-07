@@ -20,6 +20,7 @@ import {
   SESSION_FORK_METHOD,
   SESSION_RENAME_METHOD,
   SESSION_STEERING_METHOD,
+  SESSION_UNARCHIVE_METHOD,
   SessionRenameRequest,
   SessionSteeringRequest,
   SessionSteeringResponse,
@@ -104,9 +105,10 @@ describe('AcpSchema stable v1 allowlist', () => {
     assertExactTags(UnstableSessionForkRpcs, [SESSION_FORK_METHOD]);
   });
 
-  it('_session/archive stays off the stable AgentRequestRpcs allowlist', () => {
+  it('_session/archive and _session/unarchive stay off the stable AgentRequestRpcs allowlist', () => {
     assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_ARCHIVE_METHOD), false);
-    assertExactTags(UnstableSessionArchiveRpcs, [SESSION_ARCHIVE_METHOD]);
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_UNARCHIVE_METHOD), false);
+    assertExactTags(UnstableSessionArchiveRpcs, [SESSION_ARCHIVE_METHOD, SESSION_UNARCHIVE_METHOD]);
   });
 });
 

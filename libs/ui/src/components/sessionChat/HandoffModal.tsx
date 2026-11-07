@@ -11,7 +11,7 @@ import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { hardResetForAgent, optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../../host/configProbe.ts';
-import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
 import { SessionAccessChip } from './SessionAccessChip.tsx';

@@ -26,9 +26,8 @@ import {
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { patchSession } from '../host/sessionSnapshot.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
-import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
-import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
@@ -40,7 +39,6 @@ import {
   loadSession,
   renameSession,
   resumeSession,
-  setConfigOption,
 } from '../host/sessionRpc.ts';
 
 import {
@@ -51,32 +49,13 @@ import {
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
+import { applySessionConfigValues } from './sessionConfigChange.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
-
-/** Reset an activated session's model/options the Config option index no longer offers; soft-fails to the live configuration. */
-const resetActivatedConfiguration = Effect.fn('resetActivatedConfiguration')(function* (
-  launchTarget: AgentLaunchTarget,
-  sessionId: string,
-  sessionConfiguration: unknown,
-  index: ConfigOptionIndex | undefined,
-) {
-  const liveValues = configValuesFromOptions(normalizeConfigOptions(sessionConfiguration));
-  const reconciled = yield* applyConfigDiffs(
-    sessionConfiguration,
-    resetUnsupportedConfigValues(index, liveValues),
-    diff => setConfigOption(launchTarget, sessionId, diff.configId, diff),
-  ).pipe(
-    Effect.catchCause(cause =>
-      Effect.as(Effect.logWarning('Session config reset failed during activation', cause), { sessionConfiguration }),
-    ),
-  );
-  return reconciled.sessionConfiguration;
-});
 
 type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
@@ -232,7 +211,7 @@ export const createSessionLifecycleAtoms = (
           const { sessionId } = result;
           yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
 
-          const session = buildActivatedSession(sessionId, result, { cwd });
+          const session = buildActivatedSession(sessionId, normalizeConfigOptions(result), { cwd });
           const historyEntry = historyEntryFromNew(result, cwd);
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             upsertIntoSnapshot(current, { historyEntry, session }),
@@ -337,22 +316,24 @@ export const createSessionLifecycleAtoms = (
         }
 
         const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
-        const activatedSession = buildActivatedSession(
-          arg.sessionId,
-          exit.value,
-          get(backendHarnessSnapshotAtom(arg.launchTarget)).sessions[arg.sessionId],
+        // The loaded Session configuration first (still `activating`), then the reset folds into the latest Session.
+        const loaded = normalizeConfigOptions(exit.value);
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+          ...current,
+          sessions: patchSession(current.sessions, arg.sessionId, session => ({ ...session, configuration: loaded })),
+        }));
+        const reset = yield* applySessionConfigValues(
+          get.registry,
+          { launchTarget: arg.launchTarget, sessionId: arg.sessionId },
+          resetUnsupportedConfigValues(get(configOptionIndexAtom(arg.launchTarget)), configValuesFromOptions(loaded)),
         );
-        const sessionConfiguration = yield* resetActivatedConfiguration(
-          arg.launchTarget,
-          arg.sessionId,
-          activatedSession.sessionConfiguration,
-          get(configOptionIndexAtom(arg.launchTarget)),
-        );
+        if (reset.stoppedEarly) {
+          yield* Effect.logWarning('Session config reset failed during activation', arg.launchTarget, arg.sessionId);
+        }
         updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
           ...current,
           sessions: patchSession(current.sessions, arg.sessionId, session => ({
-            ...buildActivatedSession(arg.sessionId, exit.value, session),
-            sessionConfiguration,
+            ...buildActivatedSession(arg.sessionId, session.configuration ?? [], session),
             usage: persistedUsage,
           })),
         }));

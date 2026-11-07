@@ -15,6 +15,8 @@ import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
+import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
+import type { ConfigValueDiff } from './sessionConfiguration.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import { appendUserChatMessage, stampUserMessageTiming } from './sessionUpdateReducer.ts';
 import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
@@ -160,27 +162,9 @@ export const sessionTurnAction = (
     ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, input)
     : { _tag: 'Unavailable', reason: 'NotReady' };
 
-/** A request that starts work (Send or Session Config) never steers: a prompt in flight is `CancelTurn`. */
+/** A request that starts work (Send or Config change) never steers: a prompt in flight is `CancelTurn`. */
 const startAction = (snapshot: BackendHarnessSnapshot, sessionId: string, hasContent: boolean): ComposerAction =>
   sessionTurnAction(snapshot, sessionId, { hasContent, steeringSupported: false });
-
-/**
- * Gate for a Session Config request (the Composer action rule). Returns undefined when the session cannot accept the
- * request; otherwise the snapshot with pendingClientRequest `config`. Prompt turns begin only via {@link beginPromptTurn}.
- */
-export const beginClientRequest = (
-  snapshot: BackendHarnessSnapshot,
-  sessionId: string,
-): BackendHarnessSnapshot | undefined =>
-  startAction(snapshot, sessionId, true)._tag === 'Send'
-    ? {
-        ...snapshot,
-        sessions: patchSession(snapshot.sessions, sessionId, current => ({
-          ...current,
-          pendingClientRequest: 'config',
-        })),
-      }
-    : undefined;
 
 /**
  * Clear pendingClientRequest and promptCancelRequested after a client request completes. A Session no longer in the
@@ -197,6 +181,95 @@ export const endClientRequest = (snapshot: BackendHarnessSnapshot, sessionId: st
         })),
       }
     : snapshot;
+
+export type ConfigChangeBegin =
+  | {
+      readonly _tag: 'Begun';
+      readonly previous: boolean | string | undefined;
+      readonly snapshot: BackendHarnessSnapshot;
+    }
+  | { readonly _tag: 'Refused'; readonly action: ComposerAction }
+  | { readonly _tag: 'Unchanged' };
+
+/**
+ * Config change begin, in one step: `Unchanged` when the option already holds the value (never refused); `Refused`
+ * unless the Composer action rule decides Send; otherwise the Pending client request `config` and the optimistic value
+ * are set together, and `previous` is the option's value from the same read.
+ */
+export const beginConfigChange = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  change: ConfigValueDiff,
+): ConfigChangeBegin => {
+  const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
+  const previous = configValue(session?.configuration, change.configId);
+  if (previous === change.value) {
+    return { _tag: 'Unchanged' };
+  }
+  const action = startAction(snapshot, sessionId, true);
+  if (action._tag !== 'Send' || session === undefined) {
+    return { _tag: 'Refused', action };
+  }
+  return {
+    _tag: 'Begun',
+    previous,
+    snapshot: {
+      ...snapshot,
+      sessions: upsertSession(snapshot.sessions, {
+        ...session,
+        configuration: withConfigValue(session.configuration ?? [], change.configId, change.value),
+        pendingClientRequest: 'config',
+      }),
+    },
+  };
+};
+
+/**
+ * A `session/set_config_option` response: write the value that was set, then fold the response into the Session
+ * configuration. A Session no longer in the map stays dropped.
+ */
+export const applyConfigResult = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  change: ConfigValueDiff,
+  response: unknown,
+): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, session => ({
+          ...session,
+          configuration: foldConfigOptions(
+            withConfigValue(session.configuration ?? [], change.configId, change.value),
+            response,
+          ),
+        })),
+      }
+    : snapshot;
+
+/**
+ * Config change end: {@link endClientRequest}; with `revert`, also set the option back to `previous`, but only while it
+ * still holds the value the change wrote. A Session no longer in the map stays dropped.
+ */
+export const endConfigChange = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  revert?: { readonly change: ConfigValueDiff; readonly previous: boolean | string | undefined },
+): BackendHarnessSnapshot => {
+  const ended = endClientRequest(snapshot, sessionId);
+  if (ended === snapshot || revert === undefined) {
+    return ended;
+  }
+  const { change, previous } = revert;
+  return {
+    ...ended,
+    sessions: patchSession(ended.sessions, sessionId, session =>
+      configValue(session.configuration, change.configId) === change.value
+        ? { ...session, configuration: withConfigValue(session.configuration ?? [], change.configId, previous) }
+        : session,
+    ),
+  };
+};
 
 export type PromptTurnBegin =
   | { readonly _tag: 'Begun'; readonly snapshot: BackendHarnessSnapshot; readonly turnId: string }

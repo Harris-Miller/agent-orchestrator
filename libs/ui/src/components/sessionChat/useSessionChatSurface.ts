@@ -27,10 +27,13 @@ import {
 import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
-import { normalizeConfigOptions } from '../../host/acpSessionBootstrap.ts';
+import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
 import { unavailableReason } from '../../host/providerView.ts';
+
+/** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
+const EMPTY_CONFIGURATION: SessionConfiguration = [];
 
 export const useSessionChatSurface = () => {
   const composer = useAtomValue(composerAtom);
@@ -88,7 +91,7 @@ export const useSessionChatSurface = () => {
     typeof virtualConfigValues.model === 'string' ? virtualConfigValues.model : virtualConfigIndex?.defaultModelId;
   const configOptions = isVirtual
     ? optionsWithValues(rowForModel(virtualConfigIndex, virtualSelectedModelId), virtualConfigValues)
-    : normalizeConfigOptions(selectedSession?.sessionConfiguration);
+    : (selectedSession?.configuration ?? EMPTY_CONFIGURATION);
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );

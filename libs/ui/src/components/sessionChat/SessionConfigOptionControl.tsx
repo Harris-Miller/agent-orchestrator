@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
-import type { ConfigValueDiff } from '../../host/sessionMaterialize.ts';
+import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 
 import { SessionConfigOptionSelect } from './SessionConfigOptionSelect.tsx';
 import { SessionConfigOptionSwitch } from './SessionConfigOptionSwitch.tsx';

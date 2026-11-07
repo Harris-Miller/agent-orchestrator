@@ -36,15 +36,29 @@ export const selectableConfig = {
   ],
 };
 
-export type FakeAgentOpts = {
+/** How the fake answers `session/set_config_option`: the canned answer (optionally failing or with a hook), or `setConfig`. */
+type FakeSetConfig =
+  | {
+      /** Runs inside `session/set_config_option` before it resolves (a user action mid-Materialize). */
+      readonly duringSetConfig?: Effect.Effect<void>;
+      readonly failSetConfig?: boolean;
+      readonly setConfig?: undefined;
+    }
+  | {
+      readonly duringSetConfig?: never;
+      readonly failSetConfig?: never;
+      /** Answers `session/set_config_option` (after recording `set:<id>:<value>`). */
+      readonly setConfig: (configId: string, value: unknown) => Effect.Effect<unknown, string>;
+    };
+
+export type FakeAgentOpts = FakeSetConfig & {
   readonly failClose?: boolean;
   readonly failDelete?: boolean;
   readonly failNew?: boolean;
-  readonly failSetConfig?: boolean;
+  /** Receives what the Backend connection reports (pass the Harness event fold); ignores everything by default. */
+  readonly reports?: BackendConnectionReports;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
   readonly duringNew?: Effect.Effect<void>;
-  /** Runs inside `session/set_config_option` before it resolves (a user action mid-Materialize). */
-  readonly duringSetConfig?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
   readonly duringPrompt?: Effect.Effect<void>;
   /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`. */
@@ -77,7 +91,8 @@ export const connectFakeAgent = (
  * Fake ACP agent for `launchTarget`, registered until the current scope closes. Records `new` (`new:claude`), `close:<id>`, `delete:<id>`, `set:<configId>:<value>`,
  * `load:<id>`, `resume:<id>`, `fork:<id>`, `archive:<id>`, `rename:<id>`, `prompt:<id>`, `steer:<id>` and `cancel:<id>` (the `session/cancel` notification) in
  * `calls`. Session ids are `bound-N` for Codex and `claude-N` for Claude; a fork is `fork-1`. It answers every RPC it knows whatever it advertises: seed what
- * it advertises with {@link advertise}.
+ * it advertises with {@link advertise}. `setConfig` replaces the canned `session/set_config_option` answer; `reports` (e.g. the
+ * Harness event fold) receives Lazy hydrate and Connection lost.
  */
 export const installFakeAgent = (
   calls: string[],
@@ -86,76 +101,83 @@ export const installFakeAgent = (
 ) => {
   const isClaude = launchTarget === CLAUDE;
   let nextId = 1;
-  return connectFakeAgent(launchTarget, {
-    agent: {
-      'session/close': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`close:${sessionId}`);
-        return opts.failClose === true ? Effect.fail('close-fail') : Effect.void;
+  return connectFakeAgent(
+    launchTarget,
+    {
+      agent: {
+        'session/close': ({ sessionId }: { sessionId: string }) => {
+          calls.push(`close:${sessionId}`);
+          return opts.failClose === true ? Effect.fail('close-fail') : Effect.void;
+        },
+        'session/delete': ({ sessionId }: { sessionId: string }) => {
+          calls.push(`delete:${sessionId}`);
+          return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
+        },
+        'session/load': ({ sessionId }: { sessionId: string }) => {
+          calls.push(`load:${sessionId}`);
+          return Effect.succeed(selectableConfig);
+        },
+        'session/new': () => {
+          calls.push(isClaude ? 'new:claude' : 'new');
+          if (opts.failNew === true) {
+            return Effect.fail('new-fail');
+          }
+          const sessionId = `${isClaude ? 'claude' : 'bound'}-${nextId}`;
+          nextId += 1;
+          return Effect.as(opts.duringNew ?? Effect.void, { ...selectableConfig, sessionId });
+        },
+        'session/prompt': ({ sessionId }: { sessionId: string }) => {
+          calls.push(`prompt:${sessionId}`);
+          const during = opts.duringPrompt ?? Effect.void;
+          return opts.prompt === 'fail'
+            ? Effect.andThen(during, Effect.fail('prompt-fail'))
+            : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
+        },
+        'session/resume': ({ sessionId }: { sessionId: string }) => {
+          calls.push(`resume:${sessionId}`);
+          return Effect.succeed(selectableConfig);
+        },
+        'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
+          calls.push(`set:${configId}:${String(value)}`);
+          if (opts.setConfig !== undefined) {
+            return opts.setConfig(configId, value);
+          }
+          if (opts.failSetConfig === true) {
+            return Effect.fail('set-fail');
+          }
+          return Effect.as(opts.duringSetConfig ?? Effect.void, {
+            configOptions: [{ ...selectableConfig.configOptions[0], currentValue: value, id: configId }],
+          });
+        },
       },
-      'session/delete': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`delete:${sessionId}`);
-        return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
-      },
-      'session/load': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`load:${sessionId}`);
-        return Effect.succeed(selectableConfig);
-      },
-      'session/new': () => {
-        calls.push(isClaude ? 'new:claude' : 'new');
-        if (opts.failNew === true) {
-          return Effect.fail('new-fail');
+      notify: (method: string, params: { sessionId?: string }) => {
+        if (method === 'session/cancel') {
+          calls.push(`cancel:${params.sessionId}`);
         }
-        const sessionId = `${isClaude ? 'claude' : 'bound'}-${nextId}`;
-        nextId += 1;
-        return Effect.as(opts.duringNew ?? Effect.void, { ...selectableConfig, sessionId });
+        return Effect.void;
       },
-      'session/prompt': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`prompt:${sessionId}`);
-        const during = opts.duringPrompt ?? Effect.void;
-        return opts.prompt === 'fail'
-          ? Effect.andThen(during, Effect.fail('prompt-fail'))
-          : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
+      sessionArchive: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`archive:${sessionId}`);
+        return Effect.void;
       },
-      'session/resume': ({ sessionId }: { sessionId: string }) => {
-        calls.push(`resume:${sessionId}`);
-        return Effect.succeed(selectableConfig);
+      sessionFork: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`fork:${sessionId}`);
+        return Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
       },
-      'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
-        calls.push(`set:${configId}:${String(value)}`);
-        if (opts.failSetConfig === true) {
-          return Effect.fail('set-fail');
-        }
-        return Effect.as(opts.duringSetConfig ?? Effect.void, {
-          configOptions: [{ ...selectableConfig.configOptions[0], currentValue: value, id: configId }],
-        });
+      sessionRename: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`rename:${sessionId}`);
+        return Effect.void;
+      },
+      sessionSteering: ({ sessionId }: { sessionId: string }) => {
+        calls.push(`steer:${sessionId}`);
+        const during = opts.duringSteering ?? Effect.void;
+        return opts.steering === 'fail'
+          ? Effect.andThen(during, Effect.fail('steer-fail'))
+          : Effect.as(during, { outcome: opts.steering ?? 'injected' });
       },
     },
-    notify: (method: string, params: { sessionId?: string }) => {
-      if (method === 'session/cancel') {
-        calls.push(`cancel:${params.sessionId}`);
-      }
-      return Effect.void;
-    },
-    sessionArchive: ({ sessionId }: { sessionId: string }) => {
-      calls.push(`archive:${sessionId}`);
-      return Effect.void;
-    },
-    sessionFork: ({ sessionId }: { sessionId: string }) => {
-      calls.push(`fork:${sessionId}`);
-      return Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
-    },
-    sessionRename: ({ sessionId }: { sessionId: string }) => {
-      calls.push(`rename:${sessionId}`);
-      return Effect.void;
-    },
-    sessionSteering: ({ sessionId }: { sessionId: string }) => {
-      calls.push(`steer:${sessionId}`);
-      const during = opts.duringSteering ?? Effect.void;
-      return opts.steering === 'fail'
-        ? Effect.andThen(during, Effect.fail('steer-fail'))
-        : Effect.as(during, { outcome: opts.steering ?? 'injected' });
-    },
-  });
+    opts.reports,
+  );
 };
 
 export const setPhase = (registry: Registry, launchTarget: AgentLaunchTarget, phase: AcpBootstrapPhase) => {

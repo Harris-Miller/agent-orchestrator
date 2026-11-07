@@ -4,7 +4,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import {
@@ -13,9 +13,8 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
-import { applyConfigDiffs, buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
-import type { ConfigValueDiff } from '../host/sessionMaterialize.ts';
-import { createSession, setConfigOption } from '../host/sessionRpc.ts';
+import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { createSession } from '../host/sessionRpc.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -24,6 +23,7 @@ import {
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { sendPromptTurn } from './promptTurn.ts';
+import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { select } from './virtualSession.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
@@ -111,28 +111,22 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const { cwd, result } = createExit.value;
           const { sessionId: targetSessionId } = result;
 
+          // The target Session is in the map before its Config diffs, so each response folds into it.
           const historyEntry = historyEntryFromNew(result, cwd);
-          if (historyEntry !== undefined) {
-            updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
-              upsertIntoSnapshot(current, { historyEntry }),
-            );
-          }
+          const session = buildActivatedSession(targetSessionId, normalizeConfigOptions(result), { cwd });
+          updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
+            upsertIntoSnapshot(current, { historyEntry, session }),
+          );
           yield* select(get.registry, { _tag: 'Session', sessionId: targetSessionId });
 
-          const setOption = (diff: ConfigValueDiff) =>
-            setConfigOption(
-              arg.targetLaunchTarget,
-              targetSessionId,
-              diff.configId,
-              diff.type === 'boolean' ? { type: 'boolean', value: diff.value } : { type: 'select', value: diff.value },
-            );
-          const afterOverrides = yield* applyConfigDiffs(result, arg.configValues, setOption);
-
-          updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
-            upsertIntoSnapshot(current, {
-              session: buildActivatedSession(targetSessionId, afterOverrides.sessionConfiguration, { cwd }),
-            }),
+          const configured = yield* applySessionConfigValues(
+            get.registry,
+            { launchTarget: arg.targetLaunchTarget, sessionId: targetSessionId },
+            arg.configValues,
           );
+          if (configured.stoppedEarly) {
+            yield* Effect.logWarning('Handoff Config diffs stopped early', arg.targetLaunchTarget, targetSessionId);
+          }
 
           const seedExit = yield* Effect.exit(
             handoffPrompt(

@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
-import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { initialBackendHarnessSnapshot, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
 import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
@@ -60,7 +60,7 @@ const setup = () => {
     sessions: {
       'old-1': {
         cwd: '/proj',
-        sessionConfiguration: config,
+        configuration: normalizeConfigOptions(config),
         sessionId: 'old-1',
         status: 'active',
         transcript: emptySessionTranscript(),

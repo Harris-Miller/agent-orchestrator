@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
 import { decodeIpcMessage, encodeIpcMessage, IpcClient, IpcMessage, serveHostIpc } from '../protocol/index.ts';
-import type { HostIpcHandlers, IpcPort } from '../protocol/index.ts';
+import type { HostIpcFulfillment, IpcPort } from '../protocol/index.ts';
 
 /** Today's wire (HEAD 81e8fb0): tag → sorted field names. Must not change. */
 const WIRE_FIELD_NAMES = {
@@ -84,7 +84,7 @@ const sortRequired = (value: unknown): unknown => {
 const unused = (): Promise<never> => Promise.reject(new Error('unused'));
 
 /** Complete handler map where every request rejects; tests override what they exercise. */
-const fakeHandlers = (overrides: Partial<HostIpcHandlers> = {}): HostIpcHandlers => ({
+const fakeHandlers = (overrides: Partial<HostIpcFulfillment> = {}): HostIpcFulfillment => ({
   AppExit: unused,
   BundledResolve: unused,
   FileDialogPickFiles: unused,
@@ -114,7 +114,7 @@ const fakeHandlers = (overrides: Partial<HostIpcHandlers> = {}): HostIpcHandlers
 });
 
 /** Webview-end client served by `handlers` over an in-memory port pair; torn down with the test scope. */
-const connect = (handlers: HostIpcHandlers) =>
+const connect = (handlers: HostIpcFulfillment) =>
   Effect.acquireRelease(
     Effect.sync(() => {
       const [webview, extension] = connectFakePeers();

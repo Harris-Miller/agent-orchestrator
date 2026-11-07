@@ -1,5 +1,5 @@
 export { serveHostIpc } from './hostIpcServer.ts';
-export type { HostIpcHandlers } from './hostIpcServer.ts';
+export type { HostIpcFulfillment } from './hostIpcServer.ts';
 export { IpcClient, IpcClientError } from './ipcClient.ts';
 export {
   bytesToArrayBuffer,

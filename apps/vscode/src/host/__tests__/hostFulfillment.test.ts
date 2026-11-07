@@ -11,7 +11,7 @@ import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { makeHostIpcHandlers } from '../hostFulfillment';
+import { makeHostIpcFulfillment } from '../hostFulfillment';
 import { ProcessTracker } from '../processTracker';
 
 const vscodeStub = vi.hoisted(() => ({
@@ -34,7 +34,7 @@ vi.mock('vscode', () => vscodeStub);
 type Folder = { readonly uri: { readonly fsPath: string; readonly scheme: string } };
 
 /**
- * `IpcClient` (webview end) ↔ `serveHostIpc(makeHostIpcHandlers(...))` (extension end) over an in-memory
+ * `IpcClient` (webview end) ↔ `serveHostIpc(makeHostIpcFulfillment(...))` (extension end) over an in-memory
  * port pair, in a fresh temp dir. Everything is released with the test scope.
  */
 const fulfillment = Effect.acquireRelease(
@@ -45,7 +45,7 @@ const fulfillment = Effect.acquireRelease(
     const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
     const stop = serveHostIpc(
       extension,
-      makeHostIpcHandlers({
+      makeHostIpcFulfillment({
         asAbsolutePath: relativePath => join(tmp, relativePath),
         port: extension,
         tracker,
@@ -67,35 +67,39 @@ const fulfillment = Effect.acquireRelease(
 );
 
 type Watched = {
-  /** Resolves once an `Exit` push has arrived. */
-  readonly exit: Effect.Effect<void>;
+  /**
+   * Resolves once both `StdoutEnd` and `Exit` pushes have arrived (in either order: Node's `exit` may
+   * fire before the child's stdio has drained).
+   */
+  readonly done: Effect.Effect<void>;
   readonly seen: { readonly message: IpcMessage; readonly transfer: readonly ArrayBuffer[] | undefined }[];
 };
 
 /** Raw recorder on the webview port: every message the extension end posts, in order. */
 const watch = (port: IpcPort): Watched => {
   const seen: Watched['seen'] = [];
-  let exited = false;
-  let onExit: (() => void) | undefined;
+  const isDone = () => ['StdoutEnd', 'Exit'].every(tag => seen.some(({ message }) => message._tag === tag));
+  let onDone: (() => void) | undefined;
   port.onMessage((raw, transfer) => {
-    const message = decodeIpcMessage(raw);
-    seen.push({ message, transfer });
-    if (message._tag === 'Exit') {
-      exited = true;
-      onExit?.();
+    seen.push({ message: decodeIpcMessage(raw), transfer });
+    if (isDone()) {
+      onDone?.();
     }
   });
-  const exit = Effect.callback<void>(resume => {
-    if (exited) {
+  const done = Effect.callback<void>(resume => {
+    if (isDone()) {
       resume(Effect.void);
       return;
     }
-    onExit = () => {
+    onDone = () => {
       resume(Effect.void);
     };
   });
-  return { exit, seen };
+  return { done, seen };
 };
+
+const exitCode = (seen: Watched['seen']): number | undefined =>
+  seen.flatMap(({ message }) => (message._tag === 'Exit' ? [message.code] : []))[0];
 
 const stdoutText = (seen: Watched['seen']): string =>
   Buffer.concat(
@@ -370,15 +374,13 @@ describe('Host IPC fulfillment', () => {
       const watched = watch(webview);
 
       yield* client.request({ _tag: 'Spawn', args: ['-e', "process.stdout.write('hi')"], command: process.execPath });
-      yield* watched.exit;
+      yield* watched.done;
 
       const tags = watched.seen.map(({ message }) => message._tag);
       assert.strictEqual(tags[0], 'SpawnResult');
       assert.ok(tags.includes('StdoutChunk'));
-      assert.ok(tags.includes('StdoutEnd'));
       assert.strictEqual(stdoutText(watched.seen), 'hi');
-      const exit = watched.seen.at(-1)?.message;
-      assert.deepStrictEqual(exit?._tag === 'Exit' ? exit.code : undefined, 0);
+      assert.strictEqual(exitCode(watched.seen), 0);
     }),
   );
 
@@ -394,11 +396,10 @@ describe('Host IPC fulfillment', () => {
       });
       client.post({ _tag: 'StdinChunk', bytes: new TextEncoder().encode('x').buffer, handleId });
       client.post({ _tag: 'StdinEnd', handleId });
-      yield* watched.exit;
+      yield* watched.done;
 
       assert.strictEqual(stdoutText(watched.seen), 'x');
-      const exit = watched.seen.at(-1)?.message;
-      assert.deepStrictEqual(exit?._tag === 'Exit' ? exit.code : undefined, 0);
+      assert.strictEqual(exitCode(watched.seen), 0);
     }),
   );
 
@@ -414,8 +415,8 @@ describe('Host IPC fulfillment', () => {
       });
       const result = yield* client.request({ _tag: 'Kill', handleId });
       assert.strictEqual(result._tag, 'KillResult');
-      yield* watched.exit;
-      assert.strictEqual(watched.seen.at(-1)?.message._tag, 'Exit');
+      yield* watched.done;
+      assert.strictEqual(exitCode(watched.seen), 1);
     }),
   );
 });

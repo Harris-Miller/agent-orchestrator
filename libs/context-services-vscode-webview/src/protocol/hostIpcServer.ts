@@ -6,7 +6,7 @@ import type { IpcPort } from './port.ts';
  * Extension-side fulfillment: one handler per **Host IPC request** (resolve its Result payload, or
  * reject to answer `Error`) and per webview **Host IPC push**. Missing an entry is a type error.
  */
-export type HostIpcHandlers = {
+export type HostIpcFulfillment = {
   readonly [T in HostIpcRequestTag]: (request: HostIpcRequest<T>) => Promise<HostIpcResultPayload<T>>;
 } & {
   readonly [T in WebviewPush['_tag']]: (push: Extract<WebviewPush, { readonly _tag: T }>) => void;
@@ -20,7 +20,7 @@ const errorMessage = (error: unknown): string => (error instanceof Error ? error
  * when the handler rejects or the Result cannot be posted. Anything else received is ignored.
  * Returns dispose (stops listening).
  */
-export const serveHostIpc = (port: IpcPort, handlers: HostIpcHandlers): (() => void) =>
+export const serveHostIpc = (port: IpcPort, handlers: HostIpcFulfillment): (() => void) =>
   port.onMessage(raw => {
     let message: IpcMessage;
     try {

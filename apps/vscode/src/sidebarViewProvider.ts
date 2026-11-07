@@ -1,7 +1,7 @@
 import { serveHostIpc } from '@lib/context-services-vscode-webview/protocol';
 import * as vscode from 'vscode';
 
-import { makeHostIpcHandlers, postWorkspaceFoldersChanged } from './host/hostFulfillment';
+import { makeHostIpcFulfillment, postWorkspaceFoldersChanged } from './host/hostFulfillment';
 import type { ProcessTracker } from './host/processTracker';
 import { webviewIpcPort } from './host/webviewIpcPort';
 import { WEBVIEW_VITE_ORIGIN, WEBVIEW_VITE_WS_ORIGIN } from './webviewDevServer';
@@ -59,7 +59,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const port = webviewIpcPort(webviewView.webview);
     const stopServing = serveHostIpc(
       port,
-      makeHostIpcHandlers({
+      makeHostIpcFulfillment({
         asAbsolutePath: relativePath => this.context.asAbsolutePath(relativePath),
         port,
         tracker: this.tracker,

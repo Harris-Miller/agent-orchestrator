@@ -11,7 +11,7 @@ import {
   unknownBytesToUint8Array,
 } from '@lib/context-services-vscode-webview/protocol';
 import { openableImageExtension } from '@lib/context-services';
-import type { HostIpcHandlers, IpcPort, StdioMode } from '@lib/context-services-vscode-webview/protocol';
+import type { HostIpcFulfillment, IpcPort, StdioMode } from '@lib/context-services-vscode-webview/protocol';
 import * as vscode from 'vscode';
 
 import { spawn } from 'node:child_process';
@@ -56,7 +56,7 @@ const toNodeStdio = (mode: StdioMode | undefined): 'ignore' | 'inherit' | 'pipe'
  * **Host IPC fulfillment** for one webview: a handler per Host IPC request and webview push
  * (served by `serveHostIpc`, which owns decoding, Result/`Error` replies and ignoring the rest).
  */
-export const makeHostIpcHandlers = (deps: {
+export const makeHostIpcFulfillment = (deps: {
   readonly asAbsolutePath: (relativePath: string) => string;
   /** Webview port, for Spawn's stdout/stderr/exit pushes. */
   readonly port: IpcPort;
@@ -64,7 +64,7 @@ export const makeHostIpcHandlers = (deps: {
   readonly webviewId: string;
   /** Read per WorkspaceFolders request. */
   readonly workspaceFolders: () => null | readonly vscode.WorkspaceFolder[] | undefined;
-}): HostIpcHandlers => {
+}): HostIpcFulfillment => {
   const { asAbsolutePath, port, tracker, webviewId, workspaceFolders } = deps;
   return {
     AppExit: async () => {

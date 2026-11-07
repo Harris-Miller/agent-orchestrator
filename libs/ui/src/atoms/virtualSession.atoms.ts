@@ -65,6 +65,8 @@ export type VirtualSession = {
   readonly configValues: ConfigOptionValues;
   readonly cwd: string | undefined;
   readonly draft: string;
+  /** Identity of this blob: a new id each time a blob is created, so a discarded blob is never mistaken for its successor. */
+  readonly id: string;
   readonly launchTarget: AgentLaunchTarget | undefined;
   /** Bound ACP session id after eager Bind; absent while unbound. */
   readonly sessionId?: string;
@@ -164,6 +166,7 @@ const emptyVirtual = (): VirtualSession => ({
   configValues: {},
   cwd: undefined,
   draft: '',
+  id: crypto.randomUUID(),
   launchTarget: undefined,
 });
 
@@ -654,16 +657,18 @@ export const editVirtual = Effect.fn('editVirtual')(function* (
 
 /**
  * Draft / attachment edit computed from the blob's latest draft, in one synchronous step (the Composer's write path).
- * `update` returns `undefined` for no change. Inert with no blob or under the Lifecycle lock. Never Binds.
+ * `update` returns `undefined` for no change. Inert when the blob is not `blobId` (none, or a newer one) or under the
+ * Lifecycle lock. Never Binds.
  */
 export const updateVirtualDraft = (
   registry: Registry,
+  blobId: string | undefined,
   update: (
     current: Pick<VirtualSession, 'attachments' | 'draft'>,
   ) => Partial<Pick<VirtualSession, 'attachments' | 'draft'>> | undefined,
 ): void => {
   const current = registry.get(virtualSessionAtom);
-  if (current === null || registry.get(virtualMaterializingAtom)) {
+  if (current === null || current.id !== blobId || registry.get(virtualMaterializingAtom)) {
     return;
   }
   const patch = update(current);

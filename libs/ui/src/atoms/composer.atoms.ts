@@ -23,7 +23,8 @@
  *   latest list before reading any file.
  * - Attaches are concurrent: a later one never interrupts an earlier one. A caller's result reflects every attach
  *   in flight (the fn atom joins them all).
- * - A Virtual target whose blob is gone, or whose Lifecycle lock is held, when the attach finishes drops it.
+ * - A Virtual target whose blob is gone (or replaced by a newer one), or whose Lifecycle lock is held, when the
+ *   attach finishes drops it.
  * - Submit reads the Composer action and takes the draft from the registry in one synchronous step, so the action
  *   performed is the one decided for that draft.
  * - Submit is concurrent: a later submit never interrupts an earlier in-flight Send or Steering.
@@ -80,7 +81,12 @@ const sessionAttachmentsAtom = Atom.family((_sessionId: string) =>
 
 export type ComposerTarget =
   | { readonly _tag: 'Session'; readonly launchTarget: AgentLaunchTarget | undefined; readonly sessionId: string }
-  | { readonly _tag: 'Virtual'; readonly launchTarget: AgentLaunchTarget | undefined };
+  | {
+      readonly _tag: 'Virtual';
+      /** The Virtual session blob's id; `undefined` with no blob. */
+      readonly blobId: string | undefined;
+      readonly launchTarget: AgentLaunchTarget | undefined;
+    };
 
 export type Composer = ComposerGates & {
   readonly attachments: readonly ComposerImageAttachment[];
@@ -136,7 +142,7 @@ export const composerAtom = Atom.make((get): Composer => {
         sendPending: get(virtualSendPendingAtom),
       }),
       availableCommands: bound?.availableCommands ?? NO_COMMANDS,
-      target: { _tag: 'Virtual', launchTarget },
+      target: { _tag: 'Virtual', blobId: virtual?.id, launchTarget },
     };
   }
 
@@ -179,7 +185,7 @@ const updateDraft = (
   update: (current: Draft) => ComposerEdit | undefined,
 ): void => {
   if (target._tag === 'Virtual') {
-    updateVirtualDraft(registry, update);
+    updateVirtualDraft(registry, target.blobId, update);
     return;
   }
   const edit = update({
@@ -191,10 +197,13 @@ const updateDraft = (
   }
 };
 
-const currentAttachments = (registry: Registry, target: ComposerTarget): readonly ComposerImageAttachment[] =>
-  target._tag === 'Virtual'
-    ? (registry.get(virtualSessionAtom)?.attachments ?? [])
-    : registry.get(sessionAttachmentsAtom(target.sessionId));
+const currentAttachments = (registry: Registry, target: ComposerTarget): readonly ComposerImageAttachment[] => {
+  if (target._tag === 'Session') {
+    return registry.get(sessionAttachmentsAtom(target.sessionId));
+  }
+  const virtual = registry.get(virtualSessionAtom);
+  return virtual !== null && virtual.id === target.blobId ? virtual.attachments : [];
+};
 
 /** Read and clear a Session's draft in one synchronous step. */
 const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {

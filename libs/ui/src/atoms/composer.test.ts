@@ -545,7 +545,7 @@ describe('an attachment edit lands on the Composer it started on', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('overlapping attaches both land; the later neither interrupts nor waits on the earlier (C5)', () =>
+  it.effect('overlapping attaches both land; the later writes its images without waiting on the earlier (C5)', () =>
     Effect.gen(function* () {
       const host = yield* imageHost;
       const h = yield* harness({}, ['s1'], host.layer);
@@ -676,6 +676,26 @@ describe('an attachment edit lands on the Composer it started on', () => {
       assert.isTrue(Exit.isSuccess(exit));
       assert.isNull(h.registry.get(virtualSessionAtom));
       yield* select(h.registry, { _tag: 'Session', sessionId: 's1' });
+      assert.deepStrictEqual(h.registry.get(composerAtom).attachments, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Virtual session replaced by a new one mid-pick drops the images (C14)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* h.edit({ draft: 'keep' });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* discardVirtual(h.registry);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(h.registry.get(virtualSessionAtom)?.attachments, []);
       assert.deepStrictEqual(h.registry.get(composerAtom).attachments, []);
     }).pipe(Effect.scoped),
   );

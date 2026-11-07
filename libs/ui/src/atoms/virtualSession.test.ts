@@ -114,8 +114,10 @@ describe('ensure / edits', () => {
         configValues: {},
         cwd: undefined,
         draft: '',
+        id: blob(registry)?.id ?? '',
         launchTarget: undefined,
       });
+      assert.isString(blob(registry)?.id);
     }).pipe(Effect.scoped),
   );
 
@@ -349,6 +351,7 @@ describe('Bind', () => {
         const registry = yield* freshRegistry;
         setPhase(registry, CLAUDE, 'ready');
         yield* seedBound(registry, calls, { draft: 'keep me', model: 'o1' });
+        const id = blob(registry)?.id ?? '';
 
         yield* setVirtualLaunchTarget(registry, CLAUDE);
         yield* bindVirtualOnUsable(registry, CLAUDE);
@@ -360,6 +363,7 @@ describe('Bind', () => {
           configValues: {},
           cwd: '/proj',
           draft: 'keep me',
+          id,
           launchTarget: CLAUDE,
           sessionId: 'claude-1',
         });
@@ -653,7 +657,7 @@ describe('Send', () => {
       const during: { draft?: string; locked?: boolean } = {};
       yield* installFakeAgent(calls, {
         duringSetConfig: Effect.sync(() => {
-          updateVirtualDraft(registry, () => ({ draft: 'changed' }));
+          updateVirtualDraft(registry, blob(registry)?.id, () => ({ draft: 'changed' }));
           during.draft = blob(registry)?.draft;
           during.locked = registry.get(virtualMaterializingAtom);
         }),
@@ -666,7 +670,7 @@ describe('Send', () => {
       assert.deepStrictEqual(during, { draft: 'hello', locked: true });
       assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
       assert.isNull(blob(registry));
-      updateVirtualDraft(registry, () => ({ draft: 'changed' }));
+      updateVirtualDraft(registry, blob(registry)?.id, () => ({ draft: 'changed' }));
       assert.isNull(blob(registry));
     }).pipe(Effect.scoped),
   );
@@ -1011,12 +1015,14 @@ describe('Provider hooks', () => {
       resetVirtualOnProviderStopped(registry, CLAUDE);
       assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
 
+      const id = blob(registry)?.id ?? '';
       resetVirtualOnProviderStopped(registry, CODEX);
       assert.deepStrictEqual(blob(registry), {
         attachments: [],
         configValues: {},
         cwd: '/proj',
         draft: 'keep',
+        id,
         launchTarget: undefined,
         sessionId: undefined,
       });

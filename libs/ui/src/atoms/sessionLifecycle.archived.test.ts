@@ -33,7 +33,7 @@ const makeAtoms = () => {
 
 const setup = Effect.fnUntraced(function* (
   initializeResult: unknown,
-  options: { readonly archived: boolean; readonly fake?: FakeAgentOpts },
+  options: { readonly archived: boolean; readonly fake?: FakeAgentOpts; readonly status?: 'active' | 'inactive' },
 ) {
   const calls: string[] = [];
   const registry = yield* freshRegistry;
@@ -44,7 +44,7 @@ const setup = Effect.fnUntraced(function* (
     sessionHistory: [
       { cwd: '/proj', sessionId: 's1', title: 'Old', ...(options.archived ? { _meta: archivedMeta } : {}) },
     ],
-    sessions: { s1: { ...initialSessionSnapshot('s1', 'inactive'), cwd: '/proj' } },
+    sessions: { s1: { ...initialSessionSnapshot('s1', options.status ?? 'inactive'), cwd: '/proj' } },
   }));
   advertise(registry, CODEX, initializeResult);
   const snapshot = () => registry.get(backendHarnessSnapshotAtom(CODEX));
@@ -93,6 +93,16 @@ describe('Activating an archived History entry', () => {
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
       assert.isFalse(isArchivedEntry(s.row() ?? {}));
       assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('unarchives an already-active row (archived elsewhere) without a second load', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true, status: 'active' });
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
 

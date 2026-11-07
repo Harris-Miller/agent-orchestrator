@@ -11,10 +11,10 @@ import type { AgentCapability } from '../host/agentCapabilities.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
-import { backendHarnessSnapshotAtom, providerEnabledMapAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
-import { advertise, CLAUDE, CODEX, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
+import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -53,7 +53,7 @@ const setup = Effect.fnUntraced(function* (
   const launchTarget = options.launchTarget ?? CODEX;
   const calls: string[] = [];
   const registry = yield* freshRegistry;
-  registry.set(providerEnabledMapAtom, { [CLAUDE]: true, [CODEX]: true, [CURSOR]: true });
+  enableProviders(registry, [CLAUDE, CODEX, CURSOR]);
   yield* installFakeAgent(calls, options.fake, launchTarget);
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);

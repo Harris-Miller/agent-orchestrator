@@ -17,8 +17,13 @@ import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
+import {
+  showArchivedAtom,
+  unwrapUserSettings,
+  userSettingsDocumentAtom,
+} from './userSettings/userSettingsDocument.atoms.ts';
 
-export { backendHarnessSnapshotAtom };
+export { backendHarnessSnapshotAtom, showArchivedAtom };
 
 export type Selected = { readonly _tag: 'Session'; readonly sessionId: string } | { readonly _tag: 'Virtual' };
 
@@ -62,18 +67,18 @@ export const backendDesiredStateAtom = Atom.family((launchTarget: AgentLaunchTar
 );
 
 /**
- * Per-provider enabled preference, mirrored from User settings once bootstrap has loaded them (and seeded first-run
- * defaults). `undefined` until then, so nothing mounts, launches, or appears in a picker before settings are known.
+ * Provider bootstrap has seeded first-run defaults and cleaned up runtimes (`ProviderBootstrapGate`). Until then no
+ * launch target is enabled, so nothing mounts, launches, or appears in a picker.
  */
-export const providerEnabledMapAtom = Atom.make<Readonly<Record<string, boolean>> | undefined>(undefined).pipe(
-  Atom.withLabel('providerEnabledMap'),
-  Atom.keepAlive,
-);
+export const providerBootstrapDoneAtom = Atom.make(false).pipe(Atom.withLabel('providerBootstrapDone'), Atom.keepAlive);
 
-/** Launch targets in this build (beta flags applied) whose enabled preference is on. */
+/** Launch targets in this build (beta flags applied) whose User settings enabled preference is on. */
 export const enabledLaunchTargetsAtom = Atom.make(get => {
-  const enabled = get(providerEnabledMapAtom);
-  return enabled === undefined ? [] : MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget]);
+  if (!get(providerBootstrapDoneAtom)) {
+    return [];
+  }
+  const enabled = unwrapUserSettings(get(userSettingsDocumentAtom)).providerEnabled ?? {};
+  return MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget] === true);
 }).pipe(Atom.keepAlive);
 
 /** Runtime job state per provider (Download / Install / Remove). Install and Remove mean "switching". */
@@ -110,12 +115,6 @@ export const unifiedSessionHistoryAtom = Atom.make(get => {
   }
   return entries;
 }).pipe(Atom.keepAlive);
-
-/**
- * Show archived, mirrored from User settings once bootstrap has loaded them (off until then and when unset). Toggle
- * through `showArchivedSettingAtom`, which writes this and User settings.
- */
-export const showArchivedAtom = Atom.make(false).pipe(Atom.withLabel('showArchived'), Atom.keepAlive);
 
 /** Session History rows the UI shows: every row is listed (`archived: 'all'`); archived ones only with Show archived. */
 export const visibleSessionHistoryAtom = Atom.make(get => {

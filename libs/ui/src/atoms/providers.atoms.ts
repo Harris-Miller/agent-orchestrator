@@ -29,7 +29,6 @@ import {
   backendDesiredStateAtom,
   backendHarnessSnapshotAtom,
   enabledLaunchTargetsAtom,
-  providerEnabledMapAtom,
   providerJobAtom,
 } from './backendState.atoms.ts';
 import type { createHarnessAtoms } from './harness.atoms.ts';
@@ -354,14 +353,12 @@ export const createProvidersAtoms = (
           const next = { ...settings.providerEnabled, [launchTarget]: enabled };
           if (enabled) {
             get.set(backendDesiredStateAtom(launchTarget), 'running');
-            get.set(providerEnabledMapAtom, next);
             get.set(userSettingsAtom, { ...settings, providerEnabled: next });
             yield* refreshProvider(launchTarget, get).pipe(Effect.ignore);
             harness.startBackend(launchTarget, get);
             return;
           }
           get.set(backendDesiredStateAtom(launchTarget), 'stopped');
-          get.set(providerEnabledMapAtom, next);
           get.set(userSettingsAtom, { ...settings, providerEnabled: next });
           yield* harness.stopAndReconcile(launchTarget, get);
         }),

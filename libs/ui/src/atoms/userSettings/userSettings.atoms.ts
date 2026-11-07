@@ -1,19 +1,23 @@
 /** User settings write-through Atom backed by `@lib/ao-home`. */
-import { defaultSettings, normalizeAlwaysHiddenGlobs, readUserSettings, writeUserSettings } from '@lib/ao-home';
+import { normalizeAlwaysHiddenGlobs, readUserSettings, writeUserSettings } from '@lib/ao-home';
 import type { UserSettings } from '@lib/ao-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../../createHostRuntime.ts';
-import { showArchivedAtom } from '../backendState.atoms.ts';
 import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
-type AtomRuntime = HostRuntimeBag['atomRuntime'];
+import {
+  showArchivedAtom,
+  showArchivedEnabled,
+  unwrapUserSettings,
+  userSettingsDocumentAtom,
+} from './userSettingsDocument.atoms.ts';
 
-/** Unwrap AsyncResult to UserSettings: Success value, else previousSuccess, else product defaults. */
-export const unwrapUserSettings = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): UserSettings =>
-  AsyncResult.getOrElse(result, () => defaultSettings);
+export { showArchivedEnabled, unwrapUserSettings };
+
+type AtomRuntime = HostRuntimeBag['atomRuntime'];
 
 /** Disable Settings edits only while load is Initial or waiting. */
 export const userSettingsEditsDisabled = <E>(result: AsyncResult.AsyncResult<UserSettings, E>): boolean =>
@@ -27,9 +31,6 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
-
-/** Show archived is off when the Settings field is unset. */
-export const showArchivedEnabled = (settings: UserSettings): boolean => settings.showArchived === true;
 
 /** Notifications are on when the Settings field is unset. */
 export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
@@ -58,17 +59,24 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     )
     .pipe(Atom.keepAlive);
 
+  /** Copies each disk read into the User settings document; never depends on the document, so writes stick. */
+  const loadIntoDocumentAtom = Atom.make(get => {
+    get.set(userSettingsDocumentAtom, get(loadUserSettingsAtom));
+  }).pipe(Atom.keepAlive);
+
+  /** View over the User settings document: mounting loads it, writes persist it, refresh re-reads disk. */
   const userSettingsAtom = Atom.writable(
     get => {
       get.mount(persistUserSettingsAtomFn);
-      get.subscribe(loadUserSettingsAtom, result => {
-        get.setSelf(result);
-      });
-      return get.once(loadUserSettingsAtom);
+      get.mount(loadIntoDocumentAtom);
+      return get(userSettingsDocumentAtom);
     },
     (ctx, next: UserSettings) => {
-      ctx.setSelf(AsyncResult.success(next));
+      ctx.set(userSettingsDocumentAtom, AsyncResult.success(next));
       ctx.set(persistUserSettingsAtomFn, next);
+    },
+    refresh => {
+      refresh(loadUserSettingsAtom);
     },
   ).pipe(Atom.keepAlive);
 
@@ -96,11 +104,10 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
-  /** Show archived (off when unset): reads the mirror bootstrap seeds; write sets it and patches User settings. */
+  /** Effective Show archived (off when unset). Write patches User settings. */
   const showArchivedSettingAtom = Atom.writable(
     get => get(showArchivedAtom),
     (ctx, enabled: boolean) => {
-      ctx.set(showArchivedAtom, enabled);
       ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showArchived: enabled });
     },
   ).pipe(Atom.keepAlive);

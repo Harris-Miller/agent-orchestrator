@@ -80,7 +80,7 @@ const awaitSettled = <A, E>(
   });
 
 describe('showArchivedSettingAtom', () => {
-  it.effect('toggling sets the Show archived mirror and patches User settings', () =>
+  it.effect('toggling patches User settings, and Show archived follows the document', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const { atomRuntime } = createHostRuntime(hostLayer(store));
@@ -94,6 +94,26 @@ describe('showArchivedSettingAtom', () => {
       assert.isTrue(registry.get(showArchivedAtom));
       assert.isTrue(registry.get(showArchivedSettingAtom));
       assert.isTrue(unwrapUserSettings(registry.get(userSettingsAtom)).showArchived);
+      registry.dispose();
+    }),
+  );
+
+  it.effect('follows any User settings change: a whole-document write and a re-read of settings.json', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, FsEntry>();
+      const { atomRuntime } = createHostRuntime(hostLayer(store));
+      const { userSettingsAtom } = createUserSettingsAtoms(atomRuntime);
+      const registry = AtomRegistry.make();
+      registry.mount(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+
+      registry.set(userSettingsAtom, { showArchived: true });
+      assert.isTrue(registry.get(showArchivedAtom));
+
+      store.set(SETTINGS, { content: '{"showArchived":false}', kind: 'file' });
+      registry.refresh(userSettingsAtom);
+      yield* awaitSettled(registry, userSettingsAtom);
+      assert.isFalse(registry.get(showArchivedAtom));
       registry.dispose();
     }),
   );

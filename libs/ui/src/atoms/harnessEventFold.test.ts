@@ -6,7 +6,7 @@ import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
 import type { Tracer } from 'effect';
 import { Effect, Layer, Option } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -17,8 +17,8 @@ import { getPromptSpan, sendPrompt } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
-import { configOptionIndexAtom, providerEnabledMapAtom } from './backendState.atoms.ts';
-import { connectFakeAgent, installFakeAgent } from './fakeAgent.testing.ts';
+import { configOptionIndexAtom } from './backendState.atoms.ts';
+import { connectFakeAgent, enableProviders, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import {
@@ -30,6 +30,7 @@ import {
   virtualMaterializingAtom,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
 const LT = 'codex-acp' as const;
 const CHILD = 'p1:replay-subagent:toolu_A';
@@ -78,7 +79,7 @@ const fakeSessionNew = (sessionId: string, reports?: BackendConnectionReports) =
 
 /** Selected Virtual on `/a` + this launch target (+ `model`), seeded through the Virtual session verbs while not usable. */
 const seedVirtual = Effect.fnUntraced(function* (h: Effect.Success<ReturnType<typeof setup>>, model?: string) {
-  h.registry.set(providerEnabledMapAtom, { [LT]: true });
+  enableProviders(h.registry, [LT]);
   yield* ensureVirtual(h.registry, { cwd: '/a' });
   yield* setVirtualLaunchTarget(h.registry, LT);
   if (model !== undefined) {
@@ -207,6 +208,23 @@ describe('Harness event fold: pending interactions', () => {
       assert.strictEqual(h.snapshot().subagents[CHILD].pendingElicitation?.sessionId, CHILD);
       assert.notProperty(h.snapshot().sessions, CHILD);
       assert.deepStrictEqual(h.notified, [{ body: 'Needs input', title: 'My chat · Reply alpha' }]);
+    }),
+  );
+
+  it.effect('the Attention event honors the in-memory User settings', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      h.registry.set(userSettingsDocumentAtom, AsyncResult.success({ notificationsEnabled: false }));
+      updateHarnessSnapshot(h.registry, LT, current => ({
+        ...current,
+        sessions: { s1: initialSessionSnapshot('s1', 'active') },
+      }));
+
+      h.fold.onPermissionRequest('s1', {} as never, () => undefined);
+      yield* h.drain;
+
+      assert.strictEqual(h.snapshot().sessions.s1.pendingPermission?.sessionId, 's1');
+      assert.deepStrictEqual(h.notified, []);
     }),
   );
 });

@@ -9,16 +9,12 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
 
-import {
-  backendHarnessSnapshotAtom,
-  configOptionIndexAtom,
-  providerEnabledMapAtom,
-  selectedAtom,
-} from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
 import { createComposerAtoms } from './composer.atoms.ts';
 import {
   CLAUDE,
   CODEX,
+  enableProviders,
   freshRegistry,
   gated,
   installFakeAgent,
@@ -203,7 +199,7 @@ describe('ensure / edits', () => {
   it.effect('a launch target change to a disabled provider fails with ProviderUnavailable and changes nothing', () =>
     Effect.gen(function* () {
       const registry = yield* freshRegistry;
-      registry.set(providerEnabledMapAtom, { [CODEX]: true });
+      enableProviders(registry, [CODEX]);
       yield* ensureVirtual(registry, { cwd: '/proj' });
 
       const exit = yield* Effect.exit(setVirtualLaunchTarget(registry, CLAUDE));

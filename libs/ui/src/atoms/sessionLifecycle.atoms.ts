@@ -265,6 +265,13 @@ export const createSessionLifecycleAtoms = (
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
         if (existingSession !== undefined && isSessionActiveOrActivating(existingSession.status)) {
+          // Archived elsewhere while loaded here: still unarchive, but send no second load.
+          if (archived) {
+            yield* unarchiveSession(arg.launchTarget, arg.sessionId);
+            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+              setSessionArchived(current, arg.sessionId, false),
+            );
+          }
           yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
           return;
         }

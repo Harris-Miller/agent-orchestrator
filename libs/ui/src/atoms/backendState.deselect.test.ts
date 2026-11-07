@@ -1,11 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { findLaunchTargetForSessionId, showArchivedAtom, visibleSessionHistoryAtom } from './backendState.atoms.ts';
+import { findLaunchTargetForSessionId, visibleSessionHistoryAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
 const archivedMeta = { jetbrains: { air: { archived: true } } };
 
@@ -37,7 +38,7 @@ describe('findLaunchTargetForSessionId', () => {
 });
 
 describe('visibleSessionHistoryAtom', () => {
-  it('follows Show archived', () => {
+  it('follows the Show archived User setting', () => {
     const registry = AtomRegistry.make();
     updateHarnessSnapshot(registry, 'codex-acp', current => ({
       ...current,
@@ -49,7 +50,7 @@ describe('visibleSessionHistoryAtom', () => {
     const visibleIds = () => registry.get(visibleSessionHistoryAtom).map(entry => entry.sessionId);
 
     assert.deepStrictEqual(visibleIds(), ['live']);
-    registry.set(showArchivedAtom, true);
+    registry.set(userSettingsDocumentAtom, AsyncResult.success({ showArchived: true }));
     assert.deepStrictEqual(visibleIds(), ['live', 'archived']);
     registry.dispose();
   });

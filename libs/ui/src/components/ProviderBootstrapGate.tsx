@@ -1,6 +1,5 @@
 /**
- * Waits for User settings to load successfully, then seeds first-run provider defaults (once) and the Show archived
- * mirror before children mount.
+ * Waits for User settings to load successfully, then seeds first-run provider defaults (once) before children mount.
  * Settings load or seed failure shows Retry and never seeds, launches, or overwrites unreadable settings.
  */
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
@@ -9,9 +8,8 @@ import { AsyncResult } from 'effect/reactivity';
 import { useCallback, useContext, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
-import { providerEnabledMapAtom, showArchivedAtom } from '../atoms/backendState.atoms.ts';
+import { providerBootstrapDoneAtom } from '../atoms/backendState.atoms.ts';
 import { userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
-import { showArchivedEnabled } from '../atoms/userSettings/userSettings.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { seedProviderEnabledIfAbsent } from '../host/providerBootstrap.ts';
 import { runStartupRuntimeCleanup } from '../host/providerRuntime.ts';
@@ -56,8 +54,7 @@ export const ProviderBootstrapGate: FC<{ readonly children: ReactNode }> = ({ ch
         registry.set(userSettingsAtom, exit.value.settings);
       }
       // Only now do providers mount: the enabled preference is known and first-run defaults are persisted.
-      registry.set(providerEnabledMapAtom, exit.value.settings.providerEnabled);
-      registry.set(showArchivedAtom, showArchivedEnabled(exit.value.settings));
+      registry.set(providerBootstrapDoneAtom, true);
       setPhase({ _tag: 'ready' });
     },
     [attempt, loaded, registry],

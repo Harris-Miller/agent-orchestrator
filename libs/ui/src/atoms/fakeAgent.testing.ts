@@ -5,7 +5,7 @@
 import type { SessionSteeringResponse, StopReason } from '@libs/effect-acp';
 import { Deferred, Effect } from 'effect';
 import type { Scope } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -13,8 +13,9 @@ import { applyInitializeResult } from '../host/harnessStateTransitions.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
 import { registerBackendConnection } from '../host/sessionRpc.ts';
 
-import { providerEnabledMapAtom } from './backendState.atoms.ts';
+import { providerBootstrapDoneAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -199,11 +200,20 @@ export const advertise = (registry: Registry, launchTarget: AgentLaunchTarget, i
   }));
 };
 
+/** Enable exactly `launchTargets` through User settings (as after provider bootstrap). */
+export const enableProviders = (registry: Registry, launchTargets: readonly AgentLaunchTarget[]) => {
+  registry.set(
+    userSettingsDocumentAtom,
+    AsyncResult.success({ providerEnabled: Object.fromEntries(launchTargets.map(target => [target, true])) }),
+  );
+  registry.set(providerBootstrapDoneAtom, true);
+};
+
 /** Registry with Codex and Claude enabled, disposed when the scope closes. */
 export const freshRegistry = Effect.acquireRelease(
   Effect.sync(() => {
     const registry = AtomRegistry.make();
-    registry.set(providerEnabledMapAtom, { [CLAUDE]: true, [CODEX]: true });
+    enableProviders(registry, [CLAUDE, CODEX]);
     return registry;
   }),
   registry =>

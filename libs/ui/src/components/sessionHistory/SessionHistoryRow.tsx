@@ -53,7 +53,6 @@ export const SessionHistoryRow: FC<{
   const displayTitle = entry.title ?? 'New Session';
   const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
   const archived = isArchivedEntry(entry);
-  const shownCaption = archived ? (caption === undefined ? 'Archived' : `Archived · ${caption}`) : caption;
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
@@ -100,9 +99,9 @@ export const SessionHistoryRow: FC<{
                 {displayTitle}
               </Typography>
             </SessionTitleInlineRename>
-            {shownCaption === undefined ? null : (
+            {caption === undefined ? null : (
               <Typography color="text.secondary" noWrap variant="caption">
-                {shownCaption}
+                {caption}
               </Typography>
             )}
           </Stack>

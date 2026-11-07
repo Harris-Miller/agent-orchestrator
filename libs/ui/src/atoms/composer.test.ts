@@ -615,6 +615,25 @@ describe('an attachment edit lands on the Composer it started on', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('the cap is judged again on the merged list once the files are read (C13)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      const nine = Array.from({ length: 9 }, (_, index) => image(`i${String(index)}`));
+      yield* h.edit({ attachments: nine });
+
+      h.startAttach({ _tag: 'Paths', paths: ['/tmp/slow.png'] });
+      yield* settle;
+      const ten = [...nine, image('tenth')];
+      yield* h.edit({ attachments: ten });
+      yield* host.releaseSlow;
+      const exit = yield* h.attachResult;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), uris(ten));
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('an unreadable path rejects the whole batch (C9)', () =>
     Effect.gen(function* () {
       const host = yield* imageHost;

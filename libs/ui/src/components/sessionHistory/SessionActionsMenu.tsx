@@ -28,7 +28,7 @@ const stopPropagation = (event: SyntheticEvent) => {
   event.stopPropagation();
 };
 
-/** On an archived entry: Unarchive and open, Pin/Unpin and Delete only (Codex rejects renaming archived sessions). */
+/** On an archived entry: Unarchive (then opens it), Pin/Unpin and Delete only (Codex rejects renaming archived sessions). */
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
   readonly onBeforeAction?: () => void;
@@ -106,7 +106,7 @@ export const SessionActionsMenu: FC<{
               startIcon={<LucideMuiIcon icon={ArchiveRestore} />}
               variant="outlined"
             >
-              Unarchive and open
+              Unarchive
             </Button>
           ) : null}
           {/* Pinning is local-only: it works for unavailable rows and must not run onBeforeAction. */}

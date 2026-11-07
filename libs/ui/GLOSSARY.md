@@ -129,7 +129,7 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached but filtered out by `visibleSessionHistoryAtom`. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached and shown only when Show archived is on (ADR-0008). Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:

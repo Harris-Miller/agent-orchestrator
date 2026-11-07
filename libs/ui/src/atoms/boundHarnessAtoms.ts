@@ -51,7 +51,7 @@ export const {
   setConfigOptionAtomFn,
 } = createChatAtoms(hostBag);
 
-export const { editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(hostBag);
+export const { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(hostBag);
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 

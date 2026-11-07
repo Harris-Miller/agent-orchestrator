@@ -5,12 +5,26 @@
  * Interface:
  * - Read model: {@link composerAtom}.
  * - AtomFns ({@link createComposerAtoms}): `editComposerAtomFn` edits the Selected target's draft;
+ *   `attachComposerImagesAtomFn` adds images that finish later (Host FileDialog or absolute image paths, see
+ *   {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
  *   `submitComposerAtomFn` performs the current Composer action when it is Send or Steering, otherwise does nothing.
  *   Prompt turn cancel stays `cancelPromptAtomFn`.
  *
  * Invariants:
  * - Per-Session drafts are private here (single writer); the Virtual draft lives on the Virtual session blob and is
- *   written only through `editVirtual`.
+ *   written only through the Virtual session's draft verbs.
+ * - Every Composer draft write (edit, attach, Steering or refused-Send restore) reads and writes the draft in one
+ *   synchronous step through the registry.
+ * - An attach lands on the Composer target Selected when it was invoked, never the one Selected when it finishes.
+ *   Nothing Selected means no dialog and no change.
+ * - Its images are merged into that target's attachments as they are when it finishes (anything added or removed
+ *   meanwhile is kept), de-duplicated by `uri`; nothing new means no write.
+ * - Caps are judged on the merged list; a rejected batch changes nothing. A Pick also checks the count against the
+ *   latest list before reading any file.
+ * - Attaches are concurrent: a later one never interrupts an earlier one. A caller's result reflects every attach
+ *   in flight (the fn atom joins them all).
+ * - A Virtual target whose blob is gone (or replaced by a newer one), or whose Lifecycle lock is held, when the
+ *   attach finishes drops it.
  * - Submit reads the Composer action and takes the draft from the registry in one synchronous step, so the action
  *   performed is the one decided for that draft.
  * - Submit is concurrent: a later submit never interrupts an earlier in-flight Send or Steering.
@@ -19,6 +33,7 @@
  * - A refused Send puts the draft back the same way (nothing was appended). A Send that started does not.
  * - Every write goes through the registry (a re-invoked AtomFn's `FnContext.set` is a no-op).
  */
+import { FileDialog } from '@lib/context-services';
 import { Cause, Effect, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -28,6 +43,14 @@ import { hasSteeringSupport } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { composerGates } from '../host/composerAction.ts';
 import type { ComposerGates } from '../host/composerAction.ts';
+import {
+  appendUniqueComposerAttachments,
+  composerImageAttachmentFromPath,
+  IMAGE_ATTACH_MAX_COUNT,
+  IMAGE_DIALOG_FILTERS,
+  ImageAttachmentRejected,
+  imageAttachmentsRejection,
+} from '../host/composerImageAttachment.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import type { AvailableCommand } from '../host/sessionUpdateReducer.ts';
 
@@ -41,8 +64,8 @@ import {
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
 import {
-  editVirtual,
   sendVirtual,
+  updateVirtualDraft,
   virtualMaterializingAtom,
   virtualSendPendingAtom,
   virtualSessionAtom,
@@ -58,7 +81,12 @@ const sessionAttachmentsAtom = Atom.family((_sessionId: string) =>
 
 export type ComposerTarget =
   | { readonly _tag: 'Session'; readonly launchTarget: AgentLaunchTarget | undefined; readonly sessionId: string }
-  | { readonly _tag: 'Virtual'; readonly launchTarget: AgentLaunchTarget | undefined };
+  | {
+      readonly _tag: 'Virtual';
+      /** The Virtual session blob's id; `undefined` with no blob. */
+      readonly blobId: string | undefined;
+      readonly launchTarget: AgentLaunchTarget | undefined;
+    };
 
 export type Composer = ComposerGates & {
   readonly attachments: readonly ComposerImageAttachment[];
@@ -73,6 +101,13 @@ export type ComposerEdit = {
   readonly attachments?: readonly ComposerImageAttachment[];
   readonly draft?: string;
 };
+
+/** Where an attachment edit's images come from. */
+export type ComposerImageSource =
+  /** Host FileDialog, images only, multiple. */
+  | { readonly _tag: 'Pick' }
+  /** Absolute image paths (an image Filesystem Mention, or image paths resolved from the draft). */
+  | { readonly _tag: 'Paths'; readonly paths: readonly string[] };
 
 type Draft = { readonly attachments: readonly ComposerImageAttachment[]; readonly draft: string };
 
@@ -107,7 +142,7 @@ export const composerAtom = Atom.make((get): Composer => {
         sendPending: get(virtualSendPendingAtom),
       }),
       availableCommands: bound?.availableCommands ?? NO_COMMANDS,
-      target: { _tag: 'Virtual', launchTarget },
+      target: { _tag: 'Virtual', blobId: virtual?.id, launchTarget },
     };
   }
 
@@ -143,6 +178,33 @@ const setSessionDraft = (registry: Registry, sessionId: string, edit: ComposerEd
   }
 };
 
+/** Edit `target`'s draft computed from its latest value, in one synchronous step (`undefined` = no change). */
+const updateDraft = (
+  registry: Registry,
+  target: ComposerTarget,
+  update: (current: Draft) => ComposerEdit | undefined,
+): void => {
+  if (target._tag === 'Virtual') {
+    updateVirtualDraft(registry, target.blobId, update);
+    return;
+  }
+  const edit = update({
+    attachments: registry.get(sessionAttachmentsAtom(target.sessionId)),
+    draft: registry.get(sessionDraftAtom(target.sessionId)),
+  });
+  if (edit !== undefined) {
+    setSessionDraft(registry, target.sessionId, edit);
+  }
+};
+
+const currentAttachments = (registry: Registry, target: ComposerTarget): readonly ComposerImageAttachment[] => {
+  if (target._tag === 'Session') {
+    return registry.get(sessionAttachmentsAtom(target.sessionId));
+  }
+  const virtual = registry.get(virtualSessionAtom);
+  return virtual !== null && virtual.id === target.blobId ? virtual.attachments : [];
+};
+
 /** Read and clear a Session's draft in one synchronous step. */
 const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {
   const taken: Draft = {
@@ -166,16 +228,60 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
   const editComposerAtomFn = atomRuntime
-    .fn((edit: ComposerEdit, get: Atom.FnContext) => {
-      const selected = get(selectedAtom);
-      if (selected?._tag === 'Virtual') {
-        return editVirtual(get.registry, edit);
-      }
-      if (selected?._tag === 'Session') {
-        setSessionDraft(get.registry, selected.sessionId, edit);
-      }
-      return Effect.void;
-    })
+    .fn((edit: ComposerEdit, get: Atom.FnContext) =>
+      Effect.sync(() => {
+        const { target } = get.registry.get(composerAtom);
+        if (target !== undefined) {
+          updateDraft(get.registry, target, () => edit);
+        }
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  const attachComposerImagesAtomFn = atomRuntime
+    .fn(
+      Effect.fn('attachComposerImagesAtomFn', { root: true })(function* (
+        source: ComposerImageSource,
+        get: Atom.FnContext,
+      ) {
+        const { registry } = get;
+        // Captured before any wait: the images land here even if Selected moves meanwhile.
+        const { target } = registry.get(composerAtom);
+        if (target === undefined) {
+          return;
+        }
+        yield* Effect.annotateCurrentSpan('composer.attach.source', source._tag);
+        const paths =
+          source._tag === 'Paths'
+            ? source.paths
+            : yield* (yield* FileDialog).pickFiles({ filters: [...IMAGE_DIALOG_FILTERS], multiple: true });
+        if (paths.length === 0) {
+          return;
+        }
+        if (
+          source._tag === 'Pick' &&
+          currentAttachments(registry, target).length + paths.length > IMAGE_ATTACH_MAX_COUNT
+        ) {
+          return yield* new ImageAttachmentRejected({
+            message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
+          });
+        }
+        const picked = yield* Effect.forEach(paths, composerImageAttachmentFromPath, { concurrency: 'unbounded' });
+        let rejected: ImageAttachmentRejected | undefined;
+        updateDraft(registry, target, current => {
+          const merged = appendUniqueComposerAttachments(current.attachments, picked);
+          if (merged.length === current.attachments.length) {
+            return undefined;
+          }
+          rejected = imageAttachmentsRejection(merged);
+          return rejected === undefined ? { attachments: merged } : undefined;
+        });
+        if (rejected !== undefined) {
+          return yield* rejected;
+        }
+      }),
+      { concurrent: true },
+    )
     .pipe(Atom.keepAlive);
 
   const submitComposerAtomFn = atomRuntime
@@ -229,5 +335,5 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  return { editComposerAtomFn, submitComposerAtomFn };
+  return { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn };
 };

@@ -44,6 +44,7 @@ import {
   sendVirtual,
   setVirtualConfigOption,
   setVirtualLaunchTarget,
+  updateVirtualDraft,
   virtualMaterializingAtom,
   virtualSendPendingAtom,
   virtualSessionAtom,
@@ -113,8 +114,10 @@ describe('ensure / edits', () => {
         configValues: {},
         cwd: undefined,
         draft: '',
+        id: blob(registry)?.id ?? '',
         launchTarget: undefined,
       });
+      assert.isString(blob(registry)?.id);
     }).pipe(Effect.scoped),
   );
 
@@ -348,6 +351,7 @@ describe('Bind', () => {
         const registry = yield* freshRegistry;
         setPhase(registry, CLAUDE, 'ready');
         yield* seedBound(registry, calls, { draft: 'keep me', model: 'o1' });
+        const id = blob(registry)?.id ?? '';
 
         yield* setVirtualLaunchTarget(registry, CLAUDE);
         yield* bindVirtualOnUsable(registry, CLAUDE);
@@ -359,6 +363,7 @@ describe('Bind', () => {
           configValues: {},
           cwd: '/proj',
           draft: 'keep me',
+          id,
           launchTarget: CLAUDE,
           sessionId: 'claude-1',
         });
@@ -642,6 +647,31 @@ describe('Send', () => {
 
       assert.deepStrictEqual(during, { draft: 'hello', locked: true, pending: true });
       assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a draft update from the latest blob is inert while the Lifecycle lock is held, and with no blob', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const registry = yield* freshRegistry;
+      const during: { draft?: string; locked?: boolean } = {};
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          updateVirtualDraft(registry, blob(registry)?.id, () => ({ draft: 'changed' }));
+          during.draft = blob(registry)?.draft;
+          during.locked = registry.get(virtualMaterializingAtom);
+        }),
+      });
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+      const recorder = recordingPrompt(calls);
+
+      yield* sendVirtual(registry, recorder.prompt);
+
+      assert.deepStrictEqual(during, { draft: 'hello', locked: true });
+      assert.strictEqual(recorder.prompted[0]?.draft, 'hello');
+      assert.isNull(blob(registry));
+      updateVirtualDraft(registry, blob(registry)?.id, () => ({ draft: 'changed' }));
+      assert.isNull(blob(registry));
     }).pipe(Effect.scoped),
   );
 
@@ -985,12 +1015,14 @@ describe('Provider hooks', () => {
       resetVirtualOnProviderStopped(registry, CLAUDE);
       assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
 
+      const id = blob(registry)?.id ?? '';
       resetVirtualOnProviderStopped(registry, CODEX);
       assert.deepStrictEqual(blob(registry), {
         attachments: [],
         configValues: {},
         cwd: '/proj',
         draft: 'keep',
+        id,
         launchTarget: undefined,
         sessionId: undefined,
       });

@@ -1,5 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Option } from 'effect';
+import { FileDialog } from '@lib/context-services';
+import { Deferred, Effect, Exit, Layer, Option } from 'effect';
+import { layerNoop } from 'effect/FileSystem';
+import type { FileSystem } from 'effect/FileSystem';
+import { systemError } from 'effect/PlatformError';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -7,9 +11,11 @@ import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
+import { ImageAttachmentRejected } from '../host/composerImageAttachment.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
+import type { ComposerImageSource } from './composer.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeAgent.testing.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
@@ -17,7 +23,13 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { ComposerActionUnavailable, SteerFallbackTurnFailed } from './promptTurn.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { ensureVirtual, select, setVirtualLaunchTarget, virtualSessionAtom } from './virtualSession.atoms.ts';
+import {
+  discardVirtual,
+  ensureVirtual,
+  select,
+  setVirtualLaunchTarget,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -33,13 +45,19 @@ const image = (id: string): ComposerImageAttachment => ({
 });
 
 /** Fake agent + registry with Codex `ready`, Steering supported, and active Sessions `ids`; `s1` Selected. */
-const harness = (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) =>
+const harness = (
+  opts: FakeAgentOpts = {},
+  ids: readonly string[] = ['s1'],
+  /** Host services merged over `mockHostLayer` (the later layer wins). */
+  host?: Layer.Layer<FileDialog | FileSystem>,
+) =>
   Effect.gen(function* () {
     const calls: string[] = [];
     yield* installFakeAgent(calls, opts);
     const registry = yield* freshRegistry;
-    const runtime = createHostRuntime(mockHostLayer);
-    const { editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(runtime);
+    const runtime = createHostRuntime(host === undefined ? mockHostLayer : Layer.merge(mockHostLayer, host));
+    const { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(runtime);
+    registry.mount(attachComposerImagesAtomFn);
     registry.mount(editComposerAtomFn);
     registry.mount(submitComposerAtomFn);
     updateHarnessSnapshot(registry, CODEX, current => ({
@@ -63,7 +81,20 @@ const harness = (opts: FakeAgentOpts = {}, ids: readonly string[] = ['s1']) =>
       startSubmit();
       return submitResult;
     });
-    return { calls, edit, registry, startSubmit, submit, submitResult };
+    /** Start an attachment edit without waiting for it. */
+    const startAttach = (source: ComposerImageSource) => {
+      registry.set(attachComposerImagesAtomFn, source);
+    };
+    /** Outcome of the attachment edit(s) in flight; await only when no other attach is still gated. */
+    const attachResult = Effect.exit(
+      AtomRegistry.getResult(registry, attachComposerImagesAtomFn, { suspendOnWaiting: true }),
+    );
+    const attach = (source: ComposerImageSource) =>
+      Effect.suspend(() => {
+        startAttach(source);
+        return attachResult;
+      });
+    return { attach, attachResult, calls, edit, registry, startAttach, startSubmit, submit, submitResult };
   });
 
 const patchSession = (registry: Registry, sessionId: string, patch: Partial<SessionSnapshot>) => {
@@ -397,6 +428,292 @@ describe('edits route per Selected target', () => {
       assert.isUndefined(h.registry.get(composerAtom).target);
       yield* select(h.registry, { _tag: 'Session', sessionId: 's1' });
       assert.strictEqual(h.registry.get(composerAtom).draft, '');
+    }).pipe(Effect.scoped),
+  );
+});
+
+/**
+ * Host fakes for attachment edits: a FileDialog that waits for `resolveDialog`, and a FileSystem whose `readFile`
+ * returns 4 bytes, fails for `/tmp/missing.png`, and waits for `releaseSlow` on `/tmp/slow.png`.
+ */
+const imageHost = Effect.gen(function* () {
+  const dialog = yield* Deferred.make<readonly string[]>();
+  const slow = yield* Deferred.make<undefined>();
+  let pickCount = 0;
+  const layer = Layer.merge(
+    Layer.succeed(FileDialog, {
+      pickFiles: () =>
+        Effect.sync(() => {
+          pickCount += 1;
+        }).pipe(Effect.andThen(Deferred.await(dialog))),
+    }),
+    layerNoop({
+      readFile: path =>
+        path === '/tmp/missing.png'
+          ? Effect.fail(
+              systemError({ _tag: 'NotFound', method: 'readFile', module: 'FileSystem', pathOrDescriptor: path }),
+            )
+          : (path === '/tmp/slow.png' ? Deferred.await(slow) : Effect.void).pipe(
+              Effect.as(new Uint8Array([1, 2, 3, 4])),
+            ),
+    }),
+  );
+  return {
+    layer,
+    pickCount: () => pickCount,
+    releaseSlow: Deferred.succeed(slow, undefined),
+    resolveDialog: (paths: readonly string[]) => Deferred.succeed(dialog, paths),
+  };
+});
+
+const uris = (attachments: readonly ComposerImageAttachment[]) => attachments.map(attachment => attachment.uri);
+const uri = (name: string) => `file:///tmp/${name}.png`;
+
+describe('an attachment edit lands on the Composer it started on', () => {
+  it.effect('Pick appends to the Selected Session attachments (C1)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* h.edit({ attachments: [image('a')] });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      const { attachments } = h.registry.get(composerAtom);
+      assert.deepStrictEqual(uris(attachments), [uri('a'), uri('p')]);
+      assert.strictEqual(attachments[1]?.name, 'p.png');
+      assert.strictEqual(attachments[1]?.mimeType, 'image/png');
+      assert.strictEqual(attachments[1]?.previewDataUrl, 'data:image/png;base64,AQIDBA==');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Selected moves mid-pick: the images land on the Session the pick started on (C2)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1', 's2'], host.layer);
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* select(h.registry, { _tag: 'Session', sessionId: 's2' });
+      yield* h.edit({ attachments: [image('x')], draft: 'on s2' });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('x')]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'on s2');
+      yield* select(h.registry, { _tag: 'Session', sessionId: 's1' });
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('p')]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('attachments edited mid-pick are kept: the images merge onto the latest list (C3)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* h.edit({ attachments: [image('a'), image('b')] });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* h.edit({ attachments: [image('b'), image('c')] });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('b'), uri('c'), uri('p')]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Virtual: the images land on the Virtual session after Leaving Virtual (C4)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* h.edit({ draft: 'keep' });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* select(h.registry, { _tag: 'Session', sessionId: 's1' });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(uris(h.registry.get(virtualSessionAtom)?.attachments ?? []), [uri('p')]);
+      assert.deepStrictEqual(h.registry.get(composerAtom).attachments, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('overlapping attaches both land; the later writes its images without waiting on the earlier (C5)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+
+      h.startAttach({ _tag: 'Paths', paths: ['/tmp/slow.png'] });
+      yield* settle;
+      h.startAttach({ _tag: 'Paths', paths: ['/tmp/fast.png'] });
+      yield* settle;
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('fast')]);
+
+      yield* host.releaseSlow;
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('fast'), uri('slow')]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a cancelled dialog changes nothing (C6)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* h.edit({ attachments: [image('a')], draft: 'hello' });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* host.resolveDialog([]);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('a')]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('an image already attached (same uri) adds nothing (C7)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* h.edit({ attachments: [image('p')] });
+
+      const exit = yield* h.attach({ _tag: 'Paths', paths: ['/tmp/p.png'] });
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(
+        h.registry.get(composerAtom).attachments.map(attachment => attachment.id),
+        ['p'],
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('the count cap is judged on the latest list (C8)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      const nine = Array.from({ length: 9 }, (_, index) => image(`i${String(index)}`));
+      yield* h.edit({ attachments: nine });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* h.edit({ attachments: [...nine, image('tenth')] });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      assert.strictEqual(h.registry.get(composerAtom).attachments.length, 10);
+      assert.notInclude(uris(h.registry.get(composerAtom).attachments), uri('p'));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('the cap is judged again on the merged list once the files are read (C13)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      const nine = Array.from({ length: 9 }, (_, index) => image(`i${String(index)}`));
+      yield* h.edit({ attachments: nine });
+
+      h.startAttach({ _tag: 'Paths', paths: ['/tmp/slow.png'] });
+      yield* settle;
+      const ten = [...nine, image('tenth')];
+      yield* h.edit({ attachments: ten });
+      yield* host.releaseSlow;
+      const exit = yield* h.attachResult;
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), uris(ten));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('an unreadable path rejects the whole batch (C9)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* h.edit({ attachments: [image('a')] });
+
+      const exit = yield* h.attach({ _tag: 'Paths', paths: ['/tmp/ok.png', '/tmp/missing.png'] });
+
+      assert.instanceOf(Option.getOrUndefined(Exit.findErrorOption(exit)), ImageAttachmentRejected);
+      assert.deepStrictEqual(uris(h.registry.get(composerAtom).attachments), [uri('a')]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('with nothing Selected no dialog opens (C10)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* select(h.registry, undefined);
+
+      const exit = yield* h.attach({ _tag: 'Pick' });
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.strictEqual(host.pickCount(), 0);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Virtual session discarded mid-pick drops the images (C11)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* h.edit({ draft: 'keep' });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* discardVirtual(h.registry);
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.isNull(h.registry.get(virtualSessionAtom));
+      yield* select(h.registry, { _tag: 'Session', sessionId: 's1' });
+      assert.deepStrictEqual(h.registry.get(composerAtom).attachments, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Virtual session replaced by a new one mid-pick drops the images (C14)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* h.edit({ draft: 'keep' });
+
+      h.startAttach({ _tag: 'Pick' });
+      yield* settle;
+      yield* discardVirtual(h.registry);
+      yield* ensureVirtual(h.registry, { cwd: '/proj' });
+      yield* host.resolveDialog(['/tmp/p.png']);
+      const exit = yield* h.attachResult;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(h.registry.get(virtualSessionAtom)?.attachments, []);
+      assert.deepStrictEqual(h.registry.get(composerAtom).attachments, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('image paths have no early count check: a duplicate at the cap is a no-op (C12)', () =>
+    Effect.gen(function* () {
+      const host = yield* imageHost;
+      const h = yield* harness({}, ['s1'], host.layer);
+      const ten = [...Array.from({ length: 9 }, (_, index) => image(`i${String(index)}`)), image('p')];
+      yield* h.edit({ attachments: ten });
+
+      const exit = yield* h.attach({ _tag: 'Paths', paths: ['/tmp/p.png'] });
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(
+        h.registry.get(composerAtom).attachments.map(attachment => attachment.id),
+        ten.map(attachment => attachment.id),
+      );
     }).pipe(Effect.scoped),
   );
 });

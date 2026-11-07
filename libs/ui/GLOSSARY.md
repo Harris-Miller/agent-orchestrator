@@ -11,7 +11,7 @@ The reactive Harness state shared across host webviews — backend harness phase
 _Avoid_: App atoms, store, desktop atoms, Redux
 
 **Composer**:
-The draft editor for the Selected target: text and Composer Image Attachments, kept per Session or on the Virtual session, plus the one Composer action it offers. Stays editable during a prompt turn (Draft during turn); not editable while its Session is not active, while a Handoff runs, or while a Virtual Send is pending.
+The draft editor for the Selected target: text and Composer Image Attachments, kept per Session or on the Virtual session, plus the one Composer action it offers. Stays editable during a prompt turn (Draft during turn); not editable while its Session is not active, while a Handoff runs, or while a Virtual Send is pending. An edit that finishes later (images from the Host FileDialog, an image Filesystem Mention, or an image path resolved from the draft) lands on the Composer it started on, never on the one Selected when it finishes, and is added to that Composer's attachments as they are when it finishes; if it started on the Virtual session and that session is being Materialized or no longer exists by then, the images are dropped.
 _Avoid_: chat input, prompt box, input bar
 
 **Composer action**:
@@ -137,11 +137,11 @@ An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Me
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Composer Menu**:
-The floating list opened by a Composer Trigger — Available Commands for `/` and `$`, or filesystem paths for `@`.
+The floating list opened by a Composer Trigger — Available Commands for `/` and `$`, or filesystem paths for `@`. Choosing an item replaces the Composer Trigger under the caret; if the caret is no longer in a matching Trigger, choosing only closes the menu.
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)
 
 **Filesystem Mention**:
-Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob.
+Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Choosing an image file instead removes the Trigger and adds the image as a Composer Image Attachment. Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob.
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:
@@ -156,7 +156,7 @@ _Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
 Inline link in rendered chat markdown from agent text, thoughts, or tool results. Only `http(s)` and Host-supported `file://` or workspace-path links are clickable; clicks never navigate the webview. Transcript Markdown Link Chips (user `resource` / `resource_link` prompts) follow the same rules. Scheme-less workspace paths resolve against the session cwd.
 
 **Composer Image Attachment**:
-A draft-side image picked via Host FileDialog, held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing). On `session/prompt`, when the Agent advertises `promptCapabilities.image`, it is sent as an ACP Image ContentBlock (`data` + `mimeType` + `uri`); otherwise as a baseline `type: "resource_link"` (not UI-gated, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load` / `user_message_chunk`, image-like `resource_link`s, ACP `type: "image"` blocks, `file://` image markdown links, or allowlisted `data:image/…;base64,…` markdown links lift into those refs (inline data / image blocks keep the preview; `file://` hydrates when possible).
+A draft-side image added from the Host FileDialog, by an image Filesystem Mention, or from an `@path` or file link in the draft that resolves to an image file; held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing). On `session/prompt`, when the Agent advertises `promptCapabilities.image`, it is sent as an ACP Image ContentBlock (`data` + `mimeType` + `uri`); otherwise as a baseline `type: "resource_link"` (not UI-gated, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load` / `user_message_chunk`, image-like `resource_link`s, ACP `type: "image"` blocks, `file://` image markdown links, or allowlisted `data:image/…;base64,…` markdown links lift into those refs (inline data / image blocks keep the preview; `file://` hydrates when possible).
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Attention event**:

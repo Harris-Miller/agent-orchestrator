@@ -1,14 +1,16 @@
 /**
- * Composer image attachment model: MIME allowlist, caps, validation, and
- * image-like `resource_link` detection. Prompt assembly lives in draftToContentBlocks.
+ * Composer image attachment model: MIME allowlist, caps, validation, reading an image path into an attachment,
+ * de-duplication by `uri`, and image-like `resource_link` detection. Prompt assembly lives in draftToContentBlocks.
  */
 import { OpenableImageMimeType } from '@lib/context-services';
 import type { ContentBlock } from '@libs/effect-acp';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
+import { FileSystem } from 'effect/FileSystem';
+import { Path } from 'effect/Path';
 
 import { isRecord } from '../isRecord.ts';
 
-import { base64FromDataUrl, parseDataUrlBase64 } from './imageDataUrl.ts';
+import { base64FromDataUrl, imageBytesToDataUrl, parseDataUrlBase64 } from './imageDataUrl.ts';
 
 /** MIME allowlist for composer image attachments (decoded bytes before base64). */
 export const IMAGE_MIME_ALLOWLIST: ReadonlySet<string> = new Set(OpenableImageMimeType.literals);
@@ -86,46 +88,124 @@ export const isImageLikeResourceLink = (block: unknown): boolean => {
   return IMAGE_EXT_RE.test(block.name) || IMAGE_EXT_RE.test(block.uri);
 };
 
-/** Validate count / per-image / total decoded byte caps. Fail closed with {@link ImageAttachmentRejected}. */
-export const validateImageAttachments = (
+/** First cap (count / per-image / total decoded bytes) the list breaks, or `undefined` when it is within all of them. */
+export const imageAttachmentsRejection = (
   attachments: readonly ComposerImageAttachment[],
-): Effect.Effect<readonly ComposerImageAttachment[], ImageAttachmentRejected> => {
+): ImageAttachmentRejected | undefined => {
   if (attachments.length > IMAGE_ATTACH_MAX_COUNT) {
-    return Effect.fail(
-      new ImageAttachmentRejected({
-        message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
-      }),
-    );
+    return new ImageAttachmentRejected({
+      message: `At most ${String(IMAGE_ATTACH_MAX_COUNT)} images can be attached`,
+    });
   }
 
   let total = 0;
   for (const attachment of attachments) {
     if (!isAllowedImageMimeType(attachment.mimeType)) {
-      return Effect.fail(
-        new ImageAttachmentRejected({
-          message: `Unsupported image type: ${attachment.mimeType}`,
-        }),
-      );
+      return new ImageAttachmentRejected({
+        message: `Unsupported image type: ${attachment.mimeType}`,
+      });
     }
     if (attachment.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
-      return Effect.fail(
-        new ImageAttachmentRejected({
-          message: `Image ${attachment.name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
-        }),
-      );
+      return new ImageAttachmentRejected({
+        message: `Image ${attachment.name} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
+      });
     }
     total += attachment.byteLength;
   }
 
   if (total > IMAGE_ATTACH_MAX_BYTES_TOTAL) {
-    return Effect.fail(
-      new ImageAttachmentRejected({
-        message: `Attached images exceed ${String(IMAGE_ATTACH_MAX_BYTES_TOTAL / (1024 * 1024))} MiB total`,
-      }),
-    );
+    return new ImageAttachmentRejected({
+      message: `Attached images exceed ${String(IMAGE_ATTACH_MAX_BYTES_TOTAL / (1024 * 1024))} MiB total`,
+    });
   }
 
-  return Effect.succeed(attachments);
+  return undefined;
+};
+
+/** Validate count / per-image / total decoded byte caps. Fail closed with {@link ImageAttachmentRejected}. */
+export const validateImageAttachments = (
+  attachments: readonly ComposerImageAttachment[],
+): Effect.Effect<readonly ComposerImageAttachment[], ImageAttachmentRejected> => {
+  const rejected = imageAttachmentsRejection(attachments);
+  return rejected === undefined ? Effect.succeed(attachments) : Effect.fail(rejected);
+};
+
+const basenameForName = (pathApi: Path, absolutePath: string): string => {
+  const trimmed = absolutePath.replace(/[/\\]+$/, '');
+  const base = pathApi.basename(trimmed);
+  return base.length > 0 ? base : trimmed;
+};
+
+/** Read one absolute image path into a composer attachment (preview data URL). */
+export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmentFromPath')(function* (
+  absolutePath: string,
+) {
+  const pathApi = yield* Path;
+  const fs = yield* FileSystem;
+
+  const mimeType = mimeTypeForImagePath(absolutePath);
+  if (mimeType === undefined) {
+    return yield* new ImageAttachmentRejected({
+      message: `Unsupported image file: ${basenameForName(pathApi, absolutePath)}`,
+    });
+  }
+
+  const bytes = yield* fs.readFile(absolutePath).pipe(
+    Effect.mapError(
+      cause =>
+        new ImageAttachmentRejected({
+          cause,
+          message: `Could not read ${basenameForName(pathApi, absolutePath)}`,
+        }),
+    ),
+  );
+
+  if (bytes.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
+    return yield* new ImageAttachmentRejected({
+      message: `Image ${basenameForName(pathApi, absolutePath)} exceeds ${String(IMAGE_ATTACH_MAX_BYTES_PER / (1024 * 1024))} MiB`,
+    });
+  }
+
+  const fileUrl = yield* pathApi.toFileUrl(absolutePath).pipe(Effect.option);
+  if (Option.isNone(fileUrl)) {
+    return yield* new ImageAttachmentRejected({
+      message: `Could not build file:// URI for ${basenameForName(pathApi, absolutePath)}`,
+    });
+  }
+
+  const previewDataUrl = yield* Effect.try({
+    catch: cause =>
+      new ImageAttachmentRejected({
+        cause,
+        message: `Could not encode ${basenameForName(pathApi, absolutePath)}`,
+      }),
+    try: () => imageBytesToDataUrl(bytes, mimeType),
+  });
+
+  return {
+    byteLength: bytes.byteLength,
+    id: crypto.randomUUID(),
+    mimeType,
+    name: basenameForName(pathApi, absolutePath),
+    previewDataUrl,
+    uri: fileUrl.value.href,
+  } satisfies ComposerImageAttachment;
+});
+
+/** Append attachments that are not already present by `uri` (first wins). */
+export const appendUniqueComposerAttachments = (
+  existing: readonly ComposerImageAttachment[],
+  next: readonly ComposerImageAttachment[],
+): readonly ComposerImageAttachment[] => {
+  const seen = new Set(existing.map(attachment => attachment.uri));
+  const out = [...existing];
+  for (const attachment of next) {
+    if (!seen.has(attachment.uri)) {
+      seen.add(attachment.uri);
+      out.push(attachment);
+    }
+  }
+  return out;
 };
 
 export const attachmentToResourceLinkBlock = (attachment: ComposerImageAttachment): ContentBlock => ({

@@ -5,8 +5,9 @@
  * Interface:
  * - Read model (read-only): {@link virtualSessionAtom}, {@link virtualSendPendingAtom}, {@link virtualMaterializingAtom};
  *   {@link lastCreateDefaultsAtom} is the (writable) seed source for new blobs.
- * - Verbs, all taking the `AtomRegistry`: {@link ensureVirtual}, {@link editVirtual}, {@link setVirtualLaunchTarget},
- *   {@link setVirtualConfigOption}, {@link sendVirtual}, {@link select}, {@link discardVirtual}.
+ * - Verbs, all taking the `AtomRegistry`: {@link ensureVirtual}, {@link editVirtual}, {@link updateVirtualDraft},
+ *   {@link setVirtualLaunchTarget}, {@link setVirtualConfigOption}, {@link sendVirtual}, {@link select},
+ *   {@link discardVirtual}.
  * - Provider hooks: {@link bindVirtualOnUsable}, {@link unbindVirtualOnConnectionLost},
  *   {@link resetVirtualOnProviderStopped}, {@link resetVirtualUnsupportedConfig}; Selected hygiene:
  *   {@link clearSelectedIfMissing}.
@@ -64,6 +65,8 @@ export type VirtualSession = {
   readonly configValues: ConfigOptionValues;
   readonly cwd: string | undefined;
   readonly draft: string;
+  /** Identity of this blob: a new id each time a blob is created, so a discarded blob is never mistaken for its successor. */
+  readonly id: string;
   readonly launchTarget: AgentLaunchTarget | undefined;
   /** Bound ACP session id after eager Bind; absent while unbound. */
   readonly sessionId?: string;
@@ -163,6 +166,7 @@ const emptyVirtual = (): VirtualSession => ({
   configValues: {},
   cwd: undefined,
   draft: '',
+  id: crypto.randomUUID(),
   launchTarget: undefined,
 });
 
@@ -650,6 +654,28 @@ export const editVirtual = Effect.fn('editVirtual')(function* (
     refreshFsListing,
   });
 });
+
+/**
+ * Draft / attachment edit computed from the blob's latest draft, in one synchronous step (the Composer's write path).
+ * `update` returns `undefined` for no change. Inert when the blob is not `blobId` (none, or a newer one) or under the
+ * Lifecycle lock. Never Binds.
+ */
+export const updateVirtualDraft = (
+  registry: Registry,
+  blobId: string | undefined,
+  update: (
+    current: Pick<VirtualSession, 'attachments' | 'draft'>,
+  ) => Partial<Pick<VirtualSession, 'attachments' | 'draft'>> | undefined,
+): void => {
+  const current = registry.get(virtualSessionAtom);
+  if (current === null || current.id !== blobId || registry.get(virtualMaterializingAtom)) {
+    return;
+  }
+  const patch = update(current);
+  if (patch !== undefined) {
+    patchBlob(registry, patch);
+  }
+};
 
 /** Launch target change: hard reset (or last-create defaults), tear down + rebind. Fails when the provider is unusable. */
 export const setVirtualLaunchTarget = Effect.fn('setVirtualLaunchTarget')(function* (

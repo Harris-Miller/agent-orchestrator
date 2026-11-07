@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Fiber } from 'effect';
+import { Cause, Effect, Exit, Fiber } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { initialSessionSnapshot, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
@@ -140,6 +140,18 @@ describe('setSessionConfigOption (Config change)', () => {
       // The fake agent fails with a bare string, outside the RPC error type.
       assert.strictEqual<unknown>(error, 'set-fail');
       assert.strictEqual(configValue(h.s1().configuration, 'model'), 'gpt-5');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a defect reverts the option and clears the Pending client request', () =>
+    Effect.gen(function* () {
+      const h = yield* setup(() => ({ setConfig: () => Effect.die('boom') }));
+
+      const exit = yield* Effect.exit(setSessionConfigOption(h.registry, target, modelToO1));
+
+      assert.isTrue(Exit.isFailure(exit) && Cause.hasDies(exit.cause));
+      assert.strictEqual(configValue(h.s1().configuration, 'model'), 'gpt');
+      assert.isUndefined(h.s1().pendingClientRequest);
     }).pipe(Effect.scoped),
   );
 

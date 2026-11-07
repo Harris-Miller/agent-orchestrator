@@ -17,7 +17,7 @@ See [`GLOSSARY-MAP.md`](./GLOSSARY-MAP.md) for per-package glossaries and how th
 
 ```sh
 pnpm install
-pnpm run local-ci   # typecheck, lint, test — must pass before work is done
+pnpm run local-ci   # format check, typecheck, lint, test — must pass before work is done
 pnpm run tauri:dev  # run the desktop app
 ```
 

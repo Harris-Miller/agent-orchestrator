@@ -298,6 +298,8 @@ describe('Host IPC fulfillment', () => {
     Effect.gen(function* () {
       const { client } = yield* fulfillment;
       assert.deepStrictEqual((yield* client.request({ _tag: 'FileDialogPickFiles' })).paths, []);
+      const [singleOptions] = vscodeStub.window.showOpenDialog.mock.lastCall as unknown as [{ canSelectMany: boolean }];
+      assert.strictEqual(singleOptions.canSelectMany, false);
 
       vscodeStub.window.showOpenDialog.mockResolvedValueOnce([{ fsPath: '/a.png' }, { fsPath: '/b.jpg' }]);
       const { paths } = yield* client.request({

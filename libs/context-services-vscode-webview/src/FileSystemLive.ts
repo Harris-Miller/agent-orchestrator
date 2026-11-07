@@ -3,7 +3,7 @@ import * as PlatformError from 'effect/PlatformError';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
 import { bytesToArrayBuffer } from './protocol/messages.ts';
-import type { IpcMessage } from './protocol/messages.ts';
+import type { HostIpcRequestInput, HostIpcRequestTag, HostIpcResult } from './protocol/messages.ts';
 
 const mapIpcError = (method: string, path: string, cause: unknown): PlatformError.PlatformError =>
   PlatformError.systemError({
@@ -18,33 +18,13 @@ const mapIpcError = (method: string, path: string, cause: unknown): PlatformErro
 const unsupported = (method: string): Effect.Effect<never> =>
   Effect.die(`FileSystem.${method} not supported on vscode Host`);
 
-const fsIpc = <A>(args: {
-  readonly build: (id: string) => IpcMessage;
-  readonly client: IpcClient;
-  readonly decode: (response: IpcMessage) => A | undefined;
-  readonly method: string;
-  readonly path: string;
-}): Effect.Effect<A, PlatformError.PlatformError> =>
-  args.client.request(args.build).pipe(
-    Effect.mapError(cause => mapIpcError(args.method, args.path, cause)),
-    Effect.flatMap(response => {
-      const decoded = args.decode(response);
-      return decoded !== undefined
-        ? Effect.succeed(decoded)
-        : Effect.fail(mapIpcError(args.method, args.path, new Error(response._tag)));
-    }),
-  );
-
-const fsIpcVoid = (args: {
-  readonly build: (id: string) => IpcMessage;
+const fsIpc = <T extends HostIpcRequestTag>(args: {
   readonly client: IpcClient;
   readonly method: string;
   readonly path: string;
-}): Effect.Effect<void, PlatformError.PlatformError> =>
-  args.client.request(args.build).pipe(
-    Effect.mapError(cause => mapIpcError(args.method, args.path, cause)),
-    Effect.asVoid,
-  );
+  readonly request: HostIpcRequestInput<T>;
+}): Effect.Effect<HostIpcResult<T>, PlatformError.PlatformError> =>
+  args.client.request(args.request).pipe(Effect.mapError(cause => mapIpcError(args.method, args.path, cause)));
 
 /**
  * IPC FileSystem subset for ao-home / Providers paths; other methods die.
@@ -59,21 +39,16 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       chown: path => unsupported(`chown(${path})`),
       copy: path => unsupported(`copy(${path})`),
       copyFile: Effect.fn('FileSystem.copyFile')(function* (fromPath: string, toPath: string) {
-        yield* fsIpcVoid({
-          build: id => ({ _tag: 'FsCopyFile', fromPath, id, toPath }),
+        yield* fsIpc({
+          request: { _tag: 'FsCopyFile', fromPath, toPath },
           client,
           method: 'copyFile',
           path: fromPath,
         });
       }),
       exists: Effect.fn('FileSystem.exists')(function* (path: string) {
-        return yield* fsIpc({
-          build: id => ({ _tag: 'FsExists', id, path }),
-          client,
-          decode: response => (response._tag === 'FsExistsResult' ? response.exists : undefined),
-          method: 'exists',
-          path,
-        });
+        const result = yield* fsIpc({ client, method: 'exists', path, request: { _tag: 'FsExists', path } });
+        return result.exists;
       }),
       glob: pattern => unsupported(`glob(${pattern})`),
       link: path => unsupported(`link(${path})`),
@@ -81,13 +56,12 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         path: string,
         options?: { readonly recursive?: boolean },
       ) {
-        yield* fsIpcVoid({
-          build: id => ({
+        yield* fsIpc({
+          request: {
             _tag: 'FsMakeDirectory',
-            id,
             options: options?.recursive === undefined ? undefined : { recursive: options.recursive },
             path,
-          }),
+          },
           client,
           method: 'makeDirectory',
           path,
@@ -98,10 +72,12 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         readonly prefix?: string;
       }) {
         const path = options?.directory ?? 'temp';
-        return yield* fsIpc({
-          build: id => ({
+        const result = yield* fsIpc({
+          client,
+          method: 'makeTempDirectory',
+          path,
+          request: {
             _tag: 'FsMakeTempDirectory',
-            id,
             options:
               options === undefined
                 ? undefined
@@ -109,12 +85,9 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
                     directory: options.directory,
                     prefix: options.prefix,
                   },
-          }),
-          client,
-          decode: response => (response._tag === 'FsMakeTempDirectoryResult' ? response.path : undefined),
-          method: 'makeTempDirectory',
-          path,
+          },
         });
+        return result.path;
       }),
       makeTempDirectoryScoped: () => unsupported('makeTempDirectoryScoped'),
       makeTempFile: () => unsupported('makeTempFile'),
@@ -122,48 +95,36 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       open: path => unsupported(`open(${path})`),
       readDirectory: path => unsupported(`readDirectory(${path})`),
       readFile: Effect.fn('FileSystem.readFile')(function* (path: string) {
-        return yield* fsIpc({
-          build: id => ({ _tag: 'FsReadFile', id, path }),
-          client,
-          decode: response => {
-            if (response._tag !== 'FsReadFileResult') {
-              return undefined;
-            }
-            const { bytes } = response;
-            if (bytes instanceof Uint8Array) {
-              return bytes;
-            }
-            if (bytes instanceof ArrayBuffer) {
-              return new Uint8Array(bytes);
-            }
-            if (ArrayBuffer.isView(bytes)) {
-              return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-            }
-            return undefined;
-          },
-          method: 'readFile',
-          path,
-        });
+        const { bytes } = yield* fsIpc({ client, method: 'readFile', path, request: { _tag: 'FsReadFile', path } });
+        if (bytes instanceof Uint8Array) {
+          return bytes;
+        }
+        if (bytes instanceof ArrayBuffer) {
+          return new Uint8Array(bytes);
+        }
+        if (ArrayBuffer.isView(bytes)) {
+          return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        }
+        return yield* mapIpcError('readFile', path, new Error('FsReadFileResult bytes are not binary'));
       }),
       readFileString: Effect.fn('FileSystem.readFileString')(function* (path: string) {
-        return yield* fsIpc({
-          build: id => ({ _tag: 'FsReadFileString', id, path }),
+        const result = yield* fsIpc({
           client,
-          decode: response => (response._tag === 'FsReadFileStringResult' ? response.content : undefined),
           method: 'readFileString',
           path,
+          request: { _tag: 'FsReadFileString', path },
         });
+        return result.content;
       }),
       readLink: path => unsupported(`readLink(${path})`),
       realPath: path => unsupported(`realPath(${path})`),
       remove: Effect.fn('FileSystem.remove')(function* (path: string, options?: { readonly recursive?: boolean }) {
-        yield* fsIpcVoid({
-          build: id => ({
+        yield* fsIpc({
+          request: {
             _tag: 'FsRemove',
-            id,
             options: options?.recursive === undefined ? undefined : { recursive: options.recursive },
             path,
-          }),
+          },
           client,
           method: 'remove',
           path,
@@ -171,51 +132,42 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       }),
       rename: path => unsupported(`rename(${path})`),
       stat: Effect.fn('FileSystem.stat')(function* (path: string) {
-        return yield* fsIpc({
-          build: id => ({ _tag: 'FsStat', id, path }),
-          client,
-          decode: (response): FileSystem.File.Info | undefined => {
-            if (response._tag !== 'FsStatResult') {
-              return undefined;
-            }
-            const toDate = (ms: number | undefined): Option.Option<Date> =>
-              Option.map(Option.fromNullishOr(ms), value => new Date(value));
-            return {
-              atime: toDate(response.atime),
-              birthtime: toDate(response.birthtime),
-              blksize: Option.none(),
-              blocks: Option.none(),
-              dev: 0n,
-              gid: Option.none(),
-              ino: Option.none(),
-              mode: 0,
-              mtime: toDate(response.mtime),
-              nlink: Option.none(),
-              rdev: Option.none(),
-              size: ByteSize.bytes(response.size),
-              type: response.type,
-              uid: Option.none(),
-            };
-          },
-          method: 'stat',
-          path,
-        });
+        const response = yield* fsIpc({ client, method: 'stat', path, request: { _tag: 'FsStat', path } });
+        const toDate = (ms: number | undefined): Option.Option<Date> =>
+          Option.map(Option.fromNullishOr(ms), value => new Date(value));
+        const info: FileSystem.File.Info = {
+          atime: toDate(response.atime),
+          birthtime: toDate(response.birthtime),
+          blksize: Option.none(),
+          blocks: Option.none(),
+          dev: 0n,
+          gid: Option.none(),
+          ino: Option.none(),
+          mode: 0,
+          mtime: toDate(response.mtime),
+          nlink: Option.none(),
+          rdev: Option.none(),
+          size: ByteSize.bytes(response.size),
+          type: response.type,
+          uid: Option.none(),
+        };
+        return info;
       }),
       symlink: path => unsupported(`symlink(${path})`),
       truncate: path => unsupported(`truncate(${path})`),
       utimes: path => unsupported(`utimes(${path})`),
       watch: path => Stream.die(`FileSystem.watch(${path}) not supported on vscode Host`),
       writeFile: Effect.fn('FileSystem.writeFile')(function* (path: string, data: Uint8Array) {
-        yield* fsIpcVoid({
-          build: id => ({ _tag: 'FsWriteFile', bytes: bytesToArrayBuffer(data), id, path }),
+        yield* fsIpc({
+          request: { _tag: 'FsWriteFile', bytes: bytesToArrayBuffer(data), path },
           client,
           method: 'writeFile',
           path,
         });
       }),
       writeFileString: Effect.fn('FileSystem.writeFileString')(function* (path: string, content: string) {
-        yield* fsIpcVoid({
-          build: id => ({ _tag: 'FsWriteFileString', content, id, path }),
+        yield* fsIpc({
+          request: { _tag: 'FsWriteFileString', content, path },
           client,
           method: 'writeFileString',
           path,

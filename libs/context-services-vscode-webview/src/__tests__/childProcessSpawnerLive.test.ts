@@ -6,7 +6,7 @@ import { makeChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';
 import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
 import { IpcClient } from '../protocol/ipcClient.ts';
 
-import { connectFakePeers } from './fakePeer.ts';
+import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
 
 describe('makeChildProcessSpawnerLive', () => {
   it.effect('stdout Stream.runCollect completes after StdoutEnd + Exit', () =>

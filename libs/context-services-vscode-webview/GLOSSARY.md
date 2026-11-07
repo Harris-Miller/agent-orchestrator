@@ -8,6 +8,14 @@ VS Code webview live layers and Host IPC codec for `@lib/context-services`. The 
 The message protocol between the webview Host services Live and the VS Code extension-host fulfillment (control JSON plus transferable stdio bytes). Prefer **Host IPC** when speaking generically across Hosts (Tauri, VS Code webview, …); **extension↔webview IPC** when naming this Host’s wire specifically.
 _Avoid_: RPC (when you mean this wire)
 
+**Host IPC request**:
+A webview→extension Host IPC message that gets exactly one reply: its own Result, or an Error. It is not a Host services capability: one capability may need several requests (FileSystem uses many), and some requests serve none (Workspace folders, app exit).
+_Avoid_: capability, command, RPC call (when you mean one request/Result pair)
+
+**Host IPC push**:
+A one-way Host IPC message that gets no reply: webview→extension stdin chunks and stdin end; extension→webview stdout/stderr chunks, stream ends, process exit, and Workspace folder changes.
+_Avoid_: event, notification (the latter is a Notifier term)
+
 **OS snapshot**:
 The webview's frozen OS values (`cwd`, `env`, `homedir`, `platform`) captured once from the extension host when the Host services Live is built.
 _Avoid_: live process env, workspace folder (when you mean `OS.cwd`)

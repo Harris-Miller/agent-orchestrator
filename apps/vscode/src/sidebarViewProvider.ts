@@ -1,7 +1,9 @@
+import { serveHostIpc } from '@lib/context-services-vscode-webview/protocol';
 import * as vscode from 'vscode';
 
-import { handleHostIpcMessage, postWorkspaceFoldersChanged } from './host/hostFulfillment';
+import { makeHostIpcFulfillment, postWorkspaceFoldersChanged } from './host/hostFulfillment';
 import type { ProcessTracker } from './host/processTracker';
+import { webviewIpcPort } from './host/webviewIpcPort';
 import { WEBVIEW_VITE_ORIGIN, WEBVIEW_VITE_WS_ORIGIN } from './webviewDevServer';
 
 const getNonce = function (): string {
@@ -54,26 +56,24 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this.getHtml(webviewView.webview);
 
-    const subscription = webviewView.webview.onDidReceiveMessage((raw: unknown) => {
-      handleHostIpcMessage({
-        context: this.context,
-        raw,
+    const port = webviewIpcPort(webviewView.webview);
+    const stopServing = serveHostIpc(
+      port,
+      makeHostIpcFulfillment({
+        asAbsolutePath: relativePath => this.context.asAbsolutePath(relativePath),
+        port,
         tracker: this.tracker,
-        webview: webviewView.webview,
         webviewId,
-        workspaceFolders: vscode.workspace.workspaceFolders,
-      }).then(
-        () => undefined,
-        () => undefined,
-      );
-    });
+        workspaceFolders: () => vscode.workspace.workspaceFolders,
+      }),
+    );
 
     const foldersChanged = vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      postWorkspaceFoldersChanged(webviewView.webview, vscode.workspace.workspaceFolders);
+      postWorkspaceFoldersChanged(port, vscode.workspace.workspaceFolders);
     });
 
     webviewView.onDidDispose(() => {
-      subscription.dispose();
+      stopServing();
       foldersChanged.dispose();
       this.tracker.killAllForWebview(webviewId);
     });

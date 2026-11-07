@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./protocol": "./src/protocol/index.ts"
+    "./protocol": "./src/protocol/index.ts",
+    "./testing": "./src/protocol/fakePeer.testing.ts"
   },
   "scripts": {
     "lint": "oxlint . --deny-warnings",

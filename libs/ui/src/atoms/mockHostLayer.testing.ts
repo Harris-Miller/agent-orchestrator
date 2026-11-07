@@ -1,3 +1,4 @@
+import type { HostServices } from '@lib/context-services';
 import {
   AtomicFile,
   BundledResource,
@@ -14,27 +15,14 @@ import { FetchHttpClient } from 'effect/http';
 import { layer as posixPathLayer } from 'effect/Path';
 import { ChildProcessSpawner } from 'effect/process';
 
-/** Host without editor support: file links render inert. */
-export const mockOpenFileLayer = Layer.succeed(OpenFile, {
-  open: () => Effect.void,
-  openImageData: () => Effect.void,
-  supported: false,
-});
-
-/** Notifier that never raises anything (window reported focused). */
-export const mockNotifierLayer = Layer.succeed(Notifier, {
-  isWindowFocused: Effect.succeed(true),
-  notify: () => Effect.void,
-  supported: 'os',
-});
-
-/** Atomic replace that publishes nothing (tests that don't observe provider state). */
-export const mockAtomicFileLayer = Layer.succeed(AtomicFile, {
-  replaceFileString: () => Effect.void,
-});
-
-export const mockHostLayer = Layer.mergeAll(
-  mockAtomicFileLayer,
+/**
+ * The one full mock of every Host services member for libs/ui tests. Override a member by merging a
+ * layer after it (`Layer.merge(mockHostLayer, myFsLayer)`; the later layer wins).
+ */
+export const mockHostLayer: Layer.Layer<HostServices> = Layer.mergeAll(
+  Layer.succeed(AtomicFile, {
+    replaceFileString: () => Effect.void,
+  }),
   Layer.succeed(BundledResource, {
     resolve: (resourcePath: string) => Effect.succeed(`/resources/${resourcePath}`),
   }),
@@ -45,11 +33,21 @@ export const mockHostLayer = Layer.mergeAll(
   Layer.succeed(FileDialog, {
     pickFiles: () => Effect.succeed([]),
   }),
-  mockNotifierLayer,
+  // Never raises anything; window reported focused.
+  Layer.succeed(Notifier, {
+    isWindowFocused: Effect.succeed(true),
+    notify: () => Effect.void,
+    supported: 'os',
+  }),
   Layer.succeed(OpenUrl, {
     open: () => Effect.void,
   }),
-  mockOpenFileLayer,
+  // Host without editor support: file links render inert.
+  Layer.succeed(OpenFile, {
+    open: () => Effect.void,
+    openImageData: () => Effect.void,
+    supported: false,
+  }),
   Layer.succeed(OS, {
     arch: () => 'arm64',
     cwd: () => '/home/operator',

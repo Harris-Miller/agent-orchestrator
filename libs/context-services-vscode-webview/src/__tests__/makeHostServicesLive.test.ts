@@ -5,7 +5,7 @@ import { Effect, FileSystem } from 'effect';
 import { makeHostServicesLive } from '../makeHostServicesLive.ts';
 import { decodeIpcMessage, encodeIpcMessage } from '../protocol/index.ts';
 
-import { connectFakePeers } from './fakePeer.ts';
+import { connectFakePeers } from '../protocol/fakePeer.testing.ts';
 
 describe('makeHostServicesLive (fake peer)', () => {
   it.effect('OS snapshot + exists round-trip through IPC', () =>

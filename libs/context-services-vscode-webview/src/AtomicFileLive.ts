@@ -8,7 +8,7 @@ export const makeAtomicFileLive = (client: IpcClient): Layer.Layer<AtomicFile> =
   Layer.succeed(AtomicFile, {
     replaceFileString: Effect.fn('AtomicFile.replaceFileString')(function* (path: string, content: string) {
       yield* client
-        .request(id => ({ _tag: 'FsAtomicReplaceFileString', content, id, path }))
+        .request({ _tag: 'FsAtomicReplaceFileString', content, path })
         .pipe(Effect.mapError(cause => atomicReplaceFailed(path, cause)));
     }),
   });

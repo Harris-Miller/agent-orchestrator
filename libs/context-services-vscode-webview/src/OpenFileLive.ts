@@ -9,16 +9,13 @@ export const makeOpenFileLive = (client: IpcClient): Layer.Layer<OpenFile> => {
   const request = Effect.fn('OpenFile.request')(function* (
     message: { readonly _tag: 'OpenFile'; readonly path: string } | ({ readonly _tag: 'OpenImageData' } & Base64Image),
   ) {
-    const response = yield* client
-      .request(id => ({ ...message, id }))
+    yield* client
+      .request(message)
       .pipe(
         Effect.mapError(
           cause => new OpenFileFailed({ cause, message: cause instanceof Error ? cause.message : String(cause) }),
         ),
       );
-    if (response._tag !== `${message._tag}Result`) {
-      return yield* new OpenFileFailed({ message: `Unexpected ${message._tag} response: ${response._tag}` });
-    }
   });
   return Layer.succeed(OpenFile, {
     open: (path: string) => request({ _tag: 'OpenFile', path }),

@@ -8,10 +8,7 @@ export const makeOsSnapshotLive = (client: IpcClient): Layer.Layer<OS> =>
   Layer.effect(
     OS,
     Effect.gen(function* () {
-      const response = yield* client.request(id => ({ _tag: 'OsSnapshot' as const, id })).pipe(Effect.orDie);
-      if (response._tag !== 'OsSnapshotResult') {
-        return yield* Effect.die(new Error(`Unexpected OS snapshot response: ${response._tag}`));
-      }
+      const response = yield* client.request({ _tag: 'OsSnapshot' }).pipe(Effect.orDie);
       const snapshot = {
         arch: response.arch,
         cwd: response.cwd,

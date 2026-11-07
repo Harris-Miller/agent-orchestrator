@@ -14,6 +14,6 @@ Use a purpose-built **Host IPC** protocol for this Host (extension↔webview wir
 
 ## Consequences
 
-- Codec lives in `@lib/context-services-vscode-webview` (shared with extension types/codec only).
+- Protocol lives in `@lib/context-services-vscode-webview` (`./protocol`, free of `vscode` imports) and is shared with the extension: the request table and codec, plus both ends of the seam — `IpcClient` (webview) and `serveHostIpc` (extension dispatch to a complete Host IPC fulfillment). _Amended:_ originally types/codec only; extension dispatch moved here so the request table types both ends.
 - Fake-peer unit tests exercise duplex framing without VS Code.
 - Credit-based backpressure is out of scope; unbounded queues match Tauri parity.

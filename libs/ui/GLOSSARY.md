@@ -67,7 +67,7 @@ A Backend harness's live ACP Connection together with what lives exactly as long
 _Avoid_: connected agent, Connection (unqualified)
 
 **Agent capabilities**:
-What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, and Session close, fork, resume, archive and rename. Read once from the initialize result (ACP `agentCapabilities` plus the top-level `_meta` extensions for Steering and AIR) and narrowed per Provider where the advertisement is not yet trusted (Cursor never resumes); none until initialize, and gone with Connection lost. The UI offers only what they allow, and the Harness refuses Fork, Archive and Rename on an Agent without them. Deactivate is never refused: an Agent that does not advertise close gets a best-effort close.
+What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, and Session close, fork, resume, archive and rename. Read once from the initialize result and narrowed per Provider where the advertisement is not yet trusted; none until initialize, and gone with Connection lost. What the Harness refuses or does best-effort without them is recorded in desktop ADR 0013.
 _Avoid_: initialize result (the raw response), ACP `agentCapabilities` (the wire field: only part of what is read, and not narrowed), capability helpers, advertised capabilities (when a Provider narrows them)
 
 **Bootstrap phase**:

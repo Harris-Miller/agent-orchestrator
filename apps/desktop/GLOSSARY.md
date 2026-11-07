@@ -198,7 +198,7 @@ A session loaded on the ACP Agent (`session/new`, `session/load`, or `session/re
 _Avoid_: Open session, live session
 
 **Deactivate**:
-Harness action that sends ACP `session/close` for an Active session (after a Prompt turn cancel if a prompt is in flight) and marks it `inactive`. The session stays in Session History with its transcript; clicking the row reactivates it. Labeled **Close** in the Harness UI and shown only when the agent advertises `sessionCapabilities.close`. The close fails the Deactivate only when the agent advertises close; otherwise it is best-effort and the session is marked `inactive` anyway (Antigravity, Cursor; ADR 0013/0014). Memory savings depend on the adapter.
+Harness action that sends ACP `session/close` for an Active session (after a Prompt turn cancel if a prompt is in flight) and marks it `inactive`. The session stays in Session History with its transcript; clicking the row reactivates it. Labeled **Close** in the Harness UI and shown only when the agent advertises `sessionCapabilities.close`. Close failure policy: ADR 0013/0014. Memory savings depend on the adapter.
 _Avoid_: End session, Close (UI label only — use Deactivate in code/docs)
 
 ## Agent backends

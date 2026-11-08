@@ -1,6 +1,6 @@
 # Virtual session deferred create
 
-New session no longer calls `session/new` immediately. The Harness keeps a single process-lifetime **Virtual session** blob (draft, launch target, Config values, optional Session cwd) and a **Selected** discriminant (`Virtual` | `Session` | unset). First Send runs `session/new` → `applyConfigDiffs` → Materialize → copies draft into the real session → clears Virtual → prompts. Pre-Materialize failure keeps Virtual; Config `stoppedEarly` continues like Handoff. Discarded on restart; not a History entry.
+New Session no longer calls `session/new` immediately. The Harness keeps a single process-lifetime **Virtual session** blob (draft, launch target, Config values, optional Session cwd) and a **Selected** discriminant (`Virtual` | `Session` | unset). First Send runs `session/new` → `applyConfigDiffs` → Materialize → copies draft into the real session → clears Virtual → prompts. Pre-Materialize failure keeps Virtual; Config `stoppedEarly` continues like Handoff. Discarded on restart; not a History entry.
 
 ## Considered options
 

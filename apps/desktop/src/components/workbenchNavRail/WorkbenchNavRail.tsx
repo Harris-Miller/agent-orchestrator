@@ -162,7 +162,7 @@ export const WorkbenchNavRail: FC<{
             <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
               <LucideMuiIcon fontSize="small" icon={SquarePen} />
             </ListItemIcon>
-            <ListItemText primary="New session" slotProps={{ primary: { variant: 'body2' } }} />
+            <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
           </ListItemButton>
         </Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>

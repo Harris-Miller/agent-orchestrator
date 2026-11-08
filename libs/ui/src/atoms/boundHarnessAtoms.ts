@@ -8,6 +8,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { createComposerAtoms } from './composer.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
+import { createKeepAwakeAtoms } from './keepAwake.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createPinnedSessionsAtoms } from './pinnedSessions.atoms.ts';
 import { createProvidersAtoms } from './providers.atoms.ts';
@@ -34,6 +35,7 @@ export const {
   alwaysHiddenGlobsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
+  keepAwakeEnabledAtom,
   notificationSoundEnabledAtom,
   notificationsEnabledAtom,
   notifyOnlyWhenUnfocusedAtom,
@@ -43,6 +45,8 @@ export const {
   themeAtom,
   userSettingsAtom,
 } = createUserSettingsAtoms(atomRuntime);
+
+export const { keepAwakeAtom, keepAwakeSupportedAtom } = createKeepAwakeAtoms(atomRuntime, { keepAwakeEnabledAtom });
 
 export const {
   cancelPromptAtomFn,

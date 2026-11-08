@@ -35,6 +35,9 @@ export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => set
 /** Notifications are on when the Settings field is unset. */
 export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
 
+/** Keep awake is on when the Settings field is unset. */
+export const keepAwakeEnabled = (settings: UserSettings): boolean => settings.keepAwakeEnabled !== false;
+
 /** Notification sound is on when the Settings field is unset. */
 export const notificationSoundEnabled = (settings: UserSettings): boolean =>
   settings.notificationSoundEnabled !== false;
@@ -120,6 +123,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective Keep awake preference (on when unset). Write patches User settings. */
+  const keepAwakeEnabledAtom = Atom.writable(
+    get => keepAwakeEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), keepAwakeEnabled: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective Notification sound preference (on when unset). Write patches User settings. */
   const notificationSoundEnabledAtom = Atom.writable(
     get => notificationSoundEnabled(unwrapUserSettings(get(userSettingsAtom))),
@@ -178,6 +189,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     alwaysHiddenGlobsAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,
+    keepAwakeEnabledAtom,
     notificationSoundEnabledAtom,
     notificationsEnabledAtom,
     notifyOnlyWhenUnfocusedAtom,

@@ -22,7 +22,7 @@ export const PanelHeader: FC<{
       display: 'flex',
       flexShrink: 0,
       justifyContent: 'space-between',
-      minHeight: PANEL_HEADER_HEIGHT,
+      height: PANEL_HEADER_HEIGHT,
       px: 2,
     }}
   >

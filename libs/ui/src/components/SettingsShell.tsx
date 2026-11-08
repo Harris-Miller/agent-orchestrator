@@ -45,7 +45,7 @@ export const SettingsShell: FC<{
           boxSizing: 'border-box',
           display: 'flex',
           flexShrink: 0,
-          minHeight: PANEL_HEADER_HEIGHT,
+          height: PANEL_HEADER_HEIGHT,
           px: 2,
         }}
       >
@@ -130,7 +130,7 @@ export const SettingsShell: FC<{
             boxSizing: 'border-box',
             display: 'flex',
             borderColor: 'divider',
-            minHeight: PANEL_HEADER_HEIGHT,
+            height: PANEL_HEADER_HEIGHT,
             flexShrink: 0,
             px: 1,
             gap: 1,

@@ -5,6 +5,7 @@ import {
   ensureVirtualSessionAtomFn,
   IconTooltipButton,
   isSessionActiveOrActivating,
+  PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
@@ -94,7 +95,17 @@ export const SessionChatPage: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-      <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 0.5, px: 1, py: 0.5 }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          flexShrink: 0,
+          gap: 0.5,
+          px: 1,
+          height: PANEL_HEADER_HEIGHT,
+          boxSizing: 'border-box',
+        }}
+      >
         <SessionHeader
           onBeforeAction={switchToVirtualSession}
           onClientError={onClientError}

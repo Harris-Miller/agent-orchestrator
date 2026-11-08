@@ -164,7 +164,7 @@ export const AgentChatWorkbench: FC<{
                     display: 'flex',
                     flexShrink: 0,
                     gap: 1,
-                    minHeight: PANEL_HEADER_HEIGHT,
+                    height: PANEL_HEADER_HEIGHT,
                     px: 2,
                   }}
                 >

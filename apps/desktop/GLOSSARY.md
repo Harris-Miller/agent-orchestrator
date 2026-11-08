@@ -210,7 +210,7 @@ At most one process-lifetime in-memory draft (composer text, agent launch target
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:
-App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (desktop normally keeps Virtual or a Session selected). Determines which transcript/composer the main chat shows and what the Session state panel displays. Not per-agent.
+App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (transient on desktop: a cleared Selected — boot, Archive, Delete, Deactivate — falls back to the Virtual session once no Materialize is running). Determines which transcript/composer the main chat shows and what the Session state panel displays. Not per-agent.
 _Avoid_: Selected session (when you mean the union including Virtual), current session, focused session
 
 **Active session**:

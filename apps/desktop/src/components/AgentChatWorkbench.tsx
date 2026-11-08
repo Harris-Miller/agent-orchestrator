@@ -9,11 +9,13 @@ import {
   IconTooltipButton,
   isRecord,
   PANEL_HEADER_HEIGHT,
+  selectedAtom,
   selectedSessionAtom,
   SessionChatBody,
   SessionHeader,
   ToggleDeveloperPanelButton,
   useDeveloperPanelOpen,
+  virtualMaterializingAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
@@ -84,11 +86,17 @@ export const AgentChatWorkbench: FC<{
   const layoutRef = useRef(layout);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
+  const selected = useAtomValue(selectedAtom);
+  const virtualMaterializing = useAtomValue(virtualMaterializingAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
 
+  // Desktop keeps Virtual or a Session Selected: fall back to Virtual whenever Selected is cleared (boot, Archive,
+  // Delete, Deactivate). Re-runs when Materialize ends, since ensureVirtual is inert under the Lifecycle lock.
   useEffect(() => {
-    ensureVirtualSession(undefined).catch(() => undefined);
-  }, [ensureVirtualSession]);
+    if (selected === undefined && !virtualMaterializing) {
+      ensureVirtualSession(undefined).catch(() => undefined);
+    }
+  }, [selected, virtualMaterializing, ensureVirtualSession]);
 
   const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
     const next = { ...layoutRef.current, ...patch };

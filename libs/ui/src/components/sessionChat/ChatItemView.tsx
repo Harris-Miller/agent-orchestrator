@@ -343,7 +343,14 @@ const MessageRow: FC<{
   const showCopy = tone === 'agent' && agentMarkdown.trim().length > 0;
   return (
     <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 1 }}>
-      <ChatMarkdown sx={tone === 'thought' ? { color: 'text.secondary' } : undefined} text={text} />
+      {tone === 'thought' ? (
+        <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 1, px: 0.5 }}>
+          <LucideMuiIcon icon={Brain} sx={{ color: 'text.secondary', flexShrink: 0, fontSize: 16, mt: 0.5 }} />
+          <ChatMarkdown sx={{ color: 'text.secondary', minWidth: 0, pt: 0.25 }} text={text} />
+        </Box>
+      ) : (
+        <ChatMarkdown text={text} />
+      )}
       {showCopy ? (
         <Box sx={{ ml: -0.75 }}>
           <CopyMessageButton getText={() => agentMarkdown} />

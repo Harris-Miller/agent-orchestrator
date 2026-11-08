@@ -3,10 +3,12 @@ import Collapse from '@mui/material/Collapse';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
+import { Brain } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../host/sessionUpdateReducer.ts';
+import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { ChatItemView, ToolCallRow } from './ChatItemView.tsx';
 import { DisclosureButton, DisclosureChevron } from './DisclosureButton.tsx';
 import { splitWorkSegments, workItemPreviewText, workSegmentLabel } from './groupChatItems.ts';
@@ -26,9 +28,14 @@ const WorkItemPreview: FC<{ item: ChatItem }> = ({ item }) => {
     case 'plan':
       return (
         <ListItem sx={{ display: 'block', py: 0 }}>
-          <Typography color="text.secondary" noWrap sx={{ px: 0.5, py: 0.25 }} variant="body2">
-            {workItemPreviewText(item)}
-          </Typography>
+          <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, px: 0.5, py: 0.25 }}>
+            {item.kind === 'agent_thought' ? (
+              <LucideMuiIcon icon={Brain} sx={{ color: 'text.secondary', flexShrink: 0, fontSize: 16 }} />
+            ) : null}
+            <Typography color="text.secondary" noWrap sx={{ minWidth: 0 }} variant="body2">
+              {workItemPreviewText(item)}
+            </Typography>
+          </Box>
         </ListItem>
       );
     default:

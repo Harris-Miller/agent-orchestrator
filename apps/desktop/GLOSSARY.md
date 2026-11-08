@@ -49,7 +49,7 @@ An agent message inside a Work region, followed later in the turn by another Wor
 _Avoid_: thought response, mid-turn reply
 
 **Work segment**:
-The consecutive Work items of a Work region between Interim agent messages, subagents or other non-Work items (or the region's edges); dividers render on their own and are not counted in segments. Collapsible on its own, starts collapsed, and never previews. A region with a single Work segment shows its Work items directly.
+The consecutive Work items of a Work region between Interim agent messages, subagents or other non-Work items (or the region's edges); dividers render on their own and are not counted in segments. Collapsible on its own, starts collapsed (except the first one when an open region first splits, so what the user was reading stays visible), and never previews. A region with a single Work segment shows its Work items directly.
 _Avoid_: step, action group
 
 **Turn answer**:

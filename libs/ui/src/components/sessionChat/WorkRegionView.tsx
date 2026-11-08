@@ -47,11 +47,12 @@ const ChatItemList: FC<{ availableCommands?: readonly AvailableCommand[]; items:
   </List>
 );
 
-const WorkSegmentView: FC<{ availableCommands?: readonly AvailableCommand[]; segment: WorkSegment }> = ({
-  availableCommands,
-  segment,
-}) => {
-  const [open, setOpen] = useState(false);
+const WorkSegmentView: FC<{
+  availableCommands?: readonly AvailableCommand[];
+  defaultOpen: boolean;
+  segment: WorkSegment;
+}> = ({ availableCommands, defaultOpen, segment }) => {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <ListItem sx={{ display: 'block', py: 0 }}>
       <DisclosureButton
@@ -92,6 +93,15 @@ export const WorkRegionView: FC<{
     };
   }, [inFlight]);
   const segments = splitWorkSegments(region.items);
+  const segmentCount = segments.filter(entry => entry.kind === 'work_segment').length;
+  // Open region going from flat to segmented: keep what the user was reading open in the first segment.
+  const [prevSegmentCount, setPrevSegmentCount] = useState(segmentCount);
+  const [firstSegmentOpen, setFirstSegmentOpen] = useState(false);
+  if (segmentCount !== prevSegmentCount) {
+    setPrevSegmentCount(segmentCount);
+    if (open && prevSegmentCount === 1) setFirstSegmentOpen(true);
+  }
+  const firstSegmentId = segments.find(entry => entry.kind === 'work_segment')?.id;
   const latest = region.items.at(-1);
   return (
     // No top padding on the region: the header's natural top is the region's top, so any gap means it is stuck.
@@ -106,6 +116,7 @@ export const WorkRegionView: FC<{
               (regionRef.current?.getBoundingClientRect().top ?? 0) <
               (headerRef.current?.getBoundingClientRect().top ?? 0);
             setOpen(!open);
+            setFirstSegmentOpen(false);
             // Header's natural spot is the region's top; bring it back while the body collapses.
             if (open && stuck) regionRef.current?.scrollIntoView({ block: 'start' });
           }}
@@ -124,13 +135,18 @@ export const WorkRegionView: FC<{
         </List>
       ) : null}
       <Collapse in={open} unmountOnExit>
-        {segments.filter(entry => entry.kind === 'work_segment').length === 1 ? (
+        {segmentCount === 1 ? (
           <ChatItemList availableCommands={availableCommands} items={region.items} />
         ) : (
           <List dense disablePadding sx={{ pl: 1 }}>
             {segments.map(entry =>
               entry.kind === 'work_segment' ? (
-                <WorkSegmentView availableCommands={availableCommands} key={`segment-${entry.id}`} segment={entry} />
+                <WorkSegmentView
+                  availableCommands={availableCommands}
+                  defaultOpen={firstSegmentOpen && entry.id === firstSegmentId}
+                  key={`segment-${entry.id}`}
+                  segment={entry}
+                />
               ) : (
                 <ChatItemView availableCommands={availableCommands} item={entry} key={entry.id} />
               ),

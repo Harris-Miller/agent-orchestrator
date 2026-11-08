@@ -332,6 +332,8 @@ export const DeveloperPanelShell: FC<{
     <Box
       sx={{
         bgcolor: 'background.paper',
+        borderTop: 1,
+        borderColor: 'divider',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',

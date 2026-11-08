@@ -175,6 +175,10 @@ _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 A moment the user should notice in any session (not only the Selected one): a Prompt turn ending with any stop reason except `cancelled` (Handoff's Prompt turns included), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
+**Keep-awake hold**:
+The Harness's OS idle-sleep hold, kept while any Prompt turn on any launch target is working (in flight with no Pending interaction on its Session or its Subagent sessions) and released a short grace period after none is, or at once when the Keep awake User setting is off. Never prevents display sleep or an explicit or lid-close sleep, and ends with the Harness process.
+_Avoid_: sleep inhibitor, caffeinate, wake lock, keep-alive
+
 **Copy message**:
 The control under a transcript user or agent message that writes that message's Markdown source to the Host clipboard. For user messages, Command Chips copy as the raw invocation and Markdown Link Chips as `[label](href)`; injected context blocks and images are omitted. Does not apply to thoughts or tool output, and is distinct from the selection copy inside a user bubble.
 _Avoid_: copy button (when you mean the behavior), copy rendered text

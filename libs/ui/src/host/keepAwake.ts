@@ -1,55 +1,56 @@
 /**
- * Keep-awake hold: an OS idle-sleep inhibitor child process.
+ * Keep-awake hold: an OS idle-sleep hold kept by a child process.
  *
  * No Host service: both Hosts already spawn real OS children of the Host process through `ChildProcessSpawner`
  * (Tauri plugin-shell; VS Code extension host), so the hold is a plain command. Swapping in a Host service later
  * (e.g. a native Windows `SetThreadExecutionState`) is contained to this module.
  *
- * Crash safety via stdin EOF: the inhibitor wraps `/bin/cat`, spawned with stdin piped and never written. Both Hosts
+ * Crash safety via stdin EOF: the hold command wraps `/bin/cat`, spawned with stdin piped and never written. Both Hosts
  * keep the pipe open for the child's life; if the Harness dies (even SIGKILL), `cat` reads EOF and exits, releasing
  * the assertion. No pid plumbing, no timed renewal.
  *
- * Only idle sleep is inhibited (`-i` / `--what=idle`): the display may sleep, and lid-close / explicit sleep still work.
+ * Only idle sleep is held off (`-i` / `--what=idle`): the display may sleep, and lid-close / explicit sleep still work.
  */
 import { OS } from '@lib/context-services';
 import { Effect } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
-export type SleepInhibitCommand = {
+export type KeepAwakeHoldCommand = {
   readonly args: readonly string[];
   /** Absolute; the Tauri `shell:allow-spawn` scope `name` must equal it. */
   readonly command: string;
 };
 
-const CAFFEINATE: SleepInhibitCommand = { args: ['-i', '/bin/cat'], command: '/usr/bin/caffeinate' };
+const MACOS_HOLD: KeepAwakeHoldCommand = { args: ['-i', '/bin/cat'], command: '/usr/bin/caffeinate' };
 
-const SYSTEMD_INHIBIT: SleepInhibitCommand = {
+const LINUX_HOLD: KeepAwakeHoldCommand = {
   args: ['--what=idle', '--who=Agent Orchestrator', '--why=Agents are working', '--mode=block', '/bin/cat'],
   command: '/usr/bin/systemd-inhibit',
 };
 
-/** Idle-sleep inhibitor for `platform`, or undefined when the platform has none. */
-export const sleepInhibitCommand = (platform: string): SleepInhibitCommand | undefined => {
+/** Keep-awake hold command for `platform`, or undefined when the platform has none. */
+export const keepAwakeHoldCommand = (platform: string): KeepAwakeHoldCommand | undefined => {
   switch (platform) {
     case 'darwin':
-      return CAFFEINATE;
+      return MACOS_HOLD;
     case 'linux':
-      return SYSTEMD_INHIBIT;
+      return LINUX_HOLD;
     default:
       return undefined;
   }
 };
 
 /**
- * This Host's inhibitor, or undefined when unsupported: macOS always; Linux only when `systemd-inhibit` exists (Tauri
+ * This Host's Keep-awake hold command, or undefined when unsupported: macOS always; Linux only when `systemd-inhibit` exists (Tauri
  * can only probe allowlisted dirs, so non-`/usr/bin` installs read as unsupported).
  */
-export const keepAwakeCommand = Effect.fn('keepAwakeCommand')(function* () {
+export const hostKeepAwakeHoldCommand = Effect.fn('hostKeepAwakeHoldCommand')(function* () {
   const os = yield* OS;
   const fs = yield* FileSystem;
-  const command = sleepInhibitCommand(os.platform());
-  if (command === undefined || os.platform() === 'darwin') {
+  const platform = os.platform();
+  const command = keepAwakeHoldCommand(platform);
+  if (command === undefined || platform === 'darwin') {
     return command;
   }
   const present = yield* fs.exists(command.command).pipe(Effect.orElseSucceed(() => false));
@@ -57,11 +58,11 @@ export const keepAwakeCommand = Effect.fn('keepAwakeCommand')(function* () {
 });
 
 /**
- * Hold the inhibitor until the scope closes (which kills the child). Failures are logged and swallowed so keep-awake
+ * Hold the computer awake until the scope closes (which kills the child). Failures are logged and swallowed so keep-awake
  * never breaks a prompt turn; an unexpected exit is logged once and not respawned.
  */
 export const holdKeepAwake = Effect.fn('holdKeepAwake')(
-  function* (command: SleepInhibitCommand) {
+  function* (command: KeepAwakeHoldCommand) {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const handle = yield* spawner.spawn(ChildProcess.make(command.command, [...command.args], { stdin: 'pipe' }));
     yield* Effect.logInfo('Keep-awake hold acquired', command.command);

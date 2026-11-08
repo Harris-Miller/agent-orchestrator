@@ -8,7 +8,7 @@ import { Atom } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
-import { holdKeepAwake, keepAwakeCommand } from '../host/keepAwake.ts';
+import { holdKeepAwake, hostKeepAwakeHoldCommand } from '../host/keepAwake.ts';
 import { anyAgentWorking } from '../host/turnActivity.ts';
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 
@@ -35,7 +35,7 @@ const activity = (input: KeepAwakeInput): Activity => {
  * now. Each `true` opens a hold until the next `false`, so staying wanted never respawns. Unsupported Hosts do nothing.
  */
 export const runKeepAwake = Effect.fn('runKeepAwake')(function* (inputs: Stream.Stream<KeepAwakeInput>) {
-  const command = yield* keepAwakeCommand();
+  const command = yield* hostKeepAwakeHoldCommand();
   if (command === undefined) {
     yield* Effect.logInfo('Keep-awake unsupported on this platform');
     return;
@@ -69,6 +69,6 @@ export const createKeepAwakeAtoms = (
     /** Mount for the app's lifetime (`KeepAwakeMount`). */
     keepAwakeAtom: runtime.atom(get => runKeepAwake(get.stream(keepAwakeInputAtom))),
     /** Whether this Host can hold the computer awake (decided once). */
-    keepAwakeSupportedAtom: runtime.atom(Effect.map(keepAwakeCommand(), command => command !== undefined)),
+    keepAwakeSupportedAtom: runtime.atom(Effect.map(hostKeepAwakeHoldCommand(), command => command !== undefined)),
   };
 };

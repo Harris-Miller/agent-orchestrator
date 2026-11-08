@@ -1,17 +1,18 @@
 /** Turn activity: whether any agent is working, i.e. whether the Keep-awake hold is wanted. */
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
+import { hasPendingInteraction } from './composerAction.ts';
 import { rootAncestorId } from './subagent.ts';
 
 /** Sessions whose turn is blocked on the user: a Pending interaction on the Session or any of its Subagent sessions. */
 const blockedSessionIds = (snapshot: BackendHarnessSnapshot): ReadonlySet<string> => {
   const blocked = new Set<string>();
   for (const session of Object.values(snapshot.sessions)) {
-    if (session.pendingPermission !== undefined || session.pendingElicitation !== undefined) {
+    if (hasPendingInteraction(session)) {
       blocked.add(session.sessionId);
     }
   }
   for (const child of Object.values(snapshot.subagents)) {
-    if (child.pendingPermission !== undefined || child.pendingElicitation !== undefined) {
+    if (hasPendingInteraction(child)) {
       blocked.add(rootAncestorId(snapshot.subagents, child.sessionId));
     }
   }

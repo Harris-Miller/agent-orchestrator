@@ -13,7 +13,7 @@ import { TestClock } from 'effect/testing';
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, SessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import { endClientRequest, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
+import { endClientRequest, endPromptTurn, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import type { PendingPermission } from '../host/pendingInteractions.ts';
 import { runKeepAwake } from './keepAwake.atoms.ts';
 import type { KeepAwakeInput } from './keepAwake.atoms.ts';
@@ -139,6 +139,17 @@ describe('runKeepAwake', () => {
       yield* push([harness(session('a', { pendingClientRequest: 'prompt', promptCancelRequested: true }))]);
       assert.deepStrictEqual(events, ['spawn']);
       yield* push([endClientRequest(prompting, 'a')]);
+      yield* advance('30 seconds');
+      assert.deepStrictEqual(events, ['spawn', 'kill']);
+    }),
+  );
+
+  it.effect('treats a turn ended by an RPC error as ended', () =>
+    Effect.gen(function* () {
+      const events: SpawnEvent[] = [];
+      const { push } = yield* start(hostLayer(events));
+      yield* push([prompting]);
+      yield* push([endPromptTurn(prompting, 'a', 'turn', 0)]);
       yield* advance('30 seconds');
       assert.deepStrictEqual(events, ['spawn', 'kill']);
     }),

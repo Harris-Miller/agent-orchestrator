@@ -49,11 +49,11 @@ An agent message inside a Work region, followed later in the turn by another Wor
 _Avoid_: thought response, mid-turn reply
 
 **Work segment**:
-The consecutive Work items of a Work region between Interim agent messages or subagents (or the region's edges); subagents divide segments and are not counted in them. Collapsible on its own, starts collapsed, and never previews. A region with a single Work segment shows its Work items directly.
+The consecutive Work items of a Work region between Interim agent messages, subagents or other non-Work items (or the region's edges); dividers render on their own and are not counted in segments. Collapsible on its own, starts collapsed, and never previews. A region with a single Work segment shows its Work items directly.
 _Avoid_: step, action group
 
 **Turn answer**:
-The trailing agent messages of a turn, after its last work item; always visible below the Work region.
+The trailing agent messages of a turn, after its last Work item; always visible below the Work region.
 _Avoid_: final message, response
 
 **Elicitation summary**:

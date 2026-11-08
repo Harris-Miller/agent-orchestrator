@@ -96,7 +96,10 @@ export const WorkRegionView: FC<{
   return (
     // No top padding on the region: the header's natural top is the region's top, so any gap means it is stuck.
     <ListItem ref={regionRef} sx={{ display: 'block', pb: 0.5, pt: 0 }}>
-      <Box ref={headerRef} sx={{ bgcolor: 'background.default', position: 'sticky', pt: 0.5, top: 0, zIndex: 1 }}>
+      <Box
+        ref={headerRef}
+        sx={{ bgcolor: 'background.default', position: open ? 'sticky' : 'static', pt: 0.5, top: 0, zIndex: 1 }}
+      >
         <DisclosureButton
           onToggle={() => {
             const stuck =

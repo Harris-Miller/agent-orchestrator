@@ -18,26 +18,30 @@ type WorkItem = Extract<ChatItem, { kind: 'agent_thought' | 'plan' | 'subagent' 
 const isWork = (item: ChatItem): item is WorkItem =>
   item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought' || item.kind === 'subagent';
 
+type SegmentItem = Exclude<WorkItem, { kind: 'subagent' }>;
+
+const isSegmentItem = (item: ChatItem): item is SegmentItem => isWork(item) && item.kind !== 'subagent';
+
 /** Consecutive Work items of a region between dividers; `id` is its first item's. */
 export type WorkSegment = {
   readonly id: string;
-  readonly items: readonly ChatItem[];
+  readonly items: readonly SegmentItem[];
   readonly kind: 'work_segment';
 };
 
-/** Interim agent messages and subagents split a region into Work segments and render on their own. */
-type SegmentDivider = Extract<ChatItem, { kind: 'agent_message' | 'subagent' }>;
+/** Interim agent messages, subagents and any other non-Work item split a region and render on their own. */
+type SegmentDivider = Exclude<ChatItem, SegmentItem>;
 
 /** Split a region's items into Work segments, with dividers between them. */
 export const splitWorkSegments = (items: readonly ChatItem[]): readonly (SegmentDivider | WorkSegment)[] =>
   items.reduce<(SegmentDivider | WorkSegment)[]>((out, item) => {
-    if (item.kind === 'agent_message' || item.kind === 'subagent') return [...out, item];
+    if (!isSegmentItem(item)) return [...out, item];
     const last = out.at(-1);
     if (last?.kind === 'work_segment') return [...out.slice(0, -1), { ...last, items: [...last.items, item] }];
     return [...out, { id: item.id, items: [item], kind: 'work_segment' }];
   }, []);
 
-const SEGMENT_KIND_NOUNS: readonly (readonly [Exclude<WorkItem['kind'], 'subagent'>, string])[] = [
+const SEGMENT_KIND_NOUNS: readonly (readonly [SegmentItem['kind'], string])[] = [
   ['tool_call', 'tool call'],
   ['agent_thought', 'thought'],
   ['plan', 'plan'],
@@ -50,14 +54,15 @@ export const workSegmentLabel = (segment: WorkSegment): string =>
     return count === 0 ? [] : [`${String(count)} ${noun}${count === 1 ? '' : 's'}`];
   }).join(', ');
 
-/** One-line preview of an agent thought (first non-empty line) or plan (progress). */
+/** One-line preview of an agent thought (first non-empty line, markdown marks stripped) or plan (progress). */
 export const workItemPreviewText = (item: Extract<ChatItem, { kind: 'agent_thought' | 'plan' }>): string =>
   item.kind === 'plan'
     ? `Plan · ${String(item.entries.filter(entry => entry.status === 'completed').length)}/${String(item.entries.length)} completed`
     : (item.text
         .split('\n')
         .map(line => line.trim())
-        .find(line => line.length > 0) ?? '');
+        .find(line => line.length > 0)
+        ?.replace(/^[#>\s-]+|[*`]/g, '') ?? '');
 
 /** Cut a turn body into runs separated by (and including, as singleton runs) Elicitation summaries. */
 const splitAtSummaries = (body: readonly ChatItem[]): readonly (readonly ChatItem[])[] =>

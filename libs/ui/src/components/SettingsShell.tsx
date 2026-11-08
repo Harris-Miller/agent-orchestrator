@@ -106,7 +106,7 @@ export const SettingsShell: FC<{
           [theme.breakpoints.up('md')]: { display: 'block' },
           width: 260,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { position: 'relative', width: 260, height: '100%', boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': { position: 'relative', width: 260, height: '100%', boxSizing: 'border-box', pt: 0 },
         })}
       >
         {drawerContent}
@@ -119,7 +119,7 @@ export const SettingsShell: FC<{
         sx={theme => ({
           display: 'block',
           [theme.breakpoints.up('md')]: { display: 'none' },
-          '& .MuiDrawer-paper': { width: 260 },
+          '& .MuiDrawer-paper': { width: 260, pt: 0 },
         })}
       >
         {drawerContent}

@@ -21,6 +21,12 @@ export type PendingPermission = {
   readonly sessionId: string;
 };
 
+/** A permission or elicitation request awaits the user (on a Session or a Subagent session). */
+export const hasPendingInteraction = (target: {
+  readonly pendingElicitation?: PendingElicitation;
+  readonly pendingPermission?: PendingPermission;
+}): boolean => target.pendingElicitation !== undefined || target.pendingPermission !== undefined;
+
 export const sessionIdFromElicitationRequest = (request: CreateElicitationRequestBody): string | undefined => {
   if (Schema.is(CreateElicitationSessionRequest)(request)) {
     return request.sessionId;

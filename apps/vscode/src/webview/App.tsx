@@ -7,6 +7,7 @@ import {
   FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
   HarnessCacheGate,
+  KeepAwakeMount,
   NodePrerequisiteGate,
   PersistUserSettingsToast,
   ProviderBootstrapGate,
@@ -85,6 +86,7 @@ const WorkspaceFoldersGate: FC = () => {
     <OnClientErrorContext.Provider value={onClientError}>
       <HarnessCacheGate>
         <AcpBackendsMount />
+        <KeepAwakeMount />
         <ProvidersStartupMount />
       </HarnessCacheGate>
       <Box

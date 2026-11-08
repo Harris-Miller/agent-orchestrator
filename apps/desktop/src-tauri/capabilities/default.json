@@ -83,6 +83,12 @@
         { "args": true, "cmd": "scoop", "name": "scoop" },
         { "args": true, "cmd": "unzip", "name": "unzip" },
         { "args": true, "cmd": "winget", "name": "winget" },
+        { "args": ["-i", "/bin/cat"], "cmd": "/usr/bin/caffeinate", "name": "/usr/bin/caffeinate" },
+        {
+          "args": ["--what=idle", "--who=Agent Orchestrator", "--why=Agents are working", "--mode=block", "/bin/cat"],
+          "cmd": "/usr/bin/systemd-inhibit",
+          "name": "/usr/bin/systemd-inhibit"
+        },
         {
           "name": "provider-npm-version",
           "cmd": "npm",

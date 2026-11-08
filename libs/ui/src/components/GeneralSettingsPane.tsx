@@ -13,6 +13,8 @@ import {
   alwaysHiddenGlobsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
+  keepAwakeEnabledAtom,
+  keepAwakeSupportedAtom,
   notificationsEnabledAtom,
   notificationSoundEnabledAtom,
   notifierSupportedAtom,
@@ -40,6 +42,9 @@ export const GeneralSettingsPane: FC = () => {
   const notifyOnlyWhenUnfocused = useAtomValue(notifyOnlyWhenUnfocusedAtom);
   const setNotifyOnlyWhenUnfocused = useAtomSet(notifyOnlyWhenUnfocusedAtom);
   const notifierSupported = useAtomValue(notifierSupportedAtom);
+  const keepAwakeOn = useAtomValue(keepAwakeEnabledAtom);
+  const setKeepAwakeOn = useAtomSet(keepAwakeEnabledAtom);
+  const keepAwakeSupported = AsyncResult.getOrElse(useAtomValue(keepAwakeSupportedAtom), () => true);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const setAlwaysHiddenGlobs = useAtomSet(alwaysHiddenGlobsAtom);
   /** Draft text so Enter can open a new line; atom normalize runs on blur. */
@@ -51,8 +56,8 @@ export const GeneralSettingsPane: FC = () => {
     <>
       <Typography variant="h6">General</Typography>
       <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-        Session delete confirmation, No Folder group visibility, Notifications, Developer mode, and Always-hidden globs
-        live in User settings.
+        Session delete confirmation, No Folder group visibility, Notifications, Keep awake, Developer mode, and
+        Always-hidden globs live in User settings.
       </Typography>
       <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
         <FormControlLabel
@@ -132,6 +137,23 @@ export const GeneralSettingsPane: FC = () => {
             This host shows notifications inside the editor only; there is no OS notification or sound.
           </Typography>
         ) : null}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={keepAwakeSupported && keepAwakeOn}
+              disabled={editsDisabled || !keepAwakeSupported}
+              onChange={(_event, checked) => {
+                setKeepAwakeOn(checked);
+              }}
+            />
+          }
+          label="Keep computer awake while agents work"
+        />
+        <Typography color="text.secondary" variant="body2">
+          {keepAwakeSupported
+            ? 'Prevents idle sleep while a prompt turn runs. The display can still sleep, and closing the lid still sleeps the computer.'
+            : 'Not supported on this platform'}
+        </Typography>
       </Stack>
       <Box sx={{ mt: 2 }}>
         <FieldLabel fullWidth htmlFor="always-hidden-globs" label="Always-hidden globs">

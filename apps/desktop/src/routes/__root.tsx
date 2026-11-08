@@ -2,6 +2,7 @@ import {
   AcpBackendsMount,
   FdPrerequisiteGate,
   HarnessCacheGate,
+  KeepAwakeMount,
   NodePrerequisiteGate,
   PersistUserSettingsToast,
   ProviderBootstrapGate,
@@ -29,6 +30,7 @@ const RootComponent: FC = () => {
           <ProviderBootstrapGate>
             <HarnessCacheGate>
               <AcpBackendsMount />
+              <KeepAwakeMount />
               <ProvidersStartupMount />
               <Outlet />
             </HarnessCacheGate>

@@ -43,6 +43,7 @@ export * from './components/NodePrerequisiteGate.tsx';
 export * from './components/ProviderBootstrapGate.tsx';
 export * from './components/FieldLabel.tsx';
 export * from './components/IconTooltipButton.tsx';
+export * from './components/KeepAwakeMount.tsx';
 export * from './components/LucideMuiIcon.tsx';
 export * from './components/PersistUserSettingsToast.tsx';
 export * from './components/providers/ProvidersSettingsPane.tsx';

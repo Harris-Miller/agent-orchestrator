@@ -37,6 +37,8 @@ export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
+/** Rows a Session History cwd group shows before its Show more box. */
+const SESSION_GROUP_LIMIT = 10;
 
 const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
 
@@ -95,6 +97,18 @@ export const WorkbenchNavRail: FC<{
       });
     },
   });
+
+  // Group keys whose Show more box shows all rows. Held here so it survives Accordion remounts (accordion collapse,
+  // Show archived, a list refresh); resets on reload.
+  const [showAllGroups, setShowAllGroups] = useState<ReadonlySet<string>>(new Set());
+  const toggleShowAll = (key: string) => {
+    setShowAllGroups(current => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
   // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+").
@@ -193,6 +207,8 @@ export const WorkbenchNavRail: FC<{
               {navGroups.map(group => {
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;
+                const showAllRows = showAllGroups.has(presentation.key);
+                const overflowCount = group.sessions.length - SESSION_GROUP_LIMIT;
                 return (
                   <Accordion
                     {...sectionExpansion(presentation.key)}
@@ -252,7 +268,7 @@ export const WorkbenchNavRail: FC<{
                       ) : null}
                     </AccordionSummary>
                     <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                      {group.sessions.map(entry => (
+                      {(showAllRows ? group.sessions : group.sessions.slice(0, SESSION_GROUP_LIMIT)).map(entry => (
                         <SessionHistoryRow
                           entry={entry}
                           key={`${entry.launchTarget}:${entry.sessionId}`}
@@ -261,6 +277,26 @@ export const WorkbenchNavRail: FC<{
                           selected={selectedSessionId === entry.sessionId}
                         />
                       ))}
+                      {overflowCount > 0 ? (
+                        <Box
+                          sx={{
+                            alignItems: 'center',
+                            border: 1,
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            mb: 1,
+                            mr: 2,
+                            mt: 0.5,
+                            px: 0.5,
+                          }}
+                        >
+                          <Button onClick={() => toggleShowAll(presentation.key)} size="small">
+                            {showAllRows ? 'Show less' : `Show more (${overflowCount})`}
+                          </Button>
+                        </Box>
+                      ) : null}
                     </AccordionDetails>
                   </Accordion>
                 );

@@ -83,12 +83,16 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay.
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Show archived**:
 User settings toggle, set from the Session History header, that includes archived History entries in Session History, marked as archived. Off when unset. Filters the cached rows only; never changes what `session/list` asks the agent for (`@lib/ui` ADR-0008). Activating an archived History entry unarchives it first.
 _Avoid_: archive filter, list filter (when you mean this toggle)
+
+**Show more box**:
+Desktop-only slim control under a Session History cwd group's last row (No Folder group included) when the group has more than 10 visible rows. Toggles between the first 10 and all of them; per group, survives accordion collapse, nav rail close, Show archived toggles, and refreshes, and resets to collapsed on reload. Pinned rows never count toward the 10, and the Pinned section is never capped. With Show archived on, archived rows count (they sort last).
+_Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
 **No Folder group**:
 Session History display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the Session History accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.

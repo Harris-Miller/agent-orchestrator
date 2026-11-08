@@ -37,8 +37,17 @@ export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
+/** Rows a Session History cwd group shows before its Show more box. */
+const CWD_GROUP_ROW_LIMIT = 10;
 
 const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
+
+const withKey = (keys: ReadonlySet<string>, key: string, present: boolean): ReadonlySet<string> => {
+  const next = new Set(keys);
+  if (present) next.add(key);
+  else next.delete(key);
+  return next;
+};
 
 const pinnedCaption = (entry: UnifiedHistoryEntry): string =>
   isNoFolderSessionCwd(entry.cwd) ? 'No Folder' : directoryBasename(entry.cwd);
@@ -87,14 +96,16 @@ export const WorkbenchNavRail: FC<{
   const sectionExpansion = (key: string) => ({
     expanded: !collapsedSections.has(key),
     onChange: (_event: unknown, expanded: boolean) => {
-      setCollapsedSections(current => {
-        const next = new Set(current);
-        if (expanded) next.delete(key);
-        else next.add(key);
-        return next;
-      });
+      setCollapsedSections(current => withKey(current, key, !expanded));
     },
   });
+
+  // Group keys whose Show more box shows all rows. Held here so it survives Accordion remounts (accordion collapse,
+  // Show archived, a list refresh); resets on reload.
+  const [showMoreExpandedGroups, setShowMoreExpandedGroups] = useState<ReadonlySet<string>>(new Set());
+  const toggleShowMoreBox = (key: string) => {
+    setShowMoreExpandedGroups(current => withKey(current, key, !current.has(key)));
+  };
 
   const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
   // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+").
@@ -193,6 +204,8 @@ export const WorkbenchNavRail: FC<{
               {navGroups.map(group => {
                 const presentation = navGroupPresentation(group);
                 const createCwdForGroup = presentation.createCwd;
+                const showAllRows = showMoreExpandedGroups.has(presentation.key);
+                const overflowCount = group.sessions.length - CWD_GROUP_ROW_LIMIT;
                 return (
                   <Accordion
                     {...sectionExpansion(presentation.key)}
@@ -252,7 +265,7 @@ export const WorkbenchNavRail: FC<{
                       ) : null}
                     </AccordionSummary>
                     <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                      {group.sessions.map(entry => (
+                      {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
                         <SessionHistoryRow
                           entry={entry}
                           key={`${entry.launchTarget}:${entry.sessionId}`}
@@ -261,6 +274,21 @@ export const WorkbenchNavRail: FC<{
                           selected={selectedSessionId === entry.sessionId}
                         />
                       ))}
+                      {overflowCount > 0 ? (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            mb: 1,
+                            mr: 2,
+                            mt: 0.5,
+                          }}
+                        >
+                          <Button onClick={() => toggleShowMoreBox(presentation.key)} size="small" variant="outlined">
+                            {showAllRows ? 'Show less' : `Show more (${overflowCount})`}
+                          </Button>
+                        </Box>
+                      ) : null}
                     </AccordionDetails>
                   </Accordion>
                 );

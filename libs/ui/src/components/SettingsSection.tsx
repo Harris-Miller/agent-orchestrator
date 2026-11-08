@@ -29,8 +29,8 @@ export const SettingsRow: FC<{
   readonly title: ReactNode;
 }> = ({ below, children, description, title }) => (
   <Box sx={{ px: 2.5, py: 2 }}>
-    <Stack direction="row" sx={{ alignItems: 'center', gap: 3, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-      <Box sx={{ minWidth: 0 }}>
+    <Stack direction="row" sx={{ alignItems: 'flex-start', gap: 3, justifyContent: 'space-between' }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
         <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
         <Typography color="text.secondary" variant="body2">
           {description}

@@ -130,7 +130,7 @@ export const SettingsShell: FC<{
           <RestoreUserSettingsDefaultsControl />
         </Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: { xs: 2, md: 3 }, py: 3 }}>
-          <Box sx={{ maxWidth: 760, mx: 'auto', minWidth: 0 }}>
+          <Box sx={theme => ({ minWidth: theme.breakpoints.values.xl, mx: 'auto' })}>
             <UserSettingsLoadFailureAlert sx={{ mb: 2 }} />
             {children}
           </Box>

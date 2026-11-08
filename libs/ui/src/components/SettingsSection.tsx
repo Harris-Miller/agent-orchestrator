@@ -45,8 +45,8 @@ export const SettingsRow: FC<{
 );
 
 export const SettingsSection: FC<{ readonly title: string; readonly children: ReactNode }> = ({ title, children }) => (
-  <section>
+  <Box component="section" sx={{ '&:first-of-type > h2': { mt: 0 } }}>
     <SettingsSectionTitle>{title}</SettingsSectionTitle>
     <SettingsGroup>{children}</SettingsGroup>
-  </section>
+  </Box>
 );

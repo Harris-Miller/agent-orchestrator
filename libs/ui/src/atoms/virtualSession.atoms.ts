@@ -79,7 +79,7 @@ type LastCreateDefaults = {
 };
 
 export type EnsureVirtualSessionArg = {
-  /** When set, write this cwd onto the blob (cwd-group (+) always; Create only when creating/re-selecting). */
+  /** When set, write this cwd onto the blob (cwd-group (+) always; New Session only when creating/re-selecting). */
   readonly cwd?: string;
   /**
    * When Selected is already Virtual, still patch `cwd` if provided (cwd-group (+)).
@@ -611,7 +611,7 @@ const materialize = Effect.fn('materialize')(
 
 // Verbs
 
-/** Create New Session / cwd-group (+) / boot: Select Virtual, creating or seeding the blob, then Bind. */
+/** New Session / cwd-group (+) / boot: Select Virtual, creating or seeding the blob, then Bind. */
 export const ensureVirtual = Effect.fn('ensureVirtual')(function* (
   registry: Registry,
   arg: EnsureVirtualSessionArg = {},

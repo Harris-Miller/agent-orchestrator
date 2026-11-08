@@ -37,47 +37,65 @@ export const SettingsShell: FC<{
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const drawerContent = (
-    <Box sx={{ p: 1.5 }}>
-      <TextField
-        fullWidth
-        size="small"
-        placeholder="Search settings…"
-        value={query}
-        onChange={event => {
-          setQuery(event.target.value);
+    <>
+      <Box
+        sx={{
+          alignItems: 'center',
+          borderBottom: 1,
+          borderColor: 'divider',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexShrink: 0,
+          minHeight: PANEL_HEADER_HEIGHT,
+          px: 2,
         }}
-        slotProps={{
-          htmlInput: { 'aria-label': 'Search settings' },
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <LucideMuiIcon icon={Search} fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
-        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 10 } }}
-      />
-      <Box component="nav" aria-label="Settings categories">
-        {filterSettingsCategories(query).map(item => (
-          <ListItemButton
-            key={item.id}
-            selected={category === item.id}
-            aria-current={category === item.id ? 'page' : undefined}
-            sx={{ borderRadius: 2 }}
-            onClick={() => {
-              onSelectCategory(item.id);
-              setOpen(false);
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              <LucideMuiIcon icon={icons[item.id]} fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
-          </ListItemButton>
-        ))}
+      >
+        <Typography component="h2" noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+          Settings
+        </Typography>
       </Box>
-    </Box>
+      <Box sx={{ p: 1.5 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search settings…"
+          value={query}
+          onChange={event => {
+            setQuery(event.target.value);
+          }}
+          slotProps={{
+            htmlInput: { 'aria-label': 'Search settings' },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LucideMuiIcon icon={Search} fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 10 } }}
+        />
+        <Box component="nav" aria-label="Settings categories">
+          {filterSettingsCategories(query).map(item => (
+            <ListItemButton
+              key={item.id}
+              selected={category === item.id}
+              aria-current={category === item.id ? 'page' : undefined}
+              sx={{ borderRadius: 2 }}
+              onClick={() => {
+                onSelectCategory(item.id);
+                setOpen(false);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <LucideMuiIcon icon={icons[item.id]} fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary={item.label} slotProps={{ primary: { variant: 'body2' } }} />
+            </ListItemButton>
+          ))}
+        </Box>
+      </Box>
+    </>
   );
   return (
     <Box sx={{ bgcolor: 'background.default', display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>

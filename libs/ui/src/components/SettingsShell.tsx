@@ -30,10 +30,12 @@ const icons = {
 /** Router-independent settings navigation and responsive page chrome. */
 export const SettingsShell: FC<{
   readonly category: SettingsCategoryId;
+  /** Extra top inset in CSS pixels for the temporary drawer only. */
+  readonly floatingDrawerTopPadding?: number;
   readonly onSelectCategory: (category: SettingsCategoryId) => void;
   readonly onBack: () => void;
   readonly children: ReactNode;
-}> = ({ category, onSelectCategory, onBack, children }) => {
+}> = ({ category, onSelectCategory, onBack, children, floatingDrawerTopPadding = 0 }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const drawerContent = (
@@ -118,7 +120,7 @@ export const SettingsShell: FC<{
         sx={theme => ({
           display: 'block',
           [theme.breakpoints.up('md')]: { display: 'none' },
-          '& .MuiDrawer-paper': { width: 260, pt: 0 },
+          '& .MuiDrawer-paper': { width: 260, pt: `${floatingDrawerTopPadding}px` },
         })}
       >
         {drawerContent}

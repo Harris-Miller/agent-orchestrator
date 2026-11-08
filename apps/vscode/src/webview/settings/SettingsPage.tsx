@@ -8,6 +8,7 @@ export const SettingsPage = () => {
   return (
     <SettingsShell
       category={category}
+      floatingDrawerTopPadding={8}
       onBack={() => {
         navigate({ to: '/' }).catch(() => undefined);
       }}

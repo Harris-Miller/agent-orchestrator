@@ -131,7 +131,7 @@ export const SettingsShell: FC<{
         </Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: { xs: 2, md: 3 }, py: 3 }}>
           <Box
-            sx={theme => ({ maxWidth: theme.breakpoints.values.md, minWidth: theme.breakpoints.values.xs, mx: 'auto' })}
+            sx={theme => ({ maxWidth: theme.breakpoints.values.md, minWidth: theme.breakpoints.values.sm, mx: 'auto' })}
           >
             <UserSettingsLoadFailureAlert sx={{ mb: 2 }} />
             {children}

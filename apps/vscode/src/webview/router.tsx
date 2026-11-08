@@ -1,9 +1,9 @@
-import { createMemoryHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 
 import { AppLayout } from './AppLayout.tsx';
 import { SessionHome } from './SessionHome.tsx';
-import { SettingsCategoryPage } from './settings/SettingsCategoryPage.tsx';
-import { SettingsListPage } from './settings/SettingsListPage.tsx';
+import { SettingsPage } from './settings/SettingsPage.tsx';
+import { isSettingsCategoryId } from '@lib/ui';
 
 const rootRoute = createRootRoute({
   component: AppLayout,
@@ -16,13 +16,22 @@ const homeRoute = createRoute({
 });
 
 const settingsRoute = createRoute({
-  component: SettingsListPage,
+  beforeLoad: () => {
+    // oxlint-disable-next-line typescript/only-throw-error -- Router redirect control flow
+    throw redirect({ to: '/settings/$category', params: { category: 'general' } });
+  },
   getParentRoute: () => rootRoute,
   path: '/settings',
 });
 
 const settingsCategoryRoute = createRoute({
-  component: SettingsCategoryPage,
+  component: SettingsPage,
+  beforeLoad: ({ params }) => {
+    if (!isSettingsCategoryId(params.category)) {
+      // oxlint-disable-next-line typescript/only-throw-error -- Router redirect control flow
+      throw redirect({ to: '/settings/$category', params: { category: 'general' } });
+    }
+  },
   getParentRoute: () => rootRoute,
   path: '/settings/$category',
 });

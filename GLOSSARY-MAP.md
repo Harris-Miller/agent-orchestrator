@@ -22,7 +22,7 @@ Multi-context index for **Agent Orchestrator**. Each package under `apps/*` and 
 - **desktop → context-services**: portable host abstractions (`OS`, `BundledResource`, `Clipboard`, Host services)
 - **desktop → context-services-tauri**: Tauri live layers (`TauriServicesLive`) for Host services
 - **desktop → ao-home**: desktop hydrates User settings into Effect Atoms and the Settings page reads/writes via `@lib/ao-home`; session usage persists under `sessions/<id>/usage.json` through the same seam
-- **desktop → ui**: desktop supplies Host Live and mounts shared Settings panes / theme / ACP surfaces from `@lib/ui`; Settings **shell** chrome (category rail) stays desktop-local
+- **desktop → ui**: desktop supplies Host Live and mounts shared Settings panes / theme / ACP surfaces from `@lib/ui`; both hosts use the shared responsive SettingsShell
 - **ui → context-services**: portable Host services tags (no Live)
 - **ui → ao-home**: session usage persist and User settings I/O from Harness application state
 - **ui → effect-acp**: ACP connection / RPCs for Backend Harness

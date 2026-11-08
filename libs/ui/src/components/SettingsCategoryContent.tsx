@@ -5,19 +5,18 @@ import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
 
 import { GeneralSettingsPane } from './GeneralSettingsPane.tsx';
 import { ProvidersSettingsPane } from './providers/ProvidersSettingsPane.tsx';
+import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 import { ThemeSelect } from './ThemeSelect.tsx';
 
 /** Shared Settings category pane body (host shells supply chrome). */
 export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId }> = ({ category }) => {
   if (category === 'appearance') {
     return (
-      <>
-        <Typography variant="h6">Appearance</Typography>
-        <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-          Theme preference is stored in User settings.
-        </Typography>
-        <ThemeSelect />
-      </>
+      <SettingsSection title="Appearance">
+        <SettingsRow title="Theme" description="Choose the colors used throughout the app.">
+          <ThemeSelect />
+        </SettingsRow>
+      </SettingsSection>
     );
   }
   if (category === 'general') {

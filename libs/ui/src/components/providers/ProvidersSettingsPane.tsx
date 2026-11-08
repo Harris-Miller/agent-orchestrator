@@ -26,6 +26,11 @@ import {
 import type { ProviderView } from '../../host/providerView.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
+import {
+  SettingsGroup as Group,
+  SettingsRow as Row,
+  SettingsSectionTitle as SectionTitle,
+} from '../SettingsSection.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import {
@@ -73,47 +78,6 @@ const ProviderItem: FC<{ readonly provider: ProviderView }> = ({ provider }) => 
     </Stack>
   );
 };
-
-const SectionTitle: FC<{ readonly children: ReactNode }> = ({ children }) => (
-  <Typography color="text.secondary" sx={{ mb: 1, mt: 3, px: 1 }} variant="subtitle2">
-    {children}
-  </Typography>
-);
-
-const Group: FC<{ readonly children: ReactNode }> = ({ children }) => (
-  <Box
-    sx={{
-      '& > *:not(:last-child)': { borderBottom: 1, borderColor: 'divider' },
-      border: 1,
-      borderColor: 'divider',
-      borderRadius: 2,
-    }}
-  >
-    {children}
-  </Box>
-);
-
-const Row: FC<{
-  readonly below?: ReactNode;
-  readonly children?: ReactNode;
-  readonly description: ReactNode;
-  readonly title: ReactNode;
-}> = ({ below, children, description, title }) => (
-  <Box sx={{ px: 2.5, py: 2 }}>
-    <Stack direction="row" sx={{ alignItems: 'center', gap: 3, justifyContent: 'space-between' }}>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
-        <Typography color="text.secondary" variant="body2">
-          {description}
-        </Typography>
-      </Box>
-      <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 1 }}>
-        {children}
-      </Stack>
-    </Stack>
-    {below === undefined || below === null ? null : <Box sx={{ mt: 1.5 }}>{below}</Box>}
-  </Box>
-);
 
 const Spinner: FC<{ readonly label: string }> = ({ label }) => (
   <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
@@ -310,19 +274,26 @@ export const ProvidersSettingsPane: FC = () => {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6">Providers</Typography>
       <Box
         sx={{
           border: 1,
           borderColor: 'divider',
           borderRadius: 3,
           display: 'flex',
-          height: 'calc(100vh - 240px)',
+          flexDirection: { xs: 'column', lg: 'row' },
           minHeight: 480,
           overflow: 'hidden',
         }}
       >
-        <Box sx={{ borderColor: 'divider', borderRight: 1, flexShrink: 0, overflow: 'auto', width: 300 }}>
+        <Box
+          sx={{
+            borderColor: 'divider',
+            borderRight: 1,
+            flexShrink: 0,
+            overflow: 'auto',
+            width: { xs: '100%', lg: 240 },
+          }}
+        >
           {providers.map(provider => (
             <Box
               key={provider.id}

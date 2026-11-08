@@ -36,10 +36,12 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@lib/context-services-tauri": "workspace:^",
+    "@testing-library/react": "catalog:",
     "@tooling/oxlint": "workspace:^",
     "@tooling/tsconfig": "workspace:^",
     "@tooling/vitest": "workspace:^",
     "@types/react": "catalog:",
+    "happy-dom": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",

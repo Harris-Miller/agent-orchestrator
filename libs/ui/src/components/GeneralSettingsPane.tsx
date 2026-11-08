@@ -1,6 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Box from '@mui/material/Box';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -24,7 +22,7 @@ import {
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 
-import { FieldLabel } from './FieldLabel.tsx';
+import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 
 /** Settings → General: User settings toggles shared across hosts. */
 export const GeneralSettingsPane: FC = () => {
@@ -53,128 +51,131 @@ export const GeneralSettingsPane: FC = () => {
   const editsDisabled = userSettingsEditsDisabled(settingsResult);
 
   return (
-    <>
-      <Typography variant="h6">General</Typography>
-      <Typography color="text.secondary" sx={{ mb: 2, mt: 1 }} variant="body2">
-        Session delete confirmation, No Folder group visibility, Notifications, Keep awake, Developer mode, and
-        Always-hidden globs live in User settings.
-      </Typography>
-      <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={confirmSessionDelete}
-              disabled={editsDisabled}
-              onChange={(_event, checked) => {
-                setConfirmSessionDelete(checked);
-              }}
-            />
-          }
-          label="Confirm before deleting a session"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showNoFolderGroup}
-              disabled={editsDisabled}
-              onChange={(_event, checked) => {
-                setShowNoFolderGroup(checked);
-              }}
-            />
-          }
-          label="Show No Folder group in Sessions"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={developerMode}
-              disabled={editsDisabled}
-              onChange={(_event, checked) => {
-                setDeveloperMode(checked);
-              }}
-            />
-          }
-          label="Developer mode"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={notificationsOn}
-              disabled={editsDisabled}
-              onChange={(_event, checked) => {
-                setNotificationsOn(checked);
-              }}
-            />
-          }
-          label="Notifications"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={notificationSoundOn}
-              disabled={editsDisabled || !notificationsOn}
-              onChange={(_event, checked) => {
-                setNotificationSoundOn(checked);
-              }}
-            />
-          }
-          label="Notification sound"
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={notifyOnlyWhenUnfocused}
-              disabled={editsDisabled || !notificationsOn}
-              onChange={(_event, checked) => {
-                setNotifyOnlyWhenUnfocused(checked);
-              }}
-            />
-          }
-          label="Only notify when window unfocused"
-        />
+    <Stack spacing={1}>
+      <SettingsSection title="Sessions">
+        <SettingsRow
+          title="Confirm before deleting a session"
+          description="Ask for confirmation before permanently deleting a session."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Confirm before deleting a session' } }}
+            checked={confirmSessionDelete}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setConfirmSessionDelete(checked);
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Show No Folder group in Sessions"
+          description="Include sessions without a folder in the session list."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Show No Folder group in Sessions' } }}
+            checked={showNoFolderGroup}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setShowNoFolderGroup(checked);
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <SettingsSection title="Notifications">
+        <SettingsRow title="Notifications" description="Notify you when an agent needs attention.">
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Notifications' } }}
+            checked={notificationsOn}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setNotificationsOn(checked);
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Notification sound"
+          description="Play a sound with notifications when supported by this host."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Notification sound' } }}
+            checked={notificationSoundOn}
+            disabled={editsDisabled || !notificationsOn}
+            onChange={(_event, checked) => {
+              setNotificationSoundOn(checked);
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Only notify when window unfocused"
+          description="Suppress notifications while you are using this window."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Only notify when window unfocused' } }}
+            checked={notifyOnlyWhenUnfocused}
+            disabled={editsDisabled || !notificationsOn}
+            onChange={(_event, checked) => {
+              setNotifyOnlyWhenUnfocused(checked);
+            }}
+          />
+        </SettingsRow>
         {AsyncResult.getOrElse(notifierSupported, () => 'os') === 'in-app' ? (
           <Typography color="text.secondary" variant="body2">
             This host shows notifications inside the editor only; there is no OS notification or sound.
           </Typography>
         ) : null}
-        <FormControlLabel
-          control={
-            <Switch
-              checked={keepAwakeSupported && keepAwakeOn}
-              disabled={editsDisabled || !keepAwakeSupported}
-              onChange={(_event, checked) => {
-                setKeepAwakeOn(checked);
+      </SettingsSection>
+      <SettingsSection title="System">
+        <SettingsRow
+          title="Keep computer awake while agents work"
+          description={
+            keepAwakeSupported
+              ? 'Prevents idle sleep while a prompt turn runs. The display can still sleep, and closing the lid still sleeps the computer.'
+              : 'Not supported on this platform'
+          }
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Keep computer awake while agents work' } }}
+            checked={keepAwakeSupported && keepAwakeOn}
+            disabled={editsDisabled || !keepAwakeSupported}
+            onChange={(_event, checked) => {
+              setKeepAwakeOn(checked);
+            }}
+          />
+        </SettingsRow>
+      </SettingsSection>
+      <SettingsSection title="Advanced">
+        <SettingsRow title="Developer mode" description="Show developer tools and diagnostic panels.">
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Developer mode' } }}
+            checked={developerMode}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setDeveloperMode(checked);
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Always-hidden globs"
+          description="One glob per line. Applied to directory picking and @ mentions even when Show hidden is on. .git is always excluded."
+          below={
+            <TextField
+              disabled={editsDisabled}
+              fullWidth
+              id="always-hidden-globs"
+              slotProps={{ htmlInput: { 'aria-label': 'Always-hidden globs' } }}
+              minRows={3}
+              multiline
+              onBlur={() => {
+                setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
+                setAlwaysHiddenGlobsDraft(undefined);
               }}
+              onChange={event => {
+                setAlwaysHiddenGlobsDraft(event.target.value);
+              }}
+              value={alwaysHiddenGlobsText}
             />
           }
-          label="Keep computer awake while agents work"
         />
-        <Typography color="text.secondary" variant="body2">
-          {keepAwakeSupported
-            ? 'Prevents idle sleep while a prompt turn runs. The display can still sleep, and closing the lid still sleeps the computer.'
-            : 'Not supported on this platform'}
-        </Typography>
-      </Stack>
-      <Box sx={{ mt: 2 }}>
-        <FieldLabel fullWidth htmlFor="always-hidden-globs" label="Always-hidden globs">
-          <TextField
-            disabled={editsDisabled}
-            fullWidth
-            helperText="One Always-hidden glob per line. Always applied to the New Session directory picker and composer @ mentions, including when Show hidden is on. .git is always excluded."
-            id="always-hidden-globs"
-            minRows={3}
-            multiline
-            onBlur={() => {
-              setAlwaysHiddenGlobs(alwaysHiddenGlobsText.split('\n'));
-              setAlwaysHiddenGlobsDraft(undefined);
-            }}
-            onChange={event => {
-              setAlwaysHiddenGlobsDraft(event.target.value);
-            }}
-            value={alwaysHiddenGlobsText}
-          />
-        </FieldLabel>
-      </Box>
-    </>
+      </SettingsSection>
+    </Stack>
   );
 };

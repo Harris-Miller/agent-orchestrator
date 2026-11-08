@@ -275,24 +275,26 @@ export const ProvidersSettingsPane: FC = () => {
   return (
     <Stack spacing={2}>
       <Box
-        sx={{
+        sx={theme => ({
           border: 1,
           borderColor: 'divider',
           borderRadius: 3,
           display: 'flex',
-          flexDirection: { xs: 'column', lg: 'row' },
+          flexDirection: 'column',
+          [theme.breakpoints.up('lg')]: { flexDirection: 'row' },
           minHeight: 480,
           overflow: 'hidden',
-        }}
+        })}
       >
         <Box
-          sx={{
+          sx={theme => ({
             borderColor: 'divider',
             borderRight: 1,
             flexShrink: 0,
             overflow: 'auto',
-            width: { xs: '100%', lg: 240 },
-          }}
+            width: '100%',
+            [theme.breakpoints.up('lg')]: { width: 240 },
+          })}
         >
           {providers.map(provider => (
             <Box

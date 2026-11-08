@@ -83,12 +83,13 @@ export const SettingsShell: FC<{
     <Box sx={{ bgcolor: 'background.default', display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Drawer
         variant="permanent"
-        sx={{
-          display: { xs: 'none', md: 'block' },
+        sx={theme => ({
+          display: 'none',
+          [theme.breakpoints.up('md')]: { display: 'block' },
           width: 260,
           flexShrink: 0,
           '& .MuiDrawer-paper': { position: 'relative', width: 260, height: '100%', boxSizing: 'border-box' },
-        }}
+        })}
       >
         {drawerContent}
       </Drawer>
@@ -97,7 +98,11 @@ export const SettingsShell: FC<{
         onClose={() => {
           setOpen(false);
         }}
-        sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: 260 } }}
+        sx={theme => ({
+          display: 'block',
+          [theme.breakpoints.up('md')]: { display: 'none' },
+          '& .MuiDrawer-paper': { width: 260 },
+        })}
       >
         {drawerContent}
       </Drawer>
@@ -115,7 +120,7 @@ export const SettingsShell: FC<{
           }}
         >
           <IconTooltipButton icon={ArrowLeft} label="Back to app" onClick={onBack} />
-          <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          <Box sx={theme => ({ display: 'block', [theme.breakpoints.up('md')]: { display: 'none' } })}>
             <IconTooltipButton
               icon={Menu}
               label="Settings categories"
@@ -129,9 +134,18 @@ export const SettingsShell: FC<{
           </Typography>
           <RestoreUserSettingsDefaultsControl />
         </Box>
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: { xs: 2, md: 3 }, py: 3 }}>
+        <Box
+          sx={theme => ({
+            flex: 1,
+            minHeight: 0,
+            overflow: 'auto',
+            px: 2,
+            py: 3,
+            [theme.breakpoints.up('md')]: { px: 3 },
+          })}
+        >
           <Box
-            sx={theme => ({ maxWidth: theme.breakpoints.values.md, minWidth: theme.breakpoints.values.sm, mx: 'auto' })}
+            sx={theme => ({ maxWidth: theme.breakpoints.values.md, minWidth: theme.breakpoints.values.xs, mx: 'auto' })}
           >
             <UserSettingsLoadFailureAlert sx={{ mb: 2 }} />
             {children}

@@ -28,7 +28,7 @@ export const RestoreUserSettingsDefaultsControl: FC<{
 
   return (
     <>
-      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+      <Box sx={theme => ({ display: 'none', [theme.breakpoints.up('md')]: { display: 'block' } })}>
         <Button
           disabled={editsDisabled}
           onClick={() => {
@@ -40,7 +40,7 @@ export const RestoreUserSettingsDefaultsControl: FC<{
           Restore defaults
         </Button>
       </Box>
-      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+      <Box sx={theme => ({ display: 'block', [theme.breakpoints.up('md')]: { display: 'none' } })}>
         <IconTooltipButton
           disabled={editsDisabled}
           icon={RotateCcw}

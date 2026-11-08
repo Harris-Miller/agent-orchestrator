@@ -1,3 +1,4 @@
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -7,7 +8,7 @@ import ListItemText from '@mui/material/ListItemText';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { ArrowLeft, Bot, GitBranch, Info, Keyboard, Menu, Palette, Plug, Search, Settings, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { filterSettingsCategories, settingsCategoryLabel } from '../settings/settingsCategories.ts';
 import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
@@ -36,8 +37,23 @@ export const SettingsShell: FC<{
   readonly onBack: () => void;
   readonly children: ReactNode;
 }> = ({ category, onSelectCategory, onBack, children, floatingDrawerTopPadding = 0 }) => {
+  const settingsTheme = useTheme();
+  const wideQuery = settingsTheme.breakpoints.up('md').replace('@media ', '');
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const media = window.matchMedia(wideQuery);
+    const closeWhenWide = () => {
+      if (media.matches) setOpen(false);
+    };
+    // CSS switches the layout; closing releases the modal's focus trap and aria-hidden state.
+    closeWhenWide();
+    media.addEventListener('change', closeWhenWide);
+    return () => {
+      media.removeEventListener('change', closeWhenWide);
+    };
+  }, [open, wideQuery]);
   const drawerContent = (floating: boolean) => (
     <>
       <Box

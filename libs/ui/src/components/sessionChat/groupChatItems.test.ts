@@ -76,6 +76,15 @@ describe('splitWorkSegments', () => {
   it('back-to-back interim agent messages make no empty segment', () => {
     assert.deepStrictEqual(segShape([t('t1'), a('x'), a('y'), t('t2')]), ['St1[t1]', 'x', 'y', 'St2[t2]']);
   });
+  it('subagent is a divider, like an interim agent message', () => {
+    assert.deepStrictEqual(segShape([t('t1'), sub('sa'), a('x'), t('t2'), sub('sb')]), [
+      'St1[t1]',
+      'sa',
+      'x',
+      'St2[t2]',
+      'sb',
+    ]);
+  });
   it('agent thought is a work item, not a divider', () => {
     assert.deepStrictEqual(segShape([th('h1'), a('x'), th('h2')]), ['Sh1[h1]', 'x', 'Sh2[h2]']);
   });
@@ -84,14 +93,11 @@ describe('splitWorkSegments', () => {
 describe('workSegmentLabel', () => {
   const label = (items: readonly ChatItem[]) => workSegmentLabel({ id: 'x', items, kind: 'work_segment' });
   it('counts per kind in fixed order, pluralized', () => {
-    assert.strictEqual(
-      label([sub('s1'), th('h'), t('t1'), p('p'), t('t2'), t('t3')]),
-      '3 tool calls, 1 thought, 1 plan, 1 subagent',
-    );
+    assert.strictEqual(label([p('p'), th('h'), t('t1'), t('t2'), t('t3')]), '3 tool calls, 1 thought, 1 plan');
   });
   it('leaves out zero-count kinds', () => {
     assert.strictEqual(label([th('h1'), th('h2')]), '2 thoughts');
-    assert.strictEqual(label([t('t'), sub('s1'), sub('s2')]), '1 tool call, 2 subagents');
+    assert.strictEqual(label([t('t'), p('p1'), p('p2')]), '1 tool call, 2 plans');
   });
 });
 

@@ -18,29 +18,29 @@ type WorkItem = Extract<ChatItem, { kind: 'agent_thought' | 'plan' | 'subagent' 
 const isWork = (item: ChatItem): item is WorkItem =>
   item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought' || item.kind === 'subagent';
 
-/** Consecutive Work items of a region between Interim agent messages; `id` is its first item's. */
+/** Consecutive Work items of a region between dividers; `id` is its first item's. */
 export type WorkSegment = {
   readonly id: string;
   readonly items: readonly ChatItem[];
   readonly kind: 'work_segment';
 };
 
-/** Split a region's items into Work segments, with Interim agent messages between them. */
-export const splitWorkSegments = (
-  items: readonly ChatItem[],
-): readonly (Extract<ChatItem, { kind: 'agent_message' }> | WorkSegment)[] =>
-  items.reduce<(Extract<ChatItem, { kind: 'agent_message' }> | WorkSegment)[]>((out, item) => {
-    if (item.kind === 'agent_message') return [...out, item];
+/** Interim agent messages and subagents split a region into Work segments and render on their own. */
+type SegmentDivider = Extract<ChatItem, { kind: 'agent_message' | 'subagent' }>;
+
+/** Split a region's items into Work segments, with dividers between them. */
+export const splitWorkSegments = (items: readonly ChatItem[]): readonly (SegmentDivider | WorkSegment)[] =>
+  items.reduce<(SegmentDivider | WorkSegment)[]>((out, item) => {
+    if (item.kind === 'agent_message' || item.kind === 'subagent') return [...out, item];
     const last = out.at(-1);
     if (last?.kind === 'work_segment') return [...out.slice(0, -1), { ...last, items: [...last.items, item] }];
     return [...out, { id: item.id, items: [item], kind: 'work_segment' }];
   }, []);
 
-const SEGMENT_KIND_NOUNS: readonly (readonly [WorkItem['kind'], string])[] = [
+const SEGMENT_KIND_NOUNS: readonly (readonly [Exclude<WorkItem['kind'], 'subagent'>, string])[] = [
   ['tool_call', 'tool call'],
   ['agent_thought', 'thought'],
   ['plan', 'plan'],
-  ['subagent', 'subagent'],
 ];
 
 /** Per-kind Work item counts, e.g. `3 tool calls, 1 thought`; zero counts left out. */

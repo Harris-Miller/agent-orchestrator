@@ -6,7 +6,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { ArrowLeft, Bot, GitBranch, Info, Keyboard, Menu, Palette, Plug, Search, Settings } from 'lucide-react';
+import { ArrowLeft, Bot, GitBranch, Info, Keyboard, Menu, Palette, Plug, Search, Settings, X } from 'lucide-react';
 import { useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { filterSettingsCategories, settingsCategoryLabel } from '../settings/settingsCategories.ts';
@@ -38,7 +38,7 @@ export const SettingsShell: FC<{
 }> = ({ category, onSelectCategory, onBack, children, floatingDrawerTopPadding = 0 }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const drawerContent = (
+  const drawerContent = (floating: boolean) => (
     <>
       <Box
         sx={{
@@ -51,9 +51,18 @@ export const SettingsShell: FC<{
           px: 2,
         }}
       >
-        <Typography component="h2" noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+        <Typography component="h2" noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
           Settings
         </Typography>
+        {floating ? (
+          <IconTooltipButton
+            icon={X}
+            label="Close settings drawer"
+            onClick={() => {
+              setOpen(false);
+            }}
+          />
+        ) : null}
       </Box>
       <Box sx={{ p: 1.5 }}>
         <TextField
@@ -110,7 +119,7 @@ export const SettingsShell: FC<{
           '& .MuiDrawer-paper': { position: 'relative', width: 260, height: '100%', boxSizing: 'border-box', pt: 0 },
         })}
       >
-        {drawerContent}
+        {drawerContent(false)}
       </Drawer>
       <Drawer
         open={open}
@@ -123,7 +132,7 @@ export const SettingsShell: FC<{
           '& .MuiDrawer-paper': { width: 260, pt: `${floatingDrawerTopPadding}px` },
         })}
       >
-        {drawerContent}
+        {drawerContent(true)}
       </Drawer>
       <Box sx={{ display: 'flex', flex: 1, minWidth: 0, flexDirection: 'column' }}>
         <Box

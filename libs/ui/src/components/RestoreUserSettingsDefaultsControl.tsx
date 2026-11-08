@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { defaultSettings } from '@lib/ao-home';
+import Box from '@mui/material/Box';
+import { IconTooltipButton } from './IconTooltipButton.tsx';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -26,16 +28,28 @@ export const RestoreUserSettingsDefaultsControl: FC<{
 
   return (
     <>
-      <Button
-        disabled={editsDisabled}
-        onClick={() => {
-          setConfirmOpen(true);
-        }}
-        size="small"
-        startIcon={<LucideMuiIcon fontSize={iconFontSize} icon={RotateCcw} />}
-      >
-        Restore defaults
-      </Button>
+      <Box sx={theme => ({ display: 'none', [theme.breakpoints.up('md')]: { display: 'block' } })}>
+        <Button
+          disabled={editsDisabled}
+          onClick={() => {
+            setConfirmOpen(true);
+          }}
+          size="small"
+          startIcon={<LucideMuiIcon fontSize={iconFontSize} icon={RotateCcw} />}
+        >
+          Restore defaults
+        </Button>
+      </Box>
+      <Box sx={theme => ({ display: 'block', [theme.breakpoints.up('md')]: { display: 'none' } })}>
+        <IconTooltipButton
+          disabled={editsDisabled}
+          icon={RotateCcw}
+          label="Restore defaults"
+          onClick={() => {
+            setConfirmOpen(true);
+          }}
+        />
+      </Box>
       <Dialog
         onClose={() => {
           setConfirmOpen(false);

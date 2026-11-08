@@ -95,6 +95,7 @@ const flatShadows = [
 
 const createAppTheme = (c: ThemeColors): Theme =>
   createTheme({
+    breakpoints: { values: { xs: 400, sm: 600, md: 900, lg: 1200, xl: 1536 } },
     components: {
       MuiAccordion: {
         defaultProps: {
@@ -431,7 +432,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
-            borderRight: `1px solid ${c.divider}`,
+            borderRight: 0,
             color: c.textPrimary,
             paddingTop: 8,
           },

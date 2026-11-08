@@ -10,8 +10,6 @@ import type { ThemeId } from '../theme/themeId.ts';
 import { THEME_IDS } from '../theme/themeId.ts';
 import { isThemeId } from '../theme/themePaintCache.ts';
 
-import { FieldLabel } from './FieldLabel.tsx';
-
 const THEME_LABELS: Record<ThemeId, string> = {
   frappe: 'Catppuccin Frappé',
   latte: 'Catppuccin Latte',
@@ -25,27 +23,24 @@ export const ThemeSelect: FC = () => {
   const themeId = useAtomValue(themeAtom);
   const setTheme = useAtomSet(themeAtom);
   const editable = !userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
-  const labelId = 'ao-theme-select-label';
 
   return (
-    <FieldLabel id={labelId} label="Theme">
-      <FormControl disabled={!editable} size="small" sx={{ minWidth: 180 }}>
-        <Select
-          aria-labelledby={labelId}
-          onChange={event => {
-            if (isThemeId(event.target.value)) {
-              setTheme(event.target.value);
-            }
-          }}
-          value={themeId}
-        >
-          {THEME_IDS.map(id => (
-            <MenuItem key={id} value={id}>
-              {THEME_LABELS[id]}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </FieldLabel>
+    <FormControl disabled={!editable} size="small" sx={{ minWidth: 180 }}>
+      <Select
+        slotProps={{ input: { 'aria-label': 'Theme' } }}
+        onChange={event => {
+          if (isThemeId(event.target.value)) {
+            setTheme(event.target.value);
+          }
+        }}
+        value={themeId}
+      >
+        {THEME_IDS.map(id => (
+          <MenuItem key={id} value={id}>
+            {THEME_LABELS[id]}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   );
 };

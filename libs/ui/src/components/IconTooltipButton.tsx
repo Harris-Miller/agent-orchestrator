@@ -16,7 +16,7 @@ export const IconTooltipButton: FC<{
 }> = ({ disabled, icon, label, onClick, sx }) => (
   <Tooltip title={label}>
     {/* span lets the tooltip work while the button is disabled */}
-    <span>
+    <span style={{ display: 'flex' }}>
       <IconButton aria-label={label} disabled={disabled} onClick={onClick} size="small" sx={sx}>
         <LucideMuiIcon fontSize="small" icon={icon} />
       </IconButton>

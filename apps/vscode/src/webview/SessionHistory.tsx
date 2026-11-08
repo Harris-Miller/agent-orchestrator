@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
   isUsablePhase,
+  PANEL_HEADER_HEIGHT,
   pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
@@ -46,8 +47,11 @@ export const SessionHistory: FC = () => {
   const sessions = workspaceSessions.filter(entry => !pinnedKeys.has(`${entry.launchTarget}:${entry.sessionId}`));
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, p: 1 }}>
-      <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, px: 1, pb: 1 }}>
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', gap: 0.5, height: PANEL_HEADER_HEIGHT, flexShrink: 0, boxSizing: 'border-box' }}
+      >
         <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>

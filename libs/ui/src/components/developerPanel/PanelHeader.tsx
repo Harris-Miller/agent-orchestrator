@@ -17,13 +17,12 @@ export const PanelHeader: FC<{
   <Box
     sx={{
       alignItems: 'center',
-      borderBottom: 1,
       borderColor: 'divider',
       boxSizing: 'border-box',
       display: 'flex',
       flexShrink: 0,
       justifyContent: 'space-between',
-      minHeight: PANEL_HEADER_HEIGHT,
+      height: PANEL_HEADER_HEIGHT,
       px: 2,
     }}
   >

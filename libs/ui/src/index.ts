@@ -108,3 +108,6 @@ export * from './theme/themePaintCache.ts';
 export * from './theme/themes.ts';
 export * from './theme/tokens.ts';
 export { defaultSettings } from '@lib/ao-home';
+
+export { SettingsShell } from './components/SettingsShell.tsx';
+export { SettingsSection, SettingsRow } from './components/SettingsSection.tsx';

@@ -6,6 +6,7 @@ export default mergeConfig(
   sharedConfig,
   defineConfig({
     test: {
+      include: ['src/**/*.test.{ts,tsx}'],
       env: {
         AO_ANTIGRAVITY_BETA: 'true',
         AO_CURSOR_BETA: 'true',

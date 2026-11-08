@@ -16,6 +16,7 @@
         "title": "agent-orchestrator",
         "backgroundThrottling": "disabled",
         "width": 1200,
+        "minWidth": 960,
         "height": 900
       }
     ],

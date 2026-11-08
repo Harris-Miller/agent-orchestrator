@@ -159,7 +159,6 @@ export const AgentChatWorkbench: FC<{
                   sx={{
                     alignItems: 'center',
                     bgcolor: 'background.paper',
-                    borderBottom: 1,
                     borderColor: 'divider',
                     boxSizing: 'border-box',
                     display: 'flex',

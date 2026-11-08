@@ -30,11 +30,10 @@ const icons = {
 /** Router-independent settings navigation and responsive page chrome. */
 export const SettingsShell: FC<{
   readonly category: SettingsCategoryId;
-  readonly showHeaderDivider?: boolean;
   readonly onSelectCategory: (category: SettingsCategoryId) => void;
   readonly onBack: () => void;
   readonly children: ReactNode;
-}> = ({ category, onSelectCategory, onBack, children, showHeaderDivider = true }) => {
+}> = ({ category, onSelectCategory, onBack, children }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const drawerContent = (
@@ -42,7 +41,6 @@ export const SettingsShell: FC<{
       <Box
         sx={{
           alignItems: 'center',
-          borderBottom: showHeaderDivider ? 1 : 0,
           borderColor: 'divider',
           boxSizing: 'border-box',
           display: 'flex',
@@ -131,7 +129,6 @@ export const SettingsShell: FC<{
             alignItems: 'center',
             boxSizing: 'border-box',
             display: 'flex',
-            borderBottom: showHeaderDivider ? 1 : 0,
             borderColor: 'divider',
             minHeight: PANEL_HEADER_HEIGHT,
             flexShrink: 0,

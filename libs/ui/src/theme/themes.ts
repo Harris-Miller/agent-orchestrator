@@ -432,7 +432,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
-            borderRight: `1px solid ${c.divider}`,
+            borderRight: 0,
             color: c.textPrimary,
             paddingTop: 8,
           },

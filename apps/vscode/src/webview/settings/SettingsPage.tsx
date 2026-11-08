@@ -8,7 +8,6 @@ export const SettingsPage = () => {
   return (
     <SettingsShell
       category={category}
-      showHeaderDivider={false}
       onBack={() => {
         navigate({ to: '/' }).catch(() => undefined);
       }}

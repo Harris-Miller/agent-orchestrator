@@ -17,7 +17,6 @@ export const PanelHeader: FC<{
   <Box
     sx={{
       alignItems: 'center',
-      borderBottom: 1,
       borderColor: 'divider',
       boxSizing: 'border-box',
       display: 'flex',

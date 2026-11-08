@@ -7,8 +7,8 @@ import type { Theme } from '@mui/material/styles';
 export const allotmentSashSx = (theme: Theme) => ({
   '--focus-border': theme.palette.primary.main,
   '--sash-hover-size': '3px',
-  '--separator-border': theme.palette.divider,
+  '--separator-border': 'transparent',
   '& .split-view-separator-border > .split-view-container > .split-view-view:not(:first-of-type)::before': {
-    backgroundColor: 'divider',
+    backgroundColor: 'transparent',
   },
 });

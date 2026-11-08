@@ -29,17 +29,15 @@ const LINUX_HOLD: KeepAwakeHoldCommand = {
   command: '/usr/bin/systemd-inhibit',
 };
 
-/** Keep-awake hold command for `platform`, or undefined when the platform has none. */
-export const keepAwakeHoldCommand = (platform: string): KeepAwakeHoldCommand | undefined => {
-  switch (platform) {
-    case 'darwin':
-      return MACOS_HOLD;
-    case 'linux':
-      return LINUX_HOLD;
-    default:
-      return undefined;
-  }
+/** Per-platform Keep-awake hold; `probe` means the command may be absent and must be checked before use. */
+const PLATFORM_HOLDS: Partial<Record<string, { readonly hold: KeepAwakeHoldCommand; readonly probe: boolean }>> = {
+  darwin: { hold: MACOS_HOLD, probe: false },
+  linux: { hold: LINUX_HOLD, probe: true },
 };
+
+/** Keep-awake hold command for `platform`, or undefined when the platform has none. */
+export const keepAwakeHoldCommand = (platform: string): KeepAwakeHoldCommand | undefined =>
+  PLATFORM_HOLDS[platform]?.hold;
 
 /**
  * This Host's Keep-awake hold command, or undefined when unsupported: macOS always; Linux only when `systemd-inhibit` exists (Tauri
@@ -48,13 +46,12 @@ export const keepAwakeHoldCommand = (platform: string): KeepAwakeHoldCommand | u
 export const hostKeepAwakeHoldCommand = Effect.fn('hostKeepAwakeHoldCommand')(function* () {
   const os = yield* OS;
   const fs = yield* FileSystem;
-  const platform = os.platform();
-  const command = keepAwakeHoldCommand(platform);
-  if (command === undefined || platform === 'darwin') {
-    return command;
+  const entry = PLATFORM_HOLDS[os.platform()];
+  if (entry === undefined || !entry.probe) {
+    return entry?.hold;
   }
-  const present = yield* fs.exists(command.command).pipe(Effect.orElseSucceed(() => false));
-  return present ? command : undefined;
+  const present = yield* fs.exists(entry.hold.command).pipe(Effect.orElseSucceed(() => false));
+  return present ? entry.hold : undefined;
 });
 
 /**

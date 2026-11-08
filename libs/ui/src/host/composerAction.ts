@@ -9,6 +9,7 @@
  */
 import type { AcpBootstrapPhase, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { hasPendingInteraction } from './pendingInteractions.ts';
 
 export type ComposerUnavailableReason =
   | 'Empty'
@@ -31,11 +32,6 @@ export type TurnActionInput = {
 };
 
 const unavailable = (reason: ComposerUnavailableReason): ComposerAction => ({ _tag: 'Unavailable', reason });
-
-/** A permission or elicitation request awaits the user (on a Session or a Subagent session). */
-export const hasPendingInteraction = (
-  session: Pick<SessionSnapshot, 'pendingElicitation' | 'pendingPermission'>,
-): boolean => session.pendingElicitation !== undefined || session.pendingPermission !== undefined;
 
 /** What submitting a draft into `session` does right now. */
 export const turnAction = (

@@ -11,10 +11,9 @@ import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 import { TestClock } from 'effect/testing';
 
-import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import type { BackendHarnessSnapshot, SessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { harness, permission, session } from '../host/harnessSnapshot.testing.ts';
 import { endClientRequest, endPromptTurn, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
-import type { PendingPermission } from '../host/pendingInteractions.ts';
 import { runKeepAwake } from './keepAwake.atoms.ts';
 import type { KeepAwakeInput } from './keepAwake.atoms.ts';
 
@@ -69,21 +68,8 @@ const hostLayer = (
     layerNoop({ exists: () => Effect.succeed(options.systemdInhibit === true) }),
   );
 
-const session = (sessionId: string, patch: Partial<SessionSnapshot> = {}): SessionSnapshot => ({
-  ...initialSessionSnapshot(sessionId, 'active'),
-  ...patch,
-});
-
-const harness = (...sessions: readonly SessionSnapshot[]): BackendHarnessSnapshot => ({
-  ...initialBackendHarnessSnapshot(),
-  phase: 'ready',
-  sessions: Object.fromEntries(sessions.map(entry => [entry.sessionId, entry])),
-});
-
-const permission = { sessionId: 'a' } as unknown as PendingPermission;
-
-const idle = harness(session('a'), session('b'));
-const prompting = harness(session('a', { pendingClientRequest: 'prompt' }), session('b'));
+const idle = harness([session('a'), session('b')]);
+const prompting = harness([session('a', { pendingClientRequest: 'prompt' }), session('b')]);
 
 const settle = Effect.repeat(Effect.yieldNow, { times: 50 });
 
@@ -121,8 +107,8 @@ describe('runKeepAwake', () => {
       const events: SpawnEvent[] = [];
       const { push } = yield* start(hostLayer(events));
       yield* push([prompting, idle]);
-      yield* push([prompting, harness(session('c', { pendingClientRequest: 'prompt' }))]);
-      yield* push([endClientRequest(prompting, 'a'), harness(session('c', { pendingClientRequest: 'prompt' }))]);
+      yield* push([prompting, harness([session('c', { pendingClientRequest: 'prompt' })])]);
+      yield* push([endClientRequest(prompting, 'a'), harness([session('c', { pendingClientRequest: 'prompt' })])]);
       yield* advance('1 minute');
       assert.deepStrictEqual(events, ['spawn']);
       yield* push([endClientRequest(prompting, 'a'), idle]);
@@ -136,7 +122,7 @@ describe('runKeepAwake', () => {
       const events: SpawnEvent[] = [];
       const { push } = yield* start(hostLayer(events));
       yield* push([prompting]);
-      yield* push([harness(session('a', { pendingClientRequest: 'prompt', promptCancelRequested: true }))]);
+      yield* push([harness([session('a', { pendingClientRequest: 'prompt', promptCancelRequested: true })])]);
       assert.deepStrictEqual(events, ['spawn']);
       yield* push([endClientRequest(prompting, 'a')]);
       yield* advance('30 seconds');
@@ -186,7 +172,7 @@ describe('runKeepAwake', () => {
       const events: SpawnEvent[] = [];
       const { push } = yield* start(hostLayer(events));
       yield* push([prompting]);
-      yield* push([harness(session('a', { pendingClientRequest: 'prompt', pendingPermission: permission }))]);
+      yield* push([harness([session('a', { pendingClientRequest: 'prompt', pendingPermission: permission('a') })])]);
       yield* advance('30 seconds');
       assert.deepStrictEqual(events, ['spawn', 'kill']);
       yield* push([prompting]);

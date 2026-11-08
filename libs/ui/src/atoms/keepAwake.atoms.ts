@@ -9,7 +9,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { holdKeepAwake, hostKeepAwakeHoldCommand } from '../host/keepAwake.ts';
-import { anyAgentWorking } from '../host/turnActivity.ts';
+import { anyPromptTurnWorking } from '../host/turnActivity.ts';
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 
 /** Idle time before the hold is released, so back-to-back turns don't flap the OS assertion. */
@@ -27,7 +27,7 @@ const activity = (input: KeepAwakeInput): Activity => {
   if (!input.enabled) {
     return 'disabled';
   }
-  return anyAgentWorking(input.snapshots) ? 'working' : 'idle';
+  return anyPromptTurnWorking(input.snapshots) ? 'working' : 'idle';
 };
 
 /**

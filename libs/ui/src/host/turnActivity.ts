@@ -1,6 +1,6 @@
-/** Turn activity: whether any agent is working, i.e. whether the Keep-awake hold is wanted. */
+/** Turn activity: whether any Prompt turn is working, i.e. whether the Keep-awake hold is wanted. */
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
-import { hasPendingInteraction } from './composerAction.ts';
+import { hasPendingInteraction } from './pendingInteractions.ts';
 import { rootAncestorId } from './subagent.ts';
 
 /** Sessions whose turn is blocked on the user: a Pending interaction on the Session or any of its Subagent sessions. */
@@ -32,5 +32,5 @@ const harnessWorking = (snapshot: BackendHarnessSnapshot): boolean => {
  * True while any Session on any Backend harness has a Prompt turn in flight that is not blocked on a Pending
  * permission / elicitation (its own or a Subagent session's). Config changes, Bootstrap and installs never count.
  */
-export const anyAgentWorking = (snapshots: readonly BackendHarnessSnapshot[]): boolean =>
+export const anyPromptTurnWorking = (snapshots: readonly BackendHarnessSnapshot[]): boolean =>
   snapshots.some(harnessWorking);

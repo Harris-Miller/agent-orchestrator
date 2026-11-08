@@ -30,7 +30,7 @@ import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
-import { hasPendingInteraction } from '../../host/composerAction.ts';
+import { hasPendingInteraction } from '../../host/pendingInteractions.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';

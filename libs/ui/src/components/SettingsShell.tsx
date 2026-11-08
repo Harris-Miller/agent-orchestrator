@@ -128,6 +128,7 @@ export const SettingsShell: FC<{
         <Box
           sx={{
             alignItems: 'center',
+            boxSizing: 'border-box',
             display: 'flex',
             borderBottom: 1,
             borderColor: 'divider',

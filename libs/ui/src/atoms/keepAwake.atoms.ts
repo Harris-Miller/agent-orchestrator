@@ -68,7 +68,7 @@ export const createKeepAwakeAtoms = (
   return {
     /** Mount for the app's lifetime (`KeepAwakeMount`). */
     keepAwakeAtom: runtime.atom(get => runKeepAwake(get.stream(keepAwakeInputAtom))),
-    /** Whether this Host can hold the computer awake (decided once). */
+    /** Whether this Host can hold the computer awake (probed once per atom; `runKeepAwake` probes on its own). */
     keepAwakeSupportedAtom: runtime.atom(Effect.map(hostKeepAwakeHoldCommand(), command => command !== undefined)),
   };
 };

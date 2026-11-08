@@ -144,7 +144,8 @@ describe('runKeepAwake', () => {
     }),
   );
 
-  it.effect('treats a turn ended by an RPC error as ended', () =>
+  // `sendPromptTurn` runs `endPromptTurn` in `ensuring`, so success and RPC error reach the controller identically.
+  it.effect('treats endPromptTurn (success or RPC error) as the end of the turn', () =>
     Effect.gen(function* () {
       const events: SpawnEvent[] = [];
       const { push } = yield* start(hostLayer(events));
@@ -155,7 +156,8 @@ describe('runKeepAwake', () => {
     }),
   );
 
-  it.effect('treats Connection lost as the end of every turn', () =>
+  // Stop / Restart / retry all reconcile through Connection lost (`stopAndReconcile`, `onConnectionLost`).
+  it.effect('treats Connection lost (incl. Restart / retry) as the end of every turn', () =>
     Effect.gen(function* () {
       const events: SpawnEvent[] = [];
       const { push } = yield* start(hostLayer(events));

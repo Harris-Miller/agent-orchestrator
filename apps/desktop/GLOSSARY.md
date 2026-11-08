@@ -91,7 +91,7 @@ User settings toggle, set from the Session History header, that includes archive
 _Avoid_: archive filter, list filter (when you mean this toggle)
 
 **Show more box**:
-Desktop-only slim control under a Session History cwd group's last row (No Folder group included) when the group has more than 10 visible rows. Toggles between the first 10 and all of them; per group, survives accordion collapse, nav rail close, Show archived toggles, and refreshes, and resets to collapsed on reload. Pinned rows never count toward the 10, and the Pinned section is never capped. With Show archived on, archived rows count (they sort last).
+Desktop-only control under a long Session History cwd group that toggles the group between its first rows and all of them. Session-only UI state; the Pinned section never has one.
 _Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
 **No Folder group**:

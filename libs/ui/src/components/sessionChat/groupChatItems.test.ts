@@ -2,14 +2,17 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 
-import { groupChatItems } from './groupChatItems.ts';
-import type { WorkRegion } from './groupChatItems.ts';
+import { groupChatItems, splitWorkSegments, workItemPreviewText, workSegmentLabel } from './groupChatItems.ts';
+import type { WorkRegion, WorkSegment } from './groupChatItems.ts';
 
 const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_message', text: id, ...extra });
 const a = (id: string): ChatItem => ({ id, kind: 'agent_message', text: id });
 const t = (id: string): ChatItem => ({ id, kind: 'tool_call', status: 'completed', title: id, toolCallId: id });
 const c = (id: string): ChatItem => ({ id, kind: 'config_options', options: [] });
 const s = (id: string): ChatItem => ({ id, kind: 'elicitation_summary', message: id, rows: [] });
+const th = (id: string): ChatItem => ({ id, kind: 'agent_thought', text: id });
+const p = (id: string): ChatItem => ({ entries: [], id, kind: 'plan' });
+const sub = (id: string): ChatItem => ({ id, kind: 'subagent', subagentSessionId: id });
 const shape = (items: readonly ChatItem[]) =>
   groupChatItems(items).map(i => (i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id));
 
@@ -56,5 +59,67 @@ describe('groupChatItems', () => {
   });
   it('summary with no work after it stays flat', () => {
     assert.deepStrictEqual(shape([u('u'), t('t'), s('s')]), ['u', 'R[t]', 's']);
+  });
+});
+
+describe('splitWorkSegments', () => {
+  const segShape = (items: readonly ChatItem[]) =>
+    splitWorkSegments(items).map(x =>
+      x.kind === 'work_segment' ? `S${x.id}[${x.items.map(i => i.id).join(',')}]` : x.id,
+    );
+  it('single segment', () => {
+    assert.deepStrictEqual(segShape([t('t1'), th('h'), t('t2')]), ['St1[t1,h,t2]']);
+  });
+  it('interim agent message opening the region is a divider', () => {
+    assert.deepStrictEqual(segShape([a('i'), t('t1'), a('x'), t('t2')]), ['i', 'St1[t1]', 'x', 'St2[t2]']);
+  });
+  it('back-to-back interim agent messages make no empty segment', () => {
+    assert.deepStrictEqual(segShape([t('t1'), a('x'), a('y'), t('t2')]), ['St1[t1]', 'x', 'y', 'St2[t2]']);
+  });
+  it('subagent is a divider, like an interim agent message', () => {
+    assert.deepStrictEqual(segShape([t('t1'), sub('sa'), a('x'), t('t2'), sub('sb')]), [
+      'St1[t1]',
+      'sa',
+      'x',
+      'St2[t2]',
+      'sb',
+    ]);
+  });
+  it('non-Work items between dividers are dividers, never an unlabeled segment', () => {
+    assert.deepStrictEqual(segShape([t('t1'), a('x'), c('c'), a('y'), t('t2')]), ['St1[t1]', 'x', 'c', 'y', 'St2[t2]']);
+  });
+  it('agent thought is a work item, not a divider', () => {
+    assert.deepStrictEqual(segShape([th('h1'), a('x'), th('h2')]), ['Sh1[h1]', 'x', 'Sh2[h2]']);
+  });
+});
+
+describe('workSegmentLabel', () => {
+  const label = (items: readonly ChatItem[]) =>
+    workSegmentLabel({ id: 'x', items: items as WorkSegment['items'], kind: 'work_segment' });
+  it('counts per kind in fixed order, pluralized', () => {
+    assert.strictEqual(label([p('p'), th('h'), t('t1'), t('t2'), t('t3')]), '3 tool calls, 1 thought, 1 plan');
+  });
+  it('leaves out zero-count kinds', () => {
+    assert.strictEqual(label([th('h1'), th('h2')]), '2 thoughts');
+    assert.strictEqual(label([t('t'), p('p1'), p('p2')]), '1 tool call, 2 plans');
+  });
+});
+
+describe('workItemPreviewText', () => {
+  it('agent thought: first non-empty line', () => {
+    assert.strictEqual(
+      workItemPreviewText({ id: 'h', kind: 'agent_thought', text: '\n  \n**Reading** files\nthen more' }),
+      'Reading files',
+    );
+  });
+  it('plan: completed out of total', () => {
+    assert.strictEqual(
+      workItemPreviewText({
+        entries: [{ content: 'a', status: 'completed' }, { content: 'b', status: 'in_progress' }, { content: 'c' }],
+        id: 'p',
+        kind: 'plan',
+      }),
+      'Plan · 1/3 completed',
+    );
   });
 });

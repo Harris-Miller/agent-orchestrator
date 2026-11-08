@@ -488,7 +488,8 @@ const SessionChatBodyInner: FC<{
             target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
         }}
         ref={chatScrollRef}
-        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}
+        // No top padding: sticky Work region headers stick at the padding edge, and content would show above them.
+        sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', pb: 0.5, pt: 0, px: 0.5 }}
       >
         <List dense disablePadding>
           {showVirtualEmptyState ? (

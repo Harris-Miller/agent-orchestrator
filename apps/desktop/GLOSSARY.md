@@ -37,11 +37,23 @@ A single ordered unit in a session transcript — a user message, agent message,
 _Avoid_: Message, bubble, row, event
 
 **Work region**:
-The collapsible run of a turn's chat items between the user message and the Turn answer — tool calls, plans, agent thoughts, and interim agent messages. An Elicitation summary splits it, so a turn may have several.
+The collapsible run of a turn's chat items between the user message and the Turn answer — Work items and Interim agent messages. An Elicitation summary splits it, so a turn may have several. Starts collapsed and only the user opens or closes it; while its Prompt turn is in flight and it is collapsed, it previews its latest Work item. When open, its header stays in view until the whole region scrolls past.
 _Avoid_: work run, work group, activity log
 
+**Work item**:
+A chat item that records the agent working rather than answering: a tool call, plan, agent thought, or subagent.
+_Avoid_: action, activity, step
+
+**Interim agent message**:
+An agent message inside a Work region, followed later in the turn by another Work item. It separates Work segments; an agent thought is a Work item, not an Interim agent message.
+_Avoid_: thought response, mid-turn reply
+
+**Work segment**:
+The consecutive Work items of a Work region between Interim agent messages, subagents or other non-Work items (or the region's edges); dividers render on their own and are not counted in segments. Collapsible on its own, starts collapsed (except the first one when an open region first splits, so what the user was reading stays visible), and never previews. A region with a single Work segment shows its Work items directly.
+_Avoid_: step, action group
+
 **Turn answer**:
-The trailing agent messages of a turn, after its last work item; always visible below the Work region.
+The trailing agent messages of a turn, after its last Work item; always visible below the Work region.
 _Avoid_: final message, response
 
 **Elicitation summary**:

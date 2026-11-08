@@ -210,7 +210,7 @@ A pending elicitation or pending permission on a session snapshot. The Harness U
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:
-At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. Create New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target are known and the provider is Bootstrap `usable`.
+At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. New session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target are known and the provider is Bootstrap `usable`.
 _Avoid_: Draft session, pending session, unsaved session
 
 **Selected**:

@@ -9,10 +9,12 @@ import {
   isNoFolderSessionCwd,
   LucideMuiIcon,
   navSessionGroupStableKey,
+  PanelHeader,
   pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   SessionHistoryRow,
+  ShowArchivedToggle,
   showNoFolderGroupAtom,
   useSessionDeleteRequest,
   visibleSessionHistoryAtom,
@@ -24,14 +26,15 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Folder, FolderOpen, Pin, Plus, Settings } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Search, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import { NewSessionHeaderPrototype } from './NewSessionVariants.prototype.tsx';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
@@ -90,7 +93,6 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
-  const variant = useSearch({ strict: false }).variant ?? 'A';
   // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
   // archived, a list refresh) keeps its state; only a header click changes it.
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
@@ -126,15 +128,43 @@ export const WorkbenchNavRail: FC<{
           minHeight: 0,
         }}
       >
-        {/* PROTOTYPE — header + create area swapped by `?variant=` (see NewSessionVariants.prototype.tsx). */}
-        <NewSessionHeaderPrototype
+        <PanelHeader
+          beforeClose={
+            <>
+              <ShowArchivedToggle />
+              <IconTooltipButton
+                icon={RotateCw}
+                label="Reload sessions"
+                onClick={() => {
+                  refreshAllSessionHistories(undefined).catch(() => undefined);
+                }}
+              />
+              {/* Placeholder until #288. */}
+              <IconTooltipButton disabled icon={Search} label="Search (coming soon)" onClick={() => undefined} />
+            </>
+          }
+          closeAriaLabel="Close session history panel"
+          closeIcon={PanelLeftClose}
           onClose={onClose}
-          onReload={() => {
-            refreshAllSessionHistories(undefined).catch(() => undefined);
-          }}
-          recentCwds={navGroups.flatMap(group => (group.kind === 'cwd' ? [group.cwd] : []))}
-          variant={variant}
+          title={
+            <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
+              Agent Orchestrator
+            </Typography>
+          }
         />
+        <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
+          <ListItemButton
+            onClick={() => {
+              ensureVirtualSession(undefined).catch(() => undefined);
+            }}
+            sx={{ borderRadius: 1, py: 0.75 }}
+          >
+            <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+              <LucideMuiIcon fontSize="small" icon={SquarePen} />
+            </ListItemIcon>
+            <ListItemText primary="New session" slotProps={{ primary: { variant: 'body2' } }} />
+          </ListItemButton>
+        </Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">

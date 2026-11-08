@@ -9,12 +9,10 @@ import {
   isNoFolderSessionCwd,
   LucideMuiIcon,
   navSessionGroupStableKey,
-  PanelHeader,
   pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   SessionHistoryRow,
-  ShowArchivedToggle,
   showNoFolderGroupAtom,
   useSessionDeleteRequest,
   visibleSessionHistoryAtom,
@@ -28,10 +26,12 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, Settings } from 'lucide-react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Folder, FolderOpen, Pin, Plus, Settings } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
+
+import { NewSessionHeaderPrototype } from './NewSessionVariants.prototype.tsx';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 320;
 
@@ -90,6 +90,7 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
+  const variant = useSearch({ strict: false }).variant ?? 'A';
   // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
   // archived, a list refresh) keeps its state; only a header click changes it.
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
@@ -125,40 +126,15 @@ export const WorkbenchNavRail: FC<{
           minHeight: 0,
         }}
       >
-        <PanelHeader
-          closeAriaLabel="Close session history panel"
-          closeIcon={PanelLeftClose}
+        {/* PROTOTYPE — header + create area swapped by `?variant=` (see NewSessionVariants.prototype.tsx). */}
+        <NewSessionHeaderPrototype
           onClose={onClose}
-          title="Sessions"
-          titleEnd={
-            <>
-              <ShowArchivedToggle />
-              <IconButton
-                aria-label="Reload sessions"
-                onClick={() => {
-                  refreshAllSessionHistories(undefined).catch(() => undefined);
-                }}
-                size="small"
-              >
-                <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-                  ↻
-                </Typography>
-              </IconButton>
-            </>
-          }
+          onReload={() => {
+            refreshAllSessionHistories(undefined).catch(() => undefined);
+          }}
+          recentCwds={navGroups.flatMap(group => (group.kind === 'cwd' ? [group.cwd] : []))}
+          variant={variant}
         />
-        <Box sx={{ flexShrink: 0, p: 2 }}>
-          <Button
-            fullWidth
-            onClick={() => {
-              ensureVirtualSession(undefined).catch(() => undefined);
-            }}
-            variant="contained"
-          >
-            Create New Session
-          </Button>
-        </Box>
-        <Divider />
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">

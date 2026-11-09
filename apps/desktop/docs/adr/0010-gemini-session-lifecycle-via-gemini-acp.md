@@ -8,5 +8,5 @@ The Harness needs Gemini session `list` / `close` / `delete` / hot-cold `resume`
 
 - **Harness-local Session History synthesis:** duplicates adapter-owned durable state in the Client; wrong owner for multi-host later.
 - **Wait on upstream Gemini CLI:** Google is not investing further in Gemini CLI ACP session lifecycle.
-- **`@google/genai` / LLM SDK in-process:** rejected by ADR 0001 (ACP agents, not vendor LLM SDKs).
+- **`@google/genai` / LLM SDK in-process:** rejected by desktop ADR 0001 [`0001-acp-agents-over-llm-sdks.md`](0001-acp-agents-over-llm-sdks.md) (ACP agents, not vendor LLM SDKs).
 - **“effect-acp shim” name / mount bare `gemini-cli`:** obscures that this is a normal ACP adapter in the resource tree; typed `gemini-cli` goes away with the adapter mount.

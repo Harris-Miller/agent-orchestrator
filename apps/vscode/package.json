@@ -89,6 +89,7 @@
     ]
   },
   "activationEvents": [],
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.140.0"
   }

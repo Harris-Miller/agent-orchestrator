@@ -1,7 +1,8 @@
-import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Popover from '@mui/material/Popover';
-import Stack from '@mui/material/Stack';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { Archive, ArchiveRestore, Ellipsis, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
@@ -61,7 +62,7 @@ export const SessionActionsMenu: FC<{
         <LucideMuiIcon fontSize="small" icon={Ellipsis} />
       </IconButton>
 
-      <Popover
+      <Menu
         anchorEl={menuAnchor}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         onClick={stopPropagation}
@@ -81,90 +82,88 @@ export const SessionActionsMenu: FC<{
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
-        <Stack spacing={1} sx={{ p: 1 }}>
-          {actions.unarchive === undefined ? null : (
-            <Button
-              disabled={actions.unarchive.disabled}
-              onClick={() => {
-                closeMenu();
-                actions.runUnarchive();
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={ArchiveRestore} />}
-              variant="outlined"
-            >
-              Unarchive
-            </Button>
-          )}
-          <Button
-            disabled={actions.pin.disabled}
+        {actions.unarchive === undefined ? null : (
+          <MenuItem
+            disabled={actions.unarchive.disabled}
             onClick={() => {
               closeMenu();
-              actions.runPin();
+              actions.runUnarchive();
             }}
-            size="small"
-            startIcon={<LucideMuiIcon icon={actions.pinned ? PinOff : Pin} />}
-            variant="outlined"
           >
-            {actions.pinned ? 'Unpin' : 'Pin'}
-          </Button>
-          {actions.deactivate === undefined ? null : (
-            <Button
-              disabled={actions.deactivate.disabled}
-              onClick={() => {
-                closeMenu();
-                actions.runDeactivate();
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={X} />}
-              variant="outlined"
-            >
-              Close
-            </Button>
-          )}
-          {actions.rename === undefined ? null : (
-            <Button
-              disabled={actions.rename.disabled}
-              onClick={() => {
-                renameRequested.current = true;
-                closeMenu();
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={Pencil} />}
-              variant="outlined"
-            >
-              Rename
-            </Button>
-          )}
-          {actions.archive === undefined ? null : (
-            <Button
-              disabled={actions.archive.disabled}
-              onClick={() => {
-                closeMenu();
-                actions.runArchive();
-              }}
-              size="small"
-              startIcon={<LucideMuiIcon icon={Archive} />}
-              variant="outlined"
-            >
-              Archive
-            </Button>
-          )}
-          <Button
-            color="error"
-            disabled={actions.delete.disabled}
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={ArchiveRestore} />
+            </ListItemIcon>
+            <ListItemText>Unarchive</ListItemText>
+          </MenuItem>
+        )}
+        <MenuItem
+          disabled={actions.pin.disabled}
+          onClick={() => {
+            closeMenu();
+            actions.runPin();
+          }}
+        >
+          <ListItemIcon>
+            <LucideMuiIcon fontSize="small" icon={actions.pinned ? PinOff : Pin} />
+          </ListItemIcon>
+          <ListItemText>{actions.pinned ? 'Unpin' : 'Pin'}</ListItemText>
+        </MenuItem>
+        {actions.deactivate === undefined ? null : (
+          <MenuItem
+            disabled={actions.deactivate.disabled}
             onClick={() => {
               closeMenu();
-              onDeleteRequest(entry);
+              actions.runDeactivate();
             }}
-            size="small"
-            startIcon={<LucideMuiIcon icon={Trash2} />}
-            variant="outlined"
           >
-            Delete
-          </Button>
-        </Stack>
-      </Popover>
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={X} />
+            </ListItemIcon>
+            <ListItemText>Close</ListItemText>
+          </MenuItem>
+        )}
+        {actions.rename === undefined ? null : (
+          <MenuItem
+            disabled={actions.rename.disabled}
+            onClick={() => {
+              renameRequested.current = true;
+              closeMenu();
+            }}
+          >
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={Pencil} />
+            </ListItemIcon>
+            <ListItemText>Rename</ListItemText>
+          </MenuItem>
+        )}
+        {actions.archive === undefined ? null : (
+          <MenuItem
+            disabled={actions.archive.disabled}
+            onClick={() => {
+              closeMenu();
+              actions.runArchive();
+            }}
+          >
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={Archive} />
+            </ListItemIcon>
+            <ListItemText>Archive</ListItemText>
+          </MenuItem>
+        )}
+        <MenuItem
+          disabled={actions.delete.disabled}
+          onClick={() => {
+            closeMenu();
+            onDeleteRequest(entry);
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <LucideMuiIcon fontSize="small" icon={Trash2} />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
     </>
   );
 };

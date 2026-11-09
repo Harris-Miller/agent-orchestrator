@@ -2,7 +2,13 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { ChatItem } from '../../host/sessionUpdateReducer.ts';
 
-import { groupChatItems, splitWorkSegments, workItemPreviewText, workSegmentLabel } from './groupChatItems.ts';
+import {
+  groupChatItems,
+  isWaitToolCall,
+  splitWorkSegments,
+  workItemPreviewText,
+  workSegmentLabel,
+} from './groupChatItems.ts';
 import type { WorkRegion, WorkSegment } from './groupChatItems.ts';
 
 const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_message', text: id, ...extra });
@@ -23,7 +29,9 @@ const th = (id: string): ChatItem => ({ id, kind: 'agent_thought', text: id });
 const p = (id: string): ChatItem => ({ entries: [], id, kind: 'plan' });
 const sub = (id: string): ChatItem => ({ id, kind: 'subagent', subagentSessionId: id });
 const shape = (items: readonly ChatItem[]) =>
-  groupChatItems(items).map(i => (i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id));
+  groupChatItems(items.filter(item => !isWaitToolCall(item))).map(i =>
+    i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id,
+  );
 
 describe('groupChatItems', () => {
   it('hides wait tool calls (kind other, title wait)', () => {

@@ -1,8 +1,11 @@
+import { createElement } from 'react';
+import Fade from '@mui/material/Fade';
 import { alpha, createTheme, darken } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
+import { CheckGlyph, RadioGlyph } from './ControlGlyphs.tsx';
 import type { ThemeId } from './themeId.ts';
-import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT } from './tokens.ts';
+import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
 type ThemeColors = {
   readonly alertInfoBg: string;
@@ -65,36 +68,38 @@ type CatppuccinFlavor = {
   readonly yellow: string;
 };
 
-const flatShadows = [
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-  'none',
-] as Theme['shadows'];
-
-const createAppTheme = (c: ThemeColors): Theme =>
-  createTheme({
+const createAppTheme = (c: ThemeColors): Theme => {
+  const shadows = Array.from({ length: 25 }, (_, i) => {
+    if (i === 0) return 'none';
+    if (i <= 2) return c.mode === 'dark' ? '0 1px 2px rgb(0 0 0 / 0.3)' : '0 1px 2px rgb(0 0 0 / 0.05)';
+    if (i <= 12) {
+      return c.mode === 'dark'
+        ? '0 16px 40px -18px rgb(0 0 0 / 0.8)'
+        : '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)';
+    }
+    return c.mode === 'dark'
+      ? '0 20px 60px rgb(0 0 0 / 0.5)'
+      : '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)';
+  }) as Theme['shadows'];
+  const selected = alpha(c.textPrimary, 0.08);
+  return createTheme({
+    focusVisible: {
+      outlineColor: 'transparent',
+      outlineOffset: 0,
+      boxShadow: `0 0 0 3px ${alpha(c.primaryMain, 0.5)}`,
+    },
+    motion: { reducedMotion: 'system' as const },
+    transitions: {
+      duration: {
+        complex: 250,
+        enteringScreen: 150,
+        leavingScreen: 100,
+        short: 150,
+        shorter: 150,
+        shortest: 100,
+        standard: 200,
+      },
+    },
     breakpoints: { values: { xs: 400, sm: 600, md: 900, lg: 1200, xl: 1536 } },
     components: {
       MuiAccordion: {
@@ -207,7 +212,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
           option: {
             '&[aria-selected="true"]': {
-              backgroundColor: alpha(c.primaryMain, 0.08),
+              backgroundColor: selected,
             },
             fontSize: 13,
             minHeight: 32,
@@ -215,11 +220,12 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
-            boxShadow: 'none',
+            borderRadius: RADIUS.lg,
+            boxShadow: shadows[8],
           },
         },
       },
+      MuiButtonBase: { defaultProps: { disableRipple: true } },
       MuiButton: {
         defaultProps: {
           disableElevation: true,
@@ -227,18 +233,18 @@ const createAppTheme = (c: ThemeColors): Theme =>
         styleOverrides: {
           root: {
             '&.MuiButton-sizeLarge': {
-              borderRadius: 4,
+              borderRadius: RADIUS.md,
               fontSize: 13,
               minHeight: 32,
               padding: '0 12px',
             },
             '&.MuiButton-sizeSmall': {
-              borderRadius: 4,
+              borderRadius: RADIUS.md,
               fontSize: 12,
               minHeight: 24,
               padding: '0 8px',
             },
-            borderRadius: 4,
+            borderRadius: RADIUS.md,
             fontSize: 13,
             fontWeight: 500,
             letterSpacing: 0,
@@ -272,18 +278,18 @@ const createAppTheme = (c: ThemeColors): Theme =>
                 props: { color: 'primary', variant: 'text' },
                 style: {
                   '&:hover': {
-                    backgroundColor: alpha(c.primaryMain, 0.12),
+                    backgroundColor: alpha(c.textPrimary, 0.06),
                   },
-                  backgroundColor: alpha(c.primaryMain, 0.08),
-                  color: c.primaryMain,
+                  backgroundColor: 'transparent',
+                  color: c.textPrimary,
                 },
               },
               {
                 props: { variant: 'outlined' },
                 style: {
                   '&:hover': {
-                    backgroundColor: alpha(c.primaryMain, 0.08),
-                    borderColor: alpha(c.primaryMain, 0.44),
+                    backgroundColor: alpha(c.textPrimary, 0.06),
+                    borderColor: c.divider,
                   },
                   borderColor: c.divider,
                 },
@@ -309,12 +315,17 @@ const createAppTheme = (c: ThemeColors): Theme =>
             backgroundColor: c.bgPaper,
             backgroundImage: 'none',
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
+            borderRadius: RADIUS.lg,
             boxShadow: 'none',
           },
         },
       },
       MuiCheckbox: {
+        defaultProps: {
+          icon: createElement(CheckGlyph),
+          checkedIcon: createElement(CheckGlyph, { checked: true }),
+          indeterminateIcon: createElement(CheckGlyph, { mixed: true }),
+        },
         styleOverrides: {
           root: { padding: 4 },
         },
@@ -400,8 +411,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
-            boxShadow: 'none',
+            borderRadius: RADIUS.xl,
+            boxShadow: shadows[24],
           },
         },
       },
@@ -453,15 +464,15 @@ const createAppTheme = (c: ThemeColors): Theme =>
         styleOverrides: {
           root: {
             '&:hover': {
-              backgroundColor: alpha(c.primaryMain, 0.08),
-              color: c.primaryMain,
+              backgroundColor: alpha(c.textPrimary, 0.06),
+              color: c.textPrimary,
             },
             '&.MuiIconButton-sizeSmall': {
               height: 24,
               padding: 0,
               width: 24,
             },
-            borderRadius: 4,
+            borderRadius: RADIUS.md,
             color: c.textMuted,
             height: 28,
             padding: 4,
@@ -498,7 +509,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           },
           root: {
             '&:hover': {
-              borderColor: alpha(c.primaryMain, 0.44),
+              borderColor: alpha(c.textPrimary, 0.2),
             },
             '&.Mui-disabled': {
               backgroundColor: alpha(c.textMuted, 0.12),
@@ -506,14 +517,14 @@ const createAppTheme = (c: ThemeColors): Theme =>
             },
             '&.Mui-focused': {
               borderColor: c.primaryMain,
-              boxShadow: `0 0 0 1px ${alpha(c.primaryMain, 0.22)}`,
+              boxShadow: `0 0 0 3px ${alpha(c.primaryMain, 0.5)}`,
             },
             '&.MuiInputBase-sizeSmall': {
               minHeight: 24,
             },
             backgroundColor: 'transparent',
             border: `1px solid ${c.divider}`,
-            borderRadius: 4,
+            borderRadius: RADIUS.md,
             color: c.textPrimary,
             fontSize: 13,
             minHeight: 28,
@@ -544,12 +555,12 @@ const createAppTheme = (c: ThemeColors): Theme =>
             },
             '&.Mui-selected': {
               '&:hover': {
-                backgroundColor: alpha(c.primaryMain, 0.12),
+                backgroundColor: alpha(c.textPrimary, 0.1),
               },
-              backgroundColor: alpha(c.primaryMain, 0.08),
-              color: c.primaryMain,
+              backgroundColor: selected,
+              color: c.textPrimary,
             },
-            borderRadius: 4,
+            borderRadius: RADIUS.md,
             minHeight: 32,
           },
         },
@@ -560,21 +571,27 @@ const createAppTheme = (c: ThemeColors): Theme =>
         },
       },
       MuiMenu: {
+        defaultProps: { slots: { transition: Fade }, transitionDuration: { enter: 150, exit: 100 } },
         styleOverrides: {
-          list: {
-            padding: 2,
-          },
+          list: { padding: 4 },
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
-            boxShadow: 'none',
+            borderRadius: RADIUS.lg,
+            boxShadow: shadows[8],
           },
         },
       },
       MuiMenuItem: {
         styleOverrides: {
-          root: { fontSize: 13, minHeight: 32 },
+          root: {
+            fontSize: 13,
+            minHeight: 28,
+            borderRadius: RADIUS.sm,
+            paddingLeft: 8,
+            paddingRight: 8,
+            '&.Mui-selected, &.Mui-selected:hover': { backgroundColor: selected },
+          },
         },
       },
       MuiOutlinedInput: {
@@ -604,19 +621,27 @@ const createAppTheme = (c: ThemeColors): Theme =>
             backgroundImage: 'none',
           },
           rounded: {
-            borderRadius: 6,
+            borderRadius: RADIUS.lg,
           },
         },
       },
       MuiPopover: {
+        defaultProps: { slots: { transition: Fade }, transitionDuration: { enter: 150, exit: 100 } },
         styleOverrides: {
           paper: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
-            boxShadow: 'none',
+            borderRadius: RADIUS.lg,
+            boxShadow: shadows[8],
           },
         },
+      },
+      MuiRadio: {
+        defaultProps: {
+          icon: createElement(RadioGlyph),
+          checkedIcon: createElement(RadioGlyph, { checked: true }),
+        },
+        styleOverrides: { root: { padding: 4 } },
       },
       MuiSelect: {
         styleOverrides: {
@@ -641,8 +666,8 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
-            boxShadow: 'none',
+            borderRadius: RADIUS.lg,
+            boxShadow: shadows[6],
             color: c.textPrimary,
             fontSize: 13,
           },
@@ -729,7 +754,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
           root: {
             backgroundColor: c.bgPaper,
             border: `1px solid ${c.divider}`,
-            borderRadius: 6,
+            borderRadius: RADIUS.lg,
             boxShadow: 'none',
           },
         },
@@ -741,7 +766,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
               borderBottom: 0,
             },
             '&.MuiTableRow-hover:hover': {
-              backgroundColor: alpha(c.primaryMain, 0.08),
+              backgroundColor: selected,
             },
           },
         },
@@ -772,6 +797,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
         },
       },
       MuiTooltip: {
+        defaultProps: { slots: { transition: Fade }, enterDelay: 100 },
         styleOverrides: {
           arrow: {
             color: c.bgPaper,
@@ -779,8 +805,9 @@ const createAppTheme = (c: ThemeColors): Theme =>
           tooltip: {
             backgroundColor: alpha(c.bgPaper, 0.98),
             border: `1px solid ${c.divider}`,
-            borderRadius: 4,
-            boxShadow: 'none',
+            borderRadius: RADIUS.md,
+            boxShadow: shadows[2],
+            padding: '6px 10px',
             color: c.textPrimary,
             fontSize: 12,
           },
@@ -792,9 +819,9 @@ const createAppTheme = (c: ThemeColors): Theme =>
         active: c.textPrimary,
         disabled: c.textMuted,
         disabledBackground: alpha(c.textMuted, 0.12),
-        focus: alpha(c.primaryMain, 0.12),
+        focus: selected,
         hover: alpha(c.textPrimary, 0.05),
-        selected: alpha(c.primaryMain, 0.08),
+        selected,
       },
       background: {
         default: c.bgDefault,
@@ -844,7 +871,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
         main: c.warningMain,
       },
     },
-    shadows: flatShadows,
+    shadows,
     shape: {
       borderRadius: 4,
     },
@@ -873,35 +900,35 @@ const createAppTheme = (c: ThemeColors): Theme =>
       },
       fontFamily: FONT_FAMILY_UI,
       fontSize: 13,
-      fontWeightMedium: 600,
+      fontWeightMedium: 500,
       h1: {
         fontSize: 22,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.25,
       },
       h2: {
         fontSize: 18,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.3,
       },
       h3: {
         fontSize: 15,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.35,
       },
       h4: {
         fontSize: 13,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.45,
       },
       h5: {
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.4,
       },
       h6: {
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 600,
         lineHeight: 1.4,
       },
       overline: {
@@ -923,6 +950,7 @@ const createAppTheme = (c: ThemeColors): Theme =>
       },
     },
   });
+};
 
 const ORIGINAL_COLORS: ThemeColors = {
   alertInfoBg: '#1a2a43',

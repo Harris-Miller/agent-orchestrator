@@ -39,7 +39,7 @@ type Folder = { readonly uri: { readonly fsPath: string; readonly scheme: string
  */
 const fulfillment = Effect.acquireRelease(
   Effect.promise(async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'ao-host-fulfillment-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
     const [webview, extension] = connectFakePeers();
     const tracker = new ProcessTracker();
     const state: { folders: readonly Folder[] | undefined } = { folders: undefined };

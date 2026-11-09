@@ -218,7 +218,7 @@ export const initialSessionSnapshot = (sessionId: string, status: SessionStatus 
 });
 
 /** Temp-cwd prefix for Config probe sessions — never shown as history entries. */
-export const CONFIG_PROBE_CWD_PREFIX = 'ao-config-probe-';
+export const CONFIG_PROBE_CWD_PREFIX = 'hoa-config-probe-';
 
 export const isConfigProbeCwd = (cwd: string): boolean => {
   const base = cwd.replaceAll('\\', '/').split('/').pop() ?? '';

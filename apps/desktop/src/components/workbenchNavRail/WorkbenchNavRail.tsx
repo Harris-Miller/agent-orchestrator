@@ -38,15 +38,16 @@ import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, Squa
 import { useState } from 'react';
 import type { FC } from 'react';
 
-export const WORKBENCH_NAV_RAIL_WIDTH = 320;
+export const WORKBENCH_NAV_RAIL_WIDTH = 400;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
 /** Rows a Session History cwd group shows before its Show more box. */
 const CWD_GROUP_ROW_LIMIT = 10;
 // Panel widths (px) at which the header title grows from "HOA" to "The HOA" to the full name; leaves room for header actions.
+// Kept just under WORKBENCH_NAV_RAIL_WIDTH so the full name shows at the default width.
 const TITLE_MEDIUM_MIN_WIDTH = 260;
-const TITLE_FULL_MIN_WIDTH = 400;
+const TITLE_FULL_MIN_WIDTH = 390;
 
 const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
 

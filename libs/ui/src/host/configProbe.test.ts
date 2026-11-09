@@ -27,7 +27,7 @@ const booleanOption = (id: string, currentValue: boolean): NormalizedBooleanConf
 });
 
 const probeServices = layerNoop({
-  makeTempDirectory: () => Effect.succeed('/tmp/ao-config-probe-test'),
+  makeTempDirectory: () => Effect.succeed('/tmp/hoa-config-probe-test'),
   remove: () => Effect.void,
 });
 

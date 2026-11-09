@@ -25,12 +25,12 @@ export const ALL_AGENT_LAUNCH_TARGETS = [
 export const isLaunchTargetEnabled = (launchTarget: AgentLaunchTarget): boolean => {
   switch (launchTarget) {
     case 'antigravity-acp':
-      return process.env.AO_ANTIGRAVITY_BETA === 'true';
+      return process.env.HOA_ANTIGRAVITY_BETA === 'true';
     case 'claude-agent-acp':
     case 'codex-acp':
       return true;
     case 'cursor-acp':
-      return process.env.AO_CURSOR_BETA === 'true';
+      return process.env.HOA_CURSOR_BETA === 'true';
   }
 };
 

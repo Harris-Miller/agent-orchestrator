@@ -371,7 +371,7 @@ describe('provider runtime download (antigravity)', () => {
       assert.isTrue(store.has(`${ANTI}/runtime/1.4.5/localharness_external`));
       const active = yield* runAnti(resolveActiveRuntime('antigravity-acp'), store, unzips(store, []));
       assert.strictEqual(active.distribution._tag === 'binary' && active.distribution.args[0], '--uid=');
-      assert.isFalse([...store.keys()].some(key => key.startsWith('/tmp/ao-antigravity-')));
+      assert.isFalse([...store.keys()].some(key => key.startsWith('/tmp/hoa-antigravity-')));
     }),
   );
 

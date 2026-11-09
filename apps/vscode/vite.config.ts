@@ -30,8 +30,8 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
     },
     define: {
-      'process.env.AO_ANTIGRAVITY_BETA': JSON.stringify(env.AO_ANTIGRAVITY_BETA || ''),
-      'process.env.AO_CURSOR_BETA': JSON.stringify(env.AO_CURSOR_BETA || ''),
+      'process.env.HOA_ANTIGRAVITY_BETA': JSON.stringify(env.HOA_ANTIGRAVITY_BETA || ''),
+      'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
       'process.env.NODE_ENV': JSON.stringify(mode),
     },
     // Prebundle at server start so the first webview client does not trigger

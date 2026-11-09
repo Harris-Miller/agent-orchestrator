@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => {
     clearScreen: false,
 
     define: {
-      'process.env.AO_ANTIGRAVITY_BETA': JSON.stringify(env.AO_ANTIGRAVITY_BETA || ''),
-      'process.env.AO_CURSOR_BETA': JSON.stringify(env.AO_CURSOR_BETA || ''),
+      'process.env.HOA_ANTIGRAVITY_BETA': JSON.stringify(env.HOA_ANTIGRAVITY_BETA || ''),
+      'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
     },
 
     // TanStack Router must precede React so route modules get HMR instead of Fast Refresh rejecting `Route`

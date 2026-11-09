@@ -290,7 +290,7 @@ const installAntigravity = Effect.fnUntraced(function* (
 
   const staging = yield* mapProviderError(
     launchTarget,
-    fs.makeTempDirectory({ prefix: 'ao-antigravity-' }),
+    fs.makeTempDirectory({ prefix: 'hoa-antigravity-' }),
     'Antigravity staging directory failed',
   );
   yield* Effect.gen(function* () {

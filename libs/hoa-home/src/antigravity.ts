@@ -15,7 +15,7 @@ import { antigravityProviderBrowserHelperPath, antigravityProviderHomeDir } from
 export const ANTIGRAVITY_ACP_SPAWN_NAME = 'agy_acp_server';
 
 /** Stderr marker prefix for the capture-only `BROWSER` helper (Host OpenUrl opens the URL). */
-export const ANTIGRAVITY_AUTH_URL_MARKER_PREFIX = 'AO_ANTIGRAVITY_AUTH_URL:';
+export const ANTIGRAVITY_AUTH_URL_MARKER_PREFIX = 'HOA_ANTIGRAVITY_AUTH_URL:';
 
 /** Shell script body for the capture-only `BROWSER` helper (prints marker, does not open). */
 export const antigravityBrowserHelperScript = `#!/bin/sh

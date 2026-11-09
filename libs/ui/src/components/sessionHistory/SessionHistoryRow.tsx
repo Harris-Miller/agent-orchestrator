@@ -7,7 +7,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Archive } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
@@ -65,9 +65,15 @@ export const SessionHistoryRow: FC<{
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const rename = useSessionTitleRename(entry.sessionId);
   const interacting = focused || menuOpen || rename.titleProps.editing;
+  const onInteractionChangeRef = useRef(onInteractionChange);
   useEffect(() => {
-    onInteractionChange?.(interacting);
-  }, [interacting, onInteractionChange]);
+    onInteractionChangeRef.current = onInteractionChange;
+  });
+  useEffect(() => {
+    if (!interacting) return undefined;
+    onInteractionChangeRef.current?.(true);
+    return () => onInteractionChangeRef.current?.(false);
+  }, [interacting]);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;

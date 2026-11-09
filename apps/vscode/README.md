@@ -40,6 +40,6 @@ code --install-extension apps/vscode/hoa-vscode.vsix
 
 Also available via Extensions view → `...` → **Install from VSIX...**
 
-The `.vsix` is stamped with the desktop app version (`apps/desktop/src-tauri/tauri.conf.json`), not this package's `version`. The desktop app bundles it (`pnpm --filter @apps/desktop run tauri:build`) and offers to install or update it in VS Code from the Providers modal and Settings > Providers; see ADR 0019 in `apps/desktop/docs/adr`.
+The `.vsix` is stamped with the desktop app version (`apps/desktop/src-tauri/tauri.conf.json`), not this package's `version`. The desktop app bundles it (run `pnpm tauri:build` from the repo root, which packages it first) and offers to install or update it in VS Code from the Providers modal and Settings > Providers; see ADR 0019 in `apps/desktop/docs/adr`.
 
 Marketplace publish is not required for either path.

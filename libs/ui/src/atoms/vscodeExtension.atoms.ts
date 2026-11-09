@@ -1,4 +1,4 @@
-/** VS Code extension install atoms: status (hidden / manual / ready), Install-or-Update, Skipped extension version. */
+/** VS Code extension install atoms: availability (hidden / manual / ready), Install-or-Update, Skipped extension version. */
 import { VscodeExtension } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';

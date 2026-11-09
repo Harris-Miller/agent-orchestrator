@@ -303,6 +303,10 @@ _Avoid_: VS Code binary, editor command
 How the Bundled VS Code extension compares with what the VS Code CLI reports installed: `not-installed`, `up-to-date`, `outdated` (installed semver below bundled), or `newer-installed` (installed semver above bundled; never offered a downgrade).
 _Avoid_: Extension status, install status
 
+**VS Code extension availability**:
+What the VS Code extension row can offer on this Host, derived from the Bundled VS Code extension and the VS Code CLI: hidden (unsupported Host, `.vsix` not bundled, or VS Code not found), manual install (VS Code found but no CLI that can list extensions), or ready with a **VS Code extension install state**.
+_Avoid_: Extension status, install status
+
 **Skipped extension version**:
 The Bundled VS Code extension version the user chose to skip in the update dialog, stored in User settings; the dialog returns when the bundled version differs from it.
 _Avoid_: Ignored version, dismissed update

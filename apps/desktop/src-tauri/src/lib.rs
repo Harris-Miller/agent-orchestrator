@@ -316,7 +316,7 @@ fn vscode_app_locations(local_app_data: Option<&Path>) -> (Vec<PathBuf>, Vec<Pat
     }
 }
 
-/// `code` on PATH, then the app-bundle CLI, then whether the app itself exists. `exists` is injected for tests.
+/// `code` on PATH, then the app-bundle CLI, then whether the app itself exists. `is_file` / `is_dir` are injected for tests.
 fn resolve_vscode(
     path_env: Option<&std::ffi::OsStr>,
     cli_candidates: &[PathBuf],

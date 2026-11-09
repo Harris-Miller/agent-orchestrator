@@ -2,7 +2,6 @@
  * Desktop-only "VS Code extension" row for the startup Providers modal and Settings > Providers: Install / Update,
  * manual steps when VS Code has no CLI. Renders nothing when the feature is unavailable (see `loadVscodeExtensionAvailability`).
  */
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -11,33 +10,16 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Check } from 'lucide-react';
 import type { FC } from 'react';
-import { Cause } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
 
-import { installVscodeExtensionAtomFn, vscodeExtensionAvailabilityAtom } from '../../atoms/boundHarnessAtoms.ts';
 import type { VscodeExtensionAvailability } from '../../host/vscodeExtension.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
-import { CommandSnippet } from './providerUi.tsx';
-
-export const useVscodeExtensionAvailability = (): VscodeExtensionAvailability =>
-  AsyncResult.getOrElse(useAtomValue(vscodeExtensionAvailabilityAtom), (): VscodeExtensionAvailability => ({
-    _tag: 'Hidden',
-  }));
-
-/** Install / Update with the CLI's error or the "Reload Window" success note. */
-export const useInstallVscodeExtension = () => {
-  const result = useAtomValue(installVscodeExtensionAtomFn);
-  const install = useAtomSet(installVscodeExtensionAtomFn);
-  return {
-    error: AsyncResult.isFailure(result) ? Cause.pretty(result.cause) : undefined,
-    install: () => {
-      install(undefined);
-    },
-    installed: AsyncResult.isSuccess(result),
-    installing: result.waiting,
-  };
-};
+import {
+  ManualInstallSteps,
+  RELOAD_WINDOW_NOTE,
+  useInstallVscodeExtension,
+  useVscodeExtensionAvailability,
+} from './vscodeExtensionShared.tsx';
 
 const describeAvailability = (status: Exclude<VscodeExtensionAvailability, { readonly _tag: 'Hidden' }>): string => {
   const { version } = status.bundled;
@@ -55,8 +37,6 @@ const describeAvailability = (status: Exclude<VscodeExtensionAvailability, { rea
       return `v${version} installed`;
   }
 };
-
-export const RELOAD_WINDOW_NOTE = 'Reload Window in open VS Code windows to activate it.';
 
 export const VscodeExtensionRow: FC = () => {
   const status = useVscodeExtensionAvailability();
@@ -88,13 +68,7 @@ export const VscodeExtensionRow: FC = () => {
         )}
       </Stack>
       {status._tag === 'ManualInstall' || error !== undefined ? (
-        <Stack spacing={1} sx={{ mt: 1.25 }}>
-          <Typography color="text.secondary" variant="body2">
-            The VS Code command line tool is not available. In VS Code open Extensions → … → Install from VSIX… and
-            pick:
-          </Typography>
-          <CommandSnippet command={status.bundled.path} />
-        </Stack>
+        <ManualInstallSteps path={status.bundled.path} />
       ) : null}
       {error === undefined ? null : (
         <Alert severity="error" sx={{ mt: 1.25, whiteSpace: 'pre-wrap' }}>

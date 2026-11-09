@@ -13,40 +13,51 @@ import type { FC } from 'react';
 import { installVscodeExtensionAtomFn, skippedExtensionVersionAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { shouldOfferExtensionUpdate } from '../../host/vscodeExtension.ts';
 
-import { RELOAD_WINDOW_NOTE, useVscodeExtensionAvailability } from './VscodeExtensionRow.tsx';
+import {
+  failureMessage,
+  ManualInstallSteps,
+  RELOAD_WINDOW_NOTE,
+  useVscodeExtensionAvailability,
+} from './vscodeExtensionShared.tsx';
 
+/** Once an update starts, the dialog owns what it shows: a refreshed availability must not close it mid-flow. */
 type Update =
-  | { readonly _tag: 'Done' }
-  | { readonly _tag: 'Failed'; readonly message: string }
   | { readonly _tag: 'Idle' }
-  | { readonly _tag: 'Running' };
+  | { readonly _tag: 'Done' | 'Running'; readonly version: string }
+  | { readonly _tag: 'Failed'; readonly message: string; readonly path: string; readonly version: string };
 
 export const VscodeExtensionUpdateDialog: FC = () => {
-  const status = useVscodeExtensionAvailability();
+  const availability = useVscodeExtensionAvailability();
   const skipped = useAtomValue(skippedExtensionVersionAtom);
   const skip = useAtomSet(skippedExtensionVersionAtom);
   const install = useAtomSet(installVscodeExtensionAtomFn, { mode: 'promise' });
   const [update, setUpdate] = useState<Update>({ _tag: 'Idle' });
   const [open, setOpen] = useState(true);
 
-  // A successful update flips the state to up-to-date; the dialog stays up until it shows the result.
-  const version = status._tag === 'Ready' ? status.bundled.version : undefined;
-  const offered = status._tag === 'Ready' && shouldOfferExtensionUpdate(status.state, status.bundled.version, skipped);
-  if (!open || version === undefined || !(offered || update._tag !== 'Idle')) {
+  const offered =
+    availability._tag === 'Ready' &&
+    shouldOfferExtensionUpdate(availability.state, availability.bundled.version, skipped);
+  if (!open || !(offered || update._tag !== 'Idle')) {
     return null;
   }
+  const version =
+    update._tag === 'Idle' ? (availability._tag === 'Ready' ? availability.bundled.version : '') : update.version;
   const running = update._tag === 'Running';
   const close = () => {
     setOpen(false);
   };
   const runUpdate = () => {
-    setUpdate({ _tag: 'Running' });
+    if (availability._tag !== 'Ready') {
+      return;
+    }
+    const { path, version: bundledVersion } = availability.bundled;
+    setUpdate({ _tag: 'Running', version: bundledVersion });
     install(undefined).then(
       () => {
-        setUpdate({ _tag: 'Done' });
+        setUpdate({ _tag: 'Done', version: bundledVersion });
       },
       (error: unknown) => {
-        setUpdate({ _tag: 'Failed', message: error instanceof Error ? error.message : String(error) });
+        setUpdate({ _tag: 'Failed', message: failureMessage(error), path, version: bundledVersion });
       },
     );
   };
@@ -57,8 +68,8 @@ export const VscodeExtensionUpdateDialog: FC = () => {
       <DialogContent>
         <Typography>
           HOA v{version} bundles a newer VS Code extension
-          {status._tag === 'Ready' && status.installed !== undefined
-            ? ` than the v${status.installed} installed in VS Code`
+          {availability._tag === 'Ready' && availability.installed !== undefined
+            ? ` than the v${availability.installed} installed in VS Code`
             : ''}
           .
         </Typography>
@@ -68,9 +79,12 @@ export const VscodeExtensionUpdateDialog: FC = () => {
           </Alert>
         ) : null}
         {update._tag === 'Failed' ? (
-          <Alert severity="error" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
-            {update.message}
-          </Alert>
+          <>
+            <Alert severity="error" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
+              {update.message}
+            </Alert>
+            <ManualInstallSteps path={update.path} />
+          </>
         ) : null}
       </DialogContent>
       <DialogActions>

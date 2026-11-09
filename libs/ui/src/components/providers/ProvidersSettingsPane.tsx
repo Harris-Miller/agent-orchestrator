@@ -42,6 +42,7 @@ import {
   useProviderControls,
 } from './providerUi.tsx';
 import type { ProviderRequest } from './providerUi.tsx';
+import { VscodeExtensionRow } from './VscodeExtensionRow.tsx';
 
 const Mono: FC<{ readonly children: ReactNode }> = ({ children }) => (
   <Box component="span" sx={{ color: 'text.secondary', fontFamily: FONT_FAMILY_MONO, fontSize: '0.8rem' }}>
@@ -334,6 +335,7 @@ export const ProvidersSettingsPane: FC = () => {
               label={<Typography variant="body2">Show Providers on startup</Typography>}
             />
           </Box>
+          <VscodeExtensionRow />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 3 }}>
           <ProviderDetail provider={selectedProvider} request={request} />

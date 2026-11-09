@@ -8,6 +8,7 @@ import {
   OpenFile,
   OpenUrl,
   OS,
+  VscodeExtension,
 } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
@@ -54,6 +55,14 @@ export const mockHostLayer: Layer.Layer<HostServices> = Layer.mergeAll(
     env: () => ({}),
     homedir: () => '/home/operator',
     platform: () => 'linux',
+  }),
+  // Host without VS Code extension install: the feature is hidden.
+  Layer.succeed(VscodeExtension, {
+    bundled: Effect.succeed(undefined),
+    detect: Effect.succeed({ _tag: 'NotFound' as const }),
+    installBundled: Effect.void,
+    installedVersion: Effect.succeed(undefined),
+    supported: false,
   }),
   layerNoop({}),
   posixPathLayer,

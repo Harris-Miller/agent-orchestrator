@@ -167,6 +167,10 @@ _Avoid_: Command Chip, mention chip, hyperlink (when you mean this pill)
 **Chat Markdown Link**:
 Inline link in rendered chat markdown from agent text, thoughts, or tool results. Only `http(s)` and Host-supported `file://` or workspace-path links are clickable; clicks never navigate the webview. Transcript Markdown Link Chips (user `resource` / `resource_link` prompts) follow the same rules. Scheme-less workspace paths resolve against the session cwd.
 
+**Wait tool call**:
+An agent tool call with ACP kind `other` and title exactly `wait`. Never shown in chat (no row, no Work region or segment count); it stays in the transcript. Any other `other` call, or a `wait` of another kind, is shown normally.
+_Avoid_: waiting call, sleep call
+
 **Composer Image Attachment**:
 A draft-side image added from the Host FileDialog, by an image Filesystem Mention, or from an `@path` or file link in the draft that resolves to an image file; held in-memory as metadata plus a base64 data URL from the read bytes (preview only — no thumbnail processing). On `session/prompt`, when the Agent advertises `promptCapabilities.image`, it is sent as an ACP Image ContentBlock (`data` + `mimeType` + `uri`); otherwise as a baseline `type: "resource_link"` (not UI-gated, not `embeddedContext`). Transcript keeps slim refs (mime/name/uri/preview data URL); after `session/load` / `user_message_chunk`, image-like `resource_link`s, ACP `type: "image"` blocks, `file://` image markdown links, or allowlisted `data:image/…;base64,…` markdown links lift into those refs (inline data / image blocks keep the preview; `file://` hydrates when possible).
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)

@@ -8,6 +8,15 @@ import type { WorkRegion, WorkSegment } from './groupChatItems.ts';
 const u = (id: string, extra: object = {}): ChatItem => ({ id, kind: 'user_message', text: id, ...extra });
 const a = (id: string): ChatItem => ({ id, kind: 'agent_message', text: id });
 const t = (id: string): ChatItem => ({ id, kind: 'tool_call', status: 'completed', title: id, toolCallId: id });
+const wait = (id: string, extra: object = {}): ChatItem => ({
+  id,
+  kind: 'tool_call',
+  status: 'completed',
+  title: 'wait',
+  toolCallId: id,
+  toolKind: 'other',
+  ...extra,
+});
 const c = (id: string): ChatItem => ({ id, kind: 'config_options', options: [] });
 const s = (id: string): ChatItem => ({ id, kind: 'elicitation_summary', message: id, rows: [] });
 const th = (id: string): ChatItem => ({ id, kind: 'agent_thought', text: id });
@@ -17,6 +26,16 @@ const shape = (items: readonly ChatItem[]) =>
   groupChatItems(items).map(i => (i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id));
 
 describe('groupChatItems', () => {
+  it('hides wait tool calls (kind other, title wait)', () => {
+    assert.deepStrictEqual(shape([u('u'), wait('w'), t('t'), wait('w2'), a('a')]), ['u', 'R[t]', 'a']);
+  });
+  it('turn of only wait tool calls has no region', () => {
+    assert.deepStrictEqual(shape([u('u'), wait('w'), a('a')]), ['u', 'a']);
+  });
+  it('keeps tool calls that only match one of kind or title', () => {
+    const items = [u('u'), wait('w1', { toolKind: 'read' }), wait('w2', { title: 'wait for build' })];
+    assert.deepStrictEqual(shape(items), ['u', 'R[w1,w2]']);
+  });
   it('answer-only turn has no region', () => {
     assert.deepStrictEqual(shape([u('u'), a('a')]), ['u', 'a']);
   });

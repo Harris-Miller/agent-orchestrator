@@ -1,6 +1,6 @@
 /**
  * Desktop-only "VS Code extension" row for the startup Providers modal and Settings > Providers: Install / Update,
- * manual steps when VS Code has no CLI. Renders nothing when the feature is unavailable (see `loadVscodeExtensionStatus`).
+ * manual steps when VS Code has no CLI. Renders nothing when the feature is unavailable (see `loadVscodeExtensionAvailability`).
  */
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Alert from '@mui/material/Alert';
@@ -14,14 +14,16 @@ import type { FC } from 'react';
 import { Cause } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 
-import { installVscodeExtensionAtomFn, vscodeExtensionStatusAtom } from '../../atoms/boundHarnessAtoms.ts';
-import type { VscodeExtensionStatus } from '../../host/vscodeExtension.ts';
+import { installVscodeExtensionAtomFn, vscodeExtensionAvailabilityAtom } from '../../atoms/boundHarnessAtoms.ts';
+import type { VscodeExtensionAvailability } from '../../host/vscodeExtension.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { CommandSnippet } from './providerUi.tsx';
 
-export const useVscodeExtensionStatus = (): VscodeExtensionStatus =>
-  AsyncResult.getOrElse(useAtomValue(vscodeExtensionStatusAtom), (): VscodeExtensionStatus => ({ _tag: 'Hidden' }));
+export const useVscodeExtensionAvailability = (): VscodeExtensionAvailability =>
+  AsyncResult.getOrElse(useAtomValue(vscodeExtensionAvailabilityAtom), (): VscodeExtensionAvailability => ({
+    _tag: 'Hidden',
+  }));
 
 /** Install / Update with the CLI's error or the "Reload Window" success note. */
 export const useInstallVscodeExtension = () => {
@@ -37,7 +39,7 @@ export const useInstallVscodeExtension = () => {
   };
 };
 
-const describe = (status: Exclude<VscodeExtensionStatus, { readonly _tag: 'Hidden' }>): string => {
+const describeAvailability = (status: Exclude<VscodeExtensionAvailability, { readonly _tag: 'Hidden' }>): string => {
   const { version } = status.bundled;
   if (status._tag === 'ManualInstall') {
     return `Bundled v${version}`;
@@ -57,7 +59,7 @@ const describe = (status: Exclude<VscodeExtensionStatus, { readonly _tag: 'Hidde
 export const RELOAD_WINDOW_NOTE = 'Reload Window in open VS Code windows to activate it.';
 
 export const VscodeExtensionRow: FC = () => {
-  const status = useVscodeExtensionStatus();
+  const status = useVscodeExtensionAvailability();
   const { error, install, installed, installing } = useInstallVscodeExtension();
 
   if (status._tag === 'Hidden') {
@@ -72,7 +74,7 @@ export const VscodeExtensionRow: FC = () => {
         <Box>
           <Typography sx={{ fontWeight: 600 }}>VS Code extension</Typography>
           <Typography color="text.secondary" variant="body2">
-            {installed ? `Installed v${version}. ${RELOAD_WINDOW_NOTE}` : describe(status)}
+            {installed ? `Installed v${version}. ${RELOAD_WINDOW_NOTE}` : describeAvailability(status)}
           </Typography>
         </Box>
         {status._tag !== 'Ready' ? null : installing ? (
@@ -85,10 +87,11 @@ export const VscodeExtensionRow: FC = () => {
           </Button>
         )}
       </Stack>
-      {status._tag === 'ManualInstall' ? (
+      {status._tag === 'ManualInstall' || error !== undefined ? (
         <Stack spacing={1} sx={{ mt: 1.25 }}>
           <Typography color="text.secondary" variant="body2">
-            The VS Code command line tool was not found. In VS Code open Extensions → … → Install from VSIX… and pick:
+            The VS Code command line tool is not available. In VS Code open Extensions → … → Install from VSIX… and
+            pick:
           </Typography>
           <CommandSnippet command={status.bundled.path} />
         </Stack>

@@ -9,7 +9,7 @@
     },
     "lint": {},
     "package": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/desktop/src-tauri/tauri.conf.json"],
+      "cache": false,
       "outputs": ["hoa-vscode.vsix"]
     },
     "test": {},

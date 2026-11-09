@@ -4,7 +4,7 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { loadVscodeExtensionStatus } from '../host/vscodeExtension.ts';
+import { loadVscodeExtensionAvailability } from '../host/vscodeExtension.ts';
 
 import { unwrapUserSettings } from './userSettings/userSettings.atoms.ts';
 import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
@@ -15,7 +15,7 @@ export const createVscodeExtensionAtoms = (
   runtime: HostRuntimeBag['atomRuntime'],
   { userSettingsAtom }: Pick<UserSettingsAtoms, 'userSettingsAtom'>,
 ) => {
-  const vscodeExtensionStatusAtom = runtime.atom(loadVscodeExtensionStatus).pipe(Atom.keepAlive);
+  const vscodeExtensionAvailabilityAtom = runtime.atom(loadVscodeExtensionAvailability).pipe(Atom.keepAlive);
 
   /** Fails with the CLI's stderr; on success re-reads the installed version so the row shows the new state. */
   const installVscodeExtensionAtomFn = runtime
@@ -23,7 +23,7 @@ export const createVscodeExtensionAtoms = (
       Effect.gen(function* () {
         const extension = yield* VscodeExtension;
         yield* extension.installBundled;
-        get.refresh(vscodeExtensionStatusAtom);
+        get.refresh(vscodeExtensionAvailabilityAtom);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -35,5 +35,5 @@ export const createVscodeExtensionAtoms = (
     },
   ).pipe(Atom.keepAlive);
 
-  return { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionStatusAtom };
+  return { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom };
 };

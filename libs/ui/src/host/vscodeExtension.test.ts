@@ -4,7 +4,7 @@ import type { VscodeDetection } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 
 import {
-  loadVscodeExtensionStatus,
+  loadVscodeExtensionAvailability,
   shouldOfferExtensionUpdate,
   vscodeExtensionInstallState,
 } from './vscodeExtension.ts';
@@ -55,9 +55,9 @@ const hostWith = (overrides: Partial<VscodeExtension>) =>
     ...overrides,
   });
 
-describe('loadVscodeExtensionStatus', () => {
+describe('loadVscodeExtensionAvailability', () => {
   const load = (overrides: Partial<VscodeExtension>) =>
-    loadVscodeExtensionStatus.pipe(Effect.provide(hostWith(overrides)));
+    loadVscodeExtensionAvailability.pipe(Effect.provide(hostWith(overrides)));
 
   it.effect('is ready with the install state when VS Code has a CLI', () =>
     Effect.gen(function* () {
@@ -71,24 +71,32 @@ describe('loadVscodeExtensionStatus', () => {
     }),
   );
 
-  it.effect('offers manual steps when VS Code has no CLI', () =>
+  it.effect('offers manual steps when VS Code has no working CLI', () =>
     Effect.gen(function* () {
       const detect: Effect.Effect<VscodeDetection> = Effect.succeed({ _tag: 'AppOnly' });
       assert.deepStrictEqual(yield* load({ detect }), { _tag: 'ManualInstall', bundled });
+      const installedVersion = Effect.fail(new VscodeExtensionFailed({ message: 'boom' }));
+      assert.deepStrictEqual(yield* load({ installedVersion }), { _tag: 'ManualInstall', bundled });
     }),
   );
 
-  it.effect('is hidden when unsupported, not bundled, not detected, or the host fails', () =>
+  it.effect('is hidden when unsupported, not bundled, or VS Code is not detected', () =>
     Effect.gen(function* () {
-      const failure = Effect.fail(new VscodeExtensionFailed({ message: 'boom' }));
       for (const overrides of [
         { supported: false },
         { bundled: Effect.succeed(undefined) },
         { detect: Effect.succeed<VscodeDetection>({ _tag: 'NotFound' }) },
-        { installedVersion: failure },
       ]) {
         assert.deepStrictEqual(yield* load(overrides), { _tag: 'Hidden' });
       }
+    }),
+  );
+
+  it.effect('is hidden when bundled or detect fail', () =>
+    Effect.gen(function* () {
+      const failure = Effect.fail(new VscodeExtensionFailed({ message: 'boom' }));
+      assert.deepStrictEqual(yield* load({ bundled: failure }), { _tag: 'Hidden' });
+      assert.deepStrictEqual(yield* load({ detect: failure }), { _tag: 'Hidden' });
     }),
   );
 });

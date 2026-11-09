@@ -321,17 +321,18 @@ fn resolve_vscode(
     path_env: Option<&std::ffi::OsStr>,
     cli_candidates: &[PathBuf],
     app_dirs: &[PathBuf],
-    exists: impl Fn(&Path) -> bool,
+    is_file: impl Fn(&Path) -> bool,
+    is_dir: impl Fn(&Path) -> bool,
 ) -> VscodeDetection {
     let name = if cfg!(target_os = "windows") { "code.cmd" } else { "code" };
     let on_path = path_env
         .into_iter()
         .flat_map(std::env::split_paths)
         .map(|dir| dir.join(name))
-        .find(|candidate| exists(candidate));
-    match on_path.or_else(|| cli_candidates.iter().find(|candidate| exists(candidate)).cloned()) {
+        .find(|candidate| is_file(candidate));
+    match on_path.or_else(|| cli_candidates.iter().find(|candidate| is_file(candidate)).cloned()) {
         Some(path) => VscodeDetection::Cli { path: path.to_string_lossy().into_owned() },
-        None if app_dirs.iter().any(|dir| exists(dir)) => VscodeDetection::AppOnly,
+        None if app_dirs.iter().any(|dir| is_dir(dir)) => VscodeDetection::AppOnly,
         None => VscodeDetection::NotFound,
     }
 }
@@ -339,7 +340,7 @@ fn resolve_vscode(
 fn detect_vscode_cli() -> VscodeDetection {
     let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
     let (clis, apps) = vscode_app_locations(local_app_data.as_deref());
-    resolve_vscode(std::env::var_os("PATH").as_deref(), &clis, &apps, |path| path.is_file() || path.is_dir())
+    resolve_vscode(std::env::var_os("PATH").as_deref(), &clis, &apps, Path::is_file, Path::is_dir)
 }
 
 /// Version of `VSCODE_EXTENSION_ID` in `code --list-extensions --show-versions` output (`publisher.name@1.2.3`).
@@ -533,7 +534,8 @@ mod tests {
         let on_path = Path::new("/opt/bin").join(name);
 
         let with = |existing: Vec<PathBuf>, path_env: Option<&std::ffi::OsStr>| {
-            resolve_vscode(path_env, &[bundle_cli.clone()], &[app.clone()], |path| existing.iter().any(|e| e == path))
+            let exists = |path: &Path| existing.iter().any(|e| e == path);
+            resolve_vscode(path_env, &[bundle_cli.clone()], &[app.clone()], exists, exists)
         };
         // PATH wins over the app bundle.
         assert_eq!(

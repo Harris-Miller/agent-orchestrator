@@ -78,9 +78,9 @@ export const shouldOfferExtensionUpdate = (
 ): boolean => state === 'outdated' && skippedVersion !== bundledVersion;
 
 /** What the VS Code extension row renders. `Hidden` also covers any host failure: the feature is best-effort. */
-export type VscodeExtensionStatus =
+export type VscodeExtensionAvailability =
   | { readonly _tag: 'Hidden' }
-  /** VS Code is installed but no CLI works: show the `.vsix` path and "Install from VSIX..." steps. */
+  /** VS Code is installed but no CLI works (none found, or it cannot list extensions): show the `.vsix` path and "Install from VSIX..." steps. */
   | { readonly _tag: 'ManualInstall'; readonly bundled: BundledVscodeExtension }
   | {
       readonly _tag: 'Ready';
@@ -89,11 +89,11 @@ export type VscodeExtensionStatus =
       readonly state: VscodeExtensionInstallState;
     };
 
-const HIDDEN: VscodeExtensionStatus = { _tag: 'Hidden' };
+const HIDDEN: VscodeExtensionAvailability = { _tag: 'Hidden' };
 
 /** Hidden unless the Host supports it, bundles the `.vsix` (not `tauri dev`) and finds VS Code. */
-export const loadVscodeExtensionStatus: Effect.Effect<VscodeExtensionStatus, never, VscodeExtension> = Effect.gen(
-  function* () {
+export const loadVscodeExtensionAvailability: Effect.Effect<VscodeExtensionAvailability, never, VscodeExtension> =
+  Effect.gen(function* () {
     const extension = yield* VscodeExtension;
     if (!extension.supported) {
       return HIDDEN;
@@ -107,20 +107,23 @@ export const loadVscodeExtensionStatus: Effect.Effect<VscodeExtensionStatus, nev
       case 'NotFound':
         return HIDDEN;
       case 'AppOnly':
-        return { _tag: 'ManualInstall', bundled } satisfies VscodeExtensionStatus;
-      case 'Cli': {
-        const installed = yield* extension.installedVersion;
-        return {
-          _tag: 'Ready',
-          bundled,
-          installed,
-          state: vscodeExtensionInstallState(bundled.version, installed),
-        } satisfies VscodeExtensionStatus;
-      }
+        return { _tag: 'ManualInstall', bundled } satisfies VscodeExtensionAvailability;
+      case 'Cli':
+        // A CLI that cannot list extensions is as good as none: fall back to the manual steps.
+        return yield* extension.installedVersion.pipe(
+          Effect.match({
+            onFailure: (): VscodeExtensionAvailability => ({ _tag: 'ManualInstall', bundled }),
+            onSuccess: (installed): VscodeExtensionAvailability => ({
+              _tag: 'Ready',
+              bundled,
+              installed,
+              state: vscodeExtensionInstallState(bundled.version, installed),
+            }),
+          }),
+        );
     }
-  },
-).pipe(
-  Effect.catch(error =>
-    Effect.logWarning('VS Code extension status unavailable', error.message).pipe(Effect.as(HIDDEN)),
-  ),
-);
+  }).pipe(
+    Effect.catch(error =>
+      Effect.logWarning('VS Code extension status unavailable', error.message).pipe(Effect.as(HIDDEN)),
+    ),
+  );

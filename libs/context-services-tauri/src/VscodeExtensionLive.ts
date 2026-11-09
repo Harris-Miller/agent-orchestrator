@@ -10,7 +10,7 @@ const call = <A>(command: string): Effect.Effect<A, VscodeExtensionFailed> =>
     try: () => invoke<A>(command),
   });
 
-/** Tauri Live for {@link VscodeExtension}: constrained `vscode_extension` commands in `src-tauri`. */
+/** Tauri Live for {@link VscodeExtension}: constrained VS Code commands in `src-tauri` (`detect_vscode` and friends). */
 export const VscodeExtensionLive = Layer.succeed(VscodeExtension, {
   bundled: call<BundledVscodeExtension | null>('bundled_vscode_extension').pipe(
     Effect.map(bundled => bundled ?? undefined),

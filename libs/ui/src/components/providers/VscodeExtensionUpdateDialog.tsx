@@ -13,7 +13,7 @@ import type { FC } from 'react';
 import { installVscodeExtensionAtomFn, skippedExtensionVersionAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { shouldOfferExtensionUpdate } from '../../host/vscodeExtension.ts';
 
-import { RELOAD_WINDOW_NOTE, useVscodeExtensionStatus } from './VscodeExtensionRow.tsx';
+import { RELOAD_WINDOW_NOTE, useVscodeExtensionAvailability } from './VscodeExtensionRow.tsx';
 
 type Update =
   | { readonly _tag: 'Done' }
@@ -22,7 +22,7 @@ type Update =
   | { readonly _tag: 'Running' };
 
 export const VscodeExtensionUpdateDialog: FC = () => {
-  const status = useVscodeExtensionStatus();
+  const status = useVscodeExtensionAvailability();
   const skipped = useAtomValue(skippedExtensionVersionAtom);
   const skip = useAtomSet(skippedExtensionVersionAtom);
   const install = useAtomSet(installVscodeExtensionAtomFn, { mode: 'promise' });

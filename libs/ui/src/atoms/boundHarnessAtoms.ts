@@ -47,7 +47,7 @@ export const {
   userSettingsAtom,
 } = createUserSettingsAtoms(atomRuntime);
 
-export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionStatusAtom } =
+export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom } =
   createVscodeExtensionAtoms(atomRuntime, { userSettingsAtom });
 
 export const { keepAwakeAtom, keepAwakeSupportedAtom } = createKeepAwakeAtoms(atomRuntime, { keepAwakeEnabledAtom });

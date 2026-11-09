@@ -9,6 +9,8 @@ export default defineConfig({
     'process.env.WEBVIEW_HMR': JSON.stringify(watching ? '1' : '0'),
   },
   deps: {
+    // The packaged `.vsix` ships without node_modules (`vsce --no-dependencies`), so everything but `vscode` is inlined.
+    alwaysBundle: [/.*/],
     neverBundle: ['vscode'],
   },
   dts: false,

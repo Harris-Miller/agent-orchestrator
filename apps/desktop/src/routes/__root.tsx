@@ -8,6 +8,7 @@ import {
   ProviderBootstrapGate,
   ProvidersStartupMount,
   UserSettingsMount,
+  VscodeExtensionUpdateDialog,
 } from '@lib/ui';
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -32,6 +33,7 @@ const RootComponent: FC = () => {
               <AcpBackendsMount />
               <KeepAwakeMount />
               <ProvidersStartupMount />
+              <VscodeExtensionUpdateDialog />
               <Outlet />
             </HarnessCacheGate>
           </ProviderBootstrapGate>

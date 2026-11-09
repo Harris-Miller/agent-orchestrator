@@ -289,6 +289,28 @@ _Avoid_: Platform services, Tauri services (when you mean the portable aggregate
 Desktop Live Adapter of Host services in `@lib/context-services-tauri` (`TauriServicesLive`) — analogous to `@effect/platform-node`'s `NodeServices.layer`. Composed once into the Host + Atom runtime factory.
 _Avoid_: Platform layer, context-services (the portable package name), adapters
 
+## VS Code extension install
+
+**Bundled VS Code extension**:
+The `.vsix` of the HOA VS Code extension shipped inside the desktop Bundle, stamped with the desktop app version. The only source the desktop app installs the extension from.
+_Avoid_: Marketplace extension, plugin, add-on
+
+**VS Code CLI**:
+The `code` executable the desktop app drives to list and install extensions: `code` on PATH, else the CLI at VS Code's standard app-bundle path for the OS.
+_Avoid_: VS Code binary, editor command
+
+**VS Code extension install state**:
+How the Bundled VS Code extension compares with what the VS Code CLI reports installed: `not-installed`, `up-to-date`, `outdated` (installed semver below bundled), or `newer-installed` (installed semver above bundled; never offered a downgrade).
+_Avoid_: Extension status, install status
+
+**VS Code extension availability**:
+What the VS Code extension row can offer on this Host, derived from the Bundled VS Code extension and the VS Code CLI: hidden (unsupported Host, `.vsix` not bundled, or VS Code not found), manual install (VS Code found but no CLI that can list extensions), or ready with a **VS Code extension install state**.
+_Avoid_: Extension status, install status
+
+**Skipped extension version**:
+The Bundled VS Code extension version the user chose to skip in the update dialog, stored in User settings; the dialog returns when the bundled version differs from it.
+_Avoid_: Ignored version, dismissed update
+
 ## Observability
 
 **Action root**:

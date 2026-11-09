@@ -35,9 +35,11 @@ Open **View: Toggle Secondary Side Bar Visibility** if needed. The Harness Orche
 
 ```bash
 pnpm --filter hoa-vscode run package
-code --install-extension apps/vscode/hoa-vscode-0.0.1.vsix
+code --install-extension apps/vscode/hoa-vscode.vsix
 ```
 
 Also available via Extensions view → `...` → **Install from VSIX...**
+
+The `.vsix` is stamped with the desktop app version (`apps/desktop/src-tauri/tauri.conf.json`), not this package's `version`. The desktop app bundles it (run `pnpm tauri:build` from the repo root, which packages it first) and offers to install or update it in VS Code from the Providers modal and Settings > Providers; see ADR 0019 in `apps/desktop/docs/adr`.
 
 Marketplace publish is not required for either path.

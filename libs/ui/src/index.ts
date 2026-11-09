@@ -48,6 +48,7 @@ export * from './components/LucideMuiIcon.tsx';
 export * from './components/PersistUserSettingsToast.tsx';
 export * from './components/providers/ProvidersSettingsPane.tsx';
 export * from './components/providers/ProvidersStartupMount.tsx';
+export * from './components/providers/VscodeExtensionUpdateDialog.tsx';
 export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/SessionHeader.tsx';

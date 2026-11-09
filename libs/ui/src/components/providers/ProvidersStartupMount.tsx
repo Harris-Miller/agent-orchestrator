@@ -20,6 +20,7 @@ import { showProvidersOnStartupAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { overallStatus } from '../../host/providerView.ts';
 
 import { ProviderItem } from './ProvidersSettingsPane.tsx';
+import { VscodeExtensionRow } from './VscodeExtensionRow.tsx';
 import { ProviderEnabledSwitch, ProviderHelp, ProviderPrimaryAction, useProviderControls } from './providerUi.tsx';
 
 export const ProvidersStartupMount: FC = () => {
@@ -59,6 +60,7 @@ export const ProvidersStartupMount: FC = () => {
                 </Box>
               </Fragment>
             ))}
+            <VscodeExtensionRow />
           </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

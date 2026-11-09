@@ -11,6 +11,7 @@ import type { Notifier } from './Notifier.ts';
 import type { OpenUrl } from './OpenUrl.ts';
 import type { OpenFile } from './OpenFile.ts';
 import type { OS } from './OS.ts';
+import type { VscodeExtension } from './VscodeExtension.ts';
 
 /** Portable host-capability aggregate (desktop: Tauri services; VS Code: IPC Live). */
 export type HostServices =
@@ -25,4 +26,5 @@ export type HostServices =
   | OpenUrl
   | OpenFile
   | OS
-  | Path;
+  | Path
+  | VscodeExtension;

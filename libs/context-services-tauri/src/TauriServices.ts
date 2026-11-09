@@ -16,6 +16,7 @@ import { OpenFileLive } from './OpenFileLive.ts';
 import { OSLive } from './OSLive.ts';
 import { PathLive } from './PathLive.ts';
 import { TauriFetchLive } from './TauriFetchLive.ts';
+import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
 
 /**
  * Aggregate Tauri platform services analogous to `@effect/platform-node`'s
@@ -28,7 +29,7 @@ import { TauriFetchLive } from './TauriFetchLive.ts';
 export type TauriServices = HostServices;
 
 /**
- * Provides AtomicFile, BundledResource, Clipboard, FileDialog, Notifier, OpenUrl, OpenFile, OS, Path, FileSystem, ChildProcessSpawner, and
+ * Provides AtomicFile, BundledResource, Clipboard, FileDialog, Notifier, OpenUrl, OpenFile, OS, Path, VscodeExtension, FileSystem, ChildProcessSpawner, and
  * ConfigProvider backed by Tauri plugins / host_process_info.
  */
 export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
@@ -43,6 +44,7 @@ export const layer: Layer.Layer<TauriServices> = Layer.mergeAll(
   OpenUrlLive,
   OpenFileLive,
   PathLive,
+  VscodeExtensionLive,
   FetchHttpClient.layer.pipe(Layer.provide(TauriFetchLive)),
 ).pipe(
   Layer.provideMerge(OSLive),

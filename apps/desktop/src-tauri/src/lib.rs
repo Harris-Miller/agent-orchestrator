@@ -271,6 +271,137 @@ fn atomic_replace_provider_state(
     result.map_err(|error| error.to_string())
 }
 
+// ---------------------------------------------------------------------------------------------
+// Bundled VS Code extension boundary
+// ---------------------------------------------------------------------------------------------
+// The shell plugin only spawns commands named in static capability scopes, and the VS Code CLI path varies per
+// machine. So detect / list / install are constrained commands: the webview supplies no executable path or
+// arguments, and install only ever passes the `.vsix` bundled with this app.
+
+const VSCODE_EXTENSION_ID: &str = "harris-miller.hoa-vscode";
+const BUNDLED_VSIX_NAME: &str = "hoa-vscode.vsix";
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "_tag")]
+enum VscodeDetection {
+    /// A working CLI: `code` on PATH, else the CLI inside the VS Code app bundle.
+    Cli { path: String },
+    /// VS Code is installed but no CLI was found.
+    AppOnly,
+    NotFound,
+}
+
+#[derive(Serialize)]
+struct BundledVscodeExtension {
+    path: String,
+    version: String,
+}
+
+/// Per-OS standard locations of the VS Code app directory and of the CLI inside it.
+fn vscode_app_locations(local_app_data: Option<&Path>) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    if cfg!(target_os = "macos") {
+        let app = PathBuf::from("/Applications/Visual Studio Code.app");
+        (vec![app.join("Contents/Resources/app/bin/code")], vec![app])
+    } else if cfg!(target_os = "windows") {
+        let app = local_app_data.map(|dir| dir.join("Programs/Microsoft VS Code"));
+        (
+            app.iter().map(|app| app.join("bin/code.cmd")).collect(),
+            app.into_iter().collect(),
+        )
+    } else {
+        (
+            vec![PathBuf::from("/usr/share/code/bin/code"), PathBuf::from("/usr/bin/code")],
+            vec![PathBuf::from("/usr/share/code")],
+        )
+    }
+}
+
+/// `code` on PATH, then the app-bundle CLI, then whether the app itself exists. `is_file` / `is_dir` are injected for tests.
+fn resolve_vscode(
+    path_env: Option<&std::ffi::OsStr>,
+    cli_candidates: &[PathBuf],
+    app_dirs: &[PathBuf],
+    is_file: impl Fn(&Path) -> bool,
+    is_dir: impl Fn(&Path) -> bool,
+) -> VscodeDetection {
+    let name = if cfg!(target_os = "windows") { "code.cmd" } else { "code" };
+    let on_path = path_env
+        .into_iter()
+        .flat_map(std::env::split_paths)
+        .map(|dir| dir.join(name))
+        .find(|candidate| is_file(candidate));
+    match on_path.or_else(|| cli_candidates.iter().find(|candidate| is_file(candidate)).cloned()) {
+        Some(path) => VscodeDetection::Cli { path: path.to_string_lossy().into_owned() },
+        None if app_dirs.iter().any(|dir| is_dir(dir)) => VscodeDetection::AppOnly,
+        None => VscodeDetection::NotFound,
+    }
+}
+
+fn detect_vscode_cli() -> VscodeDetection {
+    let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    let (clis, apps) = vscode_app_locations(local_app_data.as_deref());
+    resolve_vscode(std::env::var_os("PATH").as_deref(), &clis, &apps, Path::is_file, Path::is_dir)
+}
+
+/// Version of `VSCODE_EXTENSION_ID` in `code --list-extensions --show-versions` output (`publisher.name@1.2.3`).
+fn parse_installed_extension_version(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        let (id, version) = line.trim().split_once('@')?;
+        id.eq_ignore_ascii_case(VSCODE_EXTENSION_ID).then(|| version.to_string())
+    })
+}
+
+fn require_vscode_cli() -> Result<PathBuf, String> {
+    match detect_vscode_cli() {
+        VscodeDetection::Cli { path } => Ok(PathBuf::from(path)),
+        _ => Err("VS Code CLI not found".into()),
+    }
+}
+
+/// The `.vsix` shipped in the app resources and its version (the app version it was stamped with), or `None` when
+/// the build did not bundle it (`tauri dev`).
+#[tauri::command]
+fn bundled_vscode_extension(app: tauri::AppHandle) -> Option<BundledVscodeExtension> {
+    let path = app.path().resolve(BUNDLED_VSIX_NAME, tauri::path::BaseDirectory::Resource).ok()?;
+    path.is_file().then(|| BundledVscodeExtension {
+        path: path.to_string_lossy().into_owned(),
+        version: app.package_info().version.to_string(),
+    })
+}
+
+#[tauri::command(async)]
+fn detect_vscode() -> VscodeDetection {
+    detect_vscode_cli()
+}
+
+#[tauri::command(async)]
+fn vscode_installed_extension_version() -> Result<Option<String>, String> {
+    let output = Command::new(require_vscode_cli()?)
+        .args(["--list-extensions", "--show-versions"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(parse_installed_extension_version(&String::from_utf8_lossy(&output.stdout)))
+}
+
+/// `code --install-extension <bundled vsix> --force`. Returns the CLI's stderr on failure.
+#[tauri::command(async)]
+fn install_bundled_vscode_extension(app: tauri::AppHandle) -> Result<(), String> {
+    let bundled = bundled_vscode_extension(app).ok_or("VS Code extension is not bundled with this build")?;
+    let output = Command::new(require_vscode_cli()?)
+        .args(["--install-extension", &bundled.path, "--force"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() { format!("code exited with {}", output.status) } else { stderr })
+    }
+}
+
 /// Kill `pid` and its descendants (depth-first). Unix only — desktop target.
 fn kill_process_tree(pid: u32) {
     #[cfg(unix)]
@@ -339,13 +470,17 @@ pub fn run() {
     builder
         .invoke_handler(tauri::generate_handler![
             atomic_replace_provider_state,
+            bundled_vscode_extension,
+            detect_vscode,
             greet,
+            install_bundled_vscode_extension,
             kill_tracked_process_tree,
             spawn_antigravity_provider,
             write_provider_stdin,
             host_process_info,
             track_child_process,
-            untrack_child_process
+            untrack_child_process,
+            vscode_installed_extension_version
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -388,5 +523,40 @@ mod tests {
         ] {
             assert!(!is_provider_current_json(home, Path::new(bad)), "{bad}");
         }
+    }
+
+    #[test]
+    fn resolves_the_vscode_cli() {
+        let name = if cfg!(target_os = "windows") { "code.cmd" } else { "code" };
+        let bundle_cli = PathBuf::from("/app/bin/code");
+        let app = PathBuf::from("/app");
+        let path_env = std::env::join_paths(["/usr/local/bin", "/opt/bin"]).unwrap();
+        let on_path = Path::new("/opt/bin").join(name);
+
+        let with = |existing: Vec<PathBuf>, path_env: Option<&std::ffi::OsStr>| {
+            let exists = |path: &Path| existing.iter().any(|e| e == path);
+            resolve_vscode(path_env, &[bundle_cli.clone()], &[app.clone()], exists, exists)
+        };
+        // PATH wins over the app bundle.
+        assert_eq!(
+            with(vec![on_path.clone(), bundle_cli.clone()], Some(&path_env)),
+            VscodeDetection::Cli { path: on_path.to_string_lossy().into_owned() }
+        );
+        // Minimal PATH (GUI launch): falls back to the app-bundle CLI.
+        assert_eq!(
+            with(vec![bundle_cli.clone()], None),
+            VscodeDetection::Cli { path: bundle_cli.to_string_lossy().into_owned() }
+        );
+        // App present, no CLI.
+        assert_eq!(with(vec![app.clone()], Some(&path_env)), VscodeDetection::AppOnly);
+        assert_eq!(with(vec![], Some(&path_env)), VscodeDetection::NotFound);
+    }
+
+    #[test]
+    fn parses_the_installed_extension_version() {
+        let output = "ms-python.python@2024.1.0\nHarris-Miller.hoa-vscode@0.1.0\nother.ext@1.0.0\n";
+        assert_eq!(parse_installed_extension_version(output), Some("0.1.0".to_string()));
+        assert_eq!(parse_installed_extension_version("harris-miller.hoa-vscode-fork@1.0.0\n"), None);
+        assert_eq!(parse_installed_extension_version(""), None);
     }
 }

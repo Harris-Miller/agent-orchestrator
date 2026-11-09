@@ -19,6 +19,7 @@ import { PathLive } from './PathLive.ts';
 import { IpcClient } from './protocol/ipcClient.ts';
 import type { IpcPort } from './protocol/port.ts';
 import { acquireVsCodeApiPort } from './protocol/vscodeApiPort.ts';
+import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
 
 type HostServicesOptions = { readonly client: IpcClient } | { readonly port: IpcPort };
 
@@ -59,6 +60,7 @@ export function makeHostServicesLive(options?: HostServicesOptions): Layer.Layer
     makeOpenUrlLive(client),
     makeOpenFileLive(client),
     PathLive,
+    VscodeExtensionLive,
     FetchHttpClient.layer.pipe(Layer.provide(fetchLive)),
   ).pipe(
     Layer.provideMerge(osLive),

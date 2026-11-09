@@ -17,6 +17,7 @@ import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createNotifierAtoms } from './notifier.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
+import { createVscodeExtensionAtoms } from './vscodeExtension.atoms.ts';
 
 const hostBag = {
   atomRuntime,
@@ -45,6 +46,9 @@ export const {
   themeAtom,
   userSettingsAtom,
 } = createUserSettingsAtoms(atomRuntime);
+
+export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom } =
+  createVscodeExtensionAtoms(atomRuntime, { userSettingsAtom });
 
 export const { keepAwakeAtom, keepAwakeSupportedAtom } = createKeepAwakeAtoms(atomRuntime, { keepAwakeEnabledAtom });
 

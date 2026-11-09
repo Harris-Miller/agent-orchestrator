@@ -8,6 +8,10 @@
       "outputs": ["dist/**"]
     },
     "lint": {},
+    "package": {
+      "cache": false,
+      "outputs": ["hoa-vscode.vsix"]
+    },
     "test": {},
     "typecheck": {},
     "dev": {
@@ -28,6 +32,7 @@
       "persistent": true
     },
     "tauri:build": {
+      "dependsOn": ["hoa-vscode#package"],
       "outputs": [
         "src-tauri/target/release/CACHEDIR.TAG",
         "src-tauri/target/release/.rustc_info.json",

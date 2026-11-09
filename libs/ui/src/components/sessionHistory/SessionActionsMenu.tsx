@@ -20,13 +20,22 @@ const stopPropagation = (event: SyntheticEvent) => {
 /** On an archived entry: Unarchive (then opens it), Pin/Unpin and Delete only (Codex rejects renaming archived sessions). */
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
+  readonly onBeforeAction?: () => void;
   readonly onInteractionChange?: (active: boolean) => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
-}> = ({ onInteractionChange, entry, onClientError = noopClientError, onDeleteRequest, onRenameRequest, sx }) => {
-  const actions = useSessionActions({ canRename: onRenameRequest !== undefined, entry, onClientError });
+}> = ({
+  onBeforeAction,
+  onInteractionChange,
+  entry,
+  onClientError = noopClientError,
+  onDeleteRequest,
+  onRenameRequest,
+  sx,
+}) => {
+  const actions = useSessionActions({ canRename: onRenameRequest !== undefined, entry, onBeforeAction, onClientError });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   // MUI returns focus to the trigger when the Popover closes; start editing only after that, or the input blur-commits.

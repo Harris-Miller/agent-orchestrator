@@ -39,7 +39,7 @@ type Folder = { readonly uri: { readonly fsPath: string; readonly scheme: string
  */
 const fulfillment = Effect.acquireRelease(
   Effect.promise(async () => {
-    const tmp = await mkdtemp(join(tmpdir(), 'ao-host-fulfillment-'));
+    const tmp = await mkdtemp(join(tmpdir(), 'hoa-host-fulfillment-'));
     const [webview, extension] = connectFakePeers();
     const tracker = new ProcessTracker();
     const state: { folders: readonly Folder[] | undefined } = { folders: undefined };
@@ -194,7 +194,7 @@ describe('Host IPC fulfillment', () => {
     Effect.gen(function* () {
       const { client, tmp } = yield* fulfillment;
       vi.stubEnv('HOME', tmp);
-      const dir = join(tmp, '.ao', 'providers', 'p');
+      const dir = join(tmp, '.hoa', 'providers', 'p');
       const path = join(dir, 'current.json');
 
       yield* client.request({ _tag: 'FsAtomicReplaceFileString', content: '{"a":1}', path });
@@ -283,7 +283,7 @@ describe('Host IPC fulfillment', () => {
 
       yield* client.request({ _tag: 'OpenImageData', base64, mimeType: 'image/png' });
 
-      const dir = join(tmp, 'agent-orchestrator-images');
+      const dir = join(tmp, 'hoa-images');
       const [name] = readdirSync(dir);
       assert.match(name ?? '', /^[0-9a-f]{24}\.png$/);
       assert.deepStrictEqual([...readFileSync(join(dir, name ?? ''))], [9, 8, 7]);

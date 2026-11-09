@@ -1,4 +1,4 @@
-# agent-orchestrator
+# Harness Orchestrating Agents (HOA)
 
 Tauri + React desktop app that hosts the **Agent Harness** — an [ACP](https://agentclientprotocol.com/) Client for driving external coding agents (Codex, Claude, Gemini) as subprocesses, without embedding any vendor LLM SDK.
 

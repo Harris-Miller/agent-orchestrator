@@ -1,15 +1,15 @@
-# ao-home
+# hoa-home
 
-Product filesystem home for Agent Orchestrator (`~/.ao`): the only package that reads or writes under that tree.
+Product filesystem home for Harness Orchestrating Agents (`~/.hoa`): the only package that reads or writes under that tree.
 
 ## Language
 
-**Agent Orchestrator home**:
-The product directory `~/.ao` under the OS user home — a scaling root for durable prefs and session artifacts, not the OS home itself.
+**HOA home**:
+The product directory `~/.hoa` under the OS user home — a scaling root for durable prefs and session artifacts, not the OS home itself.
 _Avoid_: home directory, OS home, `$HOME` (when meaning this product dir)
 
 **User settings**:
-The user-mutable preferences file `settings.json` inside the Agent Orchestrator home.
+The user-mutable preferences file `settings.json` inside the HOA home.
 _Avoid_: Settings document, config, configuration, session configuration, config option
 
 **Always-hidden glob**:
@@ -17,7 +17,7 @@ A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Har
 _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
 
 **Adapter history document**:
-Per agent launch target durable session list under `adapters/<launchTarget>/history.json` inside the Agent Orchestrator home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness Session History.
+Per agent launch target durable session list under `adapters/<launchTarget>/history.json` inside the HOA home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness Session History.
 _Avoid_: Adapter roster document, Session History (Harness term), user settings, session snapshot
 
 **Application session index**:
@@ -37,15 +37,15 @@ Cross-process lockfile at `adapters/<launchTarget>/history.lock` (next to `histo
 _Avoid_: Adapter roster lock, file lock (generic), mutex
 
 **Session usage document**:
-System-created context-window fill and cost under `sessions/<id>/usage.json` inside the Agent Orchestrator home. Not user-editable User settings; missing or corrupt file means no usage yet.
+System-created context-window fill and cost under `sessions/<id>/usage.json` inside the HOA home. Not user-editable User settings; missing or corrupt file means no usage yet.
 _Avoid_: user settings, usage readout, telemetry
 
 **Session directory**:
-Per-session folder `sessions/<id>/` inside the Agent Orchestrator home. Removed wholesale on Harness `session/delete`. Abandoned dirs (never deleted via Harness) remain until that explicit delete — no GC in this package.
+Per-session folder `sessions/<id>/` inside the HOA home. Removed wholesale on Harness `session/delete`. Abandoned dirs (never deleted via Harness) remain until that explicit delete — no GC in this package.
 _Avoid_: session snapshot, Session History, Adapter history document
 
 **Provider directory**:
-`providers/<launch target>/` inside the Agent Orchestrator home. Holds `runtime/<version>/` directories and the `current.json` Provider runtime document.
+`providers/<launch target>/` inside the HOA home. Holds `runtime/<version>/` directories and the `current.json` Provider runtime document.
 _Avoid_: adapter dir, harness dir
 
 **Provider runtime document**:
@@ -68,4 +68,4 @@ _Avoid_: system browser, Host OpenUrl (when you mean the helper path)
 
 ## Package law
 
-Every filesystem read or write under the Agent Orchestrator home goes through `@lib/ao-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.
+Every filesystem read or write under the HOA home goes through `@lib/hoa-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.

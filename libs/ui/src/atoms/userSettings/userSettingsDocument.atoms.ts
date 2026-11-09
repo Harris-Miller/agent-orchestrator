@@ -2,8 +2,8 @@
  * The in-memory `settings.json`: the app's single copy of User settings. Module-level so Host-runtime-free Atoms can
  * derive from it; `createUserSettingsAtoms` loads it from disk and persists writes. Never mirror a field elsewhere.
  */
-import { defaultSettings } from '@lib/ao-home';
-import type { readUserSettings, UserSettings } from '@lib/ao-home';
+import { defaultSettings } from '@lib/hoa-home';
+import type { readUserSettings, UserSettings } from '@lib/hoa-home';
 import type { Effect } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

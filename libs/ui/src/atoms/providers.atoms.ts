@@ -3,7 +3,7 @@
  * Recheck. Jobs keep per-provider busy / error state. Check and Download never touch the running provider;
  * Install, Remove, Disable and Recheck stop it (the UI warns first when this instance has live sessions).
  */
-import type { ProviderDistribution } from '@lib/ao-home';
+import type { ProviderDistribution } from '@lib/hoa-home';
 import { Cause, Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 

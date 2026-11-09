@@ -1,6 +1,6 @@
 # Ship ACP adapters with the VS Code extension
 
-> **Superseded by [desktop ADR 0017](../../../desktop/docs/adr/0017-user-installed-provider-runtimes.md).** The extension no longer ships or symlinks an adapter tree; runtimes are user-installed under `~/.ao/providers/`. The symlink/copy scheme below is historical.
+> **Superseded by [desktop ADR 0017](../../../desktop/docs/adr/0017-user-installed-provider-runtimes.md).** The extension no longer ships or symlinks an adapter tree; runtimes are user-installed under `~/.hoa/providers/`. The symlink/copy scheme below is historical.
 
 The extension Node host must spawn `node` on the same hoisted adapter entries as desktop (`claude-agent-acp`, `codex-acp`) without bundling those graphs into `dist/extension.cjs`. Adapters live in repo-root `acp-adapter-resources/` (shared, not owned by this app).
 

@@ -87,7 +87,7 @@ An agent backend the user can enable (Claude, Codex, Antigravity, Cursor), ident
 _Avoid_: backend (the running process), agent
 
 **Provider runtime**:
-The downloaded program backing a Provider (see ao-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, bootstrapping once, then deleting superseded runtimes); Remove clears it.
+The downloaded program backing a Provider (see hoa-home _Provider runtime document_). Check for latest resolves the newest version without touching the running provider; Download fetches it in the background; Install switches the Active runtime (stopping the provider, bootstrapping once, then deleting superseded runtimes); Remove clears it.
 _Avoid_: adapter resource tree, bundled adapter
 
 **Disabled**:
@@ -109,7 +109,7 @@ OAuth URL from the capture-only `BROWSER` helper during Sign in — copyable in 
 _Avoid_: elicitation URL
 
 **Config option index**:
-Per-launch-target index of default model, per-model selectable option rows, and Unavailable models. Hydrated from ao-home cache before Backend Harnesses mount, seeded by Config probe when the cache is missing, then kept current and persisted by Lazy hydrate. Rows may be missing for models not yet selected.
+Per-launch-target index of default model, per-model selectable option rows, and Unavailable models. Hydrated from hoa-home cache before Backend Harnesses mount, seeded by Config probe when the cache is missing, then kept current and persisted by Lazy hydrate. Rows may be missing for models not yet selected.
 _Avoid_: Provider catalog, harness defaults, config catalog
 
 **Session configuration**:
@@ -129,7 +129,7 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
@@ -153,7 +153,7 @@ The floating list opened by a Composer Trigger — Available Commands for `/` an
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)
 
 **Filesystem Mention**:
-Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Choosing an image file instead removes the Trigger and adds the image as a Composer Image Attachment. Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/ao-home` Always-hidden glob.
+Choosing a filesystem path from the `@` Composer Menu; the draft receives a markdown link that displays as a Markdown Link Chip (not a separate chip kind). Choosing an image file instead removes the Trigger and adds the image as a Composer Image Attachment. Recursive `@` listing (and the New Session shallow directory picker) always exclude `.git` and honor Always-hidden globs from User settings; Show hidden does not override those excludes. See `@lib/hoa-home` Always-hidden glob.
 _Avoid_: mention chip, file chip, @ chip (when you mean this selection act or its resulting Markdown Link Chip)
 
 **Command Chip**:

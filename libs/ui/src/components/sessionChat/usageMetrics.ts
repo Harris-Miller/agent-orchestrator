@@ -1,4 +1,4 @@
-import type { SessionUsageDocument } from '@lib/ao-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 
 export const usagePercent = (usage: SessionUsageDocument): number =>
   usage.size > 0 ? (usage.used / usage.size) * 100 : 0;

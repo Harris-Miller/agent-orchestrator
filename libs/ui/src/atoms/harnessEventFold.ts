@@ -6,8 +6,8 @@
  * Connection lost: pending interactions cancelled and the Virtual session unbound. Consequences run fire-and-forget
  * through `runFork` and never fail the fold.
  */
-import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/ao-home';
-import type { SessionUsageDocument } from '@lib/ao-home';
+import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/hoa-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';

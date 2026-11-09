@@ -2,7 +2,7 @@ import { DEFAULT_THEME_ID, THEME_IDS } from './themeId.ts';
 import type { ThemeId } from './themeId.ts';
 
 /** localStorage paint-cache key for last-applied theme (not User settings source of truth). */
-export const THEME_PAINT_STORAGE_KEY = 'ao-desktop-theme';
+export const THEME_PAINT_STORAGE_KEY = 'hoa-desktop-theme';
 
 export const isThemeId = (value: unknown): value is ThemeId =>
   typeof value === 'string' && (THEME_IDS as readonly string[]).includes(value);

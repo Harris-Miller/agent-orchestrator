@@ -121,7 +121,7 @@ const mapFsLayer = (store: Map<string, MapFsEntry>, fsOptions: MapFsOptions = {}
   });
 };
 
-/** Always-ok spawner for AO-home chmod during materialize / BROWSER helper tests. */
+/** Always-ok spawner for HOA home chmod during materialize / BROWSER helper tests. */
 const chmodOkSpawnerLayer = Layer.succeed(
   ChildProcessSpawner.ChildProcessSpawner,
   ChildProcessSpawner.make(() =>
@@ -152,7 +152,7 @@ const mapAtomicFileLayer = (store: Map<string, MapFsEntry>) =>
       }),
   });
 
-/** In-memory FileSystem + Path + OS + AtomicFile (+ chmod-ok spawner) for ao-home tests. */
+/** In-memory FileSystem + Path + OS + AtomicFile (+ chmod-ok spawner) for hoa-home tests. */
 export const mapFsTestServices = (
   store: Map<string, MapFsEntry>,
   options: MapFsOptions = {},

@@ -1,6 +1,6 @@
 /** Shared presentation for Settings > Providers and the startup modal: status dot, command snippet, copy, actions. */
 import { RegistryContext, useAtomSet, useAtomValue } from '@effect/atom-react';
-import { PROVIDER_RUNTIME_DIRNAME, providerDisplayPath } from '@lib/ao-home';
+import { PROVIDER_RUNTIME_DIRNAME, providerDisplayPath } from '@lib/hoa-home';
 import { OpenUrl } from '@lib/context-services';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';

@@ -1,6 +1,6 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
-import type { SessionUsageDocument } from '@lib/ao-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 import type { Cause } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
@@ -218,7 +218,7 @@ export const initialSessionSnapshot = (sessionId: string, status: SessionStatus 
 });
 
 /** Temp-cwd prefix for Config probe sessions — never shown as history entries. */
-export const CONFIG_PROBE_CWD_PREFIX = 'ao-config-probe-';
+export const CONFIG_PROBE_CWD_PREFIX = 'hoa-config-probe-';
 
 export const isConfigProbeCwd = (cwd: string): boolean => {
   const base = cwd.replaceAll('\\', '/').split('/').pop() ?? '';

@@ -10,6 +10,7 @@
     ".agents/**",
     ".repos/**",
     "graphify-out/**",
-    "pnpm-lock.yaml"
+    "pnpm-lock.yaml",
+    "apps/desktop/src/routeTree.gen.ts"
   ]
 }

@@ -8,6 +8,10 @@ use tauri::ipc::Channel;
 use tauri::{Manager, State};
 use tauri::webview::PageLoadEvent;
 
+/// HOA home directory name under the OS home. Must equal `HOA_HOME_DIRNAME` in `@lib/hoa-home` and the `.hoa` in the
+/// `capabilities/default.json` shell scope (guarded by `tauriShellScope.test.ts`).
+const HOA_HOME_DIRNAME: &str = ".hoa";
+
 #[derive(Serialize)]
 struct HostProcessInfo {
     cwd: String,
@@ -133,7 +137,7 @@ fn resolve_antigravity_spawn(home: &Path, document: &str) -> Result<AntigravityS
         return Err("Antigravity runtime version or command is unsafe".into());
     }
     let command = home
-        .join(".ao")
+        .join(HOA_HOME_DIRNAME)
         .join("providers")
         .join("antigravity-acp")
         .join("runtime")
@@ -177,7 +181,7 @@ fn spawn_antigravity_provider(
     stdins: State<'_, ProviderStdins>,
 ) -> Result<u32, String> {
     let home = app.path().home_dir().map_err(|error| error.to_string())?;
-    let document = std::fs::read_to_string(home.join(".ao/providers/antigravity-acp/current.json"))
+    let document = std::fs::read_to_string(home.join(HOA_HOME_DIRNAME).join("providers/antigravity-acp/current.json"))
         .map_err(|error| error.to_string())?;
     let spawn = resolve_antigravity_spawn(&home, &document)?;
     let mut child = Command::new(&spawn.command)
@@ -225,9 +229,9 @@ fn write_provider_stdin(pid: u32, data: Vec<u8>, stdins: State<'_, ProviderStdin
     stdin.write_all(&data).and_then(|_| stdin.flush()).map_err(|error| error.to_string())
 }
 
-/// True only for `<home>/.ao/providers/<launch-target>/current.json` with no traversal.
+/// True only for `<home>/.hoa/providers/<launch-target>/current.json` with no traversal.
 fn is_provider_current_json(home: &Path, path: &Path) -> bool {
-    let root = home.join(".ao").join("providers");
+    let root = home.join(HOA_HOME_DIRNAME).join("providers");
     let Ok(relative) = path.strip_prefix(&root) else {
         return false;
     };
@@ -361,7 +365,7 @@ mod tests {
         let home = Path::new("/home/operator");
         let document = r#"{"schemaVersion":1,"active":{"version":"1.4.5","dir":"runtime/1.4.5"},"catalog":[{"version":"1.4.5","dir":"runtime/1.4.5","distribution":{"_tag":"binary","version":"1.4.5","platform":"linux-x86_64","archive":"https://dl.google.com/agy-extensions/a.zip","sha256":"aa","cmd":"agy_acp_server.par","args":["--uid="]},"state":{"_tag":"completed"}}]}"#;
         let spawn = resolve_antigravity_spawn(home, document).unwrap();
-        assert_eq!(spawn.command, Path::new("/home/operator/.ao/providers/antigravity-acp/runtime/1.4.5/agy_acp_server.par"));
+        assert_eq!(spawn.command, Path::new("/home/operator/.hoa/providers/antigravity-acp/runtime/1.4.5/agy_acp_server.par"));
         assert_eq!(spawn.args, vec!["--uid=".to_string()]);
         assert!(resolve_antigravity_spawn(home, &document.replace("agy_acp_server.par", "../../bin/sh")).is_err());
         assert!(resolve_antigravity_spawn(home, &document.replace("\"completed\"", "\"downloading\"")).is_err());
@@ -372,15 +376,15 @@ mod tests {
     #[test]
     fn accepts_only_provider_current_json() {
         let home = Path::new("/home/operator");
-        assert!(is_provider_current_json(home, Path::new("/home/operator/.ao/providers/claude-agent-acp/current.json")));
+        assert!(is_provider_current_json(home, Path::new("/home/operator/.hoa/providers/claude-agent-acp/current.json")));
         for bad in [
-            "/home/operator/.ao/settings.json",
-            "/home/operator/.ao/providers/claude-agent-acp/runtime/1.0.0/current.json",
-            "/home/operator/.ao/providers/../settings.json",
-            "/home/operator/.ao/providers/claude-agent-acp/../x/current.json",
-            "/home/operator/.ao/providers/Bad_Id/current.json",
-            "/home/operator/.ao/providers/current.json",
-            "/etc/.ao/providers/claude-agent-acp/current.json",
+            "/home/operator/.hoa/settings.json",
+            "/home/operator/.hoa/providers/claude-agent-acp/runtime/1.0.0/current.json",
+            "/home/operator/.hoa/providers/../settings.json",
+            "/home/operator/.hoa/providers/claude-agent-acp/../x/current.json",
+            "/home/operator/.hoa/providers/Bad_Id/current.json",
+            "/home/operator/.hoa/providers/current.json",
+            "/etc/.hoa/providers/claude-agent-acp/current.json",
         ] {
             assert!(!is_provider_current_json(home, Path::new(bad)), "{bad}");
         }

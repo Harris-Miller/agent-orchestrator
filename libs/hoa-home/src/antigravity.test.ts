@@ -10,7 +10,7 @@ import {
 import { mapFsTestServices } from './testing/mapFsTestServices.ts';
 import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
-const ROOT = '/home/operator/.ao/providers/antigravity-acp';
+const ROOT = '/home/operator/.hoa/providers/antigravity-acp';
 
 describe('antigravity provider support files', () => {
   const store = new Map<string, MapFsEntry>();

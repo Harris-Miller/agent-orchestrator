@@ -38,12 +38,16 @@ import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, Squa
 import { useState } from 'react';
 import type { FC } from 'react';
 
-export const WORKBENCH_NAV_RAIL_WIDTH = 320;
+export const WORKBENCH_NAV_RAIL_WIDTH = 400;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
 /** Rows a Session History cwd group shows before its Show more box. */
 const CWD_GROUP_ROW_LIMIT = 10;
+// Panel widths (px) at which the header title grows from "HOA" to "The HOA" to the full name; leaves room for header actions.
+// Kept just under WORKBENCH_NAV_RAIL_WIDTH so the full name shows at the default width.
+const TITLE_MEDIUM_MIN_WIDTH = 260;
+const TITLE_FULL_MIN_WIDTH = 390;
 
 const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
 
@@ -132,6 +136,7 @@ export const WorkbenchNavRail: FC<{
         sx={{
           bgcolor: 'background.paper',
           boxSizing: 'border-box',
+          containerType: 'inline-size',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -155,8 +160,26 @@ export const WorkbenchNavRail: FC<{
           closeIcon={PanelLeftClose}
           onClose={onClose}
           title={
-            <Typography noWrap sx={{ fontWeight: 600 }} variant="subtitle1">
-              Agent Orchestrator
+            <Typography
+              noWrap
+              sx={{
+                fontWeight: 600,
+                // Title shortens with the panel width: full name, then "The HOA", then "HOA".
+                '& .title-full, & .title-medium': { display: 'none' },
+                [`@container (min-width: ${TITLE_MEDIUM_MIN_WIDTH}px)`]: {
+                  '& .title-medium': { display: 'inline' },
+                  '& .title-short': { display: 'none' },
+                },
+                [`@container (min-width: ${TITLE_FULL_MIN_WIDTH}px)`]: {
+                  '& .title-full': { display: 'inline' },
+                  '& .title-medium': { display: 'none' },
+                },
+              }}
+              variant="subtitle1"
+            >
+              <span className="title-full">Harness Orchestrating Agents</span>
+              <span className="title-medium">The HOA</span>
+              <span className="title-short">HOA</span>
             </Typography>
           }
         />

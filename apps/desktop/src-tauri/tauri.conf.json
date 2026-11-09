@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "agent-orchestrator",
+  "productName": "HOA",
   "version": "0.1.0",
-  "identifier": "com.agent-orchestrator",
+  "identifier": "com.hoa",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "agent-orchestrator",
+        "title": "Harness Orchestrating Agents",
         "backgroundThrottling": "disabled",
         "width": 1200,
         "minWidth": 960,

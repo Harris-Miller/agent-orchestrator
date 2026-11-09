@@ -1,6 +1,6 @@
-/** User settings write-through Atom backed by `@lib/ao-home`. */
-import { normalizeAlwaysHiddenGlobs, readUserSettings, writeUserSettings } from '@lib/ao-home';
-import type { UserSettings } from '@lib/ao-home';
+/** User settings write-through Atom backed by `@lib/hoa-home`. */
+import { normalizeAlwaysHiddenGlobs, readUserSettings, writeUserSettings } from '@lib/hoa-home';
+import type { UserSettings } from '@lib/hoa-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 

@@ -29,7 +29,7 @@ const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 export const ObservabilityLive = Layer.merge(
   AllLogLevelsLive,
   Otlp.layerFromConfig({
-    resource: { serviceName: 'agent-orchestrator-vscode' },
+    resource: { serviceName: 'hoa-vscode' },
   }).pipe(
     Layer.provide(OtlpSerialization.layerJson),
     Layer.provide(FetchHttpClient.layer),

@@ -1,8 +1,8 @@
-# User-installed provider runtimes under `~/.ao/providers`
+# User-installed provider runtimes under `~/.hoa/providers`
 
 **Supersedes [ADR 0006](./0006-acp-adapters-as-tauri-resources.md); amends [ADR 0014](./0014-managed-antigravity-acp-runtime.md).**
 
-The bundled `acp-adapter-resources` tree was about 664 MB, roughly 95% of it vendor CLI binaries that npm pulls in as platform optional dependencies and that the launch path never runs (`CLAUDE_CODE_EXECUTABLE` / `CODEX_PATH` already point at the PATH CLIs). Provider runtimes are now **user-initiated installs** under `~/.ao/providers/<launch-target>/`, relying on a **global Node >= 22 and npm** for now (managing Node ourselves is deferred to a production release). The same layout and flow serve desktop and VS Code through `@lib/ui`.
+The bundled `acp-adapter-resources` tree was about 664 MB, roughly 95% of it vendor CLI binaries that npm pulls in as platform optional dependencies and that the launch path never runs (`CLAUDE_CODE_EXECUTABLE` / `CODEX_PATH` already point at the PATH CLIs). Provider runtimes are now **user-initiated installs** under `~/.hoa/providers/<launch-target>/`, relying on a **global Node >= 22 and npm** for now (managing Node ourselves is deferred to a production release). The same layout and flow serve desktop and VS Code through `@lib/ui`.
 
 ## Decisions
 
@@ -17,10 +17,10 @@ The bundled `acp-adapter-resources` tree was about 664 MB, roughly 95% of it ven
 
 ## Accepted limitation: single-instance semantics
 
-Desktop and VS Code share `~/.ao` but do **not** coordinate. Other running instances re-read `current.json` before every spawn, so they pick up a change on their next harness start. An Install or Remove in one instance can delete a directory another running instance is still using, and one instance's startup cleanup can remove another's in-flight download. That race is accepted for pre-alpha; locks, acknowledgments and watchers are tracked in a follow-up issue.
+Desktop and VS Code share `~/.hoa` but do **not** coordinate. Other running instances re-read `current.json` before every spawn, so they pick up a change on their next harness start. An Install or Remove in one instance can delete a directory another running instance is still using, and one instance's startup cleanup can remove another's in-flight download. That race is accepted for pre-alpha; locks, acknowledgments and watchers are tracked in a follow-up issue.
 
 ## Considered options
 
 - **Keep bundling, trim optional dependencies:** still ships a Node dependency graph in every package and pins versions to app releases.
-- **Sidecar Node / Node in AO home:** deferred; adds platform matrix work before there is a production release.
+- **Sidecar Node / Node in HOA home:** deferred; adds platform matrix work before there is a production release.
 - **Symlink `current`:** unsupported on the VS Code webview FS and awkward on Windows; `current.json` also carries the catalog.

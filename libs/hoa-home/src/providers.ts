@@ -1,11 +1,11 @@
 /**
- * Provider runtime paths under `~/.ao/providers/<launchTarget>/`.
+ * Provider runtime paths under `~/.hoa/providers/<launchTarget>/`.
  * The active runtime is selected by `current.json` (see `ProviderRuntimeDocument`), never by a symlink.
  */
 import { Effect, Schema } from 'effect';
 import { Path } from 'effect/Path';
 
-import { AO_HOME_DIRNAME, resolveHome } from './home.ts';
+import { HOA_HOME_DIRNAME, resolveHome } from './home.ts';
 import type { LaunchTarget } from './LaunchTarget.ts';
 
 export const PROVIDERS_DIRNAME = 'providers' as const;
@@ -26,9 +26,9 @@ export type NpmProviderId = keyof typeof PROVIDER_NPM_PACKAGES;
 /** Exact published version (`1.2.3` or `1.2.3-pre.1`): what `npm view` must return and `npm install` may pin. */
 export const ReleaseVersionSchema = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/));
 
-/** `~/.ao/providers/<id>/<...rest>` for display; host paths use `providerDir` and friends. */
+/** `~/.hoa/providers/<id>/<...rest>` for display; host paths use `providerDir` and friends. */
 export const providerDisplayPath = (launchTarget: string, ...rest: readonly string[]): string =>
-  ['~', AO_HOME_DIRNAME, PROVIDERS_DIRNAME, launchTarget, ...rest].join('/');
+  ['~', HOA_HOME_DIRNAME, PROVIDERS_DIRNAME, launchTarget, ...rest].join('/');
 
 /** Provider-relative runtime directory, as recorded in `current.json`. */
 export const providerRuntimeRelativeDir = (version: string): string => `${PROVIDER_RUNTIME_DIRNAME}/${version}`;

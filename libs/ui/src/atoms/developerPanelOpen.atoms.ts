@@ -1,7 +1,7 @@
 import { Atom } from 'effect/reactivity';
 
 /** Persisted open state for the shared Developer panel (desktop + VS Code). */
-export const DEVELOPER_PANEL_OPEN_STORAGE_KEY = 'ao-developer-panel-open';
+export const DEVELOPER_PANEL_OPEN_STORAGE_KEY = 'hoa-developer-panel-open';
 
 export const readDeveloperPanelOpen = (): boolean => {
   try {

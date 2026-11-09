@@ -7,8 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       env: {
-        AO_ANTIGRAVITY_BETA: 'true',
-        AO_CURSOR_BETA: 'true',
+        HOA_ANTIGRAVITY_BETA: 'true',
+        HOA_CURSOR_BETA: 'true',
       },
     },
   }),

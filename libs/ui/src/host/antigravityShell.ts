@@ -1,7 +1,7 @@
 /**
- * Shell helpers for Antigravity install (unzip outside AO home) + FS error mapping.
+ * Shell helpers for Antigravity install (unzip outside HOA home) + FS error mapping.
  */
-import { ANTIGRAVITY_ACP_SPAWN_NAME } from '@lib/ao-home';
+import { ANTIGRAVITY_ACP_SPAWN_NAME } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import type * as PlatformError from 'effect/PlatformError';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';

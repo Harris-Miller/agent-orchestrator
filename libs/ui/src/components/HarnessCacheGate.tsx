@@ -1,5 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { readConfigOptionIndexCache, readPinnedSessions, readSessionIndex, writeSessionIndex } from '@lib/ao-home';
+import { readConfigOptionIndexCache, readPinnedSessions, readSessionIndex, writeSessionIndex } from '@lib/hoa-home';
 import { Effect, Exit, Option } from 'effect';
 import { useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';

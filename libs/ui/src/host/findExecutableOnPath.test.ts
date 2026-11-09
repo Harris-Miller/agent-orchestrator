@@ -42,7 +42,7 @@ const fsLayer = (existing: ReadonlySet<string>, files: Readonly<Record<string, s
     writeFileString: () => Effect.void,
   });
 
-const PROVIDERS = '/home/operator/.ao/providers';
+const PROVIDERS = '/home/operator/.hoa/providers';
 
 /** `current.json` + required files for an active, completed runtime. */
 const activeRuntime = (

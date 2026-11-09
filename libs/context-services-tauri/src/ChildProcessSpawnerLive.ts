@@ -55,7 +55,7 @@ const encodeChunk = (chunk: unknown): Uint8Array => {
   throw new TypeError(`Unsupported shell IO chunk: ${Object.prototype.toString.call(chunk)}`);
 };
 
-/** Logical name of the Antigravity ACP server (`ANTIGRAVITY_ACP_SPAWN_NAME` in `@lib/ao-home`). */
+/** Logical name of the Antigravity ACP server (`ANTIGRAVITY_ACP_SPAWN_NAME` in `@lib/hoa-home`). */
 const ANTIGRAVITY_SPAWN_NAME = 'agy_acp_server';
 
 type ProviderEvent =

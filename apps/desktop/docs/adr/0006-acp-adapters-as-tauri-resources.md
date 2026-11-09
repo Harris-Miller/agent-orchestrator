@@ -1,4 +1,4 @@
-> **Superseded by [ADR 0017](0017-user-installed-provider-runtimes.md).** Adapters are no longer bundled; they are user-installed under `~/.ao/providers/`. Kept for history.
+> **Superseded by [ADR 0017](0017-user-installed-provider-runtimes.md).** Adapters are no longer bundled; they are user-installed under `~/.hoa/providers/`. Kept for history.
 
 # Ship ACP adapters as Tauri resources
 

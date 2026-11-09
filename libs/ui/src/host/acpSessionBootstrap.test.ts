@@ -122,18 +122,18 @@ describe('applySessionInfoTitle', () => {
 
 describe('isConfigProbeCwd / normalizeSessionHistory', () => {
   it('detects Config probe temp cwd basename', () => {
-    assert.isTrue(isConfigProbeCwd('/tmp/ao-config-probe-abc'));
-    assert.isTrue(isConfigProbeCwd('C:\\Users\\x\\AppData\\Local\\Temp\\ao-config-probe-abc'));
+    assert.isTrue(isConfigProbeCwd('/tmp/hoa-config-probe-abc'));
+    assert.isTrue(isConfigProbeCwd('C:\\Users\\x\\AppData\\Local\\Temp\\hoa-config-probe-abc'));
     assert.isFalse(isConfigProbeCwd('/Users/harris/Projects/agent-orchestrator'));
-    assert.isFalse(isConfigProbeCwd('/tmp/ao-config-probe'));
+    assert.isFalse(isConfigProbeCwd('/tmp/hoa-config-probe'));
   });
 
   it('drops Config probe sessions from history normalization', () => {
-    assert.strictEqual(normalizeSessionInfo({ cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' }), undefined);
+    assert.strictEqual(normalizeSessionInfo({ cwd: '/tmp/hoa-config-probe-abc', sessionId: 'probe' }), undefined);
     assert.deepStrictEqual(
       normalizeSessionHistory({
         sessions: [
-          { cwd: '/tmp/ao-config-probe-abc', sessionId: 'probe' },
+          { cwd: '/tmp/hoa-config-probe-abc', sessionId: 'probe' },
           {
             _meta: { jetbrains: { air: { archived: false } } },
             cwd: '/proj',

@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { PROVIDER_NPM_PACKAGES } from '@lib/ao-home';
+import { PROVIDER_NPM_PACKAGES } from '@lib/hoa-home';
 import { Deferred, Effect, Layer, Sink, Stream } from 'effect';
 import { ChildProcessSpawner } from 'effect/process';
 import { Atom, AtomRegistry } from 'effect/reactivity';

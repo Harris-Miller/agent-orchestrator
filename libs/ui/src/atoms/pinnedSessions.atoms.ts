@@ -1,6 +1,6 @@
-/** Pinned sessions: per-launch-target pins (ao-home), hydrated by HarnessCacheGate, swept after successful lists. */
-import { pinSession, unpinSessions } from '@lib/ao-home';
-import type { PinnedSession } from '@lib/ao-home';
+/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by HarnessCacheGate, swept after successful lists. */
+import { pinSession, unpinSessions } from '@lib/hoa-home';
+import type { PinnedSession } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

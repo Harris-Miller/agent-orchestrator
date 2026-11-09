@@ -31,7 +31,7 @@ describe('resolveAntigravitySpawn', () => {
   it('maps the active runtime to its recorded command and arguments', () => {
     assert.deepStrictEqual(resolveAntigravitySpawn(HOME, doc()), {
       args: ['--uid='],
-      command: `${HOME}/.ao/providers/antigravity-acp/runtime/1.4.5/agy_acp_server.par`,
+      command: `${HOME}/.hoa/providers/antigravity-acp/runtime/1.4.5/agy_acp_server.par`,
     });
   });
 

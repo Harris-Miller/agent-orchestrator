@@ -19,7 +19,7 @@ import type { FC } from 'react';
 import { DeveloperPanel } from './DeveloperPanel.tsx';
 import { OnClientErrorContext } from './onClientError.tsx';
 
-const LAYOUT_KEY = 'ao-vscode-app-layout';
+const LAYOUT_KEY = 'hoa-vscode-app-layout';
 const DEVELOPER_PANE_MIN = 120;
 
 type AppLayoutState = {

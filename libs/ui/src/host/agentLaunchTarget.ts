@@ -1,7 +1,7 @@
 /** Agent launch target identity: type, mounted list, and display labels. */
 
-import { LaunchTargetSchema } from '@lib/ao-home';
-import type { LaunchTarget } from '@lib/ao-home';
+import { LaunchTargetSchema } from '@lib/hoa-home';
+import type { LaunchTarget } from '@lib/hoa-home';
 import { Schema } from 'effect';
 
 declare const process: { readonly env: Record<string, string | undefined> };
@@ -25,12 +25,12 @@ export const ALL_AGENT_LAUNCH_TARGETS = [
 export const isLaunchTargetEnabled = (launchTarget: AgentLaunchTarget): boolean => {
   switch (launchTarget) {
     case 'antigravity-acp':
-      return process.env.AO_ANTIGRAVITY_BETA === 'true';
+      return process.env.HOA_ANTIGRAVITY_BETA === 'true';
     case 'claude-agent-acp':
     case 'codex-acp':
       return true;
     case 'cursor-acp':
-      return process.env.AO_CURSOR_BETA === 'true';
+      return process.env.HOA_CURSOR_BETA === 'true';
   }
 };
 
@@ -54,6 +54,6 @@ export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string 
   }
 };
 
-/** Decodes an agent launch target into the ao-home branded `LaunchTarget` (throws only if a target id is not kebab-case). */
+/** Decodes an agent launch target into the hoa-home branded `LaunchTarget` (throws only if a target id is not kebab-case). */
 export const toLaunchTarget = (launchTarget: AgentLaunchTarget): LaunchTarget =>
   Schema.decodeSync(LaunchTargetSchema)(launchTarget);

@@ -1,10 +1,10 @@
 import {
   ANTIGRAVITY_PROVIDER_ID,
-  AO_HOME_DIRNAME,
+  HOA_HOME_DIRNAME,
   PROVIDER_RUNTIME_DIRNAME,
   ProviderRuntimeDocumentJsonString,
   PROVIDERS_DIRNAME,
-} from '@lib/ao-home';
+} from '@lib/hoa-home';
 import { Schema } from 'effect';
 
 import { join, resolve, sep } from 'node:path';
@@ -13,7 +13,7 @@ const decodeDocument = Schema.decodeUnknownSync(ProviderRuntimeDocumentJsonStrin
 
 /**
  * Map the logical Antigravity spawn name to the active runtime's recorded command and arguments.
- * `currentJson` is the raw `~/.ao/providers/antigravity-acp/current.json`. Throws when there is no usable
+ * `currentJson` is the raw `~/.hoa/providers/antigravity-acp/current.json`. Throws when there is no usable
  * active binary runtime; the result is always contained in the provider's `runtime/` directory.
  */
 export const resolveAntigravitySpawn = (
@@ -31,7 +31,7 @@ export const resolveAntigravitySpawn = (
   }
   const runtimeRoot = resolve(
     homedir,
-    AO_HOME_DIRNAME,
+    HOA_HOME_DIRNAME,
     PROVIDERS_DIRNAME,
     ANTIGRAVITY_PROVIDER_ID,
     PROVIDER_RUNTIME_DIRNAME,

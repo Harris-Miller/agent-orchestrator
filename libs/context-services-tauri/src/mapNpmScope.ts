@@ -4,13 +4,13 @@
  * maps the operation first and rejects anything that is not one of the three provider operations.
  */
 import {
-  AO_HOME_DIRNAME,
+  HOA_HOME_DIRNAME,
   PROVIDER_NPM_PACKAGES,
   PROVIDER_RUNTIME_DIRNAME,
   PROVIDERS_DIRNAME,
   ReleaseVersionSchema,
-} from '@lib/ao-home';
-import type { NpmProviderId } from '@lib/ao-home';
+} from '@lib/hoa-home';
+import type { NpmProviderId } from '@lib/hoa-home';
 import { Option, Schema } from 'effect';
 
 const NPM_PROVIDER_IDS = Object.keys(PROVIDER_NPM_PACKAGES) as readonly NpmProviderId[];
@@ -38,10 +38,10 @@ const decodeNpmArgs = Schema.decodeUnknownOption(NpmArgs);
 
 export type NpmScopeName = 'provider-npm-install' | 'provider-npm-version' | 'provider-npm-view';
 
-/** The install prefix must be `…/.ao/providers/<provider>/runtime/<version>` for the package being installed. */
+/** The install prefix must be `…/.hoa/providers/<provider>/runtime/<version>` for the package being installed. */
 const isRuntimePrefixFor = (prefix: string, provider: NpmProviderId, version: string): boolean =>
   prefix.split(/[\\/]/).slice(-5).join('/') ===
-  [AO_HOME_DIRNAME, PROVIDERS_DIRNAME, provider, PROVIDER_RUNTIME_DIRNAME, version].join('/');
+  [HOA_HOME_DIRNAME, PROVIDERS_DIRNAME, provider, PROVIDER_RUNTIME_DIRNAME, version].join('/');
 
 /** `undefined` = refuse to spawn. For install, package, provider directory and version must agree. */
 export const npmScopeNameFor = (args: readonly string[]): NpmScopeName | undefined => {

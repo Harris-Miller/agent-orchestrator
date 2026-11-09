@@ -23,7 +23,7 @@ import {
 } from './index.ts';
 
 const HOMEDIR = '/home/operator';
-const HOME = `${HOMEDIR}/.ao`;
+const HOME = `${HOMEDIR}/.hoa`;
 const SETTINGS = `${HOME}/settings.json`;
 const SESSION_ID = 'sess-1';
 const SESSION_DIR = `${HOME}/sessions/${SESSION_ID}`;
@@ -97,8 +97,8 @@ const mapFsLayer = (
 const services = (store: Map<string, FsEntry>, overrides?: Parameters<typeof mapFsLayer>[1]) =>
   Layer.mergeAll(posixPathLayer, mapFsLayer(store, overrides)).pipe(Layer.provideMerge(osLayer));
 
-describe('ao-home', () => {
-  it.effect('resolveHome joins OS.homedir with .ao', () =>
+describe('hoa-home', () => {
+  it.effect('resolveHome joins OS.homedir with .hoa', () =>
     Effect.gen(function* () {
       const home = yield* resolveHome();
       assert.strictEqual(home, HOME);
@@ -112,7 +112,7 @@ describe('ao-home', () => {
     }).pipe(Effect.provide(services(new Map()))),
   );
 
-  it.effect('ensureHome creates the Agent Orchestrator home', () =>
+  it.effect('ensureHome creates the HOA home', () =>
     Effect.gen(function* () {
       const store = new Map<string, FsEntry>();
       const home = yield* ensureHome().pipe(Effect.provide(services(store)));

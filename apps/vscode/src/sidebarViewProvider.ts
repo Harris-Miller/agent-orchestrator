@@ -35,7 +35,7 @@ const shellStyles = `
     `;
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'agentOrchestrator.sidebar';
+  public static readonly viewType = 'hoa.sidebar';
 
   private readonly context: vscode.ExtensionContext;
   private nextWebviewId = 0;
@@ -94,7 +94,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Orchestrator</title>
+    <title>Harness Orchestrating Agents</title>
     <style>${shellStyles}</style>
   </head>
   <body>
@@ -128,7 +128,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Orchestrator</title>
+    <title>Harness Orchestrating Agents</title>
     <link href="${String(styleUri)}" rel="stylesheet" />
     <style>${shellStyles}</style>
   </head>

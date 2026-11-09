@@ -2,6 +2,7 @@
 import { RegistryContext } from '@effect/atom-react';
 import { assert, describe, it } from '@effect/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { Effect } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
@@ -19,9 +20,42 @@ const entries = [
   { cwd: '/one', launchTarget: 'codex-acp' as const, sessionId: '3', title: 'Almanac' },
 ];
 
-const Harness = () => {
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    return this.hasAttribute('data-index') ? 88 : 352;
+  });
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(320);
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(352);
+  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(88000);
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return {
+      height: this.hasAttribute('data-index') ? 88 : 352,
+      width: 320,
+      top: 0,
+      left: 0,
+      bottom: 352,
+      right: 320,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    };
+  });
+  vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
+    this: HTMLElement,
+    options?: ScrollToOptions | number,
+  ) {
+    if (typeof options === 'object') this.scrollTop = options.top ?? 0;
+    this.dispatchEvent(new Event('scroll'));
+  });
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+const Harness = ({ history = entries }: { history?: typeof entries } = {}) => {
   const search = useSessionHistorySearch({
-    entries,
+    entries: history,
     scope: '/one',
     selectedSessionId: undefined,
     onClientError: () => undefined,
@@ -54,15 +88,9 @@ describe('Session History search controls', () => {
       assert.strictEqual((input as HTMLInputElement).value, 'Al');
       fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
       assert.strictEqual((input as HTMLInputElement).value, 'Al');
-      const highlightedRow = document.querySelector('[data-highlighted="true"]')!;
-      let scrollCalls = 0;
-      highlightedRow.scrollIntoView = () => {
-        scrollCalls += 1;
-      };
       fireEvent.keyDown(input, { key: 'ArrowUp' });
-      assert.strictEqual(scrollCalls, 1);
+      assert.isNotNull(screen.getByText('Highlighted Alpha'));
       fireEvent.change(input, { target: { value: 'Al ' } });
-      assert.isAbove(scrollCalls, 1);
       fireEvent.keyDown(input, { key: 'ArrowDown' });
       assert.isNotNull(screen.getByText('Highlighted Almanac'));
       fireEvent.change(input, { target: { value: 'Alp' } });
@@ -92,6 +120,42 @@ describe('Session History search controls', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Alpha' }));
       assert.strictEqual(input.value, '');
       cleanup();
+      registry.dispose();
+    }),
+  );
+  it.effect('bounds mounted results and navigates beyond the initial window', () =>
+    Effect.sync(() => {
+      const registry = AtomRegistry.make();
+      updateHarnessSnapshot(registry, 'codex-acp', snapshot => ({ ...snapshot, phase: 'ready' }));
+      const history = Array.from({ length: 1000 }, (_, index) => ({
+        cwd: '/one',
+        launchTarget: 'codex-acp' as const,
+        sessionId: String(index),
+        title: `Session ${String(index).padStart(4, '0')}`,
+      }));
+      render(
+        <RegistryContext.Provider value={registry}>
+          <Harness history={history} />
+        </RegistryContext.Provider>,
+      );
+      const input = screen.getByRole('textbox', { name: 'Search sessions' });
+      fireEvent.change(input, { target: { value: 'Session' } });
+      assert.isNotNull(screen.getByText('1000 results'));
+      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+      for (let index = 0; index < 50; index += 1) fireEvent.keyDown(input, { key: 'ArrowDown' });
+      assert.isNotNull(screen.getByText('Highlighted Session 0050'));
+      assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
+      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+      const activeRow = screen.getByRole('button', { name: 'Session 0050' });
+      fireEvent.focus(activeRow);
+      const viewport = document.querySelector('[data-index]')!.parentElement!.parentElement!;
+      fireEvent.scroll(viewport, { target: { scrollTop: 80000 } });
+      assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
+      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+      fireEvent.blur(activeRow);
+      assert.isNull(screen.queryByRole('button', { name: 'Session 0050' }));
+      fireEvent.change(input, { target: { value: 'Session 000' } });
+      assert.isNotNull(screen.getByText('Highlighted Session 0000'));
       registry.dispose();
     }),
   );

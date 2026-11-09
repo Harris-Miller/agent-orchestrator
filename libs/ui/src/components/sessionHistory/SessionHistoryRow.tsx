@@ -7,6 +7,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Archive } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
@@ -40,6 +41,7 @@ const sessionCardSx = (selected: boolean, archived: boolean) =>
 export const SessionHistoryRow: FC<{
   /** Secondary line under the title (Pinned region shows the session's folder). */
   readonly caption?: string;
+  readonly onInteractionChange?: (active: boolean) => void;
   readonly entry: UnifiedHistoryEntry;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
@@ -49,6 +51,7 @@ export const SessionHistoryRow: FC<{
   readonly onActivate?: () => void;
 }> = ({
   caption,
+  onInteractionChange,
   entry,
   onClientError = noopClientError,
   onDeleteRequest,
@@ -57,8 +60,14 @@ export const SessionHistoryRow: FC<{
   highlighted,
   onActivate,
 }) => {
+  const [focused, setFocused] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const rename = useSessionTitleRename(entry.sessionId);
+  const interacting = focused || menuOpen || rename.titleProps.editing;
+  useEffect(() => {
+    onInteractionChange?.(interacting);
+  }, [interacting, onInteractionChange]);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
@@ -75,7 +84,14 @@ export const SessionHistoryRow: FC<{
   };
 
   return (
-    <ListItem disablePadding sx={{ px: 1, py: 0.75 }}>
+    <ListItem
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+      }}
+      disablePadding
+      sx={{ px: 1, py: 0.75 }}
+    >
       <Paper
         elevation={0}
         aria-disabled={unavailable}
@@ -135,6 +151,7 @@ export const SessionHistoryRow: FC<{
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}
           <SessionActionsMenu
+            onInteractionChange={setMenuOpen}
             entry={entry}
             onClientError={onClientError}
             onDeleteRequest={onDeleteRequest}

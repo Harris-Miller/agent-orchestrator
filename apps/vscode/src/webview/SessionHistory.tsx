@@ -87,7 +87,7 @@ export const SessionHistory: FC = () => {
           Open a workspace folder to create and list sessions.
         </Typography>
       ) : search.active ? (
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{search.results}</Box>
+        <Box sx={{ flex: 1, minHeight: 0 }}>{search.results}</Box>
       ) : workspaceSessions.length === 0 ? (
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">

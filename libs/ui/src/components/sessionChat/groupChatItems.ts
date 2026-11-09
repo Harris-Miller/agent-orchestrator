@@ -97,6 +97,10 @@ const groupTurn = (
   });
 };
 
+/** Agent "wait" calls (`kind: other`, title `wait`) are noise: hidden from the chat, still in the transcript. */
+export const isWaitToolCall = (item: ChatItem): boolean =>
+  item.kind === 'tool_call' && item.toolKind === 'other' && item.title === 'wait';
+
 /** Wrap each turn's items up to its last work item in a WorkRegion; the rest stays flat. */
 export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem | WorkRegion)[] => {
   const out: (ChatItem | WorkRegion)[] = [];

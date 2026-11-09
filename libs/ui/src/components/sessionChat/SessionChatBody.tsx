@@ -41,7 +41,7 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { SubagentView } from './SubagentView.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
-import { groupChatItems, isLiveRegion } from './groupChatItems.ts';
+import { groupChatItems, isLiveRegion, isWaitToolCall } from './groupChatItems.ts';
 import { WorkRegionView } from './WorkRegionView.tsx';
 import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
 import type { ComposerTrigger } from './composerCommandTokens.ts';
@@ -441,7 +441,7 @@ const SessionChatBodyInner: FC<{
     return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
-  const groupedItems = useMemo(() => groupChatItems(chatItems), [chatItems]);
+  const groupedItems = useMemo(() => groupChatItems(chatItems.filter(item => !isWaitToolCall(item))), [chatItems]);
   const isChatEmpty =
     chatItems.length === 0 && (selectedSession === undefined || !hasPendingInteraction(selectedSession));
   const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;

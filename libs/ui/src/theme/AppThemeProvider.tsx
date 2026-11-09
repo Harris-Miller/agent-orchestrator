@@ -8,7 +8,6 @@ import { themes } from './themes.ts';
 
 export const AppThemeProvider: FC<{ readonly children: ReactNode }> = ({ children }) => {
   const themeId = useAtomValue(themeAtom);
-
   return (
     <ThemeProvider noSsr theme={themes[themeId]}>
       {children}

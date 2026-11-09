@@ -12,7 +12,13 @@ describe('keepAwakeHoldCommand', () => {
 
   it('takes a logind idle block lock on Linux', () => {
     assert.deepStrictEqual(keepAwakeHoldCommand('linux'), {
-      args: ['--what=idle', '--who=Agent Orchestrator', '--why=Agents are working', '--mode=block', '/bin/cat'],
+      args: [
+        '--what=idle',
+        '--who=Harness Orchestrating Agents',
+        '--why=Agents are working',
+        '--mode=block',
+        '/bin/cat',
+      ],
       command: '/usr/bin/systemd-inhibit',
     });
   });

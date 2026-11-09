@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
-import { pinSession, readConfigOptionIndexCache, readSessionUsage, writeSessionUsage } from '@lib/ao-home';
-import { mapFsTestServices } from '@lib/ao-home/testing';
-import type { MapFsEntry } from '@lib/ao-home/testing';
+import { pinSession, readConfigOptionIndexCache, readSessionUsage, writeSessionUsage } from '@lib/hoa-home';
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
 import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
 import type { Tracer } from 'effect';

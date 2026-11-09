@@ -32,7 +32,7 @@ describe('makeHostServicesLive (fake peer)', () => {
           extension.postMessage(
             encodeIpcMessage({
               _tag: 'FsExistsResult',
-              exists: message.path === '/home/test/.ao',
+              exists: message.path === '/home/test/.hoa',
               id: message.id,
             }),
           );
@@ -47,7 +47,7 @@ describe('makeHostServicesLive (fake peer)', () => {
       assert.strictEqual(os.env().PATH, '/usr/bin');
 
       const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(layer));
-      assert.strictEqual(yield* fs.exists('/home/test/.ao'), true);
+      assert.strictEqual(yield* fs.exists('/home/test/.hoa'), true);
       assert.strictEqual(yield* fs.exists('/missing'), false);
     }),
   );
@@ -85,12 +85,12 @@ describe('makeHostServicesLive (fake peer)', () => {
 
       const layer = makeHostServicesLive({ port: webview });
       const atomicFile = yield* AtomicFile.pipe(Effect.provide(layer));
-      yield* atomicFile.replaceFileString('/home/test/.ao/providers/x/current.json', '{}');
+      yield* atomicFile.replaceFileString('/home/test/.hoa/providers/x/current.json', '{}');
       const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(layer));
       yield* fs.writeFile('/tmp/bin', new Uint8Array([1, 2, 3]));
       yield* fs.copyFile('/tmp/a', '/tmp/b');
       assert.deepStrictEqual(seen, [
-        'atomic:/home/test/.ao/providers/x/current.json:{}',
+        'atomic:/home/test/.hoa/providers/x/current.json:{}',
         'write:/tmp/bin',
         'copy:/tmp/a->/tmp/b',
       ]);

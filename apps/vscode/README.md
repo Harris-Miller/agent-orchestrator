@@ -1,12 +1,12 @@
-# Agent Orchestrator (VS Code)
+# Harness Orchestrating Agents (VS Code)
 
-Local-development scaffold for the Agent Orchestrator VS Code extension.
+Local-development scaffold for the Harness Orchestrating Agents VS Code extension.
 
 Renders a React webview in the **Secondary Side Bar** (`viewsContainers.secondarySidebar`).
 
 ## Provider runtimes
 
-The extension bundles no ACP adapters. A global **Node >= 22** and **npm** are required (a blocking modal shows what is missing); runtimes are downloaded from Settings > Providers into `~/.ao/providers/<id>/` and selected by `current.json`, shared with the desktop app. See [desktop ADR 0017](../desktop/docs/adr/0017-user-installed-provider-runtimes.md). The VSIX contains no `acp-adapter-resources`.
+The extension bundles no ACP adapters. A global **Node >= 22** and **npm** are required (a blocking modal shows what is missing); runtimes are downloaded from Settings > Providers into `~/.hoa/providers/<id>/` and selected by `current.json`, shared with the desktop app. See [desktop ADR 0017](../desktop/docs/adr/0017-user-installed-provider-runtimes.md). The VSIX contains no `acp-adapter-resources`.
 
 ## Load locally (no Marketplace)
 
@@ -29,13 +29,13 @@ pnpm vscode:dev     # terminal 1 — host (HMR flag) + Vite
 pnpm vscode:open    # terminal 2 — launch only (no debugger)
 ```
 
-Open **View: Toggle Secondary Side Bar Visibility** if needed. The Agent Orchestrator icon should appear there with the Hello, World webview.
+Open **View: Toggle Secondary Side Bar Visibility** if needed. The Harness Orchestrating Agents icon should appear there with the Hello, World webview.
 
 ### 2. Install a packaged `.vsix` (persistent install)
 
 ```bash
-pnpm --filter agent-orchestrator-vscode run package
-code --install-extension apps/vscode/agent-orchestrator-vscode-0.0.1.vsix
+pnpm --filter hoa-vscode run package
+code --install-extension apps/vscode/hoa-vscode-0.0.1.vsix
 ```
 
 Also available via Extensions view → `...` → **Install from VSIX...**

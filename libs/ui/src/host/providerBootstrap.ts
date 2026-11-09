@@ -1,6 +1,6 @@
 /** First-run provider defaults: which providers start enabled. Seeded once, never reapplied. */
-import { readUserSettingsStrict, writeUserSettings } from '@lib/ao-home';
-import type { UserSettings } from '@lib/ao-home';
+import { readUserSettingsStrict, writeUserSettings } from '@lib/hoa-home';
+import type { UserSettings } from '@lib/hoa-home';
 import { Effect, Option } from 'effect';
 
 import { findExecutableOnPath } from './findExecutableOnPath.ts';

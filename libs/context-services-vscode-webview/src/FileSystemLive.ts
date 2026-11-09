@@ -27,7 +27,7 @@ const fsIpc = <T extends HostIpcRequestTag>(args: {
   args.client.request(args.request).pipe(Effect.mapError(cause => mapIpcError(args.method, args.path, cause)));
 
 /**
- * IPC FileSystem subset for ao-home / Providers paths; other methods die.
+ * IPC FileSystem subset for hoa-home / Providers paths; other methods die.
  */
 export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.FileSystem> =>
   Layer.succeed(

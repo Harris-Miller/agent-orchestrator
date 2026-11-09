@@ -379,15 +379,15 @@ importers:
       '@lexical/react':
         specifier: 'catalog:'
         version: 0.52.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@7.0.2)(yjs@13.6.32)
-      '@lib/ao-home':
-        specifier: workspace:^
-        version: link:../../libs/ao-home
       '@lib/context-services':
         specifier: workspace:^
         version: link:../../libs/context-services
       '@lib/context-services-tauri':
         specifier: workspace:^
         version: link:../../libs/context-services-tauri
+      '@lib/hoa-home':
+        specifier: workspace:^
+        version: link:../../libs/hoa-home
       '@lib/ui':
         specifier: workspace:^
         version: link:../../libs/ui
@@ -500,15 +500,15 @@ importers:
       '@emotion/styled':
         specifier: 'catalog:'
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0))(@types/react@19.3.0)(react@19.3.1)(supports-color@7.2.0)
-      '@lib/ao-home':
-        specifier: workspace:^
-        version: link:../../libs/ao-home
       '@lib/context-services':
         specifier: workspace:^
         version: link:../../libs/context-services
       '@lib/context-services-vscode-webview':
         specifier: workspace:^
         version: link:../../libs/context-services-vscode-webview
+      '@lib/hoa-home':
+        specifier: workspace:^
+        version: link:../../libs/hoa-home
       '@lib/ui':
         specifier: workspace:^
         version: link:../../libs/ui
@@ -589,43 +589,6 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
-  libs/ao-home:
-    dependencies:
-      '@lib/context-services':
-        specifier: workspace:^
-        version: link:../context-services
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
-    devDependencies:
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
-      '@tooling/oxlint':
-        specifier: workspace:^
-        version: link:../../tooling/oxlint
-      '@tooling/tsconfig':
-        specifier: workspace:^
-        version: link:../../tooling/tsconfig
-      '@tooling/vitest':
-        specifier: workspace:^
-        version: link:../../tooling/vitest
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.19.2
-      oxlint:
-        specifier: 'catalog:'
-        version: 1.90.0(oxlint-tsgolint@7.0.2005)
-      oxlint-tsgolint:
-        specifier: 'catalog:'
-        version: 7.0.2005
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
-
   libs/context-services:
     dependencies:
       effect:
@@ -702,12 +665,12 @@ importers:
 
   libs/context-services-tauri:
     dependencies:
-      '@lib/ao-home':
-        specifier: workspace:^
-        version: link:../ao-home
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services
+      '@lib/hoa-home':
+        specifier: workspace:^
+        version: link:../hoa-home
       '@tauri-apps/api':
         specifier: 'catalog:'
         version: 2.12.4
@@ -853,6 +816,43 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  libs/hoa-home:
+    dependencies:
+      '@lib/context-services':
+        specifier: workspace:^
+        version: link:../context-services
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
+      '@tooling/oxlint':
+        specifier: workspace:^
+        version: link:../../tooling/oxlint
+      '@tooling/tsconfig':
+        specifier: workspace:^
+        version: link:../../tooling/tsconfig
+      '@tooling/vitest':
+        specifier: workspace:^
+        version: link:../../tooling/vitest
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      oxlint:
+        specifier: 'catalog:'
+        version: 1.90.0(oxlint-tsgolint@7.0.2005)
+      oxlint-tsgolint:
+        specifier: 'catalog:'
+        version: 7.0.2005
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   libs/ui:
     dependencies:
       '@effect/atom-react':
@@ -867,12 +867,12 @@ importers:
       '@lexical/react':
         specifier: 'catalog:'
         version: 0.52.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@7.0.2)(yjs@13.6.32)
-      '@lib/ao-home':
-        specifier: workspace:^
-        version: link:../ao-home
       '@lib/context-services':
         specifier: workspace:^
         version: link:../context-services
+      '@lib/hoa-home':
+        specifier: workspace:^
+        version: link:../hoa-home
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../effect-acp

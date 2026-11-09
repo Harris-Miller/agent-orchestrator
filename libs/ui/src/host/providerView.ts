@@ -2,7 +2,7 @@
  * Provider presentation model: what Settings > Providers and the startup modal render, derived from real state
  * (enabled preference, CLI on PATH, `current.json`, harness phase). Pure — no atoms, no host services.
  */
-import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/ao-home';
+import { PROVIDER_NPM_PACKAGES, providerDisplayPath, providerRuntimeRelativeDir } from '@lib/hoa-home';
 
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';

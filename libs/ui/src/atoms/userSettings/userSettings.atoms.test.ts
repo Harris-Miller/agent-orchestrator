@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { defaultSettings, readUserSettings } from '@lib/ao-home';
-import type { UserSettings } from '@lib/ao-home';
+import { defaultSettings, readUserSettings } from '@lib/hoa-home';
+import type { UserSettings } from '@lib/hoa-home';
 import { Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import * as PlatformError from 'effect/PlatformError';
@@ -14,7 +14,7 @@ import { mockHostLayer } from '../mockHostLayer.testing.ts';
 import { createUserSettingsAtoms, unwrapUserSettings } from './userSettings.atoms.ts';
 
 const HOMEDIR = '/home/operator';
-const HOME = `${HOMEDIR}/.ao`;
+const HOME = `${HOMEDIR}/.hoa`;
 const SETTINGS = `${HOME}/settings.json`;
 
 type FsEntry = { readonly content: string; readonly kind: 'file' } | { readonly kind: 'dir' };

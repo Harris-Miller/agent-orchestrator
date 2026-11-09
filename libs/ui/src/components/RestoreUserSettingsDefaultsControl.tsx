@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { defaultSettings } from '@lib/ao-home';
+import { defaultSettings } from '@lib/hoa-home';
 import Box from '@mui/material/Box';
 import { IconTooltipButton } from './IconTooltipButton.tsx';
 import Button from '@mui/material/Button';

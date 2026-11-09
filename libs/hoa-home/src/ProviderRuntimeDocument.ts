@@ -58,7 +58,7 @@ export type ProviderRuntimeEntry = typeof ProviderRuntimeEntrySchema.Type;
 export const PROVIDER_RUNTIME_DOCUMENT_SCHEMA_VERSION = 1 as const;
 
 /**
- * `~/.ao/providers/<id>/current.json`: active runtime reference plus a catalog of known runtimes.
+ * `~/.hoa/providers/<id>/current.json`: active runtime reference plus a catalog of known runtimes.
  * Invariants: dir === `runtime/<version>`, unique versions, active points at a completed entry.
  */
 export const ProviderRuntimeDocumentSchema = Schema.Struct({

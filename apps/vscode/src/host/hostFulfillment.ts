@@ -1,10 +1,10 @@
 import {
   ANTIGRAVITY_ACP_SPAWN_NAME,
   ANTIGRAVITY_PROVIDER_ID,
-  AO_HOME_DIRNAME,
+  HOA_HOME_DIRNAME,
   PROVIDER_CURRENT_FILENAME,
   PROVIDERS_DIRNAME,
-} from '@lib/ao-home';
+} from '@lib/hoa-home';
 import {
   bytesToArrayBuffer,
   postIpcMessage,
@@ -201,7 +201,7 @@ export const makeHostIpcFulfillment = (deps: {
     OpenImageData: async message => {
       const ext = openableImageExtension[message.mimeType];
       const bytes = Buffer.from(message.base64, 'base64');
-      const dir = join(tmpdir(), 'agent-orchestrator-images');
+      const dir = join(tmpdir(), 'hoa-images');
       await mkdir(dir, { recursive: true });
       const file = join(dir, `${createHash('sha256').update(bytes).digest('hex').slice(0, 24)}.${ext}`);
       await writeFile(file, bytes);
@@ -236,7 +236,7 @@ export const makeHostIpcFulfillment = (deps: {
               await readFile(
                 join(
                   osHomedir(),
-                  AO_HOME_DIRNAME,
+                  HOA_HOME_DIRNAME,
                   PROVIDERS_DIRNAME,
                   ANTIGRAVITY_PROVIDER_ID,
                   PROVIDER_CURRENT_FILENAME,

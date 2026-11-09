@@ -1,6 +1,6 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
-import type { SessionUsageDocument } from '@lib/ao-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 import type { Cause } from 'effect';
 
 import { isRecord } from '../isRecord.ts';

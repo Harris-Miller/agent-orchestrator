@@ -1,5 +1,5 @@
 /** Config probe: disposable-cwd session → Config option index (per-model config options). */
-import type { ConfigOptionIndexDocument } from '@lib/ao-home';
+import type { ConfigOptionIndexDocument } from '@lib/hoa-home';
 import { Effect, Exit, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 

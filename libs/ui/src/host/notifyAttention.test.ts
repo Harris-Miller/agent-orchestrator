@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import type { UserSettings } from '@lib/ao-home';
+import type { UserSettings } from '@lib/hoa-home';
 import { Notifier, NotifyFailed } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 

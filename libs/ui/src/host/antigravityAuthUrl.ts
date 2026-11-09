@@ -1,5 +1,5 @@
 /** Parse Antigravity BROWSER helper stderr marker — Host OpenUrl opens the URL. */
-import { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX } from '@lib/ao-home';
+import { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX } from '@lib/hoa-home';
 
 export { ANTIGRAVITY_AUTH_URL_MARKER_PREFIX };
 

@@ -5,10 +5,10 @@ import {
   markRuntimePendingDelete,
   readProviderRuntimeState,
   writeProviderRuntimeDocument,
-} from '@lib/ao-home';
-import type { ProviderDistribution } from '@lib/ao-home';
-import { mapFsTestServices } from '@lib/ao-home/testing';
-import type { MapFsEntry } from '@lib/ao-home/testing';
+} from '@lib/hoa-home';
+import type { ProviderDistribution } from '@lib/hoa-home';
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
 import { Effect, Layer, Sink, Stream } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { ChildProcessSpawner } from 'effect/process';
@@ -26,7 +26,7 @@ import {
   resolveLatestRuntime,
 } from './providerRuntime.ts';
 
-const ROOT = '/home/operator/.ao/providers';
+const ROOT = '/home/operator/.hoa/providers';
 const CLAUDE = `${ROOT}/claude-agent-acp`;
 const ENTRY = (version: string) =>
   `${CLAUDE}/runtime/${version}/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js`;

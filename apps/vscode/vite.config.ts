@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
         entry: path.join(rootDir, 'src/webview/index.tsx'),
         fileName: () => 'main.js',
         formats: ['iife'],
-        name: 'AgentOrchestratorWebview',
+        name: 'HoaWebview',
       },
       minify: mode === 'production',
       outDir: 'dist/webview',

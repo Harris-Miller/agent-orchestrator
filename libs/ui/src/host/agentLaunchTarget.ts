@@ -1,7 +1,7 @@
 /** Agent launch target identity: type, mounted list, and display labels. */
 
-import { LaunchTargetSchema } from '@lib/ao-home';
-import type { LaunchTarget } from '@lib/ao-home';
+import { LaunchTargetSchema } from '@lib/hoa-home';
+import type { LaunchTarget } from '@lib/hoa-home';
 import { Schema } from 'effect';
 
 declare const process: { readonly env: Record<string, string | undefined> };
@@ -54,6 +54,6 @@ export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string 
   }
 };
 
-/** Decodes an agent launch target into the ao-home branded `LaunchTarget` (throws only if a target id is not kebab-case). */
+/** Decodes an agent launch target into the hoa-home branded `LaunchTarget` (throws only if a target id is not kebab-case). */
 export const toLaunchTarget = (launchTarget: AgentLaunchTarget): LaunchTarget =>
   Schema.decodeSync(LaunchTargetSchema)(launchTarget);

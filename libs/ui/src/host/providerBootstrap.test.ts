@@ -1,12 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
-import { mapFsTestServices } from '@lib/ao-home/testing';
-import type { MapFsEntry } from '@lib/ao-home/testing';
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
 import { Effect, Layer } from 'effect';
 
 import { seedProviderEnabledIfAbsent } from './providerBootstrap.ts';
 import { OS } from '@lib/context-services';
 
-const SETTINGS = '/home/operator/.ao/settings.json';
+const SETTINGS = '/home/operator/.hoa/settings.json';
 
 const services = (store: Map<string, MapFsEntry>, path: string) =>
   Layer.mergeAll(

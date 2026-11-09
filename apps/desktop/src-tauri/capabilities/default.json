@@ -85,7 +85,13 @@
         { "args": true, "cmd": "winget", "name": "winget" },
         { "args": ["-i", "/bin/cat"], "cmd": "/usr/bin/caffeinate", "name": "/usr/bin/caffeinate" },
         {
-          "args": ["--what=idle", "--who=Agent Orchestrator", "--why=Agents are working", "--mode=block", "/bin/cat"],
+          "args": [
+            "--what=idle",
+            "--who=Harness Orchestrating Agents",
+            "--why=Agents are working",
+            "--mode=block",
+            "/bin/cat"
+          ],
           "cmd": "/usr/bin/systemd-inhibit",
           "name": "/usr/bin/systemd-inhibit"
         },
@@ -106,7 +112,7 @@
             "install",
             "--prefix",
             {
-              "validator": "^[^\\n]*/\\.ao/providers/(claude-agent-acp|codex-acp)/runtime/[0-9A-Za-z][0-9A-Za-z._+-]*$"
+              "validator": "^[^\\n]*/\\.hoa/providers/(claude-agent-acp|codex-acp)/runtime/[0-9A-Za-z][0-9A-Za-z._+-]*$"
             },
             "--omit=optional",
             "--ignore-scripts",

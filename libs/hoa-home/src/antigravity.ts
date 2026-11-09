@@ -1,5 +1,5 @@
 /**
- * Antigravity ACP support files under `~/.ao/providers/antigravity-acp/`: `GEMINI_HOME` and the BROWSER helper.
+ * Antigravity ACP support files under `~/.hoa/providers/antigravity-acp/`: `GEMINI_HOME` and the BROWSER helper.
  * The runtime itself (download, pinning, selection) lives in `providerRuntime` / `current.json`.
  */
 import { Effect } from 'effect';
@@ -22,7 +22,7 @@ export const antigravityBrowserHelperScript = `#!/bin/sh
 printf '%s%s\\n' '${ANTIGRAVITY_AUTH_URL_MARKER_PREFIX}' "$1" >&2
 `;
 
-/** Host FS lacks chmod — set +x via shell under AO home. */
+/** Host FS lacks chmod — set +x via shell under HOA home. */
 const chmodPlusX = (...paths: string[]) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;

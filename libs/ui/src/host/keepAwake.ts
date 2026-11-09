@@ -25,7 +25,7 @@ export type KeepAwakeHoldCommand = {
 const MACOS_HOLD: KeepAwakeHoldCommand = { args: ['-i', '/bin/cat'], command: '/usr/bin/caffeinate' };
 
 const LINUX_HOLD: KeepAwakeHoldCommand = {
-  args: ['--what=idle', '--who=Agent Orchestrator', '--why=Agents are working', '--mode=block', '/bin/cat'],
+  args: ['--what=idle', '--who=Harness Orchestrating Agents', '--why=Agents are working', '--mode=block', '/bin/cat'],
   command: '/usr/bin/systemd-inhibit',
 };
 

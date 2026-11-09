@@ -13,7 +13,7 @@ The React surface that presents sessions, agent output, and permission prompts t
 _Avoid_: Frontend, view layer, shell
 
 **Settings page**:
-Full-page Harness UI route (`/settings/$category`, default entry `/settings/general`) for browsing preferences; reads and writes User settings through `@lib/ao-home`. Both hosts share the responsive SettingsShell and sectioned Settings panes from `@lib/ui`.
+Full-page Harness UI route (`/settings/$category`, default entry `/settings/general`) for browsing preferences; reads and writes User settings through `@lib/hoa-home`. Both hosts share the responsive SettingsShell and sectioned Settings panes from `@lib/ui`.
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:
@@ -25,7 +25,7 @@ Whether deleting a session shows the confirm dialog; stored in User settings; on
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
 **State Atom**:
-Effect Atom that owns produce/update for one reactive piece of Harness application state. Shared state Atoms live in the ui context; desktop mounts and renders them. User settings is a write-through state Atom over `@lib/ao-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
+Effect Atom that owns produce/update for one reactive piece of Harness application state. Shared state Atoms live in the ui context; desktop mounts and renders them. User settings is a write-through state Atom over `@lib/hoa-home`; its value is an `AsyncResult` so first load is visible without a separate hydrate flag.
 _Avoid_: store, reducer, settings service
 
 **Mount Atom**:
@@ -83,7 +83,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from ao-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Show archived**:
@@ -103,7 +103,7 @@ The top row of the chat surface, the same in desktop main chat and VS Code Chat:
 _Avoid_: chat header, title bar
 
 **Pin**:
-A user mark on a History entry (per launch target, persisted in ao-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
+A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
 _Avoid_: favorite, star, bookmark
 
 **Pinned section**:
@@ -162,7 +162,7 @@ Harness step on first Send that promotes a Bound Virtual session into a History 
 _Avoid_: Provision, hydrate, commit activation, apply session activation, Bind
 
 **Config option index**:
-Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from ao-home cache, seeded by Config probe when the cache is missing, then kept current by Lazy hydrate; consumed by Handoff. Not Session configuration or User settings.
+Per-launch-target index of `defaultModelId` plus Config options keyed by model id (select and boolean, with probe `currentValue`s). Hydrated from hoa-home cache, seeded by Config probe when the cache is missing, then kept current by Lazy hydrate; consumed by Handoff. Not Session configuration or User settings.
 _Avoid_: Provider config catalog, harness defaults, session configuration
 
 **Config probe**:
@@ -240,7 +240,7 @@ A stdio process the Harness spawns that speaks ACP on stdin/stdout. Wraps a vend
 _Avoid_: Bridge, wrapper, proxy, shim
 
 **Provider runtime**:
-The user-downloaded program that backs a launch target (an npm install of `claude-agent-acp` / `codex-acp`, or the extracted Antigravity binaries), stored under `~/.ao/providers/<id>/runtime/<version>/`. Replaces the former bundled adapter resource tree.
+The user-downloaded program that backs a launch target (an npm install of `claude-agent-acp` / `codex-acp`, or the extracted Antigravity binaries), stored under `~/.hoa/providers/<id>/runtime/<version>/`. Replaces the former bundled adapter resource tree.
 _Avoid_: Adapter resource tree, bundled adapters, node_modules
 
 **Vendor CLI**:
@@ -252,7 +252,7 @@ A Vendor CLI that implements ACP directly on PATH. Cursor CLI (`cursor-agent acp
 _Avoid_: Managed ACP Agent (Harness-downloaded binary)
 
 **Managed ACP Agent**:
-Harness-downloaded ACP binary under Agent Orchestrator home (Antigravity `agy_acp_server` pin), not a Vendor CLI on PATH and not an adapter resource tree entry. Distinct from Vendor CLI ACP.
+Harness-downloaded ACP binary under HOA home (Antigravity `agy_acp_server` pin), not a Vendor CLI on PATH and not an adapter resource tree entry. Distinct from Vendor CLI ACP.
 _Avoid_: sidecar, PATH install, gemini-acp
 
 **Native ACP agent**:

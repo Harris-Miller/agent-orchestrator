@@ -1,6 +1,6 @@
 /**
- * Provider runtimes under `~/.ao/providers/<id>/`: resolve the latest version, download in the background,
- * clean up, and resolve the active runtime for launch. State lives in `current.json` (see `@lib/ao-home`).
+ * Provider runtimes under `~/.hoa/providers/<id>/`: resolve the latest version, download in the background,
+ * clean up, and resolve the active runtime for launch. State lives in `current.json` (see `@lib/hoa-home`).
  */
 import {
   beginRuntimeAttempt,
@@ -19,7 +19,7 @@ import {
   setActiveRuntime,
   supersededRuntimes,
   writeProviderRuntimeDocument,
-} from '@lib/ao-home';
+} from '@lib/hoa-home';
 import type {
   LaunchTarget,
   NpmProviderId,
@@ -27,7 +27,7 @@ import type {
   ProviderRuntimeDocument,
   ProviderRuntimeEntry,
   ProviderRuntimeTransitionError,
-} from '@lib/ao-home';
+} from '@lib/hoa-home';
 import { OS } from '@lib/context-services';
 import { Effect, Result, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
@@ -39,7 +39,7 @@ import { fetchAntigravityDistribution } from './antigravityRegistry.ts';
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import { runCapturedProcess } from './runCapturedProcess.ts';
 
-/** Launch targets whose runtime is user-downloaded under `~/.ao/providers`. */
+/** Launch targets whose runtime is user-downloaded under `~/.hoa/providers`. */
 export type ManagedProviderLaunchTarget = 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp';
 
 /** Second required Antigravity member beside the registry command. */

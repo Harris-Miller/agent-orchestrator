@@ -17,7 +17,7 @@ import { mapFsTestServices } from './testing/mapFsTestServices.ts';
 import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
 const HOMEDIR = '/home/operator';
-const HOME = `${HOMEDIR}/.ao`;
+const HOME = `${HOMEDIR}/.hoa`;
 const LAUNCH_TARGET = Schema.decodeSync(LaunchTargetSchema)('antigravity-acp');
 const ADAPTER_DIR = `${HOME}/adapters/${LAUNCH_TARGET}`;
 const HISTORY = `${ADAPTER_DIR}/history.json`;

@@ -19,7 +19,7 @@ import { emptyProviderRuntimeDocument } from './ProviderRuntimeDocument.ts';
 import { mapFsTestServices } from './testing/mapFsTestServices.ts';
 import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
-const ROOT = '/home/operator/.ao/providers';
+const ROOT = '/home/operator/.hoa/providers';
 const claude = LaunchTargetSchema.make('claude-agent-acp');
 
 describe('provider paths and runtime state', () => {

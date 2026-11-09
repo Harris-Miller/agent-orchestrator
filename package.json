@@ -1,5 +1,5 @@
 {
-  "name": "agent-orchestrator",
+  "name": "hoa",
   "version": "0.1.0",
   "private": true,
   "description": "",
@@ -18,8 +18,8 @@
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "vscode:build": "turbo run build --filter=agent-orchestrator-vscode",
-    "vscode:dev": "turbo run watch:main watch:renderer --filter=agent-orchestrator-vscode",
+    "vscode:build": "turbo run build --filter=hoa-vscode",
+    "vscode:dev": "turbo run watch:main watch:renderer --filter=hoa-vscode",
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
   },
   "devDependencies": {

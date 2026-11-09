@@ -2,7 +2,7 @@ import { assert, describe, it } from 'vitest';
 
 import { npmScopeNameFor } from './mapNpmScope.ts';
 
-const PREFIX = '/Users/harris with space/.ao/providers/claude-agent-acp/runtime/1.2.3';
+const PREFIX = '/Users/harris with space/.hoa/providers/claude-agent-acp/runtime/1.2.3';
 const install = (overrides: Partial<Record<'prefix' | 'spec', string>> = {}) => [
   'install',
   '--prefix',

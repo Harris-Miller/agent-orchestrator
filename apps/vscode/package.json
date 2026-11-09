@@ -1,9 +1,9 @@
 {
-  "name": "agent-orchestrator-vscode",
-  "displayName": "Agent Orchestrator",
+  "name": "hoa-vscode",
+  "displayName": "Harness Orchestrating Agents",
   "version": "0.0.1",
   "private": true,
-  "description": "Agent Orchestrator VS Code extension (local development scaffold).",
+  "description": "Harness Orchestrating Agents VS Code extension (local development scaffold).",
   "categories": [
     "Other"
   ],
@@ -30,9 +30,9 @@
     "@effect/atom-react": "catalog:",
     "@emotion/react": "catalog:",
     "@emotion/styled": "catalog:",
-    "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
     "@lib/context-services-vscode-webview": "workspace:^",
+    "@lib/hoa-home": "workspace:^",
     "@lib/ui": "workspace:^",
     "@mui/material": "catalog:",
     "@tanstack/react-router": "catalog:",
@@ -66,25 +66,25 @@
     "viewsContainers": {
       "secondarySidebar": [
         {
-          "id": "agentOrchestrator",
-          "title": "Agent Orchestrator",
+          "id": "hoa",
+          "title": "HOA",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "agentOrchestrator": [
+      "hoa": [
         {
           "type": "webview",
-          "id": "agentOrchestrator.sidebar",
-          "name": "Agent Orchestrator"
+          "id": "hoa.sidebar",
+          "name": "HOA"
         }
       ]
     },
     "commands": [
       {
-        "command": "agentOrchestrator.helloWorld",
-        "title": "Agent Orchestrator: Hello World"
+        "command": "hoa.helloWorld",
+        "title": "HOA: Hello World"
       }
     ]
   },

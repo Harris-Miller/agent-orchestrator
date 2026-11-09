@@ -6,7 +6,7 @@ import {
   ANTIGRAVITY_ACP_SPAWN_NAME,
   ensureAntigravityProviderBrowserHelper,
   ensureAntigravityProviderHome,
-} from '@lib/ao-home';
+} from '@lib/hoa-home';
 import { OS } from '@lib/context-services';
 import { Effect } from 'effect';
 import { Path } from 'effect/Path';
@@ -46,7 +46,7 @@ const cursorAcpArgs = (env: Readonly<Record<string, string | undefined>>): reado
   return args;
 };
 
-/** Adapter entry inside the active runtime (`~/.ao/providers/<id>/current.json`), re-read on every spawn. */
+/** Adapter entry inside the active runtime (`~/.hoa/providers/<id>/current.json`), re-read on every spawn. */
 const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
   function* (launchTarget: AcpAdapterLaunchTarget) {
     const path = yield* Path;

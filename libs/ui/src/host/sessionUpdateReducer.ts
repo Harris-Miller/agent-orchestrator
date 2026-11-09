@@ -1,6 +1,6 @@
 /** Pure reducer turning ACP `session/update` payloads into ordered chat items. */
 
-import type { SessionUsageDocument } from '@lib/ao-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 
 import { isRecord } from '../isRecord.ts';
 import { optString, withoutUndefined } from '../optionalFields.ts';

@@ -1,4 +1,4 @@
-import type { SessionUsageDocument } from '@lib/ao-home';
+import type { SessionUsageDocument } from '@lib/hoa-home';
 import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';

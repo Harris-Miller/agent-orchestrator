@@ -1,4 +1,4 @@
-import type { PinnedSession } from '@lib/ao-home';
+import type { PinnedSession } from '@lib/hoa-home';
 
 import { isRecord } from '../isRecord.ts';
 

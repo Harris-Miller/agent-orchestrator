@@ -8,7 +8,7 @@ import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
 const target = Schema.decodeSync(LaunchTargetSchema)('codex-acp');
 const store = new Map<string, MapFsEntry>();
-const file = '/home/operator/.ao/harness/codex-acp/pinned-sessions.json';
+const file = '/home/operator/.hoa/harness/codex-acp/pinned-sessions.json';
 
 describe('pinned sessions', () => {
   beforeEach(() => {
@@ -55,7 +55,7 @@ describe('pinned sessions', () => {
 
     testIt.effect('never overwrites a malformed file', () =>
       Effect.gen(function* () {
-        store.set('/home/operator/.ao/harness/codex-acp', { kind: 'dir' });
+        store.set('/home/operator/.hoa/harness/codex-acp', { kind: 'dir' });
         store.set(file, { kind: 'file', content: '{bad' });
         const exit = yield* Effect.exit(pinSession(target, { cwd: '/a', sessionId: 's1' }));
         assert.isTrue(Exit.isFailure(exit));

@@ -13,8 +13,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lib/ao-home": "workspace:^",
     "@lib/context-services": "workspace:^",
+    "@lib/hoa-home": "workspace:^",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/plugin-clipboard-manager": "catalog:",
     "@tauri-apps/plugin-dialog": "catalog:",

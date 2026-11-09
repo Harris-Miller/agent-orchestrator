@@ -42,7 +42,7 @@ export {
   ensureAntigravityProviderHome,
 } from './antigravity.ts';
 export {
-  AO_HOME_DIRNAME,
+  HOA_HOME_DIRNAME,
   ensureHome,
   readUserSettings,
   readUserSettingsStrict,

@@ -8,7 +8,7 @@ import type { MapFsEntry } from './testing/mapFsTestServices.ts';
 
 const target = Schema.decodeSync(LaunchTargetSchema)('codex-acp');
 const store = new Map<string, MapFsEntry>();
-const file = '/home/operator/.ao/harness/codex-acp/session-index.json';
+const file = '/home/operator/.hoa/harness/codex-acp/session-index.json';
 
 describe('session index', () => {
   beforeEach(() => {
@@ -17,10 +17,10 @@ describe('session index', () => {
   layer(mapFsTestServices(store))(testIt => {
     testIt.effect('uses harness path and reads empty when missing or corrupt', () =>
       Effect.gen(function* () {
-        assert.strictEqual(yield* harnessDirPath(target), '/home/operator/.ao/harness/codex-acp');
+        assert.strictEqual(yield* harnessDirPath(target), '/home/operator/.hoa/harness/codex-acp');
         assert.strictEqual(yield* sessionIndexPath(target), file);
         assert.deepStrictEqual(yield* readSessionIndex(target), { sessions: [] });
-        store.set('/home/operator/.ao/harness/codex-acp', { kind: 'dir' });
+        store.set('/home/operator/.hoa/harness/codex-acp', { kind: 'dir' });
         store.set(file, { kind: 'file', content: '{bad' });
         assert.deepStrictEqual(yield* readSessionIndex(target), { sessions: [] });
       }),

@@ -2,7 +2,7 @@
  * ACP registry metadata for Antigravity: resolved once into an exact, pinned binary distribution.
  * https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json
  */
-import type { ProviderDistribution } from '@lib/ao-home';
+import type { ProviderDistribution } from '@lib/hoa-home';
 import { Effect, Option, Record, Schema } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 

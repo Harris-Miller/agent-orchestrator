@@ -1,4 +1,4 @@
-import type { UserSettings } from '@lib/ao-home';
+import type { UserSettings } from '@lib/hoa-home';
 import { Notifier } from '@lib/context-services';
 import type { StopReason } from '@libs/effect-acp';
 import { Effect } from 'effect';

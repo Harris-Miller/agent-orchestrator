@@ -1,5 +1,5 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
-import { deleteSessionDir, readSessionUsage } from '@lib/ao-home';
+import { deleteSessionDir, readSessionUsage } from '@lib/hoa-home';
 import { Effect, Exit, Option } from 'effect';
 import { Atom } from 'effect/reactivity';
 

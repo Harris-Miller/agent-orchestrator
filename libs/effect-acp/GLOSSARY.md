@@ -5,7 +5,7 @@ Effect library for the [Agent Client Protocol](https://agentclientprotocol.com/)
 ## This repo
 
 **Orchestrator**:
-This project (`agent-orchestrator`). The ACP **Client** in production: it drives the protocol and spawns Agent subprocesses, rather than implementing Agent behavior itself.
+This project (`hoa`). The ACP **Client** in production: it drives the protocol and spawns Agent subprocesses, rather than implementing Agent behavior itself.
 _Avoid_: Host, manager, server
 
 ## Protocol roles

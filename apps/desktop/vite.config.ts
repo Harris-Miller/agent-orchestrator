@@ -1,3 +1,4 @@
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv } from 'vite';
 
@@ -21,7 +22,8 @@ export default defineConfig(({ mode }) => {
       'process.env.AO_CURSOR_BETA': JSON.stringify(env.AO_CURSOR_BETA || ''),
     },
 
-    plugins: [react()],
+    // TanStack Router must precede React so route modules get HMR instead of Fast Refresh rejecting `Route`
+    plugins: [tanstackRouter({ autoCodeSplitting: false, target: 'react' }), react()],
     // 2. tauri expects a fixed port, fail if that port is not available
     server: {
       hmr:

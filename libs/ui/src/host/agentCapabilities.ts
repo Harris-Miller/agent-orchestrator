@@ -92,6 +92,10 @@ export const agentCapabilitiesFrom = (
   };
 };
 
+/** Whether the Agent advertised `mcpCapabilities.http`, i.e. may be handed an HTTP MCP server (ACP session-setup). */
+export const supportsMcpHttp = (initializeResult: unknown): boolean =>
+  at(initializeResult, ['agentCapabilities', 'mcpCapabilities', 'http']) === true;
+
 /** `clientCapabilities` for this launch target's initialize request (AIR `sessionIndex` offer for Claude / Codex). */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
   ...(PROVIDER_QUIRKS[launchTarget].airClient

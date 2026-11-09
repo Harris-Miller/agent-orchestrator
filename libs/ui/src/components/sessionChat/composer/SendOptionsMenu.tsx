@@ -4,6 +4,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 import { ArrowRightLeft, ArrowUp, ChevronDown, GitFork, ListEnd } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -29,6 +30,7 @@ export const SendOptionsMenu: FC<{
     canForkBase: canFork,
     canHandoffBase: canHandoff,
     composer,
+    handoffUnavailableReason,
     isVirtual,
     onClientError,
     requestFork,
@@ -88,6 +90,11 @@ export const SendOptionsMenu: FC<{
             <LucideMuiIcon fontSize="small" icon={ArrowRightLeft} />
           </ListItemIcon>
           <ListItemText>Handoff</ListItemText>
+          {handoffUnavailableReason === undefined ? null : (
+            <Typography color="text.secondary" sx={{ ml: 1 }} variant="caption">
+              {handoffUnavailableReason}
+            </Typography>
+          )}
         </MenuItem>
         <MenuItem
           disabled={!canFork}

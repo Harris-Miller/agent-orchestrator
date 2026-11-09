@@ -12,6 +12,7 @@ import type { Scope, Tracer } from 'effect';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { rootAncestor } from './ancestry.ts';
 import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
+import { beginMcp, revokeLaunchTargetMcp, revokeSessionMcp } from './hubSessions.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
@@ -28,6 +29,8 @@ type ConnectionHandles = Pick<
 >;
 
 type BackendConnection = ConnectionHandles & {
+  /** The Agent advertised `mcpCapabilities.http`, so the hub can be injected as an MCP server. */
+  mcpHttp: boolean;
   readonly onConfigIndexEvent: BackendConnectionReports['onConfigIndexEvent'];
   /** Active `sendPrompt` spans by session id, for turn-correlated Agent→Client work. */
   readonly promptSpans: Map<string, Tracer.AnySpan>;
@@ -56,6 +59,7 @@ export const registerBackendConnection = (
     Effect.sync(() => {
       const record: BackendConnection = {
         agent: connection.agent,
+        mcpHttp: false,
         notify: connection.notify,
         onConfigIndexEvent: reports.onConfigIndexEvent,
         promptSpans: new Map(),
@@ -70,14 +74,24 @@ export const registerBackendConnection = (
       return record;
     }),
     record =>
-      Effect.sync(() => {
+      Effect.suspend(() => {
         if (backendConnections.get(launchTarget) !== record) {
-          return;
+          return Effect.void;
         }
         backendConnections.delete(launchTarget);
         reports.onConnectionLost();
+        // Its sessions died with the agent process: their hub credentials must stop working too.
+        return revokeLaunchTargetMcp(launchTarget);
       }),
   ).pipe(Effect.asVoid);
+
+/** Record whether `launchTarget`'s Agent advertised HTTP MCP (read from its initialize result); no-op when not connected. */
+export const setBackendMcpHttp = (launchTarget: AgentLaunchTarget, supported: boolean): void => {
+  const connection = backendConnections.get(launchTarget);
+  if (connection !== undefined) {
+    connection.mcpHttp = supported;
+  }
+};
 
 /** Child ids resolve to the root ancestor's in-flight prompt span; a closed root turn yields undefined (short root). */
 export const getPromptSpan = (launchTarget: AgentLaunchTarget, sessionId: string): Tracer.AnySpan | undefined => {
@@ -120,9 +134,13 @@ export const listSessions = Effect.fn('listSessions')(
 
 export const createSession = Effect.fn('createSession')(
   function* (launchTarget: AgentLaunchTarget, cwd: string) {
-    const { agent, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
+    const { agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Creating ACP session', { cwd: Redacted.make(cwd) });
-    const result = yield* agent['session/new']({ cwd, mcpServers: [] });
+    const mcp = yield* beginMcp(launchTarget, mcpHttp);
+    const result = yield* agent['session/new']({ cwd, mcpServers: [...mcp.mcpServers] }).pipe(
+      Effect.onError(() => mcp.abandon),
+    );
+    yield* mcp.bind(result.sessionId);
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
     return { cwd, result };
@@ -133,9 +151,14 @@ export const createSession = Effect.fn('createSession')(
 /** Unstable `session/fork`. Caller owns any UI materialize of the response. */
 export const forkSession = Effect.fn('forkSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { sessionFork } = yield* requireBackendConnection(launchTarget);
+    const { mcpHttp, sessionFork } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Forking ACP session', sessionId, { cwd: Redacted.make(cwd) });
-    const result = yield* sessionFork({ cwd, mcpServers: [], sessionId });
+    const mcp = yield* beginMcp(launchTarget, mcpHttp);
+    const result = yield* sessionFork({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
+      Effect.onError(() => mcp.abandon),
+    );
+    // Some agents answer without an id (the caller then skips the fork); the credential has no session to bind to.
+    yield* (result.sessionId as string | undefined) === undefined ? mcp.abandon : mcp.bind(result.sessionId);
     yield* Effect.logInfo('Forked ACP session', {
       forkedSessionId: result.sessionId,
       parentSessionId: sessionId,
@@ -148,9 +171,14 @@ export const forkSession = Effect.fn('forkSession')(
 
 export const loadSession = Effect.fn('loadSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { agent } = yield* requireBackendConnection(launchTarget);
+    const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Loading ACP session', sessionId, { cwd: Redacted.make(cwd) });
-    return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
+    const mcp = yield* beginMcp(launchTarget, mcpHttp);
+    const result = yield* agent['session/load']({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
+      Effect.onError(() => mcp.abandon),
+    );
+    yield* mcp.bind(sessionId);
+    return result;
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/load failed', sessionId, error))),
@@ -158,9 +186,14 @@ export const loadSession = Effect.fn('loadSession')(
 
 export const resumeSession = Effect.fn('resumeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
-    const { agent } = yield* requireBackendConnection(launchTarget);
+    const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd: Redacted.make(cwd) });
-    return yield* agent['session/resume']({ cwd, sessionId });
+    const mcp = yield* beginMcp(launchTarget, mcpHttp);
+    const result = yield* agent['session/resume']({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
+      Effect.onError(() => mcp.abandon),
+    );
+    yield* mcp.bind(sessionId);
+    return result;
   },
   (effect, _launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/resume failed', sessionId, error))),
@@ -170,6 +203,7 @@ export const closeSession = Effect.fn('closeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Closing ACP session', sessionId);
+    yield* revokeSessionMcp(launchTarget, sessionId);
     yield* agent['session/close']({ sessionId });
   },
   (effect, _launchTarget, sessionId) =>
@@ -210,6 +244,7 @@ export const deleteSession = Effect.fn('deleteSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Deleting ACP session', sessionId);
+    yield* revokeSessionMcp(launchTarget, sessionId);
     yield* agent['session/delete']({ sessionId });
   },
   (effect, _launchTarget, sessionId) =>

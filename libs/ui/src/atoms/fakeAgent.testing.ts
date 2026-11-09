@@ -10,8 +10,10 @@ import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { AcpBootstrapPhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applyInitializeResult } from '../host/harnessStateTransitions.ts';
+import { forgetAllMcpTokens } from '../host/hubSessions.ts';
+import { installHub, setHubAvailability } from '../host/hubConnection.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
-import { registerBackendConnection } from '../host/sessionRpc.ts';
+import { registerBackendConnection, setBackendMcpHttp } from '../host/sessionRpc.ts';
 
 import { providerBootstrapDoneAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -75,6 +77,10 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly duringNew?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
   readonly duringPrompt?: Effect.Effect<void>;
+  /** Collects the text of each `session/prompt` it receives. */
+  readonly promptTexts?: string[];
+  /** Record (and by default advertise `mcpCapabilities.http` for) the `mcpServers` each session RPC received into `mcp`. */
+  readonly mcp?: { readonly http?: boolean; readonly received: McpReceived[] };
   /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`; `reject` answers with {@link REJECTION} then. */
   readonly prompt?: 'fail' | 'reject' | StopReason;
   /** Runs inside `_session/steering` before it resolves. */
@@ -82,6 +88,9 @@ export type FakeAgentOpts = FakeSetConfig & {
   /** `_session/steering` result (default `injected`); `fail` makes the RPC fail; `reject` answers with {@link REJECTION}. */
   readonly steering?: 'fail' | 'reject' | SessionSteeringResponse['outcome'];
 };
+
+/** One session RPC's `mcpServers`, as the fake agent received it. */
+export type McpReceived = { readonly rpc: 'fork' | 'load' | 'new' | 'resume'; readonly servers: readonly unknown[] };
 
 type FakeConnection = Parameters<typeof registerBackendConnection>[1];
 
@@ -127,12 +136,14 @@ export const installFakeAgent = (
           calls.push(`delete:${sessionId}`);
           return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
         },
-        'session/load': ({ sessionId }: { sessionId: string }) => {
+        'session/load': ({ mcpServers, sessionId }: { mcpServers: readonly unknown[]; sessionId: string }) => {
           calls.push(`load:${sessionId}`);
+          opts.mcp?.received.push({ rpc: 'load', servers: mcpServers });
           return opts.failLoad === true ? Effect.fail('load-fail') : Effect.succeed(selectableConfig);
         },
-        'session/new': () => {
+        'session/new': ({ mcpServers }: { mcpServers: readonly unknown[] }) => {
           calls.push(isClaude ? 'new:claude' : 'new');
+          opts.mcp?.received.push({ rpc: 'new', servers: mcpServers });
           if (opts.failNew === true) {
             return Effect.fail('new-fail');
           }
@@ -140,8 +151,15 @@ export const installFakeAgent = (
           nextId += 1;
           return Effect.as(opts.duringNew ?? Effect.void, { ...selectableConfig, sessionId });
         },
-        'session/prompt': ({ sessionId }: { sessionId: string }) => {
+        'session/prompt': ({
+          prompt,
+          sessionId,
+        }: {
+          prompt: readonly { type: string; text?: string }[];
+          sessionId: string;
+        }) => {
           calls.push(`prompt:${sessionId}`);
+          opts.promptTexts?.push(prompt.map(block => block.text ?? '').join(''));
           const during = opts.duringPrompt ?? Effect.void;
           if (opts.prompt === 'reject') {
             return Effect.andThen(during, Effect.fail(REJECTION));
@@ -150,8 +168,9 @@ export const installFakeAgent = (
             ? Effect.andThen(during, Effect.fail('prompt-fail'))
             : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
         },
-        'session/resume': ({ sessionId }: { sessionId: string }) => {
+        'session/resume': ({ mcpServers, sessionId }: { mcpServers?: readonly unknown[]; sessionId: string }) => {
           calls.push(`resume:${sessionId}`);
+          opts.mcp?.received.push({ rpc: 'resume', servers: mcpServers ?? [] });
           return Effect.succeed(selectableConfig);
         },
         'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
@@ -180,8 +199,9 @@ export const installFakeAgent = (
         calls.push(`archive:${sessionId}`);
         return Effect.void;
       },
-      sessionFork: ({ sessionId }: { sessionId: string }) => {
+      sessionFork: ({ mcpServers, sessionId }: { mcpServers: readonly unknown[]; sessionId: string }) => {
         calls.push(`fork:${sessionId}`);
+        opts.mcp?.received.push({ rpc: 'fork', servers: mcpServers });
         return opts.rejectFork === true
           ? Effect.fail(REJECTION)
           : Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
@@ -207,7 +227,41 @@ export const installFakeAgent = (
       },
     },
     opts.reports,
+  ).pipe(
+    Effect.tap(() =>
+      Effect.sync(() => {
+        setBackendMcpHttp(launchTarget, opts.mcp !== undefined && opts.mcp.http !== false);
+      }),
+    ),
   );
+};
+
+/**
+ * Fake hub connection, available until the scope closes: records `register`, `bind:<launchTarget>:<sessionId>` and
+ * `revoke` (tokens are random, so calls name none) into `calls`. `accept: false` makes the hub refuse every credential.
+ * On release the hub is unavailable again and every credential and session status is forgotten.
+ */
+export const installFakeHub = (calls: string[], options: { readonly accept?: boolean } = {}) =>
+  Effect.gen(function* () {
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        forgetAllMcpTokens();
+        setHubAvailability({ _tag: 'unavailable', reason: 'No hub in this test.' });
+      }),
+    );
+    yield* installHub({
+      bind: (_token, launchTarget, sessionId) => Effect.sync(() => calls.push(`bind:${launchTarget}:${sessionId}`)),
+      mcpUrl: 'http://hub.test/mcp',
+      register: () => Effect.sync(() => calls.push('register') > 0 && options.accept !== false),
+      revoke: () => Effect.sync(() => calls.push('revoke')),
+    });
+    setHubAvailability({ _tag: 'available' });
+  });
+
+/** The bearer token in a recorded hub MCP server entry (what the agent would present to the hub). */
+export const bearerOf = (servers: readonly unknown[]): string => {
+  const [server] = servers as readonly { headers: readonly { value: string }[] }[];
+  return server.headers[0].value.replace('Bearer ', '');
 };
 
 export const setPhase = (registry: Registry, launchTarget: AgentLaunchTarget, phase: AcpBootstrapPhase) => {

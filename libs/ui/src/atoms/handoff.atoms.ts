@@ -1,5 +1,5 @@
 /** Cross-launch-target session handoff Atom fns. */
-import { Effect, Exit, Schema } from 'effect';
+import { Deferred, Effect, Exit, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -7,12 +7,10 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
-import {
-  buildTargetHandoffSeedPrompt,
-  extractHandoffDocument,
-  SOURCE_HANDOFF_PROMPT,
-} from '../host/handoffDocument.ts';
+import { buildTargetHandoffSeedPrompt, SOURCE_HANDOFF_PROMPT } from '../host/handoffDocument.ts';
+import { expectHandoff } from '../host/handoffSubmission.ts';
 import { addCreatedSession } from '../host/harnessStateTransitions.ts';
+import { currentHubUnavailableReason } from '../host/hubSessions.ts';
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 
@@ -90,15 +88,23 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return yield* new HandoffError({ message: 'Source session cwd not found on history' });
           }
 
-          // Source handoff prompt is the only hard gate: failure means no target session.
-          yield* handoffPrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
-
-          const sourceChatItems = get(backendHarnessSnapshotAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
-            .transcript.items;
-          const handoffDocument = extractHandoffDocument(sourceChatItems);
-          if (handoffDocument === undefined) {
-            return yield* new HandoffError({ message: 'Handoff document missing from source agent response' });
+          const unavailable = currentHubUnavailableReason(arg.sourceLaunchTarget, arg.sourceSessionId);
+          if (unavailable !== undefined) {
+            return yield* new HandoffError({ message: `Handoff is unavailable: ${unavailable}` });
           }
+
+          // Source handoff prompt is the only hard gate: failure means no target session. Only a `submit_handoff` call
+          // made during this turn counts; a turn that ends without one fails (no text fallback).
+          const handoffDocument = yield* Effect.scoped(
+            Effect.gen(function* () {
+              const submitted = yield* expectHandoff(arg.sourceLaunchTarget, arg.sourceSessionId);
+              yield* handoffPrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
+              if (!(yield* Deferred.isDone(submitted))) {
+                return yield* new HandoffError({ message: 'The source agent never called submit_handoff' });
+              }
+              return yield* Deferred.await(submitted);
+            }),
+          );
 
           // After a successful source response, target create / config / seed failures are soft.
           if (!isUsablePhase(get(backendHarnessSnapshotAtom(arg.targetLaunchTarget)).phase)) {

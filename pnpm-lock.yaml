@@ -853,6 +853,46 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  libs/hub:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
+      '@tooling/oxlint':
+        specifier: workspace:^
+        version: link:../../tooling/oxlint
+      '@tooling/tsconfig':
+        specifier: workspace:^
+        version: link:../../tooling/tsconfig
+      '@tooling/vitest':
+        specifier: workspace:^
+        version: link:../../tooling/vitest
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      oxlint:
+        specifier: 'catalog:'
+        version: 1.90.0(oxlint-tsgolint@7.0.2005)
+      oxlint-tsgolint:
+        specifier: 'catalog:'
+        version: 7.0.2005
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.23.1(tsx@4.23.15)(typescript@7.0.2)
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   libs/ui:
     dependencies:
       '@effect/atom-react':
@@ -873,6 +913,9 @@ importers:
       '@lib/hoa-home':
         specifier: workspace:^
         version: link:../hoa-home
+      '@lib/hub':
+        specifier: workspace:^
+        version: link:../hub
       '@libs/effect-acp':
         specifier: workspace:^
         version: link:../effect-acp
@@ -904,6 +947,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.1(supports-color@7.2.0)
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.5(effect@4.0.5)(vitest@5.0.5)

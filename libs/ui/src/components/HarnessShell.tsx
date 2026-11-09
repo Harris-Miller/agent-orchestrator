@@ -9,6 +9,7 @@ import type { FC, ReactNode } from 'react';
 import { AcpBackendsMount } from './AcpBackendsMount.tsx';
 import { FdPrerequisiteGate } from './FdPrerequisiteGate.tsx';
 import { HarnessCacheGate } from './HarnessCacheGate.tsx';
+import { HubMount } from './HubMount.tsx';
 import { KeepAwakeMount } from './KeepAwakeMount.tsx';
 import { NodePrerequisiteGate } from './NodePrerequisiteGate.tsx';
 import { PersistUserSettingsToast } from './PersistUserSettingsToast.tsx';
@@ -37,6 +38,7 @@ export const HarnessPrerequisites: FC<{
 export const HarnessMounts: FC<{ readonly children?: ReactNode }> = ({ children }) => (
   <HarnessCacheGate>
     <AcpBackendsMount />
+    <HubMount />
     <KeepAwakeMount />
     <ProvidersStartupMount />
     {children}

@@ -31,6 +31,7 @@ import {
 } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
+import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
 import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
@@ -160,7 +161,7 @@ export const makeHarnessEventFold = ({
       appendRpcWireEntry(registry, launchTarget, {
         direction,
         id: crypto.randomUUID(),
-        message,
+        message: redactRpcWireMessage(message),
         receivedAt: Date.now(),
       });
     },

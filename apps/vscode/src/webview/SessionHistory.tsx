@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   enabledLaunchTargetPhasesAtom,
+  IconTooltipButton,
   isUsablePhase,
   PANEL_HEADER_HEIGHT,
   pinnedEntriesAtom,
@@ -11,13 +12,15 @@ import {
   sessionsForCwd,
   ShowArchivedToggle,
   ToggleDeveloperPanelButton,
+  unifiedSessionHistoryAtom,
+  useSessionHistorySearch,
   visibleSessionHistoryAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { RotateCw } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { useContext } from 'react';
 import type { FC } from 'react';
@@ -29,6 +32,7 @@ import { SettingsButton } from './SettingsButton.tsx';
 
 export const SessionHistory: FC = () => {
   const history = useAtomValue(visibleSessionHistoryAtom);
+  const unifiedHistory = useAtomValue(unifiedSessionHistoryAtom);
   const pinnedAll = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
@@ -39,6 +43,13 @@ export const SessionHistory: FC = () => {
   const onClientError = useContext(OnClientErrorContext);
 
   const noFolder = sessionCwd === undefined || listScope._tag === 'Skip';
+  const search = useSessionHistorySearch({
+    entries: sessionsForCwd(unifiedHistory, sessionCwd),
+    scope: sessionCwd,
+    disabled: noFolder,
+    onClientError,
+    selectedSessionId,
+  });
   const anyUsable = backendPhases.some(entry => isUsablePhase(entry.phase));
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
@@ -47,7 +58,7 @@ export const SessionHistory: FC = () => {
   const sessions = workspaceSessions.filter(entry => !pinnedKeys.has(`${entry.launchTarget}:${entry.sessionId}`));
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minHeight: 0, px: 1, pb: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, px: 1, pb: 1 }}>
       <Stack
         direction="row"
         sx={{ alignItems: 'center', gap: 0.5, height: PANEL_HEADER_HEIGHT, flexShrink: 0, boxSizing: 'border-box' }}
@@ -55,29 +66,28 @@ export const SessionHistory: FC = () => {
         <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
           Session History
         </Typography>
+        <Box sx={{ flex: 1 }} />
         <ShowArchivedToggle />
-        <IconButton
-          aria-label="Reload sessions"
+        <IconTooltipButton
+          icon={RotateCw}
+          label="Reload sessions"
           disabled={noFolder || !anyUsable}
           onClick={() => {
             refreshAllSessionHistories(undefined).catch(onClientError);
           }}
-          size="small"
-        >
-          <Typography component="span" sx={{ fontSize: '1.1rem', lineHeight: 1 }}>
-            ↻
-          </Typography>
-        </IconButton>
-        <Box sx={{ flex: 1 }} />
+        />
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
         <SettingsButton />
       </Stack>
 
+      {search.field}
       {noFolder ? (
         <Typography color="text.secondary" variant="body2">
           Open a workspace folder to create and list sessions.
         </Typography>
+      ) : search.active ? (
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{search.results}</Box>
       ) : workspaceSessions.length === 0 ? (
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">
@@ -98,7 +108,7 @@ export const SessionHistory: FC = () => {
           ) : null}
         </Stack>
       ) : (
-        <Box sx={{ overflow: 'auto', py: 0.5 }}>
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', py: 0.5 }}>
           <SessionRows pinnedSessions={pinnedSessions} selectedSessionId={selectedSessionId} sessions={sessions} />
         </Box>
       )}

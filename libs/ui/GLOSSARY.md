@@ -129,7 +129,7 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached and shown only when Show archived is on (ADR-0008). Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, hydrated from ao-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, Adapter history document, session snapshot
 
 **Unavailable model**:
@@ -184,3 +184,6 @@ The control under a transcript user or agent message that writes that message's 
 _Avoid_: copy button (when you mean the behavior), copy rendered text
 
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md). Session and Settings domain terms live primarily in [`../../apps/desktop/GLOSSARY.md`](../../apps/desktop/GLOSSARY.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/GLOSSARY.md`](../../apps/vscode/GLOSSARY.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.
+
+**Session History search**:
+A search by Session title within the host’s Session History scope that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.

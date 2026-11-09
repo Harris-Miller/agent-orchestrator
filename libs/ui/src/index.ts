@@ -111,3 +111,5 @@ export { defaultSettings } from '@lib/ao-home';
 
 export { SettingsShell } from './components/SettingsShell.tsx';
 export { SettingsSection, SettingsRow } from './components/SettingsSection.tsx';
+
+export * from './components/sessionHistory/useSessionHistorySearch.tsx';

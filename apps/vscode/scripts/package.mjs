@@ -17,6 +17,7 @@ const { status } = spawnSync(
     '--no-update-package-json',
     '--no-dependencies',
     '--allow-missing-repository',
+    '--skip-license',
     '--out',
     'hoa-vscode.vsix',
   ],

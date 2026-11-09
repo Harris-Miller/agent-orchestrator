@@ -111,10 +111,10 @@ export const SessionChatPage: FC = () => {
           onClientError={onClientError}
           titleProps={{ sx: { fontWeight: 600 }, variant: 'subtitle1' }}
         />
-        <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder || inFlight} />
         <SettingsButton />
         <IconTooltipButton icon={History} label="Session History" onClick={onBack} />
+        <ToggleDeveloperPanelButton />
       </Stack>
       <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <SessionChatBody onClientError={onClientError} virtualEmptyState={<RecentSessions />} />

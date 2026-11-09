@@ -22,12 +22,14 @@ const stopPropagation = (event: SyntheticEvent) => {
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
   readonly onBeforeAction?: () => void;
+  readonly omitPin?: boolean;
   readonly onInteractionChange?: (active: boolean) => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
 }> = ({
+  omitPin = false,
   onBeforeAction,
   onInteractionChange,
   entry,
@@ -96,18 +98,20 @@ export const SessionActionsMenu: FC<{
             <ListItemText>Unarchive</ListItemText>
           </MenuItem>
         )}
-        <MenuItem
-          disabled={actions.pin.disabled}
-          onClick={() => {
-            closeMenu();
-            actions.runPin();
-          }}
-        >
-          <ListItemIcon>
-            <LucideMuiIcon fontSize="small" icon={actions.pinned ? PinOff : Pin} />
-          </ListItemIcon>
-          <ListItemText>{actions.pinned ? 'Unpin' : 'Pin'}</ListItemText>
-        </MenuItem>
+        {omitPin ? null : (
+          <MenuItem
+            disabled={actions.pin.disabled}
+            onClick={() => {
+              closeMenu();
+              actions.runPin();
+            }}
+          >
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={actions.pinned ? PinOff : Pin} />
+            </ListItemIcon>
+            <ListItemText>{actions.pinned ? 'Unpin' : 'Pin'}</ListItemText>
+          </MenuItem>
+        )}
         {actions.deactivate === undefined ? null : (
           <MenuItem
             disabled={actions.deactivate.disabled}

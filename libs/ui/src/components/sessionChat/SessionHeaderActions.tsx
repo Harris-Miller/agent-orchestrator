@@ -40,6 +40,7 @@ export const SessionHeaderActions: FC<{
       {narrow ? (
         <SessionActionsMenu
           entry={entry}
+          omitPin
           onBeforeAction={onBeforeAction}
           onClientError={onClientError}
           onDeleteRequest={onDeleteRequest}

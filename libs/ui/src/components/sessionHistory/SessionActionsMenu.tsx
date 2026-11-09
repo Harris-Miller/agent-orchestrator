@@ -112,20 +112,6 @@ export const SessionActionsMenu: FC<{
             <ListItemText>{actions.pinned ? 'Unpin' : 'Pin'}</ListItemText>
           </MenuItem>
         )}
-        {actions.deactivate === undefined ? null : (
-          <MenuItem
-            disabled={actions.deactivate.disabled}
-            onClick={() => {
-              closeMenu();
-              actions.runDeactivate();
-            }}
-          >
-            <ListItemIcon>
-              <LucideMuiIcon fontSize="small" icon={X} />
-            </ListItemIcon>
-            <ListItemText>Close</ListItemText>
-          </MenuItem>
-        )}
         {actions.rename === undefined ? null : (
           <MenuItem
             disabled={actions.rename.disabled}
@@ -138,6 +124,20 @@ export const SessionActionsMenu: FC<{
               <LucideMuiIcon fontSize="small" icon={Pencil} />
             </ListItemIcon>
             <ListItemText>Rename</ListItemText>
+          </MenuItem>
+        )}
+        {actions.deactivate === undefined ? null : (
+          <MenuItem
+            disabled={actions.deactivate.disabled}
+            onClick={() => {
+              closeMenu();
+              actions.runDeactivate();
+            }}
+          >
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={X} />
+            </ListItemIcon>
+            <ListItemText>Close</ListItemText>
           </MenuItem>
         )}
         {actions.archive === undefined ? null : (

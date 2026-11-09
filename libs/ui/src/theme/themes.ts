@@ -591,7 +591,6 @@ const createAppTheme = (c: ThemeColors): Theme => {
             paddingLeft: 8,
             paddingRight: 8,
             '&.Mui-selected, &.Mui-selected:hover': { backgroundColor: selected },
-            '&.Mui-focusVisible': { boxShadow: 'none' },
           },
         },
       },

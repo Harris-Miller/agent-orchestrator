@@ -4,7 +4,8 @@ import type { FC } from 'react';
 export const CheckGlyph: FC<{ readonly checked?: boolean; readonly mixed?: boolean }> = ({ checked, mixed }) => (
   <Box
     aria-hidden="true"
-    component="span"
+    component="svg"
+    viewBox="0 0 16 16"
     sx={{
       display: 'inline-flex',
       alignItems: 'center',
@@ -13,13 +14,20 @@ export const CheckGlyph: FC<{ readonly checked?: boolean; readonly mixed?: boole
       flexShrink: 0,
       width: 16,
       height: 16,
-      border: '1px solid currentColor',
       borderRadius: '4px',
-      bgcolor: checked || mixed ? 'currentColor' : 'transparent',
     }}
   >
+    <rect
+      x="0.5"
+      y="0.5"
+      width="15"
+      height="15"
+      rx="3.5"
+      stroke="currentColor"
+      fill={checked || mixed ? 'currentColor' : 'none'}
+    />
     {checked || mixed ? (
-      <Box component="svg" viewBox="0 0 16 16" sx={{ width: 14, height: 14, color: 'primary.contrastText' }}>
+      <Box component="g" sx={{ color: 'primary.contrastText' }}>
         <path
           d={mixed ? 'M4 8h8' : 'm3 8 3 3 7-7'}
           fill="none"
@@ -35,7 +43,8 @@ export const CheckGlyph: FC<{ readonly checked?: boolean; readonly mixed?: boole
 export const RadioGlyph: FC<{ readonly checked?: boolean }> = ({ checked }) => (
   <Box
     aria-hidden="true"
-    component="span"
+    component="svg"
+    viewBox="0 0 16 16"
     sx={{
       display: 'inline-flex',
       alignItems: 'center',
@@ -44,12 +53,10 @@ export const RadioGlyph: FC<{ readonly checked?: boolean }> = ({ checked }) => (
       flexShrink: 0,
       width: 16,
       height: 16,
-      border: '1px solid currentColor',
       borderRadius: '50%',
     }}
   >
-    {checked ? (
-      <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'currentColor' }} />
-    ) : null}
+    <circle cx="8" cy="8" r="7.5" stroke="currentColor" fill="none" />
+    {checked ? <circle cx="8" cy="8" r="4" fill="currentColor" /> : null}
   </Box>
 );

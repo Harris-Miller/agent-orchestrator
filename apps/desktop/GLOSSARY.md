@@ -174,7 +174,7 @@ Updating the Config option index from a live agent response instead of probing. 
 _Avoid_: refresh, re-probe
 
 **Usage**:
-Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item. In memory only: not persisted, so a loaded session shows none until the agent next reports it (typically after the next prompt).
+Agent-reported context-window fill and cumulative session cost on a session snapshot. Not a chat item.
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Handoff**:

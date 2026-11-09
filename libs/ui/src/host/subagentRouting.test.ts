@@ -24,7 +24,7 @@ describe('routeSubagentUpdate', () => {
 
   it('spawn creates the child, one parent row, and replay does not duplicate', () => {
     const once = routeSubagentUpdate(withRoot(), 'p1', spawn.update);
-    assert.deepStrictEqual(once?.linked, { childId: CHILD, migratedRoot: false, parentId: 'p1' });
+    assert.deepStrictEqual(once?.linked, { childId: CHILD, parentId: 'p1' });
     const twice = routeSubagentUpdate(once!.snapshot, 'p1', spawn.update);
     assert.strictEqual(twice!.snapshot.sessions.p1.transcript.items.length, 1);
     assert.strictEqual(Object.keys(twice!.snapshot.subagents).length, 1);
@@ -45,7 +45,6 @@ describe('routeSubagentUpdate', () => {
       sessions: { ...withRoot().sessions, [CHILD]: initialSessionSnapshot(CHILD, 'active') },
     };
     const result = routeSubagentUpdate(base, 'p1', spawn.update)!;
-    assert.isTrue(result.linked?.migratedRoot);
     assert.notProperty(result.snapshot.sessions, CHILD);
     const again = routeSubagentUpdate(result.snapshot, 'other', spawn.update)!;
     assert.strictEqual(again.snapshot.subagents[CHILD].parentSessionId, 'p1');

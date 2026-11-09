@@ -21,7 +21,8 @@ Multi-context index for **Harness Orchestrating Agents**. Each package under `ap
 - **desktop → effect-acp**: the Agent Harness (this repo's Orchestrator) is the ACP Client; effect-acp is its wire library (`connectAcpAgent`, schemas, transport)
 - **desktop → context-services**: portable host abstractions (`OS`, `BundledResource`, `Clipboard`, Host services)
 - **desktop → context-services-tauri**: Tauri live layers (`TauriServicesLive`) for Host services
-- **desktop → hoa-home**: desktop hydrates User settings into Effect Atoms and the Settings page reads/writes via `@lib/hoa-home`- **desktop → ui**: desktop supplies Host Live and mounts shared Settings panes / theme / ACP surfaces from `@lib/ui`; both hosts use the shared responsive SettingsShell
+- **desktop → hoa-home**: desktop hydrates User settings into Effect Atoms and the Settings page reads/writes via `@lib/hoa-home`
+- **desktop → ui**: desktop supplies Host Live and mounts shared Settings panes / theme / ACP surfaces from `@lib/ui`; both hosts use the shared responsive SettingsShell
 - **ui → context-services**: portable Host services tags (no Live)
 - **ui → hoa-home**: User settings I/O, Application session index, Pinned sessions, and Config option index cache from Harness application state
 - **ui → effect-acp**: ACP connection / RPCs for Backend Harness

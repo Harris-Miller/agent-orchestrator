@@ -22,7 +22,7 @@ const SUBAGENT_KINDS = new Set(['subagent_spawned', 'subagent_state_update', 'su
 export type SubagentRouteResult = {
   readonly snapshot: BackendHarnessSnapshot;
   /** Child newly linked to a parent (for tracing + stray-root cleanup). */
-  readonly linked?: { readonly childId: string; readonly parentId: string; readonly migratedRoot: boolean };
+  readonly linked?: { readonly childId: string; readonly parentId: string };
 };
 
 const withParentRow = (snapshot: BackendHarnessSnapshot, parentId: string, childId: string): BackendHarnessSnapshot => {
@@ -75,7 +75,7 @@ export const routeSubagentUpdate = (
       subagents: { ...snapshot.subagents, [childId]: child },
     };
     return {
-      linked: { childId, migratedRoot, parentId },
+      linked: { childId, parentId },
       snapshot: withParentRow(withChild, parentId, childId),
     };
   }

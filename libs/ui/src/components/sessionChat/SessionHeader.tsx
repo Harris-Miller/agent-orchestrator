@@ -15,7 +15,7 @@ import { useSessionTitleRename } from '../sessionHistory/useSessionTitleRename.t
 
 /**
  * Session header for whatever is Selected: launch target icon, Session title (inline rename when it has a History
- * entry), Pin beside the title and the other Session actions as icon buttons at the far end, all hidden while Virtual
+ * entry), Rename beside the title and the other Session actions as icon buttons at the far end, all hidden while Virtual
  * or while a Subagent view is shown. Renders a fragment: place it in the host's horizontal flex row, between the
  * host's own controls.
  */
@@ -44,7 +44,7 @@ export const SessionHeader: FC<{
           {title}
         </Typography>
       ) : (
-        // With actions the title hugs its text so Pin sits right beside it; the actions' spacer takes the slack.
+        // With actions the title hugs its text so Rename sits right beside it; the actions' spacer takes the slack.
         <Box
           sx={{
             display: 'flex',

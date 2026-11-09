@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { Archive, ArchiveRestore, Pencil, Pin, PinOff, Trash2, X } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil, Trash2, X } from 'lucide-react';
 import type { FC } from 'react';
 
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
@@ -7,7 +7,7 @@ import { IconTooltipButton } from '../IconTooltipButton.tsx';
 import { useSessionActions } from '../sessionHistory/useSessionActions.ts';
 
 /**
- * Session actions as header buttons: Pin/Unpin right beside the title, then a spacer, then the rest at the far end.
+ * Session actions as header buttons: Rename right beside the title, then a spacer, then the rest at the far end (Pin lives only in the History menu).
  * Same actions and rules as `SessionActionsMenu` (they share `useSessionActions`). Renders a fragment.
  */
 export const SessionHeaderActions: FC<{
@@ -22,12 +22,9 @@ export const SessionHeaderActions: FC<{
 
   return (
     <>
-      <IconTooltipButton
-        disabled={actions.pin.disabled}
-        icon={actions.pinned ? PinOff : Pin}
-        label={actions.pinned ? 'Unpin' : 'Pin'}
-        onClick={actions.runPin}
-      />
+      {actions.rename === undefined ? null : (
+        <IconTooltipButton disabled={actions.rename.disabled} icon={Pencil} label="Rename" onClick={onRenameRequest} />
+      )}
       {/* While the title is being edited it already takes the slack; a second grower would halve the input. */}
       {editing ? null : <Box sx={{ flex: 1, minWidth: 0 }} />}
       {actions.unarchive === undefined ? null : (
@@ -45,9 +42,6 @@ export const SessionHeaderActions: FC<{
           label="Close"
           onClick={actions.runDeactivate}
         />
-      )}
-      {actions.rename === undefined ? null : (
-        <IconTooltipButton disabled={actions.rename.disabled} icon={Pencil} label="Rename" onClick={onRenameRequest} />
       )}
       {actions.archive === undefined ? null : (
         <IconTooltipButton

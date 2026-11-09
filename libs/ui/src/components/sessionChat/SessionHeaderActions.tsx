@@ -11,12 +11,13 @@ import { useSessionActions } from '../sessionHistory/useSessionActions.ts';
  * Same actions and rules as `SessionActionsMenu` (they share `useSessionActions`). Renders a fragment.
  */
 export const SessionHeaderActions: FC<{
+  readonly editing: boolean;
   readonly entry: UnifiedHistoryEntry;
   readonly onBeforeAction?: () => void;
   readonly onClientError: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onRenameRequest: () => void;
-}> = ({ entry, onBeforeAction, onClientError, onDeleteRequest, onRenameRequest }) => {
+}> = ({ editing, entry, onBeforeAction, onClientError, onDeleteRequest, onRenameRequest }) => {
   const actions = useSessionActions({ canRename: true, entry, onBeforeAction, onClientError });
 
   return (
@@ -27,7 +28,8 @@ export const SessionHeaderActions: FC<{
         label={actions.pinned ? 'Unpin' : 'Pin'}
         onClick={actions.runPin}
       />
-      <Box sx={{ flex: 1, minWidth: 0 }} />
+      {/* While the title is being edited it already takes the slack; a second grower would halve the input. */}
+      {editing ? null : <Box sx={{ flex: 1, minWidth: 0 }} />}
       {actions.unarchive === undefined ? null : (
         <IconTooltipButton
           disabled={actions.unarchive.disabled}
@@ -36,8 +38,13 @@ export const SessionHeaderActions: FC<{
           onClick={actions.runUnarchive}
         />
       )}
-      {actions.close === undefined ? null : (
-        <IconTooltipButton disabled={actions.close.disabled} icon={X} label="Close" onClick={actions.runClose} />
+      {actions.deactivate === undefined ? null : (
+        <IconTooltipButton
+          disabled={actions.deactivate.disabled}
+          icon={X}
+          label="Close"
+          onClick={actions.runDeactivate}
+        />
       )}
       {actions.rename === undefined ? null : (
         <IconTooltipButton disabled={actions.rename.disabled} icon={Pencil} label="Rename" onClick={onRenameRequest} />

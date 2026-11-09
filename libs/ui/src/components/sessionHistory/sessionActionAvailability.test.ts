@@ -17,7 +17,7 @@ describe('sessionActionAvailability', () => {
   it('offers every action on an available, active session', () => {
     const actions = sessionActionAvailability(base);
     expect(actions.unarchive).toBeUndefined();
-    expect(actions.close).toEqual({ disabled: false });
+    expect(actions.deactivate).toEqual({ disabled: false });
     expect(actions.rename).toEqual({ disabled: false });
     expect(actions.archive).toEqual({ disabled: false });
     expect(actions.pin).toEqual({ disabled: false });
@@ -27,7 +27,7 @@ describe('sessionActionAvailability', () => {
   it('offers only Unarchive, Pin and Delete on an archived entry', () => {
     const actions = sessionActionAvailability({ ...base, archived: true });
     expect(actions.unarchive).toEqual({ disabled: false });
-    expect(actions.close).toBeUndefined();
+    expect(actions.deactivate).toBeUndefined();
     expect(actions.rename).toBeUndefined();
     expect(actions.archive).toBeUndefined();
   });
@@ -37,7 +37,7 @@ describe('sessionActionAvailability', () => {
       ...base,
       capabilities: { sessionArchive: false, sessionClose: false, sessionRename: false },
     });
-    expect(actions.close).toBeUndefined();
+    expect(actions.deactivate).toBeUndefined();
     expect(actions.rename).toBeUndefined();
     expect(actions.archive).toBeUndefined();
   });
@@ -47,9 +47,9 @@ describe('sessionActionAvailability', () => {
     expect(sessionActionAvailability({ ...base, entryUnavailable: true }).rename).toBeUndefined();
   });
 
-  it('disables Close unless the session is active, and the rest while unavailable; Pin only waits for pins', () => {
+  it('disables Deactivate unless the session is active, and the rest while unavailable; Pin only waits for pins', () => {
     const inactive = sessionActionAvailability({ ...base, sessionActive: false });
-    expect(inactive.close).toEqual({ disabled: true });
+    expect(inactive.deactivate).toEqual({ disabled: true });
     const unavailable = sessionActionAvailability({
       ...base,
       pinsLoaded: false,

@@ -61,6 +61,7 @@ export const SessionHeader: FC<{
       )}
       {actionsEntry === undefined ? null : (
         <SessionHeaderActions
+          editing={rename.titleProps.editing}
           entry={actionsEntry}
           onBeforeAction={onBeforeAction}
           onClientError={onClientError}

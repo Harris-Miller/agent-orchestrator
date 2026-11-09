@@ -19,7 +19,7 @@ type ActionState = { readonly disabled: boolean };
 /** Which Session actions show for a History entry (`undefined` = hidden) and which of those are disabled. */
 export type SessionActionAvailability = {
   readonly archive: ActionState | undefined;
-  readonly close: ActionState | undefined;
+  readonly deactivate: ActionState | undefined;
   readonly delete: ActionState;
   readonly pin: ActionState;
   readonly rename: ActionState | undefined;
@@ -38,7 +38,7 @@ export const sessionActionAvailability = ({
   usablePhase,
 }: SessionActionAvailabilityInput): SessionActionAvailability => ({
   archive: !archived && capabilities.sessionArchive ? { disabled: unavailable } : undefined,
-  close: !archived && capabilities.sessionClose ? { disabled: unavailable || !sessionActive } : undefined,
+  deactivate: !archived && capabilities.sessionClose ? { disabled: unavailable || !sessionActive } : undefined,
   delete: { disabled: unavailable },
   pin: { disabled: !pinsLoaded },
   rename:

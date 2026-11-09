@@ -65,7 +65,7 @@ export const useSessionActions = ({
     runPin: () => {
       (pinned ? unpinSession(target) : pinSession({ ...target, cwd: entry.cwd })).catch(onClientError);
     },
-    runClose: () => {
+    runDeactivate: () => {
       onBeforeAction?.();
       deactivateSession(target).catch(onClientError);
     },

@@ -99,12 +99,12 @@ export const SessionActionsMenu: FC<{
           >
             {actions.pinned ? 'Unpin' : 'Pin'}
           </Button>
-          {actions.close === undefined ? null : (
+          {actions.deactivate === undefined ? null : (
             <Button
-              disabled={actions.close.disabled}
+              disabled={actions.deactivate.disabled}
               onClick={() => {
                 closeMenu();
-                actions.runClose();
+                actions.runDeactivate();
               }}
               size="small"
               startIcon={<LucideMuiIcon icon={X} />}

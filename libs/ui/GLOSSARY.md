@@ -51,7 +51,7 @@ Pure fold that turns one Backend harness snapshot (and transition args) into the
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:
-The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot and carries out its consequences — Usage persisted, a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
+The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot and carries out its consequences — a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
 _Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
 
 **Backend harness**:

@@ -1,7 +1,6 @@
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import type { SessionUsage } from '../../host/sessionUsage.ts';
 
-export const usagePercent = (usage: SessionUsageDocument): number =>
-  usage.size > 0 ? (usage.used / usage.size) * 100 : 0;
+export const usagePercent = (usage: SessionUsage): number => (usage.size > 0 ? (usage.used / usage.size) * 100 : 0);
 
 export const usageBarColor = (percent: number): 'error' | 'success' | 'warning' => {
   if (percent >= 90) {

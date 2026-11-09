@@ -23,7 +23,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.usageChanged, false);
       assert.strictEqual(result.sessionHistory, undefined);
       assert.strictEqual(result.session.transcript.items.length, 1);
       assert.strictEqual(result.session.transcript.items[0]?.kind, 'agent_message');
@@ -39,11 +38,10 @@ describe('applySessionUpdate', () => {
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.deepStrictEqual(result.session.availableCommands, [{ description: 'Run tests', name: 'test' }]);
-      assert.strictEqual(result.usageChanged, false);
     }
   });
 
-  it('sets usage and usageChanged for usage_update', () => {
+  it('sets usage for usage_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, {
       cost: { amount: 0.01, currency: 'USD' },
@@ -53,7 +51,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.usageChanged, true);
       assert.deepStrictEqual(result.session.usage, {
         cost: { amount: 0.01, currency: 'USD' },
         size: 100,
@@ -90,7 +87,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.usageChanged, false);
       assert.strictEqual(configValue(result.session.configuration, 'mode'), 'code');
     }
   });
@@ -116,7 +112,6 @@ describe('applySessionUpdate', () => {
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.strictEqual(result.usageChanged, false);
       assert.deepStrictEqual(result.sessionHistory, [{ cwd: '/proj', sessionId: 's1', title: 'New title' }]);
       assert.strictEqual(result.session.transcript, session.transcript);
     }

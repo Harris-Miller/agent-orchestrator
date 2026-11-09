@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { pinSession, readConfigOptionIndexCache, readSessionUsage, writeSessionUsage } from '@lib/hoa-home';
+import { pinSession, readConfigOptionIndexCache } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
 import { Notifier } from '@lib/context-services';
@@ -88,7 +88,7 @@ const seedVirtual = Effect.fnUntraced(function* (h: Effect.Success<ReturnType<ty
 });
 
 describe('Harness event fold: session/update', () => {
-  it.effect('usage_update sets the session usage and persists it', () =>
+  it.effect('usage_update sets the session usage in memory only', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
@@ -106,12 +106,11 @@ describe('Harness event fold: session/update', () => {
 
       const usage = { cost: { amount: 0.5, currency: 'USD' }, size: 200, used: 20 };
       assert.deepStrictEqual(h.snapshot().sessions.s1.usage, usage);
-      const persisted = yield* readSessionUsage('s1').pipe(Effect.provide(h.layer));
-      assert.deepStrictEqual(Option.getOrUndefined(persisted), usage);
+      assert.strictEqual(h.store.size, 0);
     }),
   );
 
-  it.effect('a message chunk for an unseen id seeds its transcript and persists no usage', () =>
+  it.effect('a message chunk for an unseen id seeds its transcript', () =>
     Effect.gen(function* () {
       const h = yield* setup();
 
@@ -121,7 +120,6 @@ describe('Harness event fold: session/update', () => {
       const { items } = h.snapshot().sessions.s1.transcript;
       assert.strictEqual(items.length, 1);
       assert.deepInclude(items[0], { kind: 'agent_message', text: 'hello' });
-      assert.isTrue(Option.isNone(yield* readSessionUsage('s1').pipe(Effect.provide(h.layer))));
       assert.strictEqual(h.store.size, 0);
     }),
   );
@@ -144,14 +142,13 @@ describe('Harness event fold: session/update', () => {
 });
 
 describe('Harness event fold: subagent link', () => {
-  it.effect('migrates a stray root, deletes its session dir, and parents the child under the root prompt span', () =>
+  it.effect('migrates a stray root and parents the child under the root prompt span', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessions: { [CHILD]: initialSessionSnapshot(CHILD, 'active'), p1: initialSessionSnapshot('p1', 'active') },
       }));
-      yield* writeSessionUsage(CHILD, { size: 1, used: 1 }).pipe(Effect.provide(h.layer));
       const spans: { child?: Tracer.AnySpan; root?: Tracer.AnySpan } = {};
       yield* installFakeAgent([], {
         duringPrompt: Effect.sync(() => {
@@ -166,7 +163,6 @@ describe('Harness event fold: subagent link', () => {
 
       assert.notProperty(h.snapshot().sessions, CHILD);
       assert.strictEqual(h.snapshot().subagents[CHILD].parentSessionId, 'p1');
-      assert.isTrue(Option.isNone(yield* readSessionUsage(CHILD).pipe(Effect.provide(h.layer))));
       assert.isDefined(spans.root);
       assert.strictEqual(spans.child, spans.root);
       assert.isUndefined(getPromptSpan(LT, CHILD));

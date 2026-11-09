@@ -1,13 +1,12 @@
 /**
  * Harness event fold: the one consumer of what a Backend harness reports for its launch target (including its Backend
  * connection's Lazy-hydrate events and Connection lost). Folds each report into the latest Backend harness snapshot
- * (atomically) and carries out its consequences — Usage persisted, a Subagent session's parent recorded for
+ * (atomically) and carries out its consequences — a Subagent session's parent recorded for
  * turn-correlated tracing, Attention events, the `usable` Bind, pin reconcile, Config option index publish, and on
  * Connection lost: pending interactions cancelled and the Virtual session unbound. Consequences run fire-and-forget
  * through `runFork` and never fail the fold.
  */
-import { deleteSessionDir, writeConfigOptionIndexCache, writeSessionUsage } from '@lib/hoa-home';
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import { writeConfigOptionIndexCache } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -46,7 +45,6 @@ export type HarnessEventFold = BackendHarnessCallbacks;
 /** What one session/update changed beyond the snapshot. */
 type SessionUpdateConsequences = {
   readonly linked?: SubagentRouteResult['linked'];
-  readonly usage?: SessionUsageDocument;
 };
 
 const routeAndApplySessionUpdate = (
@@ -63,7 +61,7 @@ const routeAndApplySessionUpdate = (
     return [{}, current];
   }
   return [
-    { usage: result.usageChanged ? result.session.usage : undefined },
+    {},
     {
       ...current,
       sessionHistory: result.sessionHistory ?? current.sessionHistory,
@@ -192,25 +190,11 @@ export const makeHarnessEventFold = ({
       runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {
-      const { linked, usage } = modifyHarnessSnapshot(registry, launchTarget, current =>
+      const { linked } = modifyHarnessSnapshot(registry, launchTarget, current =>
         routeAndApplySessionUpdate(current, sessionId, sessionUpdate),
       );
       if (linked !== undefined) {
         setSubagentParent(launchTarget, linked.childId, linked.parentId);
-        if (linked.migratedRoot) {
-          runFork(
-            deleteSessionDir(linked.childId).pipe(
-              Effect.catchCause(cause => Effect.logWarning('stray usage cleanup failed', cause)),
-            ),
-          );
-        }
-      }
-      if (usage !== undefined) {
-        runFork(
-          writeSessionUsage(sessionId, usage).pipe(
-            Effect.catchCause(cause => Effect.logWarning('session usage persist failed', sessionId, cause)),
-          ),
-        );
       }
     },
   };

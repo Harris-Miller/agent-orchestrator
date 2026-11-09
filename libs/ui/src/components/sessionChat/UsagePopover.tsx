@@ -1,4 +1,4 @@
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import type { SessionUsage } from '../../host/sessionUsage.ts';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
@@ -11,7 +11,7 @@ import { usageBarColor, usagePercent } from './usageMetrics.ts';
 
 const USAGE_POPOVER_ID = 'session-usage-popover';
 
-export const UsagePopover: FC<{ readonly usage?: SessionUsageDocument }> = ({ usage }) => {
+export const UsagePopover: FC<{ readonly usage?: SessionUsage }> = ({ usage }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const open = Boolean(anchorEl);
 

@@ -2,14 +2,7 @@ import { Effect, Option, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
-import { ensureHome, resolveHome } from './home.ts';
-import type { LaunchTarget } from './LaunchTarget.ts';
-
-export const harnessDirPath = Effect.fn('harnessDirPath')(function* (launchTarget: LaunchTarget) {
-  const path = yield* Path;
-  const home = yield* resolveHome();
-  return path.join(home, 'harness', launchTarget);
-});
+import { ensureHome } from './home.ts';
 
 /** Missing file or undecodable content → `None`; other IO errors propagate. */
 export const readJsonFile = <A>(filePath: string, codec: Schema.Codec<A, string>) =>

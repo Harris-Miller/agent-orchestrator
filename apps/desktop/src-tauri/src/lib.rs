@@ -8,6 +8,10 @@ use tauri::ipc::Channel;
 use tauri::{Manager, State};
 use tauri::webview::PageLoadEvent;
 
+/// HOA home directory name under the OS home. Must equal `HOA_HOME_DIRNAME` in `@lib/hoa-home` and the `.hoa` in the
+/// `capabilities/default.json` shell scope (guarded by `tauriShellScope.test.ts`).
+const HOA_HOME_DIRNAME: &str = ".hoa";
+
 #[derive(Serialize)]
 struct HostProcessInfo {
     cwd: String,
@@ -133,7 +137,7 @@ fn resolve_antigravity_spawn(home: &Path, document: &str) -> Result<AntigravityS
         return Err("Antigravity runtime version or command is unsafe".into());
     }
     let command = home
-        .join(".hoa")
+        .join(HOA_HOME_DIRNAME)
         .join("providers")
         .join("antigravity-acp")
         .join("runtime")
@@ -177,7 +181,7 @@ fn spawn_antigravity_provider(
     stdins: State<'_, ProviderStdins>,
 ) -> Result<u32, String> {
     let home = app.path().home_dir().map_err(|error| error.to_string())?;
-    let document = std::fs::read_to_string(home.join(".hoa/providers/antigravity-acp/current.json"))
+    let document = std::fs::read_to_string(home.join(HOA_HOME_DIRNAME).join("providers/antigravity-acp/current.json"))
         .map_err(|error| error.to_string())?;
     let spawn = resolve_antigravity_spawn(&home, &document)?;
     let mut child = Command::new(&spawn.command)
@@ -227,7 +231,7 @@ fn write_provider_stdin(pid: u32, data: Vec<u8>, stdins: State<'_, ProviderStdin
 
 /// True only for `<home>/.hoa/providers/<launch-target>/current.json` with no traversal.
 fn is_provider_current_json(home: &Path, path: &Path) -> bool {
-    let root = home.join(".hoa").join("providers");
+    let root = home.join(HOA_HOME_DIRNAME).join("providers");
     let Ok(relative) = path.strip_prefix(&root) else {
         return false;
     };

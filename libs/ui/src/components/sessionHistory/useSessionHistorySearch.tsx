@@ -11,7 +11,7 @@ import type { KeyboardEvent } from 'react';
 import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
 import { sessionHistorySearchAtom } from '../../atoms/sessionHistorySearch.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
+import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { ConfirmSessionDeleteDialog } from './ConfirmSessionDeleteDialog.tsx';
@@ -47,10 +47,8 @@ export const useSessionHistorySearch = ({
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const trimmed = query.trim();
   const matches = useMemo(() => (trimmed ? filterSessionHistoryMatches(entries, trimmed) : []), [entries, trimmed]);
-  const available = matches.filter(
-    ({ entry }) =>
-      entry.unavailable !== true &&
-      phases.some(phase => phase.launchTarget === entry.launchTarget && isUsablePhase(phase.phase)),
+  const available = matches.filter(({ entry }) =>
+    isSessionHistoryEntryAvailable(entry, phases.find(phase => phase.launchTarget === entry.launchTarget)?.phase),
   );
   const eligibleKeys = available.map(({ entry }) => keyOf(entry)).join('\n');
   const [cursor, setCursor] = useState({ query: '', eligibleKeys: '', index: 0 });
@@ -90,7 +88,7 @@ export const useSessionHistorySearch = ({
     if (highlightedKey) {
       resultsRef.current?.querySelector('[data-highlighted="true"]')?.scrollIntoView?.({ block: 'nearest' });
     }
-  }, [highlightedKey]);
+  }, [highlightedKey, cursor, query]);
   const field = (
     <Box sx={{ flexShrink: 0, px: 1, py: 0.5 }}>
       <TextField

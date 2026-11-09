@@ -1,3 +1,4 @@
+import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -11,7 +12,6 @@ import type { FC } from 'react';
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { isArchivedEntry } from '../../host/airMeta.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -64,7 +64,7 @@ export const SessionHistoryRow: FC<{
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest = session?.pendingClientRequest !== undefined;
   const displayTitle = entry.title ?? 'New Session';
-  const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
+  const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
   const archived = isArchivedEntry(entry);
 
   const activateHistoryEntry = () => {

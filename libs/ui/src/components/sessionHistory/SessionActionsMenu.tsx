@@ -1,3 +1,4 @@
+import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -48,7 +49,7 @@ export const SessionActionsMenu: FC<{
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
 
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
-  const unavailable = entry.unavailable === true || !isUsablePhase(snapshot.phase);
+  const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
   const archived = isArchivedEntry(entry);
   const { sessionArchive, sessionClose, sessionRename } = snapshot.agentCapabilities;
 

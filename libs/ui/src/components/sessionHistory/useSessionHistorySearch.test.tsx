@@ -54,6 +54,15 @@ describe('Session History search controls', () => {
       assert.strictEqual((input as HTMLInputElement).value, 'Al');
       fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
       assert.strictEqual((input as HTMLInputElement).value, 'Al');
+      const highlightedRow = document.querySelector('[data-highlighted="true"]')!;
+      let scrollCalls = 0;
+      highlightedRow.scrollIntoView = () => {
+        scrollCalls += 1;
+      };
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      assert.strictEqual(scrollCalls, 1);
+      fireEvent.change(input, { target: { value: 'Al ' } });
+      assert.isAbove(scrollCalls, 1);
       fireEvent.keyDown(input, { key: 'ArrowDown' });
       assert.isNotNull(screen.getByText('Highlighted Almanac'));
       fireEvent.change(input, { target: { value: 'Alp' } });

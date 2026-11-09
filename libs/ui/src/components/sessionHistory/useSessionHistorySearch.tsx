@@ -97,7 +97,8 @@ export const useSessionHistorySearch = ({
         fullWidth
         size="small"
         disabled={disabled}
-        label="Search sessions"
+        placeholder="Search"
+        sx={{ '& .MuiInputBase-input': { py: 1.5 }, '& .MuiOutlinedInput-root': { px: '7px' } }}
         value={query}
         inputRef={inputRef}
         onChange={event => setQuery(event.target.value)}
@@ -112,13 +113,13 @@ export const useSessionHistorySearch = ({
             endAdornment:
               query !== '' ? (
                 <InputAdornment position="end">
-                  <IconButton aria-label="Clear search" size="small" onClick={clear}>
+                  <IconButton aria-label="Clear search" size="small" onClick={clear} sx={{ p: '2.5px' }}>
                     <LucideMuiIcon fontSize="small" icon={X} />
                   </IconButton>
                 </InputAdornment>
               ) : undefined,
           },
-          htmlInput: { 'aria-describedby': `${id}-status` },
+          htmlInput: { 'aria-label': 'Search sessions', 'aria-describedby': `${id}-status` },
         }}
       />
       <Box
@@ -133,7 +134,7 @@ export const useSessionHistorySearch = ({
   const results = (
     <Box ref={resultsRef}>
       <Typography color="text.secondary" variant="caption" sx={{ px: 2 }}>
-        {matches.length} {matches.length === 1 ? 'result' : 'results'} · Includes archived sessions
+        {matches.length} {matches.length === 1 ? 'result' : 'results'}
       </Typography>
       {matches.length === 0 ? (
         <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">

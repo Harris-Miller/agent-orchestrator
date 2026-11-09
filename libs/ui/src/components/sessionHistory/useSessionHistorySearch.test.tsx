@@ -49,7 +49,7 @@ describe('Session History search controls', () => {
       assert.isNotNull(screen.getByText('Browsing'));
       assert.isNotNull(screen.getByRole('button', { name: 'Clear search' }));
       fireEvent.change(input, { target: { value: 'Al' } });
-      assert.isNotNull(screen.getByText('3 results · Includes archived sessions'));
+      assert.isNotNull(screen.getByText('3 results'));
       fireEvent.click(screen.getByRole('button', { name: /Alpine/ }));
       assert.strictEqual((input as HTMLInputElement).value, 'Al');
       fireEvent.keyDown(input, { key: 'Enter', isComposing: true });

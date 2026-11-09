@@ -173,10 +173,10 @@ export const WorkbenchNavRail: FC<{
             <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
           </ListItemButton>
         </Box>
-        {search.field}
+        <Box sx={{ pl: 2 }}>{search.field}</Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {search.active ? (
-            search.results
+            <Box sx={{ pl: 2 }}>{search.results}</Box>
           ) : history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.

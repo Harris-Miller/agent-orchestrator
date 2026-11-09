@@ -17,6 +17,7 @@ import {
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
+import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
@@ -90,9 +91,11 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
     return;
   }
 
+  registry.set(sessionHistorySearchAtom, { scope: nextSessionCwd, query: '' });
+  applyWorkspaceFolderPaths(registry, nextPaths);
+
   const getSnapshot = (launchTarget: AgentLaunchTarget) => registry.get(backendHarnessSnapshotAtom(launchTarget));
   if (!anyBackendUsable(getSnapshot)) {
-    applyWorkspaceFolderPaths(registry, nextPaths);
     yield* repointVirtual(registry, nextSessionCwd);
     return;
   }
@@ -107,7 +110,6 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
 
   stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
-  applyWorkspaceFolderPaths(registry, nextPaths);
   yield* repointVirtual(registry, nextSessionCwd);
   yield* runAtomFn(registry, refreshAllSessionHistoriesAtomFn, undefined).pipe(Effect.ignore);
 });

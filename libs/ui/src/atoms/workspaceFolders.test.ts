@@ -8,6 +8,7 @@ import { bindHostRuntime } from '../hostRuntime.ts';
 
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
@@ -58,6 +59,17 @@ describe('workspace folder policy', () => {
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
       assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
+      registry.dispose();
+    }),
+  );
+
+  it.effect('clears search when the first workspace changes, including while history is hidden', () =>
+    Effect.gen(function* () {
+      const registry = AtomRegistry.make();
+      registry.set(workspaceFolderPathsAtom, ['/workspace']);
+      registry.set(sessionHistorySearchAtom, { scope: '/workspace', query: 'old search' });
+      yield* handleWorkspaceFoldersChanged(registry, ['/new']);
+      assert.deepStrictEqual(registry.get(sessionHistorySearchAtom), { scope: '/new', query: '' });
       registry.dispose();
     }),
   );

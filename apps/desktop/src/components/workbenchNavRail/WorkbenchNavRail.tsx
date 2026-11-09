@@ -16,7 +16,9 @@ import {
   SessionHistoryRow,
   ShowArchivedToggle,
   showNoFolderGroupAtom,
+  unifiedSessionHistoryAtom,
   useSessionDeleteRequest,
+  useSessionHistorySearch,
   visibleSessionHistoryAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -32,7 +34,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Search, Settings, SquarePen } from 'lucide-react';
+import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -86,6 +88,7 @@ export const WorkbenchNavRail: FC<{
   readonly onClose: () => void;
 }> = ({ onClientError, onClose }) => {
   const history = useAtomValue(visibleSessionHistoryAtom);
+  const unifiedHistory = useAtomValue(unifiedSessionHistoryAtom);
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
@@ -93,6 +96,13 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
+  const search = useSessionHistorySearch({
+    entries: unifiedHistory,
+    scope: 'desktop',
+    onClientError,
+    selectedSessionId,
+    caption: pinnedCaption,
+  });
   // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
   // archived, a list refresh) keeps its state; only a header click changes it.
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
@@ -139,8 +149,6 @@ export const WorkbenchNavRail: FC<{
                   refreshAllSessionHistories(undefined).catch(() => undefined);
                 }}
               />
-              {/* Placeholder until #288. */}
-              <IconTooltipButton disabled icon={Search} label="Search (coming soon)" onClick={() => undefined} />
             </>
           }
           closeAriaLabel="Close session history panel"
@@ -165,8 +173,11 @@ export const WorkbenchNavRail: FC<{
             <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
           </ListItemButton>
         </Box>
+        {search.field}
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          {history.length === 0 ? (
+          {search.active ? (
+            search.results
+          ) : history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.
             </Typography>

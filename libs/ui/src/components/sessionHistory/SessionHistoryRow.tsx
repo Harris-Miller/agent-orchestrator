@@ -13,6 +13,7 @@ import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { isArchivedEntry } from '../../host/airMeta.ts';
+import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -43,7 +44,19 @@ export const SessionHistoryRow: FC<{
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly selected: boolean;
-}> = ({ caption, entry, onClientError = noopClientError, onDeleteRequest, selected }) => {
+  readonly positions?: ReadonlySet<number>;
+  readonly highlighted?: boolean;
+  readonly onActivate?: () => void;
+}> = ({
+  caption,
+  entry,
+  onClientError = noopClientError,
+  onDeleteRequest,
+  selected,
+  positions,
+  highlighted,
+  onActivate,
+}) => {
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const rename = useSessionTitleRename(entry.sessionId);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -56,6 +69,7 @@ export const SessionHistoryRow: FC<{
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
+    onActivate?.();
     // activateSession selects + no-ops when already active/activating (Codex-safe); unarchives an archived entry first.
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
   };
@@ -65,6 +79,7 @@ export const SessionHistoryRow: FC<{
       <Paper
         elevation={0}
         aria-disabled={unavailable}
+        aria-label={positions === undefined ? undefined : displayTitle}
         onClick={activateHistoryEntry}
         onKeyDown={event => {
           if (event.target !== event.currentTarget) return;
@@ -74,7 +89,11 @@ export const SessionHistoryRow: FC<{
           }
         }}
         role="button"
-        sx={{ ...sessionCardSx(selected, archived), ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}) }}
+        sx={{
+          ...sessionCardSx(selected, archived),
+          ...(highlighted ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' } : {}),
+          ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}),
+        }}
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
@@ -96,7 +115,11 @@ export const SessionHistoryRow: FC<{
                 }}
                 variant="body2"
               >
-                {displayTitle}
+                {positions === undefined ? (
+                  displayTitle
+                ) : (
+                  <HighlightFzfChars text={displayTitle} positions={positions} />
+                )}
               </Typography>
             </SessionTitleInlineRename>
             {caption === undefined ? null : (

@@ -258,6 +258,20 @@ export const createSessionLifecycleAtoms = (
         const archived = historyEntry !== undefined && isArchivedEntry(historyEntry);
         if (archived) {
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
+          const unarchiveExit = yield* Effect.exit(unarchiveSession(arg.launchTarget, arg.sessionId));
+          if (Exit.isFailure(unarchiveExit)) {
+            updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
+              ...current,
+              sessions: patchSession(current.sessions, arg.sessionId, session => ({
+                ...session,
+                defects: defectsFromActivationFailure(current.rpcCalls, unarchiveExit.cause),
+              })),
+            }));
+            return yield* Effect.failCause(unarchiveExit.cause);
+          }
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            setSessionArchived(current, arg.sessionId, false),
+          );
         }
 
         yield* select(get.registry, { _tag: 'Session', sessionId: arg.sessionId });
@@ -265,13 +279,6 @@ export const createSessionLifecycleAtoms = (
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
         if (existingSession !== undefined && isSessionActiveOrActivating(existingSession.status)) {
-          // Archived elsewhere while loaded here: still unarchive, but send no second load.
-          if (archived) {
-            yield* unarchiveSession(arg.launchTarget, arg.sessionId);
-            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-              setSessionArchived(current, arg.sessionId, false),
-            );
-          }
           yield* Effect.logInfo('activateSession skipped; already active/activating', arg.launchTarget, arg.sessionId);
           return;
         }
@@ -312,26 +319,10 @@ export const createSessionLifecycleAtoms = (
           ),
         );
 
-        // Loading never unarchives (Claude, Codex): unarchive first, and send no load if that fails. A load that fails
-        // after a successful unarchive leaves the row unarchived.
-        const unarchiveFirst = archived
-          ? unarchiveSession(arg.launchTarget, arg.sessionId).pipe(
-              Effect.tap(() =>
-                Effect.sync(() => {
-                  updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-                    setSessionArchived(current, arg.sessionId, false),
-                  );
-                }),
-              ),
-            )
-          : Effect.void;
         const exit = yield* Effect.exit(
-          Effect.andThen(
-            unarchiveFirst,
-            useResume
-              ? resumeSession(arg.launchTarget, arg.sessionId, cwd)
-              : loadSession(arg.launchTarget, arg.sessionId, cwd),
-          ),
+          useResume
+            ? resumeSession(arg.launchTarget, arg.sessionId, cwd)
+            : loadSession(arg.launchTarget, arg.sessionId, cwd),
         );
 
         if (Exit.isFailure(exit)) {

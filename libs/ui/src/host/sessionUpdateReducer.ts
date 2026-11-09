@@ -682,6 +682,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
       const title = typeof update.title === 'string' ? update.title : undefined;
       const locationPath = extractLocationPath(update.locations);
       const planFilePath = extractPlanFilePath(update.rawInput);
+      const toolKind = isToolKind(update.kind) ? update.kind : undefined;
 
       if (existingIndex !== undefined) {
         const existing = transcript.items[existingIndex];
@@ -695,6 +696,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
             title: title ?? existing.title,
+            toolKind: toolKind ?? existing.toolKind,
           };
           return { ...transcript, items };
         }
@@ -712,6 +714,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           status: status ?? 'unknown',
           title: title ?? update.toolCallId,
           toolCallId: update.toolCallId,
+          toolKind,
         },
       ];
       const toolCallIndices = new Map(transcript.toolCallIndices).set(update.toolCallId, items.length - 1);

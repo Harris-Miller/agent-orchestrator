@@ -403,6 +403,30 @@ describe('reduceSessionUpdate planFilePath', () => {
     assert.strictEqual(planOf(call('/plans/a.md')), '/plans/a.md');
   });
 
+  it('takes toolKind from tool_call_update, keeping the one from tool_call when absent', () => {
+    const created = reduceSessionUpdate(emptySessionTranscript(), {
+      sessionUpdate: 'tool_call',
+      title: 'wait',
+      toolCallId: 'w',
+    });
+    const kinded = reduceSessionUpdate(created, { kind: 'other', sessionUpdate: 'tool_call_update', toolCallId: 'w' });
+    const done = reduceSessionUpdate(kinded, {
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId: 'w',
+    });
+    const orphan = reduceSessionUpdate(emptySessionTranscript(), {
+      kind: 'other',
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'o',
+    });
+
+    assert.deepStrictEqual(
+      [kinded, done, orphan].map(t => (t.items[0] as Extract<ChatItem, { kind: 'tool_call' }>).toolKind),
+      ['other', 'other', 'other'],
+    );
+  });
+
   it('stores the path from tool_call_update', () => {
     const t = reduceSessionUpdate(call(undefined), {
       rawInput: { planFilePath: '/plans/b.md' },

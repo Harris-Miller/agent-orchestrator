@@ -1,5 +1,3 @@
-import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
@@ -8,21 +6,11 @@ import { Archive, ArchiveRestore, Ellipsis, Pencil, Pin, PinOff, Trash2, X } fro
 import { useRef, useState } from 'react';
 import type { FC, SyntheticEvent } from 'react';
 
-import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
-import {
-  activateSessionAtomFn,
-  archiveSessionAtomFn,
-  deactivateSessionAtomFn,
-  pinSessionAtomFn,
-  unpinSessionAtomFn,
-} from '../../atoms/boundHarnessAtoms.ts';
-import { pinnedSessionsAtom, pinsLoadedAtom } from '../../atoms/pinnedSessions.atoms.ts';
-import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
+import { useSessionActions } from './useSessionActions.ts';
 
 // React events bubble through portals: keep menu clicks/keys from reaching an enclosing activate handler.
 const stopPropagation = (event: SyntheticEvent) => {
@@ -33,34 +21,13 @@ const stopPropagation = (event: SyntheticEvent) => {
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
   readonly onInteractionChange?: (active: boolean) => void;
-  readonly onBeforeAction?: () => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
-}> = ({
-  onInteractionChange,
-  entry,
-  onBeforeAction,
-  onClientError = noopClientError,
-  onDeleteRequest,
-  onRenameRequest,
-  sx,
-}) => {
-  const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
-  const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
-  const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
-  const deactivateSession = useAtomSet(deactivateSessionAtomFn, { mode: 'promise' });
-  const pinSession = useAtomSet(pinSessionAtomFn, { mode: 'promise' });
-  const unpinSession = useAtomSet(unpinSessionAtomFn, { mode: 'promise' });
-  const pinsLoaded = useAtomValue(pinsLoadedAtom(entry.launchTarget));
-  const pinned = useAtomValue(pinnedSessionsAtom(entry.launchTarget)).some(pin => pin.sessionId === entry.sessionId);
+}> = ({ onInteractionChange, entry, onClientError = noopClientError, onDeleteRequest, onRenameRequest, sx }) => {
+  const actions = useSessionActions({ canRename: onRenameRequest !== undefined, entry, onClientError });
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
-
-  const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
-  const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
-  const archived = isArchivedEntry(entry);
-  const { sessionArchive, sessionClose, sessionRename } = snapshot.agentCapabilities;
 
   // MUI returns focus to the trigger when the Popover closes; start editing only after that, or the input blur-commits.
   const renameRequested = useRef(false);
@@ -106,13 +73,12 @@ export const SessionActionsMenu: FC<{
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
         <Stack spacing={1} sx={{ p: 1 }}>
-          {archived && sessionArchive ? (
+          {actions.unarchive === undefined ? null : (
             <Button
-              disabled={unavailable}
+              disabled={actions.unarchive.disabled}
               onClick={() => {
                 closeMenu();
-                // Opens this session, so no onBeforeAction (it may select Virtual).
-                activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+                actions.runUnarchive();
               }}
               size="small"
               startIcon={<LucideMuiIcon icon={ArchiveRestore} />}
@@ -120,30 +86,25 @@ export const SessionActionsMenu: FC<{
             >
               Unarchive
             </Button>
-          ) : null}
-          {/* Pinning is local-only: it works for unavailable rows and must not run onBeforeAction. */}
+          )}
           <Button
-            disabled={!pinsLoaded}
+            disabled={actions.pin.disabled}
             onClick={() => {
               closeMenu();
-              const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
-              (pinned ? unpinSession(target) : pinSession({ ...target, cwd: entry.cwd })).catch(onClientError);
+              actions.runPin();
             }}
             size="small"
-            startIcon={<LucideMuiIcon icon={pinned ? PinOff : Pin} />}
+            startIcon={<LucideMuiIcon icon={actions.pinned ? PinOff : Pin} />}
             variant="outlined"
           >
-            {pinned ? 'Unpin' : 'Pin'}
+            {actions.pinned ? 'Unpin' : 'Pin'}
           </Button>
-          {!archived && sessionClose ? (
+          {actions.close === undefined ? null : (
             <Button
-              disabled={unavailable || session?.status !== 'active'}
+              disabled={actions.close.disabled}
               onClick={() => {
                 closeMenu();
-                onBeforeAction?.();
-                deactivateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(
-                  onClientError,
-                );
+                actions.runClose();
               }}
               size="small"
               startIcon={<LucideMuiIcon icon={X} />}
@@ -151,10 +112,10 @@ export const SessionActionsMenu: FC<{
             >
               Close
             </Button>
-          ) : null}
-          {!archived && onRenameRequest !== undefined && entry.unavailable !== true && sessionRename ? (
+          )}
+          {actions.rename === undefined ? null : (
             <Button
-              disabled={!isUsablePhase(snapshot.phase)}
+              disabled={actions.rename.disabled}
               onClick={() => {
                 renameRequested.current = true;
                 closeMenu();
@@ -165,14 +126,13 @@ export const SessionActionsMenu: FC<{
             >
               Rename
             </Button>
-          ) : null}
-          {!archived && sessionArchive ? (
+          )}
+          {actions.archive === undefined ? null : (
             <Button
-              disabled={unavailable}
+              disabled={actions.archive.disabled}
               onClick={() => {
                 closeMenu();
-                onBeforeAction?.();
-                archiveSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
+                actions.runArchive();
               }}
               size="small"
               startIcon={<LucideMuiIcon icon={Archive} />}
@@ -180,10 +140,10 @@ export const SessionActionsMenu: FC<{
             >
               Archive
             </Button>
-          ) : null}
+          )}
           <Button
             color="error"
-            disabled={unavailable}
+            disabled={actions.delete.disabled}
             onClick={() => {
               closeMenu();
               onDeleteRequest(entry);

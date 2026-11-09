@@ -1,5 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
 import type { SxProps, Theme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { TypographyProps } from '@mui/material/Typography';
 import type { FC } from 'react';
@@ -7,15 +8,16 @@ import type { FC } from 'react';
 import { sessionHeaderAtom } from '../../atoms/sessionHeader.atoms.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
 import { ConfirmSessionDeleteDialog } from '../sessionHistory/ConfirmSessionDeleteDialog.tsx';
-import { SessionActionsMenu } from '../sessionHistory/SessionActionsMenu.tsx';
+import { SessionHeaderActions } from './SessionHeaderActions.tsx';
 import { SessionTitleInlineRename } from '../sessionHistory/SessionTitleInlineRename.tsx';
 import { useSessionDeleteRequest } from '../sessionHistory/useSessionDeleteRequest.ts';
 import { useSessionTitleRename } from '../sessionHistory/useSessionTitleRename.ts';
 
 /**
  * Session header for whatever is Selected: launch target icon, Session title (inline rename when it has a History
- * entry) and Session actions, hidden while Virtual or while a Subagent view is shown. Renders a fragment: place it in
- * the host's horizontal flex row, between the host's own controls.
+ * entry), Pin beside the title and the other Session actions as icon buttons at the far end, all hidden while Virtual
+ * or while a Subagent view is shown. Renders a fragment: place it in the host's horizontal flex row, between the
+ * host's own controls.
  */
 export const SessionHeader: FC<{
   /**
@@ -42,14 +44,23 @@ export const SessionHeader: FC<{
           {title}
         </Typography>
       ) : (
-        <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
-          <Typography noWrap sx={titleProps.sx} variant={titleProps.variant}>
-            {title}
-          </Typography>
-        </SessionTitleInlineRename>
+        // With actions the title hugs its text so Pin sits right beside it; the actions' spacer takes the slack.
+        <Box
+          sx={{
+            display: 'flex',
+            flex: actionsEntry === undefined || rename.titleProps.editing ? 1 : '0 1 auto',
+            minWidth: 0,
+          }}
+        >
+          <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
+            <Typography noWrap sx={titleProps.sx} variant={titleProps.variant}>
+              {title}
+            </Typography>
+          </SessionTitleInlineRename>
+        </Box>
       )}
       {actionsEntry === undefined ? null : (
-        <SessionActionsMenu
+        <SessionHeaderActions
           entry={actionsEntry}
           onBeforeAction={onBeforeAction}
           onClientError={onClientError}

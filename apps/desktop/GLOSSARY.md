@@ -99,7 +99,7 @@ Session History display group for Session cwds that match vendor Desktop project
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
 **Session header**:
-The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when they apply (see **Session actions**). Each host adds its own controls before and after it.
+The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when they apply (see **Session actions**): Pin/Unpin right beside the title, the rest as icon buttons at the far end. Each host adds its own controls before and after it.
 _Avoid_: chat header, title bar
 
 **Pin**:
@@ -110,7 +110,7 @@ _Avoid_: favorite, star, bookmark
 The top Session History region listing visible pinned entries, unarchived before archived, each newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename ("No Folder" for scratch cwds), shown regardless of the No Folder group setting. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
 
 **Session actions**:
-The per-session menu of actions: Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry the menu is Unarchive (which also opens it), Pin/Unpin, and Delete. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).
+The per-session actions (a menu on a History entry row, icon buttons in the Session header): Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry they are Unarchive (which also opens it), Pin/Unpin, and Delete. Both presentations share the same actions and availability rules. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).
 _Avoid_: dotdotdot menu, kebab menu, session options
 
 **Session title**:

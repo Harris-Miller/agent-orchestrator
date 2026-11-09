@@ -5,7 +5,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Search, X } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { allLaunchTargetPhasesAtom } from '../../atoms/backendState.atoms.ts';
@@ -16,6 +16,7 @@ import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { ConfirmSessionDeleteDialog } from './ConfirmSessionDeleteDialog.tsx';
 import { filterSessionHistoryMatches } from './filterSessionHistoryMatches.ts';
+import { VirtualSearchResults } from './VirtualSearchResults.tsx';
 import { SessionHistoryRow } from './SessionHistoryRow.tsx';
 import { useSessionDeleteRequest } from './useSessionDeleteRequest.ts';
 
@@ -40,7 +41,6 @@ export const useSessionHistorySearch = ({
   const query = state.scope === scope ? state.query : '';
   const setQuery = (value: string) => setState({ scope, query: value });
   const inputRef = useRef<HTMLInputElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const phases = useAtomValue(allLaunchTargetPhasesAtom);
   const activate = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
@@ -84,11 +84,6 @@ export const useSessionHistorySearch = ({
       );
     }
   };
-  useEffect(() => {
-    if (highlightedKey) {
-      resultsRef.current?.querySelector('[data-highlighted="true"]')?.scrollIntoView?.({ block: 'nearest' });
-    }
-  }, [highlightedKey, cursor, query]);
   const field = (
     <Box sx={{ flexShrink: 0, px: 1, py: 0.5 }}>
       <TextField
@@ -130,33 +125,28 @@ export const useSessionHistorySearch = ({
     </Box>
   );
   const results = (
-    <Box ref={resultsRef}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <Typography color="text.secondary" variant="caption" sx={{ px: 2 }}>
         {matches.length} {matches.length === 1 ? 'result' : 'results'}
       </Typography>
-      {matches.length === 0 ? (
-        <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
-          No matching sessions
-        </Typography>
-      ) : (
-        matches.map(({ entry, positions }) => (
-          <Box
-            key={keyOf(entry)}
-            data-highlighted={highlighted !== undefined && keyOf(highlighted.entry) === keyOf(entry)}
-          >
-            <SessionHistoryRow
-              caption={caption?.(entry)}
-              entry={entry}
-              selected={selectedSessionId === entry.sessionId}
-              highlighted={highlighted !== undefined && keyOf(highlighted.entry) === keyOf(entry)}
-              positions={positions}
-              onActivate={() => setQuery('')}
-              onClientError={onClientError}
-              onDeleteRequest={requestDelete}
-            />
-          </Box>
-        ))
-      )}
+      <VirtualSearchResults
+        matches={matches}
+        highlightedKey={highlightedKey}
+        resetKey={`${scope}:${query}:${eligibleKeys}:${highlightedIndex}`}
+        renderRow={(entry, positions, onInteractionChange) => (
+          <SessionHistoryRow
+            onInteractionChange={active => onInteractionChange(keyOf(entry), active)}
+            caption={caption?.(entry)}
+            entry={entry}
+            selected={selectedSessionId === entry.sessionId}
+            highlighted={highlighted !== undefined && keyOf(highlighted.entry) === keyOf(entry)}
+            positions={positions}
+            onActivate={() => setQuery('')}
+            onClientError={onClientError}
+            onDeleteRequest={requestDelete}
+          />
+        )}
+      />
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </Box>
   );

@@ -174,9 +174,9 @@ export const WorkbenchNavRail: FC<{
           </ListItemButton>
         </Box>
         <Box sx={{ pl: 2 }}>{search.field}</Box>
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, minHeight: 0, overflow: search.active ? 'hidden' : 'auto' }}>
           {search.active ? (
-            <Box sx={{ pl: 2 }}>{search.results}</Box>
+            <Box sx={{ pl: 2, height: '100%', minHeight: 0 }}>{search.results}</Box>
           ) : history.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.

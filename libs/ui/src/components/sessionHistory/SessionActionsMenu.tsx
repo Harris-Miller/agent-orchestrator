@@ -32,12 +32,21 @@ const stopPropagation = (event: SyntheticEvent) => {
 /** On an archived entry: Unarchive (then opens it), Pin/Unpin and Delete only (Codex rejects renaming archived sessions). */
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
+  readonly onInteractionChange?: (active: boolean) => void;
   readonly onBeforeAction?: () => void;
   readonly onClientError?: (error: unknown) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
-}> = ({ entry, onBeforeAction, onClientError = noopClientError, onDeleteRequest, onRenameRequest, sx }) => {
+}> = ({
+  onInteractionChange,
+  entry,
+  onBeforeAction,
+  onClientError = noopClientError,
+  onDeleteRequest,
+  onRenameRequest,
+  sx,
+}) => {
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(entry.launchTarget));
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const archiveSession = useAtomSet(archiveSessionAtomFn, { mode: 'promise' });
@@ -67,6 +76,7 @@ export const SessionActionsMenu: FC<{
         onClick={event => {
           event.stopPropagation();
           setMenuAnchor(event.currentTarget);
+          onInteractionChange?.(true);
         }}
         onKeyDown={stopPropagation}
         size="small"
@@ -89,6 +99,7 @@ export const SessionActionsMenu: FC<{
                 renameRequested.current = false;
                 onRenameRequest?.();
               }
+              onInteractionChange?.(false);
             },
           },
         }}

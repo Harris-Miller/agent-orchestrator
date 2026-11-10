@@ -9,13 +9,16 @@ import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
 import {
+  midTurnSendModeAtom,
   showArchivedAtom,
   showArchivedEnabled,
   unwrapUserSettings,
   userSettingsDocumentAtom,
 } from './userSettingsDocument.atoms.ts';
+import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 
 export { showArchivedEnabled, unwrapUserSettings };
+export type { MidTurnSend };
 
 type AtomRuntime = HostRuntimeBag['atomRuntime'];
 
@@ -115,6 +118,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective mid-turn send (Steer when unset). Write patches User settings. */
+  const midTurnSendAtom = Atom.writable(
+    get => get(midTurnSendModeAtom),
+    (ctx, mode: MidTurnSend) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), midTurnSend: mode });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective Notifications preference (on when unset). Write patches User settings. */
   const notificationsEnabledAtom = Atom.writable(
     get => notificationsEnabled(unwrapUserSettings(get(userSettingsAtom))),
@@ -190,6 +201,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     confirmSessionDeleteAtom,
     developerModeAtom,
     keepAwakeEnabledAtom,
+    midTurnSendAtom,
     notificationSoundEnabledAtom,
     notificationsEnabledAtom,
     notifyOnlyWhenUnfocusedAtom,

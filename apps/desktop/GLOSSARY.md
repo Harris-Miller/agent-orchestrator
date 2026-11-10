@@ -190,8 +190,12 @@ Harness action that sends ACP `session/cancel` for an in-flight prompt turn on a
 _Avoid_: Stop generation (vendor-specific), abort session, Close (that is Deactivate)
 
 **Steering**:
-Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a new prompt turn once the ended turn's `session/prompt` response has arrived; if it does not arrive within a few seconds, the Steering fails. Not a prompt queue — there is none.
-_Avoid_: Queue, interrupt, follow-up message
+Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a new prompt turn once the ended turn's `session/prompt` response has arrived; if it does not arrive within a few seconds, the Steering fails. Distinct from a Queued message, which waits for the turn to end instead of joining it.
+_Avoid_: interrupt, follow-up message (Queue is a different action: see Queued message)
+
+**Queued message**:
+The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; the Send options menu (the chevron next to Send) offers the other.
+_Avoid_: Queued prompt, outbox, prompt queue
 
 **Steering supported**:
 Agent advertises `_meta.steering.supported: true` on the `initialize` result (top level, not under the ACP `agentCapabilities` field). One of the Agent capabilities (ui context); gates Steering. When absent, the Composer is still editable mid-turn but cannot send and Prompt turn cancel stays the primary action.

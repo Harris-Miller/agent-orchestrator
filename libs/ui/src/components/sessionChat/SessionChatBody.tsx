@@ -7,12 +7,13 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
+import { ArrowRightLeft, ArrowUp, ChevronDown, GitFork, ListEnd, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -28,6 +29,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../host/pendingInteractions.ts';
@@ -93,6 +95,10 @@ const formatActivationDefect = (defect: unknown): string => {
   return JSON.stringify(defect);
 };
 
+/** The Send button's icon for each mid-turn send; the Send options menu item shows the same one. */
+const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
+const MID_TURN_SEND_LABEL = { queue: 'Queue', steer: 'Steer' } as const;
+
 const SessionChatBodyInner: FC<{
   readonly aboveComposer?: ReactNode;
   readonly onClientError: (error: unknown) => void;
@@ -118,8 +124,19 @@ const SessionChatBodyInner: FC<{
     setVirtualLaunchTarget,
     cancelPromptTurn,
     submit,
+    unqueueMessage,
   } = useSessionChatSurface();
-  const { action, attachments, availableCommands, canEdit, controlsEnabled, draft, locked: chromeLocked } = composer;
+  const {
+    action,
+    attachments,
+    availableCommands,
+    canEdit,
+    controlsEnabled,
+    draft,
+    locked: chromeLocked,
+    midTurnSend,
+    queued,
+  } = composer;
   const setDraft = useCallback(
     (text: string) => {
       edit({ draft: text });
@@ -323,15 +340,16 @@ const SessionChatBodyInner: FC<{
   };
 
   // Enter and the form perform only Send or Steering, never Prompt turn cancel (desktop ADR-0018).
-  const submitDraft = () => {
+  const submitDraft = (mode?: MidTurnSend) => {
     if (action._tag !== 'Send' && action._tag !== 'Steer') {
       return;
     }
     if (action._tag === 'Send') {
       setMenu(CLOSED_COMPOSER_MENU);
     }
-    submit().catch(onClientError);
+    submit(mode).catch(onClientError);
   };
+  const otherMidTurnSend = midTurnSend === 'queue' ? 'steer' : 'queue';
 
   const sendPending =
     action._tag === 'Unavailable' && (action.reason === 'PendingClientRequest' || action.reason === 'SendPending');
@@ -339,7 +357,7 @@ const SessionChatBodyInner: FC<{
     action._tag === 'CancelTurn'
       ? { ariaLabel: 'Prompt turn cancel', disabled: false }
       : action._tag === 'Steer'
-        ? { ariaLabel: 'Steer', disabled: false }
+        ? { ariaLabel: MID_TURN_SEND_LABEL[midTurnSend], disabled: false }
         : { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: action._tag !== 'Send' };
 
   const replyToElicitation = (reply: ElicitationReply) => {
@@ -626,6 +644,28 @@ const SessionChatBodyInner: FC<{
               }}
               open={mentionTrigger !== null}
             />
+            {queued === undefined ? null : (
+              <Box sx={{ alignItems: 'center', color: 'text.secondary', display: 'flex', gap: 1 }}>
+                <Typography noWrap sx={{ flexGrow: 1 }} variant="body2">
+                  Queued:{' '}
+                  {[
+                    queued.draft.trim(),
+                    queued.attachments.length > 0 ? `(${String(queued.attachments.length)} image(s))` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                </Typography>
+                <Button
+                  disabled={!canEdit}
+                  onClick={() => {
+                    unqueueMessage().catch(onClientError);
+                  }}
+                  size="small"
+                >
+                  Edit
+                </Button>
+              </Box>
+            )}
             <ComposerImageAttachments
               attachments={attachments}
               disabled={!canEdit}
@@ -641,7 +681,9 @@ const SessionChatBodyInner: FC<{
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onEscape={selectedSession?.pendingElicitation === undefined ? undefined : onCancelElicitation}
-              onSubmit={submitDraft}
+              onSubmit={() => {
+                submitDraft();
+              }}
               placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}
               value={draft}
@@ -692,6 +734,7 @@ const SessionChatBodyInner: FC<{
                 <Button
                   aria-label={primaryButton.ariaLabel}
                   disabled={primaryButton.disabled}
+                  title={primaryButton.ariaLabel}
                   onClick={
                     action._tag === 'CancelTurn'
                       ? event => {
@@ -708,7 +751,10 @@ const SessionChatBodyInner: FC<{
                   ) : sendPending ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
-                    <LucideMuiIcon fontSize="small" icon={ArrowUp} />
+                    <LucideMuiIcon
+                      fontSize="small"
+                      icon={action._tag === 'Steer' ? MID_TURN_SEND_ICON[midTurnSend] : ArrowUp}
+                    />
                   )}
                 </Button>
                 <Button
@@ -733,6 +779,20 @@ const SessionChatBodyInner: FC<{
                 }}
                 open={splitMenuAnchor !== null}
               >
+                {backendSnapshot?.agentCapabilities.steeringSupported === true ? (
+                  <MenuItem
+                    disabled={action._tag !== 'Steer'}
+                    onClick={() => {
+                      setSplitMenuAnchor(null);
+                      submitDraft(otherMidTurnSend);
+                    }}
+                  >
+                    <ListItemIcon>
+                      <LucideMuiIcon fontSize="small" icon={MID_TURN_SEND_ICON[otherMidTurnSend]} />
+                    </ListItemIcon>
+                    <ListItemText>{MID_TURN_SEND_LABEL[otherMidTurnSend]}</ListItemText>
+                  </MenuItem>
+                ) : null}
                 <MenuItem
                   disabled={!canHandoff}
                   onClick={() => {
@@ -740,7 +800,10 @@ const SessionChatBodyInner: FC<{
                     setHandoffModalOpen(true);
                   }}
                 >
-                  Handoff
+                  <ListItemIcon>
+                    <LucideMuiIcon fontSize="small" icon={ArrowRightLeft} />
+                  </ListItemIcon>
+                  <ListItemText>Handoff</ListItemText>
                 </MenuItem>
                 <MenuItem
                   disabled={!canFork}
@@ -749,7 +812,10 @@ const SessionChatBodyInner: FC<{
                     requestFork()?.catch(onClientError);
                   }}
                 >
-                  Fork
+                  <ListItemIcon>
+                    <LucideMuiIcon fontSize="small" icon={GitFork} />
+                  </ListItemIcon>
+                  <ListItemText>Fork</ListItemText>
                 </MenuItem>
               </Menu>
             </Box>

@@ -1,6 +1,8 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { AsyncResult } from 'effect/reactivity';
@@ -13,6 +15,7 @@ import {
   developerModeAtom,
   keepAwakeEnabledAtom,
   keepAwakeSupportedAtom,
+  midTurnSendAtom,
   notificationsEnabledAtom,
   notificationSoundEnabledAtom,
   notifierSupportedAtom,
@@ -21,6 +24,7 @@ import {
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+import type { MidTurnSend } from '../atoms/userSettings/userSettings.atoms.ts';
 
 import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 
@@ -33,6 +37,8 @@ export const GeneralSettingsPane: FC = () => {
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
   const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
+  const midTurnSend = useAtomValue(midTurnSendAtom);
+  const setMidTurnSend = useAtomSet(midTurnSendAtom);
   const notificationsOn = useAtomValue(notificationsEnabledAtom);
   const setNotificationsOn = useAtomSet(notificationsEnabledAtom);
   const notificationSoundOn = useAtomValue(notificationSoundEnabledAtom);
@@ -78,6 +84,26 @@ export const GeneralSettingsPane: FC = () => {
               setShowNoFolderGroup(checked);
             }}
           />
+        </SettingsRow>
+        <SettingsRow
+          title="Send while an agent is working"
+          description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. The Send options menu offers the other one. Only for agents that support steering."
+        >
+          <ToggleButtonGroup
+            aria-label="Send while an agent is working"
+            disabled={editsDisabled}
+            exclusive
+            onChange={(_event, value: MidTurnSend | null) => {
+              if (value !== null) {
+                setMidTurnSend(value);
+              }
+            }}
+            size="small"
+            value={midTurnSend}
+          >
+            <ToggleButton value="steer">Steer</ToggleButton>
+            <ToggleButton value="queue">Queue</ToggleButton>
+          </ToggleButtonGroup>
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title="Notifications">

@@ -1,10 +1,11 @@
 /**
- * Prompt turn: one prompt from Send to its stop reason (glossary: Prompt turn, Steering, Prompt turn cancel, Attention
- * event; desktop ADR-0018 steer, never queue).
+ * Prompt turn: one prompt from Send to its stop reason (glossary: Prompt turn, Steering, Queued message, Prompt turn cancel,
+ * Attention event; desktop ADR-0018 steer, ADR-0020 queue).
  *
  * Interface:
  * - {@link sendPromptTurn}: start a Prompt turn and run it to its stop reason.
  * - {@link steerPromptTurn}: Steering into the in-flight turn; on `promptRequired`, a Send once the ended turn is done.
+ * - {@link awaitTurnEnd}: wait for the in-flight turn to be over (the Queued message waits on it).
  * - {@link cancelPromptTurn}: Prompt turn cancel. No-op unless a prompt is in flight on that Session.
  *
  * Invariants:
@@ -166,17 +167,25 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
   );
 });
 
-/** Wait until `sessionId` has no Pending client request (or is gone); fails after {@link ENDED_TURN_TIMEOUT}. */
+/** Resolves once `sessionId` is gone, not active, or has no Pending client request (the Prompt turn is over). */
+export const awaitTurnEnd = (registry: Registry, launchTarget: AgentLaunchTarget, sessionId: string) =>
+  AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(launchTarget)).pipe(
+    Stream.filter(
+      ({ sessions }) =>
+        !(sessionId in sessions) ||
+        sessions[sessionId].status !== 'active' ||
+        sessions[sessionId].pendingClientRequest === undefined,
+    ),
+    Stream.runHead,
+  );
+
+/** {@link awaitTurnEnd}, failing after {@link ENDED_TURN_TIMEOUT}. */
 const awaitNoClientRequest = Effect.fnUntraced(function* (
   registry: Registry,
   launchTarget: AgentLaunchTarget,
   sessionId: string,
 ) {
-  const settled = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(launchTarget)).pipe(
-    Stream.filter(({ sessions }) => !(sessionId in sessions) || sessions[sessionId].pendingClientRequest === undefined),
-    Stream.runHead,
-    Effect.timeoutOption(ENDED_TURN_TIMEOUT),
-  );
+  const settled = yield* awaitTurnEnd(registry, launchTarget, sessionId).pipe(Effect.timeoutOption(ENDED_TURN_TIMEOUT));
   if (Option.isNone(settled)) {
     return yield* new ComposerActionUnavailable({
       message: 'Steering is not available: the previous Prompt turn did not finish',

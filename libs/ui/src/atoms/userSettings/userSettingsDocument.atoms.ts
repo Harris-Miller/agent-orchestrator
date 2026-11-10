@@ -29,3 +29,14 @@ export const showArchivedEnabled = (settings: UserSettings): boolean => settings
 export const showArchivedAtom = Atom.make(get =>
   showArchivedEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('showArchived'), Atom.keepAlive);
+
+/** What sending a message while a prompt turn runs does (Composer Send button, Enter). */
+export type MidTurnSend = NonNullable<UserSettings['midTurnSend']>;
+
+/** Steer is the mid-turn send when the Settings field is unset. */
+export const midTurnSendMode = (settings: UserSettings): MidTurnSend => settings.midTurnSend ?? 'steer';
+
+/** Effective mid-turn send, read from the User settings document. Write through `midTurnSendAtom`. */
+export const midTurnSendModeAtom = Atom.make(get =>
+  midTurnSendMode(unwrapUserSettings(get(userSettingsDocumentAtom))),
+).pipe(Atom.withLabel('midTurnSend'), Atom.keepAlive);

@@ -13,6 +13,7 @@ import { appendElicitationSummary } from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
+import { unqueueSessionDraft } from './composer.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { setSessionConfigOption } from './sessionConfigChange.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -26,10 +27,12 @@ export type ElicitationReply =
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
-  /** Prompt turn cancel (see the Prompt turn module), traced under the turn's prompt span. */
+  /** Prompt turn cancel (see the Prompt turn module), un-queuing the Session's Queued message first; traced under the turn's prompt span. */
   const cancelPromptAtomFn = atomRuntime
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) => {
       const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
+      // A Queued message must not auto-send once the turn is cancelled: it goes back into the draft first.
+      unqueueSessionDraft(get.registry, arg.sessionId);
       return cancelPromptTurn(get.registry, arg).pipe(
         Effect.withSpan('cancelPromptAtomFn', parent !== undefined ? { parent } : { root: true }),
       );

@@ -8,7 +8,9 @@
  *   `attachComposerImagesAtomFn` adds images that finish later (Host FileDialog or absolute image paths, see
  *   {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
  *   `submitComposerAtomFn` performs the current Composer action when it is Send or Steering, otherwise does nothing.
- *   Prompt turn cancel stays `cancelPromptAtomFn`.
+ *   While Steering is offered, its argument picks Steering or Queue (default: the `midTurnSend` User setting).
+ *   `unqueueComposerAtomFn` puts the Queued message back into the draft. Prompt turn cancel stays `cancelPromptAtomFn`,
+ *   which un-queues first (see {@link unqueueSessionDraft}).
  *
  * Invariants:
  * - Per-Session drafts are private here (single writer); the Virtual draft lives on the Virtual session blob and is
@@ -31,6 +33,10 @@
  * - A failed Steering puts the message back into the steered Session's draft, ahead of anything typed since, unless
  *   its fallback Send had begun (the message is in the transcript then).
  * - A refused Send puts the draft back the same way (nothing was appended). A Send that started does not.
+ * - Queue moves the draft into the Session's one Queued message slot (a second Queue merges into it, newline-joined).
+ *   The submit that fills an empty slot waits for the turn to be over, then takes the slot and Sends it through
+ *   {@link sendPromptTurn}; a refusal puts it back into the draft. An empty slot at that point (unqueued) does nothing.
+ *   The slot is in memory only.
  * - Every write goes through the registry (a re-invoked AtomFn's `FnContext.set` is a no-op).
  */
 import { FileDialog } from '@lib/context-services';
@@ -61,7 +67,9 @@ import {
   selectedSessionLaunchTargetAtom,
 } from './backendState.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
-import { sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
+import { awaitTurnEnd, sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
+import { midTurnSendModeAtom } from './userSettings/userSettingsDocument.atoms.ts';
+import type { MidTurnSend } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   sendVirtual,
   updateVirtualDraft,
@@ -78,6 +86,11 @@ const sessionAttachmentsAtom = Atom.family((_sessionId: string) =>
   Atom.make<readonly ComposerImageAttachment[]>([]).pipe(Atom.keepAlive),
 );
 
+/** The Session's Queued message: sent as a new Prompt turn once the in-flight one is over. */
+const sessionQueuedAtom = Atom.family((_sessionId: string) =>
+  Atom.make<Draft | undefined>(undefined).pipe(Atom.keepAlive),
+);
+
 export type ComposerTarget =
   | { readonly _tag: 'Session'; readonly launchTarget: AgentLaunchTarget | undefined; readonly sessionId: string }
   | {
@@ -92,6 +105,10 @@ export type Composer = ComposerGates & {
   /** From the Selected Session, or the Bound Virtual session. */
   readonly availableCommands: readonly AvailableCommand[];
   readonly draft: string;
+  /** What Steering, when offered, does by default (the `midTurnSend` User setting). */
+  readonly midTurnSend: MidTurnSend;
+  /** The Selected Session's Queued message; `undefined` with none (always for Virtual). */
+  readonly queued: Draft | undefined;
   /** `undefined` when nothing is Selected. */
   readonly target: ComposerTarget | undefined;
 };
@@ -141,6 +158,8 @@ export const composerAtom = Atom.make((get): Composer => {
         sendPending: get(virtualSendPendingAtom),
       }),
       availableCommands: bound?.availableCommands ?? NO_COMMANDS,
+      midTurnSend: get(midTurnSendModeAtom),
+      queued: undefined,
       target: { _tag: 'Virtual', blobId: virtual?.id, launchTarget },
     };
   }
@@ -161,6 +180,8 @@ export const composerAtom = Atom.make((get): Composer => {
       steeringSupported: get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
+    midTurnSend: get(midTurnSendModeAtom),
+    queued: sessionId === undefined ? undefined : get(sessionQueuedAtom(sessionId)),
     target:
       sessionId === undefined
         ? undefined
@@ -214,14 +235,72 @@ const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {
   return taken;
 };
 
-/** Put a failed Steering or refused Send back into its Session's draft, ahead of anything typed since. */
+/** `first` ahead of `then`: attachments concatenated, text newline-joined. */
+const mergeDrafts = (first: Draft, second: Draft): Draft => ({
+  attachments: [...first.attachments, ...second.attachments],
+  draft:
+    first.draft.length === 0 || second.draft.length === 0
+      ? first.draft + second.draft
+      : `${first.draft}\n${second.draft}`,
+});
+
+/** Put a failed Steering, refused Send or unqueued message back into its Session's draft, ahead of anything typed since. */
 const restoreSessionDraft = (registry: Registry, sessionId: string, taken: Draft): void => {
-  const current = registry.get(sessionDraftAtom(sessionId));
-  setSessionDraft(registry, sessionId, {
-    attachments: [...taken.attachments, ...registry.get(sessionAttachmentsAtom(sessionId))],
-    draft: current.length === 0 ? taken.draft : `${taken.draft}\n${current}`,
+  const merged = mergeDrafts(taken, {
+    attachments: registry.get(sessionAttachmentsAtom(sessionId)),
+    draft: registry.get(sessionDraftAtom(sessionId)),
   });
+  setSessionDraft(registry, sessionId, merged);
 };
+
+/** Add `taken` to the Session's Queued message; `'Started'` when the slot was empty (the caller then owns sending it). */
+const queueSessionDraft = (registry: Registry, sessionId: string, taken: Draft): 'Merged' | 'Started' => {
+  const queued = registry.get(sessionQueuedAtom(sessionId));
+  registry.set(sessionQueuedAtom(sessionId), queued === undefined ? taken : mergeDrafts(queued, taken));
+  return queued === undefined ? 'Started' : 'Merged';
+};
+
+/** Read and clear the Session's Queued message in one synchronous step. */
+const takeQueued = (registry: Registry, sessionId: string): Draft | undefined => {
+  const queued = registry.get(sessionQueuedAtom(sessionId));
+  if (queued !== undefined) {
+    registry.set(sessionQueuedAtom(sessionId), undefined);
+  }
+  return queued;
+};
+
+/** Put the Session's Queued message (if any) back into its draft. Prompt turn cancel and Edit both go through this. */
+export const unqueueSessionDraft = (registry: Registry, sessionId: string): void => {
+  const queued = takeQueued(registry, sessionId);
+  if (queued !== undefined) {
+    restoreSessionDraft(registry, sessionId, queued);
+  }
+};
+
+/** Wait for the turn to be over, then Send the Queued message (if it is still queued). */
+const sendQueued = Effect.fnUntraced(function* (
+  registry: Registry,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+) {
+  yield* awaitTurnEnd(registry, launchTarget, sessionId);
+  const queued = takeQueued(registry, sessionId);
+  if (queued === undefined) {
+    return;
+  }
+  yield* sendPromptTurn(registry, {
+    attachments: queued.attachments,
+    launchTarget,
+    sessionId,
+    text: queued.draft,
+  }).pipe(
+    Effect.tapErrorTag('ComposerActionUnavailable', () =>
+      Effect.sync(() => {
+        restoreSessionDraft(registry, sessionId, queued);
+      }),
+    ),
+  );
+});
 
 export const createComposerAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
@@ -285,9 +364,9 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
 
   const submitComposerAtomFn = atomRuntime
     .fn(
-      Effect.fn('submitComposerAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+      Effect.fn('submitComposerAtomFn', { root: true })(function* (mode: MidTurnSend | undefined, get: Atom.FnContext) {
         const { registry } = get;
-        const { action, target } = registry.get(composerAtom);
+        const { action, midTurnSend, target } = registry.get(composerAtom);
         if (target?._tag === 'Virtual') {
           yield* Effect.annotateCurrentSpan('composer.action', action._tag);
           if (action._tag === 'Send') {
@@ -305,6 +384,13 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         const { launchTarget, sessionId } = target;
         const taken = takeSessionDraft(registry, sessionId);
         yield* Effect.annotateCurrentSpan('composer.action', action._tag);
+        if (action._tag === 'Steer' && (mode ?? midTurnSend) === 'queue') {
+          yield* Effect.annotateCurrentSpan('composer.midTurnSend', 'queue');
+          if (queueSessionDraft(registry, sessionId, taken) === 'Started') {
+            yield* sendQueued(registry, launchTarget, sessionId);
+          }
+          return;
+        }
         const arg = { attachments: taken.attachments, launchTarget, sessionId, text: taken.draft };
         if (action._tag === 'Send') {
           // Once the Prompt turn has begun, a failed prompt leaves the message in the transcript, so the draft stays
@@ -334,5 +420,18 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  return { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn };
+  /** Put the Selected Session's Queued message back into its draft (Prompt turn cancel does this too). */
+  const unqueueComposerAtomFn = atomRuntime
+    .fn((_arg: undefined, get: Atom.FnContext) =>
+      Effect.sync(() => {
+        const { target } = get.registry.get(composerAtom);
+        if (target?._tag !== 'Session') {
+          return;
+        }
+        unqueueSessionDraft(get.registry, target.sessionId);
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  return { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn, unqueueComposerAtomFn };
 };

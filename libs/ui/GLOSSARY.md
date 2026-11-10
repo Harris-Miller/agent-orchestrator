@@ -55,7 +55,7 @@ Navigating off the Virtual session by Selecting a Session or clearing Selected. 
 _Avoid_: close Virtual, cancel draft, discard (when the Composer has content)
 
 **RPC wire log**:
-Every ACP message sent or received for one launch target, in order, for the Developer panel only. Kept apart from the Backend harness snapshot so debug traffic never changes the state the Harness decides from. Survives Connection lost (a retry's messages follow the failed attempt's); only Stop clears it. A failed activation surfaces the agent's own error data from it.
+Every ACP message sent or received for one launch target, in order, for the Developer panel. Kept apart from the Backend harness snapshot so debug traffic never changes the state the Harness decides from. Survives Connection lost (a retry's messages follow the failed attempt's); only a provider stop (Stop, and the restarts built on it) clears it. A failed activation surfaces the agent's own error data from it.
 _Avoid_: rpcCalls, wire trace, message log
 
 **Backend harness snapshot**:
@@ -67,7 +67,7 @@ Pure fold that turns one Backend harness snapshot (and transition args) into the
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:
-The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot and carries out its consequences — a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
+The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot (every ACP message also goes to the RPC wire log) and carries out its consequences — a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
 _Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
 
 **Backend harness**:

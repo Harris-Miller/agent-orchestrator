@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { assert, describe, it } from '@effect/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical';
+import { $createParagraphNode, $createTextNode, $getRoot, PASTE_COMMAND, UNDO_COMMAND } from 'lexical';
 import type { LexicalEditor } from 'lexical';
 import { afterEach } from 'vitest';
 
@@ -119,6 +119,64 @@ describe('ComposerPromptEditor Markdown styling', () => {
     });
     assert.isNotNull(editable().querySelector('[data-testid="composer-command-chip"]'));
     assert.strictEqual(editable().textContent?.endsWith('**now**'), true);
+  });
+});
+
+describe('ComposerPromptEditor paste and undo', () => {
+  it('styles Markdown pasted as plain text without changing it', async () => {
+    let last: ComposerPromptChange | undefined;
+    mount('', next => {
+      last = next;
+    });
+    editable().focus();
+    lexicalEditor().update(() => {
+      $getRoot().selectEnd();
+    });
+    const clipboardData = {
+      files: [],
+      getData: (type: string) => (type === 'text/plain' ? '**p**\n> q' : ''),
+      types: ['text/plain'],
+    };
+    // Lexical only reads a real ClipboardEvent, and happy-dom does not populate its clipboardData.
+    const pasteEvent = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, 'clipboardData', { value: clipboardData });
+    lexicalEditor().dispatchCommand(PASTE_COMMAND, pasteEvent);
+    await waitFor(() => {
+      assert.strictEqual(editable().querySelector('strong')?.textContent, 'p');
+    });
+    assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"][data-md-block="quote"]'));
+    assert.strictEqual(last?.text, '**p**\n> q');
+  });
+
+  it('undoes an edit and its restyling in one step', async () => {
+    let last: ComposerPromptChange | undefined;
+    mount('', next => {
+      last = next;
+    });
+    const replaceWith = (value: string): void => {
+      lexicalEditor().update(() => {
+        const text = $createTextNode(value);
+        $getRoot().clear().append($createParagraphNode().append(text));
+        text.select(value.length, value.length);
+      });
+    };
+    // The first edit only seeds the history stack; the second is the one undone.
+    replaceWith('a');
+    await waitFor(() => {
+      assert.strictEqual(last?.text, 'a');
+    });
+    await new Promise(resolve => {
+      setTimeout(resolve, 400);
+    });
+    replaceWith('a **b**');
+    await waitFor(() => {
+      assert.strictEqual(editable().querySelector('strong')?.textContent, 'b');
+    });
+    lexicalEditor().dispatchCommand(UNDO_COMMAND, undefined);
+    await waitFor(() => {
+      assert.strictEqual(last?.text, 'a');
+    });
+    assert.strictEqual(editable().textContent, 'a');
   });
 });
 

@@ -20,6 +20,7 @@ import {
   notificationSoundEnabledAtom,
   notifierSupportedAtom,
   notifyOnlyWhenUnfocusedAtom,
+  showEmptyCwdGroupsAtom,
   showNoFolderGroupAtom,
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
@@ -39,6 +40,8 @@ export const GeneralSettingsPane: FC = () => {
   const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
   const midTurnSend = useAtomValue(midTurnSendAtom);
   const setMidTurnSend = useAtomSet(midTurnSendAtom);
+  const showEmptyCwdGroups = useAtomValue(showEmptyCwdGroupsAtom);
+  const setShowEmptyCwdGroups = useAtomSet(showEmptyCwdGroupsAtom);
   const notificationsOn = useAtomValue(notificationsEnabledAtom);
   const setNotificationsOn = useAtomSet(notificationsEnabledAtom);
   const notificationSoundOn = useAtomValue(notificationSoundEnabledAtom);
@@ -104,6 +107,19 @@ export const GeneralSettingsPane: FC = () => {
             <ToggleButton value="steer">Steer</ToggleButton>
             <ToggleButton value="queue">Queue</ToggleButton>
           </ToggleButtonGroup>
+        </SettingsRow>
+        <SettingsRow
+          title="Show empty folders in Sessions"
+          description="Keep folders you have used in the session list after their sessions are deleted or archived."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Show empty folders in Sessions' } }}
+            checked={showEmptyCwdGroups}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setShowEmptyCwdGroups(checked);
+            }}
+          />
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title="Notifications">

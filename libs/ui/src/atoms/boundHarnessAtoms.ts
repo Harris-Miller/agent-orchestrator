@@ -15,6 +15,7 @@ import { createProvidersAtoms } from './providers.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createNotifierAtoms } from './notifier.atoms.ts';
+import { createTrackedCwdsAtoms } from './trackedCwds.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
 import { createVscodeExtensionAtoms } from './vscodeExtension.atoms.ts';
@@ -43,6 +44,7 @@ export const {
   notifyOnlyWhenUnfocusedAtom,
   persistUserSettingsAtomFn,
   showArchivedSettingAtom,
+  showEmptyCwdGroupsAtom,
   showNoFolderGroupAtom,
   themeAtom,
   userSettingsAtom,
@@ -109,3 +111,5 @@ export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtual
   createVirtualSessionAtoms(hostBag, refreshSessionFsListingAtomFn);
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
+
+export const { untrackCwdAtomFn } = createTrackedCwdsAtoms(hostBag);

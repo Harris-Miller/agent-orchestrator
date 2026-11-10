@@ -127,6 +127,24 @@ describe('groupAndSortSessionsForNav', () => {
     }
   });
 
+  it('adds a row-less cwd group for a tracked cwd with no sessions, sorted among the others', () => {
+    const groups = groupAndSortSessionsForNav(
+      [{ cwd: '/z/zed', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-01-01T00:00:00.000Z' }],
+      ['/m/mid', '/z/zed'],
+    );
+    assert.deepStrictEqual(
+      groups.map(group => (group.kind === 'cwd' ? [group.cwd, group.sessions.length] : group.kind)),
+      [
+        ['/m/mid', 0],
+        ['/z/zed', 1],
+      ],
+    );
+  });
+
+  it('ignores a tracked No Folder cwd', () => {
+    assert.deepStrictEqual(groupAndSortSessionsForNav([], ['/Users/me/Documents/Codex/local-2026-01-01']), []);
+  });
+
   it('sorts cwd groups alphabetically by directory name, No Folder last', () => {
     const at = '2024-01-01T00:00:00.000Z';
     const entry = (cwd: string, sessionId: string): UnifiedHistoryEntry => ({

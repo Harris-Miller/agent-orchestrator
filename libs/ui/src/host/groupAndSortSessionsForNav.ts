@@ -19,10 +19,12 @@ export const navSessionGroupStableKey = <T extends NormalizedSessionInfo>(group:
 
 /**
  * Group history for desktop nav: No Folder sessions collapse into one group; others by
- * exact cwd; sessions within a group in Session History order. Cwd groups sort alphabetically by directory name (case-insensitive, numeric), tie-break full cwd; No Folder last.
+ * exact cwd; sessions within a group in Session History order. A tracked cwd with no rows becomes an empty cwd group.
+ * Cwd groups sort alphabetically by directory name (case-insensitive, numeric), tie-break full cwd; No Folder last.
  */
 export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
   history: readonly T[],
+  trackedCwds: readonly string[] = [],
 ): readonly NavSessionGroup<T>[] => {
   const noFolderSessions: T[] = [];
   const cwdGroups = new Map<string, T[]>();
@@ -37,6 +39,12 @@ export const groupAndSortSessionsForNav = <T extends NormalizedSessionInfo>(
       } else {
         existing.push(entry);
       }
+    }
+  }
+
+  for (const cwd of trackedCwds) {
+    if (!cwdGroups.has(cwd) && !isNoFolderSessionCwd(cwd)) {
+      cwdGroups.set(cwd, []);
     }
   }
 

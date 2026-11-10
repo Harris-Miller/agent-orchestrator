@@ -15,8 +15,11 @@ import {
   selectedSessionIdAtom,
   SessionHistoryRow,
   ShowArchivedToggle,
+  showEmptyCwdGroupsAtom,
   showNoFolderGroupAtom,
+  trackedCwdsAtom,
   unifiedSessionHistoryAtom,
+  untrackCwdAtomFn,
   useSessionDeleteRequest,
   useSessionHistorySearch,
   visibleSessionHistoryAtom,
@@ -34,7 +37,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, SquarePen } from 'lucide-react';
+import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, SquarePen, X } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -96,8 +99,11 @@ export const WorkbenchNavRail: FC<{
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
+  const showEmptyCwdGroups = useAtomValue(showEmptyCwdGroupsAtom);
+  const trackedCwds = useAtomValue(trackedCwdsAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+  const untrackCwd = useAtomSet(untrackCwdAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
   const search = useSessionHistorySearch({
@@ -125,10 +131,15 @@ export const WorkbenchNavRail: FC<{
   };
 
   const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
-  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+").
-  const navGroups = groupAndSortSessionsForNav(history)
+  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+"). A group is
+  // empty (and can be untracked) only when it had no rows before the pinned ones were taken out.
+  const navGroups = groupAndSortSessionsForNav(history, showEmptyCwdGroups ? trackedCwds : [])
     .filter(group => group.kind !== 'noFolder' || showNoFolderGroup)
-    .map(group => ({ ...group, sessions: group.sessions.filter(entry => !pinnedKeys.has(pinnedKey(entry))) }));
+    .map(group => ({
+      ...group,
+      empty: group.sessions.length === 0,
+      sessions: group.sessions.filter(entry => !pinnedKeys.has(pinnedKey(entry))),
+    }));
 
   return (
     <>
@@ -200,7 +211,7 @@ export const WorkbenchNavRail: FC<{
         <Box sx={{ flex: 1, minHeight: 0, overflow: search.active ? 'hidden' : 'auto' }}>
           {search.active ? (
             <Box sx={{ pl: 2, height: '100%', minHeight: 0 }}>{search.results}</Box>
-          ) : history.length === 0 ? (
+          ) : history.length === 0 && navGroups.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
               No sessions yet. Create one to get started.
             </Typography>
@@ -285,6 +296,22 @@ export const WorkbenchNavRail: FC<{
                           {presentation.label}
                         </Box>
                       </Tooltip>
+                      {group.kind === 'cwd' && group.empty ? (
+                        <Tooltip title="Remove folder from Sessions">
+                          <IconButton
+                            aria-label={`Untrack ${presentation.label}`}
+                            component="span"
+                            onClick={event => {
+                              event.stopPropagation();
+                              untrackCwd(group.cwd).catch(() => undefined);
+                            }}
+                            size="small"
+                            sx={{ flexShrink: 0, ml: 'auto' }}
+                          >
+                            <LucideMuiIcon fontSize="small" icon={X} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : null}
                       {createCwdForGroup !== undefined ? (
                         <IconButton
                           aria-label={`Create session in ${presentation.label}`}
@@ -305,6 +332,11 @@ export const WorkbenchNavRail: FC<{
                       ) : null}
                     </AccordionSummary>
                     <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
+                      {group.empty ? (
+                        <Typography color="text.secondary" sx={{ px: 2, py: 1 }} variant="body2">
+                          No sessions
+                        </Typography>
+                      ) : null}
                       {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
                         <SessionHistoryRow
                           entry={entry}

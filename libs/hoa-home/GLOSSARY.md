@@ -28,6 +28,10 @@ _Avoid_: Adapter history document, live session list
 Per-launch-target `providers/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
 _Avoid_: Pin list, favorites
 
+**Tracked cwds document**:
+`tracked-cwds.json` at the HOA home root listing the Tracked cwds (desktop glossary) as `{ cwds: string[] }`. One file for all launch targets, since cwd groups are unified across them (see ADR 0006). Each change re-reads the file and applies only that change; an undecodable file is never overwritten.
+_Avoid_: Project list, cwd history
+
 **Config option index cache**:
 Durable per-launch-target copy of the Config option index under `providers/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
 _Avoid_: Provider catalog, session configuration

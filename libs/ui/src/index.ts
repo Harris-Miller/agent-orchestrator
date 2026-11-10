@@ -1,6 +1,7 @@
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
+export * from './atoms/trackedCwds.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
@@ -18,6 +19,7 @@ export {
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
   developerModeEnabled,
+  showEmptyCwdGroupsEnabled,
   showNoFolderGroupEnabled,
   unwrapUserSettings,
   userSettingsEditsDisabled,
@@ -70,6 +72,7 @@ export * from './host/agentLaunchTarget.ts';
 export * from './host/applySessionUpdate.ts';
 export * from './host/backendHarness.ts';
 export * from './host/clientHandlers.ts';
+export * from './host/cwdsToTrack.ts';
 export * from './host/configOptionIndexUi.ts';
 export * from './host/configProbe.ts';
 export * from './host/directoryBasename.ts';

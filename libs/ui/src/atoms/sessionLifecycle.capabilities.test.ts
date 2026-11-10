@@ -155,16 +155,29 @@ describe('Deactivate and delete close fail-closed only when close is advertised'
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Delete of an active Session stops when an advertised close fails', () =>
+  it.effect(
+    'Delete of an active Session stops the RPC when an advertised close fails, but the Session is already gone',
+    () =>
+      Effect.gen(function* () {
+        const s = yield* setup(sessionCapabilities({ close: {} }), {
+          fake: { failClose: true },
+          session: session('active'),
+        });
+        const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
+        assert.isTrue(Exit.isFailure(exit));
+        assert.deepStrictEqual(s.calls, ['close:s1']);
+        assert.notProperty(s.snapshot().sessions, 's1');
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect('Delete is optimistic: a failed session/delete still leaves the History entry and Session dropped', () =>
     Effect.gen(function* () {
-      const s = yield* setup(sessionCapabilities({ close: {} }), {
-        fake: { failClose: true },
-        session: session('active'),
-      });
+      const s = yield* setup({}, { fake: { failDelete: true }, session: session('active') });
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
       assert.isTrue(Exit.isFailure(exit));
-      assert.deepStrictEqual(s.calls, ['close:s1']);
-      assert.property(s.snapshot().sessions, 's1');
+      assert.deepStrictEqual(s.calls, ['close:s1', 'delete:s1']);
+      assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
     }).pipe(Effect.scoped),
   );
 });

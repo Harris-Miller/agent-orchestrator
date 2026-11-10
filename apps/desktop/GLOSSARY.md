@@ -21,7 +21,7 @@ User-chosen Harness UI theme id stored in User settings.
 _Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
 
 **Session delete confirmation**:
-Whether deleting a session shows the confirm dialog; stored in User settings; on when unset.
+Whether deleting a session shows the confirm dialog; stored in User settings; on when unset. Delete is optimistic: the dialog closes and the session leaves History, Selection and Pins immediately; `session/delete` runs in the background and a failure is shown as a client error toast (the entry returns on the next list refresh).
 _Avoid_: delete confirm, confirm before delete, destructive confirm
 
 **State Atom**:

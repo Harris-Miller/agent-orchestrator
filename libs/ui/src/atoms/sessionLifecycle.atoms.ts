@@ -544,18 +544,21 @@ export const createSessionLifecycleAtoms = (
           }
 
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
-          if (session !== undefined && session.status !== 'inactive') {
+          const needsClose = session !== undefined && session.status !== 'inactive';
+
+          // Optimistic: drop locally first; a failed RPC surfaces to the caller and the next list refresh reconciles.
+          yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
+            dropSession(current, arg.sessionId),
+          );
+          yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
+
+          if (needsClose) {
             yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
             yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
           }
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
           yield* deleteSession(arg.launchTarget, arg.sessionId);
-
-          yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
-            dropSession(current, arg.sessionId),
-          );
-          yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
         },
         (effect, arg) =>
           effect.pipe(
@@ -564,6 +567,8 @@ export const createSessionLifecycleAtoms = (
             ),
           ),
       ),
+      // Callers do not await the RPC, so a later Delete must not interrupt an earlier one still in flight.
+      { concurrent: true },
     )
     .pipe(Atom.keepAlive);
 

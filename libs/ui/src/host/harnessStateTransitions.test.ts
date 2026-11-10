@@ -1,5 +1,4 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Cause } from 'effect';
 
 import {
   initialBackendHarnessSnapshot,
@@ -41,8 +40,6 @@ import {
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
-  reconcileProviderStopped,
-  recordRpcMessage,
   replaceSessionHistory,
   requestPromptCancel,
   setAntigravityAuthUrl,
@@ -401,13 +398,12 @@ describe('reconcileConnectionLost', () => {
       permission,
       snapshot: {
         ...readySnapshot({ s1: withPendings, s2: initialSessionSnapshot('s2', 'activating') }),
-        rpcCalls: [{ direction: 'in', id: 'r', message: {}, receivedAt: 1 }],
         sessionHistory: [{ cwd: '/a', sessionId: 's1' }],
       },
     };
   };
 
-  it('marks every session inactive, drops pendings, keeps transcripts and the wire log, marks history unavailable', () => {
+  it('marks every session inactive, drops pendings, keeps transcripts, marks history unavailable', () => {
     const { snapshot } = pending();
     const reconciled = reconcileConnectionLost(snapshot);
     assert.deepStrictEqual(
@@ -422,7 +418,6 @@ describe('reconcileConnectionLost', () => {
     assert.deepStrictEqual(reconciled.sessions.s1.transcript, snapshot.sessions.s1.transcript);
     assert.deepStrictEqual(reconciled.sessionHistory, [{ cwd: '/a', sessionId: 's1', unavailable: true }]);
     assert.strictEqual(reconciled.phase, 'connecting');
-    assert.deepStrictEqual(reconciled.rpcCalls, [{ direction: 'in', id: 'r', message: {}, receivedAt: 1 }]);
     assert.isUndefined(reconciled.antigravityAuthUrl);
     assert.isUndefined(reconciled.failure);
   });
@@ -433,14 +428,12 @@ describe('reconcileConnectionLost', () => {
       antigravityAuthUrl: 'https://auth.example',
       failure: { _tag: 'Failed', message: 'boom' },
       phase: 'error',
-      rpcCalls: [{ direction: 'out', id: 'r', message: {}, receivedAt: 1 }],
     };
     const once = reconcileConnectionLost(snapshot);
     assert.strictEqual(once.phase, 'connecting');
     assert.isUndefined(once.failure);
     assert.isUndefined(once.antigravityAuthUrl);
     assert.strictEqual(once.sessions.s1.status, 'inactive');
-    assert.deepStrictEqual(once.rpcCalls, [{ direction: 'out', id: 'r', message: {}, receivedAt: 1 }]);
     assert.deepStrictEqual(reconcileConnectionLost(once), once);
   });
 });
@@ -522,28 +515,6 @@ describe('bootstrap and wire folds', () => {
     assert.strictEqual(failed.failure, failure);
   });
 
-  it('recordRpcMessage appends in order', () => {
-    const entry = (id: string) => ({ direction: 'in' as const, id, message: {}, receivedAt: 1 });
-    const next = recordRpcMessage(recordRpcMessage(readySnapshot(), entry('a')), entry('b'));
-    assert.deepStrictEqual(
-      next.rpcCalls.map(call => call.id),
-      ['a', 'b'],
-    );
-  });
-
-  it('reconcileProviderStopped is Connection lost plus a cleared wire log', () => {
-    const snapshot = recordRpcMessage(readySnapshot({ s1: activeSession('s1') }), {
-      direction: 'out',
-      id: 'a',
-      message: {},
-      receivedAt: 1,
-    });
-    assert.strictEqual(reconcileConnectionLost(snapshot).rpcCalls.length, 1);
-    const stopped = reconcileProviderStopped(snapshot);
-    assert.deepStrictEqual(stopped.rpcCalls, []);
-    assert.strictEqual(stopped.sessions.s1.status, 'inactive');
-  });
-
   it('applySessionList merges by scope and hides the Bound id', () => {
     const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/a', sessionId: 'old' }]);
     const next = applySessionList(
@@ -565,7 +536,7 @@ describe('bootstrap and wire folds', () => {
 });
 
 describe('activation folds', () => {
-  const failure = Cause.die({ code: 7 });
+  const defects = [{ code: 7 }];
 
   it('beginActivation stamps cwd, clears defects and usage, and creates a missing Session', () => {
     const snapshot = readySnapshot({
@@ -581,10 +552,10 @@ describe('activation folds', () => {
 
   it('failActivation records defects and goes inactive; failUnarchive records defects only', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const failed = failActivation(snapshot, 's1', failure);
-    assert.deepStrictEqual([failed.sessions.s1.defects, failed.sessions.s1.status], [[{ code: 7 }], 'inactive']);
-    const unarchive = failUnarchive(snapshot, 's1', failure);
-    assert.deepStrictEqual([unarchive.sessions.s1.defects, unarchive.sessions.s1.status], [[{ code: 7 }], 'active']);
+    const failed = failActivation(snapshot, 's1', defects);
+    assert.deepStrictEqual([failed.sessions.s1.defects, failed.sessions.s1.status], [defects, 'inactive']);
+    const unarchive = failUnarchive(snapshot, 's1', defects);
+    assert.deepStrictEqual([unarchive.sessions.s1.defects, unarchive.sessions.s1.status], [defects, 'active']);
   });
 
   it('markActivationCwdMissing leaves the Session inactive with a defect', () => {

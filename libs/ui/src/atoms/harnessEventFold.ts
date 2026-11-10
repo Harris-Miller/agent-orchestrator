@@ -27,7 +27,6 @@ import {
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
-  recordRpcMessage,
   setAntigravityAuthUrl,
 } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
@@ -39,6 +38,7 @@ import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
+import { appendRpcWireEntry } from './rpcWireLog.ts';
 import type { RefreshSessionFsListing } from './sessionFsListing.atoms.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
 import {
@@ -160,8 +160,12 @@ export const makeHarnessEventFold = ({
       }
     },
     onRpcMessage: (direction, message) => {
-      const entry = { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() };
-      update(current => recordRpcMessage(current, entry));
+      appendRpcWireEntry(registry, launchTarget, {
+        direction,
+        id: crypto.randomUUID(),
+        message,
+        receivedAt: Date.now(),
+      });
     },
     onSessionHistoryRequest: () => {
       pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));

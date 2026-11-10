@@ -115,6 +115,20 @@ export {
   updatePinnedSessions,
 } from './pinnedSessions.ts';
 export {
+  readTrackedCwds,
+  trackCwds,
+  TrackedCwdsMalformed,
+  trackedCwdsPath,
+  untrackCwd,
+  updateTrackedCwds,
+} from './trackedCwds.ts';
+export {
+  emptyTrackedCwds,
+  type TrackedCwdsDocument,
+  TrackedCwdsDocumentJsonString,
+  TrackedCwdsDocumentSchema,
+} from './TrackedCwdsDocument.ts';
+export {
   emptyPinnedSessions,
   type PinnedSession,
   PinnedSessionSchema,

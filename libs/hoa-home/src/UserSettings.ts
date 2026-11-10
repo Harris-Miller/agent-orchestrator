@@ -16,6 +16,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
     providerEnabled: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
     skippedExtensionVersion: Schema.optionalKey(Schema.String),
     showArchived: Schema.optionalKey(Schema.Boolean),
+    showEmptyCwdGroups: Schema.optionalKey(Schema.Boolean),
     showProvidersOnStartup: Schema.optionalKey(Schema.Boolean),
     showNoFolderGroup: Schema.optionalKey(Schema.Boolean),
     theme: Schema.optionalKey(Schema.String),

@@ -98,6 +98,22 @@ _Avoid_: pagination, load more (when you mean this local toggle; no fetch happen
 Session History display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the Session History accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
 _Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
 
+**Tracked cwd**:
+A Session cwd the Harness remembers beyond its Session History rows, persisted in hoa-home (one list shared across launch targets and host apps). A cwd becomes tracked as soon as a visible Session History row carries it (No Folder cwds never are) and stays tracked until the user untracks it, so it outlives deleted or archived sessions. Tracking continues while Show empty folders is off.
+_Avoid_: project, remembered folder, saved cwd
+
+**Empty cwd group**:
+A desktop Session History cwd group for a Tracked cwd with no visible Session History rows (every session deleted, or archived while Show archived is off). Shown with its "+" (create a session there) and an Untrack button only while Show empty folders is on. A cwd group that still has rows, even only pinned ones, is not empty.
+_Avoid_: empty project, ghost group
+
+**Show empty folders**:
+User settings toggle (`showEmptyCwdGroups`) that lists Empty cwd groups among the cwd groups; on when unset. Display only: it never changes what is tracked.
+_Avoid_: show empty projects, show tracked
+
+**Untrack**:
+The user action, offered only on an Empty cwd group, that removes its Tracked cwd. The cwd is tracked again when a visible Session History row carries it.
+_Avoid_: forget project, delete folder (nothing on disk changes)
+
 **Session header**:
 The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when they apply (see **Session actions**): Rename right beside the title, the other actions as icon buttons at the far end (no Pin/Unpin there). When the header row is narrow they collapse back into the menu (Rename included, still without Pin/Unpin). Each host adds its own controls before and after it.
 _Avoid_: chat header, title bar

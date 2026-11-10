@@ -35,6 +35,9 @@ export const developerModeEnabled = (settings: UserSettings): boolean => setting
 /** Prefer showing the No Folder group when the Settings field is unset. */
 export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
 
+/** Prefer showing Empty cwd groups when the Settings field is unset. */
+export const showEmptyCwdGroupsEnabled = (settings: UserSettings): boolean => settings.showEmptyCwdGroups !== false;
+
 /** Notifications are on when the Settings field is unset. */
 export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
 
@@ -107,6 +110,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     get => showNoFolderGroupEnabled(unwrapUserSettings(get(userSettingsAtom))),
     (ctx, enabled: boolean) => {
       ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showNoFolderGroup: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective Show empty folders (on when unset). Write patches User settings. */
+  const showEmptyCwdGroupsAtom = Atom.writable(
+    get => showEmptyCwdGroupsEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showEmptyCwdGroups: enabled });
     },
   ).pipe(Atom.keepAlive);
 
@@ -207,6 +218,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     notifyOnlyWhenUnfocusedAtom,
     persistUserSettingsAtomFn,
     showArchivedSettingAtom,
+    showEmptyCwdGroupsAtom,
     showNoFolderGroupAtom,
     themeAtom,
     userSettingsAtom,

@@ -17,6 +17,7 @@ const writableRpcWireLogAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
 export const rpcWireLogAtom: (launchTarget: AgentLaunchTarget) => Atom.Atom<readonly RpcWireEntry[]> =
   writableRpcWireLogAtom;
 
+/** Append one message; only subscribers of this launch target's wire log are notified. */
 export const appendRpcWireEntry = (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
@@ -25,6 +26,7 @@ export const appendRpcWireEntry = (
   registry.update(writableRpcWireLogAtom(launchTarget), log => [...log, entry]);
 };
 
+/** Empty the log (Stop). */
 export const clearRpcWireLog = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget): void => {
   registry.set(writableRpcWireLogAtom(launchTarget), []);
 };

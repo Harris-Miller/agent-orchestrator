@@ -18,11 +18,6 @@ const writableHarnessSnapshotAtom = Atom.family((launchTarget: AgentLaunchTarget
 export const backendHarnessSnapshotAtom: (launchTarget: AgentLaunchTarget) => Atom.Atom<BackendHarnessSnapshot> =
   writableHarnessSnapshotAtom;
 
-/** One launch target's Session History; notifies only when the history itself is replaced, not on other snapshot changes. */
-export const sessionHistoryAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make(get => get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory),
-);
-
 /** Apply `transition` to the latest snapshot. An identity transition notifies nobody. */
 export const updateHarnessSnapshot = (
   registry: AtomRegistry.AtomRegistry,

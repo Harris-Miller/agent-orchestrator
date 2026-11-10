@@ -209,8 +209,9 @@ export const createSessionLifecycleAtoms = (
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
           const unarchiveExit = yield* Effect.exit(unarchiveSession(arg.launchTarget, arg.sessionId));
           if (Exit.isFailure(unarchiveExit)) {
+            const defects = activationDefects(get, arg.launchTarget, unarchiveExit.cause);
             updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-              failUnarchive(current, arg.sessionId, activationDefects(get, arg.launchTarget, unarchiveExit.cause)),
+              failUnarchive(current, arg.sessionId, defects),
             );
             return yield* Effect.failCause(unarchiveExit.cause);
           }
@@ -254,8 +255,9 @@ export const createSessionLifecycleAtoms = (
 
         if (Exit.isFailure(exit)) {
           yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
+          const defects = activationDefects(get, arg.launchTarget, exit.cause);
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            failActivation(current, arg.sessionId, activationDefects(get, arg.launchTarget, exit.cause)),
+            failActivation(current, arg.sessionId, defects),
           );
           return;
         }

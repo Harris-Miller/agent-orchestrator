@@ -312,6 +312,7 @@ export const createSessionLifecycleAtoms = (
                 cwd,
                 defects: undefined,
                 status: 'activating',
+                usage: undefined,
               })),
             },
             arg.sessionId,

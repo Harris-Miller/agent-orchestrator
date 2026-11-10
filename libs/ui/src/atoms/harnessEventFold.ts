@@ -42,26 +42,22 @@ import {
 
 export type HarnessEventFold = BackendHarnessCallbacks;
 
-/** What one session/update changed beyond the snapshot. */
-type SessionUpdateConsequences = {
-  readonly linked?: SubagentRouteResult['linked'];
-};
-
+/** Applies one session/update; returns the Subagent link it established, if any. */
 const routeAndApplySessionUpdate = (
   current: BackendHarnessSnapshot,
   sessionId: string,
   update: unknown,
-): [SessionUpdateConsequences, BackendHarnessSnapshot] => {
+): [SubagentRouteResult['linked'], BackendHarnessSnapshot] => {
   const routed = routeSubagentUpdate(current, sessionId, update);
   if (routed !== undefined) {
-    return [{ linked: routed.linked }, routed.snapshot];
+    return [routed.linked, routed.snapshot];
   }
   const result = applySessionUpdate(current.sessions[sessionId], sessionId, current.sessionHistory, update);
   if (result.kind === 'noop') {
-    return [{}, current];
+    return [undefined, current];
   }
   return [
-    {},
+    undefined,
     {
       ...current,
       sessionHistory: result.sessionHistory ?? current.sessionHistory,
@@ -190,7 +186,7 @@ export const makeHarnessEventFold = ({
       runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {
-      const { linked } = modifyHarnessSnapshot(registry, launchTarget, current =>
+      const linked = modifyHarnessSnapshot(registry, launchTarget, current =>
         routeAndApplySessionUpdate(current, sessionId, sessionUpdate),
       );
       if (linked !== undefined) {

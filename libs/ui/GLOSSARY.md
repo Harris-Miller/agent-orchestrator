@@ -7,7 +7,7 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 ## Language
 
 **Harness shell**:
-The boot order both hosts run: user settings load, the fd and Node prerequisite gates, Provider bootstrap, then (VS Code only) Workspace folders, then caches hydrate and the Backend harnesses mount. Hosts compose its two parts and add only layout and routing; they never assemble the gates or mounts one by one. A Backend harness never mounts before its caches have hydrated.
+The boot order both hosts run: user settings load, the fd and Node prerequisite gates, Provider bootstrap, then (VS Code only) Workspace folders, then caches hydrate and the Backend harnesses mount. Hosts compose its two parts (prerequisites, then mounts) and add only what differs — layout, routing, VS Code's Workspace folders step, the desktop's own dialogs; they never assemble the gates or mounts one by one. A Backend harness never mounts before its caches have hydrated.
 _Avoid_: app shell, root layout (when you mean this boot order)
 
 **Harness application state**:

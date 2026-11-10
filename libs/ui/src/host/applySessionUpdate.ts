@@ -12,7 +12,6 @@ export type ApplySessionUpdateResult =
       readonly kind: 'patch';
       readonly session: SessionSnapshot;
       readonly sessionHistory?: readonly NormalizedSessionInfo[];
-      readonly usageChanged: boolean;
     };
 
 /**
@@ -31,7 +30,6 @@ export const applySessionUpdate = (
 
   let next: SessionSnapshot = transcriptChanged ? { ...base, transcript: nextTranscript } : base;
   let sessionChanged = transcriptChanged;
-  let usageChanged = false;
   let sessionHistory: readonly NormalizedSessionInfo[] | undefined;
 
   if (isRecord(update) && typeof update.sessionUpdate === 'string') {
@@ -61,7 +59,6 @@ export const applySessionUpdate = (
         if (usage !== undefined) {
           next = { ...next, usage };
           sessionChanged = true;
-          usageChanged = true;
         }
         break;
       }
@@ -70,7 +67,7 @@ export const applySessionUpdate = (
     }
   }
 
-  if (!sessionChanged && sessionHistory === undefined && !usageChanged) {
+  if (!sessionChanged && sessionHistory === undefined) {
     return { kind: 'noop' };
   }
 
@@ -78,6 +75,5 @@ export const applySessionUpdate = (
     kind: 'patch',
     session: next,
     sessionHistory,
-    usageChanged,
   };
 };

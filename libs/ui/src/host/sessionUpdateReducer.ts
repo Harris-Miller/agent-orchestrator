@@ -1,6 +1,6 @@
 /** Pure reducer turning ACP `session/update` payloads into ordered chat items. */
 
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import type { SessionUsage } from './sessionUsage.ts';
 
 import { isRecord } from '../isRecord.ts';
 import { optString, withoutUndefined } from '../optionalFields.ts';
@@ -460,7 +460,7 @@ const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
   });
 };
 
-export const parseUsageUpdate = (update: unknown): SessionUsageDocument | undefined => {
+export const parseUsageUpdate = (update: unknown): SessionUsage | undefined => {
   if (!isRecord(update) || update.sessionUpdate !== 'usage_update') {
     return undefined;
   }

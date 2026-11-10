@@ -1,6 +1,6 @@
 /** Bootstrap phase model and normalizers for ACP session startup. */
 
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import type { SessionUsage } from './sessionUsage.ts';
 import type { Cause } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
@@ -46,7 +46,7 @@ export type SessionSnapshot = {
   readonly sessionId: string;
   readonly status: SessionStatus;
   readonly transcript: SessionTranscript;
-  readonly usage?: SessionUsageDocument;
+  readonly usage?: SessionUsage;
 };
 
 /** Non-empty trimmed cwd, else undefined. */

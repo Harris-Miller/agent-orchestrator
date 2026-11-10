@@ -14,7 +14,6 @@ export {
   AdapterHistoryEntrySchema,
   emptyAdapterHistory,
 } from './AdapterHistoryDocument.ts';
-export { harnessDirPath } from './harnessFiles.ts';
 export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
 export {
   emptySessionIndex,
@@ -52,12 +51,6 @@ export {
   writeUserSettings,
 } from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
-export { deleteSessionDir, readSessionUsage, sessionDirPath, sessionUsagePath, writeSessionUsage } from './session.ts';
-export {
-  type SessionUsageDocument,
-  SessionUsageDocumentJsonString,
-  SessionUsageDocumentSchema,
-} from './SessionUsageDocument.ts';
 export {
   defaultSettings,
   normalizeAlwaysHiddenGlobs,

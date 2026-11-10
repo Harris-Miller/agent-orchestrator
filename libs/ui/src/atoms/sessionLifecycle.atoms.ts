@@ -1,6 +1,5 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
-import { deleteSessionDir, readSessionUsage } from '@lib/hoa-home';
-import { Effect, Exit, Option } from 'effect';
+import { Effect, Exit } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -313,6 +312,7 @@ export const createSessionLifecycleAtoms = (
                 cwd,
                 defects: undefined,
                 status: 'activating',
+                usage: undefined,
               })),
             },
             arg.sessionId,
@@ -338,7 +338,6 @@ export const createSessionLifecycleAtoms = (
           return;
         }
 
-        const persistedUsage = Option.getOrUndefined(yield* readSessionUsage(arg.sessionId));
         // The loaded Session configuration first (still `activating`), then the reset folds into the latest Session.
         const loaded = normalizeConfigOptions(exit.value);
         updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
@@ -355,10 +354,9 @@ export const createSessionLifecycleAtoms = (
         }
         updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
           ...current,
-          sessions: patchSession(current.sessions, arg.sessionId, session => ({
-            ...buildActivatedSession(arg.sessionId, session.configuration ?? [], session),
-            usage: persistedUsage,
-          })),
+          sessions: patchSession(current.sessions, arg.sessionId, session =>
+            buildActivatedSession(arg.sessionId, session.configuration ?? [], session),
+          ),
         }));
         yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
         yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId: arg.sessionId });
@@ -553,11 +551,6 @@ export const createSessionLifecycleAtoms = (
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
           yield* deleteSession(arg.launchTarget, arg.sessionId);
-          yield* deleteSessionDir(arg.sessionId).pipe(
-            Effect.catchCause(cause =>
-              Effect.logWarning('session dir cleanup failed', arg.launchTarget, arg.sessionId, cause),
-            ),
-          );
 
           yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
             dropSession(current, arg.sessionId),

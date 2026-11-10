@@ -58,9 +58,7 @@ export const RestoreUserSettingsDefaultsControl: FC<{
       >
         <DialogTitle>Reset all preferences to defaults?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            This restores User settings to product defaults. Session usage is not affected.
-          </DialogContentText>
+          <DialogContentText>This restores User settings to product defaults.</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button

@@ -52,6 +52,12 @@ export const providerRuntimeDir = Effect.fn('providerRuntimeDir')(function* (
   return path.join(yield* providerDir(launchTarget), providerRuntimeRelativeDir(version));
 });
 
+/** `<provider>/<filename>` for a file owned by the host beside `runtime/` (index, pins, caches). */
+export const providerFilePath = Effect.fn('providerFilePath')(function* (launchTarget: LaunchTarget, filename: string) {
+  const path = yield* Path;
+  return path.join(yield* providerDir(launchTarget), filename);
+});
+
 export const providerCurrentJsonPath = Effect.fn('providerCurrentJsonPath')(function* (launchTarget: LaunchTarget) {
   const path = yield* Path;
   return path.join(yield* providerDir(launchTarget), PROVIDER_CURRENT_FILENAME);

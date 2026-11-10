@@ -21,31 +21,23 @@ Per agent launch target durable session list under `adapters/<launchTarget>/hist
 _Avoid_: Adapter roster document, Session History (Harness term), user settings, session snapshot
 
 **Application session index**:
-Harness-owned durable view of listed sessions under `harness/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup; distinct from the Adapter history document, which belongs to an ACP adapter.
+Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup; distinct from the Adapter history document, which belongs to an ACP adapter.
 _Avoid_: Adapter history document, live session list
 
 **Pinned sessions document**:
-Per-launch-target `harness/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
+Per-launch-target `providers/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
 _Avoid_: Pin list, favorites
 
 **Config option index cache**:
-Durable per-launch-target copy of the Config option index under `harness/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
+Durable per-launch-target copy of the Config option index under `providers/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
 _Avoid_: Provider catalog, session configuration
 
 **Adapter history lock**:
 Cross-process lockfile at `adapters/<launchTarget>/history.lock` (next to `history.json`) guarding read-modify-write of an Adapter history document so multiple adapter processes do not corrupt shared durable state. Acquire needs a `FileSystem` that supports `open` with `"wx"` (Node adapter process; not the host webview FS). If a crash leaves the lock wedged, delete `history.lock` manually.
 _Avoid_: Adapter roster lock, file lock (generic), mutex
 
-**Session usage document**:
-System-created context-window fill and cost under `sessions/<id>/usage.json` inside the HOA home. Not user-editable User settings; missing or corrupt file means no usage yet.
-_Avoid_: user settings, usage readout, telemetry
-
-**Session directory**:
-Per-session folder `sessions/<id>/` inside the HOA home. Removed wholesale on Harness `session/delete`. Abandoned dirs (never deleted via Harness) remain until that explicit delete — no GC in this package.
-_Avoid_: session snapshot, Session History, Adapter history document
-
 **Provider directory**:
-`providers/<launch target>/` inside the HOA home. Holds `runtime/<version>/` directories and the `current.json` Provider runtime document.
+`providers/<launch target>/` inside the HOA home — the single per-launch-target directory. Holds `runtime/<version>/` directories, the `current.json` Provider runtime document, and the Harness-owned files for that launch target (Application session index, Pinned sessions document, Config option index cache).
 _Avoid_: adapter dir, harness dir
 
 **Provider runtime document**:

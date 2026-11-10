@@ -1,4 +1,4 @@
-import type { SessionUsageDocument } from '@lib/hoa-home';
+import type { SessionUsage } from '../../host/sessionUsage.ts';
 import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -13,7 +13,7 @@ const usageCardSx = {
   p: 1.5,
 } as const;
 
-export const UsageCard: FC<{ readonly usage: SessionUsageDocument }> = ({ usage }) => {
+export const UsageCard: FC<{ readonly usage: SessionUsage }> = ({ usage }) => {
   const percent = usagePercent(usage);
   const remaining = Math.max(0, usage.size - usage.used);
 

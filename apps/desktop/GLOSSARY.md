@@ -134,7 +134,7 @@ The desktop right panel (chat header open button, `PanelRightOpen`; panel header
 _Avoid_: Right panel, Panel, state drawer
 
 **Session update apply**:
-Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge. Does not persist usage — the Harness event fold does (ui glossary).
+Pure Harness fold that turns one inbound ACP `session/update` into the next session snapshot (and History entry title when needed). Owns transcript reduction, available commands, usage, and config-option merge.
 _Avoid_: foldSessionUpdate, session update reducer (transcript-only), demux
 
 **Session status**:
@@ -334,7 +334,7 @@ The short setup slice of bringing a backend harness online (spawn, connect, init
 _Avoid_: Connection span, live connection, session (when you mean setup)
 
 **Subagent session**:
-A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, usage file, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
+A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
 _Avoid_: Child chat, nested session, sub-session
 
 **Subagent view**:

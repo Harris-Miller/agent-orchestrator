@@ -1,11 +1,11 @@
 import { Effect, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
-import { Path } from 'effect/Path';
 
 import { emptyPinnedSessions, PinnedSessionsDocumentJsonString } from './PinnedSessionsDocument.ts';
 import type { PinnedSession, PinnedSessionsDocument } from './PinnedSessionsDocument.ts';
-import { harnessDirPath, writeJsonFile } from './harnessFiles.ts';
+import { writeJsonFile } from './harnessFiles.ts';
 import type { LaunchTarget } from './LaunchTarget.ts';
+import { providerFilePath } from './providers.ts';
 
 /** `pinned-sessions.json` exists but cannot be decoded. Never treated as "no pins", so it is never overwritten. */
 export class PinnedSessionsMalformed extends Schema.TaggedError<PinnedSessionsMalformed>()('PinnedSessionsMalformed', {
@@ -13,8 +13,7 @@ export class PinnedSessionsMalformed extends Schema.TaggedError<PinnedSessionsMa
 }) {}
 
 export const pinnedSessionsPath = Effect.fn('pinnedSessionsPath')(function* (launchTarget: LaunchTarget) {
-  const path = yield* Path;
-  return path.join(yield* harnessDirPath(launchTarget), 'pinned-sessions.json');
+  return yield* providerFilePath(launchTarget, 'pinned-sessions.json');
 });
 
 /** Missing file → no pins; undecodable content fails with {@link PinnedSessionsMalformed}. */

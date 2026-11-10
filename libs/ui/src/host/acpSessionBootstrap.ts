@@ -85,11 +85,11 @@ export const defectsFromWireCause = (cause: unknown): readonly unknown[] => {
  * `data`), falling back to Effect Cause Die defects after Schema.Defect decode.
  */
 export const defectsFromActivationFailure = <E>(
-  wireLog: readonly RpcWireEntry[],
+  rpcWireLog: readonly RpcWireEntry[],
   cause: Cause.Cause<E>,
 ): readonly unknown[] => {
-  for (let index = wireLog.length - 1; index >= 0; index -= 1) {
-    const entry = wireLog[index];
+  for (let index = rpcWireLog.length - 1; index >= 0; index -= 1) {
+    const entry = rpcWireLog[index];
     if (
       entry.direction === 'in' &&
       isRecord(entry.message) &&

@@ -1,7 +1,8 @@
 /**
- * The RPC wire log: every ACP message sent or received for one launch target, for the Developer panel only. It lives
- * outside the Backend harness snapshot so debug traffic never touches the state the Harness decides from. Kept across
- * Connection lost (a retry's messages follow the failed attempt's); Stop clears it.
+ * The RPC wire log: every ACP message sent or received for one launch target, for the Developer panel and the error
+ * data a failed activation records. It lives outside the Backend harness snapshot so debug traffic never touches the
+ * state the Harness decides from. Kept across Connection lost (a retry's messages follow the failed attempt's); a
+ * provider stop (Stop, and the restarts built on it) clears it.
  */
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

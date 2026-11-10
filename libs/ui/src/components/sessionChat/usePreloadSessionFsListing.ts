@@ -1,15 +1,14 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { useEffect } from 'react';
-import type { FC } from 'react';
 
-import { alwaysHiddenGlobsAtom, refreshSessionFsListingAtomFn } from '../atoms/boundHarnessAtoms.ts';
-import { selectedActiveSessionAtom } from '../atoms/selectedActiveSession.atoms.ts';
+import { alwaysHiddenGlobsAtom, refreshSessionFsListingAtomFn } from '../../atoms/boundHarnessAtoms.ts';
+import { selectedActiveSessionAtom } from '../../atoms/selectedActiveSession.atoms.ts';
 
 /**
- * The one trigger of the `@` FS listing: it loads for the Selected active session (an active Session, or the Bound
- * Virtual one) and again when Always-hidden globs change. Bind and activation do not start or wait on it.
+ * The one trigger of the `@` FS listing: it loads once the Selected active session (an active Session, or the Bound
+ * Virtual one) has an id and a cwd, and again when Always-hidden globs change. Call it once, from the chat surface.
  */
-export const SelectedSessionFsListingMount: FC = () => {
+export const usePreloadSessionFsListing = (): void => {
   const active = useAtomValue(selectedActiveSessionAtom);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const refreshSessionFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
@@ -22,6 +21,4 @@ export const SelectedSessionFsListingMount: FC = () => {
     }
     refreshSessionFsListing({ cwd, sessionId }).catch(() => undefined);
   }, [alwaysHiddenGlobs, cwd, refreshSessionFsListing, sessionId]);
-
-  return null;
 };

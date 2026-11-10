@@ -27,6 +27,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { usePreloadSessionFsListing } from './usePreloadSessionFsListing.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
@@ -144,6 +145,7 @@ const SessionChatBodyInner: FC<{
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  usePreloadSessionFsListing();
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });

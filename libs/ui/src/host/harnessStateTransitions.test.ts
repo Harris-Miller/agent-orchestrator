@@ -20,6 +20,7 @@ import {
   applyInitializeResult,
   applyLoadedConfiguration,
   applySessionList,
+  applySessionUpdatePatch,
   beginActivation,
   beginConfigChange,
   beginPromptTurn,
@@ -677,5 +678,24 @@ describe('prompt turn and interaction folds', () => {
     assert.strictEqual(answerPermission(snapshot, 's1', pendingPermission('s1')), snapshot);
     assert.strictEqual(answerPermission(snapshot, 's1', permission).sessions.s1.pendingPermission, undefined);
     assert.strictEqual(answerElicitation(snapshot, 'gone', answered, undefined), snapshot);
+  });
+});
+
+describe('applySessionUpdatePatch', () => {
+  it('upserts the patched Session and keeps the History when the update carried no retitle', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);
+    const next = applySessionUpdatePatch(snapshot, { kind: 'patch', session: activeSession('s1') });
+    assert.strictEqual(next.sessions.s1.status, 'active');
+    assert.strictEqual(next.sessionHistory, snapshot.sessionHistory);
+  });
+
+  it('replaces the History when the update carried a retitle', () => {
+    const retitled = [{ cwd: '/proj', sessionId: 's1', title: 'New' }];
+    const next = applySessionUpdatePatch(readySnapshot(), {
+      kind: 'patch',
+      session: activeSession('s1'),
+      sessionHistory: retitled,
+    });
+    assert.strictEqual(next.sessionHistory, retitled);
   });
 });

@@ -1,39 +1,31 @@
 import { RegistryContext, RegistryProvider } from '@effect/atom-react';
 import { onWorkspaceFoldersChanged, requestWorkspaceFolders } from '@lib/context-services-vscode-webview';
 import {
-  AcpBackendsMount,
   AppThemeProvider,
   bootWorkspaceFolders,
-  FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
-  HarnessCacheGate,
-  KeepAwakeMount,
-  NodePrerequisiteGate,
-  PersistUserSettingsToast,
-  ProviderBootstrapGate,
-  ProvidersStartupMount,
-  UserSettingsMount,
+  HarnessMounts,
+  HarnessPrerequisites,
+  useClientErrorSnackbar,
 } from '@lib/ui';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import CssBaseline from '@mui/material/CssBaseline';
-import Snackbar from '@mui/material/Snackbar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { RouterProvider } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { hostIpcClient } from './bindHostRuntime.ts';
-import { formatClientError, OnClientErrorContext } from './onClientError.tsx';
+import { OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
 
 const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
   const [foldersReady, setFoldersReady] = useState(false);
-  const [clientError, setClientError] = useState<null | string>(null);
+  const { clientErrorSnackbar, onClientError } = useClientErrorSnackbar();
 
   useEffect(() => {
     let cancelled = false;
@@ -69,10 +61,6 @@ const WorkspaceFoldersGate: FC = () => {
     };
   }, [registry]);
 
-  const onClientError = useCallback((error: unknown) => {
-    setClientError(formatClientError(error));
-  }, []);
-
   if (!foldersReady) {
     return (
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 2 }}>
@@ -84,11 +72,7 @@ const WorkspaceFoldersGate: FC = () => {
 
   return (
     <OnClientErrorContext.Provider value={onClientError}>
-      <HarnessCacheGate>
-        <AcpBackendsMount />
-        <KeepAwakeMount />
-        <ProvidersStartupMount />
-      </HarnessCacheGate>
+      <HarnessMounts />
       <Box
         sx={{
           flex: 1,
@@ -101,25 +85,7 @@ const WorkspaceFoldersGate: FC = () => {
           <RouterProvider router={router} />
         </Box>
       </Box>
-      <Snackbar
-        anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-        autoHideDuration={6000}
-        onClose={() => {
-          setClientError(null);
-        }}
-        open={clientError !== null}
-      >
-        <Alert
-          onClose={() => {
-            setClientError(null);
-          }}
-          severity="error"
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {clientError}
-        </Alert>
-      </Snackbar>
+      {clientErrorSnackbar}
     </OnClientErrorContext.Provider>
   );
 };
@@ -128,20 +94,14 @@ export const App: FC = () => (
   <RegistryProvider>
     <AppThemeProvider>
       <CssBaseline />
-      <UserSettingsMount />
-      <PersistUserSettingsToast />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-        <FdPrerequisiteGate
+        <HarnessPrerequisites
           onExit={() => {
             Effect.runPromise(hostIpcClient.request({ _tag: 'AppExit' })).catch(() => undefined);
           }}
         >
-          <NodePrerequisiteGate>
-            <ProviderBootstrapGate>
-              <WorkspaceFoldersGate />
-            </ProviderBootstrapGate>
-          </NodePrerequisiteGate>
-        </FdPrerequisiteGate>
+          <WorkspaceFoldersGate />
+        </HarnessPrerequisites>
       </Box>
     </AppThemeProvider>
   </RegistryProvider>

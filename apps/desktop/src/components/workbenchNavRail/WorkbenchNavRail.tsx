@@ -13,6 +13,7 @@ import {
   pinnedEntriesAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
+  sessionEntryKey,
   SessionHistoryRow,
   ShowArchivedToggle,
   showEmptyCwdGroupsAtom,
@@ -23,6 +24,7 @@ import {
   useSessionDeleteRequest,
   useSessionHistorySearch,
   visibleSessionHistoryAtom,
+  withoutPinned,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -51,8 +53,6 @@ const CWD_GROUP_ROW_LIMIT = 10;
 // Kept just under WORKBENCH_NAV_RAIL_WIDTH so the full name shows at the default width.
 const TITLE_MEDIUM_MIN_WIDTH = 260;
 const TITLE_FULL_MIN_WIDTH = 390;
-
-const pinnedKey = (entry: UnifiedHistoryEntry): string => `${entry.launchTarget}:${entry.sessionId}`;
 
 const withKey = (keys: ReadonlySet<string>, key: string, present: boolean): ReadonlySet<string> => {
   const next = new Set(keys);
@@ -130,7 +130,6 @@ export const WorkbenchNavRail: FC<{
     setShowMoreExpandedGroups(current => withKey(current, key, !current.has(key)));
   };
 
-  const pinnedKeys = new Set(pinnedEntries.map(pinnedKey));
   // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+"). A group is
   // empty (and can be untracked) only when it had no rows before the pinned ones were taken out.
   const navGroups = groupAndSortSessionsForNav(history, showEmptyCwdGroups ? trackedCwds : [])
@@ -138,7 +137,7 @@ export const WorkbenchNavRail: FC<{
     .map(group => ({
       ...group,
       empty: group.sessions.length === 0,
-      sessions: group.sessions.filter(entry => !pinnedKeys.has(pinnedKey(entry))),
+      sessions: withoutPinned(group.sessions, pinnedEntries),
     }));
 
   return (
@@ -243,7 +242,7 @@ export const WorkbenchNavRail: FC<{
                       <SessionHistoryRow
                         caption={pinnedCaption(entry)}
                         entry={entry}
-                        key={pinnedKey(entry)}
+                        key={sessionEntryKey(entry)}
                         onClientError={onClientError}
                         onDeleteRequest={requestDelete}
                         selected={selectedSessionId === entry.sessionId}
@@ -340,7 +339,7 @@ export const WorkbenchNavRail: FC<{
                       {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
                         <SessionHistoryRow
                           entry={entry}
-                          key={`${entry.launchTarget}:${entry.sessionId}`}
+                          key={sessionEntryKey(entry)}
                           onClientError={onClientError}
                           onDeleteRequest={requestDelete}
                           selected={selectedSessionId === entry.sessionId}

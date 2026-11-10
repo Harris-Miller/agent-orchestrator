@@ -17,6 +17,7 @@ import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
+import { exportedAtomName } from '../../atoms/atomNames.ts';
 import { allRpcWireCallsAtom, selectedSessionIdAtom } from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
@@ -27,6 +28,7 @@ import { hostRunPromise } from '../../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { FieldLabel } from '../FieldLabel.tsx';
 
+import { AtomsTab } from './AtomsTab.tsx';
 import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
@@ -47,13 +49,6 @@ import { SessionStateView } from './SessionStateView.tsx';
 import { CLOSE_DEVELOPER_PANEL_LABEL } from './ToggleDeveloperPanelButton.tsx';
 
 export const DEVELOPER_PANEL_HEIGHT = 320;
-
-const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
-const PROVIDER_STATE_TAB = 'provider-state' as const;
-const SESSION_STATE_TAB = 'session-state' as const;
-const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
-const COMPOSER_TAB = 'composer' as const;
-const MUI_THEME_PLAYGROUND_TAB = 'mui-theme-playground' as const;
 
 export type DeveloperPanelExtraTab = {
   readonly content: ReactNode;
@@ -311,22 +306,76 @@ const RpcWireLogBody: FC<{
   );
 };
 
+type BuiltInTabProps = {
+  readonly onCopyError: (error: unknown) => void;
+  readonly session?: SessionSnapshot;
+};
+
+type BuiltInTab = {
+  readonly id: string;
+  readonly label: string;
+  /** Body handles its own scrolling (the panel body then clips and lays out as a column). */
+  readonly ownScroll: boolean;
+  readonly padded: boolean;
+  readonly render: (props: BuiltInTabProps) => ReactNode;
+};
+
+const BUILT_IN_TABS: readonly BuiltInTab[] = [
+  {
+    id: 'rpc-wire-log',
+    label: 'RPC wire',
+    ownScroll: true,
+    padded: true,
+    render: ({ onCopyError }) => <RpcWireLogBody onCopyError={onCopyError} />,
+  },
+  {
+    id: 'provider-state',
+    label: 'Provider State',
+    ownScroll: false,
+    padded: true,
+    render: () => <ProviderStateView />,
+  },
+  {
+    id: 'session-state',
+    label: 'Session State',
+    ownScroll: false,
+    padded: true,
+    render: ({ session }) => <SessionStateView session={session} />,
+  },
+  {
+    id: 'atoms',
+    label: 'Atoms',
+    ownScroll: true,
+    padded: true,
+    render: ({ onCopyError }) => <AtomsTab nameOf={exportedAtomName} onCopyError={onCopyError} />,
+  },
+  {
+    id: 'fs-mention-listing',
+    label: '@ FS listing',
+    ownScroll: true,
+    padded: false,
+    render: () => <FsMentionListingTab />,
+  },
+  { id: 'composer', label: 'Composer', ownScroll: false, padded: false, render: () => <ComposerTab /> },
+  {
+    id: 'mui-theme-playground',
+    label: 'MUI playground',
+    ownScroll: false,
+    padded: true,
+    render: () => <MuiThemePlaygroundTab />,
+  },
+];
+
 export const DeveloperPanelShell: FC<{
   readonly extraTabs?: readonly DeveloperPanelExtraTab[];
   readonly onClose: () => void;
   readonly onCopyError: (error: unknown) => void;
   readonly session?: SessionSnapshot;
 }> = ({ extraTabs = [], onClose, onCopyError, session }) => {
-  const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(RPC_WIRE_LOG_TAB);
-  const activeExtraTab = extraTabs.find(tab => tab.id === activeTab);
-  const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
-  const isMuiThemePlaygroundTab = activeTab === MUI_THEME_PLAYGROUND_TAB;
-  const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
-  const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
-  const bodyPadding =
-    isRpcWireLogTab || activeTab === PROVIDER_STATE_TAB || activeTab === SESSION_STATE_TAB || isMuiThemePlaygroundTab
-      ? 2
-      : 0;
+  const [activeTab, setActiveTab] = useState<DeveloperPanelTab>(BUILT_IN_TABS[0]?.id ?? '');
+  const builtIn = BUILT_IN_TABS.find(tab => tab.id === activeTab);
+  const containsOwnScroll = builtIn?.ownScroll ?? false;
+  const bodyPadding = builtIn?.padded === true ? 2 : 0;
 
   return (
     <Box
@@ -355,12 +404,9 @@ export const DeveloperPanelShell: FC<{
         value={activeTab}
         variant="scrollable"
       >
-        <Tab label="RPC wire" value={RPC_WIRE_LOG_TAB} />
-        <Tab label="Provider State" value={PROVIDER_STATE_TAB} />
-        <Tab label="Session State" value={SESSION_STATE_TAB} />
-        <Tab label="@ FS listing" value={FS_MENTION_LISTING_TAB} />
-        <Tab label="Composer" value={COMPOSER_TAB} />
-        <Tab label="MUI playground" value={MUI_THEME_PLAYGROUND_TAB} />
+        {BUILT_IN_TABS.map(tab => (
+          <Tab key={tab.id} label={tab.label} value={tab.id} />
+        ))}
         {extraTabs.map(tab => (
           <Tab key={tab.id} label={tab.label} value={tab.id} />
         ))}
@@ -375,21 +421,9 @@ export const DeveloperPanelShell: FC<{
           p: bodyPadding,
         }}
       >
-        {activeTab === RPC_WIRE_LOG_TAB ? (
-          <RpcWireLogBody onCopyError={onCopyError} />
-        ) : activeTab === PROVIDER_STATE_TAB ? (
-          <ProviderStateView />
-        ) : activeTab === SESSION_STATE_TAB ? (
-          <SessionStateView session={session} />
-        ) : isFsMentionListingTab ? (
-          <FsMentionListingTab />
-        ) : activeTab === COMPOSER_TAB ? (
-          <ComposerTab />
-        ) : isMuiThemePlaygroundTab ? (
-          <MuiThemePlaygroundTab />
-        ) : (
-          (activeExtraTab?.content ?? null)
-        )}
+        {builtIn === undefined
+          ? (extraTabs.find(tab => tab.id === activeTab)?.content ?? null)
+          : builtIn.render({ onCopyError, session })}
       </Box>
     </Box>
   );

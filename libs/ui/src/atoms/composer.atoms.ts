@@ -80,15 +80,20 @@ import {
 
 type Registry = AtomRegistry.AtomRegistry;
 
-const sessionDraftAtom = Atom.family((_sessionId: string) => Atom.make('').pipe(Atom.keepAlive));
+const sessionDraftAtom = Atom.family((sessionId: string) =>
+  Atom.make('').pipe(Atom.withLabel(`sessionDraft:${sessionId}`), Atom.keepAlive),
+);
 
-const sessionAttachmentsAtom = Atom.family((_sessionId: string) =>
-  Atom.make<readonly ComposerImageAttachment[]>([]).pipe(Atom.keepAlive),
+const sessionAttachmentsAtom = Atom.family((sessionId: string) =>
+  Atom.make<readonly ComposerImageAttachment[]>([]).pipe(
+    Atom.withLabel(`sessionAttachments:${sessionId}`),
+    Atom.keepAlive,
+  ),
 );
 
 /** The Session's Queued message: sent as a new Prompt turn once the in-flight one is over. */
-const sessionQueuedAtom = Atom.family((_sessionId: string) =>
-  Atom.make<Draft | undefined>(undefined).pipe(Atom.keepAlive),
+const sessionQueuedAtom = Atom.family((sessionId: string) =>
+  Atom.make<Draft | undefined>(undefined).pipe(Atom.withLabel(`sessionQueued:${sessionId}`), Atom.keepAlive),
 );
 
 export type ComposerTarget =

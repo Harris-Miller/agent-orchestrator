@@ -21,8 +21,11 @@ const emptyListing = (cwd: string): SessionFsListingState => ({
 /** Composite Atom key: `sessionId\\0cwd`. */
 export const sessionFsListingKey = (sessionId: string, cwd: string): string => `${sessionId}\0${cwd}`;
 
-export const sessionFsListingAtom = Atom.family((_key: string) =>
-  Atom.make<SessionFsListingState>(emptyListing('')).pipe(Atom.keepAlive),
+export const sessionFsListingAtom = Atom.family((key: string) =>
+  Atom.make<SessionFsListingState>(emptyListing('')).pipe(
+    Atom.withLabel(`sessionFsListing:${key.replace('\0', ' @ ')}`),
+    Atom.keepAlive,
+  ),
 );
 
 export const createSessionFsListingAtoms = (

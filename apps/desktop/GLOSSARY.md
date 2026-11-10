@@ -194,7 +194,7 @@ Harness action that injects a new user message into the in-flight prompt turn vi
 _Avoid_: interrupt, follow-up message (Queue is a different action: see Queued message)
 
 **Queued message**:
-The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; a context click on Send offers the other.
+The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; the Send options menu (the chevron next to Send) offers the other.
 _Avoid_: Queued prompt, outbox, prompt queue
 
 **Steering supported**:

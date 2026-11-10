@@ -2,7 +2,7 @@
 
 Partially supersedes [ADR-0018](0018-steer-in-flight-turn-never-queue.md), which rejected a client-side prompt queue.
 
-While a prompt turn is in flight and Steering is offered (Steering supported, no Pending interaction, draft has content), the user can instead **Queue** the draft. The User setting `midTurnSend` (`steer` default, `queue`) picks what the primary Send button and Enter do; right-clicking the Send button offers the opposite for that one message. Queue never applies to Agents without Steering supported: their draft stays unsent, as before.
+While a prompt turn is in flight and Steering is offered (Steering supported, no Pending interaction, draft has content), the user can instead **Queue** the draft. The User setting `midTurnSend` (`steer` default, `queue`) picks what the primary Send button and Enter do; the Send options menu (the chevron next to Send) offers the opposite for that one message. Queue never applies to Agents without Steering supported: their draft stays unsent, as before.
 
 ## Decisions
 

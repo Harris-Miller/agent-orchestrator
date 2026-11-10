@@ -13,7 +13,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ArrowUp, ChevronDown, ListEnd, Paperclip, Square } from 'lucide-react';
+import { ArrowRightLeft, ArrowUp, ChevronDown, GitFork, ListEnd, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -95,7 +95,7 @@ const formatActivationDefect = (defect: unknown): string => {
   return JSON.stringify(defect);
 };
 
-/** The Send button's icon for each mid-turn send; the context menu item shows the same one. */
+/** The Send button's icon for each mid-turn send; the Send options menu item shows the same one. */
 const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
 
 const SessionChatBodyInner: FC<{
@@ -156,8 +156,6 @@ const SessionChatBodyInner: FC<{
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
   const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
-  /** Where the Send button's context menu (the opposite of the `midTurnSend` setting) was opened. */
-  const [sendContextMenu, setSendContextMenu] = useState<{ readonly left: number; readonly top: number } | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
   const [menu, setMenu] = useState(CLOSED_COMPOSER_MENU);
   const composerTrigger = menu.trigger;
@@ -739,14 +737,6 @@ const SessionChatBodyInner: FC<{
                         }
                       : undefined
                   }
-                  onContextMenu={
-                    action._tag === 'Steer'
-                      ? event => {
-                          event.preventDefault();
-                          setSendContextMenu({ left: event.clientX, top: event.clientY });
-                        }
-                      : undefined
-                  }
                   sx={{ minWidth: 40, px: 1.5 }}
                   type={action._tag === 'CancelTurn' ? 'button' : 'submit'}
                 >
@@ -776,26 +766,6 @@ const SessionChatBodyInner: FC<{
                 </Button>
               </ButtonGroup>
               <Menu
-                anchorPosition={sendContextMenu ?? undefined}
-                anchorReference="anchorPosition"
-                onClose={() => {
-                  setSendContextMenu(null);
-                }}
-                open={sendContextMenu !== null && action._tag === 'Steer'}
-              >
-                <MenuItem
-                  onClick={() => {
-                    setSendContextMenu(null);
-                    submitDraft(otherMidTurnSend);
-                  }}
-                >
-                  <ListItemIcon>
-                    <LucideMuiIcon fontSize="small" icon={MID_TURN_SEND_ICON[otherMidTurnSend]} />
-                  </ListItemIcon>
-                  {otherMidTurnSend === 'queue' ? 'Queue' : 'Steer'}
-                </MenuItem>
-              </Menu>
-              <Menu
                 anchorEl={splitMenuAnchor}
                 id="send-split-menu"
                 onClose={() => {
@@ -803,6 +773,19 @@ const SessionChatBodyInner: FC<{
                 }}
                 open={splitMenuAnchor !== null}
               >
+                {action._tag === 'Steer' ? (
+                  <MenuItem
+                    onClick={() => {
+                      setSplitMenuAnchor(null);
+                      submitDraft(otherMidTurnSend);
+                    }}
+                  >
+                    <ListItemIcon>
+                      <LucideMuiIcon fontSize="small" icon={MID_TURN_SEND_ICON[otherMidTurnSend]} />
+                    </ListItemIcon>
+                    <ListItemText>{otherMidTurnSend === 'queue' ? 'Queue' : 'Steer'}</ListItemText>
+                  </MenuItem>
+                ) : null}
                 <MenuItem
                   disabled={!canHandoff}
                   onClick={() => {
@@ -810,7 +793,10 @@ const SessionChatBodyInner: FC<{
                     setHandoffModalOpen(true);
                   }}
                 >
-                  Handoff
+                  <ListItemIcon>
+                    <LucideMuiIcon fontSize="small" icon={ArrowRightLeft} />
+                  </ListItemIcon>
+                  <ListItemText>Handoff</ListItemText>
                 </MenuItem>
                 <MenuItem
                   disabled={!canFork}
@@ -819,7 +805,10 @@ const SessionChatBodyInner: FC<{
                     requestFork()?.catch(onClientError);
                   }}
                 >
-                  Fork
+                  <ListItemIcon>
+                    <LucideMuiIcon fontSize="small" icon={GitFork} />
+                  </ListItemIcon>
+                  <ListItemText>Fork</ListItemText>
                 </MenuItem>
               </Menu>
             </Box>

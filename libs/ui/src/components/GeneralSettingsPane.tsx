@@ -87,7 +87,7 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
         <SettingsRow
           title="Send while an agent is working"
-          description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. Right-click Send for the other one. Only for agents that support steering."
+          description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. The Send options menu offers the other one. Only for agents that support steering."
         >
           <ToggleButtonGroup
             aria-label="Send while an agent is working"

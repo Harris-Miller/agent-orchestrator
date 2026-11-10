@@ -2,8 +2,6 @@ import { assert, describe, it } from '@effect/vitest';
 
 import {
   authFromHarness,
-  isProviderReady,
-  isProviderUnavailable,
   isSwitchingJob,
   overallStatus,
   readyToInstallVersion,
@@ -38,15 +36,13 @@ describe('provider status', () => {
     assert.strictEqual(overallStatus(view({ enabled: false, cli: { _tag: 'Missing' } })), 'disabled');
     const missingCli = view({ cli: { _tag: 'Missing' } });
     assert.strictEqual(overallStatus(missingCli), 'cli-missing');
-    assert.isTrue(isProviderUnavailable(missingCli));
     assert.strictEqual(unavailableReason(missingCli), 'claude not found on PATH');
   });
 
   it('an enabled provider without an active runtime is unavailable, not disabled', () => {
     const noRuntime = view({ runtime: runtime({ active: undefined }) });
     assert.strictEqual(overallStatus(noRuntime), 'needs-runtime');
-    assert.isTrue(isProviderUnavailable(noRuntime));
-    assert.isFalse(isProviderReady(noRuntime));
+    assert.isDefined(unavailableReason(noRuntime));
   });
 
   it('a first Download is downloading; failures are download-failed', () => {
@@ -60,13 +56,12 @@ describe('provider status', () => {
 
   it('an update Download while a runtime is active does not change readiness; Install shows switching', () => {
     const updating = view({ runtime: runtime({ job: { _tag: 'Downloading', version: '2.0.0' } }) });
-    assert.isTrue(isProviderReady(updating));
+    assert.strictEqual(overallStatus(updating), 'ready');
     const ready = view({ runtime: runtime({ downloaded: ['2.0.0'] }) });
-    assert.isTrue(isProviderReady(ready));
+    assert.strictEqual(overallStatus(ready), 'ready');
     assert.strictEqual(readyToInstallVersion(ready), '2.0.0');
     const switching = view({ runtime: runtime({ job: { _tag: 'Installing', version: '2.0.0' } }) });
     assert.strictEqual(overallStatus(switching), 'switching');
-    assert.isFalse(isProviderReady(switching));
   });
 
   it('maps real harness phases from the failure tag, not its wording', () => {
@@ -121,11 +116,10 @@ describe('per-status decisions', () => {
   });
 
   it('is unavailable exactly when there is a reason', () => {
-    const unavailable = entries.filter(([, provider]) => isProviderUnavailable(provider)).map(([status]) => status);
+    const unavailable = entries
+      .filter(([, provider]) => unavailableReason(provider) !== undefined)
+      .map(([status]) => status);
     assert.deepStrictEqual(unavailable.toSorted(), ['cli-missing', 'download-failed', 'downloading', 'needs-runtime']);
-    for (const [, provider] of entries) {
-      assert.strictEqual(unavailableReason(provider) !== undefined, isProviderUnavailable(provider));
-    }
   });
 
   it('shows startup help only where the row needs more than its action', () => {

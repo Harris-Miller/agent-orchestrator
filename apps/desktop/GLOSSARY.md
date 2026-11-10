@@ -61,7 +61,7 @@ A chat item recording an accepted form-mode Elicitation: each field the user set
 _Avoid_: answers, answered questions, elicitation result
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `probing` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `probing` runs the Config probe and buffers `session/list` until Ready.
+Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `usable` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `usable`: initialize (and Sign in) is done and a Config option index exists (cached, or seeded by the Config probe), so session RPCs work. `ready`: `session/list` has also published.
 _Avoid_: Status, connection state
 
 **Sign in**:

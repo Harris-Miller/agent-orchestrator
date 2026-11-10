@@ -141,36 +141,6 @@ export const createSessionLifecycleAtoms = (
     .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))
     .pipe(Atom.keepAlive);
 
-  const refreshSessionHistoryAtomFn = atomRuntime
-    .fn(
-      Effect.fn('refreshSessionHistoryAtomFn', { root: true })(
-        function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': launchTarget,
-          });
-          const snapshot = usableHarness(get, launchTarget);
-          if (snapshot === undefined) {
-            yield* Effect.logDebug('refreshSessionHistory skipped; backend not usable', launchTarget);
-            return;
-          }
-
-          const scope = get(sessionListScopeAtom);
-          const listPayload = listSessionsPayload(scope);
-          if (listPayload === undefined) {
-            return;
-          }
-
-          yield* Effect.logDebug('Refreshing session history', launchTarget);
-          const { listResult, pinsBefore } = yield* refreshHistoryFor(get, launchTarget, listPayload, scope);
-          clearSelectedIfMissing(get.registry);
-          yield* reconcilePinsAfterList(get.registry, launchTarget, pinsBefore, listResult, scope);
-        },
-        (effect, launchTarget) =>
-          effect.pipe(Effect.tapError(error => Effect.logError('refreshSessionHistory failed', launchTarget, error))),
-      ),
-    )
-    .pipe(Atom.keepAlive);
-
   const refreshAllSessionHistoriesAtomFn = atomRuntime
     .fn(
       Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
@@ -517,7 +487,6 @@ export const createSessionLifecycleAtoms = (
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
-    refreshSessionHistoryAtomFn,
     renameSessionAtomFn,
   };
 };

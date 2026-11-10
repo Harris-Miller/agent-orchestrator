@@ -224,7 +224,7 @@ describe('Bind', () => {
         assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
         assert.strictEqual(sessionsOf(registry)['bound-1'].status, 'active');
         assert.strictEqual(registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.length, 0);
-        // The `@` FS listing (SelectedSessionFsListingMount) keys off the active session (Bound Virtual), not the Session-arm Selected.
+        // The `@` FS listing keys off the active session (Bound Virtual), not the Session-arm Selected.
         assert.deepStrictEqual(registry.get(selectedActiveSessionAtom), {
           cwd: '/proj',
           launchTarget: CODEX,

@@ -24,7 +24,7 @@ const showPiece = (piece: ComposerPiece): string => {
     }
     case 'text': {
       const { style } = piece;
-      const role = { fence: 'f', marker: 'm', text: '' }[style.role];
+      const role = { blockMarker: 'b', fence: 'f', marker: 'm', text: '' }[style.role];
       const flags = `${style.bold ? 'b' : ''}${style.italic ? 'i' : ''}${style.strike ? 's' : ''}${style.code ? 'c' : ''}`;
       return `text:${role}${flags}@${style.block}/${style.line}:${piece.value}`;
     }
@@ -52,6 +52,10 @@ describe('buildComposerPieces', () => {
       'text:m@paragraph/0:**',
     ]);
     assert.deepStrictEqual(show('[**a**](/b)'), ['link:**a**']);
+  });
+
+  it('numbers the line of a block marker', () => {
+    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/0:a', 'br', 'text:b@quote/1:> ', 'text:@quote/0:q']);
   });
 
   it('emits a linebreak piece between lines and numbers marker lines', () => {

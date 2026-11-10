@@ -26,7 +26,11 @@ const applyMarkdownAttributes = (dom: HTMLElement, node: ComposerMarkdownTextNod
   const block = $getState(node, blockState);
   setOrRemove(dom, 'data-md-role', role === 'text' ? undefined : role);
   setOrRemove(dom, 'data-md-block', block === 'paragraph' ? undefined : block);
-  setOrRemove(dom, 'data-md-line', role === 'marker' ? String($getState(node, lineState)) : undefined);
+  setOrRemove(
+    dom,
+    'data-md-line',
+    role === 'marker' || role === 'blockMarker' ? String($getState(node, lineState)) : undefined,
+  );
 };
 
 /**

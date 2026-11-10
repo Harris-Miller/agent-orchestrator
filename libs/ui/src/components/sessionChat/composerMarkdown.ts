@@ -7,7 +7,7 @@ import { isWhitespace } from './composerCommandTokens.ts';
  */
 
 /** Stands in for a chip's text while parsing, so a chip counts as a word and nothing inside it is parsed. */
-export const COMPOSER_CHIP_MASK = '￼';
+export const COMPOSER_CHIP_MASK = String.fromCodePoint(0xff_fc);
 
 export const MARKDOWN_BLOCKS = [
   'bullet',
@@ -24,8 +24,11 @@ export const MARKDOWN_BLOCKS = [
 ] as const;
 export type MarkdownBlock = (typeof MARKDOWN_BLOCKS)[number];
 
-/** `marker`: syntax characters that hide away from the caret's line; `fence`: a code fence line, always shown. */
-export const MARKDOWN_ROLES = ['fence', 'marker', 'text'] as const;
+/**
+ * `marker`: inline syntax characters; `blockMarker`: a line-leading `#`, `>`, bullet, or number. Both hide away from
+ * the caret's line. `fence`: a code fence line, always shown.
+ */
+export const MARKDOWN_ROLES = ['blockMarker', 'fence', 'marker', 'text'] as const;
 export type MarkdownRole = (typeof MARKDOWN_ROLES)[number];
 
 export type MarkdownRun = {
@@ -264,7 +267,7 @@ const blockRuns = (line: string, indent: string, markerEnd: number, block: Markd
     runs.push(plainRun(indent, block, 'text'));
   }
   runs.push(
-    plainRun(line.slice(indent.length, markerEnd), block, 'marker'),
+    plainRun(line.slice(indent.length, markerEnd), block, 'blockMarker'),
     ...inlineRuns(line.slice(markerEnd), block),
   );
   return runs;

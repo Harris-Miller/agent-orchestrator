@@ -6,7 +6,7 @@ import { COMPOSER_CHIP_MASK, parseComposerMarkdown } from './composerMarkdown.ts
 import type { MarkdownBlock, MarkdownRole, MarkdownRun } from './composerMarkdown.ts';
 import { markdownLinkText } from './markdownLinkText.ts';
 
-/** How a text piece is styled; `line` is only meaningful for `marker` pieces (Marker reveal) and is 0 otherwise. */
+/** How a text piece is styled; `line` is only meaningful for `marker` and `blockMarker` pieces (Marker reveal) and is 0 otherwise. */
 export type ComposerTextStyle = {
   readonly block: MarkdownBlock;
   readonly bold: boolean;
@@ -56,7 +56,7 @@ const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   bold: run.bold,
   code: run.code,
   italic: run.italic,
-  line: run.role === 'marker' ? line : 0,
+  line: run.role === 'marker' || run.role === 'blockMarker' ? line : 0,
   role: run.role,
   strike: run.strike,
 });

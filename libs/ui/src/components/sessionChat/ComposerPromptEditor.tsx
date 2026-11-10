@@ -536,7 +536,7 @@ const MarkerRevealPlugin: FC = () => {
             return $getRoot().getTextContent().slice(0, cursor).split('\n').length - 1;
           })
         : -1;
-      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-role="marker"]')) {
+      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-line]')) {
         marker.toggleAttribute('data-md-active', marker.dataset.mdLine === String(caretLine));
       }
     };
@@ -734,10 +734,15 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             fontFamily: 'monospace',
             fontSize: '0.8125rem',
           },
-          '& [data-md-role="marker"], & [data-md-role="fence"]': { color: 'text.disabled' },
-          '& [data-md-role="marker"]:not([data-md-active], [data-md-block="ordered"])': { fontSize: 0 },
+          '& [data-md-role="marker"], & [data-md-role="blockMarker"], & [data-md-role="fence"]': {
+            color: 'text.disabled',
+          },
+          '& [data-md-role="marker"]:not([data-md-active]), & [data-md-role="blockMarker"]:not([data-md-active], [data-md-block="ordered"])':
+            {
+              fontSize: 0,
+            },
           '& [data-md-block="quote"]': { color: 'text.secondary' },
-          '& [data-md-block="quote"][data-md-role="marker"]:not([data-md-active])::before': {
+          '& [data-md-block="quote"][data-md-role="blockMarker"]:not([data-md-active])::before': {
             bgcolor: 'divider',
             content: '""',
             display: 'inline-block',
@@ -746,7 +751,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             verticalAlign: 'text-bottom',
             width: 3,
           },
-          '& [data-md-block="bullet"][data-md-role="marker"]:not([data-md-active])::before': {
+          '& [data-md-block="bullet"][data-md-role="blockMarker"]:not([data-md-active])::before': {
             color: 'text.secondary',
             content: '"•"',
             fontSize: '0.875rem',

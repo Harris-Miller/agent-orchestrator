@@ -9,7 +9,7 @@ const flags = (run: MarkdownRun): string =>
 /** One string per run: `<role marker 'm'><style flags>:<text>`; plain text has empty flags. */
 const show = (text: string): readonly (readonly string[])[] =>
   parseComposerMarkdown(text).map(line =>
-    line.map(run => `${run.role === 'marker' ? 'm' : ''}${flags(run)}:${run.text}`),
+    line.map(run => `${run.role === 'marker' || run.role === 'blockMarker' ? 'm' : ''}${flags(run)}:${run.text}`),
   );
 
 const assertPlain = (text: string): void => {
@@ -19,37 +19,41 @@ const assertPlain = (text: string): void => {
 /** One string per run: `<block>:<m|f|empty role>:<text>`. */
 const showBlocks = (text: string): readonly (readonly string[])[] =>
   parseComposerMarkdown(text).map(line =>
-    line.map(run => `${run.block}:${{ fence: 'f', marker: 'm', text: '' }[run.role]}:${run.text}`),
+    line.map(run => `${run.block}:${{ blockMarker: 'b', fence: 'f', marker: 'm', text: '' }[run.role]}:${run.text}`),
   );
 
 describe('parseComposerMarkdown blocks', () => {
   it('marks ATX headings by level and requires a space after the hashes', () => {
-    assert.deepStrictEqual(showBlocks('# Title'), [['h1:m:# ', 'h1::Title']]);
-    assert.deepStrictEqual(showBlocks('###### six'), [['h6:m:###### ', 'h6::six']]);
-    assert.deepStrictEqual(showBlocks('  ## indented'), [['h2::  ', 'h2:m:## ', 'h2::indented']]);
-    assert.deepStrictEqual(showBlocks('#'), [['h1:m:#']]);
+    assert.deepStrictEqual(showBlocks('# Title'), [['h1:b:# ', 'h1::Title']]);
+    assert.deepStrictEqual(showBlocks('###### six'), [['h6:b:###### ', 'h6::six']]);
+    assert.deepStrictEqual(showBlocks('  ## indented'), [['h2::  ', 'h2:b:## ', 'h2::indented']]);
+    assert.deepStrictEqual(showBlocks('#'), [['h1:b:#']]);
     for (const plain of ['#123', '####### seven', 'a # b']) {
       assert.deepStrictEqual(showBlocks(plain), [[`paragraph::${plain}`]]);
     }
   });
 
   it('marks block quotes, including nested markers, only at line start', () => {
-    assert.deepStrictEqual(showBlocks('> quote'), [['quote:m:> ', 'quote::quote']]);
-    assert.deepStrictEqual(showBlocks('>tight'), [['quote:m:>', 'quote::tight']]);
-    assert.deepStrictEqual(showBlocks('> > deep'), [['quote:m:> > ', 'quote::deep']]);
+    assert.deepStrictEqual(showBlocks('> quote'), [['quote:b:> ', 'quote::quote']]);
+    assert.deepStrictEqual(showBlocks('>tight'), [['quote:b:>', 'quote::tight']]);
+    assert.deepStrictEqual(showBlocks('> > deep'), [['quote:b:> > ', 'quote::deep']]);
     assert.deepStrictEqual(showBlocks('a > b'), [['paragraph::a > b']]);
   });
 
   it('marks bullet and ordered list items, keeping indentation as text', () => {
-    assert.deepStrictEqual(showBlocks('- item'), [['bullet:m:- ', 'bullet::item']]);
-    assert.deepStrictEqual(showBlocks('+ item'), [['bullet:m:+ ', 'bullet::item']]);
-    assert.deepStrictEqual(showBlocks('  * nested'), [['bullet::  ', 'bullet:m:* ', 'bullet::nested']]);
-    assert.deepStrictEqual(showBlocks('1. one'), [['ordered:m:1. ', 'ordered::one']]);
-    assert.deepStrictEqual(showBlocks('12) twelve'), [['ordered:m:12) ', 'ordered::twelve']]);
+    assert.deepStrictEqual(showBlocks('- item'), [['bullet:b:- ', 'bullet::item']]);
+    assert.deepStrictEqual(showBlocks('+ item'), [['bullet:b:+ ', 'bullet::item']]);
+    assert.deepStrictEqual(showBlocks('  * nested'), [['bullet::  ', 'bullet:b:* ', 'bullet::nested']]);
+    assert.deepStrictEqual(showBlocks('1. one'), [['ordered:b:1. ', 'ordered::one']]);
+    assert.deepStrictEqual(showBlocks('12) twelve'), [['ordered:b:12) ', 'ordered::twelve']]);
     for (const plain of ['-item', '---', '1.5 is a number', '*not a list*x']) {
       assert.notStrictEqual(showBlocks(plain)[0][0].slice(0, 7), 'bullet:', plain);
       assert.notStrictEqual(showBlocks(plain)[0][0].slice(0, 8), 'ordered:', plain);
     }
+  });
+
+  it('keeps inline markers inside a block as inline markers', () => {
+    assert.deepStrictEqual(showBlocks('> **b**'), [['quote:b:> ', 'quote:m:**', 'quote::b', 'quote:m:**']]);
   });
 
   it('styles inline Markdown inside a block after its marker', () => {
@@ -83,7 +87,7 @@ describe('parseComposerMarkdown blocks', () => {
   });
 
   it('keeps empty lines', () => {
-    assert.deepStrictEqual(showBlocks('# a\n\nb'), [['h1:m:# ', 'h1::a'], [], ['paragraph::b']]);
+    assert.deepStrictEqual(showBlocks('# a\n\nb'), [['h1:b:# ', 'h1::a'], [], ['paragraph::b']]);
   });
 });
 

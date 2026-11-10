@@ -124,7 +124,7 @@ describe('ComposerPromptEditor Markdown styling', () => {
 
 describe('ComposerPromptEditor Marker reveal', () => {
   const activeMarkers = (): readonly string[] =>
-    [...editable().querySelectorAll('[data-md-role="marker"][data-md-active]')].map(
+    [...editable().querySelectorAll('[data-md-line][data-md-active]')].map(
       element => `${element.getAttribute('data-md-line')}:${element.textContent}`,
     );
 
@@ -151,6 +151,26 @@ describe('ComposerPromptEditor Marker reveal', () => {
     editable().blur();
     await waitFor(() => {
       assert.deepStrictEqual(activeMarkers(), []);
+    });
+  });
+
+  it('reveals a line-leading marker only while the caret is on its line', async () => {
+    mount('> q\nplain');
+    await waitFor(() => {
+      assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
+    });
+    editable().focus();
+    lexicalEditor().update(() => {
+      $getRoot().getAllTextNodes().at(2)?.select(0, 0);
+    });
+    await waitFor(() => {
+      assert.deepStrictEqual(activeMarkers(), []);
+    });
+    lexicalEditor().update(() => {
+      $getRoot().getAllTextNodes().at(1)?.select(0, 0);
+    });
+    await waitFor(() => {
+      assert.deepStrictEqual(activeMarkers(), ['0:> ']);
     });
   });
 });

@@ -115,8 +115,8 @@ The user switched a Provider off: no running backend, hidden from pickers, runti
 _Avoid_: unavailable, stopped (process state)
 
 **Launch target availability**:
-For each enabled launch target, whether the user can pick it now or why not, shown as a disabled picker row with the reason. A Provider's own reason (**Unavailable**: CLI missing, no runtime, download failed) outranks the backend harness's (Bootstrap phase not `usable`, Config option index not yet loaded, bootstrap failure). Whether a Backend harness can take session RPCs at an action boundary is a separate, narrower question and is not this.
-_Avoid_: ready, usable (unqualified), picker state
+For each enabled launch target, whether the user can pick it now or the reason it cannot. Where both the Provider (**Unavailable**) and its Backend harness (still starting, models not loaded, bootstrap failed) give a reason, the Provider's is shown.
+_Avoid_: picker state
 
 **Unavailable**:
 An enabled Provider that cannot launch (CLI not on PATH, no Active runtime, failed download). Stays visible in pickers as a disabled row with a reason.

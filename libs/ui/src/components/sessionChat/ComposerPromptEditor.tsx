@@ -9,16 +9,20 @@ import Box from '@mui/material/Box';
 import {
   $createLineBreakNode,
   $createParagraphNode,
-  $createTextNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
+  BLUR_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
+  COMMAND_PRIORITY_LOW,
   defineExtension,
   DELETE_CHARACTER_COMMAND,
+  FOCUS_COMMAND,
+  HISTORY_MERGE_TAG,
   KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_LEFT_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_ESCAPE_COMMAND,
@@ -32,13 +36,19 @@ import type { FC, JSX, RefObject } from 'react';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
-import type { ComposerSegment } from './composerCommandTokens.ts';
-import { isWhitespace, mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+import { isWhitespace } from './composerCommandTokens.ts';
 import {
   $createComposerMarkdownLinkNode,
   $isComposerMarkdownLinkNode,
   ComposerMarkdownLinkNode,
 } from './ComposerMarkdownLinkNode.tsx';
+import {
+  $createComposerMarkdownTextNode,
+  $readComposerTextStyle,
+  ComposerMarkdownTextNode,
+} from './ComposerMarkdownTextNode.ts';
+import { buildComposerPieces, composerPiecesEqual } from './composerPieces.ts';
+import type { ComposerPiece } from './composerPieces.ts';
 
 const $isComposerChipNode = (
   node: LexicalNode | null | undefined,
@@ -157,41 +167,35 @@ export type ComposerPromptEditorProps = {
 
 const lexicalTheme: EditorThemeClasses = {
   paragraph: 'composer-prompt-editor__paragraph',
+  text: {
+    bold: 'composer-md-bold',
+    code: 'composer-md-code',
+    italic: 'composer-md-italic',
+    strikethrough: 'composer-md-strike',
+  },
 };
 
 const onError = (error: Error): void => {
   console.error(error);
 };
 
-const $appendTextWithBreaks = (parent: LexicalNode & { append: (...nodes: LexicalNode[]) => void }, text: string) => {
-  const parts = text.split('\n');
-  parts.forEach((part, index) => {
-    if (part.length > 0) {
-      parent.append($createTextNode(part));
-    }
-    if (index < parts.length - 1) {
-      parent.append($createLineBreakNode());
-    }
-  });
-};
-
-const $readEditorSegments = (): readonly ComposerSegment[] => {
-  const segments: ComposerSegment[] = [];
+const $readEditorPieces = (): readonly ComposerPiece[] => {
+  const pieces: ComposerPiece[] = [];
   const visit = (node: LexicalNode): void => {
     if ($isComposerCommandNode(node)) {
-      segments.push({ kind: 'command', value: node.getInvocation() });
+      pieces.push({ kind: 'command', value: node.getInvocation() });
       return;
     }
     if ($isComposerMarkdownLinkNode(node)) {
-      segments.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
+      pieces.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
       return;
     }
     if ($isTextNode(node)) {
-      segments.push({ kind: 'text', value: node.getTextContent() });
+      pieces.push({ kind: 'text', style: $readComposerTextStyle(node), value: node.getTextContent() });
       return;
     }
     if (node.getType() === 'linebreak') {
-      segments.push({ kind: 'text', value: '\n' });
+      pieces.push({ kind: 'linebreak' });
       return;
     }
     const element = node as LexicalNode & { getChildren?: () => LexicalNode[] };
@@ -202,46 +206,31 @@ const $readEditorSegments = (): readonly ComposerSegment[] => {
     }
   };
   visit($getRoot());
-  return mergeAdjacentTextSegments(segments);
-};
-
-const segmentsEqual = (left: readonly ComposerSegment[], right: readonly ComposerSegment[]): boolean => {
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    const segment = left[index];
-    const other = right[index];
-    if (segment.kind !== other.kind) {
-      return false;
-    }
-    if (segment.kind === 'text' || segment.kind === 'command') {
-      if (other.kind !== segment.kind || segment.value !== other.value) {
-        return false;
-      }
-    } else if (other.kind !== 'markdownLink' || segment.label !== other.label || segment.href !== other.href) {
-      return false;
-    }
-  }
-  return true;
+  return pieces;
 };
 
 const $setComposerContent = (text: string, availableCommands: readonly AvailableCommand[]): void => {
   const root = $getRoot();
   root.clear();
   const paragraph = $createParagraphNode();
-  const segments = splitComposerCommandSegments(text, availableCommands);
-  if (segments.length === 0) {
-    root.append(paragraph);
-    return;
-  }
-  for (const segment of segments) {
-    if (segment.kind === 'command') {
-      paragraph.append($createComposerCommandNode(segment.value));
-    } else if (segment.kind === 'markdownLink') {
-      paragraph.append($createComposerMarkdownLinkNode(segment.label, segment.href));
-    } else {
-      $appendTextWithBreaks(paragraph, segment.value);
+  for (const piece of buildComposerPieces(text, availableCommands)) {
+    switch (piece.kind) {
+      case 'command': {
+        paragraph.append($createComposerCommandNode(piece.value));
+        break;
+      }
+      case 'linebreak': {
+        paragraph.append($createLineBreakNode());
+        break;
+      }
+      case 'markdownLink': {
+        paragraph.append($createComposerMarkdownLinkNode(piece.label, piece.href));
+        break;
+      }
+      case 'text': {
+        paragraph.append($createComposerMarkdownTextNode(piece.value, piece.style));
+        break;
+      }
     }
   }
   root.append(paragraph);
@@ -498,19 +487,20 @@ const EscapePlugin: FC<{ readonly onEscape: () => void }> = ({ onEscape }) => {
   return null;
 };
 
+/** Re-derives chips and Markdown styling from the draft text whenever an edit leaves the nodes out of step with it. */
 const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[] }> = ({ availableCommands }) => {
   const [editor] = useLexicalComposerContext();
 
   useEffect(
     () =>
       editor.registerUpdateListener(({ editorState, tags }) => {
-        if (tags.has('chipify') || tags.has('external-sync')) {
+        // Rebuilding mid-composition would cancel an IME / dead-key sequence.
+        if (tags.has('chipify') || tags.has('external-sync') || editor.isComposing()) {
           return;
         }
         editorState.read(() => {
           const text = $getRoot().getTextContent();
-          const desired = splitComposerCommandSegments(text, availableCommands);
-          if (segmentsEqual(desired, $readEditorSegments())) {
+          if (composerPiecesEqual(buildComposerPieces(text, availableCommands), $readEditorPieces())) {
             return;
           }
           const { cursor } = $getLogicalCursorAndAdjacency();
@@ -519,12 +509,219 @@ const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[
               $setComposerContent(text, availableCommands);
               $setLogicalCursor(cursor);
             },
-            { tag: 'chipify' },
+            // History-merge keeps the rebuild in the same undo step as the keystroke that caused it.
+            { tag: ['chipify', HISTORY_MERGE_TAG] },
           );
         });
       }),
     [availableCommands, editor],
   );
+
+  return null;
+};
+
+/** Span ids (see `ComposerTextStyle.span`) whose opening-to-closing marker range holds the selection's anchor or focus. */
+const $activeMarkerSpans = (): ReadonlySet<string> => {
+  const active = new Set<string>();
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) {
+    return active;
+  }
+  const nodes = $getRoot().getAllTextNodes();
+  const keys = nodes.map(node => node.getKey());
+  const ends = [selection.anchor.getNode().getKey(), selection.focus.getNode().getKey()].map(key => keys.indexOf(key));
+  const opened = new Map<string, number>();
+  nodes.forEach((node, index) => {
+    const { span } = $readComposerTextStyle(node);
+    if (span === '') {
+      return;
+    }
+    const openedAt = opened.get(span);
+    if (openedAt === undefined) {
+      opened.set(span, index);
+    } else if (ends.some(end => end >= openedAt && end <= index)) {
+      active.add(span);
+    }
+  });
+  return active;
+};
+
+/** Marker reveal: inline markers show only while the caret is inside their span and the editor is focused. */
+const MarkerRevealPlugin: FC = () => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const reveal = (): void => {
+      const root = editor.getRootElement();
+      if (root === null) {
+        return;
+      }
+      const focused = root.ownerDocument.activeElement === root;
+      const active = focused ? editor.getEditorState().read($activeMarkerSpans) : new Set<string>();
+      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-span]')) {
+        marker.toggleAttribute('data-md-active', active.has(marker.dataset.mdSpan ?? ''));
+      }
+    };
+    const onFocusChange = (): boolean => {
+      reveal();
+      return false;
+    };
+    reveal();
+    const unregister = [
+      editor.registerUpdateListener(reveal),
+      editor.registerCommand(FOCUS_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
+      editor.registerCommand(BLUR_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
+    ];
+    return () => {
+      for (const dispose of unregister) {
+        dispose();
+      }
+    };
+  }, [editor]);
+
+  return null;
+};
+
+/** A `#`, `>`, or bullet marker, which Markdown styling never shows (ordered numbers do show). */
+const $isHiddenBlockMarker = (node: LexicalNode | null | undefined): node is TextNode => {
+  if (!$isTextNode(node)) {
+    return false;
+  }
+  const { block, role } = $readComposerTextStyle(node);
+  return role === 'blockMarker' && block !== 'ordered';
+};
+
+/** The hidden block marker a collapsed caret sits right after (the visible start of its line's content), if any. */
+const $hiddenMarkerBeforeCaret = (): TextNode | null => {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || !selection.isCollapsed() || selection.anchor.type !== 'text') {
+    return null;
+  }
+  const node = selection.anchor.getNode();
+  if ($isHiddenBlockMarker(node) && selection.anchor.offset === node.getTextContentSize()) {
+    return node;
+  }
+  const prev = node.getPreviousSibling();
+  return selection.anchor.offset === 0 && $isHiddenBlockMarker(prev) ? prev : null;
+};
+
+/** The quote marker starting the line `node` is on, if that line is a quote. */
+const $quoteMarkerOfCaretLine = (node: LexicalNode): TextNode | null => {
+  let found: TextNode | null = null;
+  for (
+    let sibling: LexicalNode | null = node;
+    sibling !== null && sibling.getType() !== 'linebreak';
+    sibling = sibling.getPreviousSibling()
+  ) {
+    if ($isTextNode(sibling) && $isHiddenBlockMarker(sibling) && $readComposerTextStyle(sibling).block === 'quote') {
+      found = sibling;
+    }
+  }
+  return found;
+};
+
+/** Whether anything but the marker (text or a chip) follows it on its line. */
+const $lineHasContentAfter = (marker: TextNode): boolean => {
+  for (
+    let sibling = marker.getNextSibling();
+    sibling !== null && sibling.getType() !== 'linebreak';
+    sibling = sibling.getNextSibling()
+  ) {
+    if (sibling.getTextContentSize() > 0) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * Hidden block markers are invisible, so keep the caret out of them: it snaps to the start of the line's content,
+ * ArrowLeft there goes to the end of the previous line, and Backspace there removes the marker.
+ */
+const BlockMarkerCaretPlugin: FC = () => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const unregister = [
+      editor.registerUpdateListener(({ editorState }) => {
+        const inside = editorState.read(() => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection) || !selection.isCollapsed() || selection.anchor.type !== 'text') {
+            return null;
+          }
+          const node = selection.anchor.getNode();
+          return $isHiddenBlockMarker(node) && selection.anchor.offset < node.getTextContentSize()
+            ? node.getKey()
+            : null;
+        });
+        if (inside !== null) {
+          editor.update(
+            () => {
+              const node = $getRoot()
+                .getAllTextNodes()
+                .find(candidate => candidate.getKey() === inside);
+              node?.select(node.getTextContentSize(), node.getTextContentSize());
+            },
+            { tag: ['md-caret', HISTORY_MERGE_TAG] },
+          );
+        }
+      }),
+      editor.registerCommand(
+        KEY_ARROW_LEFT_COMMAND,
+        event => {
+          const marker = event.shiftKey ? null : $hiddenMarkerBeforeCaret();
+          if (marker === null) {
+            return false;
+          }
+          event.preventDefault();
+          marker.getPreviousSibling()?.selectPrevious();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      // Shift+Enter in a quote continues it; on an empty quote line it leaves the quote instead.
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        event => {
+          const selection = $getSelection();
+          if (event === null || !event.shiftKey || !$isRangeSelection(selection) || !selection.isCollapsed()) {
+            return false;
+          }
+          const marker = $quoteMarkerOfCaretLine(selection.anchor.getNode());
+          if (marker === null) {
+            return false;
+          }
+          event.preventDefault();
+          if ($lineHasContentAfter(marker)) {
+            selection.insertLineBreak();
+            selection.insertText(marker.getTextContent());
+          } else {
+            marker.remove();
+          }
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        DELETE_CHARACTER_COMMAND,
+        isBackward => {
+          const marker = isBackward ? $hiddenMarkerBeforeCaret() : null;
+          if (marker === null) {
+            return false;
+          }
+          marker.selectNext(0, 0);
+          marker.remove();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+    ];
+    return () => {
+      for (const dispose of unregister) {
+        dispose();
+      }
+    };
+  }, [editor]);
 
   return null;
 };
@@ -666,7 +863,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       editable: true,
       name: 'ComposerPromptEditor',
       namespace: 'ComposerPromptEditor',
-      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode],
+      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode, ComposerMarkdownTextNode],
       onError,
       theme: lexicalTheme,
     }),
@@ -695,6 +892,42 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           '& .composer-prompt-editor__paragraph': {
             m: 0,
           },
+          // Markdown styling: inline markers show only while the caret is in their span; block markers never do (ordered numbers and fences do).
+          '& .composer-md-strike': { textDecoration: 'line-through' },
+          '& .composer-md-code, & [data-md-block="codeBlock"]': {
+            bgcolor: 'action.hover',
+            borderRadius: 0.5,
+            fontFamily: 'monospace',
+            fontSize: '0.8125rem',
+          },
+          '& [data-md-role="marker"], & [data-md-role="blockMarker"], & [data-md-role="fence"]': {
+            color: 'text.disabled',
+          },
+          '& [data-md-role="marker"]:not([data-md-active]), & [data-md-role="blockMarker"]:not([data-md-block="ordered"])':
+            {
+              fontSize: 0,
+            },
+          '& [data-md-block="quote"]': { color: 'text.secondary' },
+          '& [data-md-block="quote"][data-md-role="blockMarker"]::before': {
+            bgcolor: 'divider',
+            content: '""',
+            display: 'inline-block',
+            // Exactly one line box tall (0.875rem × 1.43), aligned to its top, so stacked quote lines join up.
+            height: '1.25125rem',
+            mr: 1,
+            verticalAlign: 'top',
+            width: 3,
+          },
+          '& [data-md-block="bullet"][data-md-role="blockMarker"]::before': {
+            color: 'text.secondary',
+            content: '"•"',
+            fontSize: '0.875rem',
+            mr: 1,
+          },
+          '& [data-md-block="h1"]': { fontSize: '1.4em', fontWeight: 700 },
+          '& [data-md-block="h2"]': { fontSize: '1.25em', fontWeight: 700 },
+          '& [data-md-block="h3"]': { fontSize: '1.1em', fontWeight: 700 },
+          '& [data-md-block="h4"], & [data-md-block="h5"], & [data-md-block="h6"]': { fontWeight: 700 },
           '& .composer-prompt-editor__placeholder': {
             color: 'text.secondary',
             fontSize: '0.875rem',
@@ -730,7 +963,9 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         />
       </Box>
       <HistoryPlugin />
+      {/* The chipify rebuild is history-merge tagged; it must still report (adjacentToToken closes the menu). */}
       <OnChangePlugin
+        ignoreHistoryMergeTagChange={false}
         onChange={editorState => {
           editorState.read(() => {
             const text = $getRoot().getTextContent();
@@ -749,6 +984,8 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       <EditablePlugin disabled={disabled} />
       {focusEndRef === undefined ? null : <FocusEndApiPlugin focusEndRef={focusEndRef} />}
       <ChipifyPlugin availableCommands={availableCommands} />
+      <MarkerRevealPlugin />
+      <BlockMarkerCaretPlugin />
       <ChipDeletePlugin />
       {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />

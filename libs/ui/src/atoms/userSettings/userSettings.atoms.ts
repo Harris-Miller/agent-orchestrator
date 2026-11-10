@@ -9,7 +9,6 @@ import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
 import {
-  midTurnSendMode,
   midTurnSendModeAtom,
   showArchivedAtom,
   showArchivedEnabled,
@@ -18,7 +17,7 @@ import {
 } from './userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 
-export { midTurnSendMode, showArchivedEnabled, unwrapUserSettings };
+export { showArchivedEnabled, unwrapUserSettings };
 export type { MidTurnSend };
 
 type AtomRuntime = HostRuntimeBag['atomRuntime'];

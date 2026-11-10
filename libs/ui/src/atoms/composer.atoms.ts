@@ -8,7 +8,7 @@
  *   `attachComposerImagesAtomFn` adds images that finish later (Host FileDialog or absolute image paths, see
  *   {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
  *   `submitComposerAtomFn` performs the current Composer action when it is Send or Steering, otherwise does nothing.
- *   While a Steering is offered, its argument picks Steering or Queue (default: the `midTurnSend` User setting).
+ *   While Steering is offered, its argument picks Steering or Queue (default: the `midTurnSend` User setting).
  *   `unqueueComposerAtomFn` puts the Queued message back into the draft. Prompt turn cancel stays `cancelPromptAtomFn`,
  *   which un-queues first (see {@link unqueueSessionDraft}).
  *
@@ -105,7 +105,7 @@ export type Composer = ComposerGates & {
   /** From the Selected Session, or the Bound Virtual session. */
   readonly availableCommands: readonly AvailableCommand[];
   readonly draft: string;
-  /** What a Steering offered right now does by default (the `midTurnSend` User setting). */
+  /** What Steering, when offered, does by default (the `midTurnSend` User setting). */
   readonly midTurnSend: MidTurnSend;
   /** The Selected Session's Queued message; `undefined` with none (always for Virtual). */
   readonly queued: Draft | undefined;
@@ -236,10 +236,12 @@ const takeSessionDraft = (registry: Registry, sessionId: string): Draft => {
 };
 
 /** `first` ahead of `then`: attachments concatenated, text newline-joined. */
-const mergeDrafts = (first: Draft, then: Draft): Draft => ({
-  attachments: [...first.attachments, ...then.attachments],
+const mergeDrafts = (first: Draft, second: Draft): Draft => ({
+  attachments: [...first.attachments, ...second.attachments],
   draft:
-    first.draft.length === 0 || then.draft.length === 0 ? first.draft + then.draft : `${first.draft}\n${then.draft}`,
+    first.draft.length === 0 || second.draft.length === 0
+      ? first.draft + second.draft
+      : `${first.draft}\n${second.draft}`,
 });
 
 /** Put a failed Steering, refused Send or unqueued message back into its Session's draft, ahead of anything typed since. */
@@ -251,11 +253,11 @@ const restoreSessionDraft = (registry: Registry, sessionId: string, taken: Draft
   setSessionDraft(registry, sessionId, merged);
 };
 
-/** Add `taken` to the Session's Queued message; true when the slot was empty (the caller then owns sending it). */
-const queueSessionDraft = (registry: Registry, sessionId: string, taken: Draft): boolean => {
+/** Add `taken` to the Session's Queued message; `'Started'` when the slot was empty (the caller then owns sending it). */
+const queueSessionDraft = (registry: Registry, sessionId: string, taken: Draft): 'Merged' | 'Started' => {
   const queued = registry.get(sessionQueuedAtom(sessionId));
   registry.set(sessionQueuedAtom(sessionId), queued === undefined ? taken : mergeDrafts(queued, taken));
-  return queued === undefined;
+  return queued === undefined ? 'Started' : 'Merged';
 };
 
 /** Read and clear the Session's Queued message in one synchronous step. */
@@ -384,7 +386,7 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         yield* Effect.annotateCurrentSpan('composer.action', action._tag);
         if (action._tag === 'Steer' && (mode ?? midTurnSend) === 'queue') {
           yield* Effect.annotateCurrentSpan('composer.midTurnSend', 'queue');
-          if (queueSessionDraft(registry, sessionId, taken)) {
+          if (queueSessionDraft(registry, sessionId, taken) === 'Started') {
             yield* sendQueued(registry, launchTarget, sessionId);
           }
           return;

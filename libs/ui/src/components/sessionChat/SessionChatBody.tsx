@@ -97,6 +97,7 @@ const formatActivationDefect = (defect: unknown): string => {
 
 /** The Send button's icon for each mid-turn send; the Send options menu item shows the same one. */
 const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
+const MID_TURN_SEND_LABEL = { queue: 'Queue', steer: 'Steer' } as const;
 
 const SessionChatBodyInner: FC<{
   readonly aboveComposer?: ReactNode;
@@ -356,7 +357,7 @@ const SessionChatBodyInner: FC<{
     action._tag === 'CancelTurn'
       ? { ariaLabel: 'Prompt turn cancel', disabled: false }
       : action._tag === 'Steer'
-        ? { ariaLabel: midTurnSend === 'queue' ? 'Queue' : 'Steer', disabled: false }
+        ? { ariaLabel: MID_TURN_SEND_LABEL[midTurnSend], disabled: false }
         : { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: action._tag !== 'Send' };
 
   const replyToElicitation = (reply: ElicitationReply) => {
@@ -646,8 +647,13 @@ const SessionChatBodyInner: FC<{
             {queued === undefined ? null : (
               <Box sx={{ alignItems: 'center', color: 'text.secondary', display: 'flex', gap: 1 }}>
                 <Typography noWrap sx={{ flexGrow: 1 }} variant="body2">
-                  Queued: {queued.draft.trim()}
-                  {queued.attachments.length > 0 ? ` (${String(queued.attachments.length)} image(s))` : ''}
+                  Queued:{' '}
+                  {[
+                    queued.draft.trim(),
+                    queued.attachments.length > 0 ? `(${String(queued.attachments.length)} image(s))` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 </Typography>
                 <Button
                   disabled={!canEdit}
@@ -784,7 +790,7 @@ const SessionChatBodyInner: FC<{
                     <ListItemIcon>
                       <LucideMuiIcon fontSize="small" icon={MID_TURN_SEND_ICON[otherMidTurnSend]} />
                     </ListItemIcon>
-                    <ListItemText>{otherMidTurnSend === 'queue' ? 'Queue' : 'Steer'}</ListItemText>
+                    <ListItemText>{MID_TURN_SEND_LABEL[otherMidTurnSend]}</ListItemText>
                   </MenuItem>
                 ) : null}
                 <MenuItem

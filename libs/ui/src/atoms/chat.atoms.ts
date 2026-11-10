@@ -27,7 +27,7 @@ export type ElicitationReply =
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
-  /** Prompt turn cancel (see the Prompt turn module; it un-queues the Session's Queued message), traced under the turn's prompt span. */
+  /** Prompt turn cancel (see the Prompt turn module), un-queuing the Session's Queued message first; traced under the turn's prompt span. */
   const cancelPromptAtomFn = atomRuntime
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) => {
       const parent = getPromptSpan(arg.launchTarget, arg.sessionId);

@@ -1,4 +1,4 @@
-# Queue one message per Session while a Steering is offered
+# Queue one message per Session while Steering is offered
 
 Partially supersedes [ADR-0018](0018-steer-in-flight-turn-never-queue.md), which rejected a client-side prompt queue.
 

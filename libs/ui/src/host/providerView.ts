@@ -113,7 +113,7 @@ export const PROVIDER_META = {
     runtime: undefined,
     signIn: { _tag: 'Cli', command: 'cursor-agent login', hint: 'Run cursor-agent login in a terminal.' },
   },
-} satisfies Record<AgentLaunchTarget, ProviderMeta>;
+} as const satisfies Record<AgentLaunchTarget, ProviderMeta>;
 
 export const runtimeDirLabel = (id: AgentLaunchTarget, version: string): string =>
   providerDisplayPath(id, providerRuntimeRelativeDir(version));

@@ -156,6 +156,14 @@ _Avoid_: slash palette entry, skill definition (when you mean this list item)
 An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Menu (agent-specific rules for where `/` and `$` may start; `@` is whitespace-bounded and opens from `@` alone).
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
+**Markdown styling**:
+The Composer's live view of Markdown in the draft: bold, italic, strikethrough, inline code, headings, quotes, lists, and fenced code are shown styled as they are typed or pasted. The draft text is unchanged and stays the only source; styling is derived from it, and Command Chips and Markdown Link Chips are never restyled.
+_Avoid_: rich text, WYSIWYG, formatting (when you mean this view), Markdown mode
+
+**Marker reveal**:
+Markdown styling hides Markdown syntax characters (`**`, `# `, `> `, list bullets) except on the caret's line, where they show as typed. Fence lines always show.
+_Avoid_: source mode, marker toggle
+
 **Composer Menu**:
 The floating list opened by a Composer Trigger — Available Commands for `/` and `$`, or filesystem paths for `@`. Choosing an item replaces the Composer Trigger under the caret; if the caret is no longer in a matching Trigger, choosing only closes the menu.
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)

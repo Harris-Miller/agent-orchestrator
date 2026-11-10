@@ -9,15 +9,18 @@ import Box from '@mui/material/Box';
 import {
   $createLineBreakNode,
   $createParagraphNode,
-  $createTextNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
+  BLUR_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
+  COMMAND_PRIORITY_LOW,
   defineExtension,
   DELETE_CHARACTER_COMMAND,
+  FOCUS_COMMAND,
+  HISTORY_MERGE_TAG,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ENTER_COMMAND,
@@ -32,13 +35,19 @@ import type { FC, JSX, RefObject } from 'react';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
-import type { ComposerSegment } from './composerCommandTokens.ts';
-import { isWhitespace, mergeAdjacentTextSegments, splitComposerCommandSegments } from './composerCommandTokens.ts';
+import { isWhitespace } from './composerCommandTokens.ts';
 import {
   $createComposerMarkdownLinkNode,
   $isComposerMarkdownLinkNode,
   ComposerMarkdownLinkNode,
 } from './ComposerMarkdownLinkNode.tsx';
+import {
+  $createComposerMarkdownTextNode,
+  $readComposerTextStyle,
+  ComposerMarkdownTextNode,
+} from './ComposerMarkdownTextNode.ts';
+import { buildComposerPieces, composerPiecesEqual } from './composerPieces.ts';
+import type { ComposerPiece } from './composerPieces.ts';
 
 const $isComposerChipNode = (
   node: LexicalNode | null | undefined,
@@ -157,41 +166,35 @@ export type ComposerPromptEditorProps = {
 
 const lexicalTheme: EditorThemeClasses = {
   paragraph: 'composer-prompt-editor__paragraph',
+  text: {
+    bold: 'composer-md-bold',
+    code: 'composer-md-code',
+    italic: 'composer-md-italic',
+    strikethrough: 'composer-md-strike',
+  },
 };
 
 const onError = (error: Error): void => {
   console.error(error);
 };
 
-const $appendTextWithBreaks = (parent: LexicalNode & { append: (...nodes: LexicalNode[]) => void }, text: string) => {
-  const parts = text.split('\n');
-  parts.forEach((part, index) => {
-    if (part.length > 0) {
-      parent.append($createTextNode(part));
-    }
-    if (index < parts.length - 1) {
-      parent.append($createLineBreakNode());
-    }
-  });
-};
-
-const $readEditorSegments = (): readonly ComposerSegment[] => {
-  const segments: ComposerSegment[] = [];
+const $readEditorPieces = (): readonly ComposerPiece[] => {
+  const pieces: ComposerPiece[] = [];
   const visit = (node: LexicalNode): void => {
     if ($isComposerCommandNode(node)) {
-      segments.push({ kind: 'command', value: node.getInvocation() });
+      pieces.push({ kind: 'command', value: node.getInvocation() });
       return;
     }
     if ($isComposerMarkdownLinkNode(node)) {
-      segments.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
+      pieces.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
       return;
     }
     if ($isTextNode(node)) {
-      segments.push({ kind: 'text', value: node.getTextContent() });
+      pieces.push({ kind: 'text', style: $readComposerTextStyle(node), value: node.getTextContent() });
       return;
     }
     if (node.getType() === 'linebreak') {
-      segments.push({ kind: 'text', value: '\n' });
+      pieces.push({ kind: 'linebreak' });
       return;
     }
     const element = node as LexicalNode & { getChildren?: () => LexicalNode[] };
@@ -202,46 +205,31 @@ const $readEditorSegments = (): readonly ComposerSegment[] => {
     }
   };
   visit($getRoot());
-  return mergeAdjacentTextSegments(segments);
-};
-
-const segmentsEqual = (left: readonly ComposerSegment[], right: readonly ComposerSegment[]): boolean => {
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    const segment = left[index];
-    const other = right[index];
-    if (segment.kind !== other.kind) {
-      return false;
-    }
-    if (segment.kind === 'text' || segment.kind === 'command') {
-      if (other.kind !== segment.kind || segment.value !== other.value) {
-        return false;
-      }
-    } else if (other.kind !== 'markdownLink' || segment.label !== other.label || segment.href !== other.href) {
-      return false;
-    }
-  }
-  return true;
+  return pieces;
 };
 
 const $setComposerContent = (text: string, availableCommands: readonly AvailableCommand[]): void => {
   const root = $getRoot();
   root.clear();
   const paragraph = $createParagraphNode();
-  const segments = splitComposerCommandSegments(text, availableCommands);
-  if (segments.length === 0) {
-    root.append(paragraph);
-    return;
-  }
-  for (const segment of segments) {
-    if (segment.kind === 'command') {
-      paragraph.append($createComposerCommandNode(segment.value));
-    } else if (segment.kind === 'markdownLink') {
-      paragraph.append($createComposerMarkdownLinkNode(segment.label, segment.href));
-    } else {
-      $appendTextWithBreaks(paragraph, segment.value);
+  for (const piece of buildComposerPieces(text, availableCommands)) {
+    switch (piece.kind) {
+      case 'command': {
+        paragraph.append($createComposerCommandNode(piece.value));
+        break;
+      }
+      case 'linebreak': {
+        paragraph.append($createLineBreakNode());
+        break;
+      }
+      case 'markdownLink': {
+        paragraph.append($createComposerMarkdownLinkNode(piece.label, piece.href));
+        break;
+      }
+      case 'text': {
+        paragraph.append($createComposerMarkdownTextNode(piece.value, piece.style));
+        break;
+      }
     }
   }
   root.append(paragraph);
@@ -498,19 +486,20 @@ const EscapePlugin: FC<{ readonly onEscape: () => void }> = ({ onEscape }) => {
   return null;
 };
 
+/** Re-derives chips and Markdown styling from the draft text whenever an edit leaves the nodes out of step with it. */
 const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[] }> = ({ availableCommands }) => {
   const [editor] = useLexicalComposerContext();
 
   useEffect(
     () =>
       editor.registerUpdateListener(({ editorState, tags }) => {
-        if (tags.has('chipify') || tags.has('external-sync')) {
+        // Rebuilding mid-composition would cancel an IME / dead-key sequence.
+        if (tags.has('chipify') || tags.has('external-sync') || editor.isComposing()) {
           return;
         }
         editorState.read(() => {
           const text = $getRoot().getTextContent();
-          const desired = splitComposerCommandSegments(text, availableCommands);
-          if (segmentsEqual(desired, $readEditorSegments())) {
+          if (composerPiecesEqual(buildComposerPieces(text, availableCommands), $readEditorPieces())) {
             return;
           }
           const { cursor } = $getLogicalCursorAndAdjacency();
@@ -519,12 +508,54 @@ const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[
               $setComposerContent(text, availableCommands);
               $setLogicalCursor(cursor);
             },
-            { tag: 'chipify' },
+            // History-merge keeps the rebuild in the same undo step as the keystroke that caused it.
+            { tag: ['chipify', HISTORY_MERGE_TAG] },
           );
         });
       }),
     [availableCommands, editor],
   );
+
+  return null;
+};
+
+/** Marker reveal: syntax markers show only on the caret's line while the editor is focused. */
+const MarkerRevealPlugin: FC = () => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const reveal = (): void => {
+      const root = editor.getRootElement();
+      if (root === null) {
+        return;
+      }
+      const focused = root.ownerDocument.activeElement === root;
+      const caretLine = focused
+        ? editor.getEditorState().read(() => {
+            const { cursor } = $getLogicalCursorAndAdjacency();
+            return $getRoot().getTextContent().slice(0, cursor).split('\n').length - 1;
+          })
+        : -1;
+      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-role="marker"]')) {
+        marker.toggleAttribute('data-md-active', marker.dataset.mdLine === String(caretLine));
+      }
+    };
+    const onFocusChange = (): boolean => {
+      reveal();
+      return false;
+    };
+    reveal();
+    const unregister = [
+      editor.registerUpdateListener(reveal),
+      editor.registerCommand(FOCUS_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
+      editor.registerCommand(BLUR_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
+    ];
+    return () => {
+      for (const dispose of unregister) {
+        dispose();
+      }
+    };
+  }, [editor]);
 
   return null;
 };
@@ -666,7 +697,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       editable: true,
       name: 'ComposerPromptEditor',
       namespace: 'ComposerPromptEditor',
-      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode],
+      nodes: [ComposerCommandNode, ComposerMarkdownLinkNode, ComposerMarkdownTextNode],
       onError,
       theme: lexicalTheme,
     }),
@@ -695,6 +726,36 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           '& .composer-prompt-editor__paragraph': {
             m: 0,
           },
+          // Markdown styling: markers hide (zero size) off the caret's line; ordered numbers and fences always show.
+          '& .composer-md-strike': { textDecoration: 'line-through' },
+          '& .composer-md-code, & [data-md-block="codeBlock"]': {
+            bgcolor: 'action.hover',
+            borderRadius: 0.5,
+            fontFamily: 'monospace',
+            fontSize: '0.8125rem',
+          },
+          '& [data-md-role="marker"], & [data-md-role="fence"]': { color: 'text.disabled' },
+          '& [data-md-role="marker"]:not([data-md-active], [data-md-block="ordered"])': { fontSize: 0 },
+          '& [data-md-block="quote"]': { color: 'text.secondary' },
+          '& [data-md-block="quote"][data-md-role="marker"]:not([data-md-active])::before': {
+            bgcolor: 'divider',
+            content: '""',
+            display: 'inline-block',
+            height: 18,
+            mr: 1,
+            verticalAlign: 'text-bottom',
+            width: 3,
+          },
+          '& [data-md-block="bullet"][data-md-role="marker"]:not([data-md-active])::before': {
+            color: 'text.secondary',
+            content: '"•"',
+            fontSize: '0.875rem',
+            mr: 1,
+          },
+          '& [data-md-block="h1"]': { fontSize: '1.4em', fontWeight: 700 },
+          '& [data-md-block="h2"]': { fontSize: '1.25em', fontWeight: 700 },
+          '& [data-md-block="h3"]': { fontSize: '1.1em', fontWeight: 700 },
+          '& [data-md-block="h4"], & [data-md-block="h5"], & [data-md-block="h6"]': { fontWeight: 700 },
           '& .composer-prompt-editor__placeholder': {
             color: 'text.secondary',
             fontSize: '0.875rem',
@@ -749,6 +810,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       <EditablePlugin disabled={disabled} />
       {focusEndRef === undefined ? null : <FocusEndApiPlugin focusEndRef={focusEndRef} />}
       <ChipifyPlugin availableCommands={availableCommands} />
+      <MarkerRevealPlugin />
       <ChipDeletePlugin />
       {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />

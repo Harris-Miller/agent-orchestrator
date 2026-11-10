@@ -4,24 +4,22 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Cause, Option } from 'effect';
-import { AsyncResult } from 'effect/reactivity';
 import type { FC, ReactNode } from 'react';
 
-import { classifyValue, MAX_DEPTH, MAX_ITEMS } from '../../atoms/atomValue.ts';
-import type { AtomValueKind } from '../../atoms/atomValue.ts';
+import {
+  asyncResultState,
+  bigintText,
+  classifyValue,
+  constructorName,
+  dateIso,
+  functionName,
+  hiddenCount,
+  hiddenItemsText,
+  limitItems,
+  MAX_DEPTH,
+} from '../../atoms/atomValue.ts';
+import type { ClassifiedValue } from '../../atoms/atomValue.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
-
-const INLINE_KINDS: ReadonlySet<AtomValueKind> = new Set([
-  'bigint',
-  'boolean',
-  'date',
-  'function',
-  'null',
-  'number',
-  'string',
-  'symbol',
-  'undefined',
-]);
 
 const monoSx = { fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem', wordBreak: 'break-all' } as const;
 
@@ -64,65 +62,71 @@ const Row: FC<{ readonly children: ReactNode; readonly label: ReactNode }> = ({ 
   </Stack>
 );
 
-/** First {@link MAX_ITEMS} items with their position; position is the identity of a snapshot row. */
+/** First items with their position; position is the identity of a snapshot row. */
 const indexed = <A,>(items: readonly A[]): readonly { readonly index: number; readonly item: A }[] =>
-  items.slice(0, MAX_ITEMS).map((item, index) => ({ index, item }));
+  limitItems(items).shown.map((item, index) => ({ index, item }));
 
 const More: FC<{ readonly total: number }> = ({ total }) =>
-  total > MAX_ITEMS ? <Mono muted>{`… ${total - MAX_ITEMS} more`}</Mono> : null;
+  hiddenCount(total) > 0 ? <Mono muted>{hiddenItemsText(hiddenCount(total))}</Mono> : null;
 
-const inlineText = (value: unknown, kind: AtomValueKind): string => {
-  switch (kind) {
+/** One-line text for kinds shown inline; undefined for containers. */
+const inlineText = (classified: ClassifiedValue): string | undefined => {
+  switch (classified.kind) {
     case 'string':
-      return `"${String(value)}"`;
+      return `"${classified.value}"`;
     case 'date':
-      return Number.isNaN((value as Date).getTime()) ? 'Invalid Date' : (value as Date).toISOString();
+      return dateIso(classified.value);
     case 'function':
-      return `ƒ ${(value as { name: string }).name || 'anonymous'}`;
+      return `ƒ ${functionName(classified.value)}`;
     case 'bigint':
-      return `${String(value)}n`;
+      return bigintText(classified.value);
+    case 'boolean':
+    case 'null':
+    case 'number':
+    case 'symbol':
+    case 'undefined':
+      return String(classified.value);
     default:
-      return String(value);
+      return undefined;
   }
 };
 
 /** Short one-line text for a collapsed row, or undefined when the kind has no useful one-liner. */
 export const atomValuePreview = (value: unknown): string | undefined => {
-  const kind = classifyValue(value);
-  if (!INLINE_KINDS.has(kind)) {
-    return undefined;
-  }
-  const text = inlineText(value, kind);
-  return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  const text = inlineText(classifyValue(value));
+  return text !== undefined && text.length > 60 ? `${text.slice(0, 60)}…` : text;
 };
 
 export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknown }> = ({ depth = 0, value }) => {
-  const kind = classifyValue(value);
+  const classified = classifyValue(value);
   const next = depth + 1;
-  if (INLINE_KINDS.has(kind)) {
-    if (kind === 'boolean') {
-      return <Chip color={value === true ? 'success' : 'default'} label={String(value)} size="small" />;
+  const text = inlineText(classified);
+  if (text !== undefined) {
+    if (classified.kind === 'boolean') {
+      return <Chip color={classified.value ? 'success' : 'default'} label={text} size="small" />;
     }
     return (
-      <Mono muted={kind === 'null' || kind === 'undefined' || kind === 'function'}>{inlineText(value, kind)}</Mono>
+      <Mono muted={classified.kind === 'null' || classified.kind === 'undefined' || classified.kind === 'function'}>
+        {text}
+      </Mono>
     );
   }
   if (depth >= MAX_DEPTH) {
     return <Mono muted>…</Mono>;
   }
-  switch (kind) {
+  switch (classified.kind) {
     case 'option':
-      return Option.isSome(value as Option.Option<unknown>) ? (
+      return Option.isSome(classified.value) ? (
         <Stack direction="row" spacing={1} useFlexGap>
           <Chip label="Some" size="small" />
-          <AtomValueView depth={next} value={(value as Option.Some<unknown>).value} />
+          <AtomValueView depth={next} value={classified.value.value} />
         </Stack>
       ) : (
         <Chip label="None" size="small" variant="outlined" />
       );
     case 'async-result': {
-      const result = value as AsyncResult.AsyncResult<unknown, unknown>;
-      const state = AsyncResult.isInitial(result) ? 'Initial' : AsyncResult.isSuccess(result) ? 'Success' : 'Failure';
+      const result = classified.value;
+      const state = asyncResultState(result);
       return (
         <Stack spacing={0.5}>
           <Stack direction="row" spacing={0.5} useFlexGap>
@@ -133,19 +137,17 @@ export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknow
             />
             {result.waiting ? <Chip label="waiting" size="small" variant="outlined" /> : null}
           </Stack>
-          {AsyncResult.isSuccess(result) ? <AtomValueView depth={next} value={result.value} /> : null}
-          {AsyncResult.isFailure(result) ? <Pre>{Cause.pretty(result.cause)}</Pre> : null}
+          {result._tag === 'Success' ? <AtomValueView depth={next} value={result.value} /> : null}
+          {result._tag === 'Failure' ? <Pre>{Cause.pretty(result.cause)}</Pre> : null}
         </Stack>
       );
     }
     case 'cause':
-      return <Pre>{Cause.pretty(value as Cause.Cause<unknown>)}</Pre>;
-    case 'error': {
-      const { message, name } = value as Error;
-      return <Mono>{`${name}: ${message}`}</Mono>;
-    }
+      return <Pre>{Cause.pretty(classified.value)}</Pre>;
+    case 'error':
+      return <Mono>{`${classified.value.name}: ${classified.value.message}`}</Mono>;
     case 'array': {
-      const items = value as readonly unknown[];
+      const items = classified.value;
       if (items.length === 0) {
         return <Mono muted>[]</Mono>;
       }
@@ -161,7 +163,7 @@ export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknow
       );
     }
     case 'set': {
-      const items = [...(value as ReadonlySet<unknown>)];
+      const items = [...classified.value];
       return (
         <Group depth={depth} summary={`Set(${items.length})`}>
           {indexed(items).map(({ index, item }) => (
@@ -172,7 +174,7 @@ export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknow
       );
     }
     case 'map': {
-      const entries = [...(value as ReadonlyMap<unknown, unknown>)];
+      const entries = [...classified.value];
       return (
         <Group depth={depth} summary={`Map(${entries.length})`}>
           {indexed(entries).map(({ index, item: [key, entry] }) => (
@@ -184,14 +186,18 @@ export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknow
         </Group>
       );
     }
-    default: {
-      const entries = Object.entries(value as object);
+    case 'object': {
+      const entries = Object.entries(classified.value);
+      const name = constructorName(classified.value);
       if (entries.length === 0) {
-        return <Mono muted>{'{}'}</Mono>;
+        return <Mono muted>{`${name ?? ''}{}`}</Mono>;
       }
       return (
-        <Group depth={depth} summary={`{…} ${entries.length} ${entries.length === 1 ? 'key' : 'keys'}`}>
-          {entries.slice(0, MAX_ITEMS).map(([key, entry]) => (
+        <Group
+          depth={depth}
+          summary={`${name === undefined ? '' : `${name} `}{…} ${entries.length} ${entries.length === 1 ? 'key' : 'keys'}`}
+        >
+          {indexed(entries).map(({ item: [key, entry] }) => (
             <Row key={key} label={key}>
               <AtomValueView depth={next} value={entry} />
             </Row>
@@ -200,5 +206,7 @@ export const AtomValueView: FC<{ readonly depth?: number; readonly value: unknow
         </Group>
       );
     }
+    default:
+      return null;
   }
 };

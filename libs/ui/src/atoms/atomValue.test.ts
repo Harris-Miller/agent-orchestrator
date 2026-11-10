@@ -29,7 +29,7 @@ describe('classifyValue', () => {
       [Object.create(null), 'object'],
     ];
     for (const [value, kind] of cases) {
-      assert.strictEqual(classifyValue(value), kind);
+      assert.strictEqual(classifyValue(value).kind, kind);
     }
   });
 });
@@ -79,6 +79,14 @@ describe('toJsonSafe', () => {
     const failure = toJsonSafe(AsyncResult.fail('nope'));
     assert.strictEqual((failure as { state: string }).state, 'Failure');
     assert.include((failure as { cause: string }).cause, 'nope');
+  });
+
+  it('escapes user keys starting with $ so they cannot be mistaken for tags', () => {
+    class Point {
+      readonly x = 1;
+    }
+    assert.deepStrictEqual(toJsonSafe({ $type: 'Map', $other: 1, ok: 2 }), { $$other: 1, $$type: 'Map', ok: 2 });
+    assert.deepStrictEqual(toJsonSafe(new Point()), { $type: 'Point', x: 1 });
   });
 
   it('marks circular references but keeps repeated non-circular ones', () => {

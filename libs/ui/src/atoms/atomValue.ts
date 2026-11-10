@@ -7,102 +7,147 @@ import { isRecord } from '../isRecord.ts';
 export const MAX_DEPTH = 8;
 export const MAX_ITEMS = 100;
 
-export type AtomValueKind =
-  | 'array'
-  | 'async-result'
-  | 'bigint'
-  | 'boolean'
-  | 'cause'
-  | 'date'
-  | 'error'
-  | 'function'
-  | 'map'
-  | 'null'
-  | 'number'
-  | 'object'
-  | 'option'
-  | 'set'
-  | 'string'
-  | 'symbol'
-  | 'undefined';
+/** An Atom value tagged with the kind that decides how it is shown; narrowing on `kind` types `value`. */
+export type ClassifiedValue =
+  | { readonly kind: 'array'; readonly value: readonly unknown[] }
+  | { readonly kind: 'async-result'; readonly value: AsyncResult.AsyncResult<unknown, unknown> }
+  | { readonly kind: 'bigint'; readonly value: bigint }
+  | { readonly kind: 'boolean'; readonly value: boolean }
+  | { readonly kind: 'cause'; readonly value: Cause.Cause<unknown> }
+  | { readonly kind: 'date'; readonly value: Date }
+  | { readonly kind: 'error'; readonly value: Error }
+  | { readonly kind: 'function'; readonly value: { readonly name: string } }
+  | { readonly kind: 'map'; readonly value: ReadonlyMap<unknown, unknown> }
+  | { readonly kind: 'null'; readonly value: null }
+  | { readonly kind: 'number'; readonly value: number }
+  | { readonly kind: 'object'; readonly value: object }
+  | { readonly kind: 'option'; readonly value: Option.Option<unknown> }
+  | { readonly kind: 'set'; readonly value: ReadonlySet<unknown> }
+  | { readonly kind: 'string'; readonly value: string }
+  | { readonly kind: 'symbol'; readonly value: symbol }
+  | { readonly kind: 'undefined'; readonly value: undefined };
+
+export type AtomValueKind = ClassifiedValue['kind'];
 
 export type JsonValue = boolean | number | string | JsonValue[] | { [key: string]: JsonValue } | null;
 
-export const classifyValue = (value: unknown): AtomValueKind => {
+export const classifyValue = (value: unknown): ClassifiedValue => {
   if (value === null) {
-    return 'null';
+    return { kind: 'null', value };
   }
-  const type = typeof value;
-  if (type !== 'object') {
-    return type;
+  switch (typeof value) {
+    case 'bigint':
+      return { kind: 'bigint', value };
+    case 'boolean':
+      return { kind: 'boolean', value };
+    case 'function':
+      return { kind: 'function', value };
+    case 'number':
+      return { kind: 'number', value };
+    case 'string':
+      return { kind: 'string', value };
+    case 'symbol':
+      return { kind: 'symbol', value };
+    case 'undefined':
+      return { kind: 'undefined', value };
+    default:
+      break;
   }
   if (Option.isOption(value)) {
-    return 'option';
+    return { kind: 'option', value };
   }
   if (AsyncResult.isAsyncResult(value)) {
-    return 'async-result';
+    return { kind: 'async-result', value };
   }
   if (Cause.isCause(value)) {
-    return 'cause';
+    return { kind: 'cause', value };
   }
   if (Array.isArray(value)) {
-    return 'array';
+    return { kind: 'array', value: value as readonly unknown[] };
   }
   if (value instanceof Map) {
-    return 'map';
+    return { kind: 'map', value: value as ReadonlyMap<unknown, unknown> };
   }
   if (value instanceof Set) {
-    return 'set';
+    return { kind: 'set', value: value as ReadonlySet<unknown> };
   }
   if (value instanceof Date) {
-    return 'date';
+    return { kind: 'date', value };
   }
   if (value instanceof Error) {
-    return 'error';
+    return { kind: 'error', value };
   }
-  return 'object';
+  return { kind: 'object', value: value as object };
 };
 
-const capped = <A, B>(items: readonly A[], f: (item: A) => B): (B | string)[] => {
-  const out: (B | string)[] = items.slice(0, MAX_ITEMS).map(f);
-  if (items.length > MAX_ITEMS) {
-    out.push(`[… ${items.length - MAX_ITEMS} more]`);
+/** How many of `total` items {@link MAX_ITEMS} leaves out. */
+export const hiddenCount = (total: number): number => Math.max(0, total - MAX_ITEMS);
+
+/** First {@link MAX_ITEMS} items and how many were left out. */
+export const limitItems = <A>(items: readonly A[]): { readonly hidden: number; readonly shown: readonly A[] } => ({
+  hidden: hiddenCount(items.length),
+  shown: items.slice(0, MAX_ITEMS),
+});
+
+export const hiddenItemsText = (hidden: number): string => `[… ${hidden} more]`;
+
+export const bigintText = (value: bigint): string => `${String(value)}n`;
+
+export const functionName = (value: { readonly name: string }): string => value.name || 'anonymous';
+
+export const dateIso = (value: Date): string => (Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString());
+
+export const asyncResultState = (
+  result: AsyncResult.AsyncResult<unknown, unknown>,
+): 'Failure' | 'Initial' | 'Success' => {
+  if (AsyncResult.isInitial(result)) {
+    return 'Initial';
   }
-  return out;
+  return AsyncResult.isSuccess(result) ? 'Success' : 'Failure';
 };
 
-const constructorName = (value: object): string | undefined => {
+/** Class name of a non-plain object, else undefined. */
+export const constructorName = (value: object): string | undefined => {
   const prototype: unknown = Object.getPrototypeOf(value);
   const constructor = isRecord(prototype) ? prototype.constructor : undefined;
   return typeof constructor === 'function' && constructor.name !== 'Object' ? constructor.name : undefined;
+};
+
+/** Keys starting with `$` get one more `$`, so a user key can never collide with a `$type` tag. */
+export const escapeKey = (key: string): string => (key.startsWith('$') ? `$${key}` : key);
+
+const capped = <A, B>(items: readonly A[], f: (item: A) => B): (B | string)[] => {
+  const { hidden, shown } = limitItems(items);
+  const out: (B | string)[] = shown.map(f);
+  if (hidden > 0) {
+    out.push(hiddenItemsText(hidden));
+  }
+  return out;
 };
 
 const asyncResultJson = (
   result: AsyncResult.AsyncResult<unknown, unknown>,
   walk: (child: unknown) => JsonValue,
 ): JsonValue => {
-  const base = { $type: 'AsyncResult', waiting: result.waiting };
-  if (AsyncResult.isInitial(result)) {
-    return { ...base, state: 'Initial' };
-  }
+  const base = { $type: 'AsyncResult', state: asyncResultState(result), waiting: result.waiting };
   if (AsyncResult.isSuccess(result)) {
-    return { ...base, state: 'Success', value: walk(result.value) };
+    return { ...base, value: walk(result.value) };
   }
-  return { ...base, cause: Cause.pretty(result.cause), state: 'Failure' };
+  return AsyncResult.isFailure(result) ? { ...base, cause: Cause.pretty(result.cause) } : base;
 };
 
 const objectJson = (value: object, walk: (child: unknown) => JsonValue): JsonValue => {
-  const entries = Object.entries(value);
+  const { hidden, shown } = limitItems(Object.entries(value));
   const out: Record<string, JsonValue> = {};
   const name = constructorName(value);
   if (name !== undefined) {
     out.$type = name;
   }
-  for (const [key, child] of entries.slice(0, MAX_ITEMS)) {
-    out[key] = walk(child);
+  for (const [key, child] of shown) {
+    out[escapeKey(key)] = walk(child);
   }
-  if (entries.length > MAX_ITEMS) {
-    out['…'] = `${entries.length - MAX_ITEMS} more`;
+  if (hidden > 0) {
+    out['…'] = `${hidden} more`;
   }
   return out;
 };
@@ -111,22 +156,23 @@ const objectJson = (value: object, walk: (child: unknown) => JsonValue): JsonVal
 export const toJsonSafe = (value: unknown): JsonValue => {
   const ancestors = new Set<unknown>();
   const walk = (current: unknown, depth: number): JsonValue => {
-    switch (classifyValue(current)) {
+    const classified = classifyValue(current);
+    switch (classified.kind) {
       case 'null':
         return null;
       case 'boolean':
       case 'string':
-        return current as boolean | string;
+        return classified.value;
       case 'number':
-        return Number.isFinite(current) ? (current as number) : String(current);
+        return Number.isFinite(classified.value) ? classified.value : String(classified.value);
       case 'bigint':
-        return `${String(current)}n`;
+        return bigintText(classified.value);
       case 'symbol':
-        return String(current);
+        return String(classified.value);
       case 'undefined':
         return '[undefined]';
       case 'function':
-        return `[Function ${(current as { name: string }).name || 'anonymous'}]`;
+        return `[Function ${functionName(classified.value)}]`;
       default:
         break;
     }
@@ -139,34 +185,27 @@ export const toJsonSafe = (value: unknown): JsonValue => {
     ancestors.add(current);
     try {
       const child = (next: unknown): JsonValue => walk(next, depth + 1);
-      switch (classifyValue(current)) {
+      switch (classified.kind) {
         case 'option':
-          return Option.isSome(current as Option.Option<unknown>)
-            ? { $type: 'Some', value: child((current as Option.Some<unknown>).value) }
+          return Option.isSome(classified.value)
+            ? { $type: 'Some', value: child(classified.value.value) }
             : { $type: 'None' };
         case 'async-result':
-          return asyncResultJson(current as AsyncResult.AsyncResult<unknown, unknown>, child);
+          return asyncResultJson(classified.value, child);
         case 'cause':
-          return { $type: 'Cause', pretty: Cause.pretty(current as Cause.Cause<unknown>) };
+          return { $type: 'Cause', pretty: Cause.pretty(classified.value) };
         case 'array':
-          return capped(current as unknown[], child);
+          return capped(classified.value, child);
         case 'map':
-          return {
-            $type: 'Map',
-            entries: capped([...(current as Map<unknown, unknown>)], ([k, v]) => [child(k), child(v)]),
-          };
+          return { $type: 'Map', entries: capped([...classified.value], ([k, v]) => [child(k), child(v)]) };
         case 'set':
-          return { $type: 'Set', values: capped([...(current as Set<unknown>)], child) };
-        case 'date': {
-          const time = (current as Date).getTime();
-          return { $type: 'Date', iso: Number.isNaN(time) ? 'Invalid Date' : new Date(time).toISOString() };
-        }
-        case 'error': {
-          const { message, name } = current as Error;
-          return { $type: 'Error', message, name };
-        }
-        default:
-          return objectJson(current as object, child);
+          return { $type: 'Set', values: capped([...classified.value], child) };
+        case 'date':
+          return { $type: 'Date', iso: dateIso(classified.value) };
+        case 'error':
+          return { $type: 'Error', message: classified.value.message, name: classified.value.name };
+        case 'object':
+          return objectJson(classified.value, child);
       }
     } finally {
       ancestors.delete(current);

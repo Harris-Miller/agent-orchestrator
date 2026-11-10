@@ -26,6 +26,18 @@ describe('listAtoms', () => {
     );
   });
 
+  it('keeps labels unique so a label addresses exactly one atom', () => {
+    const registry = AtomRegistry.make();
+    registry.get(labeled(1, 'dup'));
+    registry.get(labeled(2, 'dup'));
+    registry.get(labeled(3, 'dup'));
+
+    assert.deepStrictEqual(
+      listAtoms(registry).map(({ label }) => label),
+      ['dup', 'dup (2)', 'dup (3)'],
+    );
+  });
+
   it('names unlabeled atoms from the export-name lookup, else anonymously', () => {
     const registry = AtomRegistry.make();
     const exported = Atom.make('x').pipe(Atom.keepAlive);

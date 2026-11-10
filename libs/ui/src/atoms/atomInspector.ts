@@ -50,23 +50,33 @@ const anonymousId = (atom: object): number => {
   return anonymousCount;
 };
 
+/** Second and later Atoms sharing a label get ` (n)`, so a label addresses exactly one Atom. */
+const uniqueLabels = (entries: readonly AtomEntry[]): readonly AtomEntry[] => {
+  const seen = new Map<string, number>();
+  return entries.map(entry => {
+    const count = (seen.get(entry.label) ?? 0) + 1;
+    seen.set(entry.label, count);
+    return count === 1 ? entry : { ...entry, label: `${entry.label} (${count})` };
+  });
+};
+
 /** Reads node values without computing or subscribing, so inspecting never keeps an Atom alive. */
 export const listAtoms = (
   registry: AtomRegistry.AtomRegistry,
   nameOf: AtomNameOf = () => undefined,
 ): readonly AtomEntry[] =>
-  [...registry.getNodes().values()]
-    .map((node: AtomRegistry.Node<unknown>): AtomEntry => {
+  uniqueLabels(
+    [...registry.getNodes().values()].map((node: AtomRegistry.Node<unknown>): AtomEntry => {
       const value = node.valueOption();
       return {
         computed: Option.isSome(value),
         keepAlive: node.atom.keepAlive,
-        kind: Option.isSome(value) ? classifyValue(value.value) : 'uncomputed',
+        kind: Option.isSome(value) ? classifyValue(value.value).kind : 'uncomputed',
         label: node.atom.label?.[0] ?? nameOf(node.atom) ?? `anonymous#${anonymousId(node.atom)}`,
         value: Option.getOrUndefined(value),
       };
-    })
-    .toSorted((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    }),
+  ).toSorted((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 
 /** Puts the bridge on `target` (never replaced if a newer install exists on dispose). Returns dispose. */
 export const installDevStateBridge = (

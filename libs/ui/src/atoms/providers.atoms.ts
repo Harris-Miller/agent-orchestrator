@@ -246,7 +246,7 @@ export const createProvidersAtoms = (
    * User-requested Download, in the background: resolves latest when no Check ran, installs into its own directory,
    * and never stops the provider. The first Download activates automatically and then starts the backend once.
    */
-  const downloadAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+  const downloadAtomFn = Atom.family((familyTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
         Effect.fn('downloadAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
@@ -276,11 +276,11 @@ export const createProvidersAtoms = (
           }
         }),
       )
-      .pipe(Atom.keepAlive),
+      .pipe(Atom.withLabel(`downloadAtomFn:${familyTarget}`), Atom.keepAlive),
   );
 
   /** Install the downloaded update: publish active, await the local stop, bootstrap once, delete superseded dirs. */
-  const installAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+  const installAtomFn = Atom.family((familyTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
         Effect.fn('installAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
@@ -313,11 +313,11 @@ export const createProvidersAtoms = (
           );
         }),
       )
-      .pipe(Atom.keepAlive),
+      .pipe(Atom.withLabel(`installAtomFn:${familyTarget}`), Atom.keepAlive),
   );
 
   /** Remove: no active runtime, stop, delete every runtime directory. Credentials and the enable preference stay. */
-  const removeAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+  const removeAtomFn = Atom.family((familyTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
         Effect.fn('removeAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
@@ -336,11 +336,11 @@ export const createProvidersAtoms = (
           );
         }),
       )
-      .pipe(Atom.keepAlive),
+      .pipe(Atom.withLabel(`removeAtomFn:${familyTarget}`), Atom.keepAlive),
   );
 
   /** Enable starts once; Disable awaits the actual process exit and leaves runtime files on disk. */
-  const setProviderEnabledAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+  const setProviderEnabledAtomFn = Atom.family((familyTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
         Effect.fn('setProviderEnabledAtomFn', { root: true })(function* (
@@ -362,11 +362,11 @@ export const createProvidersAtoms = (
           yield* harness.stopAndReconcile(launchTarget, get);
         }),
       )
-      .pipe(Atom.keepAlive),
+      .pipe(Atom.withLabel(`setProviderEnabledAtomFn:${familyTarget}`), Atom.keepAlive),
   );
 
   /** Disruptive Recheck: re-read requirements, then restart the backend once. */
-  const recheckAtomFn = Atom.family((_launchTarget: AgentLaunchTarget) =>
+  const recheckAtomFn = Atom.family((familyTarget: AgentLaunchTarget) =>
     atomRuntime
       .fn(
         Effect.fn('recheckAtomFn', { root: true })(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
@@ -377,7 +377,7 @@ export const createProvidersAtoms = (
           }
         }),
       )
-      .pipe(Atom.keepAlive),
+      .pipe(Atom.withLabel(`recheckAtomFn:${familyTarget}`), Atom.keepAlive),
   );
 
   return {

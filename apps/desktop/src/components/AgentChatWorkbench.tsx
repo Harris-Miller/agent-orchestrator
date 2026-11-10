@@ -7,7 +7,7 @@ import {
   DeveloperPanelShell,
   ensureVirtualSessionAtomFn,
   IconTooltipButton,
-  isRecord,
+  isFiniteNumberArray,
   PANEL_HEADER_HEIGHT,
   selectedAtom,
   selectedSessionAtom,
@@ -15,13 +15,14 @@ import {
   SessionHeader,
   ToggleDeveloperPanelButton,
   useDeveloperPanelOpen,
+  usePersistedLayout,
   virtualMaterializingAtom,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
@@ -43,47 +44,22 @@ const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
   sessionStateOpen: true,
 };
 
-const isFiniteNumberArray = (value: unknown, length: number): value is number[] =>
-  Array.isArray(value) &&
-  value.length === length &&
-  value.every(item => typeof item === 'number' && Number.isFinite(item));
-
-const loadWorkbenchLayout = (): WorkbenchLayout => {
-  try {
-    const raw = localStorage.getItem(WORKBENCH_LAYOUT_KEY);
-    if (raw == null) {
-      return DEFAULT_WORKBENCH_LAYOUT;
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) {
-      return DEFAULT_WORKBENCH_LAYOUT;
-    }
-    return {
-      horizontalSizes: isFiniteNumberArray(parsed.horizontalSizes, 3) ? parsed.horizontalSizes : undefined,
-      sessionHistoryOpen:
-        typeof parsed.sessionHistoryOpen === 'boolean'
-          ? parsed.sessionHistoryOpen
-          : DEFAULT_WORKBENCH_LAYOUT.sessionHistoryOpen,
-      sessionStateOpen:
-        typeof parsed.sessionStateOpen === 'boolean'
-          ? parsed.sessionStateOpen
-          : DEFAULT_WORKBENCH_LAYOUT.sessionStateOpen,
-      verticalSizes: isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
-    };
-  } catch {
-    return DEFAULT_WORKBENCH_LAYOUT;
-  }
-};
-
-const saveWorkbenchLayout = (layout: WorkbenchLayout): void => {
-  localStorage.setItem(WORKBENCH_LAYOUT_KEY, JSON.stringify(layout));
-};
+const parseWorkbenchLayout = (raw: Record<string, unknown>): WorkbenchLayout => ({
+  horizontalSizes: isFiniteNumberArray(raw.horizontalSizes, 3) ? raw.horizontalSizes : undefined,
+  sessionHistoryOpen:
+    typeof raw.sessionHistoryOpen === 'boolean' ? raw.sessionHistoryOpen : DEFAULT_WORKBENCH_LAYOUT.sessionHistoryOpen,
+  sessionStateOpen:
+    typeof raw.sessionStateOpen === 'boolean' ? raw.sessionStateOpen : DEFAULT_WORKBENCH_LAYOUT.sessionStateOpen,
+  verticalSizes: isFiniteNumberArray(raw.verticalSizes, 2) ? raw.verticalSizes : undefined,
+});
 
 export const AgentChatWorkbench: FC<{
   readonly onClientError: (error: unknown) => void;
 }> = ({ onClientError }) => {
-  const [layout, setLayout] = useState(loadWorkbenchLayout);
-  const layoutRef = useRef(layout);
+  const { commit: commitLayout, layout } = usePersistedLayout({
+    key: WORKBENCH_LAYOUT_KEY,
+    parse: parseWorkbenchLayout,
+  });
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: developerPanelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const selected = useAtomValue(selectedAtom);
@@ -97,15 +73,6 @@ export const AgentChatWorkbench: FC<{
       ensureVirtualSession(undefined).catch(() => undefined);
     }
   }, [selected, virtualMaterializing, ensureVirtualSession]);
-
-  const commitLayout = (patch: Partial<WorkbenchLayout>, rerender = true) => {
-    const next = { ...layoutRef.current, ...patch };
-    layoutRef.current = next;
-    saveWorkbenchLayout(next);
-    if (rerender) {
-      setLayout(next);
-    }
-  };
 
   return (
     <Box

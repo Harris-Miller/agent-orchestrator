@@ -13,14 +13,13 @@ import { sessionHistorySearchAtom } from '../../atoms/sessionHistorySearch.atoms
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
+import { sessionEntryKey } from '../../host/sessionEntryKey.ts';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { ConfirmSessionDeleteDialog } from './ConfirmSessionDeleteDialog.tsx';
 import { filterSessionHistoryMatches } from './filterSessionHistoryMatches.ts';
 import { VirtualSearchResults } from './VirtualSearchResults.tsx';
 import { SessionHistoryRow } from './SessionHistoryRow.tsx';
 import { useSessionDeleteRequest } from './useSessionDeleteRequest.ts';
-
-const keyOf = (entry: UnifiedHistoryEntry) => `${entry.launchTarget}:${entry.sessionId}`;
 
 export const useSessionHistorySearch = ({
   entries,
@@ -50,14 +49,14 @@ export const useSessionHistorySearch = ({
   const available = matches.filter(({ entry }) =>
     isSessionHistoryEntryAvailable(entry, phases.find(phase => phase.launchTarget === entry.launchTarget)?.phase),
   );
-  const eligibleKeys = available.map(({ entry }) => keyOf(entry)).join('\n');
+  const eligibleKeys = available.map(({ entry }) => sessionEntryKey(entry)).join('\n');
   const [cursor, setCursor] = useState({ query: '', eligibleKeys: '', index: 0 });
   if (cursor.query !== query || cursor.eligibleKeys !== eligibleKeys) {
     setCursor({ query, eligibleKeys, index: 0 });
   }
   const highlightedIndex = cursor.query === query && cursor.eligibleKeys === eligibleKeys ? cursor.index : 0;
   const highlighted = available[highlightedIndex] ?? available[0];
-  const highlightedKey = highlighted === undefined ? undefined : keyOf(highlighted.entry);
+  const highlightedKey = highlighted === undefined ? undefined : sessionEntryKey(highlighted.entry);
   const clear = () => {
     setQuery('');
     inputRef.current?.focus();
@@ -135,11 +134,11 @@ export const useSessionHistorySearch = ({
         resetKey={`${scope}:${query}:${eligibleKeys}:${highlightedIndex}`}
         renderRow={(entry, positions, onInteractionChange) => (
           <SessionHistoryRow
-            onInteractionChange={active => onInteractionChange(keyOf(entry), active)}
+            onInteractionChange={active => onInteractionChange(sessionEntryKey(entry), active)}
             caption={caption?.(entry)}
             entry={entry}
             selected={selectedSessionId === entry.sessionId}
-            highlighted={highlighted !== undefined && keyOf(highlighted.entry) === keyOf(entry)}
+            highlighted={highlighted !== undefined && sessionEntryKey(highlighted.entry) === sessionEntryKey(entry)}
             positions={positions}
             onActivate={() => setQuery('')}
             onClientError={onClientError}

@@ -15,6 +15,7 @@ import {
   unifiedSessionHistoryAtom,
   useSessionHistorySearch,
   visibleSessionHistoryAtom,
+  withoutPinned,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -54,8 +55,7 @@ export const SessionHistory: FC = () => {
   // Providers may ignore sessions/list cwd; group/sort like desktop, show only this workspace.
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
   const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);
-  const pinnedKeys = new Set(pinnedSessions.map(entry => `${entry.launchTarget}:${entry.sessionId}`));
-  const sessions = workspaceSessions.filter(entry => !pinnedKeys.has(`${entry.launchTarget}:${entry.sessionId}`));
+  const sessions = withoutPinned(workspaceSessions, pinnedSessions);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, px: 1, pb: 1 }}>

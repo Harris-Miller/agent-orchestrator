@@ -15,6 +15,7 @@ import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts
 import { ImageAttachmentRejected } from '../host/composerImageAttachment.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
+import { createChatAtoms } from './chat.atoms.ts';
 import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
 import type { ComposerImageSource } from './composer.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
@@ -838,6 +839,36 @@ describe('Queue: a Queued message is sent as a new Prompt turn once the in-fligh
       yield* settle;
       assert.deepStrictEqual(h.calls, ['steer:s1']);
       assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: true, text: 'now' }]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Prompt turn cancel puts the Queued message back into the draft before the turn ends', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      const { cancelPromptAtomFn } = createChatAtoms(createHostRuntime(mockHostLayer));
+      h.registry.mount(cancelPromptAtomFn);
+      h.startSubmit('queue');
+      yield* settle;
+
+      yield* Effect.exit(runAtomFn(h.registry, cancelPromptAtomFn, { launchTarget: CODEX, sessionId: 's1' }));
+      yield* endTurn(h);
+
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Queue does nothing when Steering is not supported: the draft stays', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      updateHarnessSnapshot(h.registry, CODEX, current => ({ ...current, agentCapabilities: NO_AGENT_CAPABILITIES }));
+
+      h.startSubmit('queue');
+      yield* settle;
+
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
     }).pipe(Effect.scoped),
   );
 });

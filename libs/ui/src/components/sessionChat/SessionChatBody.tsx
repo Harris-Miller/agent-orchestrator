@@ -12,7 +12,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { ArrowUp, ChevronDown, Paperclip, Square } from 'lucide-react';
+import { ArrowUp, ChevronDown, ListEnd, Paperclip, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
@@ -644,10 +644,11 @@ const SessionChatBodyInner: FC<{
             {queued === undefined ? null : (
               <Box sx={{ alignItems: 'center', color: 'text.secondary', display: 'flex', gap: 1 }}>
                 <Typography noWrap sx={{ flexGrow: 1 }} variant="body2">
-                  Queued:{' '}
-                  {queued.draft.trim().length > 0 ? queued.draft : `${String(queued.attachments.length)} image(s)`}
+                  Queued: {queued.draft.trim()}
+                  {queued.attachments.length > 0 ? ` (${String(queued.attachments.length)} image(s))` : ''}
                 </Typography>
                 <Button
+                  disabled={!canEdit}
                   onClick={() => {
                     unqueueMessage().catch(onClientError);
                   }}
@@ -725,6 +726,7 @@ const SessionChatBodyInner: FC<{
                 <Button
                   aria-label={primaryButton.ariaLabel}
                   disabled={primaryButton.disabled}
+                  title={primaryButton.ariaLabel}
                   onClick={
                     action._tag === 'CancelTurn'
                       ? event => {
@@ -749,7 +751,10 @@ const SessionChatBodyInner: FC<{
                   ) : sendPending ? (
                     <CircularProgress color="inherit" size={18} />
                   ) : (
-                    <LucideMuiIcon fontSize="small" icon={ArrowUp} />
+                    <LucideMuiIcon
+                      fontSize="small"
+                      icon={action._tag === 'Steer' && midTurnSend === 'queue' ? ListEnd : ArrowUp}
+                    />
                   )}
                 </Button>
                 <Button
@@ -772,7 +777,7 @@ const SessionChatBodyInner: FC<{
                 onClose={() => {
                   setSendContextMenu(null);
                 }}
-                open={sendContextMenu !== null}
+                open={sendContextMenu !== null && action._tag === 'Steer'}
               >
                 <MenuItem
                   onClick={() => {

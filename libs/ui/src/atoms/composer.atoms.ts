@@ -9,7 +9,8 @@
  *   {@link ComposerImageSource}) and fails with `ImageAttachmentRejected | FileDialogFailed`;
  *   `submitComposerAtomFn` performs the current Composer action when it is Send or Steering, otherwise does nothing.
  *   While a Steering is offered, its argument picks Steering or Queue (default: the `midTurnSend` User setting).
- *   `unqueueComposerAtomFn` puts the Queued message back into the draft. Prompt turn cancel stays `cancelPromptAtomFn`.
+ *   `unqueueComposerAtomFn` puts the Queued message back into the draft. Prompt turn cancel stays `cancelPromptAtomFn`,
+ *   which un-queues first (see {@link unqueueSessionDraft}).
  *
  * Invariants:
  * - Per-Session drafts are private here (single writer); the Virtual draft lives on the Virtual session blob and is
@@ -124,7 +125,7 @@ export type ComposerImageSource =
   /** Absolute image paths (an image Filesystem Mention, or image paths resolved from the draft). */
   | { readonly _tag: 'Paths'; readonly paths: readonly string[] };
 
-export type Draft = { readonly attachments: readonly ComposerImageAttachment[]; readonly draft: string };
+type Draft = { readonly attachments: readonly ComposerImageAttachment[]; readonly draft: string };
 
 const hasContent = ({ attachments, draft }: Draft): boolean => draft.trim().length > 0 || attachments.length > 0;
 
@@ -264,6 +265,14 @@ const takeQueued = (registry: Registry, sessionId: string): Draft | undefined =>
     registry.set(sessionQueuedAtom(sessionId), undefined);
   }
   return queued;
+};
+
+/** Put the Session's Queued message (if any) back into its draft. Prompt turn cancel and Edit both go through this. */
+export const unqueueSessionDraft = (registry: Registry, sessionId: string): void => {
+  const queued = takeQueued(registry, sessionId);
+  if (queued !== undefined) {
+    restoreSessionDraft(registry, sessionId, queued);
+  }
 };
 
 /** Wait for the turn to be over, then Send the Queued message (if it is still queued). */
@@ -417,10 +426,7 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
         if (target?._tag !== 'Session') {
           return;
         }
-        const queued = takeQueued(get.registry, target.sessionId);
-        if (queued !== undefined) {
-          restoreSessionDraft(get.registry, target.sessionId, queued);
-        }
+        unqueueSessionDraft(get.registry, target.sessionId);
       }),
     )
     .pipe(Atom.keepAlive);

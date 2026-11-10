@@ -15,7 +15,7 @@ The draft editor for the Selected target: text and Composer Image Attachments, k
 _Avoid_: chat input, prompt box, input bar
 
 **Composer action**:
-What submitting the Composer does right now: Send, Steering (or Queue, by the `midTurnSend` User setting), Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send or Steering, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
+What submitting the Composer does right now: Send, Steering (or Queue, by the `midTurnSend` User setting), Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send, Steering or Queue, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
 _Avoid_: primary button state, canSend, canSteer
 
 **Draft during turn**:
@@ -27,7 +27,7 @@ What the Send button and Enter do while a Steering is offered: Steering or Queue
 _Avoid_: Send mode, queue mode
 
 **Queued message**:
-The one message per Session moved out of the draft by Queue while a Steering is offered; sent as a new Prompt turn once the in-flight one is over. Shown as one row above the editor with an Edit action that moves it back into the draft. Prompt turn cancel returns it to the draft. In memory only (desktop ADR-0020).
+In the Composer: shown as one row above the editor with an Edit action that moves it back into the draft (defined in the desktop glossary; desktop ADR-0020).
 _Avoid_: Queued prompt, outbox, Send pending
 
 **Prompt turn**:

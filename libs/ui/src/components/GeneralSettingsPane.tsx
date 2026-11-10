@@ -24,6 +24,7 @@ import {
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
+import type { MidTurnSend } from '../atoms/userSettings/userSettings.atoms.ts';
 
 import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 
@@ -92,7 +93,7 @@ export const GeneralSettingsPane: FC = () => {
             aria-label="Send while an agent is working"
             disabled={editsDisabled}
             exclusive
-            onChange={(_event, value: 'queue' | 'steer' | null) => {
+            onChange={(_event, value: MidTurnSend | null) => {
               if (value !== null) {
                 setMidTurnSend(value);
               }

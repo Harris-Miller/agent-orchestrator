@@ -82,10 +82,8 @@ export const useSessionChatSurface = () => {
     if (target?._tag !== 'Session' || target.launchTarget === undefined || composer.action._tag !== 'CancelTurn') {
       return undefined;
     }
-    const { launchTarget, sessionId } = target;
-    // A Queued message must not auto-send after Stop: it goes back into the draft before the cancel is sent.
-    return unqueue(undefined).then(() => cancelPrompt({ launchTarget, sessionId }));
-  }, [cancelPrompt, composer.action._tag, target, unqueue]);
+    return cancelPrompt({ launchTarget: target.launchTarget, sessionId: target.sessionId });
+  }, [cancelPrompt, composer.action._tag, target]);
 
   const chatItems = useMemo(
     () => (isVirtual ? [] : (selectedSession?.transcript.items ?? [])),

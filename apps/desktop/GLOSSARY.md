@@ -191,7 +191,7 @@ _Avoid_: Stop generation (vendor-specific), abort session, Close (that is Deacti
 
 **Steering**:
 Harness action that injects a new user message into the in-flight prompt turn via `_session/steering` instead of waiting for the turn to end. Only offered when Steering supported and no pending interaction; the steered message joins the same turn (no turn timing of its own, shown with a Steering label). If the Agent reports no running turn (`promptRequired`), the Harness sends the draft as a new prompt turn once the ended turn's `session/prompt` response has arrived; if it does not arrive within a few seconds, the Steering fails. Distinct from a Queued message, which waits for the turn to end instead of joining it.
-_Avoid_: Queue, interrupt, follow-up message
+_Avoid_: interrupt, follow-up message (Queue is a different action: see Queued message)
 
 **Queued message**:
 The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; a context click on Send offers the other.

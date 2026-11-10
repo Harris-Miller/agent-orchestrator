@@ -20,7 +20,7 @@ import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { reconcileTrackedCwds, trackedCwdsAtom, trackedCwdsLoadedAtom } from '../atoms/trackedCwds.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { markHistoryUnavailable } from '../host/harnessStateTransitions.ts';
+import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
 export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ children }) => {
@@ -41,10 +41,9 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
               if (Exit.isFailure(historyRead)) {
                 yield* Effect.logWarning('session index hydrate failed', launchTarget, historyRead.cause);
               }
-              updateHarnessSnapshot(registry, launchTarget, current => ({
-                ...current,
-                sessionHistory: markHistoryUnavailable(history.sessions),
-              }));
+              updateHarnessSnapshot(registry, launchTarget, current =>
+                replaceSessionHistory(current, markHistoryUnavailable(history.sessions)),
+              );
               if (Exit.isSuccess(historyRead)) {
                 let writes = Promise.resolve();
                 let lastWritten = JSON.stringify(historyRead.value.sessions);

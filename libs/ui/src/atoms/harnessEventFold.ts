@@ -12,7 +12,6 @@ import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
@@ -20,7 +19,14 @@ import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { applyInitializeResult, historyAfterList, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
+import {
+  applyBootstrapPhase,
+  applyInitializeResult,
+  applySessionList,
+  reconcileConnectionLost,
+  recordRpcMessage,
+  setAntigravityAuthUrl,
+} from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
@@ -118,7 +124,7 @@ export const makeHarnessEventFold = ({
   return {
     hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
     onAntigravityAuthUrl: url => {
-      update(current => ({ ...current, antigravityAuthUrl: url }));
+      update(current => setAntigravityAuthUrl(current, url));
     },
     onConfigIndexEvent: event => {
       const previous = registry.get(configOptionIndexAtom(launchTarget));
@@ -152,14 +158,7 @@ export const makeHarnessEventFold = ({
       }));
     },
     onPhase: (phase, failure) => {
-      update(current => ({
-        ...current,
-        ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting'
-          ? { antigravityAuthUrl: undefined }
-          : {}),
-        failure,
-        phase,
-      }));
+      update(current => applyBootstrapPhase(current, phase, failure));
       if (phase === 'usable') {
         runFork(
           bindVirtualOnUsable(registry, launchTarget, refreshFsListing).pipe(
@@ -169,20 +168,15 @@ export const makeHarnessEventFold = ({
       }
     },
     onRpcMessage: (direction, message) => {
-      update(current => ({
-        ...current,
-        rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() }],
-      }));
+      const entry = { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() };
+      update(current => recordRpcMessage(current, entry));
     },
     onSessionHistoryRequest: () => {
       pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
     },
     onSessionHistoryResult: (listResult, scope) => {
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-      update(current => ({
-        ...current,
-        sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
-      }));
+      update(current => applySessionList(current, listResult, scope, boundSessionId));
       runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {

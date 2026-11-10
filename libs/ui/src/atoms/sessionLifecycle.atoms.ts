@@ -5,7 +5,6 @@ import { Atom } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySessionInfoTitle,
-  defectsFromActivationFailure,
   isSessionActiveOrActivating,
   isUsablePhase,
   normalizeConfigOptions,
@@ -18,23 +17,27 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import {
+  applyLoadedConfiguration,
+  applySessionList,
+  beginActivation,
   dropSession,
-  historyAfterList,
+  failActivation,
+  failUnarchive,
+  finishActivation,
+  markActivationCwdMissing,
   markSessionInactive,
   replaceSessionHistory,
   setSessionArchived,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { patchSession } from '../host/sessionSnapshot.ts';
 import type { SessionListScope } from '../host/sessionListScope.ts';
-import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
   closeSession,
-  createSession,
   deleteSession,
   forkSession,
   listSessions,
@@ -56,7 +59,6 @@ import { applySessionConfigValues } from './sessionConfigChange.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
-import { resetSubagentsOfRoot } from '../host/subagentRouting.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -79,6 +81,19 @@ const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => 
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
 
+/** The usable Backend harness snapshot, or `undefined` after warning that `action` was skipped. */
+const usableHarnessOrSkip = Effect.fnUntraced(function* (
+  get: Atom.FnContext,
+  launchTarget: AgentLaunchTarget,
+  action: string,
+) {
+  const snapshot = usableHarness(get, launchTarget);
+  if (snapshot === undefined) {
+    yield* Effect.logWarning(`${action} skipped; backend not usable`, launchTarget);
+  }
+  return snapshot;
+});
+
 /** Fetch one launch target's session list and fold it into the harness history (minus the Bound id). */
 const refreshHistoryFor = Effect.fnUntraced(function* (
   get: Atom.FnContext,
@@ -90,7 +105,7 @@ const refreshHistoryFor = Effect.fnUntraced(function* (
   const listResult = yield* listSessions(launchTarget, listPayload);
   const boundSessionId = get(virtualSessionAtom)?.sessionId;
   updateHarnessSnapshot(get.registry, launchTarget, current =>
-    replaceSessionHistory(current, historyAfterList(current.sessionHistory, listResult, scope, boundSessionId)),
+    applySessionList(current, listResult, scope, boundSessionId),
   );
   return { listResult, pinsBefore };
 });
@@ -121,10 +136,6 @@ export const createSessionLifecycleAtoms = (
   cancelPromptAtomFn: CancelPromptAtomFn,
 ) => {
   const { atomRuntime } = runtime;
-
-  const selectSessionAtomFn = atomRuntime
-    .fn((sessionId: string, get: Atom.FnContext) => select(get.registry, { _tag: 'Session', sessionId }))
-    .pipe(Atom.keepAlive);
 
   const clearSelectedAtomFn = atomRuntime
     .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))
@@ -193,43 +204,6 @@ export const createSessionLifecycleAtoms = (
     )
     .pipe(Atom.keepAlive);
 
-  const createSessionAtomFn = atomRuntime
-    .fn(
-      Effect.fn('createSessionAtomFn', { root: true })(
-        function* (arg: { cwd: string; launchTarget: AgentLaunchTarget }, get: Atom.FnContext) {
-          yield* Effect.annotateCurrentSpan({
-            'acp.agent': arg.launchTarget,
-          });
-          const blocked = requireLaunchTargetUsable(get, arg.launchTarget);
-          if (blocked !== undefined) {
-            return yield* blocked;
-          }
-          const snapshot = usableHarness(get, arg.launchTarget);
-          if (snapshot === undefined) {
-            yield* Effect.logWarning('createSession skipped; backend not usable', arg.launchTarget);
-            return;
-          }
-
-          yield* Effect.logInfo('UI createSession', arg.launchTarget, { cwd: arg.cwd });
-          const { cwd, result } = yield* createSession(arg.launchTarget, arg.cwd);
-          const { sessionId } = result;
-          yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-
-          const session = buildActivatedSession(sessionId, normalizeConfigOptions(result), { cwd });
-          const historyEntry = historyEntryFromNew(result, cwd);
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            upsertIntoSnapshot(current, { historyEntry, session }),
-          );
-          yield* select(get.registry, { _tag: 'Session', sessionId });
-          yield* Effect.logInfo('UI createSession complete', arg.launchTarget, sessionId);
-          yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId });
-        },
-        (effect, arg) =>
-          effect.pipe(Effect.tapError(error => Effect.logError('createSessionAtomFn failed', arg.launchTarget, error))),
-      ),
-    )
-    .pipe(Atom.keepAlive);
-
   const activateSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('activateSessionAtomFn', { root: true })(function* (
@@ -244,9 +218,8 @@ export const createSessionLifecycleAtoms = (
         if (blocked !== undefined) {
           return yield* blocked;
         }
-        const snapshot = usableHarness(get, arg.launchTarget);
+        const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'activateSession');
         if (snapshot === undefined) {
-          yield* Effect.logWarning('activateSession skipped; backend not usable', arg.launchTarget);
           return;
         }
 
@@ -259,13 +232,9 @@ export const createSessionLifecycleAtoms = (
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
           const unarchiveExit = yield* Effect.exit(unarchiveSession(arg.launchTarget, arg.sessionId));
           if (Exit.isFailure(unarchiveExit)) {
-            updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-              ...current,
-              sessions: patchSession(current.sessions, arg.sessionId, session => ({
-                ...session,
-                defects: defectsFromActivationFailure(current.rpcCalls, unarchiveExit.cause),
-              })),
-            }));
+            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+              failUnarchive(current, arg.sessionId, unarchiveExit.cause),
+            );
             return yield* Effect.failCause(unarchiveExit.cause);
           }
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
@@ -284,14 +253,9 @@ export const createSessionLifecycleAtoms = (
 
         if (cwd === undefined) {
           yield* Effect.logError('Session activation failed; session cwd missing', arg.launchTarget, arg.sessionId);
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-            ...current,
-            sessions: patchSession(current.sessions, arg.sessionId, session => ({
-              ...session,
-              defects: [{ message: 'Session cwd missing from snapshot and history' }],
-              status: 'inactive',
-            })),
-          }));
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            markActivationCwdMissing(current, arg.sessionId),
+          );
           return;
         }
 
@@ -303,21 +267,7 @@ export const createSessionLifecycleAtoms = (
           mode: useResume ? 'resume' : 'load',
         });
 
-        updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-          resetSubagentsOfRoot(
-            {
-              ...current,
-              sessions: patchSession(current.sessions, arg.sessionId, session => ({
-                ...session,
-                cwd,
-                defects: undefined,
-                status: 'activating',
-                usage: undefined,
-              })),
-            },
-            arg.sessionId,
-          ),
-        );
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current => beginActivation(current, arg.sessionId, cwd));
 
         const exit = yield* Effect.exit(
           useResume
@@ -327,23 +277,17 @@ export const createSessionLifecycleAtoms = (
 
         if (Exit.isFailure(exit)) {
           yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-            ...current,
-            sessions: patchSession(current.sessions, arg.sessionId, session => ({
-              ...session,
-              defects: defectsFromActivationFailure(current.rpcCalls, exit.cause),
-              status: 'inactive',
-            })),
-          }));
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+            failActivation(current, arg.sessionId, exit.cause),
+          );
           return;
         }
 
         // The loaded Session configuration first (still `activating`), then the reset folds into the latest Session.
         const loaded = normalizeConfigOptions(exit.value);
-        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-          ...current,
-          sessions: patchSession(current.sessions, arg.sessionId, session => ({ ...session, configuration: loaded })),
-        }));
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+          applyLoadedConfiguration(current, arg.sessionId, loaded),
+        );
         const reset = yield* applySessionConfigValues(
           get.registry,
           { launchTarget: arg.launchTarget, sessionId: arg.sessionId },
@@ -352,12 +296,7 @@ export const createSessionLifecycleAtoms = (
         if (reset.stoppedEarly) {
           yield* Effect.logWarning('Session config reset failed during activation', arg.launchTarget, arg.sessionId);
         }
-        updateHarnessSnapshot(get.registry, arg.launchTarget, current => ({
-          ...current,
-          sessions: patchSession(current.sessions, arg.sessionId, session =>
-            buildActivatedSession(arg.sessionId, session.configuration ?? [], session),
-          ),
-        }));
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current => finishActivation(current, arg.sessionId));
         yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
         yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId: arg.sessionId });
       }),
@@ -378,9 +317,8 @@ export const createSessionLifecycleAtoms = (
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = usableHarness(get, arg.launchTarget);
+          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'forkSession');
           if (snapshot === undefined) {
-            yield* Effect.logWarning('forkSession skipped; backend not usable', arg.launchTarget);
             return;
           }
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionFork');
@@ -429,9 +367,8 @@ export const createSessionLifecycleAtoms = (
             'acp.agent': arg.launchTarget,
             'acp.sessionId': arg.sessionId,
           });
-          const snapshot = usableHarness(get, arg.launchTarget);
+          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'deactivateSession');
           if (snapshot === undefined) {
-            yield* Effect.logWarning('deactivateSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -465,9 +402,8 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('archiveSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = usableHarness(get, arg.launchTarget);
+          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'archiveSession');
           if (snapshot === undefined) {
-            yield* Effect.logWarning('archiveSession skipped; backend not usable', arg.launchTarget);
             return;
           }
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
@@ -494,9 +430,8 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('renameSessionAtomFn', { root: true })(
         function* (arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = usableHarness(get, arg.launchTarget);
+          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'renameSession');
           if (snapshot === undefined) {
-            yield* Effect.logWarning('renameSession skipped; backend not usable', arg.launchTarget);
             return;
           }
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionRename');
@@ -537,9 +472,8 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('deleteSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = usableHarness(get, arg.launchTarget);
+          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'deleteSession');
           if (snapshot === undefined) {
-            yield* Effect.logWarning('deleteSession skipped; backend not usable', arg.launchTarget);
             return;
           }
 
@@ -579,13 +513,11 @@ export const createSessionLifecycleAtoms = (
     activateSessionAtomFn,
     archiveSessionAtomFn,
     clearSelectedAtomFn,
-    createSessionAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
     refreshSessionHistoryAtomFn,
     renameSessionAtomFn,
-    selectSessionAtomFn,
   };
 };

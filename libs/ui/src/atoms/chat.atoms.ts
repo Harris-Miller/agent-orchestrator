@@ -5,11 +5,11 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { answerElicitation, answerPermission } from '../host/harnessStateTransitions.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
-import { patchSessionOrSubagent, sessionOrSubagentOf } from '../host/subagentRouting.ts';
+import { sessionOrSubagentOf } from '../host/subagentRouting.ts';
 import type { ConfigValueDiff } from '../host/sessionConfiguration.ts';
 import { cancelSession, getPromptSpan } from '../host/sessionRpc.ts';
-import { appendElicitationSummary } from '../host/sessionUpdateReducer.ts';
 import type { ElicitationSummary } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
@@ -83,14 +83,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           pending.resolve(arg.response);
           // Clear only the elicitation answered: one the agent raised during `resolve` stays answerable.
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            sessionOrSubagentOf(current, arg.sessionId) === undefined
-              ? current
-              : patchSessionOrSubagent(current, arg.sessionId, holder => ({
-                  ...holder,
-                  pendingElicitation: holder.pendingElicitation === pending ? undefined : holder.pendingElicitation,
-                  transcript:
-                    'summary' in arg ? appendElicitationSummary(holder.transcript, arg.summary) : holder.transcript,
-                })),
+            answerElicitation(current, arg.sessionId, pending, 'summary' in arg ? arg.summary : undefined),
           );
         },
         Effect.withSpan('respondElicitationAtomFn', arg => {
@@ -123,9 +116,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           }
           pending.resolve({ outcome: { optionId: arg.optionId, outcome: 'selected' } });
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            sessionOrSubagentOf(current, arg.sessionId)?.pendingPermission === pending
-              ? patchSessionOrSubagent(current, arg.sessionId, holder => ({ ...holder, pendingPermission: undefined }))
-              : current,
+            answerPermission(current, arg.sessionId, pending),
           );
         },
         Effect.withSpan('respondPermissionAtomFn', arg => {

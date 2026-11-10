@@ -28,7 +28,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { isUsablePhase, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import {
@@ -40,8 +40,8 @@ import {
 } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
-import { dropSession, upsertIntoSnapshot, withoutHistoryEntry } from '../host/harnessStateTransitions.ts';
-import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { bindSession, dropSession, dropSessionIfPresent, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import {
@@ -297,11 +297,7 @@ const teardownBound = Effect.fn('teardownBound')(function* (registry: Registry, 
   }
   yield* Effect.exit(deleteSession(bound.launchTarget, bound.sessionId));
 
-  updateHarnessSnapshot(registry, bound.launchTarget, current =>
-    bound.sessionId in current.sessions || current.sessionHistory.some(entry => entry.sessionId === bound.sessionId)
-      ? dropSession(current, bound.sessionId)
-      : current,
-  );
+  updateHarnessSnapshot(registry, bound.launchTarget, current => dropSessionIfPresent(current, bound.sessionId));
 
   const virtual = registry.get(virtualSessionAtom);
   if (virtual?.sessionId === bound.sessionId) {
@@ -338,16 +334,7 @@ const runBind = Effect.fn('runBind')(function* (
   const boundSessionId = result.sessionId;
   yield* Effect.annotateCurrentSpan('acp.sessionId', boundSessionId);
 
-  updateHarnessSnapshot(registry, launchTarget, current =>
-    // Sessions-map upsert only (no history) — not Materialize.
-    // A parallel startup `session/list` may have landed before this id existed.
-    withoutHistoryEntry(
-      upsertIntoSnapshot(current, {
-        session: buildActivatedSession(boundSessionId, normalizeConfigOptions(result), { cwd: createdCwd }),
-      }),
-      boundSessionId,
-    ),
-  );
+  updateHarnessSnapshot(registry, launchTarget, current => bindSession(current, { cwd: createdCwd, result }));
 
   const latest = registry.get(virtualSessionAtom);
   if (registry.get(virtualBindAtom).latest !== bind.generation || latest === null || !bindKeyMatches(latest, bind)) {

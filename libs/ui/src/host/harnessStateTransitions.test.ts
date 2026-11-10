@@ -681,6 +681,38 @@ describe('prompt turn and interaction folds', () => {
   });
 });
 
+describe('interaction folds on Subagent holders and accepted summaries', () => {
+  const withSubagent = (): BackendHarnessSnapshot => ({
+    ...readySnapshot(),
+    subagents: { c1: { parentSessionId: 'p1', sessionId: 'c1', transcript: initialSessionSnapshot('c1').transcript } },
+  });
+
+  it('answerElicitation appends the accepted-form summary to the transcript', () => {
+    const pending = pendingElicitation('e1', 's1');
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pending }) });
+    const summary = { message: 'Pick', rows: [{ caption: undefined, label: 'Name', value: 'x' }] };
+    const next = answerElicitation(snapshot, 's1', pending, summary);
+    assert.strictEqual(next.sessions.s1.pendingElicitation, undefined);
+    assert.strictEqual(next.sessions.s1.transcript.items.at(-1)?.kind, 'elicitation_summary');
+    const empty = answerElicitation(snapshot, 's1', pending, { message: 'Pick', rows: [] });
+    assert.strictEqual(empty.sessions.s1.transcript, snapshot.sessions.s1.transcript);
+  });
+
+  it('raise and answer reach a Subagent holder', () => {
+    const permission = pendingPermission('c1');
+    const raised = raisePermission(withSubagent(), permission);
+    assert.strictEqual(raised.subagents.c1.pendingPermission, permission);
+    assert.strictEqual(answerPermission(raised, 'c1', permission).subagents.c1.pendingPermission, undefined);
+    const elicitation = pendingElicitation('e1', 'c1');
+    const asked = raiseElicitation(withSubagent(), elicitation);
+    assert.strictEqual(asked.subagents.c1.pendingElicitation, elicitation);
+    assert.strictEqual(
+      answerElicitation(asked, 'c1', elicitation, undefined).subagents.c1.pendingElicitation,
+      undefined,
+    );
+  });
+});
+
 describe('applySessionUpdatePatch', () => {
   it('upserts the patched Session and keeps the History when the update carried no retitle', () => {
     const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);

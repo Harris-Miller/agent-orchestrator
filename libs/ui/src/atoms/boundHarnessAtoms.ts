@@ -82,6 +82,7 @@ export const {
   checkLatestAtomFn,
   downloadAtomFn,
   installAtomFn,
+  launchTargetAvailabilityAtom,
   providerViewAtom,
   providerViewsAtom,
   recheckAtomFn,

@@ -2,7 +2,6 @@
 import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import {
   agentLaunchTargetLabel,
@@ -13,6 +12,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
+import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
@@ -222,33 +222,25 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
   return get(allLaunchTargetPhasesAtom).filter(entry => enabled.includes(entry.launchTarget));
 }).pipe(Atom.keepAlive);
 
-/** Launch targets that are usable with a nonempty (possibly cached) Config index. */
-export const usableLaunchTargetsAtom = Atom.make(get =>
-  get(enabledLaunchTargetsAtom).filter(
-    launchTarget =>
-      isUsablePhase(get(backendHarnessSnapshotAtom(launchTarget)).phase) &&
-      configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
-  ),
-).pipe(Atom.keepAlive);
-
-/** Why an enabled provider is not ready (`undefined` when ready). Shown beside its disabled picker row. */
-export const launchTargetUnavailableReasonsAtom = Atom.make(get => {
+/**
+ * What the backend harness says about each enabled launch target: usable (usable phase and a nonempty, possibly cached,
+ * Config option index) or the reason it is not. Provider reasons are merged in by `launchTargetAvailabilityAtom`.
+ */
+export const harnessAvailabilityAtom = Atom.make(get => {
+  const usable: AgentLaunchTarget[] = [];
   const reasons: Partial<Record<AgentLaunchTarget, string>> = {};
   for (const launchTarget of get(enabledLaunchTargetsAtom)) {
-    const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
-    if (snapshot.phase === 'error') {
-      reasons[launchTarget] = snapshot.failure?.message ?? 'Unavailable';
-    } else if (!isUsablePhase(snapshot.phase)) {
-      reasons[launchTarget] = 'Starting…';
-    } else if (!configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget)))) {
-      reasons[launchTarget] = snapshot.phase === 'usable' ? 'Loading models…' : 'No configuration available';
+    const { failure, phase } = get(backendHarnessSnapshotAtom(launchTarget));
+    const reason = harnessUnavailableReason({
+      failure,
+      hasConfigIndex: configOptionIndexIsNonempty(get(configOptionIndexAtom(launchTarget))),
+      phase,
+    });
+    if (reason === undefined) {
+      usable.push(launchTarget);
+    } else {
+      reasons[launchTarget] = reason;
     }
   }
-  return reasons;
+  return { reasons, usable };
 }).pipe(Atom.keepAlive);
-
-/**
- * Picker rows: every enabled provider, even when unavailable (rendered disabled with a reason). Readiness is
- * derived separately in {@link usableLaunchTargetsAtom}; missing configuration must not hide an unavailable row.
- */
-export const pickerLaunchTargetsAtom = Atom.make(get => get(enabledLaunchTargetsAtom)).pipe(Atom.keepAlive);

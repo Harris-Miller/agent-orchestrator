@@ -123,7 +123,7 @@ describe('Fork, Archive and Rename obey the Agent capabilities', () => {
   }
 });
 
-describe('Deactivate and delete close fail-closed only when close is advertised', () => {
+describe('Deactivate and delete fail on an advertised close that fails; an unadvertised close is best-effort', () => {
   it.effect('Deactivate fails when an advertised close fails; the Session stays active', () =>
     Effect.gen(function* () {
       const s = yield* setup(sessionCapabilities({ close: {} }), {
@@ -155,7 +155,7 @@ describe('Deactivate and delete close fail-closed only when close is advertised'
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Delete of an active Session stops when an advertised close fails', () =>
+  it.effect('Delete skips session/delete when an advertised close fails; the Session is already dropped', () =>
     Effect.gen(function* () {
       const s = yield* setup(sessionCapabilities({ close: {} }), {
         fake: { failClose: true },
@@ -164,7 +164,18 @@ describe('Deactivate and delete close fail-closed only when close is advertised'
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
       assert.isTrue(Exit.isFailure(exit));
       assert.deepStrictEqual(s.calls, ['close:s1']);
-      assert.property(s.snapshot().sessions, 's1');
+      assert.notProperty(s.snapshot().sessions, 's1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Delete is optimistic: a failed session/delete still drops the History entry and Session', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({}, { fake: { failDelete: true }, session: session('active') });
+      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(s.calls, ['close:s1', 'delete:s1']);
+      assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
     }).pipe(Effect.scoped),
   );
 });

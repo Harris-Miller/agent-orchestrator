@@ -45,7 +45,8 @@ export const ConfirmSessionDeleteDialog: FC<{
             }
             const { launchTarget, sessionId } = target;
             onBeforeDelete?.();
-            deleteSession({ launchTarget, sessionId }).then(onCancel).catch(onClientError);
+            onCancel();
+            deleteSession({ launchTarget, sessionId }).catch(onClientError);
           }}
           variant="contained"
         >

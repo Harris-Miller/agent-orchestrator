@@ -348,7 +348,7 @@ export const WorkbenchNavRail: FC<{
         </Box>
       </Box>
 
-      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} target={deleteTarget} />
+      <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </>
   );
 };

@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
-import { Atom, AtomRegistry } from 'effect/reactivity';
+import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
@@ -12,7 +12,6 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createVirtualSessionAtoms, lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -45,9 +44,8 @@ const installSlowAgent = () =>
 const setup = () => {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const lifecycle = createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
-  const { ensureVirtualSessionAtomFn } = createVirtualSessionAtoms(runtime, refreshSessionFsListingAtomFn);
+  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const { ensureVirtualSessionAtomFn } = createVirtualSessionAtoms(runtime);
   const registry = AtomRegistry.make();
   registry.mount(lifecycle.archiveSessionAtomFn);
   registry.mount(lifecycle.deleteSessionAtomFn);

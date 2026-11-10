@@ -1,7 +1,6 @@
 /** Activation resets a loaded Session's Config the Config option index no longer offers (desktop ADR-0016). */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
-import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -15,7 +14,6 @@ import { advertise, CODEX, freshRegistry, installFakeAgent } from './fakeAgent.t
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 /** An index that no longer offers `gpt` (the fake `session/load` reports `gpt`); its default model is `o1`. */
@@ -34,8 +32,7 @@ const activate = Effect.fnUntraced(function* (fake: FakeAgentOpts = {}) {
   yield* installFakeAgent(calls, fake);
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const atoms = createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1' }],

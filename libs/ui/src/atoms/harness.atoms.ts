@@ -13,15 +13,10 @@ import { backendDesiredStateAtom } from './backendState.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearRpcWireLog } from './rpcWireLog.ts';
-import { refreshFsListingViaRegistry } from './sessionFsListing.atoms.ts';
-import type { RefreshSessionFsListingAtomFn } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
-export const createHarnessAtoms = (
-  runtime: HostRuntimeBag,
-  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
-) => {
+export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime, hostRunFork } = runtime;
 
   /** Single owner of provider process lifetime: atoms never own it, so remount cannot duplicate a backend. */
@@ -36,7 +31,6 @@ export const createHarnessAtoms = (
       const { registry } = get;
       const fold = makeHarnessEventFold({
         launchTarget,
-        refreshFsListing: refreshFsListingViaRegistry(registry, refreshSessionFsListingAtomFn),
         registry,
         runFork: effect => {
           hostRunFork(effect);

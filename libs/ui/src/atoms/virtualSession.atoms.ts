@@ -56,8 +56,6 @@ import {
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
-import { refreshFsListingViaRegistry } from './sessionFsListing.atoms.ts';
-import type { RefreshSessionFsListing, RefreshSessionFsListingAtomFn } from './sessionFsListing.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -315,11 +313,7 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 });
 
 /** One Bind attempt: `session/new` + sessions-map upsert; discards (tears down) its session when superseded. */
-const runBind = Effect.fn('runBind')(function* (
-  registry: Registry,
-  bind: VirtualBind,
-  refreshFsListing?: RefreshSessionFsListing,
-) {
+const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
   const { cwd, launchTarget } = bind;
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
   yield* Effect.logInfo('UI runBind', launchTarget, { cwd });
@@ -343,9 +337,6 @@ const runBind = Effect.fn('runBind')(function* (
     return undefined;
   }
   setBlob(registry, { ...latest, sessionId: boundSessionId });
-  if (refreshFsListing !== undefined) {
-    yield* refreshFsListing({ cwd: createdCwd, sessionId: boundSessionId });
-  }
   yield* Effect.logInfo('UI runBind complete', launchTarget, boundSessionId);
   return boundSessionId;
 });
@@ -355,10 +346,7 @@ const runBind = Effect.fn('runBind')(function* (
  * `{launchTarget, cwd}` supersedes any in-flight Bind (its session is torn down when it lands); the same key joins it.
  * Returns `undefined` when nothing needs binding (unusable, no valid key, already Bound, Materializing).
  */
-const requestBind = Effect.fn('requestBind')(function* (
-  registry: Registry,
-  refreshFsListing?: RefreshSessionFsListing,
-) {
+const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   if (registry.get(virtualMaterializingAtom)) {
     return undefined;
   }
@@ -398,7 +386,7 @@ const requestBind = Effect.fn('requestBind')(function* (
 
   // Detached: a re-invoked AtomFn must not interrupt a `session/new` already on the wire.
   yield* Effect.forkDetach(
-    runBind(registry, bind, refreshFsListing).pipe(
+    runBind(registry, bind).pipe(
       Effect.tapError(error => Effect.logError('requestBind runBind failed', error)),
       Effect.catchCause(() => Effect.succeed(undefined)),
       Effect.tap(boundSessionId => Deferred.succeed(bind.done, boundSessionId)),
@@ -441,7 +429,6 @@ const mutateThenRebind = Effect.fn('mutateThenRebind')(function* (
     readonly mutate: () => void;
     /** Request a Bind after mutate/teardown. Default true. */
     readonly rebind?: boolean;
-    readonly refreshFsListing?: RefreshSessionFsListing;
   },
 ) {
   if (registry.get(virtualMaterializingAtom)) {
@@ -466,7 +453,7 @@ const mutateThenRebind = Effect.fn('mutateThenRebind')(function* (
   }
 
   if (options.rebind !== false) {
-    yield* requestBind(registry, options.refreshFsListing);
+    yield* requestBind(registry);
   }
 });
 
@@ -602,29 +589,22 @@ const materialize = Effect.fn('materialize')(
 export const ensureVirtual = Effect.fn('ensureVirtual')(function* (
   registry: Registry,
   arg: EnsureVirtualSessionArg = {},
-  refreshFsListing?: RefreshSessionFsListing,
 ) {
   yield* mutateThenRebind(registry, {
     mutate: () => {
       ensureBlob(registry, arg);
     },
-    refreshFsListing,
   });
 });
 
 /** Draft, attachments or cwd. Only a cwd change tears down the Bound session and rebinds. */
-export const editVirtual = Effect.fn('editVirtual')(function* (
-  registry: Registry,
-  edit: VirtualEdit,
-  refreshFsListing?: RefreshSessionFsListing,
-) {
+export const editVirtual = Effect.fn('editVirtual')(function* (registry: Registry, edit: VirtualEdit) {
   const before = registry.get(virtualSessionAtom);
   yield* mutateThenRebind(registry, {
     mutate: () => {
       patchBlob(registry, edit);
     },
     rebind: before !== null && edit.cwd !== undefined && edit.cwd !== before.cwd,
-    refreshFsListing,
   });
 });
 
@@ -654,7 +634,6 @@ export const updateVirtualDraft = (
 export const setVirtualLaunchTarget = Effect.fn('setVirtualLaunchTarget')(function* (
   registry: Registry,
   launchTarget: AgentLaunchTarget | undefined,
-  refreshFsListing?: RefreshSessionFsListing,
 ) {
   const blocked =
     launchTarget === undefined ? undefined : requireLaunchTargetUsable(atom => registry.get(atom), launchTarget);
@@ -665,7 +644,6 @@ export const setVirtualLaunchTarget = Effect.fn('setVirtualLaunchTarget')(functi
     mutate: () => {
       setBlobLaunchTarget(registry, launchTarget);
     },
-    refreshFsListing,
   });
 });
 
@@ -786,12 +764,11 @@ export const discardVirtual = Effect.fn('discardVirtual')(function* (registry: R
 export const bindVirtualOnUsable = Effect.fn('bindVirtualOnUsable')(function* (
   registry: Registry,
   launchTarget: AgentLaunchTarget,
-  refreshFsListing?: RefreshSessionFsListing,
 ) {
   if (registry.get(virtualSessionAtom)?.launchTarget !== launchTarget) {
     return;
   }
-  yield* requestBind(registry, refreshFsListing);
+  yield* requestBind(registry);
   yield* awaitCurrentBind(registry);
 });
 
@@ -853,28 +830,20 @@ export const clearSelectedIfMissing = (registry: Registry): void => {
 
 // AtomFns
 
-export const createVirtualSessionAtoms = (
-  runtime: HostRuntimeBag,
-  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
-) => {
+export const createVirtualSessionAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
-  const refreshFsListing = (get: Atom.FnContext) =>
-    refreshFsListingViaRegistry(get.registry, refreshSessionFsListingAtomFn);
-
   const ensureVirtualSessionAtomFn = atomRuntime
-    .fn((arg: EnsureVirtualSessionArg | undefined, get: Atom.FnContext) =>
-      ensureVirtual(get.registry, arg, refreshFsListing(get)),
-    )
+    .fn((arg: EnsureVirtualSessionArg | undefined, get: Atom.FnContext) => ensureVirtual(get.registry, arg))
     .pipe(Atom.keepAlive);
 
   const patchVirtualSessionAtomFn = atomRuntime
-    .fn((edit: VirtualEdit, get: Atom.FnContext) => editVirtual(get.registry, edit, refreshFsListing(get)))
+    .fn((edit: VirtualEdit, get: Atom.FnContext) => editVirtual(get.registry, edit))
     .pipe(Atom.keepAlive);
 
   const setVirtualLaunchTargetAtomFn = atomRuntime
     .fn((launchTarget: AgentLaunchTarget | undefined, get: Atom.FnContext) =>
-      setVirtualLaunchTarget(get.registry, launchTarget, refreshFsListing(get)),
+      setVirtualLaunchTarget(get.registry, launchTarget),
     )
     .pipe(Atom.keepAlive);
 

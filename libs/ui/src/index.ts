@@ -35,6 +35,7 @@ export type { EnsureVirtualSessionArg, VirtualSession } from './atoms/virtualSes
 export * from './components/AcpBackendsMount.tsx';
 export * from './components/HarnessCacheGate.tsx';
 export * from './components/HarnessShell.tsx';
+export * from './components/SelectedSessionFsListingMount.tsx';
 export * from './components/AgentLaunchTargetIcon.tsx';
 export * from './components/developerPanel/DeveloperPanelShell.tsx';
 export * from './components/developerPanel/ToggleDeveloperPanelButton.tsx';

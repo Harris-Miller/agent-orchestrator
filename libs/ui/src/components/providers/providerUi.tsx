@@ -18,7 +18,7 @@ import Typography from '@mui/material/Typography';
 import { Effect } from 'effect';
 import { Copy } from 'lucide-react';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC, ReactElement, ReactNode } from 'react';
 
 import {
   checkLatestAtomFn,
@@ -98,89 +98,99 @@ export const CommandSnippet: FC<{ readonly command: string; readonly label?: str
 );
 
 /** "How to fix" body for whatever currently blocks the provider. Empty when ready. */
-export const ProviderHelp: FC<{ readonly dense?: boolean; readonly provider: ProviderView }> = ({
+export const ProviderHelp = ({
   dense,
   provider,
-}) => {
+}: {
+  readonly dense?: boolean;
+  readonly provider: ProviderView;
+}): ReactElement | null => {
   const status = overallStatus(provider);
   const meta = PROVIDER_META[provider.id];
   const gap = dense === true ? 0.75 : 1;
 
-  if (status === 'cli-missing') {
-    return (
-      <Stack spacing={gap}>
-        <Typography color="text.secondary" variant="body2">
-          <Box component="code" sx={{ fontFamily: FONT_FAMILY_MONO }}>
-            {meta.cliName}
-          </Box>{' '}
-          was not found on your PATH. Install it, then Recheck.
-        </Typography>
-        {meta.cliInstall.map(hint => (
-          <CommandSnippet command={hint.command} key={hint.label} label={hint.label} />
-        ))}
-      </Stack>
-    );
-  }
-  if (status === 'download-failed' && provider.runtime?.job._tag === 'Failed') {
-    const { detail, message } = provider.runtime.job;
-    return (
-      <Alert
-        action={
-          <IconButton
-            aria-label="Copy error"
-            onClick={() => {
-              hostRunPromise(writeTextToClipboard(detail)).catch(() => undefined);
-            }}
-            size="small"
-          >
-            <LucideMuiIcon icon={Copy} sx={{ fontSize: 14 }} />
-          </IconButton>
-        }
-        severity="error"
-        variant="outlined"
-      >
-        {message}
-        <Box
-          component="pre"
-          sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.7rem', m: 0, mt: 0.5, whiteSpace: 'pre-wrap' }}
-        >
-          {detail}
-        </Box>
-      </Alert>
-    );
-  }
-  if (status === 'error') {
-    return <Alert severity="error">{provider.harnessError}</Alert>;
-  }
-  if (status === 'not-signed-in' || status === 'signing-in') {
-    if (meta.signIn._tag === 'InApp') {
+  switch (status) {
+    case 'cli-missing':
       return (
-        <Typography color="text.secondary" variant="body2">
-          {status === 'signing-in'
-            ? 'Waiting for Google sign-in. A browser window should have opened.'
-            : meta.signIn.hint}
-        </Typography>
+        <Stack spacing={gap}>
+          <Typography color="text.secondary" variant="body2">
+            <Box component="code" sx={{ fontFamily: FONT_FAMILY_MONO }}>
+              {meta.cliName}
+            </Box>{' '}
+            was not found on your PATH. Install it, then Recheck.
+          </Typography>
+          {meta.cliInstall.map(hint => (
+            <CommandSnippet command={hint.command} key={hint.label} label={hint.label} />
+          ))}
+        </Stack>
+      );
+    case 'download-failed': {
+      if (provider.runtime?.job._tag !== 'Failed') {
+        return null;
+      }
+      const { detail, message } = provider.runtime.job;
+      return (
+        <Alert
+          action={
+            <IconButton
+              aria-label="Copy error"
+              onClick={() => {
+                hostRunPromise(writeTextToClipboard(detail)).catch(() => undefined);
+              }}
+              size="small"
+            >
+              <LucideMuiIcon icon={Copy} sx={{ fontSize: 14 }} />
+            </IconButton>
+          }
+          severity="error"
+          variant="outlined"
+        >
+          {message}
+          <Box
+            component="pre"
+            sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.7rem', m: 0, mt: 0.5, whiteSpace: 'pre-wrap' }}
+          >
+            {detail}
+          </Box>
+        </Alert>
       );
     }
-    return (
-      <Stack spacing={gap}>
+    case 'error':
+      return <Alert severity="error">{provider.harnessError}</Alert>;
+    case 'not-signed-in':
+    case 'signing-in':
+      if (meta.signIn._tag === 'InApp') {
+        return (
+          <Typography color="text.secondary" variant="body2">
+            {status === 'signing-in'
+              ? 'Waiting for Google sign-in. A browser window should have opened.'
+              : meta.signIn.hint}
+          </Typography>
+        );
+      }
+      return (
+        <Stack spacing={gap}>
+          <Typography color="text.secondary" variant="body2">
+            {meta.signIn.hint} Then Recheck.
+          </Typography>
+          <CommandSnippet command={meta.signIn.command} />
+        </Stack>
+      );
+    case 'needs-runtime':
+      return (
         <Typography color="text.secondary" variant="body2">
-          {meta.signIn.hint} Then Recheck.
+          {meta.runtime?._tag === 'npm'
+            ? `Downloads ${meta.runtime.package} (latest) with npm into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`
+            : `Downloads agy_acp_server (latest from the ACP registry, sha256-verified) into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`}
         </Typography>
-        <CommandSnippet command={meta.signIn.command} />
-      </Stack>
-    );
+      );
+    case 'checking':
+    case 'disabled':
+    case 'downloading':
+    case 'ready':
+    case 'switching':
+      return null;
   }
-  if (status === 'needs-runtime') {
-    return (
-      <Typography color="text.secondary" variant="body2">
-        {meta.runtime?._tag === 'npm'
-          ? `Downloads ${meta.runtime.package} (latest) with npm into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`
-          : `Downloads agy_acp_server (latest from the ACP registry, sha256-verified) into ${providerDisplayPath(provider.id, PROVIDER_RUNTIME_DIRNAME)}/.`}
-      </Typography>
-    );
-  }
-  return null;
 };
 
 // --- Actions with the destructive-action warning ------------------------------------------

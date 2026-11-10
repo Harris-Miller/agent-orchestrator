@@ -4,11 +4,13 @@ import {
   authFromHarness,
   isProviderReady,
   isProviderUnavailable,
+  isSwitchingJob,
   overallStatus,
   readyToInstallVersion,
+  STATUS_META,
   unavailableReason,
 } from './providerView.ts';
-import type { ProviderView, RuntimeView } from './providerView.ts';
+import type { OverallStatus, ProviderView, RuntimeView } from './providerView.ts';
 
 const runtime = (overrides: Partial<RuntimeView> = {}): RuntimeView => ({
   active: '1.0.0',
@@ -87,5 +89,63 @@ describe('provider status', () => {
     const ordinary = authFromHarness('error', { _tag: 'Failed', message: 'spawn node ENOENT' });
     assert.deepStrictEqual(ordinary, { auth: 'Unknown', harnessError: 'spawn node ENOENT' });
     assert.strictEqual(overallStatus(view({ auth: ordinary.auth, harnessError: ordinary.harnessError })), 'error');
+  });
+});
+
+const noRuntime = { active: undefined } as const;
+
+/** One view per status, so a new status fails the type check here until it is covered. */
+const VIEW_BY_STATUS: Readonly<Record<OverallStatus, ProviderView>> = {
+  checking: view({ auth: 'Checking' }),
+  'cli-missing': view({ cli: { _tag: 'Missing' } }),
+  disabled: view({ enabled: false }),
+  'download-failed': view({
+    runtime: runtime({ ...noRuntime, job: { _tag: 'Failed', detail: 'boom', message: 'boom' } }),
+  }),
+  downloading: view({ runtime: runtime({ ...noRuntime, job: { _tag: 'Downloading', version: '1.0.0' } }) }),
+  error: view({ auth: 'Unknown', harnessError: 'spawn node ENOENT' }),
+  'needs-runtime': view({ runtime: runtime(noRuntime) }),
+  'not-signed-in': view({ auth: 'NotSignedIn' }),
+  ready: view(),
+  'signing-in': view({ auth: 'SigningIn' }),
+  switching: view({ runtime: runtime({ job: { _tag: 'Removing' } }) }),
+};
+
+describe('per-status decisions', () => {
+  const entries = Object.entries(VIEW_BY_STATUS);
+
+  it('builds each view into its own status', () => {
+    for (const [status, provider] of entries) {
+      assert.strictEqual(overallStatus(provider), status);
+    }
+  });
+
+  it('is unavailable exactly when there is a reason', () => {
+    const unavailable = entries.filter(([, provider]) => isProviderUnavailable(provider)).map(([status]) => status);
+    assert.deepStrictEqual(unavailable.toSorted(), ['cli-missing', 'download-failed', 'downloading', 'needs-runtime']);
+    for (const [, provider] of entries) {
+      assert.strictEqual(unavailableReason(provider) !== undefined, isProviderUnavailable(provider));
+    }
+  });
+
+  it('shows startup help only where the row needs more than its action', () => {
+    const withHelp = entries
+      .filter(([, provider]) => STATUS_META[overallStatus(provider)].startupHelp)
+      .map(([status]) => status);
+    assert.deepStrictEqual(withHelp.toSorted(), [
+      'cli-missing',
+      'download-failed',
+      'error',
+      'not-signed-in',
+      'signing-in',
+    ]);
+  });
+
+  it('treats Installing and Removing as switching runtimes', () => {
+    assert.isTrue(isSwitchingJob({ _tag: 'Installing', version: '2.0.0' }));
+    assert.isTrue(isSwitchingJob({ _tag: 'Removing' }));
+    assert.isFalse(isSwitchingJob({ _tag: 'Idle' }));
+    assert.isFalse(isSwitchingJob({ _tag: 'Downloading', version: '2.0.0' }));
+    assert.isFalse(isSwitchingJob({ _tag: 'Failed', detail: 'boom', message: 'boom' }));
   });
 });

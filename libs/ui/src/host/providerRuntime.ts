@@ -37,16 +37,19 @@ import { Path } from 'effect/Path';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { fetchAntigravityDistribution } from './antigravityRegistry.ts';
 import { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
+import { PROVIDER_META } from './providerView.ts';
 import { runCapturedProcess } from './runCapturedProcess.ts';
 
-/** Launch targets whose runtime is user-downloaded under `~/.hoa/providers`. */
-export type ManagedProviderLaunchTarget = 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp';
+/** Launch targets whose runtime is user-downloaded under `~/.hoa/providers`: the ones `PROVIDER_META` gives a runtime. */
+export type ManagedProviderLaunchTarget = {
+  [K in AgentLaunchTarget]: (typeof PROVIDER_META)[K]['runtime'] extends undefined ? never : K;
+}[AgentLaunchTarget];
 
 /** Second required Antigravity member beside the registry command. */
 export const ANTIGRAVITY_HARNESS_MEMBER = 'localharness_external';
 
 export const isManagedProvider = (launchTarget: AgentLaunchTarget): launchTarget is ManagedProviderLaunchTarget =>
-  launchTarget === 'antigravity-acp' || launchTarget === 'claude-agent-acp' || launchTarget === 'codex-acp';
+  PROVIDER_META[launchTarget].runtime !== undefined;
 
 export class ProviderRuntimeError extends Schema.TaggedError<ProviderRuntimeError>()('ProviderRuntimeError', {
   launchTarget: Schema.String,

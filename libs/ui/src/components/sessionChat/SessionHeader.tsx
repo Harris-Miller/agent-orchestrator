@@ -69,7 +69,7 @@ export const SessionHeader: FC<{
           onRenameRequest={rename.onRenameRequest}
         />
       )}
-      {/* Outside the entry branch: Delete clears Selected (so `entry`) before the dialog closes itself. */}
+      {/* Outside the entry branch: Delete clears Selected (so `entry`) while the dialog is closing. */}
       <ConfirmSessionDeleteDialog
         onBeforeDelete={onBeforeAction}
         onCancel={clearDeleteTarget}

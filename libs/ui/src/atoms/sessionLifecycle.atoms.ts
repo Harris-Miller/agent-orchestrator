@@ -546,11 +546,10 @@ export const createSessionLifecycleAtoms = (
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           const needsClose = session !== undefined && session.status !== 'inactive';
 
-          // Optimistic: drop locally first; a failed RPC surfaces to the caller and the next list refresh reconciles.
+          // Optimistic: drop locally first; a failed RPC surfaces to the caller and the next list refresh reconciles. Pins stay until the RPC succeeds.
           yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
             dropSession(current, arg.sessionId),
           );
-          yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
 
           if (needsClose) {
             yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
@@ -559,6 +558,10 @@ export const createSessionLifecycleAtoms = (
 
           yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
           yield* deleteSession(arg.launchTarget, arg.sessionId);
+
+          // Sweep what a list refresh or a late session/update re-added while the RPC was in flight.
+          updateHarnessSnapshot(get.registry, arg.launchTarget, current => dropSession(current, arg.sessionId));
+          yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
         },
         (effect, arg) =>
           effect.pipe(

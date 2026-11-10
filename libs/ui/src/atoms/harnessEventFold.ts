@@ -23,6 +23,8 @@ import {
   applyBootstrapPhase,
   applyInitializeResult,
   applySessionList,
+  raiseElicitation,
+  raisePermission,
   reconcileConnectionLost,
   recordRpcMessage,
   setAntigravityAuthUrl,
@@ -31,7 +33,7 @@ import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
 import { upsertSession } from '../host/sessionSnapshot.ts';
-import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { configOptionIndexAtom } from './backendState.atoms.ts';
@@ -109,11 +111,11 @@ export const makeHarnessEventFold = ({
   const setPending = (
     sessionId: string,
     event: AttentionEvent,
-    patch: Parameters<typeof patchSessionOrSubagent>[2],
+    raise: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot,
   ) => {
     const next = modifyHarnessSnapshot(registry, launchTarget, current => {
-      const patched = patchSessionOrSubagent(current, sessionId, patch);
-      return [patched, patched];
+      const raised = raise(current);
+      return [raised, raised];
     });
     runFork(notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event));
   };
@@ -143,19 +145,16 @@ export const makeHarnessEventFold = ({
       unbindVirtualOnConnectionLost(registry, launchTarget);
     },
     onElicitationCreate: (sessionId, request, resolve) => {
-      setPending(sessionId, { kind: 'elicitation' }, holder => ({
-        ...holder,
-        pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
-      }));
+      const pending = { id: crypto.randomUUID(), request, resolve, sessionId };
+      setPending(sessionId, { kind: 'elicitation' }, current => raiseElicitation(current, pending));
     },
     onInitializeResult: initializeResult => {
       update(current => applyInitializeResult(current, launchTarget, initializeResult));
     },
     onPermissionRequest: (sessionId, request, resolve) => {
-      setPending(sessionId, { kind: 'permission' }, holder => ({
-        ...holder,
-        pendingPermission: { request, resolve, sessionId },
-      }));
+      setPending(sessionId, { kind: 'permission' }, current =>
+        raisePermission(current, { request, resolve, sessionId }),
+      );
     },
     onPhase: (phase, failure) => {
       update(current => applyBootstrapPhase(current, phase, failure));

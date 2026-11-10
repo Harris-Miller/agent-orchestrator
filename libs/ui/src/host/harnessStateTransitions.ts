@@ -524,7 +524,7 @@ export type CreatedSession = {
 const activatedFromNew = ({ cwd, result }: CreatedSession): SessionSnapshot =>
   buildActivatedSession(result.sessionId, normalizeConfigOptions(result), { cwd });
 
-/** Handoff target created: its active Session and its Session History row join the snapshot together. */
+/** `session/new` answered outside Bind (handoff target): its active Session and its Session History row join together. */
 export const addCreatedSession = (snapshot: BackendHarnessSnapshot, created: CreatedSession): BackendHarnessSnapshot =>
   upsertIntoSnapshot(snapshot, {
     historyEntry: historyEntryFromNew(created.result, created.cwd),
@@ -589,6 +589,17 @@ export const requestPromptCancel = (
         })),
       }
     : snapshot;
+
+/** An elicitation request raised on its Session or Subagent session (a newer one replaces it). */
+export const raiseElicitation = (
+  snapshot: BackendHarnessSnapshot,
+  pending: PendingElicitation,
+): BackendHarnessSnapshot =>
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingElicitation: pending }));
+
+/** A permission request raised on its Session or Subagent session (a newer one replaces it). */
+export const raisePermission = (snapshot: BackendHarnessSnapshot, pending: PendingPermission): BackendHarnessSnapshot =>
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingPermission: pending }));
 
 /**
  * An elicitation was answered: clear only that one (a newer one stays answerable) and append the accepted-form summary

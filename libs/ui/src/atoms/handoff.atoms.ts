@@ -4,7 +4,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { isUsablePhase, normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
 import {
@@ -12,8 +12,7 @@ import {
   extractHandoffDocument,
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
-import { upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
-import { buildActivatedSession, historyEntryFromNew } from '../host/sessionMaterialize.ts';
+import { addCreatedSession } from '../host/harnessStateTransitions.ts';
 import { createSession } from '../host/sessionRpc.ts';
 
 import {
@@ -112,10 +111,8 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const { sessionId: targetSessionId } = result;
 
           // The target Session is in the map before its Config diffs, so each response folds into it.
-          const historyEntry = historyEntryFromNew(result, cwd);
-          const session = buildActivatedSession(targetSessionId, normalizeConfigOptions(result), { cwd });
           updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
-            upsertIntoSnapshot(current, { historyEntry, session }),
+            addCreatedSession(current, { cwd, result }),
           );
           yield* select(get.registry, { _tag: 'Session', sessionId: targetSessionId });
 

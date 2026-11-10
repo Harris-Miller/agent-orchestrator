@@ -5,7 +5,7 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
+import { reconcileProviderStopped } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, runBackendHarness } from '../host/backendHarness.ts';
 
@@ -58,10 +58,7 @@ export const createHarnessAtoms = (
    */
   const stopAndReconcile = Effect.fnUntraced(function* (launchTarget: AgentLaunchTarget, get: Atom.FnContext) {
     yield* lifecycle.stop(launchTarget);
-    updateHarnessSnapshot(get.registry, launchTarget, snapshot => ({
-      ...reconcileConnectionLost(snapshot),
-      rpcCalls: [],
-    }));
+    updateHarnessSnapshot(get.registry, launchTarget, reconcileProviderStopped);
     resetVirtualOnProviderStopped(get.registry, launchTarget);
   });
 

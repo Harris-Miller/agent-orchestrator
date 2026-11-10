@@ -1,7 +1,6 @@
 /** A failed activation records the defects of the latest inbound failure in the RPC wire log. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
-import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -13,7 +12,6 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const wireFailure = (defect: unknown) => ({
@@ -26,8 +24,7 @@ const wireFailure = (defect: unknown) => ({
 const failActivation = Effect.fnUntraced(function* (seed: unknown | undefined) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const atoms = createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
   const registry = yield* freshRegistry;
   yield* installFakeAgent([], { failLoad: true });
   updateHarnessSnapshot(registry, CODEX, current => ({

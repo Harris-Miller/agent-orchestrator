@@ -605,6 +605,35 @@ const $hiddenMarkerBeforeCaret = (): TextNode | null => {
   return selection.anchor.offset === 0 && $isHiddenBlockMarker(prev) ? prev : null;
 };
 
+/** The quote marker starting the line `node` is on, if that line is a quote. */
+const $quoteMarkerOfCaretLine = (node: LexicalNode): TextNode | null => {
+  let found: TextNode | null = null;
+  for (
+    let sibling: LexicalNode | null = node;
+    sibling !== null && sibling.getType() !== 'linebreak';
+    sibling = sibling.getPreviousSibling()
+  ) {
+    if ($isTextNode(sibling) && $isHiddenBlockMarker(sibling) && $readComposerTextStyle(sibling).block === 'quote') {
+      found = sibling;
+    }
+  }
+  return found;
+};
+
+/** Whether anything but the marker (text or a chip) follows it on its line. */
+const $lineHasContentAfter = (marker: TextNode): boolean => {
+  for (
+    let sibling = marker.getNextSibling();
+    sibling !== null && sibling.getType() !== 'linebreak';
+    sibling = sibling.getNextSibling()
+  ) {
+    if (sibling.getTextContentSize() > 0) {
+      return true;
+    }
+  }
+  return false;
+};
+
 /**
  * Hidden block markers are invisible, so keep the caret out of them: it snaps to the start of the line's content,
  * ArrowLeft there goes to the end of the previous line, and Backspace there removes the marker.
@@ -646,6 +675,29 @@ const BlockMarkerCaretPlugin: FC = () => {
           }
           event.preventDefault();
           marker.getPreviousSibling()?.selectPrevious();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      // Shift+Enter in a quote continues it; on an empty quote line it leaves the quote instead.
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        event => {
+          const selection = $getSelection();
+          if (event === null || !event.shiftKey || !$isRangeSelection(selection) || !selection.isCollapsed()) {
+            return false;
+          }
+          const marker = $quoteMarkerOfCaretLine(selection.anchor.getNode());
+          if (marker === null) {
+            return false;
+          }
+          event.preventDefault();
+          if ($lineHasContentAfter(marker)) {
+            selection.insertLineBreak();
+            selection.insertText(marker.getTextContent());
+          } else {
+            marker.remove();
+          }
           return true;
         },
         COMMAND_PRIORITY_HIGH,

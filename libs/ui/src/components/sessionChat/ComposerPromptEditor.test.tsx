@@ -11,6 +11,7 @@ import {
   DELETE_CHARACTER_COMMAND,
   HISTORY_PUSH_TAG,
   KEY_ARROW_LEFT_COMMAND,
+  KEY_ENTER_COMMAND,
   PASTE_COMMAND,
   UNDO_COMMAND,
 } from 'lexical';
@@ -363,6 +364,40 @@ describe('ComposerPromptEditor hidden block markers', () => {
       lexicalEditor().dispatchCommand(KEY_ARROW_LEFT_COMMAND, new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
       yield* eventually(() => {
         assert.deepStrictEqual(caret(), { offset: 1, text: 'a' });
+      });
+    }),
+  );
+
+  it.effect('continues a quote on Shift+Enter and leaves it on an empty quote line', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
+      });
+      editable().focus();
+      // Text nodes: `> `, `q`.
+      selectTextNode(1, 1);
+      const shiftEnter = () =>
+        lexicalEditor().dispatchCommand(
+          KEY_ENTER_COMMAND,
+          new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }),
+        );
+      shiftEnter();
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> q\n> ');
+        assert.strictEqual(
+          editable().querySelectorAll('[data-md-block="quote"][data-md-role="blockMarker"]').length,
+          2,
+        );
+      });
+      shiftEnter();
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> q\n');
       });
     }),
   );

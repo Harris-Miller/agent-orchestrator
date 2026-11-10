@@ -27,15 +27,16 @@ describe('parseComposerMarkdown blocks', () => {
     assert.deepStrictEqual(showBlocks('# Title'), [['h1:b:# ', 'h1::Title']]);
     assert.deepStrictEqual(showBlocks('###### six'), [['h6:b:###### ', 'h6::six']]);
     assert.deepStrictEqual(showBlocks('  ## indented'), [['h2::  ', 'h2:b:## ', 'h2::indented']]);
-    assert.deepStrictEqual(showBlocks('#'), [['h1:b:#']]);
-    for (const plain of ['#123', '####### seven', 'a # b']) {
+    for (const plain of ['#', '#123', '####### seven', 'a # b']) {
       assert.deepStrictEqual(showBlocks(plain), [[`paragraph::${plain}`]]);
     }
   });
 
   it('marks block quotes, including nested markers, only at line start', () => {
     assert.deepStrictEqual(showBlocks('> quote'), [['quote:b:> ', 'quote::quote']]);
-    assert.deepStrictEqual(showBlocks('>tight'), [['quote:b:>', 'quote::tight']]);
+    for (const plain of ['>', '>tight', '>> deep']) {
+      assert.deepStrictEqual(showBlocks(plain), [[`paragraph::${plain}`]]);
+    }
     assert.deepStrictEqual(showBlocks('> > deep'), [['quote:b:> > ', 'quote::deep']]);
     assert.deepStrictEqual(showBlocks('a > b'), [['paragraph::a > b']]);
   });
@@ -46,7 +47,7 @@ describe('parseComposerMarkdown blocks', () => {
     assert.deepStrictEqual(showBlocks('  * nested'), [['bullet::  ', 'bullet:b:* ', 'bullet::nested']]);
     assert.deepStrictEqual(showBlocks('1. one'), [['ordered:b:1. ', 'ordered::one']]);
     assert.deepStrictEqual(showBlocks('12) twelve'), [['ordered:b:12) ', 'ordered::twelve']]);
-    for (const plain of ['-item', '---', '1.5 is a number', '*not a list*x']) {
+    for (const plain of ['-', '*', '1.', '-item', '---', '1.5 is a number', '*not a list*x']) {
       assert.notStrictEqual(showBlocks(plain)[0][0].slice(0, 7), 'bullet:', plain);
       assert.notStrictEqual(showBlocks(plain)[0][0].slice(0, 8), 'ordered:', plain);
     }

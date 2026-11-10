@@ -252,10 +252,10 @@ const inlineRuns = (content: string, block: MarkdownBlock): MarkdownRun[] => {
 };
 
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-const HEADING_RE = /^( {0,3})(#{1,6})(?:[ \t]+|$)/;
-const QUOTE_RE = /^( {0,3})((?:>[ \t]?)+)/;
-const BULLET_RE = /^([ \t]*)[-*+](?:[ \t]+|$)/;
-const ORDERED_RE = /^([ \t]*)\d{1,9}[.)](?:[ \t]+|$)/;
+const HEADING_RE = /^( {0,3})(#{1,6})[ \t]+/;
+const QUOTE_RE = /^( {0,3})((?:>[ \t])+)/;
+const BULLET_RE = /^([ \t]*)[-*+][ \t]+/;
+const ORDERED_RE = /^([ \t]*)\d{1,9}[.)][ \t]+/;
 
 type OpenFence = { readonly char: string; readonly length: number };
 

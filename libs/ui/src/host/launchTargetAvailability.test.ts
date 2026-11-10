@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
+import type { HarnessFailure } from './harnessFailure.ts';
 import type { ProviderView } from './providerView.ts';
 import { harnessUnavailableReason, withProviderReasons } from './launchTargetAvailability.ts';
 
@@ -12,10 +13,8 @@ describe('harnessUnavailableReason', () => {
   });
 
   it('reports the failure message on error, else Unavailable', () => {
-    assert.strictEqual(
-      harnessUnavailableReason({ ...base, failure: { _tag: 'Failed', message: 'boom' } as never, phase: 'error' }),
-      'boom',
-    );
+    const failure: HarnessFailure = { _tag: 'Failed', message: 'boom' };
+    assert.strictEqual(harnessUnavailableReason({ ...base, failure, phase: 'error' }), 'boom');
     assert.strictEqual(harnessUnavailableReason({ ...base, phase: 'error' }), 'Unavailable');
   });
 

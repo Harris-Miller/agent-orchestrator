@@ -8,7 +8,9 @@ import { AtomsTab } from './AtomsTab.tsx';
 
 const labeled = <A,>(value: A, label: string) => Atom.make(value).pipe(Atom.withLabel(label), Atom.keepAlive);
 
-const setup = () => {
+const ENABLE = { name: 'Enable Atom inspector' };
+
+const setup = ({ enable = true }: { readonly enable?: boolean } = {}) => {
   const registry = AtomRegistry.make();
   const flag = labeled(true, 'flag');
   const items = labeled(new Map([['key', { nested: 7 }]]), 'items');
@@ -19,6 +21,9 @@ const setup = () => {
       <AtomsTab onCopyError={vi.fn()} />
     </RegistryContext.Provider>,
   );
+  if (enable) {
+    fireEvent.click(screen.getByRole('button', ENABLE));
+  }
   return { flag, items, registry };
 };
 
@@ -28,10 +33,25 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  delete window.__HOA__;
   vi.useRealTimers();
 });
 
 describe('AtomsTab', () => {
+  it('shows only the enable button, and no bridge or Atoms, until it is clicked', () => {
+    const { registry } = setup({ enable: false });
+    expect(screen.queryByText('flag')).toBeNull();
+    expect(window.__HOA__).toBeUndefined();
+
+    fireEvent.click(screen.getByRole('button', ENABLE));
+
+    expect(screen.queryByRole('button', ENABLE)).toBeNull();
+    expect(screen.getByText('flag')).toBeDefined();
+    expect(window.__HOA__?.atoms.get('flag')).toBe(true);
+    expect(window.__HOA__?.atoms.list().map(({ label }) => label)).toEqual(['flag', 'items']);
+    expect(registry.getNodes().size).toBe(2);
+  });
+
   it('lists atoms by label and shows the value in a form fitting its type when expanded', () => {
     setup();
     expect(screen.getByText('flag')).toBeDefined();

@@ -153,7 +153,7 @@ Shared Harness UI debug surface (RPC wire log, Session State, Atoms, host-suppli
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)
 
 **Dev state bridge**:
-Dev-build-only, read-only access to the current value of every Atom in the registry for automation tools (Tauri MCP, Chrome DevTools MCP). Atoms are found by label; an Atom without one is named after the module export that holds it, else given an unstable `anonymous` id. Production builds do not include it.
+Opt-in (a button in the Developer panel's Atoms tab), read-only access to the current value of every Atom in the registry for automation tools (Tauri MCP, Chrome DevTools MCP). Atoms are found by label; an Atom without one is named after the module export that holds it, else given an unstable `anonymous` id. Nothing is exposed or read until the user enables it.
 _Avoid_: state dump, debug API, devtools hook
 
 **Available Command**:

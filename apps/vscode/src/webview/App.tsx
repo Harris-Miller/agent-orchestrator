@@ -4,7 +4,6 @@ import {
   AcpBackendsMount,
   AppThemeProvider,
   bootWorkspaceFolders,
-  DevStateBridgeMount,
   FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
   HarnessCacheGate,
@@ -127,7 +126,6 @@ const WorkspaceFoldersGate: FC = () => {
 
 export const App: FC = () => (
   <RegistryProvider>
-    {import.meta.env.DEV ? <DevStateBridgeMount /> : null}
     <AppThemeProvider>
       <CssBaseline />
       <UserSettingsMount />

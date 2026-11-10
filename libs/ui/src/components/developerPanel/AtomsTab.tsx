@@ -10,8 +10,8 @@ import Typography from '@mui/material/Typography';
 import { useContext, useEffect, useState } from 'react';
 import type { FC } from 'react';
 
-import { listAtoms } from '../../atoms/atomInspector.ts';
-import type { AtomNameOf } from '../../atoms/atomInspector.ts';
+import { installDevStateBridge, listAtoms } from '../../atoms/atomInspector.ts';
+import type { AtomEntry, AtomNameOf } from '../../atoms/atomInspector.ts';
 import { toJsonSafe } from '../../atoms/atomValue.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
@@ -21,24 +21,51 @@ import { atomValuePreview, AtomValueView } from './AtomValueView.tsx';
 
 const POLL_MS = 500;
 
-/** Current value of every Atom in the registry, polled while mounted (never subscribes, so it keeps no Atom alive). */
+/**
+ * Current value of every Atom in the registry. Inert until the user enables it: the button installs the Dev state
+ * bridge (`window.__HOA__`) and starts polling. Polling never subscribes, so it keeps no Atom alive.
+ */
 export const AtomsTab: FC<{
   readonly nameOf?: AtomNameOf;
   readonly onCopyError: (error: unknown) => void;
 }> = ({ nameOf, onCopyError }) => {
   const registry = useContext(RegistryContext);
-  const [entries, setEntries] = useState(() => listAtoms(registry, nameOf));
+  const [enabled, setEnabled] = useState(() => window.__HOA__ !== undefined);
+  const [entries, setEntries] = useState<readonly AtomEntry[]>(() => (enabled ? listAtoms(registry, nameOf) : []));
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const id = setInterval(() => {
       setEntries(listAtoms(registry, nameOf));
     }, POLL_MS);
     return () => {
       clearInterval(id);
     };
-  }, [nameOf, registry]);
+  }, [enabled, nameOf, registry]);
+
+  if (!enabled) {
+    return (
+      <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+        <Typography color="text.secondary" variant="body2">
+          Reads every Atom in the registry and exposes them to MCP tools as <code>window.__HOA__</code>.
+        </Typography>
+        <Button
+          onClick={() => {
+            installDevStateBridge(registry, window, nameOf);
+            setEntries(listAtoms(registry, nameOf));
+            setEnabled(true);
+          }}
+          variant="outlined"
+        >
+          Enable Atom inspector
+        </Button>
+      </Stack>
+    );
+  }
 
   const needle = filter.trim().toLowerCase();
   const shown = needle === '' ? entries : entries.filter(entry => entry.label.toLowerCase().includes(needle));

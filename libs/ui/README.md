@@ -4,7 +4,7 @@ Shared webview harness stack (Backend Harness Effects, Bootstrap phase and Harne
 
 ## Reading app state from MCP tools
 
-Dev builds (`tauri dev`, `vite`, `pnpm vscode:dev`) expose the **Dev state bridge** as `window.__HOA__`, so Tauri MCP (`webview_execute_js`) and Chrome DevTools MCP (`evaluate_script`) can read Atoms without digging through React:
+Open the Developer panel (Developer mode on), go to the **Atoms** tab and click **Enable Atom inspector**. That installs the **Dev state bridge** as `window.__HOA__` (until the next reload), so Tauri MCP (`webview_execute_js`) and Chrome DevTools MCP (`evaluate_script`) can read Atoms without digging through React:
 
 ```js
 window.__HOA__.atoms.list(); // [{ label, kind, computed, keepAlive }, ...]
@@ -14,7 +14,7 @@ window.__HOA__.atoms.values(); // { label: value } for every computed Atom
 
 These cover the Atoms currently in the registry: one nobody has read yet is missing, and a non-`keepAlive` Atom disappears once nothing observes it. Atoms are addressed by `Atom.withLabel`, else by the module export that holds them, else `anonymous#n` (not stable across reloads; label the Atom if tools need it). Per-key family Atoms are labeled `name:key`.
 
-The same data shows in the Developer panel's **Atoms** tab (Developer mode on).
+The same data then shows in the Atoms tab.
 
 ## Scripts
 

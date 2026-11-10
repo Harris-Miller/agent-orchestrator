@@ -55,7 +55,7 @@ Navigating off the Virtual session by Selecting a Session or clearing Selected. 
 _Avoid_: close Virtual, cancel draft, discard (when the Composer has content)
 
 **RPC wire log**:
-Every ACP message sent or received for one launch target, in order, for the Developer panel only. Kept apart from the Backend harness snapshot so debug traffic never changes the state the Harness decides from. Survives Connection lost (a retry's messages follow the failed attempt's); only Stop clears it. A failed activation reads the log for the JSON-RPC error data to show.
+Every ACP message sent or received for one launch target, in order, for the Developer panel only. Kept apart from the Backend harness snapshot so debug traffic never changes the state the Harness decides from. Survives Connection lost (a retry's messages follow the failed attempt's); only Stop clears it. A failed activation surfaces the agent's own error data from it.
 _Avoid_: rpcCalls, wire trace, message log
 
 **Backend harness snapshot**:

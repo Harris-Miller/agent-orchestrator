@@ -6,7 +6,11 @@ import {
   $createParagraphNode,
   $createTextNode,
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  DELETE_CHARACTER_COMMAND,
   HISTORY_PUSH_TAG,
+  KEY_ARROW_LEFT_COMMAND,
   PASTE_COMMAND,
   UNDO_COMMAND,
 } from 'lexical';
@@ -74,13 +78,13 @@ const typeInto = (value: string, tag?: typeof HISTORY_PUSH_TAG): void => {
   );
 };
 
-const selectTextNode = (index: number): void => {
+const selectTextNode = (index: number, offset = 0): void => {
   lexicalEditor().update(() => {
     const node = $getRoot().getAllTextNodes().at(index);
     if (node === undefined) {
       throw new Error(`No text node at index ${index}`);
     }
-    node.select(0, 0);
+    node.select(offset, offset);
   });
 };
 
@@ -252,47 +256,113 @@ describe('ComposerPromptEditor paste and undo', () => {
 
 describe('ComposerPromptEditor Marker reveal', () => {
   const activeMarkers = (): readonly string[] =>
-    [...editable().querySelectorAll('[data-md-line][data-md-active]')].map(
-      element => `${element.getAttribute('data-md-line')}:${element.textContent}`,
+    [...editable().querySelectorAll('[data-md-span][data-md-active]')].map(
+      element => `${element.getAttribute('data-md-span')}:${element.textContent}`,
     );
 
-  it.effect('shows markers only on the caret line, and none when the editor is not focused', () =>
+  it.effect('shows inline markers only while the caret is inside their span, and none when unfocused', () =>
     Effect.gen(function* () {
-      mount('**a**\n_b_');
+      mount('**a** and _b_ c');
       yield* eventually(() => {
         assert.strictEqual(markers().length, 4);
       });
       assert.deepStrictEqual(activeMarkers(), []);
 
       editable().focus();
-      // Text nodes: `**`, `a`, `**`, `_`, `b`, `_`; index 4 is the second line's italic text.
-      selectTextNode(4);
+      // Text nodes: `**`, `a`, `**`, ` and `, `_`, `b`, `_`, ` c`.
+      selectTextNode(1);
       yield* eventually(() => {
-        assert.deepStrictEqual(activeMarkers(), ['1:_', '1:_']);
+        assert.deepStrictEqual(activeMarkers(), ['0:0:**', '0:0:**']);
+      });
+      selectTextNode(5);
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), ['0:1:_', '0:1:_']);
+      });
+      selectTextNode(3, 2);
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), []);
       });
 
+      selectTextNode(1);
+      yield* eventually(() => {
+        assert.strictEqual(activeMarkers().length, 2);
+      });
       editable().blur();
       yield* eventually(() => {
         assert.deepStrictEqual(activeMarkers(), []);
       });
     }),
   );
+});
 
-  it.effect('reveals a line-leading marker only while the caret is on its line', () =>
+describe('ComposerPromptEditor hidden block markers', () => {
+  const caret = (): { readonly offset: number; readonly text: string } | undefined =>
+    lexicalEditor()
+      .getEditorState()
+      .read(() => {
+        const selection = $getSelection();
+        return $isRangeSelection(selection)
+          ? { offset: selection.anchor.offset, text: selection.anchor.getNode().getTextContent() }
+          : undefined;
+      });
+
+  it.effect('never marks block markers for reveal', () =>
     Effect.gen(function* () {
-      mount('> q\nplain');
+      mount('# h\n> q\n- i');
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelectorAll('[data-md-role="blockMarker"]').length, 3);
+      });
+      assert.strictEqual(editable().querySelectorAll('[data-md-span]').length, 0);
+    }),
+  );
+
+  it.effect('keeps the caret out of a hidden marker', () =>
+    Effect.gen(function* () {
+      mount('> q');
       yield* eventually(() => {
         assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
       });
       editable().focus();
-      // Text nodes: `> `, `q`, `plain`.
-      selectTextNode(2);
+      selectTextNode(0);
       yield* eventually(() => {
-        assert.deepStrictEqual(activeMarkers(), []);
+        assert.deepStrictEqual(caret(), { offset: 2, text: '> ' });
       });
-      selectTextNode(1);
+    }),
+  );
+
+  it.effect('removes the marker on Backspace at the start of the line content', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> q\nplain', {
+        onChange: next => {
+          last = next;
+        },
+      });
       yield* eventually(() => {
-        assert.deepStrictEqual(activeMarkers(), ['0:> ']);
+        assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
+      });
+      editable().focus();
+      selectTextNode(1);
+      lexicalEditor().dispatchCommand(DELETE_CHARACTER_COMMAND, true);
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, 'q\nplain');
+      });
+      assert.isNull(editable().querySelector('[data-md-role="blockMarker"]'));
+    }),
+  );
+
+  it.effect('moves ArrowLeft at the start of the line content to the end of the previous line', () =>
+    Effect.gen(function* () {
+      mount('a\n> q');
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
+      });
+      editable().focus();
+      // Text nodes: `a`, `> `, `q`.
+      selectTextNode(2);
+      lexicalEditor().dispatchCommand(KEY_ARROW_LEFT_COMMAND, new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      yield* eventually(() => {
+        assert.deepStrictEqual(caret(), { offset: 1, text: 'a' });
       });
     }),
   );

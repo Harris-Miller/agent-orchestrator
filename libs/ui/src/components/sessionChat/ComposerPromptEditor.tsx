@@ -22,6 +22,7 @@ import {
   FOCUS_COMMAND,
   HISTORY_MERGE_TAG,
   KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_LEFT_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_ESCAPE_COMMAND,
@@ -519,7 +520,33 @@ const ChipifyPlugin: FC<{ readonly availableCommands: readonly AvailableCommand[
   return null;
 };
 
-/** Marker reveal: syntax markers show only on the caret's line while the editor is focused. */
+/** Span ids (see `ComposerTextStyle.span`) whose opening-to-closing marker range holds the selection's anchor or focus. */
+const $activeMarkerSpans = (): ReadonlySet<string> => {
+  const active = new Set<string>();
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) {
+    return active;
+  }
+  const nodes = $getRoot().getAllTextNodes();
+  const keys = nodes.map(node => node.getKey());
+  const ends = [selection.anchor.getNode().getKey(), selection.focus.getNode().getKey()].map(key => keys.indexOf(key));
+  const opened = new Map<string, number>();
+  nodes.forEach((node, index) => {
+    const { span } = $readComposerTextStyle(node);
+    if (span === '') {
+      return;
+    }
+    const openedAt = opened.get(span);
+    if (openedAt === undefined) {
+      opened.set(span, index);
+    } else if (ends.some(end => end >= openedAt && end <= index)) {
+      active.add(span);
+    }
+  });
+  return active;
+};
+
+/** Marker reveal: inline markers show only while the caret is inside their span and the editor is focused. */
 const MarkerRevealPlugin: FC = () => {
   const [editor] = useLexicalComposerContext();
 
@@ -530,14 +557,9 @@ const MarkerRevealPlugin: FC = () => {
         return;
       }
       const focused = root.ownerDocument.activeElement === root;
-      const caretLine = focused
-        ? editor.getEditorState().read(() => {
-            const { cursor } = $getLogicalCursorAndAdjacency();
-            return $getRoot().getTextContent().slice(0, cursor).split('\n').length - 1;
-          })
-        : -1;
-      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-line]')) {
-        marker.toggleAttribute('data-md-active', marker.dataset.mdLine === String(caretLine));
+      const active = focused ? editor.getEditorState().read($activeMarkerSpans) : new Set<string>();
+      for (const marker of root.querySelectorAll<HTMLElement>('[data-md-span]')) {
+        marker.toggleAttribute('data-md-active', active.has(marker.dataset.mdSpan ?? ''));
       }
     };
     const onFocusChange = (): boolean => {
@@ -549,6 +571,98 @@ const MarkerRevealPlugin: FC = () => {
       editor.registerUpdateListener(reveal),
       editor.registerCommand(FOCUS_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
       editor.registerCommand(BLUR_COMMAND, onFocusChange, COMMAND_PRIORITY_LOW),
+    ];
+    return () => {
+      for (const dispose of unregister) {
+        dispose();
+      }
+    };
+  }, [editor]);
+
+  return null;
+};
+
+/** A `#`, `>`, or bullet marker, which Markdown styling never shows (ordered numbers do show). */
+const $isHiddenBlockMarker = (node: LexicalNode | null | undefined): node is TextNode => {
+  if (!$isTextNode(node)) {
+    return false;
+  }
+  const { block, role } = $readComposerTextStyle(node);
+  return role === 'blockMarker' && block !== 'ordered';
+};
+
+/** The hidden block marker a collapsed caret sits right after (the visible start of its line's content), if any. */
+const $hiddenMarkerBeforeCaret = (): TextNode | null => {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || !selection.isCollapsed() || selection.anchor.type !== 'text') {
+    return null;
+  }
+  const node = selection.anchor.getNode();
+  if ($isHiddenBlockMarker(node) && selection.anchor.offset === node.getTextContentSize()) {
+    return node;
+  }
+  const prev = node.getPreviousSibling();
+  return selection.anchor.offset === 0 && $isHiddenBlockMarker(prev) ? prev : null;
+};
+
+/**
+ * Hidden block markers are invisible, so keep the caret out of them: it snaps to the start of the line's content,
+ * ArrowLeft there goes to the end of the previous line, and Backspace there removes the marker.
+ */
+const BlockMarkerCaretPlugin: FC = () => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const unregister = [
+      editor.registerUpdateListener(({ editorState }) => {
+        const inside = editorState.read(() => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection) || !selection.isCollapsed() || selection.anchor.type !== 'text') {
+            return null;
+          }
+          const node = selection.anchor.getNode();
+          return $isHiddenBlockMarker(node) && selection.anchor.offset < node.getTextContentSize()
+            ? node.getKey()
+            : null;
+        });
+        if (inside !== null) {
+          editor.update(
+            () => {
+              const node = $getRoot()
+                .getAllTextNodes()
+                .find(candidate => candidate.getKey() === inside);
+              node?.select(node.getTextContentSize(), node.getTextContentSize());
+            },
+            { tag: ['md-caret', HISTORY_MERGE_TAG] },
+          );
+        }
+      }),
+      editor.registerCommand(
+        KEY_ARROW_LEFT_COMMAND,
+        event => {
+          const marker = event.shiftKey ? null : $hiddenMarkerBeforeCaret();
+          if (marker === null) {
+            return false;
+          }
+          event.preventDefault();
+          marker.getPreviousSibling()?.selectPrevious();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
+      editor.registerCommand(
+        DELETE_CHARACTER_COMMAND,
+        isBackward => {
+          const marker = isBackward ? $hiddenMarkerBeforeCaret() : null;
+          if (marker === null) {
+            return false;
+          }
+          marker.selectNext(0, 0);
+          marker.remove();
+          return true;
+        },
+        COMMAND_PRIORITY_HIGH,
+      ),
     ];
     return () => {
       for (const dispose of unregister) {
@@ -726,7 +840,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           '& .composer-prompt-editor__paragraph': {
             m: 0,
           },
-          // Markdown styling: markers hide (zero size) off the caret's line; ordered numbers and fences always show.
+          // Markdown styling: inline markers show only while the caret is in their span; block markers never do (ordered numbers and fences do).
           '& .composer-md-strike': { textDecoration: 'line-through' },
           '& .composer-md-code, & [data-md-block="codeBlock"]': {
             bgcolor: 'action.hover',
@@ -737,12 +851,12 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
           '& [data-md-role="marker"], & [data-md-role="blockMarker"], & [data-md-role="fence"]': {
             color: 'text.disabled',
           },
-          '& [data-md-role="marker"]:not([data-md-active]), & [data-md-role="blockMarker"]:not([data-md-active], [data-md-block="ordered"])':
+          '& [data-md-role="marker"]:not([data-md-active]), & [data-md-role="blockMarker"]:not([data-md-block="ordered"])':
             {
               fontSize: 0,
             },
           '& [data-md-block="quote"]': { color: 'text.secondary' },
-          '& [data-md-block="quote"][data-md-role="blockMarker"]:not([data-md-active])::before': {
+          '& [data-md-block="quote"][data-md-role="blockMarker"]::before': {
             bgcolor: 'divider',
             content: '""',
             display: 'inline-block',
@@ -751,7 +865,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             verticalAlign: 'text-bottom',
             width: 3,
           },
-          '& [data-md-block="bullet"][data-md-role="blockMarker"]:not([data-md-active])::before': {
+          '& [data-md-block="bullet"][data-md-role="blockMarker"]::before': {
             color: 'text.secondary',
             content: '"•"',
             fontSize: '0.875rem',
@@ -818,6 +932,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       {focusEndRef === undefined ? null : <FocusEndApiPlugin focusEndRef={focusEndRef} />}
       <ChipifyPlugin availableCommands={availableCommands} />
       <MarkerRevealPlugin />
+      <BlockMarkerCaretPlugin />
       <ChipDeletePlugin />
       {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />

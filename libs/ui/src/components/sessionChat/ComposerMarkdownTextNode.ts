@@ -1,7 +1,7 @@
 import { $create, $getState, $getStateChange, $setState, createState, TextNode } from 'lexical';
 import type { EditorConfig, LexicalEditor } from 'lexical';
 
-import { isMarkerRole, MARKDOWN_BLOCKS, MARKDOWN_ROLES } from './composerMarkdown.ts';
+import { MARKDOWN_BLOCKS, MARKDOWN_ROLES } from './composerMarkdown.ts';
 import type { MarkdownBlock, MarkdownRole } from './composerMarkdown.ts';
 import type { ComposerTextStyle } from './composerPieces.ts';
 
@@ -11,7 +11,7 @@ const roleState = createState('mdRole', {
 const blockState = createState('mdBlock', {
   parse: (value): MarkdownBlock => MARKDOWN_BLOCKS.find(block => block === value) ?? 'paragraph',
 });
-const lineState = createState('mdLine', { parse: (value): number => (typeof value === 'number' ? value : 0) });
+const spanState = createState('mdSpan', { parse: (value): string => (typeof value === 'string' ? value : '') });
 
 const setOrRemove = (dom: HTMLElement, name: string, value: string | undefined): void => {
   if (value === undefined) {
@@ -26,7 +26,7 @@ const applyMarkdownAttributes = (dom: HTMLElement, node: ComposerMarkdownTextNod
   const block = $getState(node, blockState);
   setOrRemove(dom, 'data-md-role', role === 'text' ? undefined : role);
   setOrRemove(dom, 'data-md-block', block === 'paragraph' ? undefined : block);
-  setOrRemove(dom, 'data-md-line', isMarkerRole(role) ? String($getState(node, lineState)) : undefined);
+  setOrRemove(dom, 'data-md-span', $getState(node, spanState) || undefined);
 };
 
 /**
@@ -50,7 +50,7 @@ export class ComposerMarkdownTextNode extends TextNode {
       !replace &&
       ($getStateChange(this, prevNode, roleState) !== null ||
         $getStateChange(this, prevNode, blockState) !== null ||
-        $getStateChange(this, prevNode, lineState) !== null)
+        $getStateChange(this, prevNode, spanState) !== null)
     ) {
       applyMarkdownAttributes(dom, this);
     }
@@ -74,7 +74,7 @@ export const $createComposerMarkdownTextNode = (value: string, style: ComposerTe
   }
   $setState(node, roleState, style.role);
   $setState(node, blockState, style.block);
-  $setState(node, lineState, style.line);
+  $setState(node, spanState, style.span);
   return node;
 };
 
@@ -84,7 +84,7 @@ export const $readComposerTextStyle = (node: TextNode): ComposerTextStyle => ({
   bold: node.hasFormat('bold'),
   code: node.hasFormat('code'),
   italic: node.hasFormat('italic'),
-  line: $getState(node, lineState),
   role: $getState(node, roleState),
+  span: $getState(node, spanState),
   strike: node.hasFormat('strikethrough'),
 });

@@ -26,7 +26,7 @@ const showPiece = (piece: ComposerPiece): string => {
       const { style } = piece;
       const role = { blockMarker: 'b', fence: 'f', marker: 'm', text: '' }[style.role];
       const flags = `${style.bold ? 'b' : ''}${style.italic ? 'i' : ''}${style.strike ? 's' : ''}${style.code ? 'c' : ''}`;
-      return `text:${role}${flags}@${style.block}/${style.line}:${piece.value}`;
+      return `text:${role}${flags}@${style.block}/${style.span}:${piece.value}`;
     }
   }
 };
@@ -39,34 +39,34 @@ describe('buildComposerPieces', () => {
   });
 
   it('splits chips out of styled text', () => {
-    assert.deepStrictEqual(show('/status more'), ['cmd:/status', 'text:@paragraph/0: more']);
-    assert.deepStrictEqual(show('see [a](/b) now'), ['text:@paragraph/0:see ', 'link:a', 'text:@paragraph/0: now']);
+    assert.deepStrictEqual(show('/status more'), ['cmd:/status', 'text:@paragraph/: more']);
+    assert.deepStrictEqual(show('see [a](/b) now'), ['text:@paragraph/:see ', 'link:a', 'text:@paragraph/: now']);
   });
 
   it('keeps a chip inside bold and does not parse inside it', () => {
     assert.deepStrictEqual(show('**a /status b**'), [
-      'text:m@paragraph/0:**',
-      'text:b@paragraph/0:a ',
+      'text:m@paragraph/0:0:**',
+      'text:b@paragraph/:a ',
       'cmd:/status',
-      'text:b@paragraph/0: b',
-      'text:m@paragraph/0:**',
+      'text:b@paragraph/: b',
+      'text:m@paragraph/0:0:**',
     ]);
     assert.deepStrictEqual(show('[**a**](/b)'), ['link:**a**']);
   });
 
-  it('numbers the line of a block marker', () => {
-    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/0:a', 'br', 'text:b@quote/1:> ', 'text:@quote/0:q']);
+  it('gives block markers no span', () => {
+    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/:a', 'br', 'text:b@quote/:> ', 'text:@quote/:q']);
   });
 
-  it('emits a linebreak piece between lines and numbers marker lines', () => {
+  it("emits a linebreak piece between lines and ties each span's markers together", () => {
     assert.deepStrictEqual(show('**a**\n_b_'), [
-      'text:m@paragraph/0:**',
-      'text:b@paragraph/0:a',
-      'text:m@paragraph/0:**',
+      'text:m@paragraph/0:0:**',
+      'text:b@paragraph/:a',
+      'text:m@paragraph/0:0:**',
       'br',
-      'text:m@paragraph/1:_',
-      'text:i@paragraph/0:b',
-      'text:m@paragraph/1:_',
+      'text:m@paragraph/1:0:_',
+      'text:i@paragraph/:b',
+      'text:m@paragraph/1:0:_',
     ]);
   });
 
@@ -86,7 +86,7 @@ describe('buildComposerPieces', () => {
 describe('mergeAdjacentTextPieces and composerPiecesEqual', () => {
   const piece = (value: string, bold = false): ComposerPiece => ({
     kind: 'text',
-    style: { block: 'paragraph', bold, code: false, italic: false, line: 0, role: 'text', strike: false },
+    style: { block: 'paragraph', bold, code: false, italic: false, role: 'text', span: '', strike: false },
     value,
   });
 

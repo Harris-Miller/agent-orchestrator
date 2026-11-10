@@ -25,14 +25,11 @@ export const MARKDOWN_BLOCKS = [
 export type MarkdownBlock = (typeof MARKDOWN_BLOCKS)[number];
 
 /**
- * `marker`: inline syntax characters; `blockMarker`: a line-leading `#`, `>`, bullet, or number. Both hide away from
- * the caret's line, except ordered-list numbers, which always show. `fence`: a code fence line, always shown.
+ * `marker`: inline syntax characters, shown only while the caret is inside their span; `blockMarker`: a line-leading
+ * `#`, `>`, bullet, or number, never shown except ordered-list numbers. `fence`: a code fence line, always shown.
  */
 export const MARKDOWN_ROLES = ['blockMarker', 'fence', 'marker', 'text'] as const;
 export type MarkdownRole = (typeof MARKDOWN_ROLES)[number];
-
-/** Roles whose runs carry a line for Marker reveal. */
-export const isMarkerRole = (role: MarkdownRole): boolean => role === 'marker' || role === 'blockMarker';
 
 export type MarkdownRun = {
   readonly block: MarkdownBlock;
@@ -41,6 +38,8 @@ export type MarkdownRun = {
   readonly italic: boolean;
   readonly role: MarkdownRole;
   readonly strike: boolean;
+  /** Pairing index within the line shared by the opening and closing `marker` of one span; -1 for everything else. */
+  readonly span: number;
   readonly text: string;
 };
 
@@ -67,6 +66,8 @@ type CharAttrs = {
   readonly code: boolean[];
   readonly italic: boolean[];
   readonly marker: boolean[];
+  readonly span: number[];
+  spanCount: number;
   readonly strike: boolean[];
 };
 
@@ -98,6 +99,16 @@ const fill = (flags: boolean[], from: number, to: number): void => {
   }
 };
 
+const markSpan = (attrs: CharAttrs, ranges: readonly (readonly [number, number])[]): void => {
+  for (const [from, to] of ranges) {
+    fill(attrs.marker, from, to);
+    for (let i = from; i < to; i += 1) {
+      attrs.span[i] = attrs.spanCount;
+    }
+  }
+  attrs.spanCount += 1;
+};
+
 /** Pair a closer with the nearest matching opener, consuming opener chars from its end and closer chars from its start. */
 const pairDelimiters = (opener: Delimiter, closer: Delimiter, attrs: CharAttrs): boolean => {
   const count = opener.char === '~' || (opener.remaining >= 2 && closer.remaining >= 2) ? 2 : 1;
@@ -106,8 +117,10 @@ const pairDelimiters = (opener: Delimiter, closer: Delimiter, attrs: CharAttrs):
   if (openFrom + count >= closeFrom) {
     return false;
   }
-  fill(attrs.marker, openFrom, openFrom + count);
-  fill(attrs.marker, closeFrom, closeFrom + count);
+  markSpan(attrs, [
+    [openFrom, openFrom + count],
+    [closeFrom, closeFrom + count],
+  ]);
   let target = attrs.italic;
   if (opener.char === '~') {
     target = attrs.strike;
@@ -168,6 +181,8 @@ const markInline = (content: string): CharAttrs => {
     code: Array.from<boolean>({ length }).fill(false),
     italic: Array.from<boolean>({ length }).fill(false),
     marker: Array.from<boolean>({ length }).fill(false),
+    span: Array.from<number>({ length }).fill(-1),
+    spanCount: 0,
     strike: Array.from<boolean>({ length }).fill(false),
   };
   const delimiters: Delimiter[] = [];
@@ -184,9 +199,11 @@ const markInline = (content: string): CharAttrs => {
       const ticks = ticksEnd - index;
       const closeStart = findCodeSpanEnd(content, ticksEnd, ticks);
       if (closeStart > ticksEnd) {
-        fill(attrs.marker, index, ticksEnd);
+        markSpan(attrs, [
+          [index, ticksEnd],
+          [closeStart, closeStart + ticks],
+        ]);
         fill(attrs.code, ticksEnd, closeStart);
-        fill(attrs.marker, closeStart, closeStart + ticks);
         index = closeStart + ticks;
       } else {
         index = ticksEnd;
@@ -209,11 +226,12 @@ const inlineRuns = (content: string, block: MarkdownBlock): MarkdownRun[] => {
   let runStart = 0;
   const sameAt = (a: number, b: number): boolean =>
     attrs.marker[a] === attrs.marker[b] &&
-    (attrs.marker[a] ||
-      (attrs.bold[a] === attrs.bold[b] &&
+    (attrs.marker[a]
+      ? attrs.span[a] === attrs.span[b]
+      : attrs.bold[a] === attrs.bold[b] &&
         attrs.italic[a] === attrs.italic[b] &&
         attrs.strike[a] === attrs.strike[b] &&
-        attrs.code[a] === attrs.code[b]));
+        attrs.code[a] === attrs.code[b]);
   for (let index = 1; index <= content.length; index += 1) {
     if (index === content.length || !sameAt(runStart, index)) {
       const isMarker = attrs.marker[runStart];
@@ -223,6 +241,7 @@ const inlineRuns = (content: string, block: MarkdownBlock): MarkdownRun[] => {
         code: !isMarker && attrs.code[runStart],
         italic: !isMarker && attrs.italic[runStart],
         role: isMarker ? 'marker' : 'text',
+        span: attrs.span[runStart],
         strike: !isMarker && attrs.strike[runStart],
         text: content.slice(runStart, index),
       });
@@ -259,6 +278,7 @@ const plainRun = (text: string, block: MarkdownBlock, role: MarkdownRole): Markd
   code: false,
   italic: false,
   role,
+  span: -1,
   strike: false,
   text,
 });

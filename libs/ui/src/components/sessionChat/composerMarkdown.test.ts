@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { isMarkerRole, parseComposerMarkdown } from './composerMarkdown.ts';
+import { parseComposerMarkdown } from './composerMarkdown.ts';
 import type { MarkdownRun } from './composerMarkdown.ts';
 
 const flags = (run: MarkdownRun): string =>
@@ -9,7 +9,7 @@ const flags = (run: MarkdownRun): string =>
 /** One string per run: `<role marker 'm'><style flags>:<text>`; plain text has empty flags. */
 const show = (text: string): readonly (readonly string[])[] =>
   parseComposerMarkdown(text).map(line =>
-    line.map(run => `${isMarkerRole(run.role) ? 'm' : ''}${flags(run)}:${run.text}`),
+    line.map(run => `${run.role === 'marker' || run.role === 'blockMarker' ? 'm' : ''}${flags(run)}:${run.text}`),
   );
 
 const assertPlain = (text: string): void => {
@@ -101,8 +101,16 @@ describe('parseComposerMarkdown inline', () => {
     assert.deepStrictEqual(show('a `b` c'), [[':a ', 'm:`', 'c:b', 'm:`', ': c']]);
   });
 
+  it('gives the opening and closing marker of a span one shared span id', () => {
+    const [line] = parseComposerMarkdown('**a** _b_ plain');
+    assert.deepStrictEqual(
+      line.map(run => run.span),
+      [0, -1, 0, -1, 1, -1, 1, -1],
+    );
+  });
+
   it('nests bold and italic', () => {
-    assert.deepStrictEqual(show('***x***'), [['m:***', 'bi:x', 'm:***']]);
+    assert.deepStrictEqual(show('***x***'), [['m:*', 'm:**', 'bi:x', 'm:**', 'm:*']]);
     assert.deepStrictEqual(show('**a *b* c**'), [['m:**', 'b:a ', 'm:*', 'bi:b', 'm:*', 'b: c', 'm:**']]);
   });
 

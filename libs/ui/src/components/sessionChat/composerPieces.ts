@@ -2,18 +2,18 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import type { ComposerSegment } from './composerCommandTokens.ts';
-import { COMPOSER_CHIP_MASK, isMarkerRole, parseComposerMarkdown } from './composerMarkdown.ts';
+import { COMPOSER_CHIP_MASK, parseComposerMarkdown } from './composerMarkdown.ts';
 import type { MarkdownBlock, MarkdownRole, MarkdownRun } from './composerMarkdown.ts';
 import { markdownLinkText } from './markdownLinkText.ts';
 
-/** How a text piece is styled; `line` is only meaningful for `marker` and `blockMarker` pieces (Marker reveal) and is 0 otherwise. */
+/** How a text piece is styled; `span` ties the two inline markers of one span together (Marker reveal), '' otherwise. */
 export type ComposerTextStyle = {
   readonly block: MarkdownBlock;
   readonly bold: boolean;
   readonly code: boolean;
   readonly italic: boolean;
-  readonly line: number;
   readonly role: MarkdownRole;
+  readonly span: string;
   readonly strike: boolean;
 };
 
@@ -56,8 +56,8 @@ const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   bold: run.bold,
   code: run.code,
   italic: run.italic,
-  line: isMarkerRole(run.role) ? line : 0,
   role: run.role,
+  span: run.span < 0 ? '' : `${line}:${run.span}`,
   strike: run.strike,
 });
 
@@ -118,8 +118,8 @@ const sameStyle = (left: ComposerTextStyle, right: ComposerTextStyle): boolean =
   left.bold === right.bold &&
   left.code === right.code &&
   left.italic === right.italic &&
-  left.line === right.line &&
   left.role === right.role &&
+  left.span === right.span &&
   left.strike === right.strike;
 
 export const mergeAdjacentTextPieces = (pieces: readonly ComposerPiece[]): readonly ComposerPiece[] => {

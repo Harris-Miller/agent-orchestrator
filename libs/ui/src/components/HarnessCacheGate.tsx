@@ -11,12 +11,8 @@ import { useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
 
-import {
-  backendHarnessSnapshotAtom,
-  configOptionIndexAtom,
-  visibleSessionHistoryAtom,
-} from '../atoms/backendState.atoms.ts';
-import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
+import { configOptionIndexAtom, visibleSessionHistoryAtom } from '../atoms/backendState.atoms.ts';
+import { sessionHistoryAtom, updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { reconcileTrackedCwds, trackedCwdsAtom, trackedCwdsLoadedAtom } from '../atoms/trackedCwds.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -48,10 +44,11 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
                 let writes = Promise.resolve();
                 let lastWritten = JSON.stringify(historyRead.value.sessions);
                 unsubscribers.push(
-                  registry.subscribe(backendHarnessSnapshotAtom(launchTarget), () => {
+                  registry.subscribe(sessionHistoryAtom(launchTarget), () => {
                     writes = writes.then(() => {
-                      const current = registry.get(backendHarnessSnapshotAtom(launchTarget));
-                      const sessions = current.sessionHistory.map(({ unavailable: _unavailable, ...entry }) => entry);
+                      const sessions = registry
+                        .get(sessionHistoryAtom(launchTarget))
+                        .map(({ unavailable: _unavailable, ...entry }) => entry);
                       const nextJson = JSON.stringify(sessions);
                       if (nextJson === lastWritten) return;
                       return hostRuntime

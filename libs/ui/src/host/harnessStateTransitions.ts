@@ -2,8 +2,6 @@
  * Pure Harness state transitions over BackendHarnessSnapshot: the only place the snapshot's next value is computed.
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
-import type { Cause } from 'effect';
-
 import type {
   AcpBootstrapPhase,
   BackendHarnessSnapshot,
@@ -13,7 +11,6 @@ import type {
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import {
-  defectsFromActivationFailure,
   initialBackendHarnessSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
@@ -24,7 +21,6 @@ import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withArchived } from './airMeta.ts';
 import type { ApplySessionUpdateResult } from './applySessionUpdate.ts';
-import type { RpcWireEntry } from './backendHarness.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -377,14 +373,13 @@ export const applyInitializeResult = (
 /**
  * Connection lost: local state once the provider's ACP Connection is gone. Every session inactive with pendings
  * cleared, history and transcripts preserved (history marked unavailable), connection-scoped state reset to a fresh
- * bootstrap (phase, failure, initialize result and Agent capabilities, Sign in URL). The RPC wire log is kept. Idempotent. Sessions are not
+ * bootstrap (phase, failure, initialize result and Agent capabilities, Sign in URL). Idempotent. Sessions are not
  * reopened; the caller cancels pending interactions and unbinds the Virtual session.
  */
 export const reconcileConnectionLost = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => {
   const stripped = stripSessionPendings(snapshot, Object.keys(snapshot.sessions));
   return {
     ...initialBackendHarnessSnapshot(),
-    rpcCalls: snapshot.rpcCalls,
     sessionHistory: markHistoryUnavailable(snapshot.sessionHistory),
     sessions: Object.fromEntries(
       Object.entries(stripped.sessions).map(([sessionId, session]) => [
@@ -398,12 +393,6 @@ export const reconcileConnectionLost = (snapshot: BackendHarnessSnapshot): Backe
     ),
   };
 };
-
-/** Provider stopped (Stop alone): Connection lost, plus the RPC wire log cleared — Stop is the log's only bound. */
-export const reconcileProviderStopped = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => ({
-  ...reconcileConnectionLost(snapshot),
-  rpcCalls: [],
-});
 
 /** Bootstrap phase reported with its failure; the Sign in URL is dropped once the attempt is past signing in. */
 export const applyBootstrapPhase = (
@@ -421,12 +410,6 @@ export const applyBootstrapPhase = (
 export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: string): BackendHarnessSnapshot => ({
   ...snapshot,
   antigravityAuthUrl: url,
-});
-
-/** One ACP message appended to the RPC wire log (Developer panel). */
-export const recordRpcMessage = (snapshot: BackendHarnessSnapshot, entry: RpcWireEntry): BackendHarnessSnapshot => ({
-  ...snapshot,
-  rpcCalls: [...snapshot.rpcCalls, entry],
 });
 
 /** Next Session History after a successful `session/list` (see {@link historyAfterList}). */
@@ -459,30 +442,23 @@ export const beginActivation = (
   );
 
 /** `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`. */
-export const failActivation = <E>(
+export const failActivation = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cause: Cause.Cause<E>,
+  defects: readonly unknown[],
 ): BackendHarnessSnapshot => ({
   ...snapshot,
-  sessions: patchSession(snapshot.sessions, sessionId, session => ({
-    ...session,
-    defects: defectsFromActivationFailure(snapshot.rpcCalls, cause),
-    status: 'inactive',
-  })),
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({ ...session, defects, status: 'inactive' })),
 });
 
 /** `session/unarchive` failed before activation: the failure's defects recorded, status untouched. */
-export const failUnarchive = <E>(
+export const failUnarchive = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cause: Cause.Cause<E>,
+  defects: readonly unknown[],
 ): BackendHarnessSnapshot => ({
   ...snapshot,
-  sessions: patchSession(snapshot.sessions, sessionId, session => ({
-    ...session,
-    defects: defectsFromActivationFailure(snapshot.rpcCalls, cause),
-  })),
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({ ...session, defects })),
 });
 
 /** Activation cannot start: no cwd on the snapshot or History entry. The Session stays `inactive`. */

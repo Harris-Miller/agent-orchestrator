@@ -18,6 +18,7 @@ import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
+import { rpcWireLogAtom } from './rpcWireLog.ts';
 import {
   showArchivedAtom,
   unwrapUserSettings,
@@ -192,7 +193,7 @@ export const subagentViewAtom = Atom.make(get => {
 /** RPC wire logs for every mounted launch target (unified Developer panel wire tab). */
 export const allRpcWireCallsAtom = Atom.make(get =>
   MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
-    entries: get(backendHarnessSnapshotAtom(launchTarget)).rpcCalls,
+    entries: get(rpcWireLogAtom(launchTarget)),
     launchTarget,
   })),
 ).pipe(Atom.keepAlive);

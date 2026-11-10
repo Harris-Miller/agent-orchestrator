@@ -141,8 +141,9 @@ export const createProvidersAtoms = (
   ).pipe(Atom.keepAlive);
 
   /**
-   * Launch target availability for pickers: every enabled target (`selectable`, unusable ones render disabled), the
-   * `usable` ones, and `reasons` for the rest. A Provider's own reason (CLI, runtime, download) outranks the harness's.
+   * Launch target availability for pickers: every enabled target (`selectable`; unusable ones render disabled), the
+   * ones whose harness is `usable`, and a reason per target that has one. A Provider's own reason (CLI, runtime,
+   * download) outranks the harness's.
    */
   const launchTargetAvailabilityAtom = Atom.make(get => {
     const { reasons, usable } = get(harnessAvailabilityAtom);

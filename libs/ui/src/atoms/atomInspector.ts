@@ -20,21 +20,20 @@ export type AtomEntry = AtomSummary & {
   readonly value: unknown;
 };
 
-export type AtomDebugBridge = {
+export type DevStateBridge = {
   readonly atoms: {
-    readonly dump: () => Record<string, JsonValue>;
     readonly get: (label: string) => JsonValue;
     readonly list: () => readonly AtomSummary[];
+    readonly values: () => Record<string, JsonValue>;
   };
-  readonly registry: AtomRegistry.AtomRegistry;
 };
 
-/** Where {@link installAtomDebugBridge} puts the bridge; `window` in apps. */
-export type AtomDebugTarget = { __HOA__?: AtomDebugBridge };
+/** Where {@link installDevStateBridge} puts the bridge; `window` in apps. */
+export type DevStateBridgeTarget = { __HOA__?: DevStateBridge };
 
 declare global {
   interface Window {
-    __HOA__?: AtomDebugBridge;
+    __HOA__?: DevStateBridge;
   }
 }
 
@@ -67,17 +66,17 @@ export const listAtoms = (
         value: Option.getOrUndefined(value),
       };
     })
-    .toSorted((a, b) => a.label.localeCompare(b.label));
+    .toSorted((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 
 /** Puts the bridge on `target` (never replaced if a newer install exists on dispose). Returns dispose. */
-export const installAtomDebugBridge = (
+export const installDevStateBridge = (
   registry: AtomRegistry.AtomRegistry,
-  target: AtomDebugTarget,
+  target: DevStateBridgeTarget,
   nameOf?: AtomNameOf,
 ): (() => void) => {
-  const bridge: AtomDebugBridge = {
+  const bridge: DevStateBridge = {
     atoms: {
-      dump: () =>
+      values: () =>
         Object.fromEntries(
           listAtoms(registry, nameOf)
             .filter(entry => entry.computed)
@@ -89,7 +88,7 @@ export const installAtomDebugBridge = (
         if (entry === undefined) {
           throw new Error(`No atom labeled "${label}". Known labels: ${entries.map(e => e.label).join(', ')}`);
         }
-        return entry.computed ? toJsonSafe(entry.value) : '[uncomputed]';
+        return entry.computed ? toJsonSafe(entry.value) : { $type: 'Uncomputed' };
       },
       list: () =>
         listAtoms(registry, nameOf).map(({ computed, keepAlive, kind, label }) => ({
@@ -99,7 +98,6 @@ export const installAtomDebugBridge = (
           label,
         })),
     },
-    registry,
   };
   target.__HOA__ = bridge;
   return () => {

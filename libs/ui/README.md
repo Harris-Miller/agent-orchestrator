@@ -9,9 +9,10 @@ Dev builds (`tauri dev`, `vite`, `pnpm vscode:dev`) expose the **Dev state bridg
 ```js
 window.__HOA__.atoms.list(); // [{ label, kind, computed, keepAlive }, ...]
 window.__HOA__.atoms.get('trackedCwds'); // JSON-safe value (Map/Set/Option/AsyncResult are tagged: { $type: 'Map', ... })
-window.__HOA__.atoms.dump(); // { label: value } for every computed Atom
-window.__HOA__.registry; // the raw Atom registry
+window.__HOA__.atoms.values(); // { label: value } for every computed Atom
 ```
+
+These cover the Atoms currently in the registry: one nobody has read yet is missing, and a non-`keepAlive` Atom disappears once nothing observes it. Atoms are addressed by `Atom.withLabel`, else by the module export that holds them, else `anonymous#n` (not stable across reloads; label the Atom if tools need it). Per-key family Atoms are labeled `name:key`.
 
 The same data shows in the Developer panel's **Atoms** tab (Developer mode on).
 

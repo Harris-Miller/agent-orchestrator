@@ -103,7 +103,7 @@ export const createProvidersAtoms = (
         Object.values(get(backendHarnessSnapshotAtom(launchTarget)).sessions).filter(
           session => session.status === 'active' || session.status === 'activating',
         ).length,
-    ).pipe(Atom.keepAlive),
+    ).pipe(Atom.withLabel(`liveSessionCount:${launchTarget}`), Atom.keepAlive),
   );
 
   const providerViewAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
@@ -130,7 +130,7 @@ export const createProvidersAtoms = (
             }
           : undefined,
       };
-    }).pipe(Atom.keepAlive),
+    }).pipe(Atom.withLabel(`providerView:${launchTarget}`), Atom.keepAlive),
   );
 
   /** Every provider in this build (enabled or not) for Settings and the startup modal. */

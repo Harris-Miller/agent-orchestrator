@@ -81,8 +81,6 @@ const inlineText = (value: unknown, kind: AtomValueKind): string => {
       return `ƒ ${(value as { name: string }).name || 'anonymous'}`;
     case 'bigint':
       return `${String(value)}n`;
-    case 'symbol':
-      return String(value);
     default:
       return String(value);
   }

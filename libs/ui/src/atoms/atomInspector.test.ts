@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
-import { installAtomDebugBridge, listAtoms } from './atomInspector.ts';
-import type { AtomDebugTarget } from './atomInspector.ts';
+import { installDevStateBridge, listAtoms } from './atomInspector.ts';
+import type { DevStateBridgeTarget } from './atomInspector.ts';
 
 const labeled = <A>(value: A, label: string) => Atom.make(value).pipe(Atom.withLabel(label), Atom.keepAlive);
 
@@ -48,13 +48,14 @@ describe('listAtoms', () => {
   });
 });
 
-describe('installAtomDebugBridge', () => {
-  it('reads a JSON-safe value by label, dumps all computed atoms, and rejects unknown labels', () => {
+describe('installDevStateBridge', () => {
+  it('reads a JSON-safe value by label, lists all computed values, and rejects unknown labels', () => {
     const registry = AtomRegistry.make();
     registry.get(labeled(new Map([['k', 1]]), 'items'));
     registry.get(labeled(true, 'flag'));
-    const target: AtomDebugTarget = {};
-    installAtomDebugBridge(registry, target);
+    registry.ensureNode(Atom.make(() => 1).pipe(Atom.withLabel('derived')));
+    const target: DevStateBridgeTarget = {};
+    installDevStateBridge(registry, target);
     const bridge = target.__HOA__;
     assert.isDefined(bridge);
 
@@ -62,18 +63,19 @@ describe('installAtomDebugBridge', () => {
       $type: 'Map',
       entries: [['k', 1]],
     });
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge?.atoms.dump())), {
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge?.atoms.values())), {
       flag: true,
       items: { $type: 'Map', entries: [['k', 1]] },
     });
-    assert.throws(() => bridge?.atoms.get('nope'), /No atom labeled "nope".*flag, items/);
-    assert.strictEqual(bridge?.registry, registry);
+    assert.deepStrictEqual(bridge?.atoms.get('derived'), { $type: 'Uncomputed' });
+    assert.throws(() => bridge?.atoms.get('nope'), /No atom labeled "nope".*derived, flag, items/);
+    assert.isUndefined((bridge as { registry?: unknown } | undefined)?.registry);
   });
 
   it('dispose removes its own install but not a newer one', () => {
-    const target: AtomDebugTarget = {};
-    const first = installAtomDebugBridge(AtomRegistry.make(), target);
-    const second = installAtomDebugBridge(AtomRegistry.make(), target);
+    const target: DevStateBridgeTarget = {};
+    const first = installDevStateBridge(AtomRegistry.make(), target);
+    const second = installDevStateBridge(AtomRegistry.make(), target);
     const installed = target.__HOA__;
 
     first();

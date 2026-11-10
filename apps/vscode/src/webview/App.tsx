@@ -3,8 +3,8 @@ import { onWorkspaceFoldersChanged, requestWorkspaceFolders } from '@lib/context
 import {
   AcpBackendsMount,
   AppThemeProvider,
-  AtomDebugBridge,
   bootWorkspaceFolders,
+  DevStateBridgeMount,
   FdPrerequisiteGate,
   handleWorkspaceFoldersChanged,
   HarnessCacheGate,
@@ -127,7 +127,7 @@ const WorkspaceFoldersGate: FC = () => {
 
 export const App: FC = () => (
   <RegistryProvider>
-    {import.meta.env.DEV ? <AtomDebugBridge /> : null}
+    {import.meta.env.DEV ? <DevStateBridgeMount /> : null}
     <AppThemeProvider>
       <CssBaseline />
       <UserSettingsMount />

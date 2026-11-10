@@ -45,7 +45,7 @@ export const createHarnessAtoms = (
         launchTarget,
         runBackendHarness(launchTarget, fold, () => registry.get(sessionListScopeAtom)),
       );
-    }).pipe(Atom.keepAlive),
+    }).pipe(Atom.withLabel(`backendHarness:${launchTarget}`), Atom.keepAlive),
   );
 
   /**

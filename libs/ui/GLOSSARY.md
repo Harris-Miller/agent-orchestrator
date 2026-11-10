@@ -22,6 +22,10 @@ _Avoid_: primary button state, canSend, canSteer
 Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering or Queued (a Queued message); otherwise it stays in the Composer and is sent as a normal prompt after the turn ends. If Steering fails, the message goes back into that Session's Composer, ahead of anything typed since.
 _Avoid_: Queued prompt, pending message, outbox
 
+**Mid-turn send**:
+What the Send button and Enter do while a Steering is offered: Steering or Queue, by the `midTurnSend` User setting (Steering when unset). A context click on Send offers the other one for that message only. Not offered when Steering is not supported.
+_Avoid_: Send mode, queue mode
+
 **Queued message**:
 The one message per Session moved out of the draft by Queue while a Steering is offered; sent as a new Prompt turn once the in-flight one is over. Shown as one row above the editor with an Edit action that moves it back into the draft. Prompt turn cancel returns it to the draft. In memory only (desktop ADR-0020).
 _Avoid_: Queued prompt, outbox, Send pending

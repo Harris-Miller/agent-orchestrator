@@ -82,9 +82,9 @@ export const useSessionChatSurface = () => {
     if (target?._tag !== 'Session' || target.launchTarget === undefined || composer.action._tag !== 'CancelTurn') {
       return undefined;
     }
-    // A Queued message must not auto-send after Stop: it goes back into the draft first.
-    unqueue(undefined).catch(() => undefined);
-    return cancelPrompt({ launchTarget: target.launchTarget, sessionId: target.sessionId });
+    const { launchTarget, sessionId } = target;
+    // A Queued message must not auto-send after Stop: it goes back into the draft before the cancel is sent.
+    return unqueue(undefined).then(() => cancelPrompt({ launchTarget, sessionId }));
   }, [cancelPrompt, composer.action._tag, target, unqueue]);
 
   const chatItems = useMemo(

@@ -173,9 +173,6 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
   }
 };
 
-/** Selectable for create / handoff / Virtual: enabled, launchable, and the harness is ready. */
-export const isProviderReady = (p: ProviderView): boolean => overallStatus(p) === 'ready';
-
 export type StatusTone = 'error' | 'info' | 'neutral' | 'success' | 'warning';
 
 export type StatusMeta = {
@@ -219,9 +216,6 @@ export const STATUS_META: Readonly<Record<OverallStatus, StatusMeta>> = {
 /** Reason shown beside an unavailable row in pickers and the startup matrix. */
 export const unavailableReason = (p: ProviderView): string | undefined =>
   STATUS_META[overallStatus(p)].unavailable?.(p);
-
-/** Enabled but cannot launch (no CLI, no active runtime, download failed). */
-export const isProviderUnavailable = (p: ProviderView): boolean => unavailableReason(p) !== undefined;
 
 export const statusHeadline = (p: ProviderView): string => {
   const status = overallStatus(p);

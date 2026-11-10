@@ -1,19 +1,3 @@
-export {
-  adapterDirPath,
-  adapterHistoryLockPath,
-  adapterHistoryPath,
-  readAdapterHistory,
-  withAdapterHistoryLock,
-  writeAdapterHistory,
-} from './adapterHistory.ts';
-export {
-  type AdapterHistoryDocument,
-  AdapterHistoryDocumentJsonString,
-  AdapterHistoryDocumentSchema,
-  type AdapterHistoryEntry,
-  AdapterHistoryEntrySchema,
-  emptyAdapterHistory,
-} from './AdapterHistoryDocument.ts';
 export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
 export {
   emptySessionIndex,

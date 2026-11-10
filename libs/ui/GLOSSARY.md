@@ -146,7 +146,7 @@ _Avoid_: refresh, re-probe
 
 **Session History**:
 Per-launch-target Harness view of `session/list`, hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
-_Avoid_: Roster, Session roster, Adapter history document, session snapshot
+_Avoid_: Roster, Session roster, session snapshot
 
 **Unavailable model**:
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.

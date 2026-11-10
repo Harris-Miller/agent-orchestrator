@@ -4,16 +4,17 @@ import { useAtomValue } from '@effect/atom-react';
 import {
   allotmentSashSx,
   DEVELOPER_PANEL_HEIGHT,
-  isRecord,
+  isFiniteNumberArray,
   readDeveloperPanelOpen,
   selectedSessionAtom,
   useDeveloperPanelOpen,
+  usePersistedLayout,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
 import { Outlet } from '@tanstack/react-router';
 import { Allotment } from 'allotment';
 import type { AllotmentHandle } from 'allotment';
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 
 import { DeveloperPanel } from './DeveloperPanel.tsx';
@@ -25,13 +26,6 @@ const DEVELOPER_PANE_MIN = 120;
 type AppLayoutState = {
   readonly verticalSizes?: readonly number[];
 };
-
-const DEFAULT_LAYOUT: AppLayoutState = {};
-
-const isFiniteNumberArray = (value: unknown, length: number): value is number[] =>
-  Array.isArray(value) &&
-  value.length === length &&
-  value.every(item => typeof item === 'number' && Number.isFinite(item));
 
 /** Drop collapsed bottom-pane sizes so preferredSize can apply on open. */
 const sanitizeVerticalSizes = (
@@ -47,62 +41,41 @@ const sanitizeVerticalSizes = (
   return undefined;
 };
 
-const loadLayout = (): AppLayoutState => {
-  try {
-    const raw = localStorage.getItem(LAYOUT_KEY);
-    if (raw == null) {
-      return DEFAULT_LAYOUT;
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) {
-      return DEFAULT_LAYOUT;
-    }
-    return {
-      verticalSizes: sanitizeVerticalSizes(
-        isFiniteNumberArray(parsed.verticalSizes, 2) ? parsed.verticalSizes : undefined,
-        readDeveloperPanelOpen(),
-      ),
-    };
-  } catch {
-    return DEFAULT_LAYOUT;
-  }
-};
-
-const saveLayout = (layout: AppLayoutState): void => {
-  localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
-};
+const parseLayout = (raw: Record<string, unknown>): AppLayoutState => ({
+  verticalSizes: sanitizeVerticalSizes(
+    isFiniteNumberArray(raw.verticalSizes, 2) ? raw.verticalSizes : undefined,
+    readDeveloperPanelOpen(),
+  ),
+});
 
 /** Root route layout: vertical Allotment (main Outlet + Developer panel). */
 export const AppLayout: FC = () => {
-  const [layout, setLayout] = useState(loadLayout);
-  const layoutRef = useRef(layout);
+  const {
+    commit: commitLayout,
+    latest: latestLayout,
+    layout,
+  } = usePersistedLayout({
+    key: LAYOUT_KEY,
+    parse: parseLayout,
+  });
   const allotmentRef = useRef<AllotmentHandle | null>(null);
   const { close: closeDeveloperPanel, onPaneVisibleChange, visible: panelVisible } = useDeveloperPanelOpen();
   const selectedSession = useAtomValue(selectedSessionAtom);
   const onClientError = useContext(OnClientErrorContext);
-
-  const commitLayout = useCallback((patch: Partial<AppLayoutState>, rerender = true) => {
-    const next = { ...layoutRef.current, ...patch };
-    layoutRef.current = next;
-    saveLayout(next);
-    if (rerender) {
-      setLayout(next);
-    }
-  }, []);
 
   // After Allotment applies `visible`, restore preferred height (cached size may be 0).
   useEffect(() => {
     if (!panelVisible) {
       return;
     }
-    commitLayout({ verticalSizes: sanitizeVerticalSizes(layoutRef.current.verticalSizes, true) }, false);
+    commitLayout({ verticalSizes: sanitizeVerticalSizes(latestLayout().verticalSizes, true) }, false);
     const frame = requestAnimationFrame(() => {
       allotmentRef.current?.reset();
     });
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [commitLayout, panelVisible]);
+  }, [commitLayout, latestLayout, panelVisible]);
 
   return (
     <Box

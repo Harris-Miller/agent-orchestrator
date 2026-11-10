@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -93,6 +94,9 @@ const formatActivationDefect = (defect: unknown): string => {
   }
   return JSON.stringify(defect);
 };
+
+/** The Send button's icon for each mid-turn send; the context menu item shows the same one. */
+const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
 
 const SessionChatBodyInner: FC<{
   readonly aboveComposer?: ReactNode;
@@ -753,7 +757,7 @@ const SessionChatBodyInner: FC<{
                   ) : (
                     <LucideMuiIcon
                       fontSize="small"
-                      icon={action._tag === 'Steer' && midTurnSend === 'queue' ? ListEnd : ArrowUp}
+                      icon={action._tag === 'Steer' ? MID_TURN_SEND_ICON[midTurnSend] : ArrowUp}
                     />
                   )}
                 </Button>
@@ -785,6 +789,9 @@ const SessionChatBodyInner: FC<{
                     submitDraft(otherMidTurnSend);
                   }}
                 >
+                  <ListItemIcon>
+                    <LucideMuiIcon fontSize="small" icon={MID_TURN_SEND_ICON[otherMidTurnSend]} />
+                  </ListItemIcon>
                   {otherMidTurnSend === 'queue' ? 'Queue' : 'Steer'}
                 </MenuItem>
               </Menu>

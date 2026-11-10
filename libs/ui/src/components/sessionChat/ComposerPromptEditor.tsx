@@ -912,9 +912,10 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             bgcolor: 'divider',
             content: '""',
             display: 'inline-block',
-            height: 18,
+            // Exactly one line box tall (0.875rem × 1.43), aligned to its top, so stacked quote lines join up.
+            height: '1.25125rem',
             mr: 1,
-            verticalAlign: 'text-bottom',
+            verticalAlign: 'top',
             width: 3,
           },
           '& [data-md-block="bullet"][data-md-role="blockMarker"]::before': {

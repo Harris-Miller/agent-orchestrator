@@ -37,6 +37,8 @@ import {
   markHistoryUnavailable,
   markSessionInactive,
   mergeListedHistory,
+  raiseElicitation,
+  raisePermission,
   reconcileConnectionLost,
   reconcileProviderStopped,
   recordRpcMessage,
@@ -653,6 +655,14 @@ describe('prompt turn and interaction folds', () => {
     assert.strictEqual(next.sessions.s1.pendingPermission, undefined);
     assert.strictEqual(next.sessions.s1.promptCancelRequested, true);
     assert.strictEqual(requestPromptCancel(snapshot, 'gone', {}), snapshot);
+  });
+
+  it('raiseElicitation / raisePermission place the request on its Session and replace an older one', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pendingElicitation('e1', 's1') }) });
+    const newer = pendingElicitation('e2', 's1');
+    assert.strictEqual(raiseElicitation(snapshot, newer).sessions.s1.pendingElicitation, newer);
+    const permission = pendingPermission('s1');
+    assert.strictEqual(raisePermission(snapshot, permission).sessions.s1.pendingPermission, permission);
   });
 
   it('answerElicitation / answerPermission clear only the answered request', () => {

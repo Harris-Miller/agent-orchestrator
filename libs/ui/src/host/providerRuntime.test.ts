@@ -13,18 +13,21 @@ import { Effect, Layer, Sink, Stream } from 'effect';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 import { ChildProcessSpawner } from 'effect/process';
 import * as PlatformError from 'effect/PlatformError';
+import { expectTypeOf } from 'vitest';
 
 import {
   activateDownloadedRuntime,
   cleanupProviderRuntimes,
   deactivateRuntime,
   downloadProviderRuntime,
+  isManagedProvider,
   purgeAllRuntimes,
   purgeSupersededRuntimes,
   readRuntimeSnapshot,
   resolveActiveRuntime,
   resolveLatestRuntime,
 } from './providerRuntime.ts';
+import type { ManagedProviderLaunchTarget } from './providerRuntime.ts';
 
 const ROOT = '/home/operator/.hoa/providers';
 const CLAUDE = `${ROOT}/claude-agent-acp`;
@@ -235,6 +238,16 @@ describe('provider runtime download (npm)', () => {
       assert.strictEqual(calls.length, 0);
     }),
   );
+});
+
+describe('managed providers', () => {
+  it('are the launch targets with a runtime; Cursor runs its CLI directly', () => {
+    assert.isTrue(isManagedProvider('antigravity-acp'));
+    assert.isTrue(isManagedProvider('claude-agent-acp'));
+    assert.isTrue(isManagedProvider('codex-acp'));
+    assert.isFalse(isManagedProvider('cursor-acp'));
+    expectTypeOf<ManagedProviderLaunchTarget>().toEqualTypeOf<'antigravity-acp' | 'claude-agent-acp' | 'codex-acp'>();
+  });
 });
 
 describe('provider runtime resolve, cleanup and launch', () => {

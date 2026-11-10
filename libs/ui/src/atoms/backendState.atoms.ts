@@ -13,6 +13,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
+import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
 
@@ -99,8 +100,7 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
   if (!get(enabledLaunchTargetsAtom).includes(launchTarget)) {
     return new ProviderUnavailable({ message: `${label} is disabled` });
   }
-  const job = get(providerJobAtom(launchTarget));
-  if (job._tag === 'Installing' || job._tag === 'Removing') {
+  if (isSwitchingJob(get(providerJobAtom(launchTarget)))) {
     return new ProviderUnavailable({ message: `${label} is switching runtimes` });
   }
   return undefined;

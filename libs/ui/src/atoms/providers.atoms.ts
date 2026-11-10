@@ -112,7 +112,6 @@ export const createProvidersAtoms = (
       const snapshot = snapshotOf(info);
       const harnessState = get(backendHarnessSnapshotAtom(launchTarget));
       const { auth, harnessError } = authFromHarness(harnessState.phase, harnessState.failure);
-      const managed = PROVIDER_META[launchTarget].runtime !== undefined;
       return {
         auth,
         cli: info.cli,
@@ -120,7 +119,7 @@ export const createProvidersAtoms = (
         harnessError,
         id: launchTarget,
         liveSessions: get(liveSessionCountAtom(launchTarget)),
-        runtime: managed
+        runtime: isManagedProvider(launchTarget)
           ? {
               active: snapshot?.active,
               cleanupFailures: snapshot?.cleanupFailures ?? [],

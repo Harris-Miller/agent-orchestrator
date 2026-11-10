@@ -17,7 +17,7 @@ import { Fragment, useState } from 'react';
 import type { FC } from 'react';
 
 import { showProvidersOnStartupAtom } from '../../atoms/boundHarnessAtoms.ts';
-import { overallStatus } from '../../host/providerView.ts';
+import { overallStatus, STATUS_META } from '../../host/providerView.ts';
 
 import { ProviderItem } from './ProvidersSettingsPane.tsx';
 import { VscodeExtensionRow } from './VscodeExtensionRow.tsx';
@@ -52,11 +52,11 @@ export const ProvidersStartupMount: FC = () => {
                       <ProviderEnabledSwitch provider={provider} request={request} />
                     </Stack>
                   </Stack>
-                  {['disabled', 'needs-runtime', 'ready'].includes(overallStatus(provider)) ? null : (
+                  {STATUS_META[overallStatus(provider)].startupHelp ? (
                     <Box sx={{ mt: 1.25, pl: 4.5 }}>
                       <ProviderHelp dense provider={provider} />
                     </Box>
-                  )}
+                  ) : null}
                 </Box>
               </Fragment>
             ))}

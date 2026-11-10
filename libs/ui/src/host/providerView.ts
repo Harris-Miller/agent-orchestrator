@@ -30,6 +30,9 @@ export type RuntimeJob =
   | { readonly _tag: 'Installing'; readonly version: string }
   | { readonly _tag: 'Removing' };
 
+/** Install / Remove swap the active runtime: the provider stops and restarts, so nothing may launch against it. */
+export const isSwitchingJob = (job: RuntimeJob): boolean => job._tag === 'Installing' || job._tag === 'Removing';
+
 /** Directory whose deletion failed; retried at startup. */
 export type CleanupFailure = { readonly error: string; readonly version: string };
 
@@ -75,7 +78,7 @@ export type ProviderMeta = {
     | { readonly _tag: 'InApp'; readonly hint: string };
 };
 
-export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = {
+export const PROVIDER_META = {
   'antigravity-acp': {
     cliInstall: [],
     cliName: undefined,
@@ -110,7 +113,7 @@ export const PROVIDER_META: Readonly<Record<AgentLaunchTarget, ProviderMeta>> = 
     runtime: undefined,
     signIn: { _tag: 'Cli', command: 'cursor-agent login', hint: 'Run cursor-agent login in a terminal.' },
   },
-};
+} as const satisfies Record<AgentLaunchTarget, ProviderMeta>;
 
 export const runtimeDirLabel = (id: AgentLaunchTarget, version: string): string =>
   providerDisplayPath(id, providerRuntimeRelativeDir(version));
@@ -143,7 +146,7 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
   }
   const { runtime } = p;
   if (runtime !== undefined) {
-    if (runtime.job._tag === 'Installing' || runtime.job._tag === 'Removing') {
+    if (isSwitchingJob(runtime.job)) {
       return 'switching';
     }
     if (runtime.active === undefined) {
@@ -170,54 +173,55 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
   }
 };
 
-/** Enabled but cannot launch (no CLI, no active runtime, download failed). */
-export const isProviderUnavailable = (p: ProviderView): boolean => {
-  const status = overallStatus(p);
-  return (
-    status === 'cli-missing' || status === 'needs-runtime' || status === 'download-failed' || status === 'downloading'
-  );
-};
-
 /** Selectable for create / handoff / Virtual: enabled, launchable, and the harness is ready. */
 export const isProviderReady = (p: ProviderView): boolean => overallStatus(p) === 'ready';
 
 export type StatusTone = 'error' | 'info' | 'neutral' | 'success' | 'warning';
 
-export const STATUS_META: Readonly<Record<OverallStatus, { readonly label: string; readonly tone: StatusTone }>> = {
-  checking: { label: 'Checking sign-in…', tone: 'neutral' },
-  'cli-missing': { label: 'Unavailable', tone: 'error' },
-  disabled: { label: 'Disabled', tone: 'neutral' },
-  'download-failed': { label: 'Download failed', tone: 'error' },
-  downloading: { label: 'Downloading…', tone: 'info' },
-  error: { label: 'Error', tone: 'error' },
-  'needs-runtime': { label: 'Runtime not downloaded', tone: 'warning' },
-  'not-signed-in': { label: 'Not signed in', tone: 'warning' },
-  ready: { label: 'Ready', tone: 'success' },
-  'signing-in': { label: 'Signing in…', tone: 'info' },
-  switching: { label: 'Switching runtime…', tone: 'info' },
+export type StatusMeta = {
+  readonly label: string;
+  /** The Startup Providers modal renders the "how to fix" help under the row (its compact matrix skips the rest). */
+  readonly startupHelp: boolean;
+  readonly tone: StatusTone;
+  /** Present only when an enabled provider cannot launch: the reason shown beside it in pickers and the startup matrix. */
+  readonly unavailable: ((p: ProviderView) => string) | undefined;
+};
+
+export const STATUS_META: Readonly<Record<OverallStatus, StatusMeta>> = {
+  checking: { label: 'Checking sign-in…', startupHelp: false, tone: 'neutral', unavailable: undefined },
+  'cli-missing': {
+    label: 'Unavailable',
+    startupHelp: true,
+    tone: 'error',
+    unavailable: p => `${PROVIDER_META[p.id].cliName ?? 'CLI'} not found on PATH`,
+  },
+  disabled: { label: 'Disabled', startupHelp: false, tone: 'neutral', unavailable: undefined },
+  'download-failed': {
+    label: 'Download failed',
+    startupHelp: true,
+    tone: 'error',
+    unavailable: () => 'Runtime download failed',
+  },
+  downloading: { label: 'Downloading…', startupHelp: false, tone: 'info', unavailable: () => 'Downloading runtime…' },
+  error: { label: 'Error', startupHelp: true, tone: 'error', unavailable: undefined },
+  'needs-runtime': {
+    label: 'Runtime not downloaded',
+    startupHelp: false,
+    tone: 'warning',
+    unavailable: () => 'Runtime not downloaded',
+  },
+  'not-signed-in': { label: 'Not signed in', startupHelp: true, tone: 'warning', unavailable: undefined },
+  ready: { label: 'Ready', startupHelp: false, tone: 'success', unavailable: undefined },
+  'signing-in': { label: 'Signing in…', startupHelp: true, tone: 'info', unavailable: undefined },
+  switching: { label: 'Switching runtime…', startupHelp: false, tone: 'info', unavailable: undefined },
 };
 
 /** Reason shown beside an unavailable row in pickers and the startup matrix. */
-export const unavailableReason = (p: ProviderView): string | undefined => {
-  switch (overallStatus(p)) {
-    case 'cli-missing':
-      return `${PROVIDER_META[p.id].cliName ?? 'CLI'} not found on PATH`;
-    case 'needs-runtime':
-      return 'Runtime not downloaded';
-    case 'download-failed':
-      return 'Runtime download failed';
-    case 'downloading':
-      return 'Downloading runtime…';
-    case 'checking':
-    case 'disabled':
-    case 'error':
-    case 'not-signed-in':
-    case 'ready':
-    case 'signing-in':
-    case 'switching':
-      return undefined;
-  }
-};
+export const unavailableReason = (p: ProviderView): string | undefined =>
+  STATUS_META[overallStatus(p)].unavailable?.(p);
+
+/** Enabled but cannot launch (no CLI, no active runtime, download failed). */
+export const isProviderUnavailable = (p: ProviderView): boolean => unavailableReason(p) !== undefined;
 
 export const statusHeadline = (p: ProviderView): string => {
   const status = overallStatus(p);

@@ -297,7 +297,7 @@ export const WorkbenchNavRail: FC<{
                         </Box>
                       </Tooltip>
                       {group.kind === 'cwd' && group.empty ? (
-                        <Tooltip title="Remove folder from Sessions">
+                        <Tooltip title="Untrack folder">
                           <IconButton
                             aria-label={`Untrack ${presentation.label}`}
                             component="span"

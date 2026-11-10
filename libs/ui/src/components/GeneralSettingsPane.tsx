@@ -110,7 +110,7 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
         <SettingsRow
           title="Show empty folders in Sessions"
-          description="Keep folders you have used in the session list after their sessions are deleted or archived."
+          description="Keep folders you have used in Session History after their sessions are deleted or archived."
         >
           <Switch
             slotProps={{ input: { 'aria-label': 'Show empty folders in Sessions' } }}

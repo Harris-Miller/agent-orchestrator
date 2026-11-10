@@ -54,12 +54,16 @@ _Avoid_: Queued send, outbox
 Navigating off the Virtual session by Selecting a Session or clearing Selected. Never waits on Bind or the Lifecycle lock. With Composer content the Virtual blob and its Bound session are kept (an in-flight Bind or Materialize finishes in the background); with an empty Composer the blob is discarded and its Bound session torn down in the background. Distinct from discarding the Virtual session when the Workspace folder goes away, which drops it regardless of content.
 _Avoid_: close Virtual, cancel draft, discard (when the Composer has content)
 
+**RPC wire log**:
+Every ACP message sent or received for one launch target, in order, for the Developer panel only. Kept apart from the Backend harness snapshot so debug traffic never changes the state the Harness decides from. Survives Connection lost (a retry's messages follow the failed attempt's); only Stop clears it. A failed activation reads the log for the JSON-RPC error data to show.
+_Avoid_: rpcCalls, wire trace, message log
+
 **Backend harness snapshot**:
-The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, RPC wire log, Session History, Session snapshots, and Subagent sessions. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
+The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, Session History, Session snapshots, and Subagent sessions. Excludes the RPC wire log. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot, and the only place that next value is computed: pending strip, inactive/drop, Session History replace and `session/list` merge, Materialize and Bind upsert, activation (begin, load/resume or unarchive failure, finish), Config change and Prompt turn begin/end/cancel, Steering injected, a pending permission or elicitation answered, Bootstrap phase and RPC wire log entries, a `session/set_config_option` response applied to a Session configuration, Connection lost and Stop. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot and hold no snapshot spreads of their own, except that a live `session/update` addressed to a Subagent is routed by `routeSubagentUpdate`; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot, and the only place that next value is computed: pending strip, inactive/drop, Session History replace and `session/list` merge, Materialize and Bind upsert, activation (begin, load/resume or unarchive failure, finish), Config change and Prompt turn begin/end/cancel, Steering injected, a pending permission or elicitation answered, Bootstrap phase, a `session/set_config_option` response applied to a Session configuration, and Connection lost. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot and hold no snapshot spreads of their own, except that a live `session/update` addressed to a Subagent is routed by `routeSubagentUpdate`; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:

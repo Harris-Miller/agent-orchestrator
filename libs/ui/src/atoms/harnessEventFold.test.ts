@@ -21,6 +21,7 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { connectFakeAgent, enableProviders, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
+import { rpcWireLogAtom } from './rpcWireLog.ts';
 import {
   editVirtual,
   ensureVirtual,
@@ -275,7 +276,7 @@ describe('Harness event fold: bootstrap reports', () => {
       });
       assert.isTrue(h.snapshot().agentCapabilities.steeringSupported);
       assert.deepStrictEqual(
-        h.snapshot().rpcCalls.map(({ direction, message }) => ({ direction, message })),
+        h.registry.get(rpcWireLogAtom(LT)).map(({ direction, message }) => ({ direction, message })),
         [
           { direction: 'out', message: { method: 'initialize' } },
           { direction: 'in', message: { result: {} } },
@@ -309,7 +310,7 @@ describe('Harness event fold: Connection lost', () => {
       h.fold.onConnectionLost();
       yield* h.drain;
 
-      const { phase, rpcCalls, sessionHistory, sessions } = h.snapshot();
+      const { phase, sessionHistory, sessions } = h.snapshot();
       assert.strictEqual(sessions.s1.status, 'inactive');
       assert.isUndefined(sessions.s1.pendingPermission);
       assert.isUndefined(sessions.s1.pendingElicitation);
@@ -317,7 +318,7 @@ describe('Harness event fold: Connection lost', () => {
       assert.deepStrictEqual(elicitation, [{ action: 'cancel' }]);
       assert.deepStrictEqual(sessionHistory, [{ cwd: '/proj', sessionId: 's1', title: 'My chat', unavailable: true }]);
       assert.deepStrictEqual(
-        rpcCalls.map(({ message }) => message),
+        h.registry.get(rpcWireLogAtom(LT)).map(({ message }) => message),
         [{ method: 'session/prompt' }],
       );
       assert.strictEqual(phase, 'connecting');

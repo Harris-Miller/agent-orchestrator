@@ -1,7 +1,7 @@
 import { $create, $getState, $getStateChange, $setState, createState, TextNode } from 'lexical';
-import type { EditorConfig, LexicalEditor, LexicalNode } from 'lexical';
+import type { EditorConfig, LexicalEditor } from 'lexical';
 
-import { MARKDOWN_BLOCKS, MARKDOWN_ROLES } from './composerMarkdown.ts';
+import { isMarkerRole, MARKDOWN_BLOCKS, MARKDOWN_ROLES } from './composerMarkdown.ts';
 import type { MarkdownBlock, MarkdownRole } from './composerMarkdown.ts';
 import type { ComposerTextStyle } from './composerPieces.ts';
 
@@ -26,11 +26,7 @@ const applyMarkdownAttributes = (dom: HTMLElement, node: ComposerMarkdownTextNod
   const block = $getState(node, blockState);
   setOrRemove(dom, 'data-md-role', role === 'text' ? undefined : role);
   setOrRemove(dom, 'data-md-block', block === 'paragraph' ? undefined : block);
-  setOrRemove(
-    dom,
-    'data-md-line',
-    role === 'marker' || role === 'blockMarker' ? String($getState(node, lineState)) : undefined,
-  );
+  setOrRemove(dom, 'data-md-line', isMarkerRole(role) ? String($getState(node, lineState)) : undefined);
 };
 
 /**
@@ -92,6 +88,3 @@ export const $readComposerTextStyle = (node: TextNode): ComposerTextStyle => ({
   role: $getState(node, roleState),
   strike: node.hasFormat('strikethrough'),
 });
-
-export const $isComposerMarkdownTextNode = (node: LexicalNode | null | undefined): node is ComposerMarkdownTextNode =>
-  node instanceof ComposerMarkdownTextNode;

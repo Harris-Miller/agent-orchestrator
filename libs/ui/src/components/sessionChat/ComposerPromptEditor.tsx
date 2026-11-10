@@ -796,7 +796,9 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
         />
       </Box>
       <HistoryPlugin />
+      {/* The chipify rebuild is history-merge tagged; it must still report (adjacentToToken closes the menu). */}
       <OnChangePlugin
+        ignoreHistoryMergeTagChange={false}
         onChange={editorState => {
           editorState.read(() => {
             const text = $getRoot().getTextContent();

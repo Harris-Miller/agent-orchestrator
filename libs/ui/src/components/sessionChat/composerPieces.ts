@@ -2,7 +2,7 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import { splitComposerCommandSegments } from './composerCommandTokens.ts';
 import type { ComposerSegment } from './composerCommandTokens.ts';
-import { COMPOSER_CHIP_MASK, parseComposerMarkdown } from './composerMarkdown.ts';
+import { COMPOSER_CHIP_MASK, isMarkerRole, parseComposerMarkdown } from './composerMarkdown.ts';
 import type { MarkdownBlock, MarkdownRole, MarkdownRun } from './composerMarkdown.ts';
 import { markdownLinkText } from './markdownLinkText.ts';
 
@@ -56,7 +56,7 @@ const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   bold: run.bold,
   code: run.code,
   italic: run.italic,
-  line: run.role === 'marker' || run.role === 'blockMarker' ? line : 0,
+  line: isMarkerRole(run.role) ? line : 0,
   role: run.role,
   strike: run.strike,
 });
@@ -69,7 +69,7 @@ export const buildComposerPieces = (
   text: string,
   availableCommands: readonly AvailableCommand[],
 ): readonly ComposerPiece[] => {
-  const chips = new Map<number, ComposerSegment>();
+  const chips = new Map<number, Exclude<ComposerSegment, { readonly kind: 'text' }>>();
   let masked = '';
   for (const segment of splitComposerCommandSegments(text, availableCommands)) {
     const source = segmentSource(segment);
@@ -100,7 +100,7 @@ export const buildComposerPieces = (
             pieces.push({ kind: 'text', style, value: pending });
             pending = '';
           }
-          pieces.push(chip.kind === 'text' ? { kind: 'text', style, value: chip.value } : chip);
+          pieces.push(chip);
           index += segmentSource(chip).length;
         }
       }

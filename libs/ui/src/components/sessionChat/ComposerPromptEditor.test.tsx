@@ -1,13 +1,22 @@
 // @vitest-environment happy-dom
 import { assert, describe, it } from '@effect/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { $createParagraphNode, $createTextNode, $getRoot, PASTE_COMMAND, UNDO_COMMAND } from 'lexical';
+import { Effect } from 'effect';
+import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  HISTORY_PUSH_TAG,
+  PASTE_COMMAND,
+  UNDO_COMMAND,
+} from 'lexical';
 import type { LexicalEditor } from 'lexical';
 import { afterEach } from 'vitest';
 
 import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
+import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 
@@ -16,8 +25,22 @@ const { ComposerPromptEditor } = await import('./ComposerPromptEditor.tsx');
 
 afterEach(cleanup);
 
-const mount = (value: string, onChange: (next: ComposerPromptChange) => void = () => undefined) => {
-  const props = { disabled: false, onChange, onSubmit: () => undefined, placeholder: 'Message' };
+const statusCommand: readonly AvailableCommand[] = [{ description: 'Show status', name: 'status' }];
+
+const mount = (
+  value: string,
+  options: {
+    readonly availableCommands?: readonly AvailableCommand[];
+    readonly onChange?: (next: ComposerPromptChange) => void;
+  } = {},
+) => {
+  const props = {
+    availableCommands: options.availableCommands,
+    disabled: false,
+    onChange: options.onChange ?? (() => undefined),
+    onSubmit: () => undefined,
+    placeholder: 'Message',
+  };
   const view = render(<ComposerPromptEditor {...props} value={value} />);
   return {
     rerender: (next: string) => {
@@ -25,6 +48,9 @@ const mount = (value: string, onChange: (next: ComposerPromptChange) => void = (
     },
   };
 };
+
+/** Retries `check` until it stops throwing (Lexical commits and listeners run asynchronously). */
+const eventually = (check: () => void) => Effect.promise(() => waitFor(check));
 
 const editable = (): HTMLElement => screen.getByTestId('composer-editor');
 
@@ -36,148 +62,192 @@ const lexicalEditor = (): LexicalEditor => {
   return editor;
 };
 
+/** Replaces the draft with one plain text node, as a user edit would, and puts the caret at its end. */
+const typeInto = (value: string, tag?: typeof HISTORY_PUSH_TAG): void => {
+  lexicalEditor().update(
+    () => {
+      const text = $createTextNode(value);
+      $getRoot().clear().append($createParagraphNode().append(text));
+      text.select(value.length, value.length);
+    },
+    tag === undefined ? undefined : { tag },
+  );
+};
+
+const selectTextNode = (index: number): void => {
+  lexicalEditor().update(() => {
+    const node = $getRoot().getAllTextNodes().at(index);
+    if (node === undefined) {
+      throw new Error(`No text node at index ${index}`);
+    }
+    node.select(0, 0);
+  });
+};
+
 const markers = (): readonly string[] =>
   [...editable().querySelectorAll('[data-md-role="marker"]')].map(element => element.textContent ?? '');
 
 describe('ComposerPromptEditor Markdown styling', () => {
-  it('styles inline Markdown in the draft without changing its text', async () => {
-    mount('**bold** and `code`');
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
-    });
-    assert.strictEqual(editable().querySelector('code')?.textContent, 'code');
-    assert.strictEqual(editable().textContent, '**bold** and `code`');
-    assert.deepStrictEqual(markers(), ['**', '**', '`', '`']);
-  });
+  it.effect('styles inline Markdown in the draft without changing its text', () =>
+    Effect.gen(function* () {
+      mount('**bold** and `code`');
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
+      });
+      assert.strictEqual(editable().querySelector('code')?.textContent, 'code');
+      assert.strictEqual(editable().textContent, '**bold** and `code`');
+      assert.deepStrictEqual(markers(), ['**', '**', '`', '`']);
+    }),
+  );
 
-  it('marks block-level lines', async () => {
-    mount('# Title\n> quote\n- item\n```\n**raw**\n```');
-    await waitFor(() => {
-      assert.isNotNull(editable().querySelector('[data-md-block="h1"]'));
-    });
-    assert.isNotNull(editable().querySelector('[data-md-block="quote"]'));
-    assert.isNotNull(editable().querySelector('[data-md-block="bullet"]'));
-    assert.isNotNull(editable().querySelector('[data-md-block="codeBlock"]'));
-    assert.isNull(editable().querySelector('strong'));
-  });
+  it.effect('marks block-level lines', () =>
+    Effect.gen(function* () {
+      mount('# Title\n> quote\n- item\n```\n**raw**\n```');
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('[data-md-block="h1"]'));
+      });
+      assert.isNotNull(editable().querySelector('[data-md-block="quote"]'));
+      assert.isNotNull(editable().querySelector('[data-md-block="bullet"]'));
+      assert.isNotNull(editable().querySelector('[data-md-block="codeBlock"]'));
+      assert.isNull(editable().querySelector('strong'));
+    }),
+  );
 
-  it('restyles when the draft text is replaced from outside', async () => {
-    const view = mount('plain');
-    assert.isNull(editable().querySelector('strong'));
-    view.rerender('now **bold**');
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
-    });
-    assert.strictEqual(editable().textContent, 'now **bold**');
-  });
+  it.effect('restyles when the draft text is replaced from outside', () =>
+    Effect.gen(function* () {
+      const view = mount('plain');
+      assert.isNull(editable().querySelector('strong'));
+      view.rerender('now **bold**');
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
+      });
+      assert.strictEqual(editable().textContent, 'now **bold**');
+    }),
+  );
 
-  it('restyles after an edit and reports the unchanged text', async () => {
-    let last: ComposerPromptChange | undefined;
-    mount('', next => {
-      last = next;
-    });
-    lexicalEditor().update(() => {
-      const paragraph = $createParagraphNode();
-      paragraph.append($createTextNode('typed **bold**'));
-      $getRoot().clear().append(paragraph);
-    });
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
-    });
-    assert.strictEqual(editable().textContent, 'typed **bold**');
-    assert.strictEqual(last?.text, 'typed **bold**');
-  });
+  it.effect('restyles after an edit and reports the unchanged text', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      typeInto('typed **bold**');
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'bold');
+      });
+      assert.strictEqual(editable().textContent, 'typed **bold**');
+      assert.strictEqual(last?.text, 'typed **bold**');
+    }),
+  );
 
-  it('keeps the caret at the same draft offset when an edit restyles the draft', async () => {
-    let last: ComposerPromptChange | undefined;
-    mount('', next => {
-      last = next;
-    });
-    lexicalEditor().update(() => {
-      const text = $createTextNode('a **b** c');
-      $getRoot().clear().append($createParagraphNode().append(text));
-      text.select(5, 5);
-    });
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'b');
-    });
-    assert.deepStrictEqual({ cursor: last?.cursor, text: last?.text }, { cursor: 5, text: 'a **b** c' });
-  });
+  it.effect('keeps the caret at the same draft offset when an edit restyles the draft', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      lexicalEditor().update(() => {
+        const text = $createTextNode('a **b** c');
+        $getRoot().clear().append($createParagraphNode().append(text));
+        text.select(5, 5);
+      });
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'b');
+      });
+      assert.deepStrictEqual({ cursor: last?.cursor, text: last?.text }, { cursor: 5, text: 'a **b** c' });
+    }),
+  );
 
-  it('keeps Command Chips alongside styled text', async () => {
-    const props = {
-      availableCommands: [{ description: 'Show status', name: 'status' }],
-      disabled: false,
-      onChange: () => undefined,
-      onSubmit: () => undefined,
-      placeholder: 'Message',
-      value: '/status **now**',
-    };
-    render(<ComposerPromptEditor {...props} />);
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'now');
-    });
-    assert.isNotNull(editable().querySelector('[data-testid="composer-command-chip"]'));
-    assert.strictEqual(editable().textContent?.endsWith('**now**'), true);
-  });
+  it.effect('keeps Command Chips alongside styled text', () =>
+    Effect.gen(function* () {
+      mount('/status **now**', { availableCommands: statusCommand });
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'now');
+      });
+      assert.isNotNull(editable().querySelector('[data-testid="composer-command-chip"]'));
+      assert.strictEqual(editable().textContent?.endsWith('**now**'), true);
+    }),
+  );
+
+  it.effect('reports the caret as adjacent to a chip once an edit has been chipified', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('', {
+        availableCommands: statusCommand,
+        onChange: next => {
+          last = next;
+        },
+      });
+      typeInto('/status');
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('[data-testid="composer-command-chip"]'));
+      });
+      // The Composer Menu closes on this: a caret next to a chip is not a Composer Trigger.
+      yield* eventually(() => {
+        assert.isTrue(last?.adjacentToToken);
+      });
+    }),
+  );
 });
 
 describe('ComposerPromptEditor paste and undo', () => {
-  it('styles Markdown pasted as plain text without changing it', async () => {
-    let last: ComposerPromptChange | undefined;
-    mount('', next => {
-      last = next;
-    });
-    editable().focus();
-    lexicalEditor().update(() => {
-      $getRoot().selectEnd();
-    });
-    const clipboardData = {
-      files: [],
-      getData: (type: string) => (type === 'text/plain' ? '**p**\n> q' : ''),
-      types: ['text/plain'],
-    };
-    // Lexical only reads a real ClipboardEvent, and happy-dom does not populate its clipboardData.
-    const pasteEvent = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
-    Object.defineProperty(pasteEvent, 'clipboardData', { value: clipboardData });
-    lexicalEditor().dispatchCommand(PASTE_COMMAND, pasteEvent);
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'p');
-    });
-    assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"][data-md-block="quote"]'));
-    assert.strictEqual(last?.text, '**p**\n> q');
-  });
-
-  it('undoes an edit and its restyling in one step', async () => {
-    let last: ComposerPromptChange | undefined;
-    mount('', next => {
-      last = next;
-    });
-    const replaceWith = (value: string): void => {
-      lexicalEditor().update(() => {
-        const text = $createTextNode(value);
-        $getRoot().clear().append($createParagraphNode().append(text));
-        text.select(value.length, value.length);
+  it.effect('styles Markdown pasted as plain text without changing it', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('', {
+        onChange: next => {
+          last = next;
+        },
       });
-    };
-    // The first edit only seeds the history stack; the second is the one undone.
-    replaceWith('a');
-    await waitFor(() => {
-      assert.strictEqual(last?.text, 'a');
-    });
-    await new Promise(resolve => {
-      setTimeout(resolve, 400);
-    });
-    replaceWith('a **b**');
-    await waitFor(() => {
-      assert.strictEqual(editable().querySelector('strong')?.textContent, 'b');
-    });
-    lexicalEditor().dispatchCommand(UNDO_COMMAND, undefined);
-    await waitFor(() => {
-      assert.strictEqual(last?.text, 'a');
-    });
-    assert.strictEqual(editable().textContent, 'a');
-  });
+      editable().focus();
+      lexicalEditor().update(() => {
+        $getRoot().selectEnd();
+      });
+      const clipboardData = {
+        files: [],
+        getData: (type: string) => (type === 'text/plain' ? '**p**\n> q' : ''),
+        types: ['text/plain'],
+      };
+      // Lexical only reads a real ClipboardEvent, and happy-dom does not populate its clipboardData.
+      const pasteEvent = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvent, 'clipboardData', { value: clipboardData });
+      lexicalEditor().dispatchCommand(PASTE_COMMAND, pasteEvent);
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'p');
+      });
+      assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"][data-md-block="quote"]'));
+      assert.strictEqual(last?.text, '**p**\n> q');
+    }),
+  );
+
+  it.effect('undoes an edit and its restyling in one step', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      // The first edit only seeds the history stack; the second, pushed as its own entry, is the one undone.
+      typeInto('a');
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, 'a');
+      });
+      typeInto('a **b**', HISTORY_PUSH_TAG);
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelector('strong')?.textContent, 'b');
+      });
+      lexicalEditor().dispatchCommand(UNDO_COMMAND, undefined);
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, 'a');
+      });
+      assert.strictEqual(editable().textContent, 'a');
+    }),
+  );
 });
 
 describe('ComposerPromptEditor Marker reveal', () => {
@@ -186,49 +256,44 @@ describe('ComposerPromptEditor Marker reveal', () => {
       element => `${element.getAttribute('data-md-line')}:${element.textContent}`,
     );
 
-  const selectLineTwoItalic = (): void => {
-    lexicalEditor().update(() => {
-      const nodes = $getRoot().getAllTextNodes();
-      nodes.at(4)?.select(0, 0);
-    });
-  };
-
-  it('shows markers only on the caret line, and none when the editor is not focused', async () => {
-    mount('**a**\n_b_');
-    await waitFor(() => {
-      assert.strictEqual(markers().length, 4);
-    });
-    assert.deepStrictEqual(activeMarkers(), []);
-
-    editable().focus();
-    selectLineTwoItalic();
-    await waitFor(() => {
-      assert.deepStrictEqual(activeMarkers(), ['1:_', '1:_']);
-    });
-
-    editable().blur();
-    await waitFor(() => {
+  it.effect('shows markers only on the caret line, and none when the editor is not focused', () =>
+    Effect.gen(function* () {
+      mount('**a**\n_b_');
+      yield* eventually(() => {
+        assert.strictEqual(markers().length, 4);
+      });
       assert.deepStrictEqual(activeMarkers(), []);
-    });
-  });
 
-  it('reveals a line-leading marker only while the caret is on its line', async () => {
-    mount('> q\nplain');
-    await waitFor(() => {
-      assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
-    });
-    editable().focus();
-    lexicalEditor().update(() => {
-      $getRoot().getAllTextNodes().at(2)?.select(0, 0);
-    });
-    await waitFor(() => {
-      assert.deepStrictEqual(activeMarkers(), []);
-    });
-    lexicalEditor().update(() => {
-      $getRoot().getAllTextNodes().at(1)?.select(0, 0);
-    });
-    await waitFor(() => {
-      assert.deepStrictEqual(activeMarkers(), ['0:> ']);
-    });
-  });
+      editable().focus();
+      // Text nodes: `**`, `a`, `**`, `_`, `b`, `_`; index 4 is the second line's italic text.
+      selectTextNode(4);
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), ['1:_', '1:_']);
+      });
+
+      editable().blur();
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), []);
+      });
+    }),
+  );
+
+  it.effect('reveals a line-leading marker only while the caret is on its line', () =>
+    Effect.gen(function* () {
+      mount('> q\nplain');
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('[data-md-role="blockMarker"]'));
+      });
+      editable().focus();
+      // Text nodes: `> `, `q`, `plain`.
+      selectTextNode(2);
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), []);
+      });
+      selectTextNode(1);
+      yield* eventually(() => {
+        assert.deepStrictEqual(activeMarkers(), ['0:> ']);
+      });
+    }),
+  );
 });

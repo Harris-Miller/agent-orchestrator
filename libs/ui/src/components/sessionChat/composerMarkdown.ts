@@ -26,10 +26,13 @@ export type MarkdownBlock = (typeof MARKDOWN_BLOCKS)[number];
 
 /**
  * `marker`: inline syntax characters; `blockMarker`: a line-leading `#`, `>`, bullet, or number. Both hide away from
- * the caret's line. `fence`: a code fence line, always shown.
+ * the caret's line, except ordered-list numbers, which always show. `fence`: a code fence line, always shown.
  */
 export const MARKDOWN_ROLES = ['blockMarker', 'fence', 'marker', 'text'] as const;
 export type MarkdownRole = (typeof MARKDOWN_ROLES)[number];
+
+/** Roles whose runs carry a line for Marker reveal. */
+export const isMarkerRole = (role: MarkdownRole): boolean => role === 'marker' || role === 'blockMarker';
 
 export type MarkdownRun = {
   readonly block: MarkdownBlock;
@@ -138,7 +141,7 @@ const applyEmphasis = (delimiters: readonly Delimiter[], attrs: CharAttrs): void
   }
 };
 
-/** Index just past the backtick run that closes a code span opened by `ticks` backticks at `from`, or -1. */
+/** Index where the backtick run closing a code span opened by `ticks` backticks starts (searching from `from`), or -1. */
 const findCodeSpanEnd = (content: string, from: number, ticks: number): number => {
   let index = from;
   while (index < content.length) {

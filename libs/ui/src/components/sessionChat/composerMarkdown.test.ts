@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { parseComposerMarkdown } from './composerMarkdown.ts';
+import { isMarkerRole, parseComposerMarkdown } from './composerMarkdown.ts';
 import type { MarkdownRun } from './composerMarkdown.ts';
 
 const flags = (run: MarkdownRun): string =>
@@ -9,7 +9,7 @@ const flags = (run: MarkdownRun): string =>
 /** One string per run: `<role marker 'm'><style flags>:<text>`; plain text has empty flags. */
 const show = (text: string): readonly (readonly string[])[] =>
   parseComposerMarkdown(text).map(line =>
-    line.map(run => `${run.role === 'marker' || run.role === 'blockMarker' ? 'm' : ''}${flags(run)}:${run.text}`),
+    line.map(run => `${isMarkerRole(run.role) ? 'm' : ''}${flags(run)}:${run.text}`),
   );
 
 const assertPlain = (text: string): void => {

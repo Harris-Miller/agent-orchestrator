@@ -161,7 +161,7 @@ The Composer's live view of Markdown in the draft: bold, italic, strikethrough, 
 _Avoid_: rich text, WYSIWYG, formatting (when you mean this view), Markdown mode
 
 **Marker reveal**:
-Markdown styling hides Markdown syntax characters (`**`, `# `, `> `, bullets) except on the caret's line, where they show as typed. Fence lines and ordered-list numbers always show.
+Markdown styling hides Markdown syntax characters (`**`, `# `, `> `, bullets) except on the caret's line, where they show as typed; while the Composer is not focused they stay hidden. Fence lines and ordered-list numbers always show.
 _Avoid_: source mode, marker toggle
 
 **Composer Menu**:

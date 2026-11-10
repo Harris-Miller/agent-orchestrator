@@ -4,7 +4,7 @@ import { Deferred, Effect, Exit, Layer, Option } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import type { FileSystem } from 'effect/FileSystem';
 import { systemError } from 'effect/PlatformError';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -24,6 +24,8 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { ComposerActionUnavailable, SteerFallbackTurnFailed } from './promptTurn.ts';
 import { runAtomFn } from './runAtomFn.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
+import type { MidTurnSend } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   discardVirtual,
   ensureVirtual,
@@ -57,10 +59,12 @@ const harness = (
     yield* installFakeAgent(calls, opts);
     const registry = yield* freshRegistry;
     const runtime = createHostRuntime(host === undefined ? mockHostLayer : Layer.merge(mockHostLayer, host));
-    const { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn } = createComposerAtoms(runtime);
+    const { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn, unqueueComposerAtomFn } =
+      createComposerAtoms(runtime);
     registry.mount(attachComposerImagesAtomFn);
     registry.mount(editComposerAtomFn);
     registry.mount(submitComposerAtomFn);
+    registry.mount(unqueueComposerAtomFn);
     updateHarnessSnapshot(registry, CODEX, current => ({
       ...current,
       agentCapabilities: steeringCapabilities,
@@ -71,9 +75,10 @@ const harness = (
     const edit = (patch: { readonly attachments?: readonly ComposerImageAttachment[]; readonly draft?: string }) =>
       runAtomFn(registry, editComposerAtomFn, patch);
     /** Fire a submit without waiting for it (the Composer stays usable while it runs). */
-    const startSubmit = () => {
-      registry.set(submitComposerAtomFn, undefined);
+    const startSubmit = (mode?: MidTurnSend) => {
+      registry.set(submitComposerAtomFn, mode);
     };
+    const unqueue = runAtomFn(registry, unqueueComposerAtomFn, undefined);
     /** Outcome of the submit(s) in flight. */
     const submitResult = Effect.exit(
       AtomRegistry.getResult(registry, submitComposerAtomFn, { suspendOnWaiting: true }),
@@ -95,7 +100,7 @@ const harness = (
         startAttach(source);
         return attachResult;
       });
-    return { attach, attachResult, calls, edit, registry, startAttach, startSubmit, submit, submitResult };
+    return { attach, attachResult, calls, edit, registry, startAttach, startSubmit, submit, submitResult, unqueue };
   });
 
 const patchSession = (registry: Registry, sessionId: string, patch: Partial<SessionSnapshot>) => {
@@ -715,6 +720,124 @@ describe('an attachment edit lands on the Composer it started on', () => {
         h.registry.get(composerAtom).attachments.map(attachment => attachment.id),
         ten.map(attachment => attachment.id),
       );
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('Queue: a Queued message is sent as a new Prompt turn once the in-flight one is over', () => {
+  /** A Session with a turn in flight and `draft` typed, ready to Queue. */
+  const inFlight = (draft: string, opts: FakeAgentOpts = {}) =>
+    Effect.gen(function* () {
+      const h = yield* harness(opts);
+      yield* h.edit({ draft });
+      patchSession(h.registry, 's1', { pendingClientRequest: 'prompt' });
+      return h;
+    });
+  const endTurn = (h: { readonly registry: Registry }) =>
+    Effect.gen(function* () {
+      patchSession(h.registry, 's1', { pendingClientRequest: undefined });
+      yield* settle;
+    });
+
+  it.effect('sends after the turn ends and clears the Queued message', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+
+      h.startSubmit('queue');
+      yield* settle;
+
+      assert.deepStrictEqual(h.calls, []);
+      assert.strictEqual(h.registry.get(composerAtom).draft, '');
+      assert.strictEqual(h.registry.get(composerAtom).queued?.draft, 'hello');
+
+      yield* endTurn(h);
+
+      assert.deepStrictEqual(h.calls, ['prompt:s1']);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a second Queue merges into the Queued message and sends once', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('a');
+      h.startSubmit('queue');
+      yield* h.edit({ draft: 'b' });
+      h.startSubmit('queue');
+      yield* settle;
+
+      assert.strictEqual(h.registry.get(composerAtom).queued?.draft, 'a\nb');
+
+      yield* endTurn(h);
+
+      assert.deepStrictEqual(h.calls, ['prompt:s1']);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'a\nb' }]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('unqueue puts the message back ahead of the draft and nothing is sent', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      h.startSubmit('queue');
+      yield* settle;
+      yield* h.edit({ draft: 'typed since' });
+
+      yield* h.unqueue;
+      yield* endTurn(h);
+
+      assert.deepStrictEqual(h.calls, []);
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello\ntyped since');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a refused Send gives the Queued message back to the draft', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      h.startSubmit('queue');
+      yield* settle;
+      setPhase(h.registry, CODEX, 'initialized');
+
+      yield* endTurn(h);
+
+      assert.deepStrictEqual(h.calls, []);
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Session that goes inactive gives the Queued message back to the draft', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      h.startSubmit('queue');
+      yield* settle;
+
+      patchSession(h.registry, 's1', { status: 'inactive' });
+      yield* settle;
+
+      assert.deepStrictEqual(h.calls, []);
+      assert.isUndefined(h.registry.get(composerAtom).queued);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('the midTurnSend setting picks the default; an explicit mode overrides it', () =>
+    Effect.gen(function* () {
+      const h = yield* inFlight('hello');
+      assert.strictEqual(h.registry.get(composerAtom).midTurnSend, 'steer');
+
+      h.registry.set(userSettingsDocumentAtom, AsyncResult.success({ midTurnSend: 'queue' }));
+      assert.strictEqual(h.registry.get(composerAtom).midTurnSend, 'queue');
+      h.startSubmit();
+      yield* settle;
+      assert.strictEqual(h.registry.get(composerAtom).queued?.draft, 'hello');
+      assert.deepStrictEqual(h.calls, []);
+
+      yield* h.edit({ draft: 'now' });
+      h.startSubmit('steer');
+      yield* settle;
+      assert.deepStrictEqual(h.calls, ['steer:s1']);
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: true, text: 'now' }]);
     }).pipe(Effect.scoped),
   );
 });

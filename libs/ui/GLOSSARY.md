@@ -15,12 +15,16 @@ The draft editor for the Selected target: text and Composer Image Attachments, k
 _Avoid_: chat input, prompt box, input bar
 
 **Composer action**:
-What submitting the Composer does right now: Send, Steering, Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send or Steering, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
+What submitting the Composer does right now: Send, Steering (or Queue, by the `midTurnSend` User setting), Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send or Steering, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
 _Avoid_: primary button state, canSend, canSteer
 
 **Draft during turn**:
-Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering; otherwise it stays in the Composer and is sent as a normal prompt after the turn ends. If Steering fails, the message goes back into that Session's Composer, ahead of anything typed since.
+Composer text and attachments the user keeps editing while a prompt turn is in flight. Never auto-sent: with Steering supported it can be sent as Steering or Queued (a Queued message); otherwise it stays in the Composer and is sent as a normal prompt after the turn ends. If Steering fails, the message goes back into that Session's Composer, ahead of anything typed since.
 _Avoid_: Queued prompt, pending message, outbox
+
+**Queued message**:
+The one message per Session moved out of the draft by Queue while a Steering is offered; sent as a new Prompt turn once the in-flight one is over. Shown as one row above the editor with an Edit action that moves it back into the draft. Prompt turn cancel returns it to the draft. In memory only (desktop ADR-0020).
+_Avoid_: Queued prompt, outbox, Send pending
 
 **Prompt turn**:
 The Harness side of one ACP Turn the user starts on a Session, by Send or by Handoff: the user message with its turn timing, the Pending client request while the Turn runs, Steering into it, Prompt turn cancel of it, and an Attention event when it ends. Starts only when the Composer action's rule would offer Send for that Session (a running Handoff's own lock aside) and Bootstrap is `usable` (or `ready`); a refused start leaves the transcript as it was.

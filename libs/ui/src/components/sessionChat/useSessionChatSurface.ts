@@ -23,10 +23,12 @@ import {
   providerViewsAtom,
   setVirtualLaunchTargetAtomFn,
   submitComposerAtomFn,
+  unqueueComposerAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
+import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
@@ -51,6 +53,7 @@ export const useSessionChatSurface = () => {
   const edit = useAtomSet(editComposerAtomFn);
   const attachImages = useAtomSet(attachComposerImagesAtomFn, { mode: 'promise' });
   const submitComposer = useAtomSet(submitComposerAtomFn, { mode: 'promise' });
+  const unqueue = useAtomSet(unqueueComposerAtomFn, { mode: 'promise' });
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
   const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
@@ -72,13 +75,17 @@ export const useSessionChatSurface = () => {
   const { target } = composer;
   const selectedLaunchTarget = target?.launchTarget;
 
-  const submit = useCallback(() => submitComposer(undefined), [submitComposer]);
+  /** `mode` overrides the `midTurnSend` setting for this submit. */
+  const submit = useCallback((mode?: MidTurnSend) => submitComposer(mode), [submitComposer]);
+  const unqueueMessage = useCallback(() => unqueue(undefined), [unqueue]);
   const cancelPromptTurn = useCallback((): Promise<unknown> | undefined => {
     if (target?._tag !== 'Session' || target.launchTarget === undefined || composer.action._tag !== 'CancelTurn') {
       return undefined;
     }
+    // A Queued message must not auto-send after Stop: it goes back into the draft first.
+    unqueue(undefined).catch(() => undefined);
     return cancelPrompt({ launchTarget: target.launchTarget, sessionId: target.sessionId });
-  }, [cancelPrompt, composer.action._tag, target]);
+  }, [cancelPrompt, composer.action._tag, target, unqueue]);
 
   const chatItems = useMemo(
     () => (isVirtual ? [] : (selectedSession?.transcript.items ?? [])),
@@ -145,6 +152,7 @@ export const useSessionChatSurface = () => {
     cancelPromptTurn,
     submit,
     unavailableReasons,
+    unqueueMessage,
     usableLaunchTargets,
   };
 };

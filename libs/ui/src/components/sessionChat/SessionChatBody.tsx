@@ -28,6 +28,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../host/pendingInteractions.ts';
@@ -118,8 +119,19 @@ const SessionChatBodyInner: FC<{
     setVirtualLaunchTarget,
     cancelPromptTurn,
     submit,
+    unqueueMessage,
   } = useSessionChatSurface();
-  const { action, attachments, availableCommands, canEdit, controlsEnabled, draft, locked: chromeLocked } = composer;
+  const {
+    action,
+    attachments,
+    availableCommands,
+    canEdit,
+    controlsEnabled,
+    draft,
+    locked: chromeLocked,
+    midTurnSend,
+    queued,
+  } = composer;
   const setDraft = useCallback(
     (text: string) => {
       edit({ draft: text });
@@ -140,6 +152,8 @@ const SessionChatBodyInner: FC<{
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
   const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
+  /** Where the Send button's context menu (the opposite of the `midTurnSend` setting) was opened. */
+  const [sendContextMenu, setSendContextMenu] = useState<{ readonly left: number; readonly top: number } | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
   const [menu, setMenu] = useState(CLOSED_COMPOSER_MENU);
   const composerTrigger = menu.trigger;
@@ -323,15 +337,16 @@ const SessionChatBodyInner: FC<{
   };
 
   // Enter and the form perform only Send or Steering, never Prompt turn cancel (desktop ADR-0018).
-  const submitDraft = () => {
+  const submitDraft = (mode?: MidTurnSend) => {
     if (action._tag !== 'Send' && action._tag !== 'Steer') {
       return;
     }
     if (action._tag === 'Send') {
       setMenu(CLOSED_COMPOSER_MENU);
     }
-    submit().catch(onClientError);
+    submit(mode).catch(onClientError);
   };
+  const otherMidTurnSend = midTurnSend === 'queue' ? 'steer' : 'queue';
 
   const sendPending =
     action._tag === 'Unavailable' && (action.reason === 'PendingClientRequest' || action.reason === 'SendPending');
@@ -339,7 +354,7 @@ const SessionChatBodyInner: FC<{
     action._tag === 'CancelTurn'
       ? { ariaLabel: 'Prompt turn cancel', disabled: false }
       : action._tag === 'Steer'
-        ? { ariaLabel: 'Steer', disabled: false }
+        ? { ariaLabel: midTurnSend === 'queue' ? 'Queue' : 'Steer', disabled: false }
         : { ariaLabel: sendPending ? 'Pending client request' : 'Send', disabled: action._tag !== 'Send' };
 
   const replyToElicitation = (reply: ElicitationReply) => {
@@ -626,6 +641,22 @@ const SessionChatBodyInner: FC<{
               }}
               open={mentionTrigger !== null}
             />
+            {queued === undefined ? null : (
+              <Box sx={{ alignItems: 'center', color: 'text.secondary', display: 'flex', gap: 1 }}>
+                <Typography noWrap sx={{ flexGrow: 1 }} variant="body2">
+                  Queued:{' '}
+                  {queued.draft.trim().length > 0 ? queued.draft : `${String(queued.attachments.length)} image(s)`}
+                </Typography>
+                <Button
+                  onClick={() => {
+                    unqueueMessage().catch(onClientError);
+                  }}
+                  size="small"
+                >
+                  Edit
+                </Button>
+              </Box>
+            )}
             <ComposerImageAttachments
               attachments={attachments}
               disabled={!canEdit}
@@ -641,7 +672,9 @@ const SessionChatBodyInner: FC<{
               key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}
               onChange={onComposerChange}
               onEscape={selectedSession?.pendingElicitation === undefined ? undefined : onCancelElicitation}
-              onSubmit={submitDraft}
+              onSubmit={() => {
+                submitDraft();
+              }}
               placeholder={composerPlaceholder(selectedLaunchTarget, isVirtual)}
               syncCursorRef={syncCursorRef}
               value={draft}
@@ -700,6 +733,14 @@ const SessionChatBodyInner: FC<{
                         }
                       : undefined
                   }
+                  onContextMenu={
+                    action._tag === 'Steer'
+                      ? event => {
+                          event.preventDefault();
+                          setSendContextMenu({ left: event.clientX, top: event.clientY });
+                        }
+                      : undefined
+                  }
                   sx={{ minWidth: 40, px: 1.5 }}
                   type={action._tag === 'CancelTurn' ? 'button' : 'submit'}
                 >
@@ -725,6 +766,23 @@ const SessionChatBodyInner: FC<{
                   <LucideMuiIcon fontSize="small" icon={ChevronDown} />
                 </Button>
               </ButtonGroup>
+              <Menu
+                anchorPosition={sendContextMenu ?? undefined}
+                anchorReference="anchorPosition"
+                onClose={() => {
+                  setSendContextMenu(null);
+                }}
+                open={sendContextMenu !== null}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setSendContextMenu(null);
+                    submitDraft(otherMidTurnSend);
+                  }}
+                >
+                  {otherMidTurnSend === 'queue' ? 'Queue' : 'Steer'}
+                </MenuItem>
+              </Menu>
               <Menu
                 anchorEl={splitMenuAnchor}
                 id="send-split-menu"

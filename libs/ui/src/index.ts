@@ -56,7 +56,6 @@ export * from './components/RestoreUserSettingsDefaultsControl.tsx';
 export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/SessionHeader.tsx';
 export * from './components/sessionChat/UsageCard.tsx';
-export * from './components/sessionHistory/AgentLaunchTargetMenu.tsx';
 
 export * from './components/sessionHistory/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionHistory/SessionHistoryRow.tsx';

@@ -16,13 +16,9 @@ _Avoid_: Settings document, config, configuration, session configuration, config
 A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Harness `fd` listings (New Session shallow picker and composer `@` recursive listing), in addition to the hardcoded `.git` exclude. Beats Show hidden — matching paths stay excluded when Show hidden is on. Not removable via Settings for `.git` itself.
 _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
 
-**Adapter history document**:
-Per agent launch target durable session list under `adapters/<launchTarget>/history.json` inside the HOA home — the adapter-owned source for `session/list` when the vendor ACP agent cannot list sessions. Not the Harness Session History.
-_Avoid_: Adapter roster document, Session History (Harness term), user settings, session snapshot
-
 **Application session index**:
-Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup; distinct from the Adapter history document, which belongs to an ACP adapter.
-_Avoid_: Adapter history document, live session list
+Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup.
+_Avoid_: live session list
 
 **Pinned sessions document**:
 Per-launch-target `providers/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
@@ -35,10 +31,6 @@ _Avoid_: Project list, cwd history
 **Config option index cache**:
 Durable per-launch-target copy of the Config option index under `providers/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
 _Avoid_: Provider catalog, session configuration
-
-**Adapter history lock**:
-Cross-process lockfile at `adapters/<launchTarget>/history.lock` (next to `history.json`) guarding read-modify-write of an Adapter history document so multiple adapter processes do not corrupt shared durable state. Acquire needs a `FileSystem` that supports `open` with `"wx"` (Node adapter process; not the host webview FS). If a crash leaves the lock wedged, delete `history.lock` manually.
-_Avoid_: Adapter roster lock, file lock (generic), mutex
 
 **Provider directory**:
 `providers/<launch target>/` inside the HOA home — the single per-launch-target directory. Holds `runtime/<version>/` directories, the `current.json` Provider runtime document, and the Harness-owned files for that launch target (Application session index, Pinned sessions document, Config option index cache).
@@ -56,7 +48,7 @@ A completed catalog entry that is not active — an update waiting to be Install
 
 **Antigravity ACP home**:
 Credential / profile directory `providers/antigravity-acp/home/` — value of `GEMINI_HOME` for managed Antigravity ACP. Distinct from the runtime binary tree. Credentials here are **not** shared with PATH `agy` / Gemini CLI logins.
-_Avoid_: runtime dir, Adapter history document, Gemini CLI home, `agy` login store
+_Avoid_: runtime dir, Gemini CLI home, `agy` login store
 
 **Antigravity BROWSER helper**:
 Capture-only script at `providers/antigravity-acp/browser-helper` — written and chmod'd here; set as controlled `BROWSER` for managed Antigravity ACP; prints an auth URL marker to stderr; does not open a browser (Host OpenUrl does).

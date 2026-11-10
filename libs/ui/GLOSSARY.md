@@ -23,7 +23,7 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Mid-turn send**:
-What the Send button and Enter do while a Steering is offered: Steering or Queue, by the `midTurnSend` User setting (Steering when unset). The Send options menu (the chevron next to Send) offers the other one for that message only. Not offered when Steering is not supported.
+What the Send button and Enter do while a Steering is offered: Steering or Queue, by the `midTurnSend` User setting (Steering when unset). The Send options menu (the chevron next to Send) offers the other one for that message only (shown for Agents with Steering supported, disabled unless a Steering is offered). Not offered when Steering is not supported.
 _Avoid_: Send mode, queue mode
 
 **Queued message**:

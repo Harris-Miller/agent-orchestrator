@@ -773,8 +773,9 @@ const SessionChatBodyInner: FC<{
                 }}
                 open={splitMenuAnchor !== null}
               >
-                {action._tag === 'Steer' ? (
+                {backendSnapshot?.agentCapabilities.steeringSupported === true ? (
                   <MenuItem
+                    disabled={action._tag !== 'Steer'}
                     onClick={() => {
                       setSplitMenuAnchor(null);
                       submitDraft(otherMidTurnSend);

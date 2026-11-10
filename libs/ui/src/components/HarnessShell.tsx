@@ -1,6 +1,6 @@
 /**
- * Boot order shared by the desktop app and the VS Code webview (ui ADR-0001): user settings load outside the gates that
- * depend on them; prerequisite gates (fd, Node) and Provider bootstrap come next; the host may add its own step (VS Code
+ * Boot order shared by the desktop app and the VS Code webview: user settings load outside the gates that depend on
+ * them; prerequisite gates (fd, Node) and Provider bootstrap come next; the host may add its own step (VS Code
  * boots Workspace folders); then caches hydrate and the long-running Harness workers mount. Skipping a step is a silent
  * bug, so hosts compose these two instead of the parts.
  */

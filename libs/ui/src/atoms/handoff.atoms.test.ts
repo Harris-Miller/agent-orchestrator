@@ -109,7 +109,7 @@ describe('handoffSessionAtomFn', () => {
       assert.deepStrictEqual(sourceCalls, ['new', 'prompt:bound-1']);
       assert.deepStrictEqual(targetCalls, ['new:claude', 'set:model:o1', 'prompt:claude-1']);
       assert.strictEqual(seeds.length, 1);
-      assert.include(seeds[0], '<handoff>\nthe plan\n</handoff>');
+      assert.strictEqual(seeds[0], 'the plan');
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'claude-1' });
       const target = registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions['claude-1'];
       assert.strictEqual(configValue(target.configuration, 'model'), 'o1');

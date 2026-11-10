@@ -9,12 +9,3 @@ Do not duplicate content already captured in other artifacts (specs, plans, ADRs
 Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
 
 Deliver the document by calling the \`submit_handoff\` tool exactly once, passing the whole document as its \`document\` argument. Do not write the document in your reply.`;
-
-export const buildTargetHandoffSeedPrompt = (handoffDocument: string): string =>
-  `Here is a handoff document from a previous agent chat:
-
-<handoff>
-${handoffDocument}
-</handoff>
-
-Review it and then ask the user what they would like to do next.`;

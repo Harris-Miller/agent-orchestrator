@@ -24,6 +24,7 @@ import { Socket } from 'effect/socket';
 import { installHub, setHubAvailability } from './hubConnection.ts';
 import type { HubConnection } from './hubConnection.ts';
 import { handleHubToolCall, registeredTokens } from './hubSessions.ts';
+import { recordHubWire } from './hubWireLog.ts';
 
 /** Why the hub cannot be used; `reason` is what the degraded-mode notice shows. */
 export class HubUnavailable extends Schema.TaggedError<HubUnavailable>()('HubUnavailable', {
@@ -138,7 +139,11 @@ const connectOnce = <R>(options: HubClientOptions<R>) =>
       Effect.mapError(() => new HubUnavailable({ reason: 'Could not connect to the HOA hub.' })),
     );
     const writer = yield* socket.writer;
-    const send = (message: ClientMessage) => writer.write(JSON.stringify(message)).pipe(Effect.ignore);
+    const send = (message: ClientMessage) =>
+      Effect.andThen(
+        Effect.sync(() => recordHubWire('sent', message)),
+        writer.write(JSON.stringify(message)).pipe(Effect.ignore),
+      );
 
     /** token → the hub's answer to its `register`. */
     const answers = new Map<string, Deferred.Deferred<boolean>>();
@@ -191,6 +196,7 @@ const connectOnce = <R>(options: HubClientOptions<R>) =>
       for (const frame of frames) {
         const incoming = yield* decode(frame).pipe(Effect.option);
         if (incoming._tag === 'Some') {
+          recordHubWire('received', incoming.value);
           yield* dispatch(incoming.value);
         }
       }

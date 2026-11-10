@@ -9,6 +9,8 @@ import type { HubAvailability } from '../host/hubConnection.ts';
 import { hostHubClientOptions } from '../host/hubLauncher.ts';
 import { onSessionHubStatuses, sessionHubStatuses } from '../host/hubSessions.ts';
 import type { SessionHubStatus } from '../host/hubSessions.ts';
+import { hubWireEntries, onHubWireEntries } from '../host/hubWireLog.ts';
+import type { HubWireEntry } from '../host/hubWireLog.ts';
 
 export const hubAvailabilityAtom = Atom.make((get): HubAvailability => {
   get.addFinalizer(onHubAvailability(next => get.setSelf(next)));
@@ -18,6 +20,12 @@ export const hubAvailabilityAtom = Atom.make((get): HubAvailability => {
 export const sessionHubStatusesAtom = Atom.make((get): ReadonlyMap<string, SessionHubStatus> => {
   get.addFinalizer(onSessionHubStatuses(next => get.setSelf(next)));
   return sessionHubStatuses();
+}).pipe(Atom.keepAlive);
+
+/** `/clients` frames sent and received (developer panel). */
+export const hubWireEntriesAtom = Atom.make((get): readonly HubWireEntry[] => {
+  get.addFinalizer(onHubWireEntries(next => get.setSelf(next)));
+  return hubWireEntries();
 }).pipe(Atom.keepAlive);
 
 export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({

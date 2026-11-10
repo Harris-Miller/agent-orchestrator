@@ -4,10 +4,11 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Effect } from 'effect';
 import { afterEach, vi } from 'vitest';
 
-import { installFakeAgent } from '../../../atoms/fakeAgent.testing.ts';
+import { CODEX, installFakeAgent, installFakeHub } from '../../../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../../createHostRuntime.ts';
 import { bindHostRuntime } from '../../../hostRuntime.ts';
+import { beginMcp } from '../../../host/hubSessions.ts';
 import { renderInSessionChatSurface } from '../sessionChatSurface.testing.tsx';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
@@ -61,7 +62,7 @@ describe('SendOptionsMenu', () => {
     Effect.gen(function* () {
       const { registry } = yield* mount({});
       openMenu();
-      assert.strictEqual(screen.getByRole('menuitem', { name: 'Handoff' }).getAttribute('aria-disabled'), 'true');
+      assert.strictEqual(screen.getByRole('menuitem', { name: /^Handoff/ }).getAttribute('aria-disabled'), 'true');
       assert.strictEqual(screen.getByRole('menuitem', { name: 'Fork' }).getAttribute('aria-disabled'), 'true');
       registry.dispose();
     }),
@@ -70,12 +71,14 @@ describe('SendOptionsMenu', () => {
   it.effect('Handoff calls onRequestHandoff when its gate is open', () =>
     Effect.gen(function* () {
       const onRequestHandoff = vi.fn();
+      yield* installFakeHub([]);
+      yield* Effect.flatMap(beginMcp(CODEX, true), mcp => mcp.bind('s1'));
       const { registry } = yield* mount({ session: gatedSession }, { onRequestHandoff });
       openMenu();
       fireEvent.click(screen.getByRole('menuitem', { name: 'Handoff' }));
       assert.strictEqual(onRequestHandoff.mock.calls.length, 1);
       registry.dispose();
-    }),
+    }).pipe(Effect.scoped),
   );
 
   it.effect('Fork asks the agent to fork the session when the agent supports it', () =>

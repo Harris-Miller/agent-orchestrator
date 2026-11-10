@@ -273,7 +273,7 @@ describe('defectsFromActivationFailure', () => {
       data: { details: 'thread already has an active writer' },
       message: 'Internal error',
     };
-    const rpcCalls: readonly RpcWireEntry[] = [
+    const rpcWireLog: readonly RpcWireEntry[] = [
       {
         direction: 'in',
         id: '1',
@@ -286,7 +286,7 @@ describe('defectsFromActivationFailure', () => {
       },
     ];
     const cause = Cause.die(new Error('Internal error'));
-    assert.deepStrictEqual(defectsFromActivationFailure(rpcCalls, cause), [wireDefect]);
+    assert.deepStrictEqual(defectsFromActivationFailure(rpcWireLog, cause), [wireDefect]);
   });
 
   it('falls back to Cause Die defects when wire has none', () => {

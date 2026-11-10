@@ -28,7 +28,6 @@ describe('rpcWireLogAtom', () => {
 
   it('never touches the Backend harness snapshot', () => {
     const registry = AtomRegistry.make();
-    const before = registry.get(backendHarnessSnapshotAtom(CODEX));
     let snapshotNotifications = 0;
     const unsubscribe = registry.subscribe(backendHarnessSnapshotAtom(CODEX), () => {
       snapshotNotifications += 1;
@@ -36,12 +35,13 @@ describe('rpcWireLogAtom', () => {
 
     updateHarnessSnapshot(registry, CODEX, current => ({ ...current, phase: 'usable' }));
     assert.isAbove(snapshotNotifications, 0, 'a snapshot write notifies its subscriber');
+    const written = registry.get(backendHarnessSnapshotAtom(CODEX));
 
     const notificationsBefore = snapshotNotifications;
     appendRpcWireEntry(registry, CODEX, entry('a'));
     clearRpcWireLog(registry, CODEX);
     assert.strictEqual(snapshotNotifications, notificationsBefore);
-    assert.notStrictEqual(registry.get(backendHarnessSnapshotAtom(CODEX)), before);
+    assert.strictEqual(registry.get(backendHarnessSnapshotAtom(CODEX)), written);
     unsubscribe();
     registry.dispose();
   });

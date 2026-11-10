@@ -84,7 +84,7 @@ const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => 
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
 
-/** The defects a failed activation records: the wire log's latest failure data, else the cause's defects. */
+/** The defects a failed activation records: the RPC wire log's latest failure data, else the cause's defects. */
 const activationDefects = <E>(get: Atom.FnContext, launchTarget: AgentLaunchTarget, cause: Cause.Cause<E>) =>
   defectsFromActivationFailure(get(rpcWireLogAtom(launchTarget)), cause);
 

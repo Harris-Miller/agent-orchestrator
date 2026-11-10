@@ -23,6 +23,7 @@ import {
   applyBootstrapPhase,
   applyInitializeResult,
   applySessionList,
+  applySessionUpdatePatch,
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
@@ -32,7 +33,6 @@ import {
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
-import { upsertSession } from '../host/sessionSnapshot.ts';
 import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
@@ -64,14 +64,7 @@ const routeAndApplySessionUpdate = (
   if (result.kind === 'noop') {
     return [undefined, current];
   }
-  return [
-    undefined,
-    {
-      ...current,
-      sessionHistory: result.sessionHistory ?? current.sessionHistory,
-      sessions: upsertSession(current.sessions, result.session),
-    },
-  ];
+  return [undefined, applySessionUpdatePatch(current, result)];
 };
 
 /** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */

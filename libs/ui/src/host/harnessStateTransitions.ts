@@ -23,6 +23,7 @@ import {
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withArchived } from './airMeta.ts';
+import type { ApplySessionUpdateResult } from './applySessionUpdate.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
@@ -628,3 +629,13 @@ export const answerPermission = (
   sessionOrSubagentOf(snapshot, sessionId)?.pendingPermission === answered
     ? patchSessionOrSubagent(snapshot, sessionId, holder => ({ ...holder, pendingPermission: undefined }))
     : snapshot;
+
+/** A live `session/update` applied to its Session: the patched Session upserted, and the History row retitled when the update carried one. */
+export const applySessionUpdatePatch = (
+  snapshot: BackendHarnessSnapshot,
+  patch: Extract<ApplySessionUpdateResult, { readonly kind: 'patch' }>,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessionHistory: patch.sessionHistory ?? snapshot.sessionHistory,
+  sessions: upsertSession(snapshot.sessions, patch.session),
+});

@@ -23,7 +23,7 @@ describe('handoffSessionAtomFn', () => {
     Effect.gen(function* () {
       const registry = yield* freshRegistry;
       const foldFor = (launchTarget: AgentLaunchTarget) =>
-        makeHarnessEventFold({ launchTarget, refreshFsListing: () => Effect.void, registry, runFork: () => undefined });
+        makeHarnessEventFold({ launchTarget, registry, runFork: () => undefined });
       const sourceFold = foldFor(CODEX);
       const targetFold = foldFor(CLAUDE);
       advertise(registry, CODEX, {});

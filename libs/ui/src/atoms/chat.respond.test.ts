@@ -29,7 +29,6 @@ const setup = Effect.fnUntraced(function* () {
   registry.mount(respondPermissionAtomFn);
   const fold = makeHarnessEventFold({
     launchTarget: LT,
-    refreshFsListing: () => Effect.void,
     registry,
     runFork: () => undefined,
   });

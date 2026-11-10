@@ -68,7 +68,7 @@ export const { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAto
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 
-const harnessAtoms = createHarnessAtoms(hostBag, refreshSessionFsListingAtomFn);
+const harnessAtoms = createHarnessAtoms(hostBag);
 
 export const {
   backendHarnessAtom,
@@ -101,12 +101,12 @@ export const {
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
   renameSessionAtomFn,
-} = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+} = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 
 export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtualLaunchTargetAtomFn } =
-  createVirtualSessionAtoms(hostBag, refreshSessionFsListingAtomFn);
+  createVirtualSessionAtoms(hostBag);
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
 

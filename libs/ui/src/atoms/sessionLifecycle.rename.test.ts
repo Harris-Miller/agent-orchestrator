@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
-import { Atom, AtomRegistry } from 'effect/reactivity';
+import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -11,7 +11,6 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
@@ -27,12 +26,7 @@ const setup = Effect.fnUntraced(function* (
   });
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const { renameSessionAtomFn } = createSessionLifecycleAtoms(
-    runtime,
-    refreshSessionFsListingAtomFn,
-    cancelPromptAtomFn,
-  );
+  const { renameSessionAtomFn } = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
   const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
     Effect.sync(() => {
       r.dispose();

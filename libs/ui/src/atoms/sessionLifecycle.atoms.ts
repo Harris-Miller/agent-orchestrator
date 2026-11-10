@@ -59,13 +59,11 @@ import type { createChatAtoms } from './chat.atoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
-import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
 
-type RefreshSessionFsListingAtomFn = ReturnType<typeof createSessionFsListingAtoms>['refreshSessionFsListingAtomFn'];
 type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
 
 type SessionTarget = {
@@ -137,11 +135,7 @@ const closeOnAgent = (capabilities: AgentCapabilities, launchTarget: AgentLaunch
     ? closeSession(launchTarget, sessionId)
     : Effect.asVoid(Effect.exit(closeSession(launchTarget, sessionId)));
 
-export const createSessionLifecycleAtoms = (
-  runtime: HostRuntimeBag,
-  refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
-  cancelPromptAtomFn: CancelPromptAtomFn,
-) => {
+export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
   const { atomRuntime } = runtime;
 
   const clearSelectedAtomFn = atomRuntime
@@ -277,7 +271,6 @@ export const createSessionLifecycleAtoms = (
         }
         updateHarnessSnapshot(get.registry, arg.launchTarget, current => finishActivation(current, arg.sessionId));
         yield* Effect.logInfo('Session activated', arg.launchTarget, arg.sessionId);
-        yield* get.setResult(refreshSessionFsListingAtomFn, { cwd, sessionId: arg.sessionId });
       }),
     )
     .pipe(Atom.keepAlive);

@@ -14,6 +14,7 @@ import { NodePrerequisiteGate } from './NodePrerequisiteGate.tsx';
 import { PersistUserSettingsToast } from './PersistUserSettingsToast.tsx';
 import { ProviderBootstrapGate } from './ProviderBootstrapGate.tsx';
 import { ProvidersStartupMount } from './providers/ProvidersStartupMount.tsx';
+import { SelectedSessionFsListingMount } from './SelectedSessionFsListingMount.tsx';
 import { UserSettingsMount } from './UserSettingsMount.tsx';
 
 /** User settings, then the fd and Node prerequisite gates and Provider bootstrap; `children` render once all pass. */
@@ -33,12 +34,13 @@ export const HarnessPrerequisites: FC<{
   </>
 );
 
-/** Hydrate the Harness caches, then mount the Backend harnesses and their companions; `children` render once hydrated. */
+/** Hydrate the Harness caches, then mount the Backend harnesses and their companions (providers, keep-awake, the `@` FS listing); `children` render once hydrated. */
 export const HarnessMounts: FC<{ readonly children?: ReactNode }> = ({ children }) => (
   <HarnessCacheGate>
     <AcpBackendsMount />
     <KeepAwakeMount />
     <ProvidersStartupMount />
+    <SelectedSessionFsListingMount />
     {children}
   </HarnessCacheGate>
 );

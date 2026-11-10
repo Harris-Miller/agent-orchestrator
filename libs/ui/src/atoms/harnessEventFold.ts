@@ -39,7 +39,6 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
-import type { RefreshSessionFsListing } from './sessionFsListing.atoms.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   bindVirtualOnUsable,
@@ -77,12 +76,10 @@ const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
 
 export const makeHarnessEventFold = ({
   launchTarget,
-  refreshFsListing,
   registry,
   runFork,
 }: {
   readonly launchTarget: AgentLaunchTarget;
-  readonly refreshFsListing: RefreshSessionFsListing;
   readonly registry: AtomRegistry.AtomRegistry;
   readonly runFork: (effect: Effect.Effect<unknown, never, HostServices>) => void;
 }): HarnessEventFold => {
@@ -153,7 +150,7 @@ export const makeHarnessEventFold = ({
       update(current => applyBootstrapPhase(current, phase, failure));
       if (phase === 'usable') {
         runFork(
-          bindVirtualOnUsable(registry, launchTarget, refreshFsListing).pipe(
+          bindVirtualOnUsable(registry, launchTarget).pipe(
             Effect.catchCause(cause => Effect.logWarning('bindVirtualOnUsable failed', launchTarget, cause)),
           ),
         );

@@ -149,8 +149,12 @@ A model id advertised on `session/new` whose `session/set_config_option(model)` 
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Developer panel**:
-Shared Harness UI debug surface (RPC wire log, Session State, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs.
+Shared Harness UI debug surface (RPC wire log, Session State, Atoms, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs. Its Atoms tab lists every Atom in the registry with its current value, shown in the form that fits the value's type.
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)
+
+**Dev state bridge**:
+Dev-build-only, read-only access to every Atom's current value for automation tools (Tauri MCP, Chrome DevTools MCP). Atoms are found by label; Atoms without a label are named after the export that holds them. Production builds do not include it.
+_Avoid_: state dump, debug API, devtools hook
 
 **Available Command**:
 A session-advertised ACP command entry from `available_commands_update` (`name` + optional `description`), stored on the session snapshot for the Composer Menu and Command Chip matching.

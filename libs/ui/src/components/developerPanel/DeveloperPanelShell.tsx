@@ -17,6 +17,7 @@ import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FC, ReactNode, SyntheticEvent } from 'react';
 
+import { exportedAtomName } from '../../atoms/atomNames.ts';
 import { allRpcWireCallsAtom, selectedSessionIdAtom } from '../../atoms/backendState.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
@@ -27,6 +28,7 @@ import { hostRunPromise } from '../../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { FieldLabel } from '../FieldLabel.tsx';
 
+import { AtomsTab } from './AtomsTab.tsx';
 import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
@@ -51,6 +53,7 @@ export const DEVELOPER_PANEL_HEIGHT = 320;
 const RPC_WIRE_LOG_TAB = 'rpc-wire-log' as const;
 const PROVIDER_STATE_TAB = 'provider-state' as const;
 const SESSION_STATE_TAB = 'session-state' as const;
+const ATOMS_TAB = 'atoms' as const;
 const FS_MENTION_LISTING_TAB = 'fs-mention-listing' as const;
 const COMPOSER_TAB = 'composer' as const;
 const MUI_THEME_PLAYGROUND_TAB = 'mui-theme-playground' as const;
@@ -322,9 +325,14 @@ export const DeveloperPanelShell: FC<{
   const isFsMentionListingTab = activeTab === FS_MENTION_LISTING_TAB;
   const isMuiThemePlaygroundTab = activeTab === MUI_THEME_PLAYGROUND_TAB;
   const isRpcWireLogTab = activeTab === RPC_WIRE_LOG_TAB;
-  const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab;
+  const isAtomsTab = activeTab === ATOMS_TAB;
+  const containsOwnScroll = isFsMentionListingTab || isRpcWireLogTab || isAtomsTab;
   const bodyPadding =
-    isRpcWireLogTab || activeTab === PROVIDER_STATE_TAB || activeTab === SESSION_STATE_TAB || isMuiThemePlaygroundTab
+    isRpcWireLogTab ||
+    isAtomsTab ||
+    activeTab === PROVIDER_STATE_TAB ||
+    activeTab === SESSION_STATE_TAB ||
+    isMuiThemePlaygroundTab
       ? 2
       : 0;
 
@@ -358,6 +366,7 @@ export const DeveloperPanelShell: FC<{
         <Tab label="RPC wire" value={RPC_WIRE_LOG_TAB} />
         <Tab label="Provider State" value={PROVIDER_STATE_TAB} />
         <Tab label="Session State" value={SESSION_STATE_TAB} />
+        <Tab label="Atoms" value={ATOMS_TAB} />
         <Tab label="@ FS listing" value={FS_MENTION_LISTING_TAB} />
         <Tab label="Composer" value={COMPOSER_TAB} />
         <Tab label="MUI playground" value={MUI_THEME_PLAYGROUND_TAB} />
@@ -381,6 +390,8 @@ export const DeveloperPanelShell: FC<{
           <ProviderStateView />
         ) : activeTab === SESSION_STATE_TAB ? (
           <SessionStateView session={session} />
+        ) : isAtomsTab ? (
+          <AtomsTab nameOf={exportedAtomName} onCopyError={onCopyError} />
         ) : isFsMentionListingTab ? (
           <FsMentionListingTab />
         ) : activeTab === COMPOSER_TAB ? (

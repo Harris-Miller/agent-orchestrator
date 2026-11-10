@@ -26,6 +26,21 @@ describe('listAtoms', () => {
     );
   });
 
+  it('marks Atoms with neither a label nor an export name as internal', () => {
+    const registry = AtomRegistry.make();
+    const exported = Atom.make('x').pipe(Atom.keepAlive);
+    registry.get(exported);
+    registry.get(Atom.make('y').pipe(Atom.keepAlive));
+    registry.get(labeled('z', 'named'));
+
+    const internal = listAtoms(registry, atom => (atom === exported ? 'exportedAtom' : undefined))
+      .filter(entry => entry.internal)
+      .map(({ label }) => label);
+
+    assert.strictEqual(internal.length, 1);
+    assert.match(internal[0] ?? '', /^anonymous#\d+$/);
+  });
+
   it('keeps labels unique so a label addresses exactly one atom', () => {
     const registry = AtomRegistry.make();
     registry.get(labeled(1, 'dup'));
@@ -82,6 +97,26 @@ describe('installDevStateBridge', () => {
     assert.deepStrictEqual(bridge?.atoms.get('derived'), { $type: 'Uncomputed' });
     assert.throws(() => bridge?.atoms.get('nope'), /No atom labeled "nope".*derived, flag, items/);
     assert.isUndefined((bridge as { registry?: unknown } | undefined)?.registry);
+  });
+
+  it('leaves internal Atoms out of list() and values() unless asked, but get() still reaches them', () => {
+    const registry = AtomRegistry.make();
+    registry.get(labeled(1, 'named'));
+    const hidden = Atom.make(2).pipe(Atom.keepAlive);
+    registry.get(hidden);
+    const target: DevStateBridgeTarget = {};
+    installDevStateBridge(registry, target);
+    const atoms = target.__HOA__?.atoms;
+    const anonymous = atoms?.list({ includeInternal: true }).find(entry => entry.internal)?.label ?? '';
+
+    assert.deepStrictEqual(
+      atoms?.list().map(({ label }) => label),
+      ['named'],
+    );
+    assert.deepStrictEqual(atoms?.values(), { named: 1 });
+    assert.strictEqual(atoms?.list({ includeInternal: true }).length, 2);
+    assert.deepStrictEqual(atoms?.values({ includeInternal: true }), { [anonymous]: 2, named: 1 });
+    assert.strictEqual(atoms?.get(anonymous), 2);
   });
 
   it('dispose removes its own install but not a newer one', () => {

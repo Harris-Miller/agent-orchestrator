@@ -10,6 +10,8 @@ export type AtomNameOf = (atom: Atom.Atom<unknown>) => string | undefined;
 
 export type AtomSummary = {
   readonly computed: boolean;
+  /** No label and no export name: plumbing such as the Atoms behind `AtomFn`s and the host runtime, not app state. */
+  readonly internal: boolean;
   readonly keepAlive: boolean;
   readonly kind: AtomValueKind | 'uncomputed';
   readonly label: string;
@@ -20,11 +22,14 @@ export type AtomEntry = AtomSummary & {
   readonly value: unknown;
 };
 
+/** Internal Atoms are left out unless `includeInternal` is set. */
+export type BridgeListOptions = { readonly includeInternal?: boolean };
+
 export type DevStateBridge = {
   readonly atoms: {
     readonly get: (label: string) => JsonValue;
-    readonly list: () => readonly AtomSummary[];
-    readonly values: () => Record<string, JsonValue>;
+    readonly list: (options?: BridgeListOptions) => readonly AtomSummary[];
+    readonly values: (options?: BridgeListOptions) => Record<string, JsonValue>;
   };
 };
 
@@ -68,15 +73,20 @@ export const listAtoms = (
   uniqueLabels(
     [...registry.getNodes().values()].map((node: AtomRegistry.Node<unknown>): AtomEntry => {
       const value = node.valueOption();
+      const name = node.atom.label?.[0] ?? nameOf(node.atom);
       return {
         computed: Option.isSome(value),
+        internal: name === undefined,
         keepAlive: node.atom.keepAlive,
         kind: Option.isSome(value) ? classifyValue(value.value).kind : 'uncomputed',
-        label: node.atom.label?.[0] ?? nameOf(node.atom) ?? `anonymous#${anonymousId(node.atom)}`,
+        label: name ?? `anonymous#${anonymousId(node.atom)}`,
         value: Option.getOrUndefined(value),
       };
     }),
   ).toSorted((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+const visible = (entries: readonly AtomEntry[], options?: BridgeListOptions): readonly AtomEntry[] =>
+  options?.includeInternal === true ? entries : entries.filter(entry => !entry.internal);
 
 /** Puts the bridge on `target` (never replaced if a newer install exists on dispose). Returns dispose. */
 export const installDevStateBridge = (
@@ -86,9 +96,9 @@ export const installDevStateBridge = (
 ): (() => void) => {
   const bridge: DevStateBridge = {
     atoms: {
-      values: () =>
+      values: options =>
         Object.fromEntries(
-          listAtoms(registry, nameOf)
+          visible(listAtoms(registry, nameOf), options)
             .filter(entry => entry.computed)
             .map(entry => [entry.label, toJsonSafe(entry.value)]),
         ),
@@ -100,9 +110,10 @@ export const installDevStateBridge = (
         }
         return entry.computed ? toJsonSafe(entry.value) : { $type: 'Uncomputed' };
       },
-      list: () =>
-        listAtoms(registry, nameOf).map(({ computed, keepAlive, kind, label }) => ({
+      list: options =>
+        visible(listAtoms(registry, nameOf), options).map(({ computed, internal, keepAlive, kind, label }) => ({
           computed,
+          internal,
           keepAlive,
           kind,
           label,

@@ -4,7 +4,9 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useContext, useEffect, useState } from 'react';
@@ -33,6 +35,7 @@ export const AtomsTab: FC<{
   const [enabled, setEnabled] = useState(() => window.__HOA__ !== undefined);
   const [entries, setEntries] = useState<readonly AtomEntry[]>(() => (enabled ? listAtoms(registry, nameOf) : []));
   const [filter, setFilter] = useState('');
+  const [showInternal, setShowInternal] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
@@ -68,7 +71,8 @@ export const AtomsTab: FC<{
   }
 
   const needle = filter.trim().toLowerCase();
-  const shown = needle === '' ? entries : entries.filter(entry => entry.label.toLowerCase().includes(needle));
+  const eligible = showInternal ? entries : entries.filter(entry => !entry.internal);
+  const shown = needle === '' ? eligible : eligible.filter(entry => entry.label.toLowerCase().includes(needle));
 
   return (
     <Stack spacing={1} sx={{ height: '100%', minHeight: 0 }}>
@@ -83,8 +87,20 @@ export const AtomsTab: FC<{
           value={filter}
         />
         <Typography color="text.secondary" variant="caption">
-          {shown.length} / {entries.length} shown
+          {shown.length} / {eligible.length} shown
         </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showInternal}
+              onChange={(_event, checked) => {
+                setShowInternal(checked);
+              }}
+              size="small"
+            />
+          }
+          label="Show internal Atoms"
+        />
       </Stack>
       <Stack spacing={1} sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {shown.map(entry => {

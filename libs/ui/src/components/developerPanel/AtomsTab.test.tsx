@@ -16,6 +16,7 @@ const setup = ({ enable = true }: { readonly enable?: boolean } = {}) => {
   const items = labeled(new Map([['key', { nested: 7 }]]), 'items');
   registry.get(flag);
   registry.get(items);
+  registry.get(Atom.make('hidden-value').pipe(Atom.keepAlive));
   render(
     <RegistryContext.Provider value={registry}>
       <AtomsTab onCopyError={vi.fn()} />
@@ -49,7 +50,7 @@ describe('AtomsTab', () => {
     expect(screen.getByText('flag')).toBeDefined();
     expect(window.__HOA__?.atoms.get('flag')).toBe(true);
     expect(window.__HOA__?.atoms.list().map(({ label }) => label)).toEqual(['flag', 'items']);
-    expect(registry.getNodes().size).toBe(2);
+    expect(registry.getNodes().size).toBe(3);
   });
 
   it('lists atoms by label and shows the value in a form fitting its type when expanded', () => {
@@ -66,6 +67,15 @@ describe('AtomsTab', () => {
 
     fireEvent.click(screen.getByText('flag'));
     expect(screen.getAllByText('true').length).toBeGreaterThan(0);
+  });
+
+  it('hides internal (unnamed) atoms until asked', () => {
+    setup();
+    expect(screen.queryByText(/^anonymous#/)).toBeNull();
+
+    fireEvent.click(screen.getByLabelText('Show internal Atoms'));
+
+    expect(screen.getByText(/^anonymous#/)).toBeDefined();
   });
 
   it('filters atoms by label', () => {

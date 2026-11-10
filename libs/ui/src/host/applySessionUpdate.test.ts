@@ -68,7 +68,7 @@ describe('applySessionUpdate', () => {
     assert.strictEqual(result.kind, 'noop');
   });
 
-  it('applies config_option_update onto session configuration', () => {
+  it('applies config_option_update onto session configuration without adding a chat item', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, {
       configOptions: [
@@ -88,6 +88,7 @@ describe('applySessionUpdate', () => {
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.strictEqual(configValue(result.session.configuration, 'mode'), 'code');
+      assert.deepStrictEqual(result.session.transcript.items, []);
     }
   });
 

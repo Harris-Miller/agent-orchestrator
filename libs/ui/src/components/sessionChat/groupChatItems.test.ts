@@ -23,7 +23,6 @@ const wait = (id: string, extra: object = {}): ChatItem => ({
   toolKind: 'other',
   ...extra,
 });
-const c = (id: string): ChatItem => ({ id, kind: 'config_options', options: [] });
 const s = (id: string): ChatItem => ({ id, kind: 'elicitation_summary', message: id, rows: [] });
 const th = (id: string): ChatItem => ({ id, kind: 'agent_thought', text: id });
 const p = (id: string): ChatItem => ({ entries: [], id, kind: 'plan' });
@@ -55,8 +54,8 @@ describe('groupChatItems', () => {
   it('interim agent text goes inside region', () => {
     assert.deepStrictEqual(shape([u('u'), a('i'), t('t'), a('x'), t('t2'), a('a')]), ['u', 'R[i,t,x,t2]', 'a']);
   });
-  it('config after answer stays flat after it', () => {
-    assert.deepStrictEqual(shape([u('u'), t('t'), a('a'), c('c')]), ['u', 'R[t]', 'a', 'c']);
+  it('summary after answer stays flat after it', () => {
+    assert.deepStrictEqual(shape([u('u'), t('t'), a('a'), s('s')]), ['u', 'R[t]', 'a', 's']);
   });
   it('turn ending on tool call has no answer', () => {
     assert.deepStrictEqual(shape([u('u'), a('i'), t('t')]), ['u', 'R[i,t]']);
@@ -113,7 +112,7 @@ describe('splitWorkSegments', () => {
     ]);
   });
   it('non-Work items between dividers are dividers, never an unlabeled segment', () => {
-    assert.deepStrictEqual(segShape([t('t1'), a('x'), c('c'), a('y'), t('t2')]), ['St1[t1]', 'x', 'c', 'y', 'St2[t2]']);
+    assert.deepStrictEqual(segShape([t('t1'), a('x'), s('s'), a('y'), t('t2')]), ['St1[t1]', 'x', 's', 'y', 'St2[t2]']);
   });
   it('agent thought is a work item, not a divider', () => {
     assert.deepStrictEqual(segShape([th('h1'), a('x'), th('h2')]), ['Sh1[h1]', 'x', 'Sh2[h2]']);

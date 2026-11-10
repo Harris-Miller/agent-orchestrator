@@ -492,29 +492,6 @@ export const ChatItemView: FC<{
     case 'agent_thought':
       return <MessageRow text={item.text} tone="thought" />;
 
-    case 'config_options':
-      return (
-        <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
-          <Typography sx={{ fontWeight: 600, mb: 1 }} variant="body2">
-            Config
-          </Typography>
-          <Stack spacing={1}>
-            {item.options.map(option => (
-              <Box key={`${item.id}-${option.id}`}>
-                <Typography variant="body2">
-                  {option.name}: <strong>{option.currentValue ?? '—'}</strong>
-                </Typography>
-                {option.type !== undefined ? (
-                  <Typography color="text.secondary" variant="caption">
-                    {option.type}
-                  </Typography>
-                ) : null}
-              </Box>
-            ))}
-          </Stack>
-        </ListItem>
-      );
-
     case 'elicitation_summary':
       return (
         <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>

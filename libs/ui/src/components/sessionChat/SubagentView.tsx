@@ -81,11 +81,9 @@ const SubagentViewBody: FC<{
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}>
         <List dense disablePadding>
-          {child.transcript.items
-            .filter(item => item.kind !== 'config_options')
-            .map(item => (
-              <ChatItemView item={item} key={item.id} />
-            ))}
+          {child.transcript.items.map(item => (
+            <ChatItemView item={item} key={item.id} />
+          ))}
           {child.pendingPermission === undefined ? null : (
             <ListItem sx={{ display: 'block' }}>
               <PendingPermissionCard

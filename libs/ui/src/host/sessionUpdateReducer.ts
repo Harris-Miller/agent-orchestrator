@@ -26,13 +26,6 @@ export type AvailableCommand = {
   readonly name: string;
 };
 
-export type ConfigOption = {
-  readonly currentValue?: string;
-  readonly id: string;
-  readonly name: string;
-  readonly type?: string;
-};
-
 /** Slim image ref on a local/optimistic user_message (not full Prompt base64). */
 export type UserMessageImageRef = {
   readonly mimeType: string;
@@ -86,7 +79,6 @@ export type ChatItem =
   | { readonly id: string; readonly kind: 'agent_message'; readonly text: string }
   | { readonly id: string; readonly kind: 'agent_thought'; readonly text: string }
   | (ElicitationSummary & { readonly id: string; readonly kind: 'elicitation_summary' })
-  | { readonly id: string; readonly kind: 'config_options'; readonly options: readonly ConfigOption[] }
   /** Row for a spawned child; live fields come from `BackendHarnessSnapshot.subagents[subagentSessionId]`. */
   | { readonly id: string; readonly kind: 'subagent'; readonly subagentSessionId: string }
   | InterSessionMessage;
@@ -499,26 +491,6 @@ export const parseAvailableCommands = (value: unknown): readonly AvailableComman
   });
 };
 
-const parseConfigOptions = (value: unknown): readonly ConfigOption[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap(option => {
-    if (!isRecord(option) || typeof option.id !== 'string' || typeof option.name !== 'string') {
-      return [];
-    }
-    return [
-      {
-        currentValue: typeof option.currentValue === 'string' ? option.currentValue : undefined,
-        id: option.id,
-        name: option.name,
-        type: typeof option.type === 'string' ? option.type : undefined,
-      },
-    ];
-  });
-};
-
 export const emptySessionTranscript = (): SessionTranscript => ({
   items: [],
   messageIndices: new Map(),
@@ -620,19 +592,10 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
     }
 
     case 'available_commands_update':
+    case 'config_option_update':
     case 'session_info_update':
     case 'usage_update':
       return transcript;
-
-    case 'config_option_update': {
-      const options = parseConfigOptions(update.configOptions);
-      return options.length === 0
-        ? transcript
-        : {
-            ...transcript,
-            items: [...transcript.items, { id: crypto.randomUUID(), kind: 'config_options', options }],
-          };
-    }
 
     case 'plan': {
       const entries = parsePlanEntries(update.entries);

@@ -89,8 +89,8 @@ const makeDuplexTransport = Effect.fn('makeDuplexTransport')(
 
               if (line.startsWith('{')) {
                 const decoded = yield* Effect.try({
-                  catch: (cause: unknown) =>
-                    TransportError.make({ message: `Failed to decode stdout line: ${String(cause)}` }),
+                  // The parse error can quote the line, which is Agent content (Private data).
+                  catch: () => TransportError.make({ message: 'Failed to decode stdout line' }),
                   try: () => parser.decode(textEncoder.encode(`${line}\n`)),
                 }).pipe(
                   Effect.tapError(error => Effect.logWarning('ACP decode failed; dropping line', error.message)),

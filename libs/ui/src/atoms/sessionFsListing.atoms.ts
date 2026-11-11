@@ -1,5 +1,5 @@
 /** Session-scoped recursive `fd` listing cache (keyed by sessionId + cwd). */
-import { Effect, Exit } from 'effect';
+import { Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -55,7 +55,7 @@ export const createSessionFsListingAtoms = (
 
         const exit = yield* Effect.exit(listRecursiveEntries(arg.cwd, alwaysHiddenGlobs));
         if (Exit.isFailure(exit)) {
-          yield* Effect.logWarning('session fs listing failed', arg.sessionId, arg.cwd, exit.cause);
+          yield* Effect.logWarning('session fs listing failed', arg.sessionId, Redacted.make(arg.cwd), exit.cause);
           if (get(sessionFsListingAtom(key)).status === 'loading') {
             get.set(sessionFsListingAtom(key), emptyListing(arg.cwd));
           }

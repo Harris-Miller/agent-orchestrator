@@ -23,7 +23,7 @@
  *
  * Review rule: write only from a value read in the same synchronous step, never from one read before a wait.
  */
-import { Deferred, Effect, Exit } from 'effect';
+import { Deferred, Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -316,7 +316,7 @@ const releaseBoundInBackground = Effect.fn('releaseBoundInBackground')(function*
 const runBind = Effect.fn('runBind')(function* (registry: Registry, bind: VirtualBind) {
   const { cwd, launchTarget } = bind;
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
-  yield* Effect.logInfo('UI runBind', launchTarget, { cwd });
+  yield* Effect.logInfo('UI runBind', launchTarget, { cwd: Redacted.make(cwd) });
 
   const createExit = yield* Effect.exit(createSession(launchTarget, cwd));
   if (Exit.isFailure(createExit)) {
@@ -545,7 +545,7 @@ const materialize = Effect.fn('materialize')(
     registry.set(writableMaterializingAtom, true);
     yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget });
     yield* Effect.annotateCurrentSpan('acp.sessionId', sessionId);
-    yield* Effect.logInfo('UI materialize', launchTarget, { cwd, sessionId });
+    yield* Effect.logInfo('UI materialize', launchTarget, { cwd: Redacted.make(cwd), sessionId });
 
     const liveSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
     if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {

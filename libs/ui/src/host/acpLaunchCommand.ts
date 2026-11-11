@@ -8,7 +8,7 @@ import {
   ensureAntigravityProviderHome,
 } from '@lib/hoa-home';
 import { OS } from '@lib/context-services';
-import { Effect } from 'effect';
+import { Effect, Redacted } from 'effect';
 import { Path } from 'effect/Path';
 import { ChildProcess } from 'effect/process';
 
@@ -52,7 +52,7 @@ const resolveAdapterEntry = Effect.fn('resolveAdapterEntry')(
     const path = yield* Path;
     const active = yield* resolveActiveRuntime(launchTarget);
     const entry = path.join(active.runtimeDir, npmAdapterEntryRelativePath(launchTarget));
-    yield* Effect.logInfo('Resolved ACP adapter entry', launchTarget, active.version, entry);
+    yield* Effect.logInfo('Resolved ACP adapter entry', launchTarget, active.version, Redacted.make(entry));
     return entry;
   },
   Effect.annotateLogs({ module: 'acpLaunchCommand' }),
@@ -70,7 +70,7 @@ const makeVendorCliAdapterCommand = Effect.fn('makeVendorCliAdapterCommand')(fun
 ) {
   const vendorPath = yield* requireExecutableOnPath(adapter.executable);
   yield* requireVendorCliAuthenticated(adapter.launchTarget, vendorPath);
-  yield* Effect.logDebug(`${adapter.launchTarget} adapter env`, { [adapter.envKey]: vendorPath });
+  yield* Effect.logDebug(`${adapter.launchTarget} adapter env`, { [adapter.envKey]: Redacted.make(vendorPath) });
   return ChildProcess.make('node', [entry], {
     ...pipedSpawnOptions,
     env: { [adapter.envKey]: vendorPath },

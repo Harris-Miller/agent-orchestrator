@@ -6,7 +6,7 @@
  * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
-import { Effect, Predicate, Schema } from 'effect';
+import { Effect, Predicate, Redacted, Schema } from 'effect';
 import type { Scope, Tracer } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -121,7 +121,7 @@ export const listSessions = Effect.fn('listSessions')(
 export const createSession = Effect.fn('createSession')(
   function* (launchTarget: AgentLaunchTarget, cwd: string) {
     const { agent, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Creating ACP session', { cwd });
+    yield* Effect.logInfo('Creating ACP session', { cwd: Redacted.make(cwd) });
     const result = yield* agent['session/new']({ cwd, mcpServers: [] });
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
@@ -134,7 +134,7 @@ export const createSession = Effect.fn('createSession')(
 export const forkSession = Effect.fn('forkSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { sessionFork } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Forking ACP session', sessionId, { cwd });
+    yield* Effect.logInfo('Forking ACP session', sessionId, { cwd: Redacted.make(cwd) });
     const result = yield* sessionFork({ cwd, mcpServers: [], sessionId });
     yield* Effect.logInfo('Forked ACP session', {
       forkedSessionId: result.sessionId,
@@ -149,7 +149,7 @@ export const forkSession = Effect.fn('forkSession')(
 export const loadSession = Effect.fn('loadSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Loading ACP session', sessionId, { cwd });
+    yield* Effect.logInfo('Loading ACP session', sessionId, { cwd: Redacted.make(cwd) });
     return yield* agent['session/load']({ cwd, mcpServers: [], sessionId });
   },
   (effect, _launchTarget, sessionId) =>
@@ -159,7 +159,7 @@ export const loadSession = Effect.fn('loadSession')(
 export const resumeSession = Effect.fn('resumeSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, cwd: string) {
     const { agent } = yield* requireBackendConnection(launchTarget);
-    yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd });
+    yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd: Redacted.make(cwd) });
     return yield* agent['session/resume']({ cwd, sessionId });
   },
   (effect, _launchTarget, sessionId) =>

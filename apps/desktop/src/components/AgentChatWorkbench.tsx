@@ -25,12 +25,13 @@ import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
-import { RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
+import { RIGHT_PANEL_ENABLED, RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
 import { SessionCwdStrip } from './SessionCwdStrip.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
 const WORKBENCH_LAYOUT_KEY = 'agent-chat-workbench-layout';
 const TANSTACK_ROUTER_TAB = 'tanstack-router' as const;
+const HORIZONTAL_PANE_COUNT = RIGHT_PANEL_ENABLED ? 3 : 2;
 
 type WorkbenchLayout = {
   readonly horizontalSizes?: readonly number[];
@@ -45,7 +46,7 @@ const DEFAULT_WORKBENCH_LAYOUT: WorkbenchLayout = {
 };
 
 const parseWorkbenchLayout = (raw: Record<string, unknown>): WorkbenchLayout => ({
-  horizontalSizes: isFiniteNumberArray(raw.horizontalSizes, 3) ? raw.horizontalSizes : undefined,
+  horizontalSizes: isFiniteNumberArray(raw.horizontalSizes, HORIZONTAL_PANE_COUNT) ? raw.horizontalSizes : undefined,
   sessionHistoryOpen:
     typeof raw.sessionHistoryOpen === 'boolean' ? raw.sessionHistoryOpen : DEFAULT_WORKBENCH_LAYOUT.sessionHistoryOpen,
   sessionStateOpen:
@@ -145,16 +146,18 @@ export const AgentChatWorkbench: FC<{
                     />
                   )}
                   <SessionHeader onClientError={onClientError} titleProps={{ variant: 'h6' }} />
-                  {layout.sessionStateOpen ? null : (
+                  {RIGHT_PANEL_ENABLED && layout.sessionStateOpen ? null : (
                     <>
                       <ToggleDeveloperPanelButton />
-                      <IconTooltipButton
-                        icon={PanelRightOpen}
-                        label="Open session state panel"
-                        onClick={() => {
-                          commitLayout({ sessionStateOpen: true });
-                        }}
-                      />
+                      {RIGHT_PANEL_ENABLED ? (
+                        <IconTooltipButton
+                          icon={PanelRightOpen}
+                          label="Open session state panel"
+                          onClick={() => {
+                            commitLayout({ sessionStateOpen: true });
+                          }}
+                        />
+                      ) : null}
                     </>
                   )}
                 </Box>
@@ -163,13 +166,15 @@ export const AgentChatWorkbench: FC<{
               </Box>
             </Allotment.Pane>
 
-            <Allotment.Pane minSize={240} preferredSize={RIGHT_PANEL_WIDTH} snap visible={layout.sessionStateOpen}>
-              <RightPanelPlaceholder
-                onClose={() => {
-                  commitLayout({ sessionStateOpen: false });
-                }}
-              />
-            </Allotment.Pane>
+            {RIGHT_PANEL_ENABLED ? (
+              <Allotment.Pane minSize={240} preferredSize={RIGHT_PANEL_WIDTH} snap visible={layout.sessionStateOpen}>
+                <RightPanelPlaceholder
+                  onClose={() => {
+                    commitLayout({ sessionStateOpen: false });
+                  }}
+                />
+              </Allotment.Pane>
+            ) : null}
           </Allotment>
         </Allotment.Pane>
 

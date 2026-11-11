@@ -187,6 +187,7 @@ describe('Host IPC fulfillment', () => {
         .request({ _tag: 'FsAtomicReplaceFileString', content: '{}', path: join(tmp, 'x.json') })
         .pipe(Effect.flip);
       assert.match(error.message, /Atomic replace refused/);
+      assert.notInclude(error.message, tmp);
     }),
   );
 
@@ -214,6 +215,7 @@ describe('Host IPC fulfillment', () => {
 
       const error = yield* client.request({ _tag: 'BundledResolve', resourcePath: 'nope.txt' }).pipe(Effect.flip);
       assert.match(error.message, /Bundled resource missing/);
+      assert.notInclude(error.message, 'nope.txt');
     }),
   );
 
@@ -252,8 +254,9 @@ describe('Host IPC fulfillment', () => {
       assert.strictEqual(result._tag, 'OpenUrlResult');
 
       vscodeStub.env.openExternal.mockResolvedValueOnce(false);
-      const error = yield* client.request({ _tag: 'OpenUrl', url: 'https://example.com' }).pipe(Effect.flip);
+      const error = yield* client.request({ _tag: 'OpenUrl', url: 'https://example.com/private' }).pipe(Effect.flip);
       assert.match(error.message, /openExternal declined/);
+      assert.notInclude(error.message, 'example.com');
     }),
   );
 

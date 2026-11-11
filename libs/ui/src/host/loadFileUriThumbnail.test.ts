@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Layer } from 'effect';
+import { Cause, Effect, Layer } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import * as PlatformError from 'effect/PlatformError';
@@ -13,10 +13,15 @@ const unreadableFileSystem = layerNoop({
     ),
 });
 
+/** Message plus stack with causes, as the OTLP logger and tracer export a failure. */
 const failureMessage = (fileUri: string) =>
   loadFileUriThumbnail(fileUri).pipe(
     Effect.flip,
-    Effect.map(error => error.message),
+    Effect.map(error =>
+      Cause.prettyErrors(Cause.fail(error), { includeCauseInStack: true })
+        .map(pretty => `${pretty.message}\n${pretty.stack ?? ''}`)
+        .join('\n'),
+    ),
     Effect.provide(Layer.mergeAll(posixPathLayer, unreadableFileSystem)),
   );
 

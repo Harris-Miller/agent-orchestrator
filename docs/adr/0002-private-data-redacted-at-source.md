@@ -1,6 +1,6 @@
 # Private data is redacted where it is logged, not scrubbed at export
 
-**Private data** (see the desktop glossary) never reaches telemetry as plain text. A log argument that holds it is wrapped in Effect `Redacted` at the call site, so every Effect formatter, the OTLP logger included, prints `<redacted>`. An error `message` never interpolates it, because that text also lands on span exception events. Identifiers (session id, launch target, pid), counts, and exit codes are not private data and stay readable for bug reports (#193).
+**Private data** (see the desktop glossary) never reaches telemetry as plain text. A log argument that holds it is wrapped in Effect `Redacted` at the call site, so every Effect formatter, the OTLP logger included, prints `<redacted>`. An error `message` never interpolates it, and an error never keeps a cause that does, because both land on span exception events. The one exception is a message the user must read to act, which may name a file by its basename (an image the composer rejected). Identifiers (session id, launch target, pid), counts, and exit codes are not private data and stay readable for bug reports (#193).
 
 ## Considered options
 

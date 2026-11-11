@@ -150,15 +150,14 @@ export const composerImageAttachmentFromPath = Effect.fn('composerImageAttachmen
     });
   }
 
-  const bytes = yield* fs.readFile(absolutePath).pipe(
-    Effect.mapError(
-      cause =>
-        new ImageAttachmentRejected({
-          cause,
-          message: `Could not read ${basenameForName(pathApi, absolutePath)}`,
-        }),
-    ),
-  );
+  // The read error names the full path (Private data), so it is not kept as the cause.
+  const bytes = yield* fs
+    .readFile(absolutePath)
+    .pipe(
+      Effect.mapError(
+        () => new ImageAttachmentRejected({ message: `Could not read ${basenameForName(pathApi, absolutePath)}` }),
+      ),
+    );
 
   if (bytes.byteLength > IMAGE_ATTACH_MAX_BYTES_PER) {
     return yield* new ImageAttachmentRejected({

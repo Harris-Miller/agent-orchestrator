@@ -32,9 +32,10 @@ export const loadFileUriThumbnail = Effect.fn('loadFileUriThumbnail')(function* 
     return yield* new FileUriThumbnailFailed({ message: 'Unsupported image file' });
   }
 
+  // The read error names the path (Private data), so it is not kept as the cause.
   const bytes = yield* fs
     .readFile(absolute.value)
-    .pipe(Effect.mapError(cause => new FileUriThumbnailFailed({ cause, message: 'Could not read the image' })));
+    .pipe(Effect.mapError(() => new FileUriThumbnailFailed({ message: 'Could not read the image' })));
 
   return yield* Effect.try({
     catch: cause => new FileUriThumbnailFailed({ cause, message: 'Could not encode the image' }),

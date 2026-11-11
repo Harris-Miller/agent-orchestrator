@@ -76,7 +76,7 @@ export const makeHostIpcFulfillment = (deps: {
       try {
         await access(absolute, fsConstants.F_OK);
       } catch {
-        throw new Error(`Bundled resource missing: ${message.resourcePath} (${absolute})`);
+        throw new Error('Bundled resource missing');
       }
       return { path: absolute };
     },
@@ -96,7 +96,7 @@ export const makeHostIpcFulfillment = (deps: {
     },
     FsAtomicReplaceFileString: async message => {
       if (!isProviderCurrentJsonPath(osHomedir(), message.path)) {
-        throw new Error(`Atomic replace refused for path outside provider state: ${message.path}`);
+        throw new Error('Atomic replace refused for path outside provider state');
       }
       const temp = `${message.path}.${String(process.pid)}.${Date.now().toString(36)}.tmp`;
       try {
@@ -211,7 +211,7 @@ export const makeHostIpcFulfillment = (deps: {
     OpenUrl: async message => {
       const opened = await vscode.env.openExternal(vscode.Uri.parse(message.url));
       if (!opened) {
-        throw new Error(`openExternal declined: ${message.url}`);
+        throw new Error('openExternal declined');
       }
       return {};
     },

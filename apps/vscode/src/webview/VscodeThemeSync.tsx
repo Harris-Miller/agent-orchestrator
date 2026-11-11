@@ -7,13 +7,13 @@ import type { FC } from 'react';
 export const VscodeThemeSync: FC = () => {
   const setHostTheme = useAtomSet(hostThemeAtom);
 
-  useEffect(
-    () =>
-      observeVscodeTheme(document, () => {
-        setHostTheme(readVscodeTheme(document));
-      }),
-    [setHostTheme],
-  );
+  useEffect(() => {
+    // Re-read once on attach so a change between the module-load read and this effect is not missed.
+    setHostTheme(readVscodeTheme(document));
+    return observeVscodeTheme(document, () => {
+      setHostTheme(readVscodeTheme(document));
+    });
+  }, [setHostTheme]);
 
   return null;
 };

@@ -113,6 +113,15 @@ describe('themeFromVscode', () => {
     }
   });
 
+  it('tints the fallback user bubble lighter for light kinds', () => {
+    const vars = { descriptionForeground: '#808080' };
+    const dark = themeFromVscode(readerOf(vars), 'vscode-dark').colors.userMessageBackground;
+    const light = themeFromVscode(readerOf(vars), 'vscode-light').colors.userMessageBackground;
+
+    assert.strictEqual(dark, 'rgba(128, 128, 128, 0.32)');
+    assert.strictEqual(light, 'rgba(128, 128, 128, 0.18)');
+  });
+
   it('ignores an unusable font size', () => {
     for (const size of ['', 'large', '0px', '-3px']) {
       const { font } = themeFromVscode(readerOf({ 'font-size': size }), 'vscode-dark');

@@ -60,7 +60,7 @@ export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined)
       commandChipBackground: pick(alpha(commandChipForeground, 0.12), 'chat.slashCommandBackground'),
       commandChipForeground,
       composerBackground: pick(bgPaper, 'input.background'),
-      userMessageBackground: pick(alpha(secondaryMain, 0.32), 'chat.requestBackground'),
+      userMessageBackground: pick(alpha(secondaryMain, isLightKind(kind) ? 0.18 : 0.32), 'chat.requestBackground'),
       bgPaper,
       divider: pick(preset.divider, 'widget.border', 'panel.border'),
       errorDark: darken(errorMain, 0.2),

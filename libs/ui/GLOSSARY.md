@@ -230,7 +230,7 @@ _Avoid_: copy button (when you mean the behavior), copy rendered text
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md). Session and Settings domain terms live primarily in [`../../apps/desktop/GLOSSARY.md`](../../apps/desktop/GLOSSARY.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/GLOSSARY.md`](../../apps/vscode/GLOSSARY.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.
 
 **Host theme**:
-The colors and font a Host reads from its own app and hands to the shared UI; only the VS Code webview supplies one, read from the active VS Code color theme. Any color that theme leaves unset falls back to Original (dark theme kinds) or Catppuccin Latte (light and high-contrast-light kinds).
+The colors and font a Host reads from its own app and hands to the shared UI; only the VS Code webview supplies one, read from the active VS Code color theme. Each color tries a short chain of VS Code variables; when none is set it falls back to Original (dark theme kinds) or Catppuccin Latte (light and high-contrast-light kinds), or is derived from the colors that are set.
 _Avoid_: VS Code theme id, custom theme
 
 **Match VS Code theme**:

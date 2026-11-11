@@ -419,6 +419,8 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
                   restoreSessionDraft(registry, sessionId, taken);
                 }),
           ),
+          // The Agent's refusal is already in the chat (Request error); the draft is back for another try.
+          Effect.catchTag('SteeringRejected', () => Effect.void),
         );
       }),
       { concurrent: true },

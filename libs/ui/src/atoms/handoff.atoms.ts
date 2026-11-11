@@ -13,6 +13,7 @@ import {
   SOURCE_HANDOFF_PROMPT,
 } from '../host/handoffDocument.ts';
 import { addCreatedSession } from '../host/harnessStateTransitions.ts';
+import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 
 import {
@@ -38,10 +39,13 @@ export class HandoffError extends Schema.TaggedError<HandoffError>()('HandoffErr
 export const handoffPrompt = Effect.fn('handoffPrompt')(
   function* (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget, sessionId: string, text: string) {
     yield* Effect.logInfo('Handoff prompt', launchTarget, sessionId, { chars: text.trim().length });
-    const { stopReason } = yield* sendPromptTurn(registry, { launchTarget, sessionId, text }).pipe(
+    const result = yield* sendPromptTurn(registry, { launchTarget, sessionId, text }).pipe(
       Effect.catchTag('ComposerActionUnavailable', error => Effect.fail(new HandoffError({ message: error.message }))),
     );
-    if (stopReason === 'cancelled') {
+    if (result._tag === 'Rejected') {
+      return yield* new HandoffError({ message: describeError(result.error) });
+    }
+    if (result.stopReason === 'cancelled') {
       return yield* new HandoffError({ message: `Session ${sessionId} prompt was cancelled` });
     }
   },

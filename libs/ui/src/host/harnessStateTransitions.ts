@@ -2,6 +2,8 @@
  * Pure Harness state transitions over BackendHarnessSnapshot: the only place the snapshot's next value is computed.
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
+import type { AcpError } from '@libs/effect-acp';
+
 import type {
   AcpBootstrapPhase,
   BackendHarnessSnapshot,
@@ -25,12 +27,14 @@ import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
+import { requestErrorDetails } from './requestError.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
 import type { ConfigValueDiff } from './sessionConfiguration.ts';
 import { buildActivatedSession, historyEntryFromNew } from './sessionMaterialize.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
 import {
   appendElicitationSummary,
+  appendRequestErrorItem,
   appendUserChatMessage,
   markNonFinishedToolCallsCancelled,
   stampUserMessageTiming,
@@ -356,6 +360,30 @@ export const endPromptTurn = (
           transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),
         })),
       };
+};
+
+/** The Agent answered a Client→Agent request for `sessionId` with an error: it joins that Session's transcript. A dropped Session stays dropped. */
+export const appendRequestError = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  { error, method }: { readonly error: AcpError; readonly method: string },
+): BackendHarnessSnapshot => {
+  if (!(sessionId in snapshot.sessions)) {
+    return snapshot;
+  }
+  const details = requestErrorDetails(error);
+  return {
+    ...snapshot,
+    sessions: patchSession(snapshot.sessions, sessionId, session => ({
+      ...session,
+      transcript: appendRequestErrorItem(session.transcript, {
+        code: error.code,
+        ...(details === undefined ? {} : { details }),
+        message: error.message,
+        method,
+      }),
+    })),
+  };
 };
 
 /** Initialize answered: store the raw result (Developer panel) and the Agent capabilities read from it, once. */

@@ -12,11 +12,13 @@
  * 1. Atomic start. A Send begins only if the Composer action rule decides Send (and Bootstrap is usable), in the same
  *    snapshot write that sets the Pending client request and appends the user message stamped `startedAt`. A refused
  *    Send fails with {@link ComposerActionUnavailable} and leaves the snapshot unchanged.
- * 2. One end. Success, failure or interrupt: one write clears the Pending client request and Prompt turn cancel and
- *    stamps `endedAt` on that turn's user message. A Session dropped mid-turn stays dropped.
- * 3. Soft-cancel. A `session/prompt` failure after Prompt turn cancel succeeds as `{ stopReason: 'cancelled' }`.
+ * 2. One end. Success, Request error, failure or interrupt: one write clears the Pending client request and Prompt turn
+ *    cancel and stamps `endedAt` on that turn's user message (a Request error joins the transcript in that same write).
+ *    A Session dropped mid-turn stays dropped.
+ * 3. Soft-cancel. A `session/prompt` failure after Prompt turn cancel succeeds as `{ stopReason: 'cancelled' }`, even if
+ *    the Agent's answer was a Request error.
  * 4. Attention. Exactly one turn-end Attention event (fire-and-forget) for a stop reason other than `cancelled`; none on
- *    failure.
+ *    failure or a Request error.
  * 5. Steering. Only when the Composer action rule decides Steer (and Bootstrap is usable). `injected` appends a Steering user message (no turn
  *    timing) and leaves the Pending client request alone. Any other outcome waits (bounded, no polling) until the
  *    Session has no Pending client request, then runs a full Send; on timeout it fails with
@@ -26,10 +28,16 @@
  * 7. Same turn for every caller: Composer Send, the Virtual first Send, the Steer fallback and Handoff all start turns
  *    only through {@link sendPromptTurn}.
  *
- * Error modes: {@link ComposerActionUnavailable} (refused, or the Steer fallback timed out); `ImageAttachmentRejected`
- * (prompt blocks); `BackendNotConnected` and RPC errors. After a turn has begun, its user message stays; the Steer
- * fallback wraps any other failure of its Send in {@link SteerFallbackTurnFailed} so callers can tell it apart.
+ * Request error. The Agent answering `session/prompt` (or `_session/steering`) with a JSON-RPC error response is a valid
+ * outcome, not a failure: a turn ends as `{ _tag: 'Rejected' }` with the Request error in the Session's transcript;
+ * Steering fails with {@link SteeringRejected} (nothing injected, so the caller can put the draft back).
+ *
+ * Error modes: {@link ComposerActionUnavailable} (refused, or the Steer fallback timed out); {@link SteeringRejected};
+ * `ImageAttachmentRejected` (prompt blocks); `BackendNotConnected` and other RPC errors. After a turn has begun, its
+ * user message stays; the Steer fallback wraps any other failure of its Send in {@link SteerFallbackTurnFailed} so
+ * callers can tell it apart.
  */
+import type { AcpError, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
@@ -38,6 +46,7 @@ import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import {
+  appendRequestError,
   appendSteeredMessage,
   beginPromptTurn,
   endPromptTurn,
@@ -45,11 +54,13 @@ import {
   sessionTurnAction,
 } from '../host/harnessStateTransitions.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
+import { acpErrorOfCause } from '../host/requestError.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
 import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { reportRequestError } from './reportRequestError.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -64,6 +75,16 @@ export class ComposerActionUnavailable extends Schema.TaggedError<ComposerAction
 export class SteerFallbackTurnFailed extends Schema.TaggedError<SteerFallbackTurnFailed>()('SteerFallbackTurnFailed', {
   cause: Schema.Defect(),
 }) {}
+
+/** The Agent's refusal of a `_session/steering` message: it is in the Session's chat, and was not injected. */
+export class SteeringRejected extends Schema.TaggedError<SteeringRejected>()('SteeringRejected', {
+  message: Schema.String,
+}) {}
+
+/** How a started Prompt turn ended: the Agent's stop reason, or its error response (the Request error is in the chat). */
+export type PromptTurnResult =
+  | { readonly _tag: 'Ended'; readonly stopReason: StopReason }
+  | { readonly _tag: 'Rejected'; readonly error: AcpError };
 
 export type PromptTurnInput = {
   readonly attachments?: readonly ComposerImageAttachment[];
@@ -126,13 +147,16 @@ const runPrompt = Effect.fnUntraced(function* (
         ),
       );
     }
-    return { stopReason };
+    return { _tag: 'Ended', stopReason } satisfies PromptTurnResult;
   }
   if (sessionIn(registry, launchTarget, sessionId)?.promptCancelRequested === true) {
     yield* Effect.logDebug('session/prompt error after Prompt turn cancel', launchTarget, sessionId, exit.cause);
-    return { stopReason: 'cancelled' };
+    return { _tag: 'Ended', stopReason: 'cancelled' } satisfies PromptTurnResult;
   }
-  return yield* Effect.failCause(exit.cause);
+  const error = acpErrorOfCause(exit.cause);
+  return error === undefined
+    ? yield* Effect.failCause(exit.cause)
+    : ({ _tag: 'Rejected', error } satisfies PromptTurnResult);
 });
 
 /** Start a Prompt turn and run it to its stop reason. */
@@ -157,12 +181,16 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
         return yield* refusal('Sending', begun.action);
       }
       return yield* restore(runPrompt(registry, { attachments, launchTarget, sessionId, text })).pipe(
-        Effect.ensuring(
+        Effect.onExit(exit =>
           Effect.flatMap(Clock.currentTimeMillis, endedAt =>
             Effect.sync(() => {
-              updateHarnessSnapshot(registry, launchTarget, current =>
-                endPromptTurn(current, sessionId, begun.turnId, endedAt),
-              );
+              const rejection = Exit.isSuccess(exit) && exit.value._tag === 'Rejected' ? exit.value : undefined;
+              updateHarnessSnapshot(registry, launchTarget, current => {
+                const ended = endPromptTurn(current, sessionId, begun.turnId, endedAt);
+                return rejection === undefined
+                  ? ended
+                  : appendRequestError(ended, sessionId, { error: rejection.error, method: 'session/prompt' });
+              });
             }),
           ),
         ),
@@ -218,7 +246,12 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
     cwd: session.cwd,
     agentCapabilities: snapshot.agentCapabilities,
   });
-  const result = yield* steerSession(launchTarget, sessionId, prompt);
+  const result = yield* steerSession(launchTarget, sessionId, prompt).pipe(
+    reportRequestError(registry, input, '_session/steering'),
+  );
+  if (result === undefined) {
+    return yield* new SteeringRejected({ message: 'The Agent rejected the Steering message' });
+  }
 
   if (result.outcome === 'injected') {
     // A steered message joins the in-flight turn: no turn timing, Pending client request untouched (ADR-0018).

@@ -32,11 +32,11 @@ import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../host/pendingInteractions.ts';
+import { describeError } from '../../host/requestError.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
-import { isRecord } from '../../isRecord.ts';
 import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
@@ -78,21 +78,6 @@ import { useSessionChatSurface } from './useSessionChatSurface.ts';
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
 /** Cap on the pinned question section so the transcript stays visible. */
 const PENDING_QUESTION_MAX_HEIGHT = '65%';
-
-const formatActivationDefect = (defect: unknown): string => {
-  if (!isRecord(defect)) {
-    return String(defect);
-  }
-  const message = typeof defect.message === 'string' ? defect.message : undefined;
-  const details = isRecord(defect.data) && typeof defect.data.details === 'string' ? defect.data.details : undefined;
-  if (message !== undefined && details !== undefined) {
-    return `${message}: ${details}`;
-  }
-  if (message !== undefined) {
-    return message;
-  }
-  return JSON.stringify(defect);
-};
 
 /** The Send button's icon for each mid-turn send; the Send options menu item shows the same one. */
 const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
@@ -439,7 +424,7 @@ const SessionChatBodyInner: FC<{
             }
             severity="error"
           >
-            Activation failed — {selectedSession.defects.map(formatActivationDefect).join('; ')}
+            Activation failed — {selectedSession.defects.map(describeError).join('; ')}
           </Alert>
         );
       }

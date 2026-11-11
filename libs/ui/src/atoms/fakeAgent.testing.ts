@@ -22,6 +22,13 @@ type Registry = AtomRegistry.AtomRegistry;
 export const CODEX = 'codex-acp' as const;
 export const CLAUDE = 'claude-agent-acp' as const;
 
+/** The JSON-RPC error response the fake Agent gives for a `reject` option (the Agent refused the request). */
+export const REJECTION = {
+  code: -32603,
+  data: { details: 'Prompt is 120000 characters; the limit is 100000' },
+  message: 'Exceeds max character length',
+} as const;
+
 export const selectableConfig = {
   configOptions: [
     {
@@ -43,11 +50,13 @@ type FakeSetConfig =
       /** Runs inside `session/set_config_option` before it resolves (a user action mid-Materialize). */
       readonly duringSetConfig?: Effect.Effect<void>;
       readonly failSetConfig?: boolean;
+      readonly rejectSetConfig?: boolean;
       readonly setConfig?: undefined;
     }
   | {
       readonly duringSetConfig?: never;
       readonly failSetConfig?: never;
+      readonly rejectSetConfig?: never;
       /** Answers `session/set_config_option` (after recording `set:<id>:<value>`). */
       readonly setConfig: (configId: string, value: unknown) => Effect.Effect<unknown, string>;
     };
@@ -58,18 +67,20 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly failLoad?: boolean;
   readonly failNew?: boolean;
   readonly failUnarchive?: boolean;
+  /** `session/fork` answers with {@link REJECTION}. */
+  readonly rejectFork?: boolean;
   /** Receives what the Backend connection reports (pass the Harness event fold); ignores everything by default. */
   readonly reports?: BackendConnectionReports;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
   readonly duringNew?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
   readonly duringPrompt?: Effect.Effect<void>;
-  /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`. */
-  readonly prompt?: 'fail' | StopReason;
+  /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`; `reject` answers with {@link REJECTION} then. */
+  readonly prompt?: 'fail' | 'reject' | StopReason;
   /** Runs inside `_session/steering` before it resolves. */
   readonly duringSteering?: Effect.Effect<void>;
-  /** `_session/steering` result (default `injected`); `fail` makes the RPC fail. */
-  readonly steering?: 'fail' | SessionSteeringResponse['outcome'];
+  /** `_session/steering` result (default `injected`); `fail` makes the RPC fail; `reject` answers with {@link REJECTION}. */
+  readonly steering?: 'fail' | 'reject' | SessionSteeringResponse['outcome'];
 };
 
 type FakeConnection = Parameters<typeof registerBackendConnection>[1];
@@ -132,6 +143,9 @@ export const installFakeAgent = (
         'session/prompt': ({ sessionId }: { sessionId: string }) => {
           calls.push(`prompt:${sessionId}`);
           const during = opts.duringPrompt ?? Effect.void;
+          if (opts.prompt === 'reject') {
+            return Effect.andThen(during, Effect.fail(REJECTION));
+          }
           return opts.prompt === 'fail'
             ? Effect.andThen(during, Effect.fail('prompt-fail'))
             : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
@@ -147,6 +161,9 @@ export const installFakeAgent = (
           }
           if (opts.failSetConfig === true) {
             return Effect.fail('set-fail');
+          }
+          if (opts.rejectSetConfig === true) {
+            return Effect.fail(REJECTION);
           }
           return Effect.as(opts.duringSetConfig ?? Effect.void, {
             configOptions: [{ ...selectableConfig.configOptions[0], currentValue: value, id: configId }],
@@ -165,7 +182,9 @@ export const installFakeAgent = (
       },
       sessionFork: ({ sessionId }: { sessionId: string }) => {
         calls.push(`fork:${sessionId}`);
-        return Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
+        return opts.rejectFork === true
+          ? Effect.fail(REJECTION)
+          : Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });
       },
       sessionRename: ({ sessionId }: { sessionId: string }) => {
         calls.push(`rename:${sessionId}`);
@@ -174,6 +193,9 @@ export const installFakeAgent = (
       sessionSteering: ({ sessionId }: { sessionId: string }) => {
         calls.push(`steer:${sessionId}`);
         const during = opts.duringSteering ?? Effect.void;
+        if (opts.steering === 'reject') {
+          return Effect.andThen(during, Effect.fail(REJECTION));
+        }
         return opts.steering === 'fail'
           ? Effect.andThen(during, Effect.fail('steer-fail'))
           : Effect.as(during, { outcome: opts.steering ?? 'injected' });

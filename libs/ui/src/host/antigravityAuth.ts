@@ -3,7 +3,6 @@
  */
 import { OpenUrl } from '@lib/context-services';
 import { isAuthRequiredError } from '@libs/effect-acp';
-import type { AcpError } from '@libs/effect-acp';
 import { Cause, Effect, Option, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -11,6 +10,7 @@ import { parseAntigravityAuthUrlMarker } from './antigravityAuthUrl.ts';
 import { isRecord } from '../isRecord.ts';
 import { classifyVendorAuthFailure } from './authMessages.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
+import { isAcpError } from './requestError.ts';
 
 /** Sign in waited longer than {@link ANTIGRAVITY_SIGN_IN_TIMEOUT}. */
 export class AntigravitySignInTimedOut extends Schema.TaggedError<AntigravitySignInTimedOut>()(
@@ -33,9 +33,6 @@ const formatError = (error: unknown): string => {
   }
   return JSON.stringify(error);
 };
-
-const isAcpError = (error: unknown): error is AcpError =>
-  isRecord(error) && typeof error.code === 'number' && typeof error.message === 'string';
 
 /** Antigravity is signed out when sign-in timed out or ACP reports `auth_required`; wording is never consulted. */
 const isAntigravityNotSignedIn = (error: unknown): boolean =>

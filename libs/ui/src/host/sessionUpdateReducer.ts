@@ -81,7 +81,18 @@ export type ChatItem =
   | (ElicitationSummary & { readonly id: string; readonly kind: 'elicitation_summary' })
   /** Row for a spawned child; live fields come from `BackendHarnessSnapshot.subagents[subagentSessionId]`. */
   | { readonly id: string; readonly kind: 'subagent'; readonly subagentSessionId: string }
-  | InterSessionMessage;
+  | InterSessionMessage
+  | RequestErrorItem;
+
+/** The Agent's error response to a Client→Agent request for this Session (`method` is the request it answered). */
+export type RequestErrorItem = {
+  readonly code: number;
+  readonly details?: string;
+  readonly id: string;
+  readonly kind: 'request_error';
+  readonly message: string;
+  readonly method: string;
+};
 
 /** Directed message between sessions (ACP `session_message`); never a user prompt or tool call. */
 export type InterSessionMessage = {
@@ -548,6 +559,14 @@ export const appendUserChatMessage = (
     ],
   };
 };
+
+export const appendRequestErrorItem = (
+  transcript: SessionTranscript,
+  item: Omit<RequestErrorItem, 'id' | 'kind'>,
+): SessionTranscript => ({
+  ...transcript,
+  items: [...transcript.items, { ...item, id: crypto.randomUUID(), kind: 'request_error' }],
+});
 
 /** Empty summaries (nothing answered) leave the transcript unchanged. */
 export const appendElicitationSummary = (

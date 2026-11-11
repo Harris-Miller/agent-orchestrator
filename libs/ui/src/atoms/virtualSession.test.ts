@@ -1,7 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
-import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { normalizeConfigOptions, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
@@ -27,7 +26,6 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import type { MaterializedVirtual } from './virtualSession.atoms.ts';
 import {
   bindVirtualOnUsable,
@@ -212,36 +210,29 @@ describe('ensure / edits', () => {
 
 describe('Bind', () => {
   it.effect(
-    'cwd + launch target + usable Binds once: Bound id on the blob, sessions map row, no History, `@` preload',
+    'cwd + launch target + usable Binds once: Bound id on the blob, sessions map row, no History, active for `@`',
     () =>
       Effect.gen(function* () {
         const calls: string[] = [];
-        const preloaded: { cwd: string; sessionId: string }[] = [];
         yield* installFakeAgent(calls);
         const registry = yield* freshRegistry;
         yield* seedUnbound(registry);
-        const refreshFsListing = (arg: { cwd: string; sessionId: string }) =>
-          Effect.sync(() => {
-            preloaded.push(arg);
-          });
 
-        yield* bindVirtualOnUsable(registry, CODEX, refreshFsListing);
+        yield* bindVirtualOnUsable(registry, CODEX);
 
         assert.deepStrictEqual(calls, ['new']);
         assert.strictEqual(blob(registry)?.sessionId, 'bound-1');
         assert.strictEqual(sessionsOf(registry)['bound-1'].status, 'active');
         assert.strictEqual(registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.length, 0);
-        // `@` FS listing keys off the active session (Bound Virtual), not the Session-arm Selected.
+        // The `@` FS listing keys off the active session (Bound Virtual), not the Session-arm Selected.
         assert.deepStrictEqual(registry.get(selectedActiveSessionAtom), {
           cwd: '/proj',
           launchTarget: CODEX,
           sessionId: 'bound-1',
         });
-        assert.deepStrictEqual(preloaded, [{ cwd: '/proj', sessionId: 'bound-1' }]);
 
-        yield* bindVirtualOnUsable(registry, CODEX, refreshFsListing);
+        yield* bindVirtualOnUsable(registry, CODEX);
         assert.deepStrictEqual(calls, ['new']);
-        assert.strictEqual(preloaded.length, 1);
       }).pipe(Effect.scoped),
   );
 
@@ -631,7 +622,6 @@ describe('Send', () => {
       const registry = yield* freshRegistry;
       const fold = makeHarnessEventFold({
         launchTarget: CODEX,
-        refreshFsListing: () => Effect.void,
         registry,
         runFork: () => undefined,
       });
@@ -1104,8 +1094,7 @@ describe('Provider hooks', () => {
 const atomFnHarness = Effect.gen(function* () {
   const registry = yield* freshRegistry;
   const runtime = createHostRuntime(mockHostLayer);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const virtual = createVirtualSessionAtoms(runtime, refreshSessionFsListingAtomFn);
+  const virtual = createVirtualSessionAtoms(runtime);
   const { submitComposerAtomFn } = createComposerAtoms(runtime);
   registry.mount(virtual.ensureVirtualSessionAtomFn);
   registry.mount(virtual.patchVirtualSessionAtomFn);

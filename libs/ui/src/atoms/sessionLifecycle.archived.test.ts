@@ -1,7 +1,6 @@
 /** Archived History entries: activating one unarchives it first; Archive marks the row in place. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit, Fiber } from 'effect';
-import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -15,7 +14,6 @@ import { advertise, CODEX, connectFakeAgent, freshRegistry, gated, installFakeAg
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const advertisesArchive = {
@@ -27,8 +25,7 @@ const archivedMeta = { jetbrains: { air: { archived: true, version: 1 } } };
 const makeAtoms = () => {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  return createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+  return createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
 };
 
 const setup = Effect.fnUntraced(function* (

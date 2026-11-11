@@ -68,7 +68,6 @@ const setup = Effect.fnUntraced(function* (
   }));
   const fold = makeHarnessEventFold({
     launchTarget: CODEX,
-    refreshFsListing: () => Effect.void,
     registry,
     runFork: () => undefined,
   });

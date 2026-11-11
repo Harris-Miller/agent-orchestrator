@@ -1,7 +1,6 @@
 /** The lifecycle atom fns obey the Agent capabilities the fake Agent advertises in its initialize result. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
-import { Atom } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -18,7 +17,6 @@ import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAg
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const CURSOR = 'cursor-acp' as const;
@@ -57,8 +55,7 @@ const setup = Effect.fnUntraced(function* (
   yield* installFakeAgent(calls, options.fake, launchTarget);
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(runtime, Atom.make<readonly string[]>([]));
-  const atoms = createSessionLifecycleAtoms(runtime, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
   updateHarnessSnapshot(registry, launchTarget, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],

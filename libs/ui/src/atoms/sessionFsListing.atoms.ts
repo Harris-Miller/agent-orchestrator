@@ -1,6 +1,6 @@
 /** Session-scoped recursive `fd` listing cache (keyed by sessionId + cwd). */
 import { Effect, Exit } from 'effect';
-import { Atom, AtomRegistry } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { FdListingEntry } from '../host/fdListing.ts';
@@ -73,26 +73,3 @@ export const createSessionFsListingAtoms = (
 
   return { refreshSessionFsListingAtomFn };
 };
-
-export type RefreshSessionFsListingAtomFn = ReturnType<
-  typeof createSessionFsListingAtoms
->['refreshSessionFsListingAtomFn'];
-
-/** `@` FS listing preload after Bind. */
-export type RefreshSessionFsListing = (arg: {
-  readonly cwd: string;
-  readonly sessionId: string;
-}) => Effect.Effect<unknown>;
-
-/** Run {@link createSessionFsListingAtoms}' AtomFn through the registry (Bind → `@` FS preload adapter). */
-export const refreshFsListingViaRegistry =
-  (
-    registry: AtomRegistry.AtomRegistry,
-    refreshSessionFsListingAtomFn: RefreshSessionFsListingAtomFn,
-  ): RefreshSessionFsListing =>
-  arg => {
-    registry.set(refreshSessionFsListingAtomFn, arg);
-    return AtomRegistry.getResult(registry, refreshSessionFsListingAtomFn, {
-      suspendOnWaiting: true,
-    });
-  };

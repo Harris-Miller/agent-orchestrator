@@ -20,15 +20,14 @@ import type { FC, ReactNode, SubmitEvent } from 'react';
 import { selectedBackendHarnessSnapshotAtom, subagentViewAtom } from '../../atoms/backendState.atoms.ts';
 import {
   activateSessionAtomFn,
-  alwaysHiddenGlobsAtom,
   handoffSessionAtomFn,
-  refreshSessionFsListingAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
   setConfigOptionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
+import { usePreloadSessionFsListing } from './usePreloadSessionFsListing.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
@@ -145,14 +144,13 @@ const SessionChatBodyInner: FC<{
   );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const { fsListing, selectedSessionId: fsListingSessionId, sessionCwd } = useSelectedSessionFsListing();
-  const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
+  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  usePreloadSessionFsListing();
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
-  const refreshSessionFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
@@ -289,15 +287,6 @@ const SessionChatBodyInner: FC<{
       mentionTrigger,
     ],
   );
-
-  // Preload `@` FS listing once Bound Virtual / Session has id+cwd (and when Always-hidden globs change).
-  // Use active-session id — Session-arm `selectedSessionId` is undefined while Selected is Virtual.
-  useEffect(() => {
-    if (fsListingSessionId === undefined || sessionCwd === undefined) {
-      return;
-    }
-    refreshSessionFsListing({ cwd: sessionCwd, sessionId: fsListingSessionId }).catch(() => undefined);
-  }, [alwaysHiddenGlobs, fsListingSessionId, refreshSessionFsListing, sessionCwd]);
 
   // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
   // Image hits become attachments (same as paperclip / @-menu); skip while trigger menu open. The attach is handed

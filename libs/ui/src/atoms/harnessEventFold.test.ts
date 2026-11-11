@@ -48,7 +48,6 @@ const setup = Effect.fnUntraced(function* () {
   const forked: Effect.Effect<unknown, never, HostServices>[] = [];
   const fold = makeHarnessEventFold({
     launchTarget: LT,
-    refreshFsListing: () => Effect.void,
     registry,
     runFork: effect => {
       forked.push(effect);
@@ -355,7 +354,6 @@ describe('Harness event fold: Connection lost', () => {
       const h = yield* setup();
       const other = makeHarnessEventFold({
         launchTarget: 'claude-agent-acp',
-        refreshFsListing: () => Effect.void,
         registry: h.registry,
         runFork: () => undefined,
       });

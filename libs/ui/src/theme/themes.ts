@@ -9,7 +9,8 @@ import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
 declare module '@mui/material/styles' {
   interface Palette {
-    commandChip: { readonly background: string; readonly foreground: string };
+    /** Unset under a plain MUI theme (tests); chips then fall back to secondary. */
+    commandChip?: { readonly background: string; readonly foreground: string };
   }
   interface PaletteOptions {
     commandChip?: { readonly background: string; readonly foreground: string };

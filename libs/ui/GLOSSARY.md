@@ -6,6 +6,10 @@ Workspace-folder churn policy lives in `src/atoms/workspaceFolders.ts`; hosts pr
 
 ## Language
 
+**Harness shell**:
+The boot order both hosts run: user settings load, the fd and Node prerequisite gates, Provider bootstrap, then (VS Code only) Workspace folders, then caches hydrate and the Backend harnesses mount. Hosts compose its two parts (prerequisites, then mounts) and add only what differs — layout, routing, VS Code's Workspace folders step, the desktop's own dialogs; they never assemble the gates or mounts one by one. A Backend harness never mounts before its caches have hydrated.
+_Avoid_: app shell, root layout (when you mean this boot order)
+
 **Harness application state**:
 The reactive Harness state shared across host webviews — backend harness phase, Selected union (Virtual | Session | unset), the optional Virtual session blob (may hold a Bound `sessionId`), last-create defaults, Lifecycle lock (Materialize only), sessions, chat, handoff, and User settings projections.
 _Avoid_: App atoms, store, desktop atoms, Redux

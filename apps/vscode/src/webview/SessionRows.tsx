@@ -1,4 +1,4 @@
-import { ConfirmSessionDeleteDialog, SessionHistoryRow, useSessionDeleteRequest } from '@lib/ui';
+import { ConfirmSessionDeleteDialog, sessionEntryKey, SessionHistoryRow, useSessionDeleteRequest } from '@lib/ui';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import { useContext } from 'react';
 import type { FC } from 'react';
@@ -30,7 +30,7 @@ export const SessionRows: FC<{
           {pinnedSessions.map(entry => (
             <SessionHistoryRow
               entry={entry}
-              key={`${entry.launchTarget}:${entry.sessionId}`}
+              key={sessionEntryKey(entry)}
               onClientError={onClientError}
               onDeleteRequest={requestDelete}
               selected={selectedSessionId === entry.sessionId}
@@ -42,7 +42,7 @@ export const SessionRows: FC<{
       {sessions.map(entry => (
         <SessionHistoryRow
           entry={entry}
-          key={`${entry.launchTarget}:${entry.sessionId}`}
+          key={sessionEntryKey(entry)}
           onClientError={onClientError}
           onDeleteRequest={requestDelete}
           selected={selectedSessionId === entry.sessionId}

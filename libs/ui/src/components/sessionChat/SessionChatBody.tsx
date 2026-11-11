@@ -588,7 +588,7 @@ const SessionChatBodyInner: FC<{
           ) : null}
           <Paper
             sx={{
-              bgcolor: theme => theme.palette.composerBackground ?? theme.palette.background.paper,
+              bgcolor: theme => theme.palette.composerBackground,
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 3,

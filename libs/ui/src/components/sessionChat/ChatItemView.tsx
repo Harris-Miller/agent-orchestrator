@@ -6,7 +6,6 @@ import Chip from '@mui/material/Chip';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
 import {
@@ -285,9 +284,7 @@ const MessageRow: FC<{
         <Box sx={{ alignItems: 'flex-end', display: 'flex', flexDirection: 'column', maxWidth: 'min(85%, 42rem)' }}>
           <Box
             sx={{
-              bgcolor: theme =>
-                theme.palette.userMessageBackground ??
-                alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
+              bgcolor: theme => theme.palette.userMessageBackground,
               borderRadius: 1,
               px: 1.75,
               py: 1.25,

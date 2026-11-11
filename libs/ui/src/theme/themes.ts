@@ -9,10 +9,9 @@ import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
 declare module '@mui/material/styles' {
   interface Palette {
-    /** Unset under a plain MUI theme (tests); chips then fall back to secondary. */
-    commandChip?: { readonly background: string; readonly foreground: string };
-    composerBackground?: string;
-    userMessageBackground?: string;
+    commandChip: { readonly background: string; readonly foreground: string };
+    composerBackground: string;
+    userMessageBackground: string;
   }
   interface PaletteOptions {
     commandChip?: { readonly background: string; readonly foreground: string };
@@ -26,13 +25,13 @@ export type ThemeColors = {
   readonly alertWarningBg: string;
   readonly bgDefault: string;
   readonly bgPaper: string;
-  /** Command chip (`/` and `$`) fill and text; derived from secondary when unset. */
-  readonly commandChipBackground?: string;
-  readonly commandChipForeground?: string;
-  /** Composer field fill; `bgPaper` when unset. */
-  readonly composerBackground?: string;
-  /** User message bubble fill; a secondary tint when unset. */
-  readonly userMessageBackground?: string;
+  /** Command chip (`/` and `$`) fill and text. */
+  readonly commandChipBackground: string;
+  readonly commandChipForeground: string;
+  /** Composer field fill. */
+  readonly composerBackground: string;
+  /** User message bubble fill. */
+  readonly userMessageBackground: string;
   readonly divider: string;
   readonly errorDark: string;
   readonly errorLight: string;
@@ -848,11 +847,11 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
       },
     },
     palette: {
-      composerBackground: c.composerBackground ?? c.bgPaper,
-      userMessageBackground: c.userMessageBackground ?? alpha(c.secondaryMain, c.mode === 'dark' ? 0.32 : 0.18),
+      composerBackground: c.composerBackground,
+      userMessageBackground: c.userMessageBackground,
       commandChip: {
-        background: c.commandChipBackground ?? alpha(c.secondaryMain, 0.08),
-        foreground: c.commandChipForeground ?? c.secondaryMain,
+        background: c.commandChipBackground,
+        foreground: c.commandChipForeground,
       },
       action: {
         active: c.textPrimary,
@@ -991,11 +990,16 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
   });
 };
 
+const ORIGINAL_SECONDARY_MAIN = '#d48fff';
+
 export const ORIGINAL_COLORS: ThemeColors = {
   alertInfoBg: '#1a2a43',
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
   bgPaper: '#1d2027',
+  commandChipBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.08),
+  commandChipForeground: ORIGINAL_SECONDARY_MAIN,
+  composerBackground: '#1d2027',
   // Soft hairline (Cursor-like); panel seams come from Allotment, not doubled pane borders
   divider: 'rgba(255, 255, 255, 0.09)',
   errorDark: '#962533',
@@ -1017,7 +1021,7 @@ export const ORIGINAL_COLORS: ThemeColors = {
   secondaryContainedHover: '#b476dc',
   secondaryDark: '#9d62c4',
   secondaryLight: '#e1adff',
-  secondaryMain: '#d48fff',
+  secondaryMain: ORIGINAL_SECONDARY_MAIN,
   successDark: '#00664d',
   successLight: '#43bf9f',
   successMain: '#008765',
@@ -1025,6 +1029,7 @@ export const ORIGINAL_COLORS: ThemeColors = {
   textMuted: '#a0a7b5',
   textPrimary: '#f3f7ff',
   textSecondary: 'rgba(214, 223, 242, 0.70)',
+  userMessageBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.32),
   warningDark: '#9f351c',
   warningLight: '#ff8a66',
   warningMain: '#e15428',
@@ -1038,6 +1043,8 @@ const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
     alertWarningBg: alpha(f.peach, 0.14),
     bgDefault: f.mantle,
     bgPaper: f.base,
+    commandChipBackground: alpha(f.blue, 0.08),
+    commandChipForeground: f.blue,
     composerBackground: f.dark ? f.surface0 : f.base,
     divider: f.dark ? alpha('#ffffff', 0.09) : alpha(f.overlay0, 0.35),
     errorDark: darken(f.red, 0.2),

@@ -33,6 +33,8 @@ makeHostServicesLive(options: { readonly port: IpcPort }): Layer.Layer<HostServi
 makeHostServicesLive(options: { readonly client: IpcClient }): Layer.Layer<HostServices>
 ```
 
+- **Theme colors have a single source of truth** (`libs/ui/src/theme/themes.ts`). Every color token (`ThemeColors`, `Palette`) is **required**, and each theme (`ORIGINAL_COLORS`, `fromCatppuccin`, `vscodeTheme`) sets it explicitly. Components read `theme.palette.*` directly. Do **not** make a palette token optional, derive a default inside `createAppTheme`, or write `theme.palette.x ?? fallback` / ternaries in components — a fallback hides a missing token and lets new call sites diverge from the theme. New themed color → add the required field to `ThemeColors` and `Palette`, set it in every theme. Tests that render themed components wrap them in `<ThemeProvider theme={theme}>`; do not code around a plain MUI theme.
+
 ## ACP (Agent Client Protocol)
 
 This repo communicates with ACP Servers that implement the V1 Spec. When needing to review that spec, refer to here: https://agentclientprotocol.com/llms.txt

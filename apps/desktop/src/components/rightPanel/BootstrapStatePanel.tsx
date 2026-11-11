@@ -5,6 +5,9 @@ import type { FC } from 'react';
 
 export const RIGHT_PANEL_WIDTH = 380;
 
+/** Flip to `true` when the first Story lands content in the right panel; until then it (and its open button) stay unrendered. */
+export const RIGHT_PANEL_ENABLED = false;
+
 /** Empty right-pane placeholder; content TBD. */
 export const RightPanelPlaceholder: FC<{
   readonly onClose: () => void;

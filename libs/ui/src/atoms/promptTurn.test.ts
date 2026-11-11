@@ -17,10 +17,16 @@ import { dropSession, markSessionInactive } from '../host/harnessStateTransition
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
-import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeAgent.testing.ts';
+import { CODEX, freshRegistry, gated, installFakeAgent, REJECTION, setPhase } from './fakeAgent.testing.ts';
 import { HandoffError, handoffPrompt } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { cancelPromptTurn, ComposerActionUnavailable, sendPromptTurn, steerPromptTurn } from './promptTurn.ts';
+import {
+  cancelPromptTurn,
+  ComposerActionUnavailable,
+  sendPromptTurn,
+  SteeringRejected,
+  steerPromptTurn,
+} from './promptTurn.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 type Sent = { body: string; sound: boolean; title: string };
@@ -87,6 +93,22 @@ const userMessages = (registry: Registry, sessionId = 's1') =>
     ? sessionOf(registry, sessionId).transcript.items.flatMap(item => (item.kind === 'user_message' ? [item] : []))
     : [];
 
+const requestErrors = (registry: Registry, sessionId = 's1') =>
+  sessionId in snapshotOf(registry).sessions
+    ? sessionOf(registry, sessionId).transcript.items.flatMap(item => (item.kind === 'request_error' ? [item] : []))
+    : [];
+
+/** The Request error the fake Agent's {@link REJECTION} becomes in a transcript (id aside). */
+const rejectionItem = (method: string) => ({
+  code: REJECTION.code,
+  details: REJECTION.data.details,
+  kind: 'request_error' as const,
+  message: REJECTION.message,
+  method,
+});
+
+const stripId = <T extends { readonly id: string }>({ id: _id, ...rest }: T) => rest;
+
 const send = (registry: Registry, text = 'hello', sessionId = 's1') =>
   sendPromptTurn(registry, { launchTarget: CODEX, sessionId, text });
 
@@ -137,7 +159,7 @@ layer(hostLayer)('Send', layeredIt => {
       const h = yield* harness({ duringPrompt: TestClock.adjust('3 seconds') });
       const result = yield* send(h.registry, '  hello ');
 
-      assert.deepStrictEqual(result, { stopReason: 'end_turn' });
+      assert.deepStrictEqual(result, { _tag: 'Ended', stopReason: 'end_turn' });
       assert.deepStrictEqual(h.calls, ['prompt:s1']);
       const [message] = userMessages(h.registry);
       assert.deepStrictEqual(userMessages(h.registry), [
@@ -215,9 +237,66 @@ layer(hostLayer)('Send', layeredIt => {
 
       yield* gate.release;
       const result = yield* Fiber.join(fiber);
-      assert.deepStrictEqual(result, { stopReason: 'cancelled' });
+      assert.deepStrictEqual(result, { _tag: 'Ended', stopReason: 'cancelled' });
       assert.deepStrictEqual(h.calls, ['prompt:s1', 'cancel:s1']);
       assert.isUndefined(sessionOf(h.registry).promptCancelRequested);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a prompt the Agent rejects ends the turn and shows the Request error in the chat', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ prompt: 'reject' });
+      const result = yield* send(h.registry);
+      yield* settle;
+
+      assert.deepStrictEqual(result, { _tag: 'Rejected', error: REJECTION });
+      assert.deepStrictEqual(
+        sessionOf(h.registry).transcript.items.map(item => item.kind),
+        ['user_message', 'request_error'],
+      );
+      assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
+      assert.deepStrictEqual(
+        userMessages(h.registry).map(message => [message.startedAt, message.endedAt]),
+        [[h.t0, h.t0]],
+      );
+      assert.isUndefined(sessionOf(h.registry).pendingClientRequest);
+      assert.deepStrictEqual(sent, []);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a rejection after Prompt turn cancel is still cancelled, with no Request error', () =>
+    Effect.gen(function* () {
+      const gate = yield* gated;
+      const h = yield* harness({ duringPrompt: gate.during, prompt: 'reject' });
+      const fiber = yield* Effect.forkChild(send(h.registry));
+      yield* gate.started;
+      yield* cancelPromptTurn(h.registry, { launchTarget: CODEX, sessionId: 's1' });
+      yield* gate.release;
+
+      assert.deepStrictEqual(yield* Fiber.join(fiber), { _tag: 'Ended', stopReason: 'cancelled' });
+      assert.deepStrictEqual(requestErrors(h.registry), []);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a prompt rejected after the Session was dropped leaves it dropped', () =>
+    Effect.gen(function* () {
+      const gate = yield* gated;
+      const h = yield* harness({ duringPrompt: gate.during, prompt: 'reject' });
+      const fiber = yield* Effect.forkChild(send(h.registry));
+      yield* gate.started;
+      updateHarnessSnapshot(h.registry, CODEX, current => dropSession(current, 's1'));
+      yield* gate.release;
+
+      assert.strictEqual((yield* Fiber.join(fiber))._tag, 'Rejected');
+      assert.isFalse('s1' in snapshotOf(h.registry).sessions);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a failure that is not an Agent response adds no Request error', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ prompt: 'fail' });
+      yield* Effect.exit(send(h.registry));
+      assert.deepStrictEqual(requestErrors(h.registry), []);
     }).pipe(Effect.scoped),
   );
 
@@ -332,6 +411,20 @@ layer(hostLayer)('Steering', layeredIt => {
       assert.deepStrictEqual(userMessages(h.registry), [
         { id: message.id, kind: 'user_message', steering: true, text: 'hello' },
       ]);
+      assert.strictEqual(sessionOf(h.registry).pendingClientRequest, 'prompt');
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a Steering message the Agent rejects shows the Request error and is not injected', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ steering: 'reject' });
+      patch(h.registry, 's1', { pendingClientRequest: 'prompt' });
+      const error = yield* Effect.flip(steer(h.registry));
+
+      assert.instanceOf(error, SteeringRejected);
+      assert.deepStrictEqual(h.calls, ['steer:s1']);
+      assert.deepStrictEqual(userMessages(h.registry), []);
+      assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('_session/steering')]);
       assert.strictEqual(sessionOf(h.registry).pendingClientRequest, 'prompt');
     }).pipe(Effect.scoped),
   );
@@ -458,6 +551,17 @@ layer(hostLayer)('Handoff prompt', layeredIt => {
 
       assert.instanceOf(error, HandoffError);
       assert.match(error.message, /cancelled/);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('a prompt the Agent rejects fails the Handoff with its message, and shows it in that chat', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ prompt: 'reject' });
+      const error = yield* Effect.flip(handoffPrompt(h.registry, CODEX, 's1', 'hand off'));
+
+      assert.instanceOf(error, HandoffError);
+      assert.match(error.message, /Exceeds max character length: Prompt is 120000 characters/);
+      assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
     }).pipe(Effect.scoped),
   );
 });

@@ -1,3 +1,5 @@
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
 import { useAtomValue } from '@effect/atom-react';
 import Chip from '@mui/material/Chip';
@@ -481,6 +483,20 @@ export const ToolCallRow: FC<{ item: Extract<ChatItem, { kind: 'tool_call' }>; p
   );
 };
 
+const RequestErrorRow: FC<{ readonly item: Extract<ChatItem, { kind: 'request_error' }> }> = ({ item }) => (
+  <ListItem sx={{ alignItems: 'flex-start', display: 'block' }}>
+    <Alert severity="error" variant="outlined">
+      <AlertTitle>{`${item.method} failed (${String(item.code)})`}</AlertTitle>
+      {item.message}
+      {item.details === undefined ? null : (
+        <Typography color="text.secondary" sx={{ mt: 0.5 }} variant="body2">
+          {item.details}
+        </Typography>
+      )}
+    </Alert>
+  </ListItem>
+);
+
 export const ChatItemView: FC<{
   availableCommands?: readonly AvailableCommand[];
   item: ChatItem;
@@ -549,6 +565,9 @@ export const ChatItemView: FC<{
 
     case 'inter_session_message':
       return <InterSessionMessageRow item={item} />;
+
+    case 'request_error':
+      return <RequestErrorRow item={item} />;
 
     case 'subagent':
       return <SubagentRow item={item} />;

@@ -56,6 +56,7 @@ import {
   selectedAtom,
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
+import { reportRequestError } from './reportRequestError.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
@@ -295,7 +296,12 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           }
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionFork');
 
-          const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd);
+          const result = yield* forkSession(arg.launchTarget, arg.sessionId, arg.cwd).pipe(
+            reportRequestError(get.registry, arg, 'session/fork'),
+          );
+          if (result === undefined) {
+            return;
+          }
           const forkedSessionId = result.sessionId;
           yield* Effect.annotateCurrentSpan('acp.forkedSessionId', forkedSessionId);
 

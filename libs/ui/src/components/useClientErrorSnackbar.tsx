@@ -3,7 +3,7 @@ import Snackbar from '@mui/material/Snackbar';
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
-const formatClientError = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+import { describeError } from '../host/requestError.ts';
 
 /** One host-level error reporter: `onClientError` shows the message in `clientErrorSnackbar`, which the host renders once. */
 export const useClientErrorSnackbar = (): {
@@ -12,7 +12,7 @@ export const useClientErrorSnackbar = (): {
 } => {
   const [clientError, setClientError] = useState<null | string>(null);
   const onClientError = useCallback((error: unknown) => {
-    setClientError(formatClientError(error));
+    setClientError(describeError(error));
   }, []);
   const close = () => {
     setClientError(null);

@@ -18,6 +18,7 @@ import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import { setSessionConfigOption } from './sessionConfigChange.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { cancelPromptTurn } from './promptTurn.ts';
+import { reportRequestError } from './reportRequestError.ts';
 import { setVirtualConfigOption } from './virtualSession.atoms.ts';
 
 export type ElicitationReply =
@@ -152,7 +153,10 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           arg.type === 'boolean'
             ? { configId: arg.configId, type: 'boolean', value: arg.value }
             : { configId: arg.configId, type: 'select', value: arg.value };
-        yield* setSessionConfigOption(get.registry, { launchTarget: arg.launchTarget, sessionId }, change);
+        // An Agent that rejects the change: the Config change is reverted and its error is shown in the chat.
+        yield* setSessionConfigOption(get.registry, { launchTarget: arg.launchTarget, sessionId }, change).pipe(
+          reportRequestError(get.registry, { launchTarget: arg.launchTarget, sessionId }, 'session/set_config_option'),
+        );
       }),
     )
     .pipe(Atom.keepAlive);

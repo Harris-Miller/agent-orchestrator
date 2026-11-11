@@ -19,7 +19,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
 import type { ComposerImageSource } from './composer.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
-import { CODEX, freshRegistry, gated, installFakeAgent, setPhase } from './fakeAgent.testing.ts';
+import { CODEX, freshRegistry, gated, installFakeAgent, REJECTION, setPhase } from './fakeAgent.testing.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -279,6 +279,46 @@ describe('a refused Send gives the draft back', () => {
       assert.deepStrictEqual(h.calls, []);
       assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
       assert.strictEqual(h.registry.get(composerAtom).draft, 'hello');
+    }).pipe(Effect.scoped),
+  );
+});
+
+const requestErrors = (registry: Registry, sessionId: string) =>
+  registry
+    .get(backendHarnessSnapshotAtom(CODEX))
+    .sessions[sessionId].transcript.items.flatMap(item =>
+      item.kind === 'request_error' ? [{ message: item.message, method: item.method }] : [],
+    );
+
+describe('An Agent that rejects the submit answers in the chat, not with a failure', () => {
+  it.effect('a rejected Send succeeds: the message stays, the Request error follows it, the draft stays taken', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ prompt: 'reject' });
+      yield* h.edit({ draft: 'hello' });
+      const exit = yield* h.submit;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), [{ steering: false, text: 'hello' }]);
+      assert.deepStrictEqual(requestErrors(h.registry, 's1'), [
+        { message: REJECTION.message, method: 'session/prompt' },
+      ]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, '');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a rejected Steering message succeeds: nothing injected, the Request error shown, the draft back', () =>
+    Effect.gen(function* () {
+      const h = yield* harness({ steering: 'reject' });
+      yield* h.edit({ draft: 'steered' });
+      patchSession(h.registry, 's1', { pendingClientRequest: 'prompt' });
+      const exit = yield* h.submit;
+
+      assert.isTrue(Exit.isSuccess(exit));
+      assert.deepStrictEqual(userMessages(h.registry, 's1'), []);
+      assert.deepStrictEqual(requestErrors(h.registry, 's1'), [
+        { message: REJECTION.message, method: '_session/steering' },
+      ]);
+      assert.strictEqual(h.registry.get(composerAtom).draft, 'steered');
     }).pipe(Effect.scoped),
   );
 });

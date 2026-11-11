@@ -6,7 +6,7 @@ import { Otlp, OtlpSerialization } from 'effect/observability';
 
 /**
  * Effect's `layerFromConfig` defaults `OTEL_*_EXPORTER` to `[]` (no export).
- * OTel env-var spec defaults them to `otlp`. Supply that fallback so release
+ * OTel env-var spec defaults them to `otlp`. Supply that fallback so dev
  * only needs an endpoint; exporters stay optionally overridable / disableable.
  */
 const OtelExporterDefaultsLive = ConfigProvider.layerAdd(

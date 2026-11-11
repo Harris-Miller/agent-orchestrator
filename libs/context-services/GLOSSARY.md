@@ -9,7 +9,7 @@ The host environment abstraction — current working directory, allowlisted envi
 _Avoid_: Operating system, platform service, process
 
 **Build target**:
-Whether a running bundle is a `dev` or `prod` build, fixed when the bundle is built; anything not explicitly `dev` is `prod`. OTLP observability export exists only on `dev`; every exported signal is tagged with it.
+Whether a bundle is a `dev` or `prod` build, fixed when the bundle is built.
 _Avoid_: Environment, mode, release flag
 
 **BundledResource** (service):

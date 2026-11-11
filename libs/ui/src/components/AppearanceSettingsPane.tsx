@@ -23,11 +23,11 @@ export const AppearanceSettingsPane: FC = () => {
         title="Theme"
         description={
           hostThemeInUse
-            ? 'Colors follow your VS Code theme. This now only picks the file-icon set.'
+            ? 'Colors follow your VS Code theme. Turn off Match VS Code theme to choose one.'
             : 'Choose the colors used throughout the app.'
         }
       >
-        <ThemeSelect />
+        <ThemeSelect disabled={hostThemeInUse} />
       </SettingsRow>
       {hostTheme === undefined ? null : (
         <SettingsRow

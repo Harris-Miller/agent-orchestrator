@@ -234,7 +234,7 @@ The colors and font a Host reads from its own app and hands to the shared UI; on
 _Avoid_: VS Code theme id, custom theme
 
 **Match VS Code theme**:
-The User setting (`matchVscodeTheme`, on when unset) that makes the Harness UI use the Host theme instead of the Theme preference, following the VS Code color theme live. Offered only where a Host theme exists, so desktop never shows it and ignores the setting. The Theme preference stays selectable and then only picks the file-icon set.
+The User setting (`matchVscodeTheme`, on when unset) that makes the Harness UI use the Host theme instead of the Theme preference, following the VS Code color theme live. Offered only where a Host theme exists, so desktop never shows it and ignores the setting. The Theme preference is disabled while it is on, and still picks the file-icon set.
 _Avoid_: VS Code theme preference, sync theme, follow VS Code
 
 **Session History search**:

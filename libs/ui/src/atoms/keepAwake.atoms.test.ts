@@ -130,7 +130,7 @@ describe('runKeepAwake', () => {
     }),
   );
 
-  // `sendPromptTurn` runs `endPromptTurn` in `ensuring`, so success and RPC error reach the controller identically.
+  // `sendPromptTurn` runs `endPromptTurn` in `onExit`, so success and RPC error reach the controller identically.
   it.effect('treats endPromptTurn (success or RPC error) as the end of the turn', () =>
     Effect.gen(function* () {
       const events: SpawnEvent[] = [];

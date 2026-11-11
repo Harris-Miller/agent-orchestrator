@@ -39,7 +39,7 @@ The Harness side of one ACP Turn the user starts on a Session, by Send or by Han
 _Avoid_: request, generation, Turn (unqualified: the ACP cycle)
 
 **Request error**:
-The Agent's error response (code, message, and its own details when it gives them) to a request the Harness sent for a Session, shown in that Session's chat where the user is working, not as a toast. It is a valid answer, not a failure of the Harness: the Prompt turn ends, a Steering message is not delivered and goes back into the Composer, a Config change is reverted, a Fork does not happen. Covers every request the Composer makes: Send (also Queue, the Steer fallback and the Virtual session's first Send), Steering, Config change and Fork. A Handoff step the Agent answers this way fails the Handoff with the Agent's message. Anything else that fails (no Backend connection, transport, activation, History actions such as rename, archive and delete) is not a Request error and reaches the user as a readable message in the host's error toast.
+The Agent's error response (code, message, and its own details when it gives them) to a request the user made from a Session's chat, shown in that chat, not as a toast. It is a valid answer, not a failure of the Harness: the Prompt turn ends, a Steering message is not delivered and goes back into the Composer, a Config change is reverted. A Handoff step answered this way fails the Handoff with the Agent's message. Anything else that fails (no Backend connection, transport, activation, managing a Session in History) is not a Request error and reaches the user as a readable message in the host's error toast.
 _Avoid_: toast error, RPC failure, client error
 
 **Bind**:

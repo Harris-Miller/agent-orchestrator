@@ -4,7 +4,7 @@
  * `BackendNotConnected`, `RpcClientError` and plain `Error`s never do.
  */
 import { AcpError } from '@libs/effect-acp';
-import { Cause, Predicate, Schema } from 'effect';
+import { Cause, Option, Predicate, Schema } from 'effect';
 
 export const isAcpError: (value: unknown) => value is AcpError = Schema.is(AcpError);
 
@@ -14,20 +14,22 @@ export const acpErrorOfCause = (cause: Cause.Cause<unknown>): AcpError | undefin
   return isAcpError(error) ? error : undefined;
 };
 
+const decodeMessage = Schema.decodeUnknownOption(Schema.Struct({ message: Schema.String }));
+const decodeDetails = Schema.decodeUnknownOption(Schema.Struct({ details: Schema.String }));
+
 /** The agent's own explanation (`data.details`), when it gave one as text. */
-export const requestErrorDetails = (error: AcpError): string | undefined => {
-  const { data } = error;
-  return Predicate.isObject(data) && 'details' in data && Predicate.isString(data.details) ? data.details : undefined;
-};
+export const requestErrorDetails = (error: { readonly data?: unknown }): string | undefined =>
+  Option.getOrUndefined(Option.map(decodeDetails(error.data), ({ details }) => details));
 
 /** One line for any thrown value: `message` and the agent's details when it has them, JSON otherwise, never `[object Object]`. */
 export const describeError = (error: unknown): string => {
   if (!Predicate.isObject(error)) {
     return String(error);
   }
-  if (!('message' in error) || !Predicate.isString(error.message)) {
+  const decoded = decodeMessage(error);
+  if (Option.isNone(decoded)) {
     return JSON.stringify(error);
   }
-  const details = isAcpError(error) ? requestErrorDetails(error) : undefined;
-  return details === undefined ? error.message : `${error.message}: ${details}`;
+  const details = 'data' in error ? requestErrorDetails({ data: error.data }) : undefined;
+  return details === undefined ? decoded.value.message : `${decoded.value.message}: ${details}`;
 };

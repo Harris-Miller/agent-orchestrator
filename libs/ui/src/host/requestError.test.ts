@@ -46,6 +46,10 @@ describe('describeError', () => {
     assert.strictEqual(describeError({ code: 1, data: { details: 3 }, message: 'nope' }), 'nope');
   });
 
+  it('reads the details of any object that has them, numeric code or not', () => {
+    assert.strictEqual(describeError({ data: { details: 'why' }, message: 'nope' }), 'nope: why');
+  });
+
   it('never prints an object as [object Object]', () => {
     assert.strictEqual(describeError({ code: 1 }), '{"code":1}');
     assert.strictEqual(describeError('plain'), 'plain');

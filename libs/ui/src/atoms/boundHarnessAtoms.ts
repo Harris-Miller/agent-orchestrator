@@ -14,6 +14,7 @@ import { createPinnedSessionsAtoms } from './pinnedSessions.atoms.ts';
 import { createProvidersAtoms } from './providers.atoms.ts';
 import { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { createThemeAtoms } from './theme.atoms.ts';
 import { createNotifierAtoms } from './notifier.atoms.ts';
 import { createTrackedCwdsAtoms } from './trackedCwds.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
@@ -38,6 +39,7 @@ export const {
   confirmSessionDeleteAtom,
   developerModeAtom,
   keepAwakeEnabledAtom,
+  matchVscodeThemeAtom,
   midTurnSendAtom,
   notificationSoundEnabledAtom,
   notificationsEnabledAtom,
@@ -49,6 +51,8 @@ export const {
   themeAtom,
   userSettingsAtom,
 } = createUserSettingsAtoms(atomRuntime);
+
+export const { effectiveThemeAtom } = createThemeAtoms({ matchVscodeThemeAtom, themeAtom });
 
 export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom } =
   createVscodeExtensionAtoms(atomRuntime, { userSettingsAtom });

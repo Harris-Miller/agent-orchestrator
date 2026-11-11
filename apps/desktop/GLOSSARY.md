@@ -17,7 +17,7 @@ Full-page Harness UI route (`/settings/$category`, default entry `/settings/gene
 _Avoid_: Settings modal, settings dialog, config screen
 
 **Theme preference**:
-User-chosen Harness UI theme id stored in User settings.
+User-chosen Harness UI theme id stored in User settings. Always picks the file-icon set; it picks the colors too except in VS Code with Match VS Code theme on (see the ui glossary).
 _Avoid_: color mode, appearance mode, MUI theme (when meaning the preference)
 
 **Session delete confirmation**:

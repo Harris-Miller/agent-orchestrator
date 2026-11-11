@@ -7,7 +7,7 @@ import { CheckGlyph, RadioGlyph } from './ControlGlyphs.tsx';
 import type { ThemeId } from './themeId.ts';
 import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
-type ThemeColors = {
+export type ThemeColors = {
   readonly alertInfoBg: string;
   readonly alertWarningBg: string;
   readonly bgDefault: string;
@@ -68,7 +68,19 @@ type CatppuccinFlavor = {
   readonly yellow: string;
 };
 
-const createAppTheme = (c: ThemeColors): Theme => {
+/** UI font a theme sets on MUI typography. */
+export type ThemeFont = {
+  readonly family: string;
+  readonly sizePx: number;
+};
+
+/** Body size the typography variants are authored against; other sizes scale them. */
+const BASE_FONT_SIZE_PX = 13;
+
+export const DEFAULT_THEME_FONT: ThemeFont = { family: FONT_FAMILY_UI, sizePx: BASE_FONT_SIZE_PX };
+
+export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_FONT): Theme => {
+  const px = (size: number) => Math.round(size * (font.sizePx / BASE_FONT_SIZE_PX) * 100) / 100;
   const shadows = Array.from({ length: 25 }, (_, i) => {
     if (i === 0) return 'none';
     if (i <= 2) return c.mode === 'dark' ? '0 1px 2px rgb(0 0 0 / 0.3)' : '0 1px 2px rgb(0 0 0 / 0.05)';
@@ -877,74 +889,74 @@ const createAppTheme = (c: ThemeColors): Theme => {
     },
     typography: {
       body1: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 400,
         lineHeight: 1.45,
       },
       body2: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 400,
         lineHeight: 1.45,
       },
       button: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 500,
         letterSpacing: 0,
         lineHeight: 1.45,
         textTransform: 'none',
       },
       caption: {
-        fontSize: 11,
+        fontSize: px(11),
         fontWeight: 400,
         lineHeight: 1.35,
       },
-      fontFamily: FONT_FAMILY_UI,
-      fontSize: 13,
+      fontFamily: font.family,
+      fontSize: font.sizePx,
       fontWeightMedium: 500,
       h1: {
-        fontSize: 22,
+        fontSize: px(22),
         fontWeight: 600,
         lineHeight: 1.25,
       },
       h2: {
-        fontSize: 18,
+        fontSize: px(18),
         fontWeight: 600,
         lineHeight: 1.3,
       },
       h3: {
-        fontSize: 15,
+        fontSize: px(15),
         fontWeight: 600,
         lineHeight: 1.35,
       },
       h4: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 600,
         lineHeight: 1.45,
       },
       h5: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 600,
         lineHeight: 1.4,
       },
       h6: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 600,
         lineHeight: 1.4,
       },
       overline: {
-        fontSize: 10,
+        fontSize: px(10),
         fontWeight: 700,
         letterSpacing: '0.04em',
         lineHeight: 1.5,
         textTransform: 'uppercase',
       },
       subtitle1: {
-        fontSize: 14,
+        fontSize: px(14),
         fontWeight: 400,
         lineHeight: 1.4,
       },
       subtitle2: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 600,
         lineHeight: 1.45,
       },
@@ -952,7 +964,7 @@ const createAppTheme = (c: ThemeColors): Theme => {
   });
 };
 
-const ORIGINAL_COLORS: ThemeColors = {
+export const ORIGINAL_COLORS: ThemeColors = {
   alertInfoBg: '#1a2a43',
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
@@ -1125,9 +1137,11 @@ const CATPPUCCIN = {
   },
 } as const satisfies Record<Exclude<ThemeId, 'original'>, CatppuccinFlavor>;
 
+export const LATTE_COLORS: ThemeColors = fromCatppuccin(CATPPUCCIN.latte);
+
 export const themes: Record<ThemeId, Theme> = {
   frappe: createAppTheme(fromCatppuccin(CATPPUCCIN.frappe)),
-  latte: createAppTheme(fromCatppuccin(CATPPUCCIN.latte)),
+  latte: createAppTheme(LATTE_COLORS),
   macchiato: createAppTheme(fromCatppuccin(CATPPUCCIN.macchiato)),
   mocha: createAppTheme(fromCatppuccin(CATPPUCCIN.mocha)),
   original: createAppTheme(ORIGINAL_COLORS),

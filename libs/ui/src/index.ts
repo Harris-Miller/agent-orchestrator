@@ -2,6 +2,7 @@ export * from './atoms/backendState.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export * from './atoms/trackedCwds.atoms.ts';
+export { hostThemeAtom } from './atoms/theme.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
 export { createHandoffAtoms, HandoffError, handoffInProgressAtom } from './atoms/handoff.atoms.ts';
@@ -19,6 +20,7 @@ export {
   confirmSessionDeleteEnabled,
   createUserSettingsAtoms,
   developerModeEnabled,
+  matchVscodeThemeEnabled,
   showEmptyCwdGroupsEnabled,
   showNoFolderGroupEnabled,
   unwrapUserSettings,
@@ -113,6 +115,8 @@ export * from './theme/AppThemeProvider.tsx';
 export * from './theme/themeId.ts';
 export * from './theme/themePaintCache.ts';
 export * from './theme/themes.ts';
+export * from './theme/vscodeTheme.ts';
+export * from './theme/vscodeThemeDom.ts';
 export * from './theme/tokens.ts';
 export { defaultSettings } from '@lib/hoa-home';
 

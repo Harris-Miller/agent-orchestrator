@@ -24,7 +24,7 @@ import { VscodeExtensionLive } from './VscodeExtensionLive.ts';
  *
  * Also installs a host {@link ConfigProvider} (Reference — not listed in the
  * Layer ROut type) via {@link ConfigProviderLive}, and OTLP export via
- * {@link ObservabilityLive} when host `OTEL_*` config enables it.
+ * {@link ObservabilityLive} in dev builds when host `OTEL_*` config enables it.
  */
 export type TauriServices = HostServices;
 

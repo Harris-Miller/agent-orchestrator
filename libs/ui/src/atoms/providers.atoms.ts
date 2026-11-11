@@ -11,6 +11,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { findExecutableOnPath } from '../host/findExecutableOnPath.ts';
+import { withProviderReasons } from '../host/launchTargetAvailability.ts';
 import {
   activateDownloadedRuntime,
   deactivateRuntime,
@@ -29,6 +30,7 @@ import {
   backendDesiredStateAtom,
   backendHarnessSnapshotAtom,
   enabledLaunchTargetsAtom,
+  harnessAvailabilityAtom,
   providerJobAtom,
 } from './backendState.atoms.ts';
 import type { createHarnessAtoms } from './harness.atoms.ts';
@@ -137,6 +139,20 @@ export const createProvidersAtoms = (
   const providerViewsAtom = Atom.make(get =>
     MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => get(providerViewAtom(launchTarget))),
   ).pipe(Atom.keepAlive);
+
+  /**
+   * Launch target availability for pickers: every enabled target (`selectable`; unusable ones render disabled), the
+   * ones whose harness is `usable`, and a reason per target that has one. A Provider's own reason (CLI, runtime,
+   * download) outranks the harness's.
+   */
+  const launchTargetAvailabilityAtom = Atom.make(get => {
+    const { reasons, usable } = get(harnessAvailabilityAtom);
+    return {
+      reasons: withProviderReasons(reasons, get(providerViewsAtom)),
+      selectable: get(enabledLaunchTargetsAtom),
+      usable,
+    };
+  }).pipe(Atom.keepAlive);
 
   const showProvidersOnStartupAtom = Atom.writable(
     get => unwrapUserSettings(get(userSettingsAtom)).showProvidersOnStartup !== false,
@@ -384,6 +400,7 @@ export const createProvidersAtoms = (
     checkLatestAtomFn,
     downloadAtomFn,
     installAtomFn,
+    launchTargetAvailabilityAtom,
     liveSessionCountAtom,
     providerRuntimeInfoAtom,
     providerViewAtom,

@@ -114,6 +114,10 @@ _Avoid_: Managed ACP Agent (a spawn kind, Antigravity only), bundled provider
 The user switched a Provider off: no running backend, hidden from pickers, runtime files kept.
 _Avoid_: unavailable, stopped (process state)
 
+**Launch target availability**:
+For each enabled launch target, whether the user can pick it now or the reason it cannot. Where both the Provider (**Unavailable**) and its Backend harness (still starting, models not loaded, bootstrap failed) give a reason, the Provider's is shown.
+_Avoid_: picker state
+
 **Unavailable**:
 An enabled Provider that cannot launch (CLI not on PATH, no Active runtime, failed download). Stays visible in pickers as a disabled row with a reason.
 _Avoid_: disabled, error (bootstrap phase)

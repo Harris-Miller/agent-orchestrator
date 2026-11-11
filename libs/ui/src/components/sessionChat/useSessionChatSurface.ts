@@ -7,20 +7,17 @@ import { useCallback, useMemo } from 'react';
 
 import {
   configOptionIndexByLaunchTargetAtom,
-  launchTargetUnavailableReasonsAtom,
-  pickerLaunchTargetsAtom,
   selectedAtom,
   selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
-  usableLaunchTargetsAtom,
 } from '../../atoms/backendState.atoms.ts';
 import {
   attachComposerImagesAtomFn,
   cancelPromptAtomFn,
   editComposerAtomFn,
   forkSessionAtomFn,
-  providerViewsAtom,
+  launchTargetAvailabilityAtom,
   setVirtualLaunchTargetAtomFn,
   submitComposerAtomFn,
   unqueueComposerAtomFn,
@@ -32,7 +29,6 @@ import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
-import { unavailableReason } from '../../host/providerView.ts';
 
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
 const EMPTY_CONFIGURATION: SessionConfiguration = [];
@@ -45,10 +41,11 @@ export const useSessionChatSurface = () => {
   const selectedSession = useAtomValue(selectedSessionAtom);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
-  const usableLaunchTargets = useAtomValue(usableLaunchTargetsAtom);
-  const selectableLaunchTargets = useAtomValue(pickerLaunchTargetsAtom);
-  const harnessReasons = useAtomValue(launchTargetUnavailableReasonsAtom);
-  const providers = useAtomValue(providerViewsAtom);
+  const {
+    reasons: unavailableReasons,
+    selectable: selectableLaunchTargets,
+    usable: usableLaunchTargets,
+  } = useAtomValue(launchTargetAvailabilityAtom);
   const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
   const edit = useAtomSet(editComposerAtomFn);
   const attachImages = useAtomSet(attachComposerImagesAtomFn, { mode: 'promise' });
@@ -57,15 +54,6 @@ export const useSessionChatSurface = () => {
   const cancelPrompt = useAtomSet(cancelPromptAtomFn, { mode: 'promise' });
   const setVirtualLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
   const forkSession = useAtomSet(forkSessionAtomFn, { mode: 'promise' });
-
-  const unavailableReasons = useMemo(() => {
-    const reasons = { ...harnessReasons };
-    for (const provider of providers) {
-      const reason = unavailableReason(provider);
-      if (reason !== undefined) reasons[provider.id] = reason;
-    }
-    return reasons;
-  }, [harnessReasons, providers]);
 
   const getConfigOptionIndex = useCallback(
     (launchTarget: AgentLaunchTarget) => configOptionIndexes[launchTarget],

@@ -1,4 +1,5 @@
 export * from './AtomicFile.ts';
+export * from './BuildTarget.ts';
 export * from './BundledResource.ts';
 export * from './Clipboard.ts';
 export * from './FileDialog.ts';

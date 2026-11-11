@@ -27,7 +27,7 @@ type HostServicesOptions = { readonly client: IpcClient } | { readonly port: Ipc
  * Build the Host services Live for the VS Code webview.
  *
  * Provides the portable Host seam, plus ConfigProvider / Observability
- * composition extras (outside the portable Seam) when host `OTEL_*` enables export.
+ * composition extras (outside the portable Seam); OTLP export is dev-build only, when host `OTEL_*` enables it.
  *
  * Calls {@link acquireVsCodeApi} unless a port or shared client is injected.
  */

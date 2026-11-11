@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       'process.env.HOA_ANTIGRAVITY_BETA': JSON.stringify(env.HOA_ANTIGRAVITY_BETA || ''),
+      'process.env.HOA_BUILD_TARGET': JSON.stringify(mode === 'production' ? 'prod' : 'dev'),
       'process.env.HOA_CURSOR_BETA': JSON.stringify(env.HOA_CURSOR_BETA || ''),
     },
 

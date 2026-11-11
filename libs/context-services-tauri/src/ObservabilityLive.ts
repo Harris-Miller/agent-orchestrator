@@ -1,3 +1,5 @@
+import { buildTarget } from '@lib/context-services';
+import type { BuildTarget } from '@lib/context-services';
 import { ConfigProvider, Layer, References } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
@@ -22,17 +24,24 @@ const OtelExporterDefaultsLive = ConfigProvider.layerAdd(
 const AllLogLevelsLive = Layer.succeed(References.MinimumLogLevel, 'All');
 
 /**
- * OTLP export for traces, logs, and metrics when host env enables it
- * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`).
+ * OTLP export for traces, logs, and metrics. Dev builds only: the host-env OTLP config
+ * (`OTEL_EXPORTER_OTLP_ENDPOINT`, unless `OTEL_SDK_DISABLED` or exporters omit `otlp`) is never read
+ * in a prod build, because that env var is a common convention a user's machine may already set.
+ * Every signal carries a `build_target` resource attribute.
  * Requires {@link ConfigProvider} (from {@link ConfigProviderLive}).
  */
-export const ObservabilityLive = Layer.merge(
-  AllLogLevelsLive,
-  Otlp.layerFromConfig({
-    resource: { serviceName: 'hoa-desktop' },
-  }).pipe(
-    Layer.provide(OtlpSerialization.layerJson),
-    Layer.provide(FetchHttpClient.layer),
-    Layer.provide(OtelExporterDefaultsLive),
-  ),
-);
+export const makeObservabilityLive = (target: BuildTarget) =>
+  target === 'dev'
+    ? Layer.merge(
+        AllLogLevelsLive,
+        Otlp.layerFromConfig({
+          resource: { attributes: { build_target: target }, serviceName: 'hoa-desktop' },
+        }).pipe(
+          Layer.provide(OtlpSerialization.layerJson),
+          Layer.provide(FetchHttpClient.layer),
+          Layer.provide(OtelExporterDefaultsLive),
+        ),
+      )
+    : Layer.empty;
+
+export const ObservabilityLive = makeObservabilityLive(buildTarget);

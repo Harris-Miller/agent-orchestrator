@@ -8,6 +8,10 @@ Portable host-environment abstractions exposed as Effect `Context` services, ind
 The host environment abstraction — current working directory, allowlisted environment variables, home directory, and platform identifier — provided as an Effect `Context` service.
 _Avoid_: Operating system, platform service, process
 
+**Build target**:
+Whether a running bundle is a `dev` or `prod` build, fixed when the bundle is built; anything not explicitly `dev` is `prod`. OTLP observability export exists only on `dev`; every exported signal is tagged with it.
+_Avoid_: Environment, mode, release flag
+
 **BundledResource** (service):
 The host capability that turns a path relative to the packaged resource root into an absolute filesystem path.
 _Avoid_: resolveResource, asAbsolutePath, resource path API

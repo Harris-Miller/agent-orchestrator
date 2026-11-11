@@ -285,7 +285,9 @@ const MessageRow: FC<{
         <Box sx={{ alignItems: 'flex-end', display: 'flex', flexDirection: 'column', maxWidth: 'min(85%, 42rem)' }}>
           <Box
             sx={{
-              bgcolor: theme => alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
+              bgcolor: theme =>
+                theme.palette.userMessageBackground ??
+                alpha(theme.palette.secondary.main, theme.palette.mode === 'dark' ? 0.32 : 0.18),
               borderRadius: 1,
               px: 1.75,
               py: 1.25,

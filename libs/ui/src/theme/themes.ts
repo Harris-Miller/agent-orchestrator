@@ -11,9 +11,13 @@ declare module '@mui/material/styles' {
   interface Palette {
     /** Unset under a plain MUI theme (tests); chips then fall back to secondary. */
     commandChip?: { readonly background: string; readonly foreground: string };
+    composerBackground?: string;
+    userMessageBackground?: string;
   }
   interface PaletteOptions {
     commandChip?: { readonly background: string; readonly foreground: string };
+    composerBackground?: string;
+    userMessageBackground?: string;
   }
 }
 
@@ -25,6 +29,10 @@ export type ThemeColors = {
   /** Command chip (`/` and `$`) fill and text; derived from secondary when unset. */
   readonly commandChipBackground?: string;
   readonly commandChipForeground?: string;
+  /** Composer field fill; `bgPaper` when unset. */
+  readonly composerBackground?: string;
+  /** User message bubble fill; a secondary tint when unset. */
+  readonly userMessageBackground?: string;
   readonly divider: string;
   readonly errorDark: string;
   readonly errorLight: string;
@@ -840,6 +848,8 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
       },
     },
     palette: {
+      composerBackground: c.composerBackground ?? c.bgPaper,
+      userMessageBackground: c.userMessageBackground ?? alpha(c.secondaryMain, c.mode === 'dark' ? 0.32 : 0.18),
       commandChip: {
         background: c.commandChipBackground ?? alpha(c.secondaryMain, 0.08),
         foreground: c.commandChipForeground ?? c.secondaryMain,

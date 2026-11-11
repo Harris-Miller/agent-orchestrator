@@ -7,11 +7,31 @@ import { CheckGlyph, RadioGlyph } from './ControlGlyphs.tsx';
 import type { ThemeId } from './themeId.ts';
 import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
-type ThemeColors = {
+declare module '@mui/material/styles' {
+  interface Palette {
+    commandChip: { readonly background: string; readonly foreground: string };
+    composerBackground: string;
+    userMessageBackground: string;
+  }
+  interface PaletteOptions {
+    commandChip?: { readonly background: string; readonly foreground: string };
+    composerBackground?: string;
+    userMessageBackground?: string;
+  }
+}
+
+export type ThemeColors = {
   readonly alertInfoBg: string;
   readonly alertWarningBg: string;
   readonly bgDefault: string;
   readonly bgPaper: string;
+  /** Command chip (`/` and `$`) fill and text. */
+  readonly commandChipBackground: string;
+  readonly commandChipForeground: string;
+  /** Composer field fill. */
+  readonly composerBackground: string;
+  /** User message bubble fill. */
+  readonly userMessageBackground: string;
   readonly divider: string;
   readonly errorDark: string;
   readonly errorLight: string;
@@ -68,7 +88,19 @@ type CatppuccinFlavor = {
   readonly yellow: string;
 };
 
-const createAppTheme = (c: ThemeColors): Theme => {
+/** UI font a theme sets on MUI typography. */
+export type ThemeFont = {
+  readonly family: string;
+  readonly sizePx: number;
+};
+
+/** Body size the typography variants are authored against; other sizes scale them. */
+const BASE_FONT_SIZE_PX = 13;
+
+export const DEFAULT_THEME_FONT: ThemeFont = { family: FONT_FAMILY_UI, sizePx: BASE_FONT_SIZE_PX };
+
+export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_FONT): Theme => {
+  const px = (size: number) => Math.round(size * (font.sizePx / BASE_FONT_SIZE_PX) * 100) / 100;
   const shadows = Array.from({ length: 25 }, (_, i) => {
     if (i === 0) return 'none';
     if (i <= 2) return c.mode === 'dark' ? '0 1px 2px rgb(0 0 0 / 0.3)' : '0 1px 2px rgb(0 0 0 / 0.05)';
@@ -815,6 +847,12 @@ const createAppTheme = (c: ThemeColors): Theme => {
       },
     },
     palette: {
+      composerBackground: c.composerBackground,
+      userMessageBackground: c.userMessageBackground,
+      commandChip: {
+        background: c.commandChipBackground,
+        foreground: c.commandChipForeground,
+      },
       action: {
         active: c.textPrimary,
         disabled: c.textMuted,
@@ -877,74 +915,74 @@ const createAppTheme = (c: ThemeColors): Theme => {
     },
     typography: {
       body1: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 400,
         lineHeight: 1.45,
       },
       body2: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 400,
         lineHeight: 1.45,
       },
       button: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 500,
         letterSpacing: 0,
         lineHeight: 1.45,
         textTransform: 'none',
       },
       caption: {
-        fontSize: 11,
+        fontSize: px(11),
         fontWeight: 400,
         lineHeight: 1.35,
       },
-      fontFamily: FONT_FAMILY_UI,
-      fontSize: 13,
+      fontFamily: font.family,
+      fontSize: font.sizePx,
       fontWeightMedium: 500,
       h1: {
-        fontSize: 22,
+        fontSize: px(22),
         fontWeight: 600,
         lineHeight: 1.25,
       },
       h2: {
-        fontSize: 18,
+        fontSize: px(18),
         fontWeight: 600,
         lineHeight: 1.3,
       },
       h3: {
-        fontSize: 15,
+        fontSize: px(15),
         fontWeight: 600,
         lineHeight: 1.35,
       },
       h4: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 600,
         lineHeight: 1.45,
       },
       h5: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 600,
         lineHeight: 1.4,
       },
       h6: {
-        fontSize: 12,
+        fontSize: px(12),
         fontWeight: 600,
         lineHeight: 1.4,
       },
       overline: {
-        fontSize: 10,
+        fontSize: px(10),
         fontWeight: 700,
         letterSpacing: '0.04em',
         lineHeight: 1.5,
         textTransform: 'uppercase',
       },
       subtitle1: {
-        fontSize: 14,
+        fontSize: px(14),
         fontWeight: 400,
         lineHeight: 1.4,
       },
       subtitle2: {
-        fontSize: 13,
+        fontSize: px(13),
         fontWeight: 600,
         lineHeight: 1.45,
       },
@@ -952,11 +990,16 @@ const createAppTheme = (c: ThemeColors): Theme => {
   });
 };
 
-const ORIGINAL_COLORS: ThemeColors = {
+const ORIGINAL_SECONDARY_MAIN = '#d48fff';
+
+export const ORIGINAL_COLORS: ThemeColors = {
   alertInfoBg: '#1a2a43',
   alertWarningBg: '#3e2724',
   bgDefault: '#13171b',
   bgPaper: '#1d2027',
+  commandChipBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.08),
+  commandChipForeground: ORIGINAL_SECONDARY_MAIN,
+  composerBackground: '#1d2027',
   // Soft hairline (Cursor-like); panel seams come from Allotment, not doubled pane borders
   divider: 'rgba(255, 255, 255, 0.09)',
   errorDark: '#962533',
@@ -978,7 +1021,7 @@ const ORIGINAL_COLORS: ThemeColors = {
   secondaryContainedHover: '#b476dc',
   secondaryDark: '#9d62c4',
   secondaryLight: '#e1adff',
-  secondaryMain: '#d48fff',
+  secondaryMain: ORIGINAL_SECONDARY_MAIN,
   successDark: '#00664d',
   successLight: '#43bf9f',
   successMain: '#008765',
@@ -986,19 +1029,23 @@ const ORIGINAL_COLORS: ThemeColors = {
   textMuted: '#a0a7b5',
   textPrimary: '#f3f7ff',
   textSecondary: 'rgba(214, 223, 242, 0.70)',
+  userMessageBackground: alpha(ORIGINAL_SECONDARY_MAIN, 0.32),
   warningDark: '#9f351c',
   warningLight: '#ff8a66',
   warningMain: '#e15428',
 };
 
-/** Catppuccin palette → app tokens. Style guide: base pane, mantle paper, blue primary, mauve secondary. */
+/** Catppuccin palette → app tokens. Style guide: mantle pane, base paper, lifted composer, mauve primary, blue secondary. */
 const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
   const onAccent = f.base;
   return {
     alertInfoBg: alpha(f.sky, 0.14),
     alertWarningBg: alpha(f.peach, 0.14),
-    bgDefault: f.base,
-    bgPaper: f.mantle,
+    bgDefault: f.mantle,
+    bgPaper: f.base,
+    commandChipBackground: alpha(f.blue, 0.08),
+    commandChipForeground: f.blue,
+    composerBackground: f.dark ? f.surface0 : f.base,
     divider: f.dark ? alpha('#ffffff', 0.09) : alpha(f.overlay0, 0.35),
     errorDark: darken(f.red, 0.2),
     errorLight: f.red,
@@ -1008,18 +1055,19 @@ const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
     infoMain: f.sky,
     mode: f.dark ? 'dark' : 'light',
     onAccent,
-    primaryContained: f.blue,
-    primaryContainedHover: darken(f.blue, 0.1),
-    primaryDark: darken(f.blue, 0.15),
-    primaryLight: f.lavender,
-    primaryMain: f.blue,
+    primaryContained: f.mauve,
+    primaryContainedHover: darken(f.mauve, 0.1),
+    primaryDark: darken(f.mauve, 0.15),
+    primaryLight: f.pink,
+    primaryMain: f.mauve,
     scrollbarThumb: f.surface1,
     scrollbarTrack: f.crust,
-    secondaryContained: f.mauve,
-    secondaryContainedHover: darken(f.mauve, 0.1),
-    secondaryDark: darken(f.mauve, 0.15),
-    secondaryLight: f.pink,
-    secondaryMain: f.mauve,
+    secondaryContained: f.blue,
+    secondaryContainedHover: darken(f.blue, 0.1),
+    secondaryDark: darken(f.blue, 0.15),
+    secondaryLight: f.lavender,
+    secondaryMain: f.blue,
+    userMessageBackground: alpha(f.surface0, f.dark ? 0.6 : 0.5),
     successDark: darken(f.green, 0.2),
     successLight: f.green,
     successMain: f.green,
@@ -1125,9 +1173,11 @@ const CATPPUCCIN = {
   },
 } as const satisfies Record<Exclude<ThemeId, 'original'>, CatppuccinFlavor>;
 
+export const LATTE_COLORS: ThemeColors = fromCatppuccin(CATPPUCCIN.latte);
+
 export const themes: Record<ThemeId, Theme> = {
   frappe: createAppTheme(fromCatppuccin(CATPPUCCIN.frappe)),
-  latte: createAppTheme(fromCatppuccin(CATPPUCCIN.latte)),
+  latte: createAppTheme(LATTE_COLORS),
   macchiato: createAppTheme(fromCatppuccin(CATPPUCCIN.macchiato)),
   mocha: createAppTheme(fromCatppuccin(CATPPUCCIN.mocha)),
   original: createAppTheme(ORIGINAL_COLORS),

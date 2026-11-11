@@ -44,6 +44,9 @@ export const notificationsEnabled = (settings: UserSettings): boolean => setting
 /** Keep awake is on when the Settings field is unset. */
 export const keepAwakeEnabled = (settings: UserSettings): boolean => settings.keepAwakeEnabled !== false;
 
+/** Match VS Code theme is on when the Settings field is unset. */
+export const matchVscodeThemeEnabled = (settings: UserSettings): boolean => settings.matchVscodeTheme !== false;
+
 /** Notification sound is on when the Settings field is unset. */
 export const notificationSoundEnabled = (settings: UserSettings): boolean =>
   settings.notificationSoundEnabled !== false;
@@ -153,6 +156,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective Match VS Code theme preference (on when unset). Write patches User settings. */
+  const matchVscodeThemeAtom = Atom.writable(
+    get => matchVscodeThemeEnabled(unwrapUserSettings(get(userSettingsAtom))),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), matchVscodeTheme: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective Notification sound preference (on when unset). Write patches User settings. */
   const notificationSoundEnabledAtom = Atom.writable(
     get => notificationSoundEnabled(unwrapUserSettings(get(userSettingsAtom))),
@@ -212,6 +223,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     confirmSessionDeleteAtom,
     developerModeAtom,
     keepAwakeEnabledAtom,
+    matchVscodeThemeAtom,
     midTurnSendAtom,
     notificationSoundEnabledAtom,
     notificationsEnabledAtom,

@@ -19,13 +19,13 @@ const THEME_LABELS: Record<ThemeId, string> = {
 };
 
 /** Theme preference control for the Settings Appearance pane. */
-export const ThemeSelect: FC = () => {
+export const ThemeSelect: FC<{ readonly disabled?: boolean }> = ({ disabled = false }) => {
   const themeId = useAtomValue(themeAtom);
   const setTheme = useAtomSet(themeAtom);
   const editable = !userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
 
   return (
-    <FormControl disabled={!editable} size="small" sx={{ minWidth: 180 }}>
+    <FormControl disabled={disabled || !editable} size="small" sx={{ minWidth: 180 }}>
       <Select
         slotProps={{ input: { 'aria-label': 'Theme' } }}
         onChange={event => {

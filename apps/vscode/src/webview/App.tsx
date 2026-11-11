@@ -6,6 +6,8 @@ import {
   handleWorkspaceFoldersChanged,
   HarnessMounts,
   HarnessPrerequisites,
+  hostThemeAtom,
+  readVscodeTheme,
   useClientErrorSnackbar,
 } from '@lib/ui';
 import Box from '@mui/material/Box';
@@ -21,6 +23,7 @@ import type { FC } from 'react';
 import { hostIpcClient } from './bindHostRuntime.ts';
 import { OnClientErrorContext } from './onClientError.tsx';
 import { router } from './router.tsx';
+import { VscodeThemeSync } from './VscodeThemeSync.tsx';
 
 const WorkspaceFoldersGate: FC = () => {
   const registry = useContext(RegistryContext);
@@ -90,8 +93,12 @@ const WorkspaceFoldersGate: FC = () => {
   );
 };
 
+/** VS Code writes its `--vscode-*` variables before the bundle runs, so the first paint already has the theme. */
+const initialHostTheme = readVscodeTheme(document);
+
 export const App: FC = () => (
-  <RegistryProvider>
+  <RegistryProvider initialValues={[[hostThemeAtom, initialHostTheme]]}>
+    <VscodeThemeSync />
     <AppThemeProvider>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>

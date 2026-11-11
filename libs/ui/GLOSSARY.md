@@ -229,5 +229,13 @@ _Avoid_: copy button (when you mean the behavior), copy rendered text
 
 For Host services and BundledResource / Clipboard / FileDialog vocabulary, see [`../context-services/GLOSSARY.md`](../context-services/GLOSSARY.md). Session and Settings domain terms live primarily in [`../../apps/desktop/GLOSSARY.md`](../../apps/desktop/GLOSSARY.md). VS Code sidebar view terms (Workspace folder, Workspace cwd, Session History, Chat) live in [`../../apps/vscode/GLOSSARY.md`](../../apps/vscode/GLOSSARY.md). Shared session transcript/composer React lives in this package for both host apps to route or wrap.
 
+**Host theme**:
+The colors and font a Host reads from its own app and hands to the shared UI; only the VS Code webview supplies one, read from the active VS Code color theme. Each color tries a short chain of VS Code variables; when none is set it falls back to Original (dark theme kinds) or Catppuccin Latte (light and high-contrast-light kinds), or is derived from the colors that are set.
+_Avoid_: VS Code theme id, custom theme
+
+**Match VS Code theme**:
+The User setting (`matchVscodeTheme`, on when unset) that makes the Harness UI use the Host theme instead of the Theme preference, following the VS Code color theme live. Offered only where a Host theme exists, so desktop never shows it and ignores the setting. The Theme preference is disabled while it is on, and still picks the file-icon set.
+_Avoid_: VS Code theme preference, sync theme, follow VS Code
+
 **Session History search**:
 A search by Session title within the host’s Session History scope that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.

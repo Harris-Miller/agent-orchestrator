@@ -9,6 +9,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     keepAwakeEnabled: Schema.optionalKey(Schema.Boolean),
+    matchVscodeTheme: Schema.optionalKey(Schema.Boolean),
     midTurnSend: Schema.optionalKey(Schema.Literals(['steer', 'queue'])),
     notificationSoundEnabled: Schema.optionalKey(Schema.Boolean),
     notificationsEnabled: Schema.optionalKey(Schema.Boolean),

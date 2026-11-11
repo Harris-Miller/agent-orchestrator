@@ -3,21 +3,14 @@ import type { FC } from 'react';
 
 import type { SettingsCategoryId } from '../settings/settingsCategories.ts';
 
+import { AppearanceSettingsPane } from './AppearanceSettingsPane.tsx';
 import { GeneralSettingsPane } from './GeneralSettingsPane.tsx';
 import { ProvidersSettingsPane } from './providers/ProvidersSettingsPane.tsx';
-import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
-import { ThemeSelect } from './ThemeSelect.tsx';
 
 /** Shared Settings category pane body (host shells supply chrome). */
 export const SettingsCategoryContent: FC<{ readonly category: SettingsCategoryId }> = ({ category }) => {
   if (category === 'appearance') {
-    return (
-      <SettingsSection title="Appearance">
-        <SettingsRow title="Theme" description="Choose the colors used throughout the app.">
-          <ThemeSelect />
-        </SettingsRow>
-      </SettingsSection>
-    );
+    return <AppearanceSettingsPane />;
   }
   if (category === 'general') {
     return <GeneralSettingsPane />;

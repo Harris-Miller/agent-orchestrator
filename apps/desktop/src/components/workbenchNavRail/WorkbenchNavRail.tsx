@@ -220,7 +220,7 @@ export const WorkbenchNavRail: FC<{
                 <Accordion
                   {...sectionExpansion(PINNED_SECTION_KEY)}
                   key={PINNED_SECTION_KEY}
-                  sx={{ bgcolor: 'transparent' }}
+                  sx={{ bgcolor: 'transparent', borderBottom: 0 }}
                 >
                   <AccordionSummary
                     sx={{
@@ -260,7 +260,7 @@ export const WorkbenchNavRail: FC<{
                   <Accordion
                     {...sectionExpansion(presentation.key)}
                     key={presentation.key}
-                    sx={{ bgcolor: 'transparent' }}
+                    sx={{ bgcolor: 'transparent', borderBottom: 0 }}
                   >
                     <AccordionSummary
                       sx={{

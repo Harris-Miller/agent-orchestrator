@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { assert, describe, it } from '@effect/vitest';
+import { ThemeProvider } from '@mui/material/styles';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { Effect } from 'effect';
 import {
@@ -22,6 +23,7 @@ import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
 import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
+import { theme } from '../../theme/themes.ts';
 
 import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
 
@@ -46,10 +48,15 @@ const mount = (
     onSubmit: () => undefined,
     placeholder: 'Message',
   };
-  const view = render(<ComposerPromptEditor {...props} value={value} />);
+  const tree = (next: string) => (
+    <ThemeProvider theme={theme}>
+      <ComposerPromptEditor {...props} value={next} />
+    </ThemeProvider>
+  );
+  const view = render(tree(value));
   return {
     rerender: (next: string) => {
-      view.rerender(<ComposerPromptEditor {...props} value={next} />);
+      view.rerender(tree(next));
     },
   };
 };

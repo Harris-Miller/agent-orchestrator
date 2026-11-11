@@ -11,4 +11,4 @@
 ## Consequences
 
 - The dev console redacts too. There is one rule, with no Build target branching.
-- Known gaps: errors raised by a library or the host (Effect platform errors, the Tauri opener, VS Code) can name the path or URL they failed on in their own message, and an Agent's JSON-RPC error `message`/`data` is logged as the Agent sent it (the user already sees it in the chat).
+- Known gaps, deferred: every `PlatformError` names the path it failed on, including those built by this repo's Tauri `FileSystemLive` (fixing that drops the path from all filesystem debugging); errors raised by the Tauri opener or VS Code can name the URL in their own message; and an Agent's JSON-RPC error `message`/`data` is logged as the Agent sent it.

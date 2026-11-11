@@ -12,7 +12,6 @@ import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionUpdate } from '../host/applySessionUpdate.ts';
@@ -20,12 +19,21 @@ import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { applyInitializeResult, historyAfterList, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
+import {
+  applyBootstrapPhase,
+  applyInitializeResult,
+  applySessionList,
+  applySessionUpdatePatch,
+  raiseElicitation,
+  raisePermission,
+  reconcileConnectionLost,
+  recordRpcMessage,
+  setAntigravityAuthUrl,
+} from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
-import { upsertSession } from '../host/sessionSnapshot.ts';
-import { patchSessionOrSubagent, routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { configOptionIndexAtom } from './backendState.atoms.ts';
@@ -56,14 +64,7 @@ const routeAndApplySessionUpdate = (
   if (result.kind === 'noop') {
     return [undefined, current];
   }
-  return [
-    undefined,
-    {
-      ...current,
-      sessionHistory: result.sessionHistory ?? current.sessionHistory,
-      sessions: upsertSession(current.sessions, result.session),
-    },
-  ];
+  return [undefined, applySessionUpdatePatch(current, result)];
 };
 
 /** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
@@ -103,11 +104,11 @@ export const makeHarnessEventFold = ({
   const setPending = (
     sessionId: string,
     event: AttentionEvent,
-    patch: Parameters<typeof patchSessionOrSubagent>[2],
+    raise: (current: BackendHarnessSnapshot) => BackendHarnessSnapshot,
   ) => {
     const next = modifyHarnessSnapshot(registry, launchTarget, current => {
-      const patched = patchSessionOrSubagent(current, sessionId, patch);
-      return [patched, patched];
+      const raised = raise(current);
+      return [raised, raised];
     });
     runFork(notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event));
   };
@@ -118,7 +119,7 @@ export const makeHarnessEventFold = ({
   return {
     hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
     onAntigravityAuthUrl: url => {
-      update(current => ({ ...current, antigravityAuthUrl: url }));
+      update(current => setAntigravityAuthUrl(current, url));
     },
     onConfigIndexEvent: event => {
       const previous = registry.get(configOptionIndexAtom(launchTarget));
@@ -137,29 +138,19 @@ export const makeHarnessEventFold = ({
       unbindVirtualOnConnectionLost(registry, launchTarget);
     },
     onElicitationCreate: (sessionId, request, resolve) => {
-      setPending(sessionId, { kind: 'elicitation' }, holder => ({
-        ...holder,
-        pendingElicitation: { id: crypto.randomUUID(), request, resolve, sessionId },
-      }));
+      const pending = { id: crypto.randomUUID(), request, resolve, sessionId };
+      setPending(sessionId, { kind: 'elicitation' }, current => raiseElicitation(current, pending));
     },
     onInitializeResult: initializeResult => {
       update(current => applyInitializeResult(current, launchTarget, initializeResult));
     },
     onPermissionRequest: (sessionId, request, resolve) => {
-      setPending(sessionId, { kind: 'permission' }, holder => ({
-        ...holder,
-        pendingPermission: { request, resolve, sessionId },
-      }));
+      setPending(sessionId, { kind: 'permission' }, current =>
+        raisePermission(current, { request, resolve, sessionId }),
+      );
     },
     onPhase: (phase, failure) => {
-      update(current => ({
-        ...current,
-        ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting'
-          ? { antigravityAuthUrl: undefined }
-          : {}),
-        failure,
-        phase,
-      }));
+      update(current => applyBootstrapPhase(current, phase, failure));
       if (phase === 'usable') {
         runFork(
           bindVirtualOnUsable(registry, launchTarget, refreshFsListing).pipe(
@@ -169,20 +160,15 @@ export const makeHarnessEventFold = ({
       }
     },
     onRpcMessage: (direction, message) => {
-      update(current => ({
-        ...current,
-        rpcCalls: [...current.rpcCalls, { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() }],
-      }));
+      const entry = { direction, id: crypto.randomUUID(), message, receivedAt: Date.now() };
+      update(current => recordRpcMessage(current, entry));
     },
     onSessionHistoryRequest: () => {
       pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
     },
     onSessionHistoryResult: (listResult, scope) => {
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-      update(current => ({
-        ...current,
-        sessionHistory: historyAfterList(current.sessionHistory, listResult, scope, boundSessionId),
-      }));
+      update(current => applySessionList(current, listResult, scope, boundSessionId));
       runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {

@@ -95,14 +95,12 @@ export const {
   activateSessionAtomFn,
   archiveSessionAtomFn,
   clearSelectedAtomFn,
-  createSessionAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
   refreshSessionHistoryAtomFn,
   renameSessionAtomFn,
-  selectSessionAtomFn,
 } = createSessionLifecycleAtoms(hostBag, refreshSessionFsListingAtomFn, cancelPromptAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);

@@ -1,4 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Cause } from 'effect';
 
 import {
   initialBackendHarnessSnapshot,
@@ -10,20 +11,41 @@ import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootst
 import { agentCapabilitiesFrom, NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
 import { configValue } from './sessionConfiguration.ts';
 import {
+  addCreatedSession,
+  answerElicitation,
+  answerPermission,
+  appendSteeredMessage,
+  applyBootstrapPhase,
   applyConfigResult,
   applyInitializeResult,
+  applyLoadedConfiguration,
+  applySessionList,
+  applySessionUpdatePatch,
+  beginActivation,
   beginConfigChange,
   beginPromptTurn,
+  bindSession,
   dropSession,
+  dropSessionIfPresent,
   endClientRequest,
   endConfigChange,
   endPromptTurn,
   excludeBoundVirtualFromHistory,
+  failActivation,
+  failUnarchive,
+  finishActivation,
+  markActivationCwdMissing,
   markHistoryUnavailable,
   markSessionInactive,
   mergeListedHistory,
+  raiseElicitation,
+  raisePermission,
   reconcileConnectionLost,
+  reconcileProviderStopped,
+  recordRpcMessage,
   replaceSessionHistory,
+  requestPromptCancel,
+  setAntigravityAuthUrl,
   stripSessionPendings,
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
@@ -469,5 +491,243 @@ describe('excludeBoundVirtualFromHistory', () => {
       excludeBoundVirtualFromHistory(normalized, 'bound-1').map(entry => entry.sessionId),
       ['real-1'],
     );
+  });
+});
+
+const pendingPermission = (sessionId: string) => ({
+  request: {} as never,
+  resolve: () => undefined,
+  sessionId,
+});
+const pendingElicitation = (id: string, sessionId: string) => ({
+  id,
+  request: {} as never,
+  resolve: () => undefined,
+  sessionId,
+});
+
+describe('bootstrap and wire folds', () => {
+  it('applyBootstrapPhase carries the failure and drops the Sign in URL once past signing in', () => {
+    const withUrl = setAntigravityAuthUrl(readySnapshot(), 'https://auth');
+    assert.strictEqual(withUrl.antigravityAuthUrl, 'https://auth');
+    for (const phase of ['usable', 'ready', 'error', 'connecting'] as const) {
+      assert.strictEqual(applyBootstrapPhase(withUrl, phase, undefined).antigravityAuthUrl, undefined, phase);
+    }
+    for (const phase of ['initialized', 'signing-in'] as const) {
+      assert.strictEqual(applyBootstrapPhase(withUrl, phase, undefined).antigravityAuthUrl, 'https://auth', phase);
+    }
+    const failure = { message: 'boom' } as never;
+    const failed = applyBootstrapPhase(readySnapshot(), 'error', failure);
+    assert.strictEqual(failed.phase, 'error');
+    assert.strictEqual(failed.failure, failure);
+  });
+
+  it('recordRpcMessage appends in order', () => {
+    const entry = (id: string) => ({ direction: 'in' as const, id, message: {}, receivedAt: 1 });
+    const next = recordRpcMessage(recordRpcMessage(readySnapshot(), entry('a')), entry('b'));
+    assert.deepStrictEqual(
+      next.rpcCalls.map(call => call.id),
+      ['a', 'b'],
+    );
+  });
+
+  it('reconcileProviderStopped is Connection lost plus a cleared wire log', () => {
+    const snapshot = recordRpcMessage(readySnapshot({ s1: activeSession('s1') }), {
+      direction: 'out',
+      id: 'a',
+      message: {},
+      receivedAt: 1,
+    });
+    assert.strictEqual(reconcileConnectionLost(snapshot).rpcCalls.length, 1);
+    const stopped = reconcileProviderStopped(snapshot);
+    assert.deepStrictEqual(stopped.rpcCalls, []);
+    assert.strictEqual(stopped.sessions.s1.status, 'inactive');
+  });
+
+  it('applySessionList merges by scope and hides the Bound id', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/a', sessionId: 'old' }]);
+    const next = applySessionList(
+      snapshot,
+      {
+        sessions: [
+          { cwd: '/a', sessionId: 'new' },
+          { cwd: '/a', sessionId: 'bound' },
+        ],
+      },
+      { _tag: 'Unscoped' },
+      'bound',
+    );
+    assert.deepStrictEqual(
+      next.sessionHistory.map(entry => entry.sessionId),
+      ['new'],
+    );
+  });
+});
+
+describe('activation folds', () => {
+  const failure = Cause.die({ code: 7 });
+
+  it('beginActivation stamps cwd, clears defects and usage, and creates a missing Session', () => {
+    const snapshot = readySnapshot({
+      s1: { ...initialSessionSnapshot('s1'), defects: ['x'], usage: { used: 1 } as never },
+    });
+    const begun = beginActivation(snapshot, 's1', '/proj');
+    assert.deepStrictEqual(
+      [begun.sessions.s1.cwd, begun.sessions.s1.defects, begun.sessions.s1.status, begun.sessions.s1.usage],
+      ['/proj', undefined, 'activating', undefined],
+    );
+    assert.strictEqual(beginActivation(readySnapshot(), 'new', '/p').sessions.new.status, 'activating');
+  });
+
+  it('failActivation records defects and goes inactive; failUnarchive records defects only', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    const failed = failActivation(snapshot, 's1', failure);
+    assert.deepStrictEqual([failed.sessions.s1.defects, failed.sessions.s1.status], [[{ code: 7 }], 'inactive']);
+    const unarchive = failUnarchive(snapshot, 's1', failure);
+    assert.deepStrictEqual([unarchive.sessions.s1.defects, unarchive.sessions.s1.status], [[{ code: 7 }], 'active']);
+  });
+
+  it('markActivationCwdMissing leaves the Session inactive with a defect', () => {
+    const next = markActivationCwdMissing(readySnapshot(), 's1');
+    assert.strictEqual(next.sessions.s1.status, 'inactive');
+    assert.deepStrictEqual(next.sessions.s1.defects, [{ message: 'Session cwd missing from snapshot and history' }]);
+  });
+
+  it('applyLoadedConfiguration then finishActivation: active, with the latest configuration and carried fields', () => {
+    const loaded = modelOption('gpt');
+    const activating = beginActivation(readySnapshot(), 's1', '/proj');
+    const finished = finishActivation(applyLoadedConfiguration(activating, 's1', loaded), 's1');
+    assert.strictEqual(finished.sessions.s1.status, 'active');
+    assert.strictEqual(finished.sessions.s1.configuration, loaded);
+    assert.strictEqual(finished.sessions.s1.cwd, '/proj');
+  });
+});
+
+describe('created sessions', () => {
+  const created = { cwd: '/proj', result: { configOptions: [], sessionId: 'new' } };
+
+  it('addCreatedSession adds the active Session and its History row', () => {
+    const next = addCreatedSession(readySnapshot(), created);
+    assert.strictEqual(next.sessions.new.status, 'active');
+    assert.strictEqual(next.sessions.new.cwd, '/proj');
+    assert.deepStrictEqual(
+      next.sessionHistory.map(entry => entry.sessionId),
+      ['new'],
+    );
+  });
+
+  it('bindSession adds the Session only and drops a row a parallel list added', () => {
+    const raced = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 'new' }]);
+    const next = bindSession(raced, created);
+    assert.strictEqual(next.sessions.new.status, 'active');
+    assert.deepStrictEqual(next.sessionHistory, []);
+  });
+
+  it('dropSessionIfPresent is a no-op (same reference) when neither the Session nor its row exists', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    assert.strictEqual(dropSessionIfPresent(snapshot, 'gone'), snapshot);
+    assert.deepStrictEqual(dropSessionIfPresent(snapshot, 's1').sessions, {});
+  });
+});
+
+describe('prompt turn and interaction folds', () => {
+  it('appendSteeredMessage adds a steering message without timing or a Pending client request', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingClientRequest: 'prompt' }) });
+    const next = appendSteeredMessage(snapshot, 's1', 'go left', []);
+    const last = next.sessions.s1.transcript.items.at(-1);
+    assert.strictEqual(last?.kind, 'user_message');
+    assert.strictEqual(next.sessions.s1.pendingClientRequest, 'prompt');
+    assert.strictEqual(appendSteeredMessage(snapshot, 'gone', 'x', []), snapshot);
+  });
+
+  it('requestPromptCancel clears only the interactions it cancelled', () => {
+    const cancelled = pendingElicitation('e1', 's1');
+    const newer = pendingElicitation('e2', 's1');
+    const permission = pendingPermission('s1');
+    const snapshot = readySnapshot({
+      s1: activeSession('s1', {
+        pendingClientRequest: 'prompt',
+        pendingElicitation: newer,
+        pendingPermission: permission,
+      }),
+    });
+    const next = requestPromptCancel(snapshot, 's1', { elicitation: cancelled, permission });
+    assert.strictEqual(next.sessions.s1.pendingElicitation, newer);
+    assert.strictEqual(next.sessions.s1.pendingPermission, undefined);
+    assert.strictEqual(next.sessions.s1.promptCancelRequested, true);
+    assert.strictEqual(requestPromptCancel(snapshot, 'gone', {}), snapshot);
+  });
+
+  it('raiseElicitation / raisePermission place the request on its Session and replace an older one', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pendingElicitation('e1', 's1') }) });
+    const newer = pendingElicitation('e2', 's1');
+    assert.strictEqual(raiseElicitation(snapshot, newer).sessions.s1.pendingElicitation, newer);
+    const permission = pendingPermission('s1');
+    assert.strictEqual(raisePermission(snapshot, permission).sessions.s1.pendingPermission, permission);
+  });
+
+  it('answerElicitation / answerPermission clear only the answered request', () => {
+    const answered = pendingElicitation('e1', 's1');
+    const newer = pendingElicitation('e2', 's1');
+    const permission = pendingPermission('s1');
+    const snapshot = readySnapshot({
+      s1: activeSession('s1', { pendingElicitation: newer, pendingPermission: permission }),
+    });
+    assert.strictEqual(answerElicitation(snapshot, 's1', answered, undefined).sessions.s1.pendingElicitation, newer);
+    assert.strictEqual(answerElicitation(snapshot, 's1', newer, undefined).sessions.s1.pendingElicitation, undefined);
+    assert.strictEqual(answerPermission(snapshot, 's1', pendingPermission('s1')), snapshot);
+    assert.strictEqual(answerPermission(snapshot, 's1', permission).sessions.s1.pendingPermission, undefined);
+    assert.strictEqual(answerElicitation(snapshot, 'gone', answered, undefined), snapshot);
+  });
+});
+
+describe('interaction folds on Subagent holders and accepted summaries', () => {
+  const withSubagent = (): BackendHarnessSnapshot => ({
+    ...readySnapshot(),
+    subagents: { c1: { parentSessionId: 'p1', sessionId: 'c1', transcript: initialSessionSnapshot('c1').transcript } },
+  });
+
+  it('answerElicitation appends the accepted-form summary to the transcript', () => {
+    const pending = pendingElicitation('e1', 's1');
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pending }) });
+    const summary = { message: 'Pick', rows: [{ caption: undefined, label: 'Name', value: 'x' }] };
+    const next = answerElicitation(snapshot, 's1', pending, summary);
+    assert.strictEqual(next.sessions.s1.pendingElicitation, undefined);
+    assert.strictEqual(next.sessions.s1.transcript.items.at(-1)?.kind, 'elicitation_summary');
+    const empty = answerElicitation(snapshot, 's1', pending, { message: 'Pick', rows: [] });
+    assert.strictEqual(empty.sessions.s1.transcript, snapshot.sessions.s1.transcript);
+  });
+
+  it('raise and answer reach a Subagent holder', () => {
+    const permission = pendingPermission('c1');
+    const raised = raisePermission(withSubagent(), permission);
+    assert.strictEqual(raised.subagents.c1.pendingPermission, permission);
+    assert.strictEqual(answerPermission(raised, 'c1', permission).subagents.c1.pendingPermission, undefined);
+    const elicitation = pendingElicitation('e1', 'c1');
+    const asked = raiseElicitation(withSubagent(), elicitation);
+    assert.strictEqual(asked.subagents.c1.pendingElicitation, elicitation);
+    assert.strictEqual(
+      answerElicitation(asked, 'c1', elicitation, undefined).subagents.c1.pendingElicitation,
+      undefined,
+    );
+  });
+});
+
+describe('applySessionUpdatePatch', () => {
+  it('upserts the patched Session and keeps the History when the update carried no retitle', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);
+    const next = applySessionUpdatePatch(snapshot, { kind: 'patch', session: activeSession('s1') });
+    assert.strictEqual(next.sessions.s1.status, 'active');
+    assert.strictEqual(next.sessionHistory, snapshot.sessionHistory);
+  });
+
+  it('replaces the History when the update carried a retitle', () => {
+    const retitled = [{ cwd: '/proj', sessionId: 's1', title: 'New' }];
+    const next = applySessionUpdatePatch(readySnapshot(), {
+      kind: 'patch',
+      session: activeSession('s1'),
+      sessionHistory: retitled,
+    });
+    assert.strictEqual(next.sessionHistory, retitled);
   });
 });

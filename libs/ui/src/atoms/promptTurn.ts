@@ -37,11 +37,15 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerAction } from '../host/composerAction.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
-import { beginPromptTurn, endPromptTurn, sessionTurnAction } from '../host/harnessStateTransitions.ts';
+import {
+  appendSteeredMessage,
+  beginPromptTurn,
+  endPromptTurn,
+  requestPromptCancel,
+  sessionTurnAction,
+} from '../host/harnessStateTransitions.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
-import { patchSession } from '../host/sessionSnapshot.ts';
-import { appendUserChatMessage, markNonFinishedToolCallsCancelled } from '../host/sessionUpdateReducer.ts';
 import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -219,19 +223,7 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   if (result.outcome === 'injected') {
     // A steered message joins the in-flight turn: no turn timing, Pending client request untouched (ADR-0018).
     const images = slimImageRefsFromAttachments(attachments);
-    updateHarnessSnapshot(registry, launchTarget, current =>
-      sessionId in current.sessions
-        ? {
-            ...current,
-            sessions: patchSession(current.sessions, sessionId, s => ({
-              ...s,
-              transcript: appendUserChatMessage(s.transcript, text, images.length > 0 ? images : undefined, {
-                steering: true,
-              }),
-            })),
-          }
-        : current,
-    );
+    updateHarnessSnapshot(registry, launchTarget, current => appendSteeredMessage(current, sessionId, text, images));
     return;
   }
   yield* Effect.logDebug('_session/steering fell back to session/prompt', result.outcome);
@@ -261,18 +253,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
 
   // Clear only the interactions just cancelled: one the agent raised during `resolve` stays answerable.
   updateHarnessSnapshot(registry, launchTarget, current =>
-    sessionId in current.sessions
-      ? {
-          ...current,
-          sessions: patchSession(current.sessions, sessionId, s => ({
-            ...s,
-            pendingElicitation: s.pendingElicitation === pendingElicitation ? undefined : s.pendingElicitation,
-            pendingPermission: s.pendingPermission === pendingPermission ? undefined : s.pendingPermission,
-            promptCancelRequested: true,
-            transcript: markNonFinishedToolCallsCancelled(s.transcript),
-          })),
-        }
-      : current,
+    requestPromptCancel(current, sessionId, { elicitation: pendingElicitation, permission: pendingPermission }),
   );
 
   yield* cancelSession(launchTarget, sessionId);

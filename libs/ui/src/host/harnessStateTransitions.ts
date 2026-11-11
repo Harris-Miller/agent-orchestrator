@@ -1,27 +1,47 @@
-/** Pure Harness state transitions over BackendHarnessSnapshot. */
+/**
+ * Pure Harness state transitions over BackendHarnessSnapshot: the only place the snapshot's next value is computed.
+ * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
+ */
+import type { Cause } from 'effect';
+
 import type {
+  AcpBootstrapPhase,
   BackendHarnessSnapshot,
   HistoryEntry,
   NormalizedSessionInfo,
+  SessionConfiguration,
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import {
+  defectsFromActivationFailure,
   initialBackendHarnessSnapshot,
   isUsablePhase,
+  normalizeConfigOptions,
   normalizeSessionHistory,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withArchived } from './airMeta.ts';
+import type { ApplySessionUpdateResult } from './applySessionUpdate.ts';
+import type { RpcWireEntry } from './backendHarness.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
+import type { HarnessFailure } from './harnessFailure.ts';
+import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
 import type { ConfigValueDiff } from './sessionConfiguration.ts';
+import { buildActivatedSession, historyEntryFromNew } from './sessionMaterialize.ts';
 import { patchSession, upsertSession } from './sessionSnapshot.ts';
-import { appendUserChatMessage, stampUserMessageTiming } from './sessionUpdateReducer.ts';
-import type { UserMessageImageRef } from './sessionUpdateReducer.ts';
+import {
+  appendElicitationSummary,
+  appendUserChatMessage,
+  markNonFinishedToolCallsCancelled,
+  stampUserMessageTiming,
+} from './sessionUpdateReducer.ts';
+import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
 import { resetSubagentLiveState } from './subagent.ts';
+import { patchSessionOrSubagent, resetSubagentsOfRoot, sessionOrSubagentOf } from './subagentRouting.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
@@ -378,3 +398,244 @@ export const reconcileConnectionLost = (snapshot: BackendHarnessSnapshot): Backe
     ),
   };
 };
+
+/** Provider stopped (Stop alone): Connection lost, plus the RPC wire log cleared — Stop is the log's only bound. */
+export const reconcileProviderStopped = (snapshot: BackendHarnessSnapshot): BackendHarnessSnapshot => ({
+  ...reconcileConnectionLost(snapshot),
+  rpcCalls: [],
+});
+
+/** Bootstrap phase reported with its failure; the Sign in URL is dropped once the attempt is past signing in. */
+export const applyBootstrapPhase = (
+  snapshot: BackendHarnessSnapshot,
+  phase: AcpBootstrapPhase,
+  failure: HarnessFailure | undefined,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  ...(isUsablePhase(phase) || phase === 'error' || phase === 'connecting' ? { antigravityAuthUrl: undefined } : {}),
+  failure,
+  phase,
+});
+
+/** Antigravity Sign in URL captured from the BROWSER helper. */
+export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: string): BackendHarnessSnapshot => ({
+  ...snapshot,
+  antigravityAuthUrl: url,
+});
+
+/** One ACP message appended to the RPC wire log (Developer panel). */
+export const recordRpcMessage = (snapshot: BackendHarnessSnapshot, entry: RpcWireEntry): BackendHarnessSnapshot => ({
+  ...snapshot,
+  rpcCalls: [...snapshot.rpcCalls, entry],
+});
+
+/** Next Session History after a successful `session/list` (see {@link historyAfterList}). */
+export const applySessionList = (
+  snapshot: BackendHarnessSnapshot,
+  listResult: unknown,
+  scope: SessionListScope,
+  boundSessionId: string | undefined,
+): BackendHarnessSnapshot =>
+  replaceSessionHistory(snapshot, historyAfterList(snapshot.sessionHistory, listResult, scope, boundSessionId));
+
+/** Activation begins: cwd stamped, defects and usage cleared, status `activating`, descendant Subagents reset. */
+export const beginActivation = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  cwd: string,
+): BackendHarnessSnapshot =>
+  resetSubagentsOfRoot(
+    {
+      ...snapshot,
+      sessions: patchSession(snapshot.sessions, sessionId, session => ({
+        ...session,
+        cwd,
+        defects: undefined,
+        status: 'activating',
+        usage: undefined,
+      })),
+    },
+    sessionId,
+  );
+
+/** `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`. */
+export const failActivation = <E>(
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  cause: Cause.Cause<E>,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({
+    ...session,
+    defects: defectsFromActivationFailure(snapshot.rpcCalls, cause),
+    status: 'inactive',
+  })),
+});
+
+/** `session/unarchive` failed before activation: the failure's defects recorded, status untouched. */
+export const failUnarchive = <E>(
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  cause: Cause.Cause<E>,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({
+    ...session,
+    defects: defectsFromActivationFailure(snapshot.rpcCalls, cause),
+  })),
+});
+
+/** Activation cannot start: no cwd on the snapshot or History entry. The Session stays `inactive`. */
+export const markActivationCwdMissing = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({
+    ...session,
+    defects: [{ message: 'Session cwd missing from snapshot and history' }],
+    status: 'inactive',
+  })),
+});
+
+/** The loaded or resumed Session configuration, while the Session is still `activating`. */
+export const applyLoadedConfiguration = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  configuration: SessionConfiguration,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({ ...session, configuration })),
+});
+
+/** Activation done: the Session becomes `active`, keeping the latest Session configuration and carried fields. */
+export const finishActivation = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessions: patchSession(snapshot.sessions, sessionId, session =>
+    buildActivatedSession(sessionId, session.configuration ?? [], session),
+  ),
+});
+
+/** A `session/new` answer: its id and the cwd it was created for. */
+export type CreatedSession = {
+  readonly cwd: string;
+  readonly result: { readonly sessionId: string };
+};
+
+const activatedFromNew = ({ cwd, result }: CreatedSession): SessionSnapshot =>
+  buildActivatedSession(result.sessionId, normalizeConfigOptions(result), { cwd });
+
+/** `session/new` answered outside Bind (handoff target): its active Session and its Session History row join together. */
+export const addCreatedSession = (snapshot: BackendHarnessSnapshot, created: CreatedSession): BackendHarnessSnapshot =>
+  upsertIntoSnapshot(snapshot, {
+    historyEntry: historyEntryFromNew(created.result, created.cwd),
+    session: activatedFromNew(created),
+  });
+
+/**
+ * Bind created a session: it joins the sessions map only — not a History entry, not Materialize — and drops a row a
+ * parallel startup `session/list` added before the id existed.
+ */
+export const bindSession = (snapshot: BackendHarnessSnapshot, created: CreatedSession): BackendHarnessSnapshot =>
+  withoutHistoryEntry(upsertIntoSnapshot(snapshot, { session: activatedFromNew(created) }), created.result.sessionId);
+
+/** {@link dropSession} only while the Session or its History row is still there (a no-op returns `snapshot`). */
+export const dropSessionIfPresent = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions || snapshot.sessionHistory.some(entry => entry.sessionId === sessionId)
+    ? dropSession(snapshot, sessionId)
+    : snapshot;
+
+/**
+ * Steering was injected into the in-flight turn: the message joins the transcript with no turn timing and the Pending
+ * client request is untouched (ADR-0018). A Session no longer in the map stays dropped.
+ */
+export const appendSteeredMessage = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  text: string,
+  images: readonly UserMessageImageRef[],
+): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, session => ({
+          ...session,
+          transcript: appendUserChatMessage(session.transcript, text, images.length > 0 ? images : undefined, {
+            steering: true,
+          }),
+        })),
+      }
+    : snapshot;
+
+/**
+ * Prompt turn cancel requested: only the interactions just cancelled are cleared (one the agent raised meanwhile stays
+ * answerable), unfinished tool calls are marked cancelled and `promptCancelRequested` is set. A dropped Session stays
+ * dropped.
+ */
+export const requestPromptCancel = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, session => ({
+          ...session,
+          pendingElicitation:
+            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
+          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
+          promptCancelRequested: true,
+          transcript: markNonFinishedToolCallsCancelled(session.transcript),
+        })),
+      }
+    : snapshot;
+
+/** An elicitation request raised on its Session or Subagent session (a newer one replaces it). */
+export const raiseElicitation = (
+  snapshot: BackendHarnessSnapshot,
+  pending: PendingElicitation,
+): BackendHarnessSnapshot =>
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingElicitation: pending }));
+
+/** A permission request raised on its Session or Subagent session (a newer one replaces it). */
+export const raisePermission = (snapshot: BackendHarnessSnapshot, pending: PendingPermission): BackendHarnessSnapshot =>
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingPermission: pending }));
+
+/**
+ * An elicitation was answered: clear only that one (a newer one stays answerable) and append the accepted-form summary
+ * when there is one. A holder no longer in the snapshot is left alone.
+ */
+export const answerElicitation = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  answered: PendingElicitation,
+  summary: ElicitationSummary | undefined,
+): BackendHarnessSnapshot =>
+  sessionOrSubagentOf(snapshot, sessionId) === undefined
+    ? snapshot
+    : patchSessionOrSubagent(snapshot, sessionId, holder => ({
+        ...holder,
+        pendingElicitation: holder.pendingElicitation === answered ? undefined : holder.pendingElicitation,
+        transcript: summary === undefined ? holder.transcript : appendElicitationSummary(holder.transcript, summary),
+      }));
+
+/** A permission request was answered: cleared only while it is still the pending one. */
+export const answerPermission = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  answered: PendingPermission,
+): BackendHarnessSnapshot =>
+  sessionOrSubagentOf(snapshot, sessionId)?.pendingPermission === answered
+    ? patchSessionOrSubagent(snapshot, sessionId, holder => ({ ...holder, pendingPermission: undefined }))
+    : snapshot;
+
+/** A live `session/update` applied to its Session: the patched Session upserted, and the History row retitled when the update carried one. */
+export const applySessionUpdatePatch = (
+  snapshot: BackendHarnessSnapshot,
+  patch: Extract<ApplySessionUpdateResult, { readonly kind: 'patch' }>,
+): BackendHarnessSnapshot => ({
+  ...snapshot,
+  sessionHistory: patch.sessionHistory ?? snapshot.sessionHistory,
+  sessions: upsertSession(snapshot.sessions, patch.session),
+});

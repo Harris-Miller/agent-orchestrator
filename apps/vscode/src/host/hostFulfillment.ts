@@ -191,7 +191,10 @@ export const makeHostIpcFulfillment = (deps: {
     },
     OpenFile: async message => {
       const uri = vscode.Uri.file(message.path);
-      const fileStat = await vscode.workspace.fs.stat(uri);
+      // The stat error names the path (Private data); keep it out of the message that reaches telemetry.
+      const fileStat = await vscode.workspace.fs.stat(uri).then(undefined, () => {
+        throw new Error('OpenFile target is not accessible');
+      });
       await vscode.commands.executeCommand(
         fileStat.type === vscode.FileType.Directory ? 'revealInExplorer' : 'vscode.open',
         uri,

@@ -11,4 +11,4 @@
 ## Consequences
 
 - The dev console redacts too. There is one rule, with no Build target branching.
-- Known gaps, deferred: every `PlatformError` names the path it failed on, including those built by this repo's Tauri `FileSystemLive` (fixing that drops the path from all filesystem debugging); errors raised by the Tauri opener or VS Code can name the URL in their own message; and an Agent's JSON-RPC error `message`/`data` is logged as the Agent sent it.
+- Known gaps, deferred: every `PlatformError` names the path it failed on, including those built by this repo's Tauri `FileSystemLive` (fixing that drops the path from all filesystem debugging); errors raised by the Tauri opener or VS Code can name the URL in their own message; npm's stderr copied into provider-runtime install errors can name cache or log paths; and an Agent's JSON-RPC error `message`/`data` is logged as the Agent sent it.

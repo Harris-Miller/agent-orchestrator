@@ -34,10 +34,10 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
     FileSystem.FileSystem,
     FileSystem.makeNoop({
       // Loud stubs for anything else harness might accidentally call.
-      access: path => unsupported(`access(${path})`),
-      chmod: path => unsupported(`chmod(${path})`),
-      chown: path => unsupported(`chown(${path})`),
-      copy: path => unsupported(`copy(${path})`),
+      access: () => unsupported('access'),
+      chmod: () => unsupported('chmod'),
+      chown: () => unsupported('chown'),
+      copy: () => unsupported('copy'),
       copyFile: Effect.fn('FileSystem.copyFile')(function* (fromPath: string, toPath: string) {
         yield* fsIpc({
           request: { _tag: 'FsCopyFile', fromPath, toPath },
@@ -50,8 +50,8 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         const result = yield* fsIpc({ client, method: 'exists', path, request: { _tag: 'FsExists', path } });
         return result.exists;
       }),
-      glob: pattern => unsupported(`glob(${pattern})`),
-      link: path => unsupported(`link(${path})`),
+      glob: () => unsupported('glob'),
+      link: () => unsupported('link'),
       makeDirectory: Effect.fn('FileSystem.makeDirectory')(function* (
         path: string,
         options?: { readonly recursive?: boolean },
@@ -92,8 +92,8 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       makeTempDirectoryScoped: () => unsupported('makeTempDirectoryScoped'),
       makeTempFile: () => unsupported('makeTempFile'),
       makeTempFileScoped: () => unsupported('makeTempFileScoped'),
-      open: path => unsupported(`open(${path})`),
-      readDirectory: path => unsupported(`readDirectory(${path})`),
+      open: () => unsupported('open'),
+      readDirectory: () => unsupported('readDirectory'),
       readFile: Effect.fn('FileSystem.readFile')(function* (path: string) {
         const { bytes } = yield* fsIpc({ client, method: 'readFile', path, request: { _tag: 'FsReadFile', path } });
         if (bytes instanceof Uint8Array) {
@@ -116,8 +116,8 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         });
         return result.content;
       }),
-      readLink: path => unsupported(`readLink(${path})`),
-      realPath: path => unsupported(`realPath(${path})`),
+      readLink: () => unsupported('readLink'),
+      realPath: () => unsupported('realPath'),
       remove: Effect.fn('FileSystem.remove')(function* (path: string, options?: { readonly recursive?: boolean }) {
         yield* fsIpc({
           request: {
@@ -130,7 +130,7 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
           path,
         });
       }),
-      rename: path => unsupported(`rename(${path})`),
+      rename: () => unsupported('rename'),
       stat: Effect.fn('FileSystem.stat')(function* (path: string) {
         const response = yield* fsIpc({ client, method: 'stat', path, request: { _tag: 'FsStat', path } });
         const toDate = (ms: number | undefined): Option.Option<Date> =>
@@ -153,9 +153,9 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
         };
         return info;
       }),
-      symlink: path => unsupported(`symlink(${path})`),
-      truncate: path => unsupported(`truncate(${path})`),
-      utimes: path => unsupported(`utimes(${path})`),
+      symlink: () => unsupported('symlink'),
+      truncate: () => unsupported('truncate'),
+      utimes: () => unsupported('utimes'),
       watch: path => Stream.die(`FileSystem.watch(${path}) not supported on vscode Host`),
       writeFile: Effect.fn('FileSystem.writeFile')(function* (path: string, data: Uint8Array) {
         yield* fsIpc({

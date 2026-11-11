@@ -1030,14 +1030,15 @@ export const ORIGINAL_COLORS: ThemeColors = {
   warningMain: '#e15428',
 };
 
-/** Catppuccin palette → app tokens. Style guide: base pane, mantle paper, blue primary, mauve secondary. */
+/** Catppuccin palette → app tokens. Style guide: mantle pane, base paper, lifted composer, mauve primary, blue secondary. */
 const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
   const onAccent = f.base;
   return {
     alertInfoBg: alpha(f.sky, 0.14),
     alertWarningBg: alpha(f.peach, 0.14),
-    bgDefault: f.base,
-    bgPaper: f.mantle,
+    bgDefault: f.mantle,
+    bgPaper: f.base,
+    composerBackground: f.dark ? f.surface0 : f.base,
     divider: f.dark ? alpha('#ffffff', 0.09) : alpha(f.overlay0, 0.35),
     errorDark: darken(f.red, 0.2),
     errorLight: f.red,
@@ -1047,18 +1048,19 @@ const fromCatppuccin = (f: CatppuccinFlavor): ThemeColors => {
     infoMain: f.sky,
     mode: f.dark ? 'dark' : 'light',
     onAccent,
-    primaryContained: f.blue,
-    primaryContainedHover: darken(f.blue, 0.1),
-    primaryDark: darken(f.blue, 0.15),
-    primaryLight: f.lavender,
-    primaryMain: f.blue,
+    primaryContained: f.mauve,
+    primaryContainedHover: darken(f.mauve, 0.1),
+    primaryDark: darken(f.mauve, 0.15),
+    primaryLight: f.pink,
+    primaryMain: f.mauve,
     scrollbarThumb: f.surface1,
     scrollbarTrack: f.crust,
-    secondaryContained: f.mauve,
-    secondaryContainedHover: darken(f.mauve, 0.1),
-    secondaryDark: darken(f.mauve, 0.15),
-    secondaryLight: f.pink,
-    secondaryMain: f.mauve,
+    secondaryContained: f.blue,
+    secondaryContainedHover: darken(f.blue, 0.1),
+    secondaryDark: darken(f.blue, 0.15),
+    secondaryLight: f.lavender,
+    secondaryMain: f.blue,
+    userMessageBackground: alpha(f.surface0, f.dark ? 0.6 : 0.5),
     successDark: darken(f.green, 0.2),
     successLight: f.green,
     successMain: f.green,

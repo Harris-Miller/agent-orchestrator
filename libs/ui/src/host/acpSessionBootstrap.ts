@@ -85,11 +85,11 @@ export const defectsFromWireCause = (cause: unknown): readonly unknown[] => {
  * `data`), falling back to Effect Cause Die defects after Schema.Defect decode.
  */
 export const defectsFromActivationFailure = <E>(
-  rpcCalls: readonly RpcWireEntry[],
+  rpcWireLog: readonly RpcWireEntry[],
   cause: Cause.Cause<E>,
 ): readonly unknown[] => {
-  for (let index = rpcCalls.length - 1; index >= 0; index -= 1) {
-    const entry = rpcCalls[index];
+  for (let index = rpcWireLog.length - 1; index >= 0; index -= 1) {
+    const entry = rpcWireLog[index];
     if (
       entry.direction === 'in' &&
       isRecord(entry.message) &&
@@ -131,7 +131,6 @@ export type BackendHarnessSnapshot = {
   /** Raw initialize response, Developer panel only; Harness decisions read `agentCapabilities`. */
   readonly initializeResult?: unknown;
   readonly phase: AcpBootstrapPhase;
-  readonly rpcCalls: readonly RpcWireEntry[];
   readonly sessionHistory: readonly HistoryEntry[];
   readonly sessions: Readonly<Record<string, SessionSnapshot>>;
   /** Subagent child sessions keyed by child id; never top-level sessions (no history, activation, prompts, usage). */
@@ -205,7 +204,6 @@ export type SessionConfiguration = readonly NormalizedConfigOption[];
 export const initialBackendHarnessSnapshot = (): BackendHarnessSnapshot => ({
   agentCapabilities: NO_AGENT_CAPABILITIES,
   phase: 'connecting',
-  rpcCalls: [],
   sessionHistory: [],
   sessions: {},
   subagents: {},

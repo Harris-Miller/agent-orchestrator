@@ -1,10 +1,12 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { Effect, Exit } from 'effect';
+import type { Cause } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
   applySessionInfoTitle,
+  defectsFromActivationFailure,
   isSessionActiveOrActivating,
   isUsablePhase,
   normalizeConfigOptions,
@@ -55,6 +57,7 @@ import {
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
+import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import type { createSessionFsListingAtoms } from './sessionFsListing.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
@@ -80,6 +83,10 @@ const usableHarness = (get: Atom.FnContext, launchTarget: AgentLaunchTarget) => 
   const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
   return isUsablePhase(snapshot.phase) ? snapshot : undefined;
 };
+
+/** The defects a failed activation records: the RPC wire log's latest failure data, else the cause's defects. */
+const activationDefects = <E>(get: Atom.FnContext, launchTarget: AgentLaunchTarget, cause: Cause.Cause<E>) =>
+  defectsFromActivationFailure(get(rpcWireLogAtom(launchTarget)), cause);
 
 /** The usable Backend harness snapshot, or `undefined` after warning that `action` was skipped. */
 const usableHarnessOrSkip = Effect.fnUntraced(function* (
@@ -202,8 +209,9 @@ export const createSessionLifecycleAtoms = (
           yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
           const unarchiveExit = yield* Effect.exit(unarchiveSession(arg.launchTarget, arg.sessionId));
           if (Exit.isFailure(unarchiveExit)) {
+            const defects = activationDefects(get, arg.launchTarget, unarchiveExit.cause);
             updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-              failUnarchive(current, arg.sessionId, unarchiveExit.cause),
+              failUnarchive(current, arg.sessionId, defects),
             );
             return yield* Effect.failCause(unarchiveExit.cause);
           }
@@ -247,8 +255,9 @@ export const createSessionLifecycleAtoms = (
 
         if (Exit.isFailure(exit)) {
           yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
+          const defects = activationDefects(get, arg.launchTarget, exit.cause);
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            failActivation(current, arg.sessionId, exit.cause),
+            failActivation(current, arg.sessionId, defects),
           );
           return;
         }

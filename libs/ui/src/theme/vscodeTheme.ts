@@ -42,7 +42,7 @@ export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined)
   const bgDefault = pick(preset.bgDefault, 'sideBar.background', 'editor.background');
   const textPrimary = pick(preset.textPrimary, 'sideBar.foreground', 'foreground');
   const primaryMain = pick(preset.primaryMain, 'button.background', 'focusBorder');
-  const secondaryMain = pick(preset.secondaryMain, 'badge.background');
+  const secondaryMain = pick(preset.secondaryMain, 'descriptionForeground');
   const errorMain = pick(preset.errorMain, 'errorForeground');
   const infoMain = pick(preset.infoMain, 'editorInfo.foreground');
   const successMain = pick(preset.successMain, 'charts.green');
@@ -72,8 +72,8 @@ export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined)
       primaryMain,
       scrollbarThumb: pick(preset.scrollbarThumb, 'scrollbarSlider.background'),
       scrollbarTrack: bgDefault,
-      secondaryContained: secondaryMain,
-      secondaryContainedHover: darken(secondaryMain, 0.1),
+      secondaryContained: pick(secondaryMain, 'button.secondaryBackground'),
+      secondaryContainedHover: pick(darken(secondaryMain, 0.1), 'button.secondaryHoverBackground'),
       secondaryDark: darken(secondaryMain, 0.15),
       secondaryLight: lighten(secondaryMain, 0.2),
       secondaryMain,

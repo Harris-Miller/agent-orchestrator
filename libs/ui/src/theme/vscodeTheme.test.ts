@@ -44,6 +44,16 @@ describe('themeFromVscode', () => {
     assert.deepStrictEqual(font, { family: '"Segoe UI", sans-serif', sizePx: 14 });
   });
 
+  it('maps the slash-command colors onto the command chip', () => {
+    const { colors } = themeFromVscode(
+      readerOf({ 'chat.slashCommandBackground': '#264f7855', 'chat.slashCommandForeground': '#85b6ff' }),
+      'vscode-dark',
+    );
+
+    assert.strictEqual(colors.commandChipForeground, '#85b6ff');
+    assert.strictEqual(colors.commandChipBackground, '#264f7855');
+  });
+
   it('walks each variable chain in order', () => {
     const viaEditor = themeFromVscode(readerOf({ 'editor.background': '#111111' }), 'vscode-dark').colors;
     assert.strictEqual(viaEditor.bgDefault, '#111111');

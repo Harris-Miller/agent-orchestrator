@@ -23,8 +23,8 @@ export const baseChipSx = {
 
 export const commandChipSx = {
   ...baseChipSx,
-  bgcolor: (theme: Theme) => alpha(theme.palette.secondary.main, 0.08),
-  color: 'secondary.main',
+  bgcolor: (theme: Theme) => theme.palette.commandChip.background,
+  color: (theme: Theme) => theme.palette.commandChip.foreground,
 } as const satisfies SxProps<Theme>;
 
 export const markdownLinkChipSx = {

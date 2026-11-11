@@ -43,6 +43,7 @@ export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined)
   const textPrimary = pick(preset.textPrimary, 'sideBar.foreground', 'foreground');
   const primaryMain = pick(preset.primaryMain, 'button.background', 'focusBorder');
   const secondaryMain = pick(preset.secondaryMain, 'descriptionForeground');
+  const commandChipForeground = pick(primaryMain, 'chat.slashCommandForeground');
   const errorMain = pick(preset.errorMain, 'errorForeground');
   const infoMain = pick(preset.infoMain, 'editorInfo.foreground');
   const successMain = pick(preset.successMain, 'charts.green');
@@ -55,6 +56,8 @@ export const themeFromVscode = (read: VscodeVarReader, kind: string | undefined)
       alertInfoBg: alpha(infoMain, 0.14),
       alertWarningBg: alpha(warningMain, 0.14),
       bgDefault,
+      commandChipBackground: pick(alpha(commandChipForeground, 0.12), 'chat.slashCommandBackground'),
+      commandChipForeground,
       bgPaper: pick(preset.bgPaper, 'editorWidget.background', 'menu.background'),
       divider: pick(preset.divider, 'widget.border', 'panel.border'),
       errorDark: darken(errorMain, 0.2),

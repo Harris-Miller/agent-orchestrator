@@ -7,11 +7,23 @@ import { CheckGlyph, RadioGlyph } from './ControlGlyphs.tsx';
 import type { ThemeId } from './themeId.ts';
 import { FONT_FAMILY_UI, PANEL_HEADER_HEIGHT, RADIUS } from './tokens.ts';
 
+declare module '@mui/material/styles' {
+  interface Palette {
+    commandChip: { readonly background: string; readonly foreground: string };
+  }
+  interface PaletteOptions {
+    commandChip?: { readonly background: string; readonly foreground: string };
+  }
+}
+
 export type ThemeColors = {
   readonly alertInfoBg: string;
   readonly alertWarningBg: string;
   readonly bgDefault: string;
   readonly bgPaper: string;
+  /** Command chip (`/` and `$`) fill and text; derived from secondary when unset. */
+  readonly commandChipBackground?: string;
+  readonly commandChipForeground?: string;
   readonly divider: string;
   readonly errorDark: string;
   readonly errorLight: string;
@@ -827,6 +839,10 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
       },
     },
     palette: {
+      commandChip: {
+        background: c.commandChipBackground ?? alpha(c.secondaryMain, 0.08),
+        foreground: c.commandChipForeground ?? c.secondaryMain,
+      },
       action: {
         active: c.textPrimary,
         disabled: c.textMuted,

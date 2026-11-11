@@ -193,7 +193,7 @@ describe('Archive', () => {
         runAtomFn(registry, atoms.archiveSessionAtomFn, { launchTarget: CODEX, sessionId: 's1' }),
       );
       yield* gate.started;
-      yield* runAtomFn(registry, atoms.refreshSessionHistoryAtomFn, CODEX);
+      yield* runAtomFn(registry, atoms.refreshAllSessionHistoriesAtomFn, undefined);
       yield* gate.release;
       yield* Fiber.join(archiving);
 

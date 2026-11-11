@@ -2,7 +2,7 @@
  * Vendor CLI auth check for launch prerequisites (after PATH resolve).
  */
 import { OS } from '@lib/context-services';
-import { Effect, Ref, Schema, Stream } from 'effect';
+import { Effect, Redacted, Ref, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { isRecord } from '../isRecord.ts';
@@ -168,7 +168,7 @@ const authProbeFor = (launchTarget: AuthProbeLaunchTarget) => {
 export const requireVendorCliAuthenticated = Effect.fn('requireVendorCliAuthenticated')(
   function* (launchTarget: AuthProbeLaunchTarget, executablePath: string) {
     const name = executableName(launchTarget);
-    yield* Effect.logDebug('Probing vendor CLI auth', launchTarget, executablePath);
+    yield* Effect.logDebug('Probing vendor CLI auth', launchTarget, Redacted.make(executablePath));
 
     return yield* authProbeFor(launchTarget).pipe(
       Effect.timeout(AUTH_PROBE_TIMEOUT),

@@ -11,7 +11,7 @@
 import { mapSpawnError, openQueuedChildProcessStdio, OS } from '@lib/context-services';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Redacted } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 import type { Command as EffectCommand } from 'effect/process/ChildProcess';
@@ -119,7 +119,7 @@ const spawnStandard = Effect.fnUntraced(
     command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
     hostEnv: Readonly<Record<string, string>>,
   ) {
-    yield* Effect.logInfo('Spawning child process', command.command, command.args.join(' '));
+    yield* Effect.logInfo('Spawning child process', Redacted.make([command.command, ...command.args].join(' ')));
 
     const envEntries = command.options.env ?? {};
     const env: Record<string, string> = {};
@@ -196,7 +196,7 @@ const spawnStandard = Effect.fnUntraced(
 
     trackedPid.current = child.pid;
     trackChildProcess(child.pid);
-    yield* Effect.logInfo('Child process spawned', { command: command.command, pid: child.pid });
+    yield* Effect.logInfo('Child process spawned', { command: Redacted.make(command.command), pid: child.pid });
 
     return yield* stdio.finalize({
       kill: Effect.gen(function* () {

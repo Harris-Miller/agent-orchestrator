@@ -2,7 +2,7 @@
  * Resolve an executable name against the host PATH using OS + Path + FileSystem.
  */
 import { OS } from '@lib/context-services';
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Option, Redacted, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
 
@@ -41,7 +41,7 @@ export const findExecutableOnPath = Effect.fn('findExecutableOnPath')(
         // Treat any exists failure as absent and keep scanning.
         const present = yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false));
         if (present) {
-          yield* Effect.logDebug('Found executable on PATH', name, candidate);
+          yield* Effect.logDebug('Found executable on PATH', name, Redacted.make(candidate));
           return Option.some(candidate);
         }
       }

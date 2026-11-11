@@ -333,6 +333,10 @@ _Avoid_: Ignored version, dismissed update
 
 ## Observability
 
+**Private data**:
+User and workspace content that never reaches telemetry as plain text: prompt and Agent response text, file content, file paths and `file://` URIs (session cwd included), URLs, command lines, and environment values. Identifiers (session id, launch target, pid), counts, and exit codes are not private data.
+_Avoid_: PII, sensitive data, secrets
+
 **Action root**:
 A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap, Session History refresh). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
 _Avoid_: Request, span (when you mean the product unit), operation

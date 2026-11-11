@@ -1,5 +1,5 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
-import { Effect, Exit } from 'effect';
+import { Effect, Exit, Redacted } from 'effect';
 import type { Cause } from 'effect';
 import { Atom } from 'effect/reactivity';
 
@@ -236,7 +236,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         const hasHistory = existingSession !== undefined && existingSession.transcript.items.length > 0;
         const useResume = snapshot.agentCapabilities.sessionResume && hasHistory;
         yield* Effect.logInfo('Activating session', arg.launchTarget, arg.sessionId, {
-          cwd,
+          cwd: Redacted.make(cwd),
           mode: useResume ? 'resume' : 'load',
         });
 

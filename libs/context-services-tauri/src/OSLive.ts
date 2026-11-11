@@ -2,7 +2,7 @@ import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { arch, platform } from '@tauri-apps/plugin-os';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Redacted, Schema } from 'effect';
 
 import { mapTauriArchToNode, mapTauriPlatformToNode } from './mapTauriPlatform.ts';
 
@@ -66,7 +66,7 @@ export const OSLive = Layer.effect(
 
     const nodePlatform = mapTauriPlatformToNode(platform());
     const nodeArch = mapTauriArchToNode(arch());
-    yield* Effect.logInfo('OS Live ready', { arch: nodeArch, cwd: host.cwd, platform: nodePlatform });
+    yield* Effect.logInfo('OS Live ready', { arch: nodeArch, cwd: Redacted.make(host.cwd), platform: nodePlatform });
 
     return {
       arch: () => nodeArch,

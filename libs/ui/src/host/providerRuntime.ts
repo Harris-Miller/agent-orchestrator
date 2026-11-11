@@ -412,7 +412,10 @@ export const downloadProviderRuntime = Effect.fn('downloadProviderRuntime')(func
     Effect.mapError(error =>
       cleanupFailure.message === undefined
         ? error
-        : fail(launchTarget, `${error.message}; cleanup of ${runtimeDir} also failed: ${cleanupFailure.message}`),
+        : fail(
+            launchTarget,
+            `${error.message}; cleanup of the runtime directory also failed: ${cleanupFailure.message}`,
+          ),
     ),
   );
 });

@@ -124,7 +124,7 @@ const spawnFdStdout = Effect.fn('spawnFdStdout')(function* (
 
   if (listed._tag === 'Failed') {
     return yield* new FdListingError({
-      message: `${binary} exited with code ${String(listed.exitCode)} while listing ${cwd}`,
+      message: `${binary} exited with code ${String(listed.exitCode)}`,
     });
   }
   return listed.stdout;

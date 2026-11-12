@@ -3,7 +3,8 @@
  * Prompt turn cancel) plus transcript, Config rows, provider picker data and Fork / Handoff gates.
  */
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { useCallback, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import {
   configOptionIndexByLaunchTargetAtom,
@@ -33,7 +34,7 @@ import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.t
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
 const EMPTY_CONFIGURATION: SessionConfiguration = [];
 
-export const useSessionChatSurface = () => {
+const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => {
   const composer = useAtomValue(composerAtom);
   const isVirtual = useAtomValue(selectedAtom)?._tag === 'Virtual';
   const virtualSession = useAtomValue(virtualSessionAtom);
@@ -129,6 +130,7 @@ export const useSessionChatSurface = () => {
     edit,
     getConfigOptionIndex,
     isVirtual,
+    onClientError,
     requestFork,
     selectableLaunchTargets,
     selectedLaunchTarget,
@@ -141,4 +143,27 @@ export const useSessionChatSurface = () => {
     unqueueMessage,
     usableLaunchTargets,
   };
+};
+
+type SessionChatSurface = ReturnType<typeof useSessionChatSurfaceValue>;
+
+const SessionChatSurfaceContext = createContext<SessionChatSurface | null>(null);
+
+/** Computes the chat surface once per render; consumers read it via `useSessionChatSurface`. */
+export const SessionChatSurfaceProvider: FC<{
+  readonly children: ReactNode;
+  readonly onClientError: (error: unknown) => void;
+}> = ({ children, onClientError }) => {
+  const value = useSessionChatSurfaceValue(onClientError);
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- memoized over every field of `value`
+  const memo = useMemo(() => value, Object.values(value));
+  return <SessionChatSurfaceContext.Provider value={memo}>{children}</SessionChatSurfaceContext.Provider>;
+};
+
+export const useSessionChatSurface = (): SessionChatSurface => {
+  const value = useContext(SessionChatSurfaceContext);
+  if (value === null) {
+    throw new Error('useSessionChatSurface must be used within a SessionChatSurfaceProvider');
+  }
+  return value;
 };

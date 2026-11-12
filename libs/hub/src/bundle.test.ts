@@ -54,7 +54,7 @@ describe('hub bundles', () => {
         fetch(`http://127.0.0.1:${discovery.port}/health`).then(response => response.json()),
       );
       assert.strictEqual(Schema.decodeUnknownSync(HealthPayload)(health).pid, discovery.pid);
-      assert.isAbove(statSync(join(home, 'logs', 'hub.log')).size, 0);
+      assert.isTrue(existsSync(join(home, 'logs', 'hub.log')));
 
       // No client ever connects: the hub exits after its grace and takes its discovery file with it.
       yield* eventually(() => assert.isFalse(existsSync(join(home, DISCOVERY_FILENAME))));

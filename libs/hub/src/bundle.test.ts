@@ -6,13 +6,21 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Schedule, Schema } from 'effect';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Discovery, DISCOVERY_FILENAME, HealthPayload } from './protocol.ts';
 
-const dist = join(import.meta.dirname, '..', 'dist');
+const built = join(import.meta.dirname, '..', 'dist');
+
+/** Exactly the files the desktop app lists as resources (`tauri.conf.json`): a bundle needing any other file fails here. */
+const SHIPPED = ['hub-launcher.mjs', 'hub.mjs'];
+
+const dist = mkdtempSync(join(tmpdir(), 'hoa-hub-shipped-'));
+for (const file of SHIPPED) {
+  copyFileSync(join(built, file), join(dist, file));
+}
 
 /** Run the launcher (it returns at once) for a hub on an ephemeral port that exits 300 ms after going idle. */
 const launch = (home: string) =>

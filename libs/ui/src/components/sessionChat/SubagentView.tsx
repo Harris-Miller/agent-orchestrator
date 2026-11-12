@@ -16,12 +16,13 @@ import {
   respondPermissionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
+import { canCancelSubagent, getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
 
 import { ChatItemView } from './transcript/ChatItemView.tsx';
 import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './pendingInteractions/PendingPermissionCard.tsx';
 import { SubagentStatusIndicator } from './transcript/chatItems/SubagentStatusIndicator.tsx';
+import { SubagentTaskView } from './transcript/chatItems/SubagentTaskView.tsx';
 import { subagentStatus } from './transcript/chatItems/subagentStateLabel.ts';
 
 const SubagentViewBody: FC<{
@@ -81,7 +82,8 @@ const SubagentViewBody: FC<{
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}>
         <List dense disablePadding>
-          {child.transcript.items.map(item => (
+          <SubagentTaskView task={child.task} />
+          {subagentTranscriptItems(child).map(item => (
             <ChatItemView item={item} key={item.id} />
           ))}
           {child.pendingPermission === undefined ? null : (

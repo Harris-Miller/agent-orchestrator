@@ -66,6 +66,14 @@ export const subagentNeedsInput = (child: SubagentSnapshot): boolean =>
   child.pendingElicitation !== undefined ||
   child.state?.state === WORK_STATE.requiresAction;
 
+/** Transcript items to show: a `session/load` replays the task as the child's first user message, which the Subagent task row already shows. */
+export const subagentTranscriptItems = (child: SubagentSnapshot): SessionTranscript['items'] => {
+  const [first, ...rest] = child.transcript.items;
+  return first?.kind === 'user_message' && child.task !== undefined && first.text.trim() === child.task.trim()
+    ? rest
+    : child.transcript.items;
+};
+
 /** Child cancel is offered only for an explicit `cancel: {}` grant (missing/null = unsupported). */
 export const canCancelSubagent = (child: SubagentSnapshot): boolean =>
   isRecord(child.capabilities?.cancel) && Object.keys(child.capabilities.cancel).length === 0;

@@ -362,8 +362,12 @@ A child ACP session announced by a parent session (`subagent_spawned`) and kept 
 _Avoid_: Child chat, nested session, sub-session
 
 **Subagent view**:
-The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
+The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
 _Avoid_: child view, subagent page, viewed subagent (when you mean what is on screen)
+
+**Subagent task**:
+The instruction the parent gave a Subagent session at spawn (`task`). The child transcript has no user prompt of its own, so the Subagent view shows it first, as markdown. A `session/load` replays it as the child's first user message; that echo is hidden so the task shows once. Later subagent updates replace it or clear it; absent or blank, nothing is shown.
+_Avoid_: prompt, child prompt
 
 **Work state**:
 A subagent's open-union state: `running`, `requires_action`, `idle`, `completed`, or an unknown string (rendered neutral). `completed` and `idle` both display as finished. Reset to unconfirmed on load, resume, or connection loss.

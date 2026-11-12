@@ -6,6 +6,7 @@ import { Schema } from 'effect';
 export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
     alwaysHiddenGlobs: Schema.optionalKey(Schema.Array(Schema.String)),
+    appOrchestratedHandoffEnabled: Schema.optionalKey(Schema.Boolean),
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     keepAwakeEnabled: Schema.optionalKey(Schema.Boolean),

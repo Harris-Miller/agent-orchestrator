@@ -6,6 +6,9 @@ import type { ProcessTracker } from './host/processTracker';
 import { webviewIpcPort } from './host/webviewIpcPort';
 import { WEBVIEW_VITE_ORIGIN, WEBVIEW_VITE_WS_ORIGIN } from './webviewDevServer';
 
+/** The webview's hub client: `/health` probe (http) and `/clients` socket (ws), on loopback only. */
+const HUB_CONNECT_SRC = 'http://127.0.0.1:* ws://127.0.0.1:*';
+
 const getNonce = function (): string {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let text = '';
@@ -91,7 +94,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN};"
+      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline' ${WEBVIEW_VITE_ORIGIN}; script-src 'nonce-${nonce}' ${WEBVIEW_VITE_ORIGIN}; connect-src ${WEBVIEW_VITE_ORIGIN} ${WEBVIEW_VITE_WS_ORIGIN} ${HUB_CONNECT_SRC};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Harness Orchestrating Agents</title>
@@ -125,7 +128,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
+      content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src ${HUB_CONNECT_SRC};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Harness Orchestrating Agents</title>

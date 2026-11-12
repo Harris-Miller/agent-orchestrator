@@ -194,8 +194,16 @@ Agent-reported context-window fill and cumulative session cost on a session snap
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Handoff**:
-Harness action that asks the source active session for a tagged handoff document via `session/prompt`, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Not an ACP protocol concept; not a durable Harness record (v1).
+Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Handoff (`appOrchestratedHandoffEnabled`, off when unset): while off, the Send options menu has no Handoff item and the Hub client does not start.
 _Avoid_: Transfer, migrate session, export chat
+
+**Hub**:
+The one machine-wide local process that agents call Harness tools on. It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
+_Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
+
+**Hub client**:
+A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials (a credential's secret is its bearer token), answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened.
+_Avoid_: hub connection as a name for the role (in code, `HubConnection` is the transport the client installs; the client is the role)
 
 **Pending client request**:
 Harness flag on a session snapshot while a client→agent RPC is outstanding for that session, discriminated as a prompt turn or a config-option change. Blocks overlapping outbound RPCs until the response arrives. Prompt-kind pending enables Prompt turn cancel in the Harness UI; config-kind pending does not. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).

@@ -1,5 +1,5 @@
 /** Cross-launch-target session handoff Atom fns. */
-import { Effect, Exit, Schema } from 'effect';
+import { Deferred, Duration, Effect, Exit, Fiber, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -7,12 +7,10 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
-import {
-  buildTargetHandoffSeedPrompt,
-  extractHandoffDocument,
-  SOURCE_HANDOFF_PROMPT,
-} from '../host/handoffDocument.ts';
+import { buildTargetHandoffSeedPrompt, SOURCE_HANDOFF_PROMPT } from '../host/handoffDocument.ts';
+import { expectHandoff } from '../host/handoffSubmission.ts';
 import { addCreatedSession } from '../host/harnessStateTransitions.ts';
+import { currentHubUnavailableReason } from '../host/hubSessions.ts';
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 
@@ -22,7 +20,7 @@ import {
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { sendPromptTurn } from './promptTurn.ts';
+import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { select } from './virtualSession.atoms.ts';
 
@@ -52,6 +50,29 @@ export const handoffPrompt = Effect.fn('handoffPrompt')(
   (effect, _registry, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('handoffPrompt failed', launchTarget, sessionId, error))),
 );
+
+/** How long a Handoff waits for the source agent to end the turn that asks it for the document. */
+export const SOURCE_TURN_TIMEOUT = Duration.minutes(5);
+
+/**
+ * The source Handoff prompt, giving up after {@link SOURCE_TURN_TIMEOUT}: a stalled agent would otherwise leave the
+ * Handoff in progress for good. The agent's turn is cancelled first, or it would keep running after the Handoff failed.
+ */
+export const handoffSourcePrompt = Effect.fnUntraced(function* (
+  registry: AtomRegistry.AtomRegistry,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+) {
+  const turn = yield* Effect.forkChild(handoffPrompt(registry, launchTarget, sessionId, SOURCE_HANDOFF_PROMPT));
+  const finished = yield* Fiber.join(turn).pipe(Effect.timeoutOption(SOURCE_TURN_TIMEOUT));
+  if (Option.isNone(finished)) {
+    yield* cancelPromptTurn(registry, { launchTarget, sessionId }).pipe(Effect.ignore);
+    yield* Fiber.interrupt(turn);
+    return yield* new HandoffError({
+      message: 'The source agent did not finish its turn in time, so the Handoff was cancelled',
+    });
+  }
+});
 
 export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
@@ -90,15 +111,23 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
             return yield* new HandoffError({ message: 'Source session cwd not found on history' });
           }
 
-          // Source handoff prompt is the only hard gate: failure means no target session.
-          yield* handoffPrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
-
-          const sourceChatItems = get(backendHarnessSnapshotAtom(arg.sourceLaunchTarget)).sessions[arg.sourceSessionId]
-            .transcript.items;
-          const handoffDocument = extractHandoffDocument(sourceChatItems);
-          if (handoffDocument === undefined) {
-            return yield* new HandoffError({ message: 'Handoff document missing from source agent response' });
+          const unavailable = currentHubUnavailableReason(arg.sourceLaunchTarget, arg.sourceSessionId);
+          if (unavailable !== undefined) {
+            return yield* new HandoffError({ message: `Handoff is unavailable: ${unavailable}` });
           }
+
+          // Source handoff prompt is the only hard gate: failure means no target session. Only a `submit_handoff` call
+          // made during this turn counts; a turn that ends without one fails (no text fallback).
+          const handoffDocument = yield* Effect.scoped(
+            Effect.gen(function* () {
+              const submitted = yield* expectHandoff(arg.sourceLaunchTarget, arg.sourceSessionId);
+              yield* handoffSourcePrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId);
+              if (!(yield* Deferred.isDone(submitted))) {
+                return yield* new HandoffError({ message: 'The source agent never called submit_handoff' });
+              }
+              return yield* Deferred.await(submitted);
+            }),
+          );
 
           // After a successful source response, target create / config / seed failures are soft.
           if (!isUsablePhase(get(backendHarnessSnapshotAtom(arg.targetLaunchTarget)).phase)) {

@@ -4,12 +4,14 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 import { ArrowRightLeft, ArrowUp, ChevronDown, GitFork, ListEnd } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
 import type { MidTurnSend } from '../../../atoms/userSettings/userSettings.atoms.ts';
+import { appOrchestratedHandoffEnabledAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 
@@ -29,6 +31,7 @@ export const SendOptionsMenu: FC<{
     canForkBase: canFork,
     canHandoffBase: canHandoff,
     composer,
+    handoffUnavailableReason,
     isVirtual,
     onClientError,
     requestFork,
@@ -36,6 +39,7 @@ export const SendOptionsMenu: FC<{
   } = useSessionChatSurface();
   const { action, locked: chromeLocked, midTurnSend } = composer;
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const handoffEnabled = useAtomValue(appOrchestratedHandoffEnabledAtom);
   const [splitMenuAnchor, setSplitMenuAnchor] = useState<HTMLElement | null>(null);
 
   const otherMidTurnSend = midTurnSend === 'queue' ? 'steer' : 'queue';
@@ -77,18 +81,25 @@ export const SendOptionsMenu: FC<{
             <ListItemText>{MID_TURN_SEND_LABEL[otherMidTurnSend]}</ListItemText>
           </MenuItem>
         ) : null}
-        <MenuItem
-          disabled={!canHandoff}
-          onClick={() => {
-            setSplitMenuAnchor(null);
-            onRequestHandoff();
-          }}
-        >
-          <ListItemIcon>
-            <LucideMuiIcon fontSize="small" icon={ArrowRightLeft} />
-          </ListItemIcon>
-          <ListItemText>Handoff</ListItemText>
-        </MenuItem>
+        {handoffEnabled ? (
+          <MenuItem
+            disabled={!canHandoff}
+            onClick={() => {
+              setSplitMenuAnchor(null);
+              onRequestHandoff();
+            }}
+          >
+            <ListItemIcon>
+              <LucideMuiIcon fontSize="small" icon={ArrowRightLeft} />
+            </ListItemIcon>
+            <ListItemText>Handoff</ListItemText>
+            {handoffUnavailableReason === undefined ? null : (
+              <Typography color="text.secondary" sx={{ ml: 1 }} variant="caption">
+                {handoffUnavailableReason}
+              </Typography>
+            )}
+          </MenuItem>
+        ) : null}
         <MenuItem
           disabled={!canFork}
           onClick={() => {

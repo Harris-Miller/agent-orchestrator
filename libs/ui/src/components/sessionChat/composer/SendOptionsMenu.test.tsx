@@ -4,10 +4,11 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Effect } from 'effect';
 import { afterEach, vi } from 'vitest';
 
-import { installFakeAgent } from '../../../atoms/fakeAgent.testing.ts';
+import { CODEX, installFakeAgent, installFakeHub } from '../../../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../../createHostRuntime.ts';
 import { bindHostRuntime } from '../../../hostRuntime.ts';
+import { beginMcp } from '../../../host/hubSessions.ts';
 import { renderInSessionChatSurface } from '../sessionChatSurface.testing.tsx';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
@@ -15,6 +16,8 @@ const { SessionChatSurfaceProvider } = await import('../useSessionChatSurface.ts
 const { SendOptionsMenu } = await import('./SendOptionsMenu.tsx');
 
 afterEach(cleanup);
+
+const HANDOFF_ON = { appOrchestratedHandoffEnabled: true } as const;
 
 const gatedSession = {
   cwd: '/proj',
@@ -57,11 +60,21 @@ describe('SendOptionsMenu', () => {
     }),
   );
 
+  it.effect('hides Handoff while Experimental: App Orchestrated Handoff is off (the default)', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* mount({ session: gatedSession });
+      openMenu();
+      assert.isNull(screen.queryByRole('menuitem', { name: /^Handoff/ }));
+      assert.isNotNull(screen.getByRole('menuitem', { name: 'Fork' }));
+      registry.dispose();
+    }),
+  );
+
   it.effect('disables Handoff and Fork when their gates are false', () =>
     Effect.gen(function* () {
-      const { registry } = yield* mount({});
+      const { registry } = yield* mount({ settings: HANDOFF_ON });
       openMenu();
-      assert.strictEqual(screen.getByRole('menuitem', { name: 'Handoff' }).getAttribute('aria-disabled'), 'true');
+      assert.strictEqual(screen.getByRole('menuitem', { name: /^Handoff/ }).getAttribute('aria-disabled'), 'true');
       assert.strictEqual(screen.getByRole('menuitem', { name: 'Fork' }).getAttribute('aria-disabled'), 'true');
       registry.dispose();
     }),
@@ -70,12 +83,14 @@ describe('SendOptionsMenu', () => {
   it.effect('Handoff calls onRequestHandoff when its gate is open', () =>
     Effect.gen(function* () {
       const onRequestHandoff = vi.fn();
-      const { registry } = yield* mount({ session: gatedSession }, { onRequestHandoff });
+      yield* installFakeHub([]);
+      yield* Effect.flatMap(beginMcp(CODEX, true), mcp => mcp.bind('s1'));
+      const { registry } = yield* mount({ session: gatedSession, settings: HANDOFF_ON }, { onRequestHandoff });
       openMenu();
       fireEvent.click(screen.getByRole('menuitem', { name: 'Handoff' }));
       assert.strictEqual(onRequestHandoff.mock.calls.length, 1);
       registry.dispose();
-    }),
+    }).pipe(Effect.scoped),
   );
 
   it.effect('Fork asks the agent to fork the session when the agent supports it', () =>

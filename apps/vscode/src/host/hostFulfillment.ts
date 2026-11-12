@@ -222,7 +222,13 @@ export const makeHostIpcFulfillment = (deps: {
       Promise.resolve({
         arch: process.arch,
         cwd: process.cwd(),
-        env: stringEnv(),
+        // Host markers for the webview's hub client (not passed to spawned children): which Host this is, and the
+        // remote kind of a Remote SSH / WSL / container / Codespaces window, whose agents cannot reach a local hub.
+        env: {
+          ...stringEnv(),
+          HOA_HOST: 'vscode',
+          ...(vscode.env.remoteName === undefined ? {} : { HOA_VSCODE_REMOTE_NAME: vscode.env.remoteName }),
+        },
         homedir: osHomedir(),
         platform: process.platform,
       }),

@@ -4,6 +4,12 @@
     "build": {
       "cache": false,
       "dependsOn": ["^build"]
+    },
+    "tauri:build": {
+      "dependsOn": ["hoa-vscode#package", "@lib/hub#build"]
+    },
+    "tauri:dev": {
+      "dependsOn": ["@lib/hub#build"]
     }
   }
 }

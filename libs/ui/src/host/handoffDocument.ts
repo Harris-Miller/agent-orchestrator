@@ -1,6 +1,4 @@
-/** Handoff prompt text and extraction from chat items. */
-
-import type { ChatItem } from './sessionUpdateReducer.ts';
+/** Handoff prompt text. The document itself arrives through the hub's `submit_handoff` tool, never by parsing replies. */
 
 export const SOURCE_HANDOFF_PROMPT = `Write a handoff document summarizing the current conversation so a fresh agent can continue the work.
 
@@ -10,10 +8,9 @@ Do not duplicate content already captured in other artifacts (specs, plans, ADRs
 
 Redact any sensitive information, such as API keys, passwords, or personally identifiable information.
 
-All of the above should be written out in between <handoff> and </handoff> tags.`;
+Deliver the document by calling the \`submit_handoff\` tool exactly once, passing the whole document as its \`document\` argument. Do not write the document in your reply.`;
 
-const HANDOFF_TAG_RE = /<handoff>([\s\S]*?)<\/handoff>/i;
-
+/** The target session's first prompt: the submitted document, framed for the fresh agent. */
 export const buildTargetHandoffSeedPrompt = (handoffDocument: string): string =>
   `Here is a handoff document from a previous agent chat:
 
@@ -22,30 +19,3 @@ ${handoffDocument}
 </handoff>
 
 Review it and then ask the user what they would like to do next.`;
-
-/** Last agent_message text, preferring inner <handoff>…</handoff> content when present. */
-export const extractHandoffDocument = (chatItems: readonly ChatItem[]): string | undefined => {
-  let lastAgentText: string | undefined;
-  for (const item of chatItems) {
-    if (item.kind === 'agent_message') {
-      lastAgentText = item.text;
-    }
-  }
-
-  if (lastAgentText === undefined) {
-    return undefined;
-  }
-
-  const trimmed = lastAgentText.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-
-  const match = HANDOFF_TAG_RE.exec(trimmed);
-  if (match?.[1] !== undefined) {
-    const inner = match[1].trim();
-    return inner.length > 0 ? inner : undefined;
-  }
-
-  return trimmed;
-};

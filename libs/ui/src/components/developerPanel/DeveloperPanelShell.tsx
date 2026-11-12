@@ -31,6 +31,7 @@ import { FieldLabel } from '../FieldLabel.tsx';
 import { AtomsTab } from './AtomsTab.tsx';
 import { ComposerTab } from './ComposerTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
+import { HubTab } from './HubTab.tsx';
 import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
 import { PanelHeader } from './PanelHeader.tsx';
 import { ProviderStateView } from './ProviderStateView.tsx';
@@ -342,6 +343,7 @@ const BUILT_IN_TABS: readonly BuiltInTab[] = [
     padded: true,
     render: ({ session }) => <SessionStateView session={session} />,
   },
+  { id: 'hub', label: 'Hub', ownScroll: false, padded: true, render: () => <HubTab /> },
   {
     id: 'atoms',
     label: 'Atoms',

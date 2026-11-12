@@ -9,6 +9,7 @@ import type { FC, ReactNode } from 'react';
 import { AcpBackendsMount } from './AcpBackendsMount.tsx';
 import { FdPrerequisiteGate } from './FdPrerequisiteGate.tsx';
 import { HarnessCacheGate } from './HarnessCacheGate.tsx';
+import { HubMount } from './HubMount.tsx';
 import { KeepAwakeMount } from './KeepAwakeMount.tsx';
 import { NodePrerequisiteGate } from './NodePrerequisiteGate.tsx';
 import { PersistUserSettingsToast } from './PersistUserSettingsToast.tsx';
@@ -36,6 +37,8 @@ export const HarnessPrerequisites: FC<{
 /** Hydrate the Harness caches, then mount the Backend harnesses and their companions; `children` render once hydrated. */
 export const HarnessMounts: FC<{ readonly children?: ReactNode }> = ({ children }) => (
   <HarnessCacheGate>
+    {/* Before the backends: it marks the hub `connecting` first, so their first session RPCs wait for it. */}
+    <HubMount />
     <AcpBackendsMount />
     <KeepAwakeMount />
     <ProvidersStartupMount />

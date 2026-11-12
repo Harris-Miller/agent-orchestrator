@@ -30,6 +30,21 @@ export const showArchivedAtom = Atom.make(get =>
   showArchivedEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('showArchived'), Atom.keepAlive);
 
+/** Experimental: App Orchestrated Handoff is off when the Settings field is unset. */
+export const appOrchestratedHandoffEnabled = (settings: UserSettings): boolean =>
+  settings.appOrchestratedHandoffEnabled === true;
+
+/** Effective Experimental: App Orchestrated Handoff, read from the User settings document. Write through `appOrchestratedHandoffAtom`. */
+export const appOrchestratedHandoffEnabledAtom = Atom.make(get =>
+  appOrchestratedHandoffEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
+).pipe(Atom.withLabel('appOrchestratedHandoff'), Atom.keepAlive);
+
+/** Whether the User settings document has been read yet (the hub waits for it to know if it is wanted). */
+export const userSettingsLoadedAtom = Atom.make(get => !AsyncResult.isInitial(get(userSettingsDocumentAtom))).pipe(
+  Atom.withLabel('userSettingsLoaded'),
+  Atom.keepAlive,
+);
+
 /** What sending a message while a prompt turn runs does (Composer Send button, Enter). */
 export type MidTurnSend = NonNullable<UserSettings['midTurnSend']>;
 

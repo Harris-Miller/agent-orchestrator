@@ -1,12 +1,14 @@
 import { RegistryContext } from '@effect/atom-react';
 import { ThemeProvider } from '@mui/material/styles';
 import { render } from '@testing-library/react';
+import type { UserSettings } from '@lib/hoa-home';
 import { Effect } from 'effect';
-import { AtomRegistry } from 'effect/reactivity';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
 import { CODEX, enableProviders } from '../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
+import { unwrapUserSettings, userSettingsDocumentAtom } from '../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import { select } from '../../atoms/virtualSession.atoms.ts';
 import type { SessionSnapshot } from '../../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../../host/acpSessionBootstrap.ts';
@@ -24,11 +26,17 @@ export const renderInSessionChatSurface = (
   options: {
     readonly capabilities?: Partial<AgentCapabilities>;
     readonly session?: Partial<SessionSnapshot>;
+    /** User settings merged over the test's defaults (the document counts as loaded). */
+    readonly settings?: UserSettings;
   } = {},
 ) =>
   Effect.gen(function* () {
     const registry = AtomRegistry.make();
     enableProviders(registry, [CODEX]);
+    registry.set(
+      userSettingsDocumentAtom,
+      AsyncResult.success({ ...unwrapUserSettings(registry.get(userSettingsDocumentAtom)), ...options.settings }),
+    );
     updateHarnessSnapshot(registry, CODEX, current => ({
       ...current,
       agentCapabilities: { ...NO_AGENT_CAPABILITIES, ...options.capabilities },

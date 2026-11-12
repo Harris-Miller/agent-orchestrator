@@ -117,11 +117,52 @@ export class TerminalExitStatus extends Schema.Opaque<TerminalExitStatus>()(
   }),
 ) {}
 
+const McpNameValue = Schema.Struct({
+  _meta: MetaField,
+  name: Schema.String,
+  value: Schema.String,
+});
+
+/**
+ * MCP server the agent connects to, handed to `session/new|load|resume|fork`. Entries are credentials-bearing
+ * (`headers`, `env`). Stdio carries no `type`; `http` / `sse` need the matching `mcpCapabilities` and `acp` (MCP-over-ACP,
+ * draft RFD) needs `mcpCapabilities.acp`.
+ */
+export const McpServer = Schema.Union([
+  Schema.Struct({
+    _meta: MetaField,
+    headers: Schema.Array(McpNameValue),
+    name: Schema.String,
+    type: Schema.Literal('http'),
+    url: Schema.String,
+  }),
+  Schema.Struct({
+    _meta: MetaField,
+    headers: Schema.Array(McpNameValue),
+    name: Schema.String,
+    type: Schema.Literal('sse'),
+    url: Schema.String,
+  }),
+  Schema.Struct({
+    _meta: MetaField,
+    name: Schema.String,
+    serverId: Schema.String,
+    type: Schema.Literal('acp'),
+  }),
+  Schema.Struct({
+    _meta: MetaField,
+    args: Schema.Array(Schema.String),
+    command: Schema.String,
+    env: Schema.Array(McpNameValue),
+    name: Schema.String,
+  }),
+]);
+export type McpServer = typeof McpServer.Type;
+
 /** Opaque placeholders for large nested unions (expand later). */
 export class SessionUpdate extends Schema.Opaque<SessionUpdate>()(Schema.Unknown) {}
 export class AgentCapabilities extends Schema.Opaque<AgentCapabilities>()(Schema.Unknown) {}
 export class AuthMethod extends Schema.Opaque<AuthMethod>()(Schema.Unknown) {}
-export class McpServer extends Schema.Opaque<McpServer>()(Schema.Unknown) {}
 export class SessionConfigOption extends Schema.Opaque<SessionConfigOption>()(Schema.Unknown) {}
 export class SessionModeState extends Schema.Opaque<SessionModeState>()(Schema.Unknown) {}
 /** Gemini (and similar) legacy model list on session/new|load; not part of stable ACP AgentRpcs. */

@@ -48,15 +48,20 @@ export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
 type ProviderQuirks = {
   /** Offer AIR `sessionIndex` in initialize (Archive / Rename are only answered when offered). */
   readonly airClient: boolean;
+  /**
+   * The adapter takes Claude Agent SDK options in `_meta.claudeCode.options`, whose `allowedTools` run without a
+   * permission prompt: how injected MCP tools are pre-approved.
+   */
+  readonly claudeCodeOptions: boolean;
   /** Never `session/resume`, whatever is advertised (desktop ADR-0013: Cursor until resume is proven). */
   readonly neverResume: boolean;
 };
 
 const PROVIDER_QUIRKS: Readonly<Record<AgentLaunchTarget, ProviderQuirks>> = {
-  'antigravity-acp': { airClient: false, neverResume: false },
-  'claude-agent-acp': { airClient: true, neverResume: false },
-  'codex-acp': { airClient: true, neverResume: false },
-  'cursor-acp': { airClient: false, neverResume: true },
+  'antigravity-acp': { airClient: false, claudeCodeOptions: false, neverResume: false },
+  'claude-agent-acp': { airClient: true, claudeCodeOptions: true, neverResume: false },
+  'codex-acp': { airClient: true, claudeCodeOptions: false, neverResume: false },
+  'cursor-acp': { airClient: false, claudeCodeOptions: false, neverResume: true },
 };
 
 /** Value at `path`, or undefined when any step is not an object. */
@@ -91,6 +96,23 @@ export const agentCapabilitiesFrom = (
     steeringSupported: at(initializeResult, ['_meta', 'steering', 'supported']) === true,
   };
 };
+
+/** Whether the Agent advertised `mcpCapabilities.http`, i.e. may be handed an HTTP MCP server (ACP session-setup). */
+export const supportsMcpHttp = (initializeResult: unknown): boolean =>
+  at(initializeResult, ['agentCapabilities', 'mcpCapabilities', 'http']) === true;
+
+/**
+ * Session-setup `_meta` that lets `tools` of the injected MCP server `serverName` run without a permission prompt, or
+ * undefined when this launch target's adapter offers no way to (the agent then asks as for any tool).
+ */
+export const mcpToolPreapprovalMeta = (
+  launchTarget: AgentLaunchTarget,
+  serverName: string,
+  tools: readonly string[],
+): Record<string, unknown> | undefined =>
+  PROVIDER_QUIRKS[launchTarget].claudeCodeOptions
+    ? { claudeCode: { options: { allowedTools: tools.map(tool => `mcp__${serverName}__${tool}`) } } }
+    : undefined;
 
 /** `clientCapabilities` for this launch target's initialize request (AIR `sessionIndex` offer for Claude / Codex). */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({

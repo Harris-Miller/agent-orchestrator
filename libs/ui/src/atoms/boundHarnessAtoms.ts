@@ -8,6 +8,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { createComposerAtoms } from './composer.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
+import { createHubAtoms } from './hub.atoms.ts';
 import { createKeepAwakeAtoms } from './keepAwake.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createPinnedSessionsAtoms } from './pinnedSessions.atoms.ts';
@@ -36,6 +37,7 @@ export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 
 export const {
   alwaysHiddenGlobsAtom,
+  appOrchestratedHandoffAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   keepAwakeEnabledAtom,
@@ -56,6 +58,8 @@ export const { effectiveThemeAtom } = createThemeAtoms({ matchVscodeThemeAtom, t
 
 export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom } =
   createVscodeExtensionAtoms(atomRuntime, { userSettingsAtom });
+
+export const { hubAtom } = createHubAtoms(atomRuntime);
 
 export const { keepAwakeAtom, keepAwakeSupportedAtom } = createKeepAwakeAtoms(atomRuntime, { keepAwakeEnabledAtom });
 

@@ -24,12 +24,14 @@ import {
   unqueueComposerAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
 import { composerAtom } from '../../atoms/composer.atoms.ts';
+import { hubAvailabilityAtom, sessionHubStatusesAtom } from '../../atoms/hub.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
 import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import { hubUnavailableReason } from '../../host/hubSessions.ts';
 
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
 const EMPTY_CONFIGURATION: SessionConfiguration = [];
@@ -47,6 +49,8 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     selectable: selectableLaunchTargets,
     usable: usableLaunchTargets,
   } = useAtomValue(launchTargetAvailabilityAtom);
+  const hubAvailability = useAtomValue(hubAvailabilityAtom);
+  const sessionHubStatuses = useAtomValue(sessionHubStatusesAtom);
   const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
   const edit = useAtomSet(editComposerAtomFn);
   const attachImages = useAtomSet(attachComposerImagesAtomFn, { mode: 'promise' });
@@ -89,13 +93,18 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );
+  const handoffUnavailableReason =
+    selectedLaunchTarget === undefined || selectedSessionId === undefined
+      ? undefined
+      : hubUnavailableReason(hubAvailability, sessionHubStatuses, selectedLaunchTarget, selectedSessionId);
   const canHandoffBase =
     !isVirtual &&
     composer.controlsEnabled &&
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
-    sessionCwd !== undefined;
+    sessionCwd !== undefined &&
+    handoffUnavailableReason === undefined;
   const canForkBase =
     !isVirtual &&
     composer.controlsEnabled &&
@@ -129,6 +138,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     configOptions,
     edit,
     getConfigOptionIndex,
+    handoffUnavailableReason,
     isVirtual,
     onClientError,
     requestFork,

@@ -15,7 +15,7 @@ import {
   subagentLatestActivity,
   subagentNeedsInput,
 } from './subagent.ts';
-import { emptySessionTranscript, reduceSessionUpdate, upsertSubagentRow } from './sessionUpdateReducer.ts';
+import { emptySessionTranscript, reduceSessionUpdate, upsertSubagentChatItem } from './sessionUpdateReducer.ts';
 
 const [, fixtureMessage] = fixture;
 const child = () => initialSubagentSnapshot('c1', 'p1');
@@ -84,8 +84,8 @@ describe('child transcript', () => {
   });
 
   it('upserts the parent row once per child', () => {
-    const once = upsertSubagentRow(emptySessionTranscript(), 'c1');
-    assert.strictEqual(upsertSubagentRow(once, 'c1'), once);
+    const once = upsertSubagentChatItem(emptySessionTranscript(), 'c1');
+    assert.strictEqual(upsertSubagentChatItem(once, 'c1'), once);
     assert.strictEqual(once.items.length, 1);
   });
 });

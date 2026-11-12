@@ -437,7 +437,7 @@ const upsertInterSessionMessage = (
 };
 
 /** Insert the `subagent` row once per child id (replayed spawns never duplicate). */
-export const upsertSubagentRow = (transcript: SessionTranscript, subagentSessionId: string): SessionTranscript => {
+export const upsertSubagentChatItem = (transcript: SessionTranscript, subagentSessionId: string): SessionTranscript => {
   const id = `subagent:${subagentSessionId}`;
   return transcript.items.some(item => item.kind === 'subagent' && item.subagentSessionId === subagentSessionId)
     ? transcript

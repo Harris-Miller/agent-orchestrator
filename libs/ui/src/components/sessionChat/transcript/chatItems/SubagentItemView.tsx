@@ -5,12 +5,12 @@ import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import { selectedSubagentsAtom, viewedSubagentAtom } from '../../../../atoms/backendState.atoms.ts';
-import type { InterSessionMessage } from '../../../../host/sessionUpdateReducer.ts';
 import { getSubagent, rootAncestorId, subagentLatestActivity } from '../../../../host/subagent.ts';
+import type { ChatItemOf } from './chatItemOf.ts';
 import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 
-/** Inline row in the parent transcript; click opens the child's full-pane view. */
-export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> = ({ item }) => {
+/** A subagent Chat item in the parent transcript; click opens the Subagent view. */
+export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = ({ item }) => {
   const selected = useAtomValue(selectedSubagentsAtom);
   const setViewed = useAtomSet(viewedSubagentAtom);
   const child = selected === undefined ? undefined : getSubagent(selected.subagents, item.subagentSessionId);
@@ -46,27 +46,6 @@ export const SubagentRow: FC<{ item: { readonly subagentSessionId: string } }> =
         </Typography>
         <Typography color="text.secondary" noWrap sx={{ flex: 1 }} variant="caption">
           {activity ?? ''}
-        </Typography>
-      </Box>
-    </ListItem>
-  );
-};
-
-export const InterSessionMessageRow: FC<{ item: InterSessionMessage }> = ({ item }) => {
-  const subagents = useAtomValue(selectedSubagentsAtom)?.subagents ?? {};
-  const nameOf = (id: string | undefined) =>
-    id === undefined ? undefined : (getSubagent(subagents, id)?.name ?? 'another session');
-  const to = nameOf(item.recipientSessionId);
-  const from = nameOf(item.senderSessionId);
-  const caption = to === undefined ? `From ${from ?? 'another session'} · inter-session message` : `To ${to}`;
-  return (
-    <ListItem sx={{ display: 'block', py: 0.25 }}>
-      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 1 }}>
-        <Typography color="text.secondary" variant="caption">
-          {caption}
-        </Typography>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }} variant="body2">
-          {item.text}
         </Typography>
       </Box>
     </ListItem>

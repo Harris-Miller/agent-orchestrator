@@ -3,7 +3,7 @@ import { Option } from 'effect';
 
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
-import { upsertSubagentRow } from './sessionUpdateReducer.ts';
+import { upsertSubagentChatItem } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
 import { isRecord } from '../isRecord.ts';
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
@@ -25,8 +25,12 @@ export type SubagentRouteResult = {
   readonly linked?: { readonly childId: string; readonly parentId: string };
 };
 
-const withParentRow = (snapshot: BackendHarnessSnapshot, parentId: string, childId: string): BackendHarnessSnapshot => {
-  const add = (transcript: SessionTranscript) => upsertSubagentRow(transcript, childId);
+const withParentChatItem = (
+  snapshot: BackendHarnessSnapshot,
+  parentId: string,
+  childId: string,
+): BackendHarnessSnapshot => {
+  const add = (transcript: SessionTranscript) => upsertSubagentChatItem(transcript, childId);
   const parentChild = getSubagent(snapshot.subagents, parentId);
   if (parentChild !== undefined) {
     return {
@@ -76,7 +80,7 @@ export const routeSubagentUpdate = (
     };
     return {
       linked: { childId, parentId },
-      snapshot: withParentRow(withChild, parentId, childId),
+      snapshot: withParentChatItem(withChild, parentId, childId),
     };
   }
 

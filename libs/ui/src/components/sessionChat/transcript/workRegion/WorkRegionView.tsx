@@ -9,11 +9,12 @@ import type { FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../../../host/sessionUpdateReducer.ts';
 import { LucideMuiIcon } from '../../../LucideMuiIcon.tsx';
-import { ChatItemView, ToolCallRow } from '../ChatItemView.tsx';
+import { ToolCallView } from '../chatItems/ToolCallView.tsx';
+import { ChatItemView } from '../ChatItemView.tsx';
 import { DisclosureButton, DisclosureChevron } from '../DisclosureButton.tsx';
 import { splitWorkSegments, workItemPreviewText, workSegmentLabel } from './groupChatItems.ts';
 import type { WorkRegion, WorkSegment } from './groupChatItems.ts';
-import { SubagentRow } from '../chatItems/SubagentRows.tsx';
+import { SubagentItemView } from '../chatItems/SubagentItemView.tsx';
 import { workRegionLabel } from './workRegionLabel.ts';
 import { workRegionPhrase } from './workRegionPhrase.ts';
 
@@ -21,9 +22,9 @@ import { workRegionPhrase } from './workRegionPhrase.ts';
 const WorkItemPreview: FC<{ item: ChatItem }> = ({ item }) => {
   switch (item.kind) {
     case 'tool_call':
-      return <ToolCallRow item={item} preview />;
+      return <ToolCallView item={item} preview />;
     case 'subagent':
-      return <SubagentRow item={item} />;
+      return <SubagentItemView item={item} />;
     case 'agent_thought':
     case 'plan':
       return (

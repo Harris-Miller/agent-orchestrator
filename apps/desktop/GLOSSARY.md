@@ -202,8 +202,8 @@ The one machine-wide local process that agents call Harness tools on. It only ro
 _Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
 
 **Hub client**:
-A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials, answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened.
-_Avoid_: hub connection (the connection is the transport; the client is the role)
+A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials (a credential's secret is its bearer token), answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened.
+_Avoid_: hub connection as a name for the role (in code, `HubConnection` is the transport the client installs; the client is the role)
 
 **Pending client request**:
 Harness flag on a session snapshot while a client→agent RPC is outstanding for that session, discriminated as a prompt turn or a config-option change. Blocks overlapping outbound RPCs until the response arrives. Prompt-kind pending enables Prompt turn cancel in the Harness UI; config-kind pending does not. Harness UX policy — stricter than ACP minimum, which allows mode changes during generation. Distinct from a pending interaction (Agent→Client).

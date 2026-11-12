@@ -4,7 +4,8 @@
  * hub connection feeds.
  */
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { Effect, Fiber } from 'effect';
+import { TestClock } from 'effect/testing';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -24,7 +25,7 @@ import {
   installFakeHub,
 } from './fakeAgent.testing.ts';
 import type { McpReceived } from './fakeAgent.testing.ts';
-import { createHandoffAtoms } from './handoff.atoms.ts';
+import { createHandoffAtoms, handoffSourcePrompt, SOURCE_TURN_TIMEOUT } from './handoff.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -114,7 +115,7 @@ describe('handoffSessionAtomFn', () => {
       const target = registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions['claude-1'];
       assert.strictEqual(configValue(target.configuration, 'model'), 'o1');
       assert.deepStrictEqual(target.availableCommands, [{ description: 'Review the diff', name: 'review' }]);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('fails with HandoffError when the turn ends without submit_handoff, and creates no target', () =>
@@ -131,7 +132,24 @@ describe('handoffSessionAtomFn', () => {
 
       assert.strictEqual(exit._tag, 'Failure');
       assert.deepStrictEqual(targetCalls, []);
-    }).pipe(Effect.scoped),
+    }),
+  );
+
+  it.effect('cancels the source turn and fails when the agent never finishes it', () =>
+    Effect.gen(function* () {
+      yield* installFakeHub([]);
+      const { registry, sourceCalls } = yield* sourceSession([], { duringPrompt: Effect.never });
+      const run = yield* Effect.forkChild(
+        handoffSourcePrompt(registry, CODEX, 'bound-1').pipe(Effect.provide(mockHostLayer)),
+      );
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust(SOURCE_TURN_TIMEOUT);
+
+      const exit = yield* Effect.exit(Fiber.join(run));
+
+      assert.strictEqual(exit._tag, 'Failure');
+      assert.include(sourceCalls, 'cancel:bound-1');
+    }),
   );
 
   it.effect('is unavailable, without prompting the source, when the source session has no hub credential', () =>
@@ -147,7 +165,7 @@ describe('handoffSessionAtomFn', () => {
       assert.strictEqual(exit._tag, 'Failure');
       assert.deepStrictEqual(received[0].servers, []);
       assert.deepStrictEqual(sourceCalls, ['new']);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('returns a tool error for submit_handoff when no Handoff is pending', () =>
@@ -159,6 +177,6 @@ describe('handoffSessionAtomFn', () => {
       const result = yield* submitHandoff(received, 'unsolicited');
 
       assert.isTrue(result.isError);
-    }).pipe(Effect.scoped),
+    }),
   );
 });

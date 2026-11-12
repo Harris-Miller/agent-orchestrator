@@ -46,6 +46,10 @@ const START_TIMEOUT = Duration.seconds(8);
 /** How long a session RPC waits for the hub to confirm a new credential. */
 const REGISTER_TIMEOUT = Duration.seconds(2);
 
+/** A refused restore after a reconnect is retried this often, this many times in all (about 2 s). */
+const RESTORE_RETRY_DELAY = Duration.millis(200);
+const RESTORE_ATTEMPTS = 10;
+
 type Probe =
   | { readonly _tag: 'absent' }
   | { readonly _tag: 'foreign' }
@@ -81,136 +85,162 @@ const readDiscovery = Effect.gen(function* () {
 });
 
 /** A hub answering on `port` with a matching protocol, and its discovery record; starts one if none answers. */
-const ensureHub = <R>(options: HubClientOptions<R>) =>
-  Effect.gen(function* () {
-    let found = yield* probe(options.port);
-    if (found._tag === 'absent') {
-      yield* Effect.logInfo('No hub answering; starting one', options.port);
-      yield* options.startHub;
-      // Wait until it binds and publishes the discovery file (the bind happens first).
-      found = yield* probe(options.port).pipe(
-        Effect.repeat({ schedule: Schedule.spaced('200 millis'), until: next => next._tag !== 'absent' }),
-        Effect.timeoutOption(START_TIMEOUT),
-        Effect.map(next => (next._tag === 'Some' ? next.value : found)),
-      );
+const ensureHub = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) {
+  let found = yield* probe(options.port);
+  if (found._tag === 'absent') {
+    yield* Effect.logInfo('No hub answering; starting one', options.port);
+    yield* options.startHub;
+    // Wait until it binds and publishes the discovery file (the bind happens first).
+    found = yield* probe(options.port).pipe(
+      Effect.repeat({ schedule: Schedule.spaced('200 millis'), until: next => next._tag !== 'absent' }),
+      Effect.timeoutOption(START_TIMEOUT),
+      Effect.map(next => (next._tag === 'Some' ? next.value : found)),
+    );
+  }
+  switch (found._tag) {
+    case 'absent': {
+      return yield* new HubUnavailable({ reason: 'The HOA hub did not start. Its log is at ~/.hoa/logs/hub.log.' });
     }
-    switch (found._tag) {
-      case 'absent': {
-        return yield* new HubUnavailable({ reason: 'The HOA hub did not start. Its log is at ~/.hoa/logs/hub.log.' });
-      }
-      case 'foreign': {
+    case 'foreign': {
+      return yield* new HubUnavailable({
+        reason: `Another program is using port ${options.port}, which the HOA hub needs. Quit that program, or set "hubPort" in ~/.hoa/settings.json to a free port and reopen every HOA window.`,
+      });
+    }
+    case 'hub': {
+      // No takeover: a mismatched hub exits by itself once its own clients are gone, and the reconnect loop then
+      // starts one this version speaks (root ADR 0003).
+      if (found.version < PROTOCOL_VERSION) {
         return yield* new HubUnavailable({
-          reason: `Another program is using port ${options.port}, which the HOA hub needs. Quit that program, or set "hubPort" in ~/.hoa/settings.json to a free port and reopen every HOA window.`,
+          reason: `An older HOA window is running the HOA hub (protocol ${found.version}; this window needs ${PROTOCOL_VERSION}). Close the older HOA windows; this one reconnects by itself.`,
         });
       }
-      case 'hub': {
-        // No takeover: a mismatched hub exits by itself once its own clients are gone, and the reconnect loop then
-        // starts one this version speaks (ADR 0002).
-        if (found.version < PROTOCOL_VERSION) {
-          return yield* new HubUnavailable({
-            reason: `An older HOA window is running the HOA hub (protocol ${found.version}; this window needs ${PROTOCOL_VERSION}). Close the older HOA windows; this one reconnects by itself.`,
-          });
-        }
-        if (found.version > PROTOCOL_VERSION) {
-          return yield* new HubUnavailable({
-            reason: `A newer HOA window is running the HOA hub (protocol ${found.version}; this window speaks ${PROTOCOL_VERSION}). Update this app, or close the newer windows.`,
-          });
-        }
+      if (found.version > PROTOCOL_VERSION) {
+        return yield* new HubUnavailable({
+          reason: `A newer HOA window is running the HOA hub (protocol ${found.version}; this window speaks ${PROTOCOL_VERSION}). Update this app, or close the newer windows.`,
+        });
       }
     }
-    // The hub binds before it writes its discovery file, and a crashed hub leaves its file behind: wait for this
-    // hub's own file rather than connect with a dead hub's secret.
-    const { pid } = found;
-    return yield* readDiscovery.pipe(
-      Effect.filterOrFail(
-        discovery => discovery.pid === pid && discovery.port === options.port,
-        () => new HubUnavailable({ reason: 'The HOA hub did not publish its connection details. Retrying.' }),
-      ),
-      Effect.retry({ schedule: Schedule.spaced('200 millis'), times: 25 }),
-      Effect.mapError(error =>
-        error._tag === 'HubUnavailable'
-          ? error
-          : new HubUnavailable({
-              reason: 'Could not read the HOA hub connection details (~/.hoa/hub.json). Retrying.',
-            }),
-      ),
-    );
-  });
+  }
+  // The hub binds before it writes its discovery file, and a crashed hub leaves its file behind: wait for this
+  // hub's own file rather than connect with a dead hub's secret.
+  const { pid } = found;
+  return yield* readDiscovery.pipe(
+    Effect.filterOrFail(
+      discovery => discovery.pid === pid && discovery.port === options.port,
+      () => new HubUnavailable({ reason: 'The HOA hub did not publish its connection details. Retrying.' }),
+    ),
+    Effect.retry({ schedule: Schedule.spaced('200 millis'), times: 25 }),
+    Effect.mapError(error =>
+      error._tag === 'HubUnavailable'
+        ? error
+        : new HubUnavailable({
+            reason: 'Could not read the HOA hub connection details (~/.hoa/hub.json). Retrying.',
+          }),
+    ),
+  );
+});
 
 /** One connection: connect, install, serve until the socket drops (always ends in `HubUnavailable`). */
-const connectOnce = <R>(options: HubClientOptions<R>) =>
-  Effect.gen(function* () {
-    const discovery = yield* ensureHub(options);
-    const url = `ws://${HUB_HOST}:${options.port}/clients?${clientsQuery({ clientKind: options.clientKind, secret: discovery.secret })}`;
-    const socket = yield* Socket.makeWebSocket(url).pipe(Effect.provide(Socket.layerWebSocketConstructorGlobal));
-    // The reader dials and waits for open; the writer is only usable after that.
-    const pull = yield* Socket.readerString(socket).pipe(
-      Effect.mapError(() => new HubUnavailable({ reason: 'Could not connect to the HOA hub. Retrying.' })),
+const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>) {
+  const discovery = yield* ensureHub(options);
+  const url = `ws://${HUB_HOST}:${options.port}/clients?${clientsQuery({ clientKind: options.clientKind, secret: discovery.secret })}`;
+  const socket = yield* Socket.makeWebSocket(url).pipe(Effect.provide(Socket.layerWebSocketConstructorGlobal));
+  // The reader dials and waits for open; the writer is only usable after that.
+  const pull = yield* Socket.readerString(socket).pipe(
+    Effect.mapError(() => new HubUnavailable({ reason: 'Could not connect to the HOA hub. Retrying.' })),
+  );
+  const writer = yield* socket.writer;
+  const send = (message: ClientMessage) =>
+    Effect.andThen(
+      Effect.sync(() => recordHubWire('sent', message)),
+      writer.write(JSON.stringify(message)).pipe(Effect.ignore),
     );
-    const writer = yield* socket.writer;
-    const send = (message: ClientMessage) =>
-      Effect.andThen(
-        Effect.sync(() => recordHubWire('sent', message)),
-        writer.write(JSON.stringify(message)).pipe(Effect.ignore),
-      );
 
-    /** token → the hub's answer to its `register`. */
-    const answers = new Map<string, Deferred.Deferred<boolean>>();
-    const hub: HubConnection = {
-      bind: (token, launchTarget, sessionId) => send({ launchTarget, sessionId, token, type: 'bind' }),
-      mcpUrl: `http://${HUB_HOST}:${options.port}/mcp`,
-      register: token =>
-        Effect.gen(function* () {
-          const answer = Deferred.makeUnsafe<boolean>();
-          answers.set(token, answer);
-          yield* send({ token, type: 'register' });
-          return yield* Deferred.await(answer).pipe(
-            Effect.timeoutOption(REGISTER_TIMEOUT),
-            Effect.map(result => result._tag === 'Some' && result.value),
-            Effect.ensuring(Effect.sync(() => answers.delete(token))),
-          );
-        }),
-      revoke: token => send({ token, type: 'revoke' }),
-    };
+  /** token → the hub's answer to its `register`. */
+  const answers = new Map<string, Deferred.Deferred<boolean>>();
+  const hub: HubConnection = {
+    bind: (token, launchTarget, sessionId) => send({ launchTarget, sessionId, token, type: 'bind' }),
+    mcpUrl: `http://${HUB_HOST}:${options.port}/mcp`,
+    register: token =>
+      Effect.gen(function* () {
+        const answer = Deferred.makeUnsafe<boolean>();
+        answers.set(token, answer);
+        yield* send({ token, type: 'register' });
+        return yield* Deferred.await(answer).pipe(
+          Effect.timeoutOption(REGISTER_TIMEOUT),
+          Effect.map(result => result._tag === 'Some' && result.value),
+          Effect.ensuring(Effect.sync(() => answers.delete(token))),
+        );
+      }),
+    revoke: token => send({ token, type: 'revoke' }),
+  };
 
-    // A hub restart is invisible to sessions: re-register every credential this Harness still owns. Frames are
-    // ordered, so these land before any registration a session RPC makes once the connection is installed.
-    for (const { launchTarget, sessionId, token } of registeredTokens()) {
-      yield* send({ token, type: 'register' });
-      if (sessionId !== undefined) {
-        yield* hub.bind(token, launchTarget, sessionId);
+  // A hub restart is invisible to sessions: re-register every credential this Harness still owns. Frames are
+  // ordered, so these land before any registration a session RPC makes once the connection is installed.
+  // The hub may still own a token through our previous socket (it has not seen that close yet) and refuse it, so a
+  // refused restore is retried; the bind follows once the hub accepts.
+  const restoring = new Map<string, number>();
+  for (const { token } of registeredTokens()) {
+    restoring.set(token, 1);
+    yield* send({ token, type: 'register' });
+  }
+  yield* installHub(hub);
+  setHubAvailability({ _tag: 'available' });
+  yield* Effect.logInfo('Hub client connected', { clientKind: options.clientKind, port: options.port });
+
+  const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(HubMessage));
+  const restored = Effect.fnUntraced(function* (token: string, accepted: boolean) {
+    const attempt = restoring.get(token);
+    const credential = registeredTokens().find(entry => entry.token === token);
+    if (attempt === undefined) {
+      return;
+    }
+    if (credential === undefined) {
+      restoring.delete(token);
+      return;
+    }
+    if (accepted) {
+      restoring.delete(token);
+      if (credential.sessionId !== undefined) {
+        yield* hub.bind(token, credential.launchTarget, credential.sessionId);
+      }
+      return;
+    }
+    if (attempt >= RESTORE_ATTEMPTS) {
+      restoring.delete(token);
+      yield* Effect.logWarning('Hub refused to restore a session credential', credential.launchTarget);
+      return;
+    }
+    restoring.set(token, attempt + 1);
+    yield* Effect.sleep(RESTORE_RETRY_DELAY).pipe(Effect.andThen(send({ token, type: 'register' })), Effect.forkScoped);
+  });
+  const dispatch = (message: HubMessage) =>
+    message.type === 'registered'
+      ? Effect.suspend(() => {
+          const answer = answers.get(message.token);
+          if (answer === undefined) {
+            return restored(message.token, message.accepted);
+          }
+          Deferred.doneUnsafe(answer, Effect.succeed(message.accepted));
+          return Effect.void;
+        })
+      : handleHubToolCall(message).pipe(
+          Effect.flatMap(result =>
+            send({ isError: result.isError, requestId: message.requestId, text: result.text, type: 'toolResult' }),
+          ),
+          Effect.forkScoped,
+        );
+  while (true) {
+    const frames = yield* pull.pipe(Effect.mapError(() => new HubConnectionLost()));
+    for (const frame of frames) {
+      const incoming = yield* decode(frame).pipe(Effect.option);
+      if (incoming._tag === 'Some') {
+        recordHubWire('received', incoming.value);
+        yield* dispatch(incoming.value);
       }
     }
-    yield* installHub(hub);
-    setHubAvailability({ _tag: 'available' });
-    yield* Effect.logInfo('Hub client connected', { clientKind: options.clientKind, port: options.port });
-
-    const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(HubMessage));
-    const dispatch = (message: HubMessage) =>
-      message.type === 'registered'
-        ? Effect.sync(() => {
-            const answer = answers.get(message.token);
-            if (answer !== undefined) {
-              Deferred.doneUnsafe(answer, Effect.succeed(message.accepted));
-            }
-          })
-        : handleHubToolCall(message).pipe(
-            Effect.flatMap(result =>
-              send({ isError: result.isError, requestId: message.requestId, text: result.text, type: 'toolResult' }),
-            ),
-            Effect.forkScoped,
-          );
-    while (true) {
-      const frames = yield* pull.pipe(Effect.mapError(() => new HubConnectionLost()));
-      for (const frame of frames) {
-        const incoming = yield* decode(frame).pipe(Effect.option);
-        if (incoming._tag === 'Some') {
-          recordHubWire('received', incoming.value);
-          yield* dispatch(incoming.value);
-        }
-      }
-    }
-  }).pipe(Effect.scoped);
+  }
+}, Effect.scoped);
 
 /**
  * Keep this Harness connected to the hub for the Scope's lifetime, publishing availability through

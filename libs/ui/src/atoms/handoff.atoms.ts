@@ -1,5 +1,5 @@
 /** Cross-launch-target session handoff Atom fns. */
-import { Deferred, Effect, Exit, Schema } from 'effect';
+import { Deferred, Duration, Effect, Exit, Fiber, Option, Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -20,7 +20,7 @@ import {
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { sendPromptTurn } from './promptTurn.ts';
+import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { select } from './virtualSession.atoms.ts';
 
@@ -50,6 +50,29 @@ export const handoffPrompt = Effect.fn('handoffPrompt')(
   (effect, _registry, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('handoffPrompt failed', launchTarget, sessionId, error))),
 );
+
+/** How long a Handoff waits for the source agent to end the turn that asks it for the document. */
+export const SOURCE_TURN_TIMEOUT = Duration.minutes(5);
+
+/**
+ * The source Handoff prompt, giving up after {@link SOURCE_TURN_TIMEOUT}: a stalled agent would otherwise leave the
+ * Handoff in progress for good. The agent's turn is cancelled first, or it would keep running after the Handoff failed.
+ */
+export const handoffSourcePrompt = Effect.fnUntraced(function* (
+  registry: AtomRegistry.AtomRegistry,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+) {
+  const turn = yield* Effect.forkChild(handoffPrompt(registry, launchTarget, sessionId, SOURCE_HANDOFF_PROMPT));
+  const finished = yield* Fiber.join(turn).pipe(Effect.timeoutOption(SOURCE_TURN_TIMEOUT));
+  if (Option.isNone(finished)) {
+    yield* cancelPromptTurn(registry, { launchTarget, sessionId }).pipe(Effect.ignore);
+    yield* Fiber.interrupt(turn);
+    return yield* new HandoffError({
+      message: 'The source agent did not finish its turn in time, so the Handoff was cancelled',
+    });
+  }
+});
 
 export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
@@ -98,7 +121,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           const handoffDocument = yield* Effect.scoped(
             Effect.gen(function* () {
               const submitted = yield* expectHandoff(arg.sourceLaunchTarget, arg.sourceSessionId);
-              yield* handoffPrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId, SOURCE_HANDOFF_PROMPT);
+              yield* handoffSourcePrompt(get.registry, arg.sourceLaunchTarget, arg.sourceSessionId);
               if (!(yield* Deferred.isDone(submitted))) {
                 return yield* new HandoffError({ message: 'The source agent never called submit_handoff' });
               }

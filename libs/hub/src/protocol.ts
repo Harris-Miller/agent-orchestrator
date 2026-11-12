@@ -43,8 +43,11 @@ export type ClientKind = typeof ClientKind.Type;
 export const MAX_HANDOFF_DOCUMENT_CHARS = 100_000;
 
 export const SubmitHandoffArgs = Schema.Struct({
-  document: Schema.String.check(Schema.isMaxLength(MAX_HANDOFF_DOCUMENT_CHARS)).annotate({
-    description: `The complete handoff document, as Markdown (at most ${MAX_HANDOFF_DOCUMENT_CHARS} characters).`,
+  document: Schema.String.check(
+    Schema.makeFilter(document => document.trim().length > 0 || 'The handoff document must not be empty.'),
+    Schema.isMaxLength(MAX_HANDOFF_DOCUMENT_CHARS),
+  ).annotate({
+    description: `The complete handoff document, as non-empty Markdown (at most ${MAX_HANDOFF_DOCUMENT_CHARS} characters).`,
   }),
 });
 

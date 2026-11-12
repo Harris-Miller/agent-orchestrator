@@ -90,20 +90,19 @@ export const makeHubState = () => {
     isRegistered: (token: string): boolean => credentials.has(token),
 
     /** Forward one tool call to the client owning `token` and wait for its answer. */
-    route: (token: string, tool: string, args: unknown): Effect.Effect<CallResult> =>
-      Effect.gen(function* () {
-        const clientId = credentials.get(token)?.clientId;
-        const client = clientId === undefined ? undefined : clients.get(clientId);
-        if (clientId === undefined || client === undefined) {
-          return toolError('The Harness client that owns this session is no longer connected.');
-        }
-        const requestId = crypto.randomUUID();
-        const reply = yield* Deferred.make<CallResult>();
-        inFlight.set(requestId, { clientId, reply });
-        yield* client.send({ args, requestId, token, tool, type: 'toolCall' });
-        // Also cleans up when the agent abandons the request (interrupt).
-        return yield* Deferred.await(reply).pipe(Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))));
-      }),
+    route: Effect.fnUntraced(function* (token: string, tool: string, args: unknown): Effect.fn.Return<CallResult> {
+      const clientId = credentials.get(token)?.clientId;
+      const client = clientId === undefined ? undefined : clients.get(clientId);
+      if (clientId === undefined || client === undefined) {
+        return toolError('The Harness client that owns this session is no longer connected.');
+      }
+      const requestId = crypto.randomUUID();
+      const reply = yield* Deferred.make<CallResult>();
+      inFlight.set(requestId, { clientId, reply });
+      yield* client.send({ args, requestId, token, tool, type: 'toolCall' });
+      // Also cleans up when the agent abandons the request (interrupt).
+      return yield* Deferred.await(reply).pipe(Effect.ensuring(Effect.sync(() => inFlight.delete(requestId))));
+    }),
 
     /** A client's answer; ignored unless that client was asked. */
     resolve: (clientId: number, requestId: string, result: CallResult): Effect.Effect<void> =>

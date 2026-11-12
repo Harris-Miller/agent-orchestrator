@@ -7,7 +7,7 @@ import { bearerOf, CLAUDE, CODEX, installFakeAgent, installFakeHub } from '../at
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 
 import { setHubAvailability } from './hubConnection.ts';
-import { currentHubUnavailableReason, handleHubToolCall } from './hubSessions.ts';
+import { beginMcp, currentHubUnavailableReason, handleHubToolCall } from './hubSessions.ts';
 import { closeSession, createSession, deleteSession, forkSession, loadSession, resumeSession } from './sessionRpc.ts';
 
 describe('hub MCP injection', () => {
@@ -44,7 +44,7 @@ describe('hub MCP injection', () => {
         'register',
         'bind:codex-acp:fork-1',
       ]);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('pre-approves the hub tools for Claude, so a Handoff never stops on a permission prompt', () =>
@@ -65,7 +65,7 @@ describe('hub MCP injection', () => {
         received.map(r => r.meta),
         [preapproved, preapproved, preapproved, preapproved, undefined],
       );
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('sends Claude no pre-approval when the hub is not injected', () =>
@@ -74,7 +74,7 @@ describe('hub MCP injection', () => {
       yield* installFakeAgent([], { mcp: { http: false, received } }, CLAUDE);
       yield* createSession(CLAUDE, '/w');
       assert.strictEqual(received[0].meta, undefined);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('injects nothing when the hub is unavailable or the agent lacks HTTP MCP', () =>
@@ -84,7 +84,7 @@ describe('hub MCP injection', () => {
       yield* installFakeAgent([], { mcp: { received } });
       yield* createSession('codex-acp', '/w');
       assert.deepStrictEqual(received[0].servers, []);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('injects nothing when the agent does not advertise HTTP MCP', () =>
@@ -96,7 +96,7 @@ describe('hub MCP injection', () => {
       yield* createSession('codex-acp', '/w');
       assert.deepStrictEqual(hubCalls, []);
       assert.deepStrictEqual(received[0].servers, []);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('revokes the credential on close and on delete', () =>
@@ -112,7 +112,7 @@ describe('hub MCP injection', () => {
         hubCalls.filter(call => call === 'revoke'),
         ['revoke', 'revoke'],
       );
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('re-issuing on load revokes the previous credential for that session', () =>
@@ -123,7 +123,29 @@ describe('hub MCP injection', () => {
       yield* loadSession('codex-acp', 's1', '/w');
       yield* loadSession('codex-acp', 's1', '/w');
       assert.strictEqual(hubCalls.filter(call => call === 'revoke').length, 1);
-    }).pipe(Effect.scoped),
+    }),
+  );
+
+  it.effect('a load that gets no hub still revokes the session’s previous credential', () =>
+    Effect.gen(function* () {
+      const hubCalls: string[] = [];
+      yield* installFakeHub(hubCalls);
+      const first = yield* beginMcp('codex-acp', true);
+      yield* first.bind('s1');
+      const second = yield* beginMcp('codex-acp', false);
+      yield* second.bind('s1');
+      assert.strictEqual(hubCalls.filter(call => call === 'revoke').length, 1);
+      assert.isDefined(currentHubUnavailableReason('codex-acp', 's1'));
+    }),
+  );
+
+  it.effect('a credential the hub did not confirm is revoked, in case it lands late', () =>
+    Effect.gen(function* () {
+      const hubCalls: string[] = [];
+      yield* installFakeHub(hubCalls, { accept: false });
+      yield* beginMcp('codex-acp', true);
+      assert.deepStrictEqual(hubCalls, ['register', 'revoke']);
+    }),
   );
 
   it.effect('a session RPC started while the hub is still connecting waits for it (startup Bind race)', () =>
@@ -137,7 +159,7 @@ describe('hub MCP injection', () => {
       yield* Fiber.join(create);
       assert.strictEqual(received[0].servers.length, 1);
       assert.strictEqual(currentHubUnavailableReason('codex-acp', 'bound-1'), undefined);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('a hub that never settles gives up after a few seconds and records why', () =>
@@ -150,7 +172,7 @@ describe('hub MCP injection', () => {
       yield* Fiber.join(create);
       assert.deepStrictEqual(received[0].servers, []);
       setHubAvailability({ _tag: 'unavailable', reason: 'down' });
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('each session records why it has no hub connection', () =>
@@ -167,7 +189,7 @@ describe('hub MCP injection', () => {
       yield* createSession('claude-agent-acp', '/w');
       assert.include(currentHubUnavailableReason('claude-agent-acp', 'claude-1'), 'HTTP MCP');
       yield* Scope.close(claude, Exit.void);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('a lost Backend connection revokes every credential of that launch target', () =>
@@ -181,7 +203,7 @@ describe('hub MCP injection', () => {
       yield* Scope.close(backend, Exit.void);
       assert.strictEqual(hubCalls.filter(call => call === 'revoke').length, 2);
       assert.isDefined(currentHubUnavailableReason('codex-acp', 'bound-1'));
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.effect('routes tool calls by credential and rejects unknown tools, bad args and unknown credentials', () =>
@@ -197,6 +219,24 @@ describe('hub MCP injection', () => {
       const stranger = yield* handleHubToolCall({ args: { document: 'x' }, token: 'nope', tool: 'submit_handoff' });
       assert.isTrue(unknownTool.isError && badArgs.isError && stranger.isError);
       assert.include(badArgs.text, 'Invalid arguments');
-    }).pipe(Effect.scoped),
+    }),
+  );
+
+  it.effect('rejects a blank handoff document', () =>
+    Effect.gen(function* () {
+      yield* installFakeHub([]);
+      const received: McpReceived[] = [];
+      yield* installFakeAgent([], { mcp: { received } });
+      yield* createSession('codex-acp', '/w');
+
+      const blank = yield* handleHubToolCall({
+        args: { document: ' \n ' },
+        token: bearerOf(received[0].servers),
+        tool: 'submit_handoff',
+      });
+
+      assert.isTrue(blank.isError);
+      assert.include(blank.text, 'must not be empty');
+    }),
   );
 });

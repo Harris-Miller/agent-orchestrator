@@ -149,70 +149,79 @@ export type McpInjection = {
 /** No MCP server for this session; once it exists, it is recorded as unconnected with `reason`. */
 const noMcp = (launchTarget: AgentLaunchTarget, reason: string): McpInjection => ({
   abandon: Effect.void,
-  bind: sessionId => Effect.sync(() => setStatus(launchTarget, sessionId, { _tag: 'none', reason })),
+  // A load / resume with no hub still ends the session's previous credential.
+  bind: sessionId =>
+    Effect.andThen(
+      revokeWhere(credential => credential.launchTarget === launchTarget && credential.sessionId === sessionId),
+      Effect.sync(() => setStatus(launchTarget, sessionId, { _tag: 'none', reason })),
+    ),
   params: { mcpServers: [] },
 });
 
 /**
- * Register a fresh credential before a session RPC and describe the hub as that RPC's MCP server. Injects nothing
+ * Register a fresh credential before a session RPC and describe the hub as that RPC's `mcpServers` entry (the ACP wire shape). Injects nothing
  * unless the hub is connected and the Agent advertises HTTP MCP (`mcpCapabilities.http`); a hub still connecting gets
  * a few seconds to settle first.
  */
-export const beginMcp = (launchTarget: AgentLaunchTarget, agentSupportsHttpMcp: boolean): Effect.Effect<McpInjection> =>
-  Effect.gen(function* () {
-    if (!agentSupportsHttpMcp) {
-      return noMcp(
-        launchTarget,
-        `${agentLaunchTargetLabel(launchTarget)} does not support HTTP MCP servers, so it cannot use the HOA hub.`,
-      );
-    }
-    const hub = yield* awaitHub(SETTLE_TIMEOUT);
-    if (hub === undefined) {
-      const availability = hubAvailability();
-      const why = availability._tag === 'unavailable' ? ` (${availability.reason})` : '';
-      return noMcp(launchTarget, `The HOA hub was unavailable when this session started${why}. Reopen it to connect.`);
-    }
-    const token = mintToken();
-    const preapproval = mcpToolPreapprovalMeta(launchTarget, MCP_SERVER_NAME, HUB_TOOL_NAMES);
-    credentials.set(token, { launchTarget, sessionId: undefined });
-    // The agent may dial the hub the moment its session starts, so the hub must already know the token.
-    if (!(yield* hub.register(token))) {
+export const beginMcp = Effect.fnUntraced(function* (
+  launchTarget: AgentLaunchTarget,
+  agentSupportsHttpMcp: boolean,
+): Effect.fn.Return<McpInjection> {
+  if (!agentSupportsHttpMcp) {
+    return noMcp(
+      launchTarget,
+      `${agentLaunchTargetLabel(launchTarget)} does not support HTTP MCP servers, so it cannot use the HOA hub.`,
+    );
+  }
+  const hub = yield* awaitHub(SETTLE_TIMEOUT);
+  if (hub === undefined) {
+    const availability = hubAvailability();
+    const why = availability._tag === 'unavailable' ? ` (${availability.reason})` : '';
+    return noMcp(launchTarget, `The HOA hub was unavailable when this session started${why}. Reopen it to connect.`);
+  }
+  const token = mintToken();
+  const preapproval = mcpToolPreapprovalMeta(launchTarget, MCP_SERVER_NAME, HUB_TOOL_NAMES);
+  credentials.set(token, { launchTarget, sessionId: undefined });
+  // The agent may dial the hub the moment its session starts, so the hub must already know the token.
+  if (!(yield* hub.register(token))) {
+    credentials.delete(token);
+    // A timed-out register may still land at the hub; frames are ordered, so this revoke lands after it.
+    yield* hub.revoke(token);
+    return noMcp(launchTarget, 'The HOA hub did not accept this session. Reopen it to connect.');
+  }
+  return {
+    abandon: Effect.suspend(() => {
       credentials.delete(token);
-      return noMcp(launchTarget, 'The HOA hub did not accept this session. Reopen it to connect.');
-    }
-    return {
-      abandon: Effect.suspend(() => {
-        credentials.delete(token);
-        return hub.revoke(token);
+      return hub.revoke(token);
+    }),
+    bind: sessionId =>
+      Effect.gen(function* () {
+        // A load / resume re-issues the credential: the previous one for this session stops working.
+        yield* revokeWhere(
+          (credential, other) =>
+            other !== token && credential.launchTarget === launchTarget && credential.sessionId === sessionId,
+        );
+        const credential = credentials.get(token);
+        if (credential !== undefined) {
+          credential.sessionId = sessionId;
+          yield* hub.bind(token, launchTarget, sessionId);
+          setStatus(launchTarget, sessionId, { _tag: 'bound' });
+        }
       }),
-      bind: sessionId =>
-        Effect.gen(function* () {
-          // A load / resume re-issues the credential: the previous one for this session stops working.
-          yield* revokeWhere(
-            (credential, other) =>
-              other !== token && credential.launchTarget === launchTarget && credential.sessionId === sessionId,
-          );
-          const credential = credentials.get(token);
-          if (credential !== undefined) {
-            credential.sessionId = sessionId;
-            yield* hub.bind(token, launchTarget, sessionId);
-            setStatus(launchTarget, sessionId, { _tag: 'bound' });
-          }
-        }),
-      params: {
-        mcpServers: [
-          {
-            headers: [{ name: 'Authorization', value: `Bearer ${token}` }],
-            name: MCP_SERVER_NAME,
-            type: 'http',
-            url: hub.mcpUrl,
-          },
-        ],
-        // Claude would otherwise ask the user before every hub tool call, stalling a Handoff on a permission prompt.
-        ...(preapproval === undefined ? {} : { _meta: preapproval }),
-      },
-    };
-  });
+    params: {
+      mcpServers: [
+        {
+          headers: [{ name: 'Authorization', value: `Bearer ${token}` }],
+          name: MCP_SERVER_NAME,
+          type: 'http',
+          url: hub.mcpUrl,
+        },
+      ],
+      // Claude would otherwise ask the user before every hub tool call, stalling a Handoff on a permission prompt.
+      ...(preapproval === undefined ? {} : { _meta: preapproval }),
+    },
+  };
+});
 
 /** Drop all credentials and statuses without telling the hub (tests only: module state outlives a test's scope). */
 export const forgetAllMcpTokens = (): void => {

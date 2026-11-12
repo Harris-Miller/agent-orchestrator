@@ -17,6 +17,8 @@ const { SendOptionsMenu } = await import('./SendOptionsMenu.tsx');
 
 afterEach(cleanup);
 
+const HANDOFF_ON = { appOrchestratedHandoffEnabled: true } as const;
+
 const gatedSession = {
   cwd: '/proj',
   transcript: {
@@ -58,9 +60,19 @@ describe('SendOptionsMenu', () => {
     }),
   );
 
+  it.effect('hides Handoff while Experimental: App Orchestrated Handoff is off (the default)', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* mount({ session: gatedSession });
+      openMenu();
+      assert.isNull(screen.queryByRole('menuitem', { name: /^Handoff/ }));
+      assert.isNotNull(screen.getByRole('menuitem', { name: 'Fork' }));
+      registry.dispose();
+    }),
+  );
+
   it.effect('disables Handoff and Fork when their gates are false', () =>
     Effect.gen(function* () {
-      const { registry } = yield* mount({});
+      const { registry } = yield* mount({ settings: HANDOFF_ON });
       openMenu();
       assert.strictEqual(screen.getByRole('menuitem', { name: /^Handoff/ }).getAttribute('aria-disabled'), 'true');
       assert.strictEqual(screen.getByRole('menuitem', { name: 'Fork' }).getAttribute('aria-disabled'), 'true');
@@ -73,7 +85,7 @@ describe('SendOptionsMenu', () => {
       const onRequestHandoff = vi.fn();
       yield* installFakeHub([]);
       yield* Effect.flatMap(beginMcp(CODEX, true), mcp => mcp.bind('s1'));
-      const { registry } = yield* mount({ session: gatedSession }, { onRequestHandoff });
+      const { registry } = yield* mount({ session: gatedSession, settings: HANDOFF_ON }, { onRequestHandoff });
       openMenu();
       fireEvent.click(screen.getByRole('menuitem', { name: 'Handoff' }));
       assert.strictEqual(onRequestHandoff.mock.calls.length, 1);

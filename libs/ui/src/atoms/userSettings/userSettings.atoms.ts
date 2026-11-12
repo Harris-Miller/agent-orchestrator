@@ -9,6 +9,8 @@ import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
 
 import {
+  appOrchestratedHandoffEnabled,
+  appOrchestratedHandoffEnabledAtom,
   midTurnSendModeAtom,
   showArchivedAtom,
   showArchivedEnabled,
@@ -17,7 +19,7 @@ import {
 } from './userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 
-export { showArchivedEnabled, unwrapUserSettings };
+export { appOrchestratedHandoffEnabled, showArchivedEnabled, unwrapUserSettings };
 export type { MidTurnSend };
 
 type AtomRuntime = HostRuntimeBag['atomRuntime'];
@@ -105,6 +107,17 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     get => developerModeEnabled(unwrapUserSettings(get(userSettingsAtom))),
     (ctx, enabled: boolean) => {
       ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), developerModeEnabled: enabled });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective Experimental: App Orchestrated Handoff (off when unset). Write patches User settings. */
+  const appOrchestratedHandoffAtom = Atom.writable(
+    get => get(appOrchestratedHandoffEnabledAtom),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, {
+        ...unwrapUserSettings(ctx.get(userSettingsAtom)),
+        appOrchestratedHandoffEnabled: enabled,
+      });
     },
   ).pipe(Atom.keepAlive);
 
@@ -220,6 +233,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
 
   return {
     alwaysHiddenGlobsAtom,
+    appOrchestratedHandoffAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,
     keepAwakeEnabledAtom,

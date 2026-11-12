@@ -11,6 +11,7 @@ import type { FC } from 'react';
 
 import {
   alwaysHiddenGlobsAtom,
+  appOrchestratedHandoffAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   keepAwakeEnabledAtom,
@@ -34,6 +35,8 @@ export const GeneralSettingsPane: FC = () => {
   const settingsResult = useAtomValue(userSettingsAtom);
   const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
   const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
+  const appOrchestratedHandoff = useAtomValue(appOrchestratedHandoffAtom);
+  const setAppOrchestratedHandoff = useAtomSet(appOrchestratedHandoffAtom);
   const developerMode = useAtomValue(developerModeAtom);
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
@@ -185,6 +188,19 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title="Advanced">
+        <SettingsRow
+          title="Experimental: App Orchestrated Handoff"
+          description="Adds Handoff to the Send options menu. The source agent delivers its handoff document by calling a tool on a local MCP hub that HOA runs. Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Experimental: App Orchestrated Handoff' } }}
+            checked={appOrchestratedHandoff}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setAppOrchestratedHandoff(checked);
+            }}
+          />
+        </SettingsRow>
         <SettingsRow title="Developer mode" description="Show developer tools and diagnostic panels.">
           <Switch
             slotProps={{ input: { 'aria-label': 'Developer mode' } }}

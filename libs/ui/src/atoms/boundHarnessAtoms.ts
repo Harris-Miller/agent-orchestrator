@@ -37,6 +37,7 @@ export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 
 export const {
   alwaysHiddenGlobsAtom,
+  appOrchestratedHandoffAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   keepAwakeEnabledAtom,

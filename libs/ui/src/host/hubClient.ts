@@ -128,7 +128,7 @@ const ensureHub = <R>(options: HubClientOptions<R>) =>
       ),
       Effect.retry({ schedule: Schedule.spaced('200 millis'), times: 25 }),
       Effect.mapError(error =>
-        error instanceof HubUnavailable
+        error._tag === 'HubUnavailable'
           ? error
           : new HubUnavailable({
               reason: 'Could not read the HOA hub connection details (~/.hoa/hub.json). Retrying.',

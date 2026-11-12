@@ -36,6 +36,13 @@ const sessionKey = (launchTarget: AgentLaunchTarget, sessionId: string) => `${la
 let statuses: ReadonlyMap<string, SessionHubStatus> = new Map();
 const statusListeners = new Set<(next: ReadonlyMap<string, SessionHubStatus>) => void>();
 
+const publishStatuses = (next: ReadonlyMap<string, SessionHubStatus>) => {
+  statuses = next;
+  for (const listener of statusListeners) {
+    listener(next);
+  }
+};
+
 const setStatus = (launchTarget: AgentLaunchTarget, sessionId: string, status: SessionHubStatus | undefined) => {
   const next = new Map(statuses);
   if (status === undefined) {
@@ -43,10 +50,7 @@ const setStatus = (launchTarget: AgentLaunchTarget, sessionId: string, status: S
   } else {
     next.set(sessionKey(launchTarget, sessionId), status);
   }
-  statuses = next;
-  for (const listener of statusListeners) {
-    listener(next);
-  }
+  publishStatuses(next);
 };
 
 export const sessionHubStatuses = (): ReadonlyMap<string, SessionHubStatus> => statuses;
@@ -126,10 +130,7 @@ export const revokeLaunchTargetMcp = (launchTarget: AgentLaunchTarget): Effect.E
     revokeWhere(credential => credential.launchTarget === launchTarget),
     Effect.sync(() => {
       const prefix = sessionKey(launchTarget, '');
-      statuses = new Map([...statuses].filter(([key]) => !key.startsWith(prefix)));
-      for (const listener of statusListeners) {
-        listener(statuses);
-      }
+      publishStatuses(new Map([...statuses].filter(([key]) => !key.startsWith(prefix))));
     }),
   );
 
@@ -216,7 +217,7 @@ export const beginMcp = (launchTarget: AgentLaunchTarget, agentSupportsHttpMcp: 
 /** Drop all credentials and statuses without telling the hub (tests only: module state outlives a test's scope). */
 export const forgetAllMcpTokens = (): void => {
   credentials.clear();
-  statuses = new Map();
+  publishStatuses(new Map());
 };
 
 export type HubToolCall = { readonly args: unknown; readonly token: string; readonly tool: string };

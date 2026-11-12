@@ -31,8 +31,9 @@ export const hubWireEntriesAtom = Atom.make((get): readonly HubWireEntry[] => {
 export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
   /** Mount for the app's lifetime (`HubMount`): ensures a hub, connects, reconnects; degraded when it cannot. */
   hubAtom: runtime.atom(() => {
-    // Synchronously on mount, before the Host layer is built: a session RPC that races startup then waits for the hub
-    // (`awaitHub`) instead of finding it unavailable and starting the session without a credential for good.
+    // Before any async work: `HubMount` mounts ahead of `AcpBackendsMount`, so by the time a backend can reach its first
+    // session RPC the hub reads `connecting` and that RPC waits for it (`awaitHub`) instead of finding it unavailable
+    // and starting the session without a credential for good.
     setHubAvailability({ _tag: 'connecting' });
     return hostHubClientOptions.pipe(
       Effect.flatMap(runHubClient),

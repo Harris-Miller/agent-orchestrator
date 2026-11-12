@@ -7,7 +7,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
-import { SOURCE_HANDOFF_PROMPT } from '../host/handoffDocument.ts';
+import { buildTargetHandoffSeedPrompt, SOURCE_HANDOFF_PROMPT } from '../host/handoffDocument.ts';
 import { expectHandoff } from '../host/handoffSubmission.ts';
 import { addCreatedSession } from '../host/harnessStateTransitions.ts';
 import { currentHubUnavailableReason } from '../host/hubSessions.ts';
@@ -136,7 +136,12 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           }
 
           const seedExit = yield* Effect.exit(
-            handoffPrompt(get.registry, arg.targetLaunchTarget, targetSessionId, handoffDocument),
+            handoffPrompt(
+              get.registry,
+              arg.targetLaunchTarget,
+              targetSessionId,
+              buildTargetHandoffSeedPrompt(handoffDocument),
+            ),
           );
           if (Exit.isFailure(seedExit)) {
             yield* Effect.logWarning('Handoff target seed prompt failed', arg.targetLaunchTarget, targetSessionId);

@@ -25,9 +25,12 @@ export const expectHandoff = (
       pending.set(key(launchTarget, sessionId), deferred);
       return deferred;
     }),
-    () =>
+    deferred =>
       Effect.sync(() => {
-        pending.delete(key(launchTarget, sessionId));
+        // Only its own: an overlapping Handoff on the same session may have replaced it.
+        if (pending.get(key(launchTarget, sessionId)) === deferred) {
+          pending.delete(key(launchTarget, sessionId));
+        }
       }),
   );
 

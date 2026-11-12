@@ -126,13 +126,13 @@ describe('hub MCP injection', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.live('a session RPC started while the hub is still connecting waits for it (startup Bind race)', () =>
+  it.effect('a session RPC started while the hub is still connecting waits for it (startup Bind race)', () =>
     Effect.gen(function* () {
       setHubAvailability({ _tag: 'connecting' });
       const received: McpReceived[] = [];
       yield* installFakeAgent([], { mcp: { received } });
       const create = yield* Effect.forkChild(createSession('codex-acp', '/w'));
-      yield* Effect.sleep('50 millis');
+      yield* TestClock.adjust('1 second');
       yield* installFakeHub([]);
       yield* Fiber.join(create);
       assert.strictEqual(received[0].servers.length, 1);

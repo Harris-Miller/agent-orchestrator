@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { startHub } from './hub.ts';
 import { runHubProcess } from './hubProcess.ts';
-import { clientsQuery, HUB_APP_ID, HUB_TOOL_NAMES, PROTOCOL_VERSION } from './protocol.ts';
+import { clientsQuery, HUB_APP_ID, HUB_TOOL_NAMES, MAX_HANDOFF_DOCUMENT_CHARS, PROTOCOL_VERSION } from './protocol.ts';
 import { connectTestClient, mcpCallTool, mcpInitialize, mcpPost, registerToken, rpcResult } from './testing.ts';
 import { HubToolkit } from './tools.ts';
 
@@ -131,6 +131,60 @@ describe('hub', () => {
         bystander.received.filter(m => m.type === 'toolCall'),
         [],
       );
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('refuses an oversize handoff document as invalid params, without routing it', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-big');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-big');
+      const { text } = yield* mcpPost(
+        mcpUrl(port),
+        'tok-big',
+        {
+          id: 3,
+          jsonrpc: '2.0',
+          method: 'tools/call',
+          params: { arguments: { document: 'x'.repeat(MAX_HANDOFF_DOCUMENT_CHARS + 1) }, name: 'submit_handoff' },
+        },
+        { sessionId },
+      );
+      assert.strictEqual((JSON.parse(text) as { error: { code: number } }).error.code, -32602);
+      assert.deepStrictEqual(
+        owner.received.filter(m => m.type === 'toolCall'),
+        [],
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('does not serve an agent request body over 1 MiB', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-huge');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-huge');
+      const huge = yield* Effect.exit(
+        mcpPost(
+          mcpUrl(port),
+          'tok-huge',
+          { ...listTools, params: { padding: 'x'.repeat(1024 * 1024) } },
+          { sessionId },
+        ),
+      );
+      // The server stops reading and drops the connection rather than answering.
+      assert.isTrue(Exit.isFailure(huge) || huge.value.response.status >= 400);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('answers an unknown MCP session with 404, so an agent re-initializes after a hub restart', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-stale');
+      const stale = yield* mcpPost(mcpUrl(port), 'tok-stale', listTools, { sessionId: 'from-the-previous-hub' });
+      assert.strictEqual(stale.response.status, 404);
     }).pipe(Effect.scoped),
   );
 

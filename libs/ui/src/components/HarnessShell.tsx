@@ -37,8 +37,9 @@ export const HarnessPrerequisites: FC<{
 /** Hydrate the Harness caches, then mount the Backend harnesses and their companions; `children` render once hydrated. */
 export const HarnessMounts: FC<{ readonly children?: ReactNode }> = ({ children }) => (
   <HarnessCacheGate>
-    <AcpBackendsMount />
+    {/* Before the backends: mounting it marks the hub `connecting`, so their first session RPCs wait for it. */}
     <HubMount />
+    <AcpBackendsMount />
     <KeepAwakeMount />
     <ProvidersStartupMount />
     {children}

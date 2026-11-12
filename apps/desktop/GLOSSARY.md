@@ -198,11 +198,11 @@ Harness action that asks the source active session to call the hub's `submit_han
 _Avoid_: Transfer, migrate session, export chat
 
 **Hub**:
-The one machine-wide local process (`libs/hub`, MCP over HTTP on `127.0.0.1`) that agents call tools on. It only routes: each session's bearer credential names the Harness client that owns it, and the tool logic runs in that Harness. Started detached by whichever client finds none running; exits shortly after its last client disconnects. See `docs/adr/0002-shared-mcp-hub-detached-from-clients.md`.
+The one machine-wide local process that agents call Harness tools on. It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
 _Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
 
 **Hub client**:
-A Harness's connection to the Hub: ensures one is running (starting it through the launcher), registers, binds and revokes session credentials, serves the tool calls routed to it, and reports availability (`connecting` / `available` / `unavailable(reason)`). When unavailable, no MCP server is injected and Handoff is disabled with the reason; a session that started without a credential stays unconnected until reopened.
+A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials, answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened.
 _Avoid_: hub connection (the connection is the transport; the client is the role)
 
 **Pending client request**:

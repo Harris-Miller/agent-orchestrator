@@ -137,9 +137,7 @@ export const createSession = Effect.fn('createSession')(
     const { agent, mcpHttp, onConfigIndexEvent } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Creating ACP session', { cwd: Redacted.make(cwd) });
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* agent['session/new']({ cwd, mcpServers: [...mcp.mcpServers] }).pipe(
-      Effect.onError(() => mcp.abandon),
-    );
+    const result = yield* agent['session/new']({ cwd, ...mcp.params }).pipe(Effect.onError(() => mcp.abandon));
     yield* mcp.bind(result.sessionId);
     yield* Effect.logInfo('Created ACP session', { sessionId: result.sessionId });
     onConfigIndexEvent({ _tag: 'SessionNew', response: result });
@@ -154,9 +152,7 @@ export const forkSession = Effect.fn('forkSession')(
     const { mcpHttp, sessionFork } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Forking ACP session', sessionId, { cwd: Redacted.make(cwd) });
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* sessionFork({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
-      Effect.onError(() => mcp.abandon),
-    );
+    const result = yield* sessionFork({ cwd, ...mcp.params, sessionId }).pipe(Effect.onError(() => mcp.abandon));
     // Some agents answer without an id (the caller then skips the fork); the credential has no session to bind to.
     yield* (result.sessionId as string | undefined) === undefined ? mcp.abandon : mcp.bind(result.sessionId);
     yield* Effect.logInfo('Forked ACP session', {
@@ -174,7 +170,7 @@ export const loadSession = Effect.fn('loadSession')(
     const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Loading ACP session', sessionId, { cwd: Redacted.make(cwd) });
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* agent['session/load']({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
+    const result = yield* agent['session/load']({ cwd, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     yield* mcp.bind(sessionId);
@@ -189,7 +185,7 @@ export const resumeSession = Effect.fn('resumeSession')(
     const { agent, mcpHttp } = yield* requireBackendConnection(launchTarget);
     yield* Effect.logInfo('Resuming ACP session', sessionId, { cwd: Redacted.make(cwd) });
     const mcp = yield* beginMcp(launchTarget, mcpHttp);
-    const result = yield* agent['session/resume']({ cwd, mcpServers: [...mcp.mcpServers], sessionId }).pipe(
+    const result = yield* agent['session/resume']({ cwd, ...mcp.params, sessionId }).pipe(
       Effect.onError(() => mcp.abandon),
     );
     yield* mcp.bind(sessionId);

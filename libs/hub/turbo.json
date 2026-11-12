@@ -2,8 +2,11 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "inputs": ["src/**", "tsdown.config.ts", "package.json"],
+      "inputs": ["src/**", "!src/**/*.test.ts", "tsdown.config.ts", "package.json"],
       "outputs": ["dist/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
     }
   }
 }

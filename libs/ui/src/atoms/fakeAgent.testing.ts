@@ -90,7 +90,12 @@ export type FakeAgentOpts = FakeSetConfig & {
 };
 
 /** One session RPC's `mcpServers`, as the fake agent received it. */
-export type McpReceived = { readonly rpc: 'fork' | 'load' | 'new' | 'resume'; readonly servers: readonly unknown[] };
+export type McpReceived = {
+  /** The request's `_meta` (provider options such as Claude's tool pre-approval). */
+  readonly meta: unknown;
+  readonly rpc: 'fork' | 'load' | 'new' | 'resume';
+  readonly servers: readonly unknown[];
+};
 
 type FakeConnection = Parameters<typeof registerBackendConnection>[1];
 
@@ -136,14 +141,22 @@ export const installFakeAgent = (
           calls.push(`delete:${sessionId}`);
           return opts.failDelete === true ? Effect.fail('delete-fail') : Effect.void;
         },
-        'session/load': ({ mcpServers, sessionId }: { mcpServers: readonly unknown[]; sessionId: string }) => {
+        'session/load': ({
+          _meta,
+          mcpServers,
+          sessionId,
+        }: {
+          _meta?: unknown;
+          mcpServers: readonly unknown[];
+          sessionId: string;
+        }) => {
           calls.push(`load:${sessionId}`);
-          opts.mcp?.received.push({ rpc: 'load', servers: mcpServers });
+          opts.mcp?.received.push({ meta: _meta, rpc: 'load', servers: mcpServers });
           return opts.failLoad === true ? Effect.fail('load-fail') : Effect.succeed(selectableConfig);
         },
-        'session/new': ({ mcpServers }: { mcpServers: readonly unknown[] }) => {
+        'session/new': ({ _meta, mcpServers }: { _meta?: unknown; mcpServers: readonly unknown[] }) => {
           calls.push(isClaude ? 'new:claude' : 'new');
-          opts.mcp?.received.push({ rpc: 'new', servers: mcpServers });
+          opts.mcp?.received.push({ meta: _meta, rpc: 'new', servers: mcpServers });
           if (opts.failNew === true) {
             return Effect.fail('new-fail');
           }
@@ -168,9 +181,17 @@ export const installFakeAgent = (
             ? Effect.andThen(during, Effect.fail('prompt-fail'))
             : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
         },
-        'session/resume': ({ mcpServers, sessionId }: { mcpServers?: readonly unknown[]; sessionId: string }) => {
+        'session/resume': ({
+          _meta,
+          mcpServers,
+          sessionId,
+        }: {
+          _meta?: unknown;
+          mcpServers?: readonly unknown[];
+          sessionId: string;
+        }) => {
           calls.push(`resume:${sessionId}`);
-          opts.mcp?.received.push({ rpc: 'resume', servers: mcpServers ?? [] });
+          opts.mcp?.received.push({ meta: _meta, rpc: 'resume', servers: mcpServers ?? [] });
           return Effect.succeed(selectableConfig);
         },
         'session/set_config_option': ({ configId, value }: { configId: string; value: unknown }) => {
@@ -199,9 +220,17 @@ export const installFakeAgent = (
         calls.push(`archive:${sessionId}`);
         return Effect.void;
       },
-      sessionFork: ({ mcpServers, sessionId }: { mcpServers: readonly unknown[]; sessionId: string }) => {
+      sessionFork: ({
+        _meta,
+        mcpServers,
+        sessionId,
+      }: {
+        _meta?: unknown;
+        mcpServers: readonly unknown[];
+        sessionId: string;
+      }) => {
         calls.push(`fork:${sessionId}`);
-        opts.mcp?.received.push({ rpc: 'fork', servers: mcpServers });
+        opts.mcp?.received.push({ meta: _meta, rpc: 'fork', servers: mcpServers });
         return opts.rejectFork === true
           ? Effect.fail(REJECTION)
           : Effect.succeed({ ...selectableConfig, sessionId: 'fork-1' });

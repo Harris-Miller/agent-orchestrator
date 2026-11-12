@@ -8,6 +8,7 @@ import type { HubToolName } from '@lib/hub/protocol';
 import type { McpServer } from '@libs/effect-acp';
 import { Duration, Effect } from 'effect';
 
+import { mcpToolPreapprovalMeta } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from './agentLaunchTarget.ts';
 import { awaitHub, currentHub, hubAvailability } from './hubConnection.ts';
@@ -132,19 +133,23 @@ export const revokeLaunchTargetMcp = (launchTarget: AgentLaunchTarget): Effect.E
     }),
   );
 
-/** MCP servers for one session RPC, plus how to finish (bind) or undo (abandon) the credential behind them. */
+/** What one session RPC's params carry for the hub: its MCP servers, and any provider `_meta` that goes with them. */
+export type McpParams = { readonly _meta?: Record<string, unknown>; readonly mcpServers: McpServer[] };
+
+/** The hub's part of one session RPC's params, plus how to finish (bind) or undo (abandon) the credential behind it. */
 export type McpInjection = {
   readonly abandon: Effect.Effect<void>;
   /** Record the session's status once its id is known (the RPC succeeded). */
   readonly bind: (sessionId: string) => Effect.Effect<void>;
-  readonly mcpServers: readonly McpServer[];
+  /** Spread into the session RPC's params. */
+  readonly params: McpParams;
 };
 
 /** No MCP server for this session; once it exists, it is recorded as unconnected with `reason`. */
 const noMcp = (launchTarget: AgentLaunchTarget, reason: string): McpInjection => ({
   abandon: Effect.void,
   bind: sessionId => Effect.sync(() => setStatus(launchTarget, sessionId, { _tag: 'none', reason })),
-  mcpServers: [],
+  params: { mcpServers: [] },
 });
 
 /**
@@ -167,6 +172,7 @@ export const beginMcp = (launchTarget: AgentLaunchTarget, agentSupportsHttpMcp: 
       return noMcp(launchTarget, `The HOA hub was unavailable when this session started${why}. Reopen it to connect.`);
     }
     const token = mintToken();
+    const preapproval = mcpToolPreapprovalMeta(launchTarget, MCP_SERVER_NAME, HUB_TOOL_NAMES);
     credentials.set(token, { launchTarget, sessionId: undefined });
     // The agent may dial the hub the moment its session starts, so the hub must already know the token.
     if (!(yield* hub.register(token))) {
@@ -192,14 +198,18 @@ export const beginMcp = (launchTarget: AgentLaunchTarget, agentSupportsHttpMcp: 
             setStatus(launchTarget, sessionId, { _tag: 'bound' });
           }
         }),
-      mcpServers: [
-        {
-          headers: [{ name: 'Authorization', value: `Bearer ${token}` }],
-          name: MCP_SERVER_NAME,
-          type: 'http',
-          url: hub.mcpUrl,
-        },
-      ],
+      params: {
+        mcpServers: [
+          {
+            headers: [{ name: 'Authorization', value: `Bearer ${token}` }],
+            name: MCP_SERVER_NAME,
+            type: 'http',
+            url: hub.mcpUrl,
+          },
+        ],
+        // Claude would otherwise ask the user before every hub tool call, stalling a Handoff on a permission prompt.
+        ...(preapproval === undefined ? {} : { _meta: preapproval }),
+      },
     };
   });
 

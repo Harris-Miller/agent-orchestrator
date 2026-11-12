@@ -39,8 +39,13 @@ export type ClientKind = typeof ClientKind.Type;
 // Adding a tool: add its argument schema here, a `Tool.make` entry in the hub's `tools.ts`, and a Harness handler.
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** Far above any real handoff; an oversize document comes back to the agent as invalid params instead of a 413. */
+export const MAX_HANDOFF_DOCUMENT_CHARS = 100_000;
+
 export const SubmitHandoffArgs = Schema.Struct({
-  document: Schema.String.annotate({ description: 'The complete handoff document, as Markdown.' }),
+  document: Schema.String.check(Schema.isMaxLength(MAX_HANDOFF_DOCUMENT_CHARS)).annotate({
+    description: `The complete handoff document, as Markdown (at most ${MAX_HANDOFF_DOCUMENT_CHARS} characters).`,
+  }),
 });
 
 export const HUB_TOOL_NAMES = ['submit_handoff'] as const;

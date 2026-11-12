@@ -3,7 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit, Fiber, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 
-import { bearerOf, installFakeAgent, installFakeHub } from '../atoms/fakeAgent.testing.ts';
+import { bearerOf, CLAUDE, CODEX, installFakeAgent, installFakeHub } from '../atoms/fakeAgent.testing.ts';
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 
 import { setHubAvailability } from './hubConnection.ts';
@@ -44,6 +44,36 @@ describe('hub MCP injection', () => {
         'register',
         'bind:codex-acp:fork-1',
       ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('pre-approves the hub tools for Claude, so a Handoff never stops on a permission prompt', () =>
+    Effect.gen(function* () {
+      yield* installFakeHub([]);
+      const received: McpReceived[] = [];
+      yield* installFakeAgent([], { mcp: { received } }, CLAUDE);
+      yield* installFakeAgent([], { mcp: { received } }, CODEX);
+
+      yield* createSession(CLAUDE, '/w');
+      yield* loadSession(CLAUDE, 's1', '/w');
+      yield* resumeSession(CLAUDE, 's2', '/w');
+      yield* forkSession(CLAUDE, 's3', '/w');
+      yield* createSession(CODEX, '/w');
+
+      const preapproved = { claudeCode: { options: { allowedTools: ['mcp__hoa-hub__submit_handoff'] } } };
+      assert.deepStrictEqual(
+        received.map(r => r.meta),
+        [preapproved, preapproved, preapproved, preapproved, undefined],
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('sends Claude no pre-approval when the hub is not injected', () =>
+    Effect.gen(function* () {
+      const received: McpReceived[] = [];
+      yield* installFakeAgent([], { mcp: { http: false, received } }, CLAUDE);
+      yield* createSession(CLAUDE, '/w');
+      assert.strictEqual(received[0].meta, undefined);
     }).pipe(Effect.scoped),
   );
 

@@ -4,9 +4,10 @@
  * window started it (ADR 0002: the exception to VS Code ADR 0003, "webview lifetime equals process lifetime").
  */
 import { BundledResource, OS } from '@lib/context-services';
+import { defaultSettings, readUserSettings } from '@lib/hoa-home';
 import { DEFAULT_HUB_PORT } from '@lib/hub/protocol';
 import type { ClientKind } from '@lib/hub/protocol';
-import { Effect } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 import { requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { HubUnavailable } from './hubClient.ts';
@@ -21,22 +22,36 @@ export const HUB_LAUNCHER_RESOURCE = 'hub/hub-launcher.mjs';
 const VSCODE_HOST_ENV = 'HOA_HOST';
 const VSCODE_REMOTE_ENV = 'HOA_VSCODE_REMOTE_NAME';
 
-export const launchHub = Effect.gen(function* () {
-  yield* requireExecutableOnPath('node').pipe(
-    Effect.mapError(() => new HubUnavailable({ reason: 'Node.js was not found on PATH, and the HOA hub needs it.' })),
-  );
-  const resources = yield* BundledResource;
-  const missing = () => new HubUnavailable({ reason: 'This build does not include the HOA hub.' });
-  const launcher = yield* resources.resolve(HUB_LAUNCHER_RESOURCE).pipe(Effect.mapError(missing));
-  const hub = yield* resources.resolve(HUB_RESOURCE).pipe(Effect.mapError(missing));
-  const result = yield* runCapturedProcess('node', [launcher, hub]).pipe(
-    Effect.mapError(() => new HubUnavailable({ reason: 'Could not start the HOA hub.' })),
-  );
-  if (result.exitCode !== 0) {
-    yield* Effect.logWarning('Hub launcher failed', result.exitCode, result.stderr);
-    return yield* new HubUnavailable({ reason: 'Could not start the HOA hub.' });
-  }
-});
+/**
+ * The `hubPort` User setting. Read leniently from `settings.json`'s open record rather than declared in the strict
+ * schema: a bad value there would make every other setting fall back to its default.
+ */
+const decodeHubPort = Schema.decodeUnknownOption(Schema.Int.check(Schema.isBetween({ maximum: 65_535, minimum: 1 })));
+
+const cannotStart = () =>
+  new HubUnavailable({ reason: 'Could not start the HOA hub. Its log is at ~/.hoa/logs/hub.log.' });
+
+export const launchHub = (port: number) =>
+  Effect.gen(function* () {
+    yield* requireExecutableOnPath('node').pipe(
+      Effect.mapError(
+        () =>
+          new HubUnavailable({ reason: 'Node.js was not found on PATH. Install Node.js 22 or later, then restart.' }),
+      ),
+    );
+    const resources = yield* BundledResource;
+    const missing = () =>
+      new HubUnavailable({ reason: 'This build does not include the HOA hub. Reinstall or rebuild the app.' });
+    const launcher = yield* resources.resolve(HUB_LAUNCHER_RESOURCE).pipe(Effect.mapError(missing));
+    const hub = yield* resources.resolve(HUB_RESOURCE).pipe(Effect.mapError(missing));
+    const result = yield* runCapturedProcess('node', [launcher, hub, '--port', String(port)]).pipe(
+      Effect.mapError(cannotStart),
+    );
+    if (result.exitCode !== 0) {
+      yield* Effect.logWarning('Hub launcher failed', result.exitCode, result.stderr);
+      return yield* cannotStart();
+    }
+  });
 
 /**
  * This Host's hub client options, or the reason it must run degraded. A remote VS Code window (SSH, WSL, containers,
@@ -47,13 +62,15 @@ export const hostHubClientOptions = Effect.gen(function* () {
   const remote = env[VSCODE_REMOTE_ENV];
   if (remote !== undefined && remote !== '') {
     return yield* new HubUnavailable({
-      reason: `This is a remote window (${remote}); HOA hub features only work in local windows.`,
+      reason: `This is a remote window (${remote}); HOA hub features only work in local windows. Open the folder in a local window to use them.`,
     });
   }
   const clientKind: ClientKind = env[VSCODE_HOST_ENV] === 'vscode' ? 'vscode' : 'desktop';
+  const settings = yield* readUserSettings().pipe(Effect.orElseSucceed(() => defaultSettings));
+  const port = Option.getOrElse(decodeHubPort(settings['hubPort']), () => DEFAULT_HUB_PORT);
   return {
     clientKind,
-    port: DEFAULT_HUB_PORT,
-    startHub: launchHub,
+    port,
+    startHub: launchHub(port),
   } satisfies HubClientOptions<unknown>;
 });

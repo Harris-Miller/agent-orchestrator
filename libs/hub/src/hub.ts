@@ -5,7 +5,7 @@
  */
 import { NodeHttpServer } from '@effect/platform-node';
 import type { Duration, Scope } from 'effect';
-import { Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema } from 'effect';
+import { ByteSize, Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Socket } from 'effect/socket';
@@ -31,6 +31,12 @@ export type RunningHub = {
   /** Completes once no client has been connected for `idleGrace` (the process then exits). */
   readonly awaitIdle: Effect.Effect<void>;
 };
+
+/**
+ * Cap on an agent request body and a `/clients` frame. Far above any legitimate message (a handoff document is capped
+ * well below it in the tool schema), so only a runaway or hostile sender hits it.
+ */
+const MAX_MESSAGE_BYTES = 1024 * 1024;
 
 /** Agents' MCP clients negotiate down to one of these (all Streamable HTTP; no legacy HTTP+SSE). */
 const MCP_PROTOCOLS = [McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26] as const;
@@ -182,8 +188,12 @@ export const startHub = (options: HubOptions): Effect.Effect<RunningHub, unknown
       gracefulShutdownTimeout: '3 seconds',
       host: HUB_HOST,
       port: options.port,
+      websocket: { maxPayload: MAX_MESSAGE_BYTES },
     });
-    const context = yield* Layer.build(HttpRouter.serve(app).pipe(Layer.provideMerge(serverLayer)));
+    const served = HttpRouter.serve(app, {
+      middleware: Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.bytes(MAX_MESSAGE_BYTES)),
+    });
+    const context = yield* Layer.build(served.pipe(Layer.provideMerge(serverLayer)));
     // Added after the server, so it runs before the server's own shutdown (finalizers run in reverse).
     yield* Effect.addFinalizer(() => state.closeAll);
     const { address } = Context.get(context, HttpServer.HttpServer);

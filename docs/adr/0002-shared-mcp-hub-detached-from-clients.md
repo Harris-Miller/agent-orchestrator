@@ -13,6 +13,15 @@ There is **one hub per machine**, shared by the desktop app and every local VS C
 - When the hub cannot be used (Node missing, the port held by another program, a protocol mismatch, a remote VS Code window, start or connect failure) the client runs degraded: no MCP server is injected and Handoff is disabled with the reason. There is no text-matching fallback.
 - A hub crash only fails calls in flight: clients reconnect, start a new hub on the same port, and re-register their credentials, so agents' MCP URLs keep working.
 
+- **Fixed port, no fallback.** A fallback port would change agents' MCP URLs across a hub restart. A user whose port is taken sets `hubPort` in `~/.hoa/settings.json` (read by every client, so all agree); it is read leniently, outside the strict settings schema, so a bad value only falls back to the default port.
+- **Version skew degrades, then heals by itself.** A client refuses a hub with another protocol version and says which windows to close. A hub with no clients exits after its grace period, and the client's reconnect loop then starts one it speaks. There is no takeover endpoint (an older hub could not honour one anyway, and it would save at most one grace period per upgrade).
+- **Hub logs** go to `~/.hoa/logs/hub.log`: the launcher appends the hub's stdout / stderr there, moving it to `hub.log.1` when over 1 MiB.
+- **Size limits**: agent request bodies and `/clients` frames are capped at 1 MiB; `submit_handoff`'s document is capped in its schema, so an oversize one reaches the agent as invalid params rather than an opaque HTTP error. No rate limiting: every caller is a local process holding a credential.
+- **Claude permission prompts**: hub tools are pre-approved for the Claude adapter (`_meta.claudeCode.options.allowedTools` on each session RPC that injects the hub), so a Handoff never stops on a permission prompt.
+- **Credentials stay out of logs.** Session tokens live in memory only; the RPC wire log redacts `mcpServers` headers and env, the developer panel's hub log shortens tokens, and RPC spans carry no payloads. The hub secret rides in the `/clients` query (browser WebSockets cannot set headers); the HTTP request logger drops query strings. `/health` stays readable cross-origin: it reveals only the app id, pid and protocol version.
+- The discovery file is mode 0600. On Windows that mode is not enforced; the file relies on the user profile's inherited owner-only ACL.
+- A hub restart drops agents' MCP sessions: the hub answers their old session id with 404, which MCP clients answer by re-initializing.
+
 ## Not built yet
 
-Version negotiation beyond refusing a mismatch (a newer client cannot ask an older idle hub to exit), a fallback port, a stdio shim for agents without HTTP MCP, MCP-over-ACP, pre-approving the Claude adapter's permission prompt for hub tools, and cross-client tools (the hub records client kind and session bindings for them).
+A stdio shim for agents without HTTP MCP, MCP-over-ACP, cross-client tools (the hub records client kind and session bindings for them), and a "reconnect session" action for sessions that started while the hub was unavailable.

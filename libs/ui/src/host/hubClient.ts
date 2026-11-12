@@ -96,17 +96,24 @@ const ensureHub = <R>(options: HubClientOptions<R>) =>
     }
     switch (found._tag) {
       case 'absent': {
-        return yield* new HubUnavailable({ reason: 'The HOA hub did not start.' });
+        return yield* new HubUnavailable({ reason: 'The HOA hub did not start. Its log is at ~/.hoa/logs/hub.log.' });
       }
       case 'foreign': {
         return yield* new HubUnavailable({
-          reason: `Another program is using port ${options.port}, which the HOA hub needs.`,
+          reason: `Another program is using port ${options.port}, which the HOA hub needs. Quit that program, or set "hubPort" in ~/.hoa/settings.json to a free port and reopen every HOA window.`,
         });
       }
       case 'hub': {
-        if (found.version !== PROTOCOL_VERSION) {
+        // No takeover: a mismatched hub exits by itself once its own clients are gone, and the reconnect loop then
+        // starts one this version speaks (ADR 0002).
+        if (found.version < PROTOCOL_VERSION) {
           return yield* new HubUnavailable({
-            reason: `The running HOA hub is from a different version (protocol ${found.version}; this app needs ${PROTOCOL_VERSION}). Close every HOA window so it restarts.`,
+            reason: `An older HOA window is running the HOA hub (protocol ${found.version}; this window needs ${PROTOCOL_VERSION}). Close the older HOA windows; this one reconnects by itself.`,
+          });
+        }
+        if (found.version > PROTOCOL_VERSION) {
+          return yield* new HubUnavailable({
+            reason: `A newer HOA window is running the HOA hub (protocol ${found.version}; this window speaks ${PROTOCOL_VERSION}). Update this app, or close the newer windows.`,
           });
         }
       }
@@ -117,13 +124,15 @@ const ensureHub = <R>(options: HubClientOptions<R>) =>
     return yield* readDiscovery.pipe(
       Effect.filterOrFail(
         discovery => discovery.pid === pid && discovery.port === options.port,
-        () => new HubUnavailable({ reason: 'The HOA hub discovery file is stale.' }),
+        () => new HubUnavailable({ reason: 'The HOA hub did not publish its connection details. Retrying.' }),
       ),
       Effect.retry({ schedule: Schedule.spaced('200 millis'), times: 25 }),
       Effect.mapError(error =>
         error instanceof HubUnavailable
           ? error
-          : new HubUnavailable({ reason: 'The HOA hub discovery file is unreadable.' }),
+          : new HubUnavailable({
+              reason: 'Could not read the HOA hub connection details (~/.hoa/hub.json). Retrying.',
+            }),
       ),
     );
   });
@@ -136,7 +145,7 @@ const connectOnce = <R>(options: HubClientOptions<R>) =>
     const socket = yield* Socket.makeWebSocket(url).pipe(Effect.provide(Socket.layerWebSocketConstructorGlobal));
     // The reader dials and waits for open; the writer is only usable after that.
     const pull = yield* Socket.readerString(socket).pipe(
-      Effect.mapError(() => new HubUnavailable({ reason: 'Could not connect to the HOA hub.' })),
+      Effect.mapError(() => new HubUnavailable({ reason: 'Could not connect to the HOA hub. Retrying.' })),
     );
     const writer = yield* socket.writer;
     const send = (message: ClientMessage) =>

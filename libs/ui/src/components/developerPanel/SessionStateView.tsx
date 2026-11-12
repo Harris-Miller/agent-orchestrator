@@ -20,7 +20,7 @@ import type { AvailableCommand } from '../../host/sessionUpdateReducer.ts';
 import { writeTextToClipboard } from '../../host/writeTextToClipboard.ts';
 import { hostRunPromise } from '../../hostRuntime.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
-import { UsageCard } from '../sessionChat/UsageCard.tsx';
+import { UsageCard } from '../sessionChat/usage/UsageCard.tsx';
 
 export const sectionCardSx = {
   bgcolor: 'background.default',

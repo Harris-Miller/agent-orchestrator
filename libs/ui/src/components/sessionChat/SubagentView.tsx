@@ -18,11 +18,11 @@ import {
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { canCancelSubagent, getSubagent } from '../../host/subagent.ts';
 
-import { ChatItemView } from './ChatItemView.tsx';
-import { PendingElicitationCard } from './PendingElicitationCard.tsx';
-import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
-import { subagentStatus } from './subagentStateLabel.ts';
+import { ChatItemView } from './transcript/ChatItemView.tsx';
+import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
+import { PendingPermissionCard } from './pendingInteractions/PendingPermissionCard.tsx';
+import { SubagentStatusIndicator } from './transcript/chatItems/SubagentStatusIndicator.tsx';
+import { subagentStatus } from './transcript/chatItems/subagentStateLabel.ts';
 
 const SubagentViewBody: FC<{
   readonly onClientError: (error: unknown) => void;

@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 
-import { svgToDataUrl } from './sessionChat/fileChipIcons/packs.ts';
+import { svgToDataUrl } from './fileChipIcons/packs.ts';
 
 /** Inlined from apps/desktop/public/*_icon.svg — keep SVG sources there. */
 const LAUNCH_TARGET_SVG: Readonly<Record<AgentLaunchTarget, string>> = {

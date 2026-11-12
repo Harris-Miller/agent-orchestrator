@@ -10,8 +10,8 @@ import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsLis
 import { listingPathBoldFrom } from '../../host/fdListing.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
-import { ListingEntryIcon } from '../sessionChat/FileChipIconView.tsx';
-import { filterFsListingMatches } from '../sessionChat/filterFsListingEntries.ts';
+import { ListingEntryIcon } from '../fileChipIcons/FileChipIconView.tsx';
+import { filterFsListingMatches } from '../sessionChat/composer/menu/filterFsListingEntries.ts';
 
 const ROW_HEIGHT_PX = 36;
 

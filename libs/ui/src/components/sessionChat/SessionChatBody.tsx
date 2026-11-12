@@ -27,13 +27,13 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
-import { usePreloadSessionFsListing } from './usePreloadSessionFsListing.ts';
+import { usePreloadSessionFsListing } from './composer/menu/usePreloadSessionFsListing.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../host/pendingInteractions.ts';
 import { describeError } from '../../host/requestError.ts';
-import { composerPlaceholder } from './composerPlaceholder.ts';
+import { composerPlaceholder } from './composer/composerPlaceholder.ts';
 import { isNotSignedIn } from '../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../host/sessionConfiguration.ts';
 import { hostRuntime } from '../../hostRuntime.ts';
@@ -41,38 +41,38 @@ import { AntigravitySignInControls } from '../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { SubagentView } from './SubagentView.tsx';
-import { ChatItemView } from './ChatItemView.tsx';
-import { groupChatItems, isLiveRegion, isWaitToolCall } from './groupChatItems.ts';
-import { WorkRegionView } from './WorkRegionView.tsx';
-import { ComposerCommandMenu } from './ComposerCommandMenu.tsx';
-import type { ComposerTrigger } from './composerCommandTokens.ts';
-import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
+import { ChatItemView } from './transcript/ChatItemView.tsx';
+import { groupChatItems, isLiveRegion, isWaitToolCall } from './transcript/workRegion/groupChatItems.ts';
+import { WorkRegionView } from './transcript/workRegion/WorkRegionView.tsx';
+import { ComposerCommandMenu } from './composer/menu/ComposerCommandMenu.tsx';
+import type { ComposerTrigger } from './chips/composerCommandTokens.ts';
+import { ComposerImageAttachments } from './composer/ComposerImageAttachments.tsx';
 import {
   applyComposerMenuChoice,
   clampComposerMenuFocus,
   CLOSED_COMPOSER_MENU,
   composerMenuAfterChange,
   moveComposerMenuFocus,
-} from './composerMenu.ts';
-import type { ComposerMenuChoice } from './composerMenu.ts';
-import { ComposerMentionMenu } from './ComposerMentionMenu.tsx';
-import { ComposerPromptEditor } from './ComposerPromptEditor.tsx';
-import type { ComposerPromptChange } from './ComposerPromptEditor.tsx';
-import { detectComposerTrigger } from './detectComposerTrigger.ts';
-import { filterAvailableCommandMatches } from './filterAvailableCommands.ts';
-import { filterFsListingMatches } from './filterFsListingEntries.ts';
-import { HandoffModal } from './HandoffModal.tsx';
-import { latestPlanFilePath } from './latestPlanFilePath.ts';
-import { PlanFileBanner } from './PlanFileBanner.tsx';
-import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
-import { PendingElicitationCard } from './PendingElicitationCard.tsx';
-import { PendingPermissionCard } from './PendingPermissionCard.tsx';
-import { resolveComposerFsMentions } from './resolveComposerFsMentions.ts';
-import { SessionAccessChip } from './SessionAccessChip.tsx';
-import { SessionAgentChip } from './SessionAgentChip.tsx';
-import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
-import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
-import { UsagePopover } from './UsagePopover.tsx';
+} from './composer/menu/composerMenu.ts';
+import type { ComposerMenuChoice } from './composer/menu/composerMenu.ts';
+import { ComposerMentionMenu } from './composer/menu/ComposerMentionMenu.tsx';
+import { ComposerPromptEditor } from './composer/editor/ComposerPromptEditor.tsx';
+import type { ComposerPromptChange } from './composer/editor/ComposerPromptEditor.tsx';
+import { detectComposerTrigger } from './composer/menu/detectComposerTrigger.ts';
+import { filterAvailableCommandMatches } from './composer/menu/filterAvailableCommands.ts';
+import { filterFsListingMatches } from './composer/menu/filterFsListingEntries.ts';
+import { HandoffModal } from './composer/HandoffModal.tsx';
+import { latestPlanFilePath } from './composer/latestPlanFilePath.ts';
+import { PlanFileBanner } from './composer/PlanFileBanner.tsx';
+import { partitionComposerConfigOptions } from './configChips/partitionComposerConfigOptions.ts';
+import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
+import { PendingPermissionCard } from './pendingInteractions/PendingPermissionCard.tsx';
+import { resolveComposerFsMentions } from './composer/menu/resolveComposerFsMentions.ts';
+import { SessionAccessChip } from './configChips/SessionAccessChip.tsx';
+import { SessionAgentChip } from './configChips/SessionAgentChip.tsx';
+import { SessionConfigOptionControl } from './configChips/SessionConfigOptionControl.tsx';
+import { SessionModelEffortChip } from './configChips/SessionModelEffortChip.tsx';
+import { UsagePopover } from './usage/UsagePopover.tsx';
 import { useSessionChatSurface } from './useSessionChatSurface.ts';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;

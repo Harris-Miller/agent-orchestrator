@@ -2,7 +2,7 @@ import { $applyNodeReplacement } from 'lexical';
 import type { LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
 import type { JSX } from 'react';
 
-import { ChipContent } from '../../chips/ChipContent.tsx';
+import { ChipContent } from '../../../chips/ChipContent.tsx';
 import { ComposerChipDecoratorNode } from './ComposerChipDecoratorNode.ts';
 
 export type SerializedComposerCommandNode = Spread<

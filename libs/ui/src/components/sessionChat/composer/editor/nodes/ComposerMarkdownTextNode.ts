@@ -1,9 +1,9 @@
 import { $create, $getState, $getStateChange, $setState, createState, TextNode } from 'lexical';
 import type { EditorConfig, LexicalEditor } from 'lexical';
 
-import { MARKDOWN_BLOCKS, MARKDOWN_ROLES } from './composerMarkdown.ts';
-import type { MarkdownBlock, MarkdownRole } from './composerMarkdown.ts';
-import type { ComposerTextStyle } from './composerPieces.ts';
+import { MARKDOWN_BLOCKS, MARKDOWN_ROLES } from '../composerMarkdown.ts';
+import type { MarkdownBlock, MarkdownRole } from '../composerMarkdown.ts';
+import type { ComposerTextStyle } from '../composerPieces.ts';
 
 const roleState = createState('mdRole', {
   parse: (value): MarkdownRole => MARKDOWN_ROLES.find(role => role === value) ?? 'text',

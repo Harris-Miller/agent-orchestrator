@@ -1,7 +1,7 @@
 import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
 
-/** Shared layout for composer / transcript chips (chrome lives on ComposerChipContent only). */
+/** Shared layout for composer / transcript chips (chrome lives on ChipContent only). */
 export const baseChipSx = {
   border: 'none',
   borderRadius: '4px',

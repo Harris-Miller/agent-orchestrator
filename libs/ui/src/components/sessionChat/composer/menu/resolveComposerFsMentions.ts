@@ -11,7 +11,7 @@ import { mimeTypeForImagePath } from '../../../../host/composerImageAttachment.t
 import { findMarkdownLinks, isFileSystemHref } from '../../../../host/draftToContentBlocks.ts';
 import { listingBasename } from '../../../../host/fdListing.ts';
 
-import { isWhitespace } from '../../chips/composerCommandTokens.ts';
+import { isWhitespace } from '../../isWhitespace.ts';
 import { fsMentionMarkdownLink } from './mentionMarkdown.ts';
 
 export type ResolveComposerFsMentionsResult = {

@@ -36,7 +36,7 @@ import type { FC, JSX, RefObject } from 'react';
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode, ComposerCommandNode } from './ComposerCommandNode.tsx';
-import { isWhitespace } from '../../chips/composerCommandTokens.ts';
+import { isWhitespace } from '../../isWhitespace.ts';
 import {
   $createComposerMarkdownLinkNode,
   $isComposerMarkdownLinkNode,

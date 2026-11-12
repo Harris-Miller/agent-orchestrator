@@ -42,13 +42,13 @@ import { InterSessionMessageRow, SubagentRow } from './chatItems/SubagentRows.ts
 import { ChatMarkdown } from './markdown/ChatMarkdown.tsx';
 import { DisclosureButton, DisclosureChevron, DisclosureChevronSpacer } from './DisclosureButton.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from './markdown/escapeMarkdownBlockMarkers.ts';
-import { ComposerChipContent } from '../chips/ComposerChipContent.tsx';
+import { ChipContent } from '../chips/ChipContent.tsx';
 import { chatLinkHandlers, useChatLinkProps } from '../useChatLinkProps.ts';
-import { splitComposerCommandSegments } from '../chips/composerCommandTokens.ts';
+import { segmentText, splitChipSegments } from '../chips/chipSegments.ts';
 import { CopyMessageButton } from './CopyMessageButton.tsx';
 import { toolCallTitleSegments } from './chatItems/toolCallTitleSegments.ts';
 import { prepareChatMarkdownText } from './markdown/stripEmbeddedContextBlocks.ts';
-import { clipboardTextFromSelectionInRoot, segmentCopyText } from './chatItems/userMessageClipboard.ts';
+import { chipSegmentsMarkdown, clipboardTextFromSelectionInRoot } from './chatItems/userMessageClipboard.ts';
 
 const THUMB_PX = 72;
 
@@ -170,9 +170,9 @@ const TranscriptChip: FC<TranscriptChipProps> = props => {
       {...linkProps}
     >
       {props.kind === 'command' ? (
-        <ComposerChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
+        <ChipContent kind="command" label={props.label} sx={{ userSelect: 'text' }} />
       ) : (
-        <ComposerChipContent href={props.href} kind="markdownLink" label={props.label} sx={{ userSelect: 'text' }} />
+        <ChipContent href={props.href} kind="markdownLink" label={props.label} sx={{ userSelect: 'text' }} />
       )}
     </Box>
   );
@@ -272,8 +272,8 @@ const MessageRow: FC<{
   tone: 'agent' | 'thought' | 'user';
 }> = ({ availableCommands = [], images, steering = false, text, tone }) => {
   if (tone === 'user') {
-    const segments = splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands);
-    const markdown = segments.map(segmentCopyText).join('');
+    const segments = splitChipSegments(prepareChatMarkdownText(text), availableCommands);
+    const markdown = chipSegmentsMarkdown(segments);
     const hasText = markdown.trim().length > 0;
     const hasImages = images !== undefined && images.length > 0;
     if (!hasText && !hasImages && !steering) {
@@ -304,7 +304,7 @@ const MessageRow: FC<{
                 >
                   {segments.map((segment, index) => {
                     const key = `${segment.kind}-${String(index)}`;
-                    const copyText = segmentCopyText(segment);
+                    const copyText = segmentText(segment);
                     if (segment.kind === 'command') {
                       return (
                         <TranscriptChip

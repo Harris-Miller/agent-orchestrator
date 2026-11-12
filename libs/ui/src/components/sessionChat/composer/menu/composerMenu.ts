@@ -8,9 +8,9 @@ import { mimeTypeForImagePath } from '../../../../host/composerImageAttachment.t
 import type { FdListingEntry } from '../../../../host/fdListing.ts';
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
-import { commandInvocation, replaceComposerTriggerRange } from '../../chips/composerCommandTokens.ts';
-import type { ComposerTrigger } from '../../chips/composerCommandTokens.ts';
-import { detectComposerTrigger } from './detectComposerTrigger.ts';
+import { commandInvocation } from '../../chips/chipSegments.ts';
+import { detectComposerTrigger, replaceComposerTriggerRange } from './composerTrigger.ts';
+import type { ComposerTrigger } from './composerTrigger.ts';
 import { absolutePathForMentionEntry, mentionMarkdownForEntry } from './mentionMarkdown.ts';
 
 export type ComposerMenuState = { readonly focus: number; readonly trigger: ComposerTrigger | null };

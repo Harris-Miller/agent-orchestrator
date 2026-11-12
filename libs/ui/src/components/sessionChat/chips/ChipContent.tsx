@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { FC } from 'react';
 
-import { commandChipSx, markdownLinkChipSx } from './composerChipSx.ts';
+import { commandChipSx, markdownLinkChipSx } from './chipSx.ts';
 import { FileChipIconView } from '../../fileChipIcons/FileChipIconView.tsx';
 
 type ComposerChipSharedProps = {
@@ -12,11 +12,11 @@ type ComposerChipSharedProps = {
   readonly testId?: string;
 };
 
-export type ComposerChipContentProps =
+export type ChipContentProps =
   | ({ readonly href?: string; readonly kind: 'markdownLink' } & ComposerChipSharedProps)
   | ({ readonly kind: 'command' } & ComposerChipSharedProps);
 
-export const ComposerChipContent: FC<ComposerChipContentProps> = props => {
+export const ChipContent: FC<ChipContentProps> = props => {
   const { className, kind, label, sx, testId } = props;
   const kindSx = kind === 'command' ? commandChipSx : markdownLinkChipSx;
   // MUI SxProps array typing rejects `as const` kind objects + optional override without a cast.

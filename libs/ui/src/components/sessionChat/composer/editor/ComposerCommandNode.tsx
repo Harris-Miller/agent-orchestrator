@@ -2,7 +2,7 @@ import { $applyNodeReplacement } from 'lexical';
 import type { LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
 import type { JSX } from 'react';
 
-import { ComposerChipContent } from '../../chips/ComposerChipContent.tsx';
+import { ChipContent } from '../../chips/ChipContent.tsx';
 import { ComposerChipDecoratorNode } from './ComposerChipDecoratorNode.ts';
 
 export type SerializedComposerCommandNode = Spread<
@@ -38,7 +38,7 @@ export class ComposerCommandNode extends ComposerChipDecoratorNode {
 
   decorate(): JSX.Element {
     return (
-      <ComposerChipContent
+      <ChipContent
         className="composer-command-chip"
         kind="command"
         label={this.__invocation}

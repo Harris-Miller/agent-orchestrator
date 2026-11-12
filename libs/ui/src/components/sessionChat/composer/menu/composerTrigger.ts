@@ -1,8 +1,7 @@
 import { supportsDollarTrigger } from '../../../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../../../host/agentLaunchTarget.ts';
 
-import { isWhitespace } from '../../chips/composerCommandTokens.ts';
-import type { ComposerTrigger } from '../../chips/composerCommandTokens.ts';
+import { isWhitespace } from '../../isWhitespace.ts';
 
 export type DetectComposerTriggerArgs = {
   readonly adjacentToToken: boolean;
@@ -75,3 +74,33 @@ export const detectComposerTrigger = ({
 
   return null;
 };
+
+export type ComposerTriggerKind = 'at' | 'dollar' | 'slash';
+
+export type ComposerTrigger = {
+  readonly kind: ComposerTriggerKind;
+  readonly query: string;
+  readonly rangeEnd: number;
+  readonly rangeStart: number;
+};
+
+/** Replace the live trigger range with `invocation` + trailing space (coalesce one existing space). */
+export const replaceComposerTriggerRange = (
+  text: string,
+  trigger: ComposerTrigger,
+  invocation: string,
+): { readonly cursor: number; readonly text: string } => {
+  let { rangeEnd } = trigger;
+  if (text[rangeEnd] === ' ') {
+    rangeEnd += 1;
+  }
+  const insertion = `${invocation} `;
+  const next = text.slice(0, trigger.rangeStart) + insertion + text.slice(rangeEnd);
+  return { cursor: trigger.rangeStart + insertion.length, text: next };
+};
+
+/** `/` or `$` Triggers open the Command menu; `@` opens the Mention menu. */
+export const isCommandTrigger = (
+  trigger: ComposerTrigger | null,
+): trigger is { readonly kind: 'dollar' | 'slash' } & ComposerTrigger =>
+  trigger?.kind === 'slash' || trigger?.kind === 'dollar';

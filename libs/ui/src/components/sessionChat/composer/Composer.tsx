@@ -5,7 +5,7 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { Paperclip } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
@@ -14,10 +14,8 @@ import { useSelectedSessionFsListing } from '../../../atoms/useSelectedSessionFs
 import type { MidTurnSend } from '../../../atoms/userSettings/userSettings.atoms.ts';
 import { isNotSignedIn } from '../../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
-import { hostRuntime } from '../../../hostRuntime.ts';
 import { AntigravitySignInControls } from '../../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
-import type { ComposerTrigger } from '../chips/composerCommandTokens.ts';
 import { partitionComposerConfigOptions } from '../configChips/partitionComposerConfigOptions.ts';
 import { SessionAccessChip } from '../configChips/SessionAccessChip.tsx';
 import { SessionAgentChip } from '../configChips/SessionAgentChip.tsx';
@@ -29,22 +27,10 @@ import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
 import { ComposerPromptEditor } from './editor/ComposerPromptEditor.tsx';
-import type { ComposerPromptChange } from './editor/ComposerPromptEditor.tsx';
 import { latestPlanFilePath } from './latestPlanFilePath.ts';
 import { ComposerCommandMenu } from './menu/ComposerCommandMenu.tsx';
 import { ComposerMentionMenu } from './menu/ComposerMentionMenu.tsx';
-import {
-  applyComposerMenuChoice,
-  clampComposerMenuFocus,
-  CLOSED_COMPOSER_MENU,
-  composerMenuAfterChange,
-  moveComposerMenuFocus,
-} from './menu/composerMenu.ts';
-import type { ComposerMenuChoice } from './menu/composerMenu.ts';
-import { detectComposerTrigger } from './menu/detectComposerTrigger.ts';
-import { filterAvailableCommandMatches } from './menu/filterAvailableCommands.ts';
-import { filterFsListingMatches } from './menu/filterFsListingEntries.ts';
-import { resolveComposerFsMentions } from './menu/resolveComposerFsMentions.ts';
+import { useComposerMenu } from './menu/useComposerMenu.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PlanFileBanner } from './PlanFileBanner.tsx';
 import { SendButton } from './SendButton.tsx';
@@ -96,154 +82,24 @@ export const Composer: FC<{
   const { cancelElicitation } = useElicitationReply();
 
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
-  const [menu, setMenu] = useState(CLOSED_COMPOSER_MENU);
-  const composerTrigger = menu.trigger;
-  const composerCursorRef = useRef(0);
-  const syncCursorRef = useRef<null | number>(null);
+  const {
+    close: closeComposerMenu,
+    commandMenuProps,
+    keyHandlers,
+    mentionMenuProps,
+    onChange: onComposerChange,
+    syncCursorRef,
+  } = useComposerMenu({
+    attachImages,
+    availableCommands,
+    draft,
+    fsListing,
+    launchTarget: selectedLaunchTarget,
+    onClientError,
+    sessionCwd,
+    setDraft,
+  });
   const focusComposerEndRef = useRef<(() => void) | null>(null);
-
-  const commandTrigger: ({ readonly kind: 'dollar' | 'slash' } & ComposerTrigger) | null =
-    composerTrigger?.kind === 'slash' || composerTrigger?.kind === 'dollar'
-      ? { ...composerTrigger, kind: composerTrigger.kind }
-      : null;
-  const mentionTrigger = composerTrigger?.kind === 'at' ? composerTrigger : null;
-
-  const filteredCommandMatches = useMemo(() => {
-    if (composerTrigger?.kind !== 'slash' && composerTrigger?.kind !== 'dollar') {
-      return [];
-    }
-    return filterAvailableCommandMatches(
-      availableCommands,
-      composerTrigger.kind,
-      composerTrigger.query,
-      selectedLaunchTarget,
-    );
-  }, [availableCommands, composerTrigger, selectedLaunchTarget]);
-
-  const filteredMentions = useMemo(() => {
-    if (mentionTrigger === null) {
-      return [];
-    }
-    return filterFsListingMatches(fsListing.entries, mentionTrigger.query);
-  }, [fsListing.entries, mentionTrigger]);
-
-  const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
-
-  const clampedCommandFocus = clampComposerMenuFocus(menu.focus, filteredCommandMatches.length);
-  const clampedMentionFocus = clampComposerMenuFocus(menu.focus, filteredMentions.length);
-
-  const setMenuFocus = useCallback((focus: number) => {
-    setMenu(prev => ({ ...prev, focus }));
-  }, []);
-
-  const chooseMenuItem = useCallback(
-    (choice: ComposerMenuChoice) => {
-      const next = applyComposerMenuChoice(
-        { cursor: composerCursorRef.current, draft, launchTarget: selectedLaunchTarget, sessionCwd },
-        choice,
-      );
-      setMenu(CLOSED_COMPOSER_MENU);
-      if (next === undefined) {
-        return;
-      }
-      syncCursorRef.current = next.cursor;
-      composerCursorRef.current = next.cursor;
-      setDraft(next.draft);
-      if (next.imagePath !== undefined) {
-        attachImages({ _tag: 'Paths', paths: [next.imagePath] }).catch(onClientError);
-      }
-    },
-    [attachImages, draft, onClientError, selectedLaunchTarget, sessionCwd, setDraft],
-  );
-
-  const onComposerChange = useCallback(
-    ({ adjacentToToken, cursor, text }: ComposerPromptChange) => {
-      composerCursorRef.current = cursor;
-      setDraft(text);
-      const trigger = detectComposerTrigger({
-        adjacentToToken,
-        cursor,
-        launchTarget: selectedLaunchTarget,
-        text,
-      });
-      setMenu(prev => composerMenuAfterChange(prev, trigger));
-    },
-    [selectedLaunchTarget, setDraft],
-  );
-
-  const activeMenuCount = mentionTrigger !== null ? filteredMentions.length : filteredCommandMatches.length;
-
-  const commandMenu = useMemo(
-    () => ({
-      onArrowDown: () => {
-        setMenu(prev => moveComposerMenuFocus(prev, 1, activeMenuCount));
-      },
-      onArrowUp: () => {
-        setMenu(prev => moveComposerMenuFocus(prev, -1, activeMenuCount));
-      },
-      onDismiss: () => {
-        setMenu(CLOSED_COMPOSER_MENU);
-      },
-      onSelect: () => {
-        if (mentionTrigger !== null) {
-          const match = filteredMentions.at(clampedMentionFocus);
-          if (match == null) {
-            return;
-          }
-          chooseMenuItem({ _tag: 'Mention', entry: match.entry });
-          return;
-        }
-        const commandMatch = filteredCommandMatches.at(clampedCommandFocus);
-        if (commandMatch == null) {
-          return;
-        }
-        chooseMenuItem({ _tag: 'Command', command: commandMatch.command });
-      },
-      onSpaceDismiss: () => {
-        setMenu(CLOSED_COMPOSER_MENU);
-      },
-      open: composerTrigger !== null,
-    }),
-    [
-      activeMenuCount,
-      chooseMenuItem,
-      clampedCommandFocus,
-      clampedMentionFocus,
-      composerTrigger,
-      filteredCommandMatches,
-      filteredMentions,
-      mentionTrigger,
-    ],
-  );
-
-  // Paste / whitespace-commit: resolve `@path` and FS markdown links in parallel.
-  // Image hits become attachments (same as paperclip / @-menu); skip while trigger menu open. The attach is handed
-  // to the Composer in the same step as the rewrite, so the re-run the rewrite causes cannot drop it.
-  useEffect(() => {
-    if (sessionCwd === undefined || draft.length === 0 || composerTrigger !== null) {
-      return;
-    }
-    let cancelled = false;
-    const cursor = composerCursorRef.current;
-    hostRuntime
-      .runPromise(resolveComposerFsMentions(draft, sessionCwd))
-      .then(resolved => {
-        if (cancelled) {
-          return;
-        }
-        if (resolved.draft !== draft) {
-          syncCursorRef.current = cursor;
-          setDraft(resolved.draft);
-        }
-        if (resolved.imageAbsolutePaths.length > 0) {
-          attachImages({ _tag: 'Paths', paths: resolved.imageAbsolutePaths }).catch(() => undefined);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [attachImages, composerTrigger, draft, sessionCwd, setDraft]);
 
   const onAttachImages = () => {
     if (!canEdit) {
@@ -263,7 +119,7 @@ export const Composer: FC<{
       return;
     }
     if (action._tag === 'Send') {
-      setMenu(CLOSED_COMPOSER_MENU);
+      closeComposerMenu();
     }
     submit(mode).catch(onClientError);
   };
@@ -357,25 +213,8 @@ export const Composer: FC<{
             position: 'relative',
           }}
         >
-          <ComposerCommandMenu
-            focusedIndex={clampedCommandFocus}
-            matches={filteredCommandMatches}
-            onFocusIndexChange={setMenuFocus}
-            onSelect={command => {
-              chooseMenuItem({ _tag: 'Command', command });
-            }}
-            open={commandTrigger !== null}
-          />
-          <ComposerMentionMenu
-            focusedIndex={clampedMentionFocus}
-            loading={mentionLoading}
-            matches={filteredMentions}
-            onFocusIndexChange={setMenuFocus}
-            onSelect={entry => {
-              chooseMenuItem({ _tag: 'Mention', entry });
-            }}
-            open={mentionTrigger !== null}
-          />
+          <ComposerCommandMenu {...commandMenuProps} />
+          <ComposerMentionMenu {...mentionMenuProps} />
           {queued === undefined ? null : (
             <Box sx={{ alignItems: 'center', color: 'text.secondary', display: 'flex', gap: 1 }}>
               <Typography noWrap sx={{ flexGrow: 1 }} variant="body2">
@@ -407,7 +246,7 @@ export const Composer: FC<{
           />
           <ComposerPromptEditor
             availableCommands={availableCommands}
-            commandMenu={commandMenu}
+            commandMenu={keyHandlers}
             disabled={!canEdit}
             focusEndRef={focusComposerEndRef}
             key={isVirtual ? 'virtual' : (selectedSessionId ?? 'none')}

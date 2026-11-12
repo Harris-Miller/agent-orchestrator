@@ -1,25 +1,15 @@
+import type { ChipSegment } from '../../chips/chipSegments.ts';
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
-import { splitComposerCommandSegments } from '../../chips/composerCommandTokens.ts';
-import type { ComposerSegment } from '../../chips/composerCommandTokens.ts';
-import { markdownLinkText } from '../../chips/markdownLinkText.ts';
+import { segmentText, splitChipSegments } from '../../chips/chipSegments.ts';
 import { prepareChatMarkdownText } from '../markdown/stripEmbeddedContextBlocks.ts';
 
-/** Plain-text form that pastes back into the composer as the original chip source. */
-export const segmentCopyText = (segment: ComposerSegment): string => {
-  switch (segment.kind) {
-    case 'command':
-      return segment.value;
-    case 'markdownLink':
-      return markdownLinkText(segment.label, segment.href);
-    case 'text':
-      return segment.value;
-  }
-};
+/** Raw Markdown source of already-split chip segments. */
+export const chipSegmentsMarkdown = (segments: readonly ChipSegment[]): string => segments.map(segmentText).join('');
 
 /** Sanitized Markdown source of a user message: hidden blocks stripped, chips restored to their raw form. */
 export const userMessageMarkdown = (text: string, availableCommands: readonly AvailableCommand[]): string =>
-  splitComposerCommandSegments(prepareChatMarkdownText(text), availableCommands).map(segmentCopyText).join('');
+  chipSegmentsMarkdown(splitChipSegments(prepareChatMarkdownText(text), availableCommands));
 
 const selectedSliceOfTextNode = (textNode: Text, range: Range): string => {
   if (!range.intersectsNode(textNode)) {

@@ -2,9 +2,9 @@ import { $applyNodeReplacement } from 'lexical';
 import type { LexicalNode, NodeKey, SerializedLexicalNode, Spread } from 'lexical';
 import type { JSX } from 'react';
 
-import { ComposerChipContent } from '../../chips/ComposerChipContent.tsx';
+import { ChipContent } from '../../chips/ChipContent.tsx';
 import { ComposerChipDecoratorNode } from './ComposerChipDecoratorNode.ts';
-import { markdownLinkText } from '../../chips/markdownLinkText.ts';
+import { markdownLinkText } from '../../chips/chipSegments.ts';
 
 export type SerializedComposerMarkdownLinkNode = Spread<
   {
@@ -42,7 +42,7 @@ export class ComposerMarkdownLinkNode extends ComposerChipDecoratorNode {
 
   decorate(): JSX.Element {
     return (
-      <ComposerChipContent
+      <ChipContent
         className="composer-markdown-link-chip"
         href={this.__href}
         kind="markdownLink"

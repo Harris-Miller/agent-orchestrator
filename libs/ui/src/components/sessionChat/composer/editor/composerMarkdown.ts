@@ -1,4 +1,4 @@
-import { isWhitespace } from '../../chips/composerCommandTokens.ts';
+import { isWhitespace } from '../../isWhitespace.ts';
 
 /**
  * Pure Markdown styling for the Composer draft. Never rewrites text: every input character lands in

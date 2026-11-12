@@ -1,10 +1,9 @@
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
-import { splitComposerCommandSegments } from '../../chips/composerCommandTokens.ts';
-import type { ComposerSegment } from '../../chips/composerCommandTokens.ts';
+import { segmentText, splitChipSegments } from '../../chips/chipSegments.ts';
+import type { ChipSegment } from '../../chips/chipSegments.ts';
 import { COMPOSER_CHIP_MASK, parseComposerMarkdown } from './composerMarkdown.ts';
 import type { MarkdownBlock, MarkdownRole, MarkdownRun } from './composerMarkdown.ts';
-import { markdownLinkText } from '../../chips/markdownLinkText.ts';
 
 /** How a text piece is styled; `span` ties the two inline markers of one span together (Marker reveal), '' otherwise. */
 export type ComposerTextStyle = {
@@ -24,32 +23,8 @@ export type ComposerPiece =
   | { readonly href: string; readonly kind: 'markdownLink'; readonly label: string }
   | { readonly kind: 'text'; readonly style: ComposerTextStyle; readonly value: string };
 
-const segmentSource = (segment: ComposerSegment): string => {
-  switch (segment.kind) {
-    case 'command':
-    case 'text': {
-      return segment.value;
-    }
-    case 'markdownLink': {
-      return markdownLinkText(segment.label, segment.href);
-    }
-  }
-};
-
-export const composerPieceText = (piece: ComposerPiece): string => {
-  switch (piece.kind) {
-    case 'command':
-    case 'text': {
-      return piece.value;
-    }
-    case 'linebreak': {
-      return '\n';
-    }
-    case 'markdownLink': {
-      return markdownLinkText(piece.label, piece.href);
-    }
-  }
-};
+export const composerPieceText = (piece: ComposerPiece): string =>
+  piece.kind === 'linebreak' ? '\n' : segmentText(piece);
 
 const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   block: run.block,
@@ -69,10 +44,10 @@ export const buildComposerPieces = (
   text: string,
   availableCommands: readonly AvailableCommand[],
 ): readonly ComposerPiece[] => {
-  const chips = new Map<number, Exclude<ComposerSegment, { readonly kind: 'text' }>>();
+  const chips = new Map<number, Exclude<ChipSegment, { readonly kind: 'text' }>>();
   let masked = '';
-  for (const segment of splitComposerCommandSegments(text, availableCommands)) {
-    const source = segmentSource(segment);
+  for (const segment of splitChipSegments(text, availableCommands)) {
+    const source = segmentText(segment);
     if (segment.kind !== 'text') {
       chips.set(masked.length, segment);
     }
@@ -101,7 +76,7 @@ export const buildComposerPieces = (
             pending = '';
           }
           pieces.push(chip);
-          index += segmentSource(chip).length;
+          index += segmentText(chip).length;
         }
       }
       if (pending.length > 0) {

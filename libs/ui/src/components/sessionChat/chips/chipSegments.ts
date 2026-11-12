@@ -1,10 +1,14 @@
 import { findMarkdownLinks } from '../../../host/draftToContentBlocks.ts';
+import { isWhitespace } from '../isWhitespace.ts';
 import type { AvailableCommand } from '../../../host/sessionUpdateReducer.ts';
 
-export type ComposerSegment =
+export type ChipSegment =
   | { readonly href: string; readonly kind: 'markdownLink'; readonly label: string }
   | { readonly kind: 'command'; readonly value: string }
   | { readonly kind: 'text'; readonly value: string };
+
+/** Wire form for a markdown link chip — shared by composer nodes, clipboard, and mention helpers. */
+export const markdownLinkText = (label: string, href: string): string => `[${label}](${href})`;
 
 /** Canonical insertion / chip text for an Available Command name. */
 export const commandInvocation = (name: string): string => (name.startsWith('$') ? name : `/${name}`);
@@ -14,10 +18,8 @@ export const findExactCommandMatch = (
   availableCommands: readonly AvailableCommand[],
 ): AvailableCommand | undefined => availableCommands.find(command => commandInvocation(command.name) === token);
 
-export const isWhitespace = (char: string): boolean => char === ' ' || char === '\t' || char === '\n' || char === '\r';
-
-export const mergeAdjacentTextSegments = (segments: readonly ComposerSegment[]): readonly ComposerSegment[] => {
-  const merged: ComposerSegment[] = [];
+const mergeAdjacentTextSegments = (segments: readonly ChipSegment[]): readonly ChipSegment[] => {
+  const merged: ChipSegment[] = [];
   for (const segment of segments) {
     const prev = merged.length > 0 ? merged[merged.length - 1] : undefined;
     if (segment.kind === 'text' && prev?.kind === 'text') {
@@ -29,12 +31,12 @@ export const mergeAdjacentTextSegments = (segments: readonly ComposerSegment[]):
   return merged;
 };
 
-const splitMarkdownLinksInText = (text: string): readonly ComposerSegment[] => {
+const splitMarkdownLinksInText = (text: string): readonly ChipSegment[] => {
   const links = findMarkdownLinks(text);
   if (links.length === 0) {
     return text.length === 0 ? [] : [{ kind: 'text', value: text }];
   }
-  const segments: ComposerSegment[] = [];
+  const segments: ChipSegment[] = [];
   let cursor = 0;
   for (const link of links) {
     if (link.start > cursor) {
@@ -50,19 +52,19 @@ const splitMarkdownLinksInText = (text: string): readonly ComposerSegment[] => {
 };
 
 /**
- * Split draft text into plain text, command-chip, and markdown-link-chip segments.
+ * Split text into plain text, Command Chip and Markdown Link Chip segments.
  * Tokens that exact-match a current Available Command become command chips (including at EOF).
  * Complete markdown links become markdown link chips.
  */
-export const splitComposerCommandSegments = (
+export const splitChipSegments = (
   text: string,
   availableCommands: readonly AvailableCommand[],
-): readonly ComposerSegment[] => {
+): readonly ChipSegment[] => {
   if (text.length === 0) {
     return [];
   }
 
-  const segments: ComposerSegment[] = [];
+  const segments: ChipSegment[] = [];
   let index = 0;
 
   while (index < text.length) {
@@ -91,26 +93,15 @@ export const splitComposerCommandSegments = (
   return mergeAdjacentTextSegments(segments);
 };
 
-export type ComposerTriggerKind = 'at' | 'dollar' | 'slash';
-
-export type ComposerTrigger = {
-  readonly kind: ComposerTriggerKind;
-  readonly query: string;
-  readonly rangeEnd: number;
-  readonly rangeStart: number;
-};
-
-/** Replace the live trigger range with `invocation` + trailing space (coalesce one existing space). */
-export const replaceComposerTriggerRange = (
-  text: string,
-  trigger: ComposerTrigger,
-  invocation: string,
-): { readonly cursor: number; readonly text: string } => {
-  let { rangeEnd } = trigger;
-  if (text[rangeEnd] === ' ') {
-    rangeEnd += 1;
+/** Source text of a segment — what the draft / clipboard holds for it; joining all segments restores the draft. */
+export const segmentText = (segment: ChipSegment): string => {
+  switch (segment.kind) {
+    case 'command':
+    case 'text': {
+      return segment.value;
+    }
+    case 'markdownLink': {
+      return markdownLinkText(segment.label, segment.href);
+    }
   }
-  const insertion = `${invocation} `;
-  const next = text.slice(0, trigger.rangeStart) + insertion + text.slice(rangeEnd);
-  return { cursor: trigger.rangeStart + insertion.length, text: next };
 };

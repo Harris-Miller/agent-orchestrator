@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import type { ComposerTrigger } from '../../chips/composerCommandTokens.ts';
+import type { ComposerTrigger } from './composerTrigger.ts';
 import {
   applyComposerMenuChoice,
   clampComposerMenuFocus,

@@ -2,7 +2,7 @@
 import type { FdListingEntry } from '../../../../host/fdListing.ts';
 import { listingBasename } from '../../../../host/fdListing.ts';
 
-import { markdownLinkText } from '../../chips/markdownLinkText.ts';
+import { markdownLinkText } from '../../chips/chipSegments.ts';
 
 /** Absolute FS path → `file://` href (matches ACP session/load replay). */
 export const absolutePathToFileUrlHref = (absolutePath: string): string => {

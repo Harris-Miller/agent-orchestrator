@@ -16,11 +16,7 @@ import { isNotSignedIn } from '../../../host/harnessFailure.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 import { AntigravitySignInControls } from '../../AntigravitySignInControls.tsx';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
-import { partitionComposerConfigOptions } from '../configChips/partitionComposerConfigOptions.ts';
-import { SessionAccessChip } from '../configChips/SessionAccessChip.tsx';
-import { SessionAgentChip } from '../configChips/SessionAgentChip.tsx';
-import { SessionConfigOptionControl } from '../configChips/SessionConfigOptionControl.tsx';
-import { SessionModelEffortChip } from '../configChips/SessionModelEffortChip.tsx';
+import { ConfigChipRow } from '../configChips/ConfigChipRow.tsx';
 import { useElicitationReply } from '../pendingInteractions/useElicitationReply.ts';
 import { UsagePopover } from '../usage/UsagePopover.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
@@ -137,7 +133,6 @@ export const Composer: FC<{
     submitDraft();
   };
 
-  const partitionedConfig = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
   const configControlsDisabled = !controlsEnabled || selectedLaunchTarget === undefined;
   const unavailableModelIds =
     selectedLaunchTarget === undefined ? undefined : getConfigOptionIndex(selectedLaunchTarget)?.unavailableModelIds;
@@ -260,42 +255,23 @@ export const Composer: FC<{
             value={draft}
           />
           <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            <SessionAgentChip
-              disabled={chromeLocked}
-              interactive={isVirtual}
-              onChange={launchTarget => {
-                setVirtualLaunchTarget(launchTarget).catch(() => undefined);
+            <ConfigChipRow
+              agent={{
+                disabled: chromeLocked,
+                interactive: isVirtual,
+                onChange: launchTarget => {
+                  setVirtualLaunchTarget(launchTarget).catch(() => undefined);
+                },
+                selectableLaunchTargets,
+                unavailableReasons,
+                usableLaunchTargets,
+                value: selectedLaunchTarget,
               }}
-              usableLaunchTargets={usableLaunchTargets}
-              selectableLaunchTargets={selectableLaunchTargets}
-              unavailableReasons={unavailableReasons}
-              value={selectedLaunchTarget}
+              configDisabled={configControlsDisabled}
+              configOptions={configOptions}
+              onConfigChange={onConfigOptionChange}
+              unavailableModelIds={unavailableModelIds}
             />
-            {partitionedConfig.modelEffort !== undefined ? (
-              <SessionModelEffortChip
-                disabled={configControlsDisabled}
-                effort={partitionedConfig.modelEffort.effort}
-                model={partitionedConfig.modelEffort.model}
-                onChange={onConfigOptionChange}
-                unavailableModelIds={unavailableModelIds}
-              />
-            ) : null}
-            {partitionedConfig.mode !== undefined ? (
-              <SessionAccessChip
-                disabled={configControlsDisabled}
-                onChange={onConfigOptionChange}
-                option={partitionedConfig.mode}
-              />
-            ) : null}
-            {partitionedConfig.leftovers.map(option => (
-              <SessionConfigOptionControl
-                disabled={configControlsDisabled}
-                key={option.id}
-                onChange={onConfigOptionChange}
-                option={option}
-                unavailableModelIds={unavailableModelIds}
-              />
-            ))}
             <Box sx={{ flexGrow: 1 }} />
             <IconButton aria-label="Attach images" disabled={!canEdit} onClick={onAttachImages} size="small">
               <LucideMuiIcon fontSize="small" icon={Paperclip} />

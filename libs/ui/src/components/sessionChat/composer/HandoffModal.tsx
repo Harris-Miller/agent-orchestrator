@@ -4,7 +4,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
@@ -13,11 +13,7 @@ import { preserveConfigValuesOnModelChange } from '../../../host/configProbe.ts'
 import type { ConfigOptionIndex, ConfigOptionValues } from '../../../host/configProbe.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
-import { partitionComposerConfigOptions } from '../configChips/partitionComposerConfigOptions.ts';
-import { SessionAccessChip } from '../configChips/SessionAccessChip.tsx';
-import { SessionAgentChip } from '../configChips/SessionAgentChip.tsx';
-import { SessionConfigOptionControl } from '../configChips/SessionConfigOptionControl.tsx';
-import { SessionModelEffortChip } from '../configChips/SessionModelEffortChip.tsx';
+import { ConfigChipRow } from '../configChips/ConfigChipRow.tsx';
 
 const initialLaunchTarget = (
   usableLaunchTargets: readonly AgentLaunchTarget[],
@@ -55,7 +51,6 @@ export const HandoffModal: FC<{
   const index = targetLaunchTarget === undefined ? undefined : getConfigOptionIndex(targetLaunchTarget);
   const selectedModelId = typeof configValues.model === 'string' ? configValues.model : index?.defaultModelId;
   const configOptions = optionsWithValues(rowForModel(index, selectedModelId), configValues);
-  const partitioned = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
 
   const canConfirm = targetLaunchTarget !== undefined && usableLaunchTargets.includes(targetLaunchTarget);
 
@@ -77,37 +72,24 @@ export const HandoffModal: FC<{
       <DialogTitle>Handoff</DialogTitle>
       <DialogContent>
         <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-          <SessionAgentChip
-            interactive
-            onChange={next => {
-              setTargetLaunchTarget(next);
-              setConfigValues(hardResetForAgent(getConfigOptionIndex(next)).values);
+          <ConfigChipRow
+            agent={{
+              disabled: false,
+              interactive: true,
+              onChange: next => {
+                setTargetLaunchTarget(next);
+                setConfigValues(hardResetForAgent(getConfigOptionIndex(next)).values);
+              },
+              selectableLaunchTargets,
+              unavailableReasons,
+              usableLaunchTargets,
+              value: targetLaunchTarget,
             }}
-            usableLaunchTargets={usableLaunchTargets}
-            selectableLaunchTargets={selectableLaunchTargets}
-            unavailableReasons={unavailableReasons}
-            value={targetLaunchTarget}
+            configDisabled={false}
+            configOptions={configOptions}
+            onConfigChange={onConfigOptionChange}
+            unavailableModelIds={index?.unavailableModelIds}
           />
-          {partitioned.modelEffort !== undefined ? (
-            <SessionModelEffortChip
-              effort={partitioned.modelEffort.effort}
-              model={partitioned.modelEffort.model}
-              onChange={onConfigOptionChange}
-              unavailableModelIds={index?.unavailableModelIds}
-            />
-          ) : null}
-          {partitioned.mode !== undefined ? (
-            <SessionAccessChip onChange={onConfigOptionChange} option={partitioned.mode} />
-          ) : null}
-          {partitioned.leftovers.map(option => (
-            <SessionConfigOptionControl
-              disabled={false}
-              key={option.id}
-              onChange={onConfigOptionChange}
-              option={option}
-              unavailableModelIds={index?.unavailableModelIds}
-            />
-          ))}
         </Box>
       </DialogContent>
       <DialogActions>

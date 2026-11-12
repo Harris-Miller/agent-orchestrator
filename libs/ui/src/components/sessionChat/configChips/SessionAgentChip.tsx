@@ -13,17 +13,19 @@ import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 import { useComposerChromeMenu } from './composerChromeMenu.ts';
 
 /** Agent launch target chip — Menu when editable (Virtual / handoff); inert Chip otherwise. */
-export const SessionAgentChip: FC<{
-  readonly disabled?: boolean;
+export type SessionAgentChipProps = {
+  readonly disabled: boolean;
   readonly interactive: boolean;
-  readonly onChange?: (launchTarget: AgentLaunchTarget) => void;
-  /** Rows not listed here render disabled with their reason. Omit to treat every row as ready. */
-  readonly usableLaunchTargets?: readonly AgentLaunchTarget[];
+  readonly onChange: (launchTarget: AgentLaunchTarget) => void;
+  /** Rows not listed here render disabled with their reason. */
+  readonly usableLaunchTargets: readonly AgentLaunchTarget[];
   readonly selectableLaunchTargets: readonly AgentLaunchTarget[];
   readonly unavailableReasons?: Readonly<Partial<Record<AgentLaunchTarget, string>>>;
   readonly value: AgentLaunchTarget | undefined;
-}> = ({
-  disabled = false,
+};
+
+export const SessionAgentChip: FC<SessionAgentChipProps> = ({
+  disabled,
   interactive,
   onChange,
   usableLaunchTargets,
@@ -46,10 +48,10 @@ export const SessionAgentChip: FC<{
         <Menu {...menu.menuProps}>
           {selectableLaunchTargets.map(launchTarget => (
             <MenuItem
-              disabled={usableLaunchTargets !== undefined && !usableLaunchTargets.includes(launchTarget)}
+              disabled={!usableLaunchTargets.includes(launchTarget)}
               key={launchTarget}
               onClick={() => {
-                onChange?.(launchTarget);
+                onChange(launchTarget);
                 menu.close();
               }}
               selected={value === launchTarget}

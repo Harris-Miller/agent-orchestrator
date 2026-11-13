@@ -30,6 +30,7 @@ import { FieldLabel } from '../FieldLabel.tsx';
 
 import { AtomsTab } from './AtomsTab.tsx';
 import { ComposerTab } from './ComposerTab.tsx';
+import { ElicitationPlaygroundTab } from './ElicitationPlaygroundTab.tsx';
 import { FsMentionListingTab } from './FsMentionListingTab.tsx';
 import { HubTab } from './HubTab.tsx';
 import { MuiThemePlaygroundTab } from './MuiThemePlaygroundTab.tsx';
@@ -359,6 +360,13 @@ const BUILT_IN_TABS: readonly BuiltInTab[] = [
     render: () => <FsMentionListingTab />,
   },
   { id: 'composer', label: 'Composer', ownScroll: false, padded: false, render: () => <ComposerTab /> },
+  {
+    id: 'elicitation-playground',
+    label: 'Elicitation Playground',
+    ownScroll: false,
+    padded: true,
+    render: () => <ElicitationPlaygroundTab />,
+  },
   {
     id: 'mui-theme-playground',
     label: 'MUI playground',

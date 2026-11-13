@@ -12,7 +12,12 @@ import Typography from '@mui/material/Typography';
 import { useEffect } from 'react';
 import type { Dispatch, FC, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
-import type { ElicitationFieldView, ElicitationNote, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
+import type {
+  ElicitationFieldView,
+  ElicitationNote,
+  ElicitationValue,
+  ElicitationValues,
+} from './elicitationFormViews.ts';
 import {
   applyDigit,
   checkOther,
@@ -214,14 +219,24 @@ export const ElicitationQuestionBody: FC<{
   };
   const value = values[view.name];
   const flag = flagged ? <FormHelperText>{flagMessage(view, values)}</FormHelperText> : null;
+  const captionLine =
+    view.caption === undefined ? null : (
+      <Typography color="text.secondary" component="span" sx={{ display: 'block' }} variant="caption">
+        {view.caption}
+      </Typography>
+    );
   const caption = (
     <>
-      {view.caption === undefined ? null : (
-        <Typography color="text.secondary" component="span" sx={{ display: 'block' }} variant="caption">
-          {view.caption}
-        </Typography>
-      )}
+      {captionLine}
       {view.label}
+    </>
+  );
+  const heading = (
+    <>
+      {captionLine}
+      <Typography component="span" sx={{ display: 'block' }} variant="subtitle2">
+        {view.label}
+      </Typography>
     </>
   );
 
@@ -253,7 +268,7 @@ export const ElicitationQuestionBody: FC<{
     const { other } = view;
     return (
       <FormControl error={flagged}>
-        <FormLabel>{caption}</FormLabel>
+        <FormLabel sx={{ color: 'text.primary' }}>{heading}</FormLabel>
         <RadioGroup
           name={view.name}
           onChange={event => {
@@ -302,7 +317,7 @@ export const ElicitationQuestionBody: FC<{
     const { other } = view;
     return (
       <FormControl error={flagged}>
-        <FormLabel>{caption}</FormLabel>
+        <FormLabel sx={{ color: 'text.primary' }}>{heading}</FormLabel>
         <FormGroup>
           {view.options.map((option, index) => (
             <FormControlLabel
@@ -347,19 +362,21 @@ export const ElicitationQuestionBody: FC<{
 
   const numeric = view.kind === 'number' || view.kind === 'integer';
   return (
-    <TextField
-      error={flagged}
-      fullWidth
-      helperText={flagged ? flagMessage(view, values) : undefined}
-      label={caption}
-      onChange={event => {
-        const raw = event.target.value;
-        setValue(numeric ? (raw === '' ? undefined : Number(raw)) : raw);
-      }}
-      size="small"
-      slotProps={{ htmlInput: { 'data-autofocus': true }, inputLabel: { shrink: true } }}
-      type={numeric ? 'number' : view.secret ? 'password' : 'text'}
-      value={value ?? ''}
-    />
+    <div>
+      <Box sx={{ mb: 0.5 }}>{heading}</Box>
+      <TextField
+        error={flagged}
+        fullWidth
+        helperText={flagged ? flagMessage(view, values) : undefined}
+        onChange={event => {
+          const raw = event.target.value;
+          setValue(numeric ? (raw === '' ? undefined : Number(raw)) : raw);
+        }}
+        size="small"
+        slotProps={{ htmlInput: { 'aria-label': view.label, 'data-autofocus': true } }}
+        type={numeric ? 'number' : view.secret ? 'password' : 'text'}
+        value={value ?? ''}
+      />
+    </div>
   );
 };

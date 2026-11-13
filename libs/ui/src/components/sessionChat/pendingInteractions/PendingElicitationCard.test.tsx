@@ -167,4 +167,12 @@ describe('PendingElicitationCard', () => {
     assert.deepStrictEqual(onAccept.mock.calls[0]?.[0], { question_0: 'a', question_0_note: 'because' });
     assert.strictEqual(onAccept.mock.calls[0]?.[1].rows[0].note, 'because');
   });
+
+  it('shows the question as a heading and labels the text input with it', () => {
+    setup(form({ q: { title: 'Which branch should I use for the release?', type: 'string' } }));
+    const textbox = screen.getByRole('textbox', { name: 'Which branch should I use for the release?' });
+    assert.isNotNull(textbox);
+    assert.isNotNull(screen.queryByText('Questions'));
+    assert.strictEqual(screen.getAllByText('Which branch should I use for the release?').length, 1);
+  });
 });

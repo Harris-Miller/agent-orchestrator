@@ -61,7 +61,7 @@ export const ElicitationTabbedForm: FC<{
       <Typography color="text.secondary" variant="caption">
         {agentTitle} asks
       </Typography>
-      <Typography gutterBottom variant="subtitle1">
+      <Typography color="text.secondary" gutterBottom variant="body2">
         {message}
       </Typography>
       <Box

@@ -1,5 +1,10 @@
 import { canAcceptElicitation, elicitationFieldError, elicitationSummaryRows } from './elicitationFormViews.ts';
-import type { ElicitationFieldView, ElicitationNote, ElicitationOther, ElicitationValues } from './elicitationFormViews.ts';
+import type {
+  ElicitationFieldView,
+  ElicitationNote,
+  ElicitationOther,
+  ElicitationValues,
+} from './elicitationFormViews.ts';
 
 export type QuestionStatus = 'answered' | 'empty' | 'invalid';
 

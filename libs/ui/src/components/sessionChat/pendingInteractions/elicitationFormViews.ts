@@ -190,7 +190,11 @@ export const elicitationFieldViews = (request: CreateElicitationFormRequest): re
   const notes = new Map<string, ElicitationNote>();
   for (const [name, property] of entries) {
     const questionId = noteQuestionId(name, property);
-    if (questionId !== undefined && !otherNames.has(name) && isChoiceView(views.find(view => view.name === questionId))) {
+    if (
+      questionId !== undefined &&
+      !otherNames.has(name) &&
+      isChoiceView(views.find(view => view.name === questionId))
+    ) {
       notes.set(questionId, { name, placeholder: labelPair(name, property).label });
     }
   }

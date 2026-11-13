@@ -57,8 +57,12 @@ The trailing agent messages of a turn, after its last Work item; always visible 
 _Avoid_: final message, response
 
 **Elicitation summary**:
-A chat item recording an accepted form-mode Elicitation: each field the user set and the value chosen, with secret values masked. Created by the Client at accept time, not sent on the wire, and not restored by `session/load`. Always visible, never inside a Work region.
+A chat item recording an accepted form-mode Elicitation: each field the user set and the value chosen, with secret values masked, and any Elicitation note shown under the chosen value. Created by the Client at accept time, not sent on the wire, and not restored by `session/load`. Always visible, never inside a Work region.
 _Avoid_: answers, answered questions, elicitation result
+
+**Elicitation note**:
+An optional free-text field paired with a choice question of a form-mode Elicitation. Adds context beside the picked option instead of replacing it, and is sent as its own content key.
+_Avoid_: second question, Other (a different mechanism — it replaces the pick)
 
 **Bootstrap phase**:
 Harness-reported lifecycle while bringing a backend harness online: `connecting` → `initialized` → (`signing-in` when Antigravity Sign in is in flight) → `usable` → `ready`, or `error`. Describes Client-side setup only — not an ACP Session or Turn. `usable`: initialize (and Sign in) is done and a Config option index exists (cached, or seeded by the Config probe), so session RPCs work. `ready`: `session/list` has also published.

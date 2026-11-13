@@ -10,9 +10,9 @@ import type { FC } from 'react';
 
 import { elicitationKeyDown, ElicitationQuestionBody, KeyHints, useQuestionFocus } from './ElicitationQuestionBody.tsx';
 import type { SetElicitationValues } from './ElicitationQuestionBody.tsx';
-import { canAcceptElicitation } from './elicitationFormViews.ts';
+import { canAcceptElicitation, elicitationSummaryRows } from './elicitationFormViews.ts';
 import type { ElicitationFieldView, ElicitationValues } from './elicitationFormViews.ts';
-import { answerText, enterAction, flagMessage, isFlagged, questionStatus } from './elicitationQuestionNav.ts';
+import { enterAction, flagMessage, isFlagged, questionStatus } from './elicitationQuestionNav.ts';
 
 const StatusMark: FC<{ readonly answered: boolean }> = ({ answered }) => (
   <Box aria-hidden component="span" sx={{ color: answered ? 'success.main' : 'text.disabled' }}>
@@ -110,7 +110,7 @@ export const ElicitationTabbedForm: FC<{
               </Typography>
               {views.map((view, index) => {
                 const flaggedHere = isFlaggedQuestion(view);
-                const answer = answerText(view, values);
+                const row = elicitationSummaryRows([view], values)[0];
                 return (
                   <ButtonBase
                     key={view.name}
@@ -123,8 +123,13 @@ export const ElicitationTabbedForm: FC<{
                       <StatusMark answered={questionStatus(view, values) === 'answered'} /> {view.label}
                     </Typography>
                     <Typography color={flaggedHere ? 'error' : 'text.secondary'} sx={{ pl: 2.5 }} variant="body2">
-                      {answer ?? (flaggedHere ? flagMessage(view, values) : 'Not answered')}
+                      {row?.value ?? (flaggedHere ? flagMessage(view, values) : 'Not answered')}
                     </Typography>
+                    {row?.note === undefined ? null : (
+                      <Typography color="text.secondary" sx={{ pl: 2.5 }} variant="body2">
+                        {row.note}
+                      </Typography>
+                    )}
                   </ButtonBase>
                 );
               })}

@@ -27,6 +27,11 @@ export const ElicitationSummaryView: FC<{ readonly item: ChatItemOf<'elicitation
             <Typography sx={{ fontWeight: 600 }} variant="body2">
               {row.value}
             </Typography>
+            {row.note === undefined ? null : (
+              <Typography color="text.secondary" variant="body2">
+                {row.note}
+              </Typography>
+            )}
           </div>
         ))}
       </Stack>

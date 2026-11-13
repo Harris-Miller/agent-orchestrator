@@ -109,6 +109,7 @@ export type InterSessionMessage = {
 export type ElicitationSummaryRow = {
   readonly caption: string | undefined;
   readonly label: string;
+  readonly note?: string;
   readonly value: string;
 };
 

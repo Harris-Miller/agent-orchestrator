@@ -273,3 +273,63 @@ describe('elicitationFieldError', () => {
     assert.isTrue(view({ _meta: { codex: { isSecret: true } }, type: 'string' }).secret);
   });
 });
+
+const codexNote = {
+  _meta: { codex: { questionId: 'question_0', role: 'user_note' } },
+  title: 'Additional answer or note',
+  type: 'string',
+};
+const codexProperties = {
+  question_0: { description: 'Pick one?', oneOf, title: 'Pick', type: 'string' },
+  question_0_note: codexNote,
+};
+
+describe('elicitation note', () => {
+  it('folds a codex user_note into its choice question', () => {
+    const views = elicitationFieldViews(request(codexProperties));
+    assert.strictEqual(views.length, 1);
+    const [first] = views;
+    assert.deepStrictEqual(first.kind === 'single' ? first.note : undefined, {
+      name: 'question_0_note',
+      placeholder: 'Additional answer or note',
+    });
+  });
+
+  it('pairs by the `_note` key convention without _meta', () => {
+    const views = elicitationFieldViews(
+      request({ q: codexProperties.question_0, q_note: { title: 'Note', type: 'string' } }),
+    );
+    assert.strictEqual(views.length, 1);
+    assert.strictEqual(views[0].kind === 'single' ? views[0].note?.name : undefined, 'q_note');
+  });
+
+  it('keeps a note standalone when its target is not a choice question or is missing', () => {
+    const textTarget = elicitationFieldViews(
+      request({ q: { title: 'Q', type: 'string' }, q_note: { title: 'Note', type: 'string' } }),
+    );
+    assert.strictEqual(textTarget.length, 2);
+    const orphan = elicitationFieldViews(request({ other_note: { title: 'Note', type: 'string' } }));
+    assert.strictEqual(orphan.length, 1);
+  });
+
+  it('keeps Claude custom-answer pairing as other, not note', () => {
+    const [first] = elicitationFieldViews(claudeFixture);
+    assert.isDefined(first.kind === 'single' ? first.other : undefined);
+    assert.isUndefined(first.kind === 'single' ? first.note : {});
+  });
+
+  it('counts a note toward required and summarises note-only / option+note', () => {
+    const views = elicitationFieldViews(request(codexProperties, ['question_0']));
+    assert.isFalse(canAcceptElicitation(views, {}));
+    const noteOnly = { question_0_note: 'hello' };
+    assert.isTrue(canAcceptElicitation(views, noteOnly));
+    assert.deepStrictEqual(elicitationSummaryRows(views, noteOnly), [
+      { caption: 'Pick', label: 'Pick one?', value: 'hello' },
+    ]);
+    const both = { question_0: 'a', question_0_note: 'why' };
+    assert.deepStrictEqual(elicitationSummaryRows(views, both), [
+      { caption: 'Pick', label: 'Pick one?', note: 'why', value: 'Alpha' },
+    ]);
+    assert.deepStrictEqual(elicitationContent(both), both);
+  });
+});

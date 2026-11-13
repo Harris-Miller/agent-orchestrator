@@ -15,6 +15,9 @@ export type ElicitationChoice = { readonly label: string; readonly value: string
 /** A paired free-text "Other" field (Claude's `question_N_custom`), folded into its choice question. */
 export type ElicitationOther = { readonly name: string; readonly placeholder: string };
 
+/** A paired optional free-text note (Codex `question_N_note`), folded into its choice question. */
+export type ElicitationNote = { readonly name: string; readonly placeholder: string };
+
 type ElicitationFieldBase = {
   /** Shorter of title/description, shown small above the label; undefined when only one is present. */
   readonly caption: string | undefined;
@@ -45,6 +48,7 @@ export type ElicitationFieldView = ElicitationFieldBase &
         readonly default: string | undefined;
         readonly kind: 'single';
         readonly options: readonly ElicitationChoice[];
+        readonly note: ElicitationNote | undefined;
         readonly other: ElicitationOther | undefined;
       }
     | {
@@ -53,6 +57,7 @@ export type ElicitationFieldView = ElicitationFieldBase &
         readonly maxItems: number | undefined;
         readonly minItems: number | undefined;
         readonly options: readonly ElicitationChoice[];
+        readonly note: ElicitationNote | undefined;
         readonly other: ElicitationOther | undefined;
       }
     | { readonly kind: 'unsupported'; readonly type: string }
@@ -99,7 +104,7 @@ const labelPair = (
 type PropertyMeta =
   | {
       readonly _askUserQuestionCustomAnswer?: { readonly questionId?: unknown };
-      readonly codex?: { readonly isSecret?: unknown };
+      readonly codex?: { readonly isSecret?: unknown; readonly questionId?: unknown; readonly role?: unknown };
     }
   | null
   | undefined;
@@ -123,6 +128,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           kind: 'multi',
           maxItems: property.maxItems ?? undefined,
           minItems: property.minItems ?? undefined,
+          note: undefined,
           options,
           other: undefined,
         };
@@ -139,7 +145,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           minLength: property.minLength ?? undefined,
           pattern: property.pattern ?? undefined,
         }
-      : { ...base, kind: 'single', options, other: undefined };
+      : { ...base, kind: 'single', note: undefined, options, other: undefined };
   }
   if (Schema.is(ElicitationBooleanProperty)(property)) {
     return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
@@ -161,6 +167,12 @@ const customAnswerQuestionId = (property: ElicitationPropertySchema): string | u
   return typeof id === 'string' ? id : undefined;
 };
 
+const noteQuestionId = (name: string, property: ElicitationPropertySchema): string | undefined => {
+  const codex = propertyMeta(property)?.codex;
+  if (codex?.role === 'user_note' && typeof codex.questionId === 'string') return codex.questionId;
+  return name.endsWith('_note') ? name.slice(0, -'_note'.length) : undefined;
+};
+
 /** Custom-answer fields pair with a choice question and are folded into it as its "Other" choice. */
 export const elicitationFieldViews = (request: CreateElicitationFormRequest): readonly ElicitationFieldView[] => {
   const { properties, required } = request.requestedSchema;
@@ -174,10 +186,18 @@ export const elicitationFieldViews = (request: CreateElicitationFormRequest): re
       others.set(questionId, { name, placeholder: labelPair(name, property).label });
     }
   }
-  const foldedNames = new Set([...others.values()].map(other => other.name));
+  const otherNames = new Set([...others.values()].map(other => other.name));
+  const notes = new Map<string, ElicitationNote>();
+  for (const [name, property] of entries) {
+    const questionId = noteQuestionId(name, property);
+    if (questionId !== undefined && !otherNames.has(name) && isChoiceView(views.find(view => view.name === questionId))) {
+      notes.set(questionId, { name, placeholder: labelPair(name, property).label });
+    }
+  }
+  const foldedNames = new Set([...otherNames, ...[...notes.values()].map(note => note.name)]);
   return views
     .filter(view => !foldedNames.has(view.name))
-    .map(view => (isChoiceView(view) ? { ...view, other: others.get(view.name) } : view));
+    .map(view => (isChoiceView(view) ? { ...view, note: notes.get(view.name), other: others.get(view.name) } : view));
 };
 
 /** Seed only from `default`; a boolean has no unset state so it seeds `false`. */
@@ -253,14 +273,15 @@ export const canAcceptElicitation = (views: readonly ElicitationFieldView[], val
     }
     const value = values[view.name];
     const otherSet = isChoiceView(view) && view.other !== undefined && isSet(values[view.other.name]);
+    const noteSet = isChoiceView(view) && view.note !== undefined && isSet(values[view.note.name]);
     if (view.kind === 'multi') {
       const count = (Array.isArray(value) ? value.length : 0) + (otherSet ? 1 : 0);
       if (count < (view.minItems ?? 0) || (view.maxItems !== undefined && count > view.maxItems)) {
         return false;
       }
-      return !view.required || count > 0;
+      return !view.required || count > 0 || noteSet;
     }
-    return elicitationFieldError(view, value) === undefined && (!view.required || isSet(value) || otherSet);
+    return elicitationFieldError(view, value) === undefined && (!view.required || isSet(value) || otherSet || noteSet);
   });
 
 export const elicitationContent = (values: ElicitationValues): ElicitationContent => {
@@ -297,5 +318,10 @@ export const elicitationSummaryRows = (
     const parts = [isSet(raw) ? formatValue(view, raw!) : undefined, isSet(other) ? String(other) : undefined].filter(
       part => part !== undefined,
     );
-    return parts.length === 0 ? [] : [{ caption: view.caption, label: view.label, value: parts.join(', ') }];
+    const noteRaw = isChoiceView(view) && view.note ? values[view.note.name] : undefined;
+    const note = isSet(noteRaw) ? String(noteRaw) : undefined;
+    if (parts.length === 0) {
+      return note === undefined ? [] : [{ caption: view.caption, label: view.label, value: note }];
+    }
+    return [{ caption: view.caption, label: view.label, note, value: parts.join(', ') }];
   });

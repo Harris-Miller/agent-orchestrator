@@ -12,6 +12,7 @@ import {
   isFlagged,
   questionStatus,
   selectOption,
+  setNoteText,
   setOtherText,
   toggleOption,
   uncheckOther,
@@ -114,5 +115,14 @@ describe('elicitationQuestionNav', () => {
     assert.strictEqual(typed.q0_custom, 'hi');
     assert.strictEqual(typed.q0, undefined);
     assert.deepStrictEqual(setOtherText(m, mo, 'hi', { ...initial, q1: ['x'] }).q1, ['x']);
+  });
+});
+
+describe('setNoteText', () => {
+  const note = { name: 'n', placeholder: 'p' };
+  it('sets, clears on empty, and leaves the selection alone', () => {
+    assert.strictEqual(setNoteText(note, 'hi', { q0: 'a' }).n, 'hi');
+    assert.strictEqual(setNoteText(note, 'hi', { q0: 'a' }).q0, 'a');
+    assert.isUndefined(setNoteText(note, '', { n: 'hi' }).n);
   });
 });

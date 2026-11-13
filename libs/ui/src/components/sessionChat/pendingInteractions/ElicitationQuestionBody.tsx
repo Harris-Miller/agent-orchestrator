@@ -12,12 +12,13 @@ import Typography from '@mui/material/Typography';
 import { useEffect } from 'react';
 import type { Dispatch, FC, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
-import type { ElicitationFieldView, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
+import type { ElicitationFieldView, ElicitationNote, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
 import {
   applyDigit,
   checkOther,
   flagMessage,
   selectOption,
+  setNoteText,
   setOtherText,
   toggleOption,
   uncheckOther,
@@ -172,6 +173,28 @@ const OtherChoice: FC<{
   </>
 );
 
+/** Optional free-text note under a choice question; independent of the selection. */
+const NoteField: FC<{
+  readonly note: ElicitationNote;
+  readonly setValues: SetElicitationValues;
+  readonly values: ElicitationValues;
+}> = ({ note, setValues, values }) => {
+  const text = values[note.name];
+  return (
+    <TextField
+      fullWidth
+      onChange={event => {
+        setValues(current => setNoteText(note, event.target.value, current));
+      }}
+      placeholder={note.placeholder}
+      size="small"
+      slotProps={{ htmlInput: { 'aria-label': note.placeholder, 'data-note': note.name } }}
+      sx={{ mt: 1 }}
+      value={typeof text === 'string' ? text : ''}
+    />
+  );
+};
+
 /** One question's inputs, shared by the compact and tabbed layouts. `flagged` shows its error / "Required" text. */
 export const ElicitationQuestionBody: FC<{
   readonly flagged: boolean;
@@ -268,6 +291,7 @@ export const ElicitationQuestionBody: FC<{
             text={values[other.name]}
           />
         )}
+        {view.note === undefined ? null : <NoteField note={view.note} setValues={setValues} values={values} />}
         {flag}
       </FormControl>
     );
@@ -315,6 +339,7 @@ export const ElicitationQuestionBody: FC<{
             />
           )}
         </FormGroup>
+        {view.note === undefined ? null : <NoteField note={view.note} setValues={setValues} values={values} />}
         {flag}
       </FormControl>
     );

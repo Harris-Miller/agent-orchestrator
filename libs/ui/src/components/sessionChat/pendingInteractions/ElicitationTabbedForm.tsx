@@ -110,7 +110,7 @@ export const ElicitationTabbedForm: FC<{
               </Typography>
               {views.map((view, index) => {
                 const flaggedHere = isFlaggedQuestion(view);
-                const row = elicitationSummaryRows([view], values)[0];
+                const [row] = elicitationSummaryRows([view], values);
                 return (
                   <ButtonBase
                     key={view.name}

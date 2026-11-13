@@ -1,5 +1,5 @@
 import { canAcceptElicitation, elicitationFieldError, elicitationSummaryRows } from './elicitationFormViews.ts';
-import type { ElicitationFieldView, ElicitationValues } from './elicitationFormViews.ts';
+import type { ElicitationFieldView, ElicitationOther, ElicitationValues } from './elicitationFormViews.ts';
 
 export type QuestionStatus = 'answered' | 'empty' | 'invalid';
 
@@ -60,6 +60,54 @@ export type DigitResult = {
   readonly focusOther?: string;
 };
 
+type ChoiceView = Extract<ElicitationFieldView, { kind: 'single' | 'multi' }>;
+
+/** Single select: pick `value` and clear "Other". */
+export const selectOption = (view: ChoiceView, value: string, values: ElicitationValues): ElicitationValues => ({
+  ...values,
+  ...(view.other && { [view.other.name]: undefined }),
+  [view.name]: value,
+});
+
+/** Multi select: flip `value` in the selection. */
+export const toggleOption = (view: ChoiceView, value: string, values: ElicitationValues): ElicitationValues => {
+  const raw = values[view.name];
+  const selected: readonly string[] = Array.isArray(raw) ? raw : [];
+  return {
+    ...values,
+    [view.name]: selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value],
+  };
+};
+
+/** Check "Other" (empty text if unset); single select drops its picked option. */
+export const checkOther = (
+  view: ChoiceView,
+  other: ElicitationOther,
+  values: ElicitationValues,
+): ElicitationValues => ({
+  ...values,
+  [other.name]: values[other.name] ?? '',
+  ...(view.kind === 'single' && { [view.name]: undefined }),
+});
+
+/** Uncheck "Other" by clearing its text. */
+export const uncheckOther = (other: ElicitationOther, values: ElicitationValues): ElicitationValues => ({
+  ...values,
+  [other.name]: undefined,
+});
+
+/** Set the "Other" text; single select drops its picked option. */
+export const setOtherText = (
+  view: ChoiceView,
+  other: ElicitationOther,
+  text: string,
+  values: ElicitationValues,
+): ElicitationValues => ({
+  ...values,
+  [other.name]: text,
+  ...(view.kind === 'single' && { [view.name]: undefined }),
+});
+
 /** Digit `n` (1-9) on a question: pick/toggle option n, the digit after the last option is "Other", `1` flips a boolean. */
 export const applyDigit = (view: ElicitationFieldView, digit: number, values: ElicitationValues): DigitResult => {
   if (view.kind === 'boolean') {
@@ -70,27 +118,11 @@ export const applyDigit = (view: ElicitationFieldView, digit: number, values: El
   const option = view.options[digit - 1];
   if (option === undefined) {
     if (other === undefined || digit !== view.options.length + 1) return { values };
-    if (view.kind === 'single') {
-      return {
-        focusOther: other.name,
-        values: { ...values, [other.name]: values[other.name] ?? '', [view.name]: undefined },
-      };
-    }
-    return values[other.name] === undefined
-      ? { focusOther: other.name, values: { ...values, [other.name]: '' } }
-      : { values: { ...values, [other.name]: undefined } };
+    if (view.kind === 'multi' && values[other.name] !== undefined) return { values: uncheckOther(other, values) };
+    return { focusOther: other.name, values: checkOther(view, other, values) };
   }
-  if (view.kind === 'single') {
-    return { values: { ...values, ...(other && { [other.name]: undefined }), [view.name]: option.value } };
-  }
-  const raw = values[view.name];
-  const selected: readonly string[] = Array.isArray(raw) ? raw : [];
   return {
-    values: {
-      ...values,
-      [view.name]: selected.includes(option.value)
-        ? selected.filter(item => item !== option.value)
-        : [...selected, option.value],
-    },
+    values:
+      view.kind === 'single' ? selectOption(view, option.value, values) : toggleOption(view, option.value, values),
   };
 };

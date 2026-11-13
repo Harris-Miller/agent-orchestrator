@@ -6,11 +6,11 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Schema } from 'effect';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
 import type { ElicitationSummary } from '../../../host/sessionUpdateReducer.ts';
-import { elicitationKeyDown, ElicitationQuestionBody, KeyHints } from './ElicitationQuestionBody.tsx';
+import { elicitationKeyDown, ElicitationQuestionBody, KeyHints, useQuestionFocus } from './ElicitationQuestionBody.tsx';
 import { ElicitationTabbedForm } from './ElicitationTabbedForm.tsx';
 import {
   canAcceptElicitation,
@@ -35,9 +35,7 @@ export const PendingElicitationCard: FC<{
   const cardRef = useRef<HTMLDivElement>(null);
   const tabbed = views.length > 1;
 
-  useEffect(() => {
-    cardRef.current?.focus();
-  }, []);
+  useQuestionFocus(cardRef, 0);
 
   if (formRequest === undefined) {
     return (
@@ -126,7 +124,7 @@ export const PendingElicitationCard: FC<{
           Cancel
         </Button>
         <Box sx={{ flex: 1, textAlign: 'right' }}>
-          <KeyHints enter="accept" />
+          <KeyHints enter="accept" view={views[0]} />
         </Box>
       </Stack>
     </Paper>

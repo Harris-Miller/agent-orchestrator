@@ -5,11 +5,16 @@ import { Schema } from 'effect';
 import { elicitationFieldViews, initialElicitationValues } from './elicitationFormViews.ts';
 import {
   applyDigit,
+  checkOther,
   enterAction,
   firstInvalidIndex,
   flagMessage,
   isFlagged,
   questionStatus,
+  selectOption,
+  setOtherText,
+  toggleOption,
+  uncheckOther,
 } from './elicitationQuestionNav.ts';
 
 const customAnswer = (questionId: string) => ({ _askUserQuestionCustomAnswer: { questionId } });
@@ -89,5 +94,25 @@ describe('elicitationQuestionNav', () => {
     assert.strictEqual(applyDigit(bool, 1, initial).values.q2, true);
     assert.strictEqual(applyDigit(bool, 2, initial).values, initial);
     assert.strictEqual(applyDigit(int, 1, initial).values, initial);
+  });
+
+  it('select/toggle/other helpers', () => {
+    const s = views.find(v => v.kind === 'single');
+    const m = views.find(v => v.kind === 'multi');
+    if (s?.kind !== 'single' || m?.kind !== 'multi' || !s.other || !m.other) throw new Error('fixture');
+    const { other: so } = s;
+    const { other: mo } = m;
+    assert.strictEqual(selectOption(s, 'b', { ...initial, q0_custom: 'x' }).q0_custom, undefined);
+    assert.strictEqual(selectOption(s, 'b', initial).q0, 'b');
+    assert.deepStrictEqual(toggleOption(m, 'x', initial).q1, ['x']);
+    const checked = checkOther(s, so, { ...initial, q0: 'a' });
+    assert.strictEqual(checked.q0, undefined);
+    assert.strictEqual(checked.q0_custom, '');
+    assert.strictEqual(checkOther(m, mo, { ...initial, q1_custom: 'k' }).q1_custom, 'k');
+    assert.strictEqual(uncheckOther(mo, { ...initial, q1_custom: 'k' }).q1_custom, undefined);
+    const typed = setOtherText(s, so, 'hi', { ...initial, q0: 'a' });
+    assert.strictEqual(typed.q0_custom, 'hi');
+    assert.strictEqual(typed.q0, undefined);
+    assert.deepStrictEqual(setOtherText(m, mo, 'hi', { ...initial, q1: ['x'] }).q1, ['x']);
   });
 });

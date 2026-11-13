@@ -5,10 +5,10 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import { elicitationKeyDown, ElicitationQuestionBody, KeyHints } from './ElicitationQuestionBody.tsx';
+import { elicitationKeyDown, ElicitationQuestionBody, KeyHints, useQuestionFocus } from './ElicitationQuestionBody.tsx';
 import type { SetElicitationValues } from './ElicitationQuestionBody.tsx';
 import { canAcceptElicitation } from './elicitationFormViews.ts';
 import type { ElicitationFieldView, ElicitationValues } from './elicitationFormViews.ts';
@@ -35,28 +35,25 @@ export const ElicitationTabbedForm: FC<{
 }> = ({ agentTitle, message, onAccept, onCancel, onDecline, setValues, values, views }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState(0);
-  const [left, setLeft] = useState<ReadonlySet<string>>(() => new Set());
+  const [visited, setVisited] = useState<ReadonlySet<string>>(() => new Set());
   const [submitOpened, setSubmitOpened] = useState(false);
   const review = tab === views.length;
   const canAccept = canAcceptElicitation(views, values);
 
-  // Text/number questions take focus in their input; everything else focuses the card so keys reach it.
-  useEffect(() => {
-    const root = rootRef.current;
-    (root?.querySelector<HTMLInputElement>('[data-autofocus]') ?? root)?.focus();
-  }, [tab]);
+  useQuestionFocus(rootRef, tab);
 
-  const go = (to: number) => {
-    if (!review) setLeft(current => new Set(current).add(views[tab].name));
+  const goToTab = (to: number) => {
+    if (!review) setVisited(current => new Set(current).add(views[tab].name));
     if (to === views.length) setSubmitOpened(true);
     setTab(to);
   };
-  const flagged = (view: ElicitationFieldView) => isFlagged(view, values, submitOpened || left.has(view.name));
+  const isFlaggedQuestion = (view: ElicitationFieldView) =>
+    isFlagged(view, values, submitOpened || visited.has(view.name));
 
   const onEnter = () => {
     const action = enterAction(views, values, tab);
     if (action.kind === 'accept') onAccept();
-    else if (action.kind === 'go') go(action.tab);
+    else if (action.kind === 'go') goToTab(action.tab);
   };
 
   return (
@@ -81,25 +78,28 @@ export const ElicitationTabbedForm: FC<{
       >
         <Tabs
           onChange={(_, to: number) => {
-            go(to);
+            goToTab(to);
           }}
           scrollButtons="auto"
           sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 36 }}
           value={tab}
           variant="scrollable"
         >
-          {views.map((view, index) => (
-            <Tab
-              key={view.name}
-              label={
-                <Stack direction="row" spacing={0.75} sx={{ color: flagged(view) ? 'error.main' : undefined }}>
-                  <StatusMark answered={questionStatus(view, values) === 'answered'} />
-                  <span>{view.caption ?? `Question ${index + 1}`}</span>
-                </Stack>
-              }
-              sx={{ ...tabSx, color: flagged(view) ? 'error.main' : undefined }}
-            />
-          ))}
+          {views.map((view, index) => {
+            const flagged = isFlaggedQuestion(view);
+            return (
+              <Tab
+                key={view.name}
+                label={
+                  <Stack direction="row" spacing={0.75}>
+                    <StatusMark answered={questionStatus(view, values) === 'answered'} />
+                    <span>{view.caption ?? `Question ${index + 1}`}</span>
+                  </Stack>
+                }
+                sx={[tabSx, flagged && { color: 'error.main' }]}
+              />
+            );
+          })}
           <Tab label="Submit" sx={tabSx} />
         </Tabs>
         <Box sx={{ minHeight: 160, py: 1.5 }}>
@@ -109,21 +109,21 @@ export const ElicitationTabbedForm: FC<{
                 Review your answers
               </Typography>
               {views.map((view, index) => {
-                const bad = flagged(view);
+                const flaggedHere = isFlaggedQuestion(view);
                 const answer = answerText(view, values);
                 return (
                   <ButtonBase
                     key={view.name}
                     onClick={() => {
-                      go(index);
+                      goToTab(index);
                     }}
                     sx={{ borderRadius: 1, display: 'block', px: 1, py: 0.5, textAlign: 'left' }}
                   >
                     <Typography variant="body2">
                       <StatusMark answered={questionStatus(view, values) === 'answered'} /> {view.label}
                     </Typography>
-                    <Typography color={bad ? 'error' : 'text.secondary'} sx={{ pl: 2.5 }} variant="body2">
-                      {answer ?? (bad ? flagMessage(view, values) : 'Not answered')}
+                    <Typography color={flaggedHere ? 'error' : 'text.secondary'} sx={{ pl: 2.5 }} variant="body2">
+                      {answer ?? (flaggedHere ? flagMessage(view, values) : 'Not answered')}
                     </Typography>
                   </ButtonBase>
                 );
@@ -131,7 +131,7 @@ export const ElicitationTabbedForm: FC<{
             </Stack>
           ) : (
             <ElicitationQuestionBody
-              flagged={flagged(views[tab])}
+              flagged={isFlaggedQuestion(views[tab])}
               setValues={setValues}
               values={values}
               view={views[tab]}
@@ -146,7 +146,7 @@ export const ElicitationTabbedForm: FC<{
             Cancel
           </Button>
           <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <KeyHints enter={review ? 'submit' : 'next'} />
+            <KeyHints enter={review ? 'submit' : 'next'} view={review ? undefined : views[tab]} />
           </Box>
           {review ? (
             <Button disabled={!canAccept} onClick={onAccept} size="small" variant="contained">
@@ -157,7 +157,7 @@ export const ElicitationTabbedForm: FC<{
               <Button
                 disabled={tab === 0}
                 onClick={() => {
-                  go(tab - 1);
+                  goToTab(tab - 1);
                 }}
                 size="small"
               >

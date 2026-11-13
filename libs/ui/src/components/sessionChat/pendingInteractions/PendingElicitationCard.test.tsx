@@ -93,7 +93,7 @@ describe('PendingElicitationCard', () => {
       assert.strictEqual((document.activeElement as HTMLInputElement).placeholder, 'Other');
     });
     press('Escape');
-    assert.isTrue(document.activeElement?.hasAttribute('tabindex'));
+    assert.strictEqual(document.activeElement, screen.getByRole('tablist').closest('[tabindex="-1"]'));
   });
 
   it('on Submit with an unanswered required question, Enter jumps back to it', () => {
@@ -122,5 +122,28 @@ describe('PendingElicitationCard', () => {
     press('1');
     press('Enter');
     assert.deepStrictEqual(onAccept.mock.calls[0]?.[0], { q: 'a' });
+  });
+
+  it('Enter on the selected tab advances', () => {
+    setup();
+    const selected = screen.getAllByRole('tab')[0] as HTMLElement;
+    selected.focus();
+    fireEvent.keyDown(selected, { key: 'Enter' });
+    assert.strictEqual(screen.getAllByRole('tab')[1]?.getAttribute('aria-selected'), 'true');
+  });
+
+  it('ignores digits with a modifier held', () => {
+    setup();
+    fireEvent.keyDown(document.activeElement ?? document.body, { ctrlKey: true, key: '2' });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: '2', metaKey: true });
+    fireEvent.keyDown(document.activeElement ?? document.body, { altKey: true, key: '2' });
+    assert.isFalse((screen.getByRole('radio', { name: /Reducer/ }) as HTMLInputElement).checked);
+  });
+
+  it('focuses the input of a lone number question on mount', async () => {
+    setup(form({ n: { title: 'N', type: 'integer' } }));
+    await waitFor(() => {
+      assert.strictEqual(document.activeElement, screen.getByRole('spinbutton'));
+    });
   });
 });

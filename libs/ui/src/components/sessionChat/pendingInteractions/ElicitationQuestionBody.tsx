@@ -9,10 +9,19 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import type { Dispatch, FC, KeyboardEvent, ReactNode, SetStateAction } from 'react';
+import { useEffect } from 'react';
+import type { Dispatch, FC, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
 import type { ElicitationFieldView, ElicitationValue, ElicitationValues } from './elicitationFormViews.ts';
-import { applyDigit, flagMessage } from './elicitationQuestionNav.ts';
+import {
+  applyDigit,
+  checkOther,
+  flagMessage,
+  selectOption,
+  setOtherText,
+  toggleOption,
+  uncheckOther,
+} from './elicitationQuestionNav.ts';
 
 export type SetElicitationValues = Dispatch<SetStateAction<ElicitationValues>>;
 
@@ -34,12 +43,29 @@ const Kbd: FC<{ readonly children: ReactNode }> = ({ children }) => (
   </Box>
 );
 
-export const KeyHints: FC<{ readonly enter: string }> = ({ enter }) => (
+/** The digit hint shows only when the question on screen (`view`) takes digits. */
+export const KeyHints: FC<{ readonly enter: string; readonly view: ElicitationFieldView | undefined }> = ({
+  enter,
+  view,
+}) => (
   <Typography color="text.secondary" variant="caption">
-    <Kbd>1–9</Kbd>select <Kbd>Enter</Kbd>
+    {view?.kind === 'single' || view?.kind === 'multi' || view?.kind === 'boolean' ? (
+      <>
+        <Kbd>1–9</Kbd>select{' '}
+      </>
+    ) : null}
+    <Kbd>Enter</Kbd>
     {enter} <Kbd>Esc</Kbd>cancel
   </Typography>
 );
+
+/** Focus the `[data-autofocus]` input under `ref` if any (text/number questions), else the card itself. */
+export const useQuestionFocus = (ref: RefObject<HTMLElement | null>, resetKey: unknown) => {
+  useEffect(() => {
+    const root = ref.current;
+    (root?.querySelector<HTMLInputElement>('[data-autofocus]') ?? root)?.focus();
+  }, [ref, resetKey]);
+};
 
 const focusOther = (root: HTMLElement, name: string) => {
   requestAnimationFrame(() => {
@@ -69,12 +95,23 @@ export const elicitationKeyDown =
       else options.onCancel();
       return;
     }
-    if (event.key === 'Enter' && !(target instanceof HTMLButtonElement) && !(target instanceof HTMLTextAreaElement)) {
+    // MUI ignores clicks on the selected tab, so Enter there must advance; other buttons keep native Enter.
+    const nativeEnter =
+      (target instanceof HTMLButtonElement && target.getAttribute('role') !== 'tab') ||
+      target instanceof HTMLTextAreaElement;
+    if (event.key === 'Enter' && !nativeEnter) {
       event.preventDefault();
       options.onEnter();
       return;
     }
-    if (!typing && options.current !== undefined && /^[1-9]$/.test(event.key)) {
+    if (
+      !typing &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      options.current !== undefined &&
+      /^[1-9]$/.test(event.key)
+    ) {
       event.preventDefault();
       const result = applyDigit(options.current, Number(event.key), options.values);
       options.setValues(result.values);
@@ -84,25 +121,33 @@ export const elicitationKeyDown =
 
 /** "Other" toggle plus its free-text box; focusing the box checks the toggle. Unchecked = text `undefined`. */
 const OtherChoice: FC<{
-  readonly control: typeof Checkbox | typeof Radio;
+  readonly control: { readonly kind: 'checkbox' } | { readonly groupName: string; readonly kind: 'radio' };
   readonly digit: number;
-  readonly groupName?: string;
   readonly name: string;
   readonly onCheck: (checked: boolean) => void;
   readonly onText: (text: string) => void;
   readonly placeholder: string;
   readonly text: ElicitationValue;
-}> = ({ control: Control, digit, groupName, name, onCheck, onText, placeholder, text }) => (
+}> = ({ control, digit, name, onCheck, onText, placeholder, text }) => (
   <>
     <FormControlLabel
       control={
-        <Control
-          checked={text !== undefined}
-          name={groupName}
-          onChange={event => {
-            onCheck(event.target.checked);
-          }}
-        />
+        control.kind === 'radio' ? (
+          <Radio
+            checked={text !== undefined}
+            name={control.groupName}
+            onChange={event => {
+              onCheck(event.target.checked);
+            }}
+          />
+        ) : (
+          <Checkbox
+            checked={text !== undefined}
+            onChange={event => {
+              onCheck(event.target.checked);
+            }}
+          />
+        )
       }
       label={
         <>
@@ -189,11 +234,7 @@ export const ElicitationQuestionBody: FC<{
         <RadioGroup
           name={view.name}
           onChange={event => {
-            setValues(current => ({
-              ...current,
-              ...(other && { [other.name]: undefined }),
-              [view.name]: event.target.value,
-            }));
+            setValues(current => selectOption(view, event.target.value, current));
           }}
           value={typeof value === 'string' ? value : ''}
         >
@@ -214,15 +255,14 @@ export const ElicitationQuestionBody: FC<{
         {other === undefined ? null : (
           // Outside RadioGroup so its value can't collide with an option; shared `name` keeps keyboard grouping.
           <OtherChoice
-            control={Radio}
+            control={{ groupName: view.name, kind: 'radio' }}
             digit={view.options.length + 1}
-            groupName={view.name}
             name={other.name}
             onCheck={() => {
-              setValues(current => ({ ...current, [other.name]: current[other.name] ?? '', [view.name]: undefined }));
+              setValues(current => checkOther(view, other, current));
             }}
             onText={text => {
-              setValues(current => ({ ...current, [other.name]: text, [view.name]: undefined }));
+              setValues(current => setOtherText(view, other, text, current));
             }}
             placeholder={other.placeholder}
             text={values[other.name]}
@@ -245,12 +285,8 @@ export const ElicitationQuestionBody: FC<{
               control={
                 <Checkbox
                   checked={selected.includes(option.value)}
-                  onChange={event => {
-                    setValue(
-                      event.target.checked
-                        ? [...selected, option.value]
-                        : selected.filter(item => item !== option.value),
-                    );
+                  onChange={() => {
+                    setValues(current => toggleOption(view, option.value, current));
                   }}
                 />
               }
@@ -265,14 +301,14 @@ export const ElicitationQuestionBody: FC<{
           ))}
           {other === undefined ? null : (
             <OtherChoice
-              control={Checkbox}
+              control={{ kind: 'checkbox' }}
               digit={view.options.length + 1}
               name={other.name}
               onCheck={checked => {
-                setValues(current => ({ ...current, [other.name]: checked ? '' : undefined }));
+                setValues(current => (checked ? checkOther(view, other, current) : uncheckOther(other, current)));
               }}
               onText={text => {
-                setValues(current => ({ ...current, [other.name]: text }));
+                setValues(current => setOtherText(view, other, text, current));
               }}
               placeholder={other.placeholder}
               text={values[other.name]}

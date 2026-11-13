@@ -12,8 +12,14 @@ import type { ElicitationSummaryRow } from '../../../host/sessionUpdateReducer.t
 
 export type ElicitationChoice = { readonly label: string; readonly value: string };
 
-/** A paired free-text "Other" field (Claude's `question_N_custom`), folded into its choice question. */
-export type ElicitationOther = { readonly name: string; readonly placeholder: string };
+/** A free-text field paired with a choice question and folded into it. */
+export type ElicitationPairedField = { readonly name: string; readonly placeholder: string };
+
+/** Claude's `question_N_custom`, shown as the question's "Other" choice. */
+export type ElicitationOther = ElicitationPairedField;
+
+/** Codex's `question_N_note` (`role: user_note`), an optional note on the question. */
+export type ElicitationNote = ElicitationPairedField;
 
 type ElicitationFieldBase = {
   /** Shorter of title/description, shown small above the label; undefined when only one is present. */
@@ -45,6 +51,7 @@ export type ElicitationFieldView = ElicitationFieldBase &
         readonly default: string | undefined;
         readonly kind: 'single';
         readonly options: readonly ElicitationChoice[];
+        readonly note: ElicitationNote | undefined;
         readonly other: ElicitationOther | undefined;
       }
     | {
@@ -53,6 +60,7 @@ export type ElicitationFieldView = ElicitationFieldBase &
         readonly maxItems: number | undefined;
         readonly minItems: number | undefined;
         readonly options: readonly ElicitationChoice[];
+        readonly note: ElicitationNote | undefined;
         readonly other: ElicitationOther | undefined;
       }
     | { readonly kind: 'unsupported'; readonly type: string }
@@ -99,7 +107,7 @@ const labelPair = (
 type PropertyMeta =
   | {
       readonly _askUserQuestionCustomAnswer?: { readonly questionId?: unknown };
-      readonly codex?: { readonly isSecret?: unknown };
+      readonly codex?: { readonly isSecret?: unknown; readonly questionId?: unknown; readonly role?: unknown };
     }
   | null
   | undefined;
@@ -123,6 +131,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           kind: 'multi',
           maxItems: property.maxItems ?? undefined,
           minItems: property.minItems ?? undefined,
+          note: undefined,
           options,
           other: undefined,
         };
@@ -139,7 +148,7 @@ const toView = (name: string, property: ElicitationPropertySchema, required: boo
           minLength: property.minLength ?? undefined,
           pattern: property.pattern ?? undefined,
         }
-      : { ...base, kind: 'single', options, other: undefined };
+      : { ...base, kind: 'single', note: undefined, options, other: undefined };
   }
   if (Schema.is(ElicitationBooleanProperty)(property)) {
     return { ...shared, default: property.default ?? undefined, kind: 'boolean' };
@@ -161,23 +170,37 @@ const customAnswerQuestionId = (property: ElicitationPropertySchema): string | u
   return typeof id === 'string' ? id : undefined;
 };
 
+const noteQuestionId = (property: ElicitationPropertySchema): string | undefined => {
+  const codex = propertyMeta(property)?.codex;
+  return codex?.role === 'user_note' && typeof codex.questionId === 'string' ? codex.questionId : undefined;
+};
+
 /** Custom-answer fields pair with a choice question and are folded into it as its "Other" choice. */
 export const elicitationFieldViews = (request: CreateElicitationFormRequest): readonly ElicitationFieldView[] => {
   const { properties, required } = request.requestedSchema;
   const entries = Object.entries(properties ?? {});
   const views = entries.map(([name, property]) => toView(name, property, required?.includes(name) ?? false));
-  const others = new Map<string, ElicitationOther>();
-  for (const [name, property] of entries) {
-    const questionId = customAnswerQuestionId(property);
-    const target = views.find(view => view.name === questionId);
-    if (questionId !== undefined && isChoiceView(target)) {
-      others.set(questionId, { name, placeholder: labelPair(name, property).label });
+  const choiceNames = new Set(views.filter(isChoiceView).map(view => view.name));
+  const pair = (
+    questionIdOf: (property: ElicitationPropertySchema) => string | undefined,
+    skip: ReadonlySet<string>,
+  ) => {
+    const paired = new Map<string, ElicitationPairedField>();
+    for (const [name, property] of entries) {
+      const questionId = questionIdOf(property);
+      if (questionId !== undefined && !skip.has(name) && choiceNames.has(questionId)) {
+        paired.set(questionId, { name, placeholder: labelPair(name, property).label });
+      }
     }
-  }
-  const foldedNames = new Set([...others.values()].map(other => other.name));
+    return paired;
+  };
+  const others = pair(customAnswerQuestionId, new Set());
+  const otherNames = new Set([...others.values()].map(other => other.name));
+  const notes = pair(noteQuestionId, otherNames);
+  const foldedNames = new Set([...otherNames, ...[...notes.values()].map(note => note.name)]);
   return views
     .filter(view => !foldedNames.has(view.name))
-    .map(view => (isChoiceView(view) ? { ...view, other: others.get(view.name) } : view));
+    .map(view => (isChoiceView(view) ? { ...view, note: notes.get(view.name), other: others.get(view.name) } : view));
 };
 
 /** Seed only from `default`; a boolean has no unset state so it seeds `false`. */
@@ -253,14 +276,15 @@ export const canAcceptElicitation = (views: readonly ElicitationFieldView[], val
     }
     const value = values[view.name];
     const otherSet = isChoiceView(view) && view.other !== undefined && isSet(values[view.other.name]);
+    const noteSet = isChoiceView(view) && view.note !== undefined && isSet(values[view.note.name]);
     if (view.kind === 'multi') {
       const count = (Array.isArray(value) ? value.length : 0) + (otherSet ? 1 : 0);
       if (count < (view.minItems ?? 0) || (view.maxItems !== undefined && count > view.maxItems)) {
         return false;
       }
-      return !view.required || count > 0;
+      return !view.required || count > 0 || noteSet;
     }
-    return elicitationFieldError(view, value) === undefined && (!view.required || isSet(value) || otherSet);
+    return elicitationFieldError(view, value) === undefined && (!view.required || isSet(value) || otherSet || noteSet);
   });
 
 export const elicitationContent = (values: ElicitationValues): ElicitationContent => {
@@ -297,5 +321,10 @@ export const elicitationSummaryRows = (
     const parts = [isSet(raw) ? formatValue(view, raw!) : undefined, isSet(other) ? String(other) : undefined].filter(
       part => part !== undefined,
     );
-    return parts.length === 0 ? [] : [{ caption: view.caption, label: view.label, value: parts.join(', ') }];
+    const noteRaw = isChoiceView(view) && view.note ? values[view.note.name] : undefined;
+    const note = isSet(noteRaw) ? String(noteRaw) : undefined;
+    if (parts.length === 0) {
+      return note === undefined ? [] : [{ caption: view.caption, label: view.label, note: undefined, value: note }];
+    }
+    return [{ caption: view.caption, label: view.label, note, value: parts.join(', ') }];
   });

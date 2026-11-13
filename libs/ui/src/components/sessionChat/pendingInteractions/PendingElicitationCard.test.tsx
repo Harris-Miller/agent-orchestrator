@@ -146,4 +146,33 @@ describe('PendingElicitationCard', () => {
       assert.strictEqual(document.activeElement, screen.getByRole('spinbutton'));
     });
   });
+
+  it('renders a codex note inside a compact form and submits both keys', () => {
+    const { onAccept } = setup(
+      form({
+        question_0: { oneOf: [{ const: 'a', title: 'A' }], title: 'Pick', type: 'string' },
+        question_0_note: {
+          _meta: { codex: { questionId: 'question_0', role: 'user_note' } },
+          title: 'Additional answer or note',
+          type: 'string',
+        },
+      }),
+    );
+    assert.isNull(screen.queryByRole('tab'));
+    press('1');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Additional answer or note' }), {
+      target: { value: 'because' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    assert.deepStrictEqual(onAccept.mock.calls[0]?.[0], { question_0: 'a', question_0_note: 'because' });
+    assert.strictEqual(onAccept.mock.calls[0]?.[1].rows[0].note, 'because');
+  });
+
+  it('shows the question as a heading and labels the text input with it', () => {
+    setup(form({ q: { title: 'Which branch should I use for the release?', type: 'string' } }));
+    const textbox = screen.getByRole('textbox', { name: 'Which branch should I use for the release?' });
+    assert.isNotNull(textbox);
+    assert.isNotNull(screen.queryByText('Questions'));
+    assert.strictEqual(screen.getAllByText('Which branch should I use for the release?').length, 1);
+  });
 });

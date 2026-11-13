@@ -1,5 +1,10 @@
 import { canAcceptElicitation, elicitationFieldError, elicitationSummaryRows } from './elicitationFormViews.ts';
-import type { ElicitationFieldView, ElicitationOther, ElicitationValues } from './elicitationFormViews.ts';
+import type {
+  ElicitationFieldView,
+  ElicitationNote,
+  ElicitationOther,
+  ElicitationValues,
+} from './elicitationFormViews.ts';
 
 export type QuestionStatus = 'answered' | 'empty' | 'invalid';
 
@@ -106,6 +111,12 @@ export const setOtherText = (
   ...values,
   [other.name]: text,
   ...(view.kind === 'single' && { [view.name]: undefined }),
+});
+
+/** Set the note text; empty clears it. Never touches the selection. */
+export const setNoteText = (note: ElicitationNote, text: string, values: ElicitationValues): ElicitationValues => ({
+  ...values,
+  [note.name]: text === '' ? undefined : text,
 });
 
 /** Digit `n` (1-9) on a question: pick/toggle option n, the digit after the last option is "Other", `1` flips a boolean. */

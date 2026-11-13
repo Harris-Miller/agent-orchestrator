@@ -99,7 +99,7 @@ export const PendingElicitationCard: FC<{
       <Typography color="text.secondary" variant="caption">
         {agentTitle} asks
       </Typography>
-      <Typography gutterBottom variant="subtitle1">
+      <Typography color="text.secondary" gutterBottom variant="body2">
         {formRequest.message}
       </Typography>
       <Stack spacing={1.5} sx={{ mb: 2, mt: 1 }}>

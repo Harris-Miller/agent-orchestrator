@@ -12,11 +12,14 @@ import type { ElicitationSummaryRow } from '../../../host/sessionUpdateReducer.t
 
 export type ElicitationChoice = { readonly label: string; readonly value: string };
 
-/** A paired free-text "Other" field (Claude's `question_N_custom`), folded into its choice question. */
-export type ElicitationOther = { readonly name: string; readonly placeholder: string };
+/** A free-text field paired with a choice question and folded into it. */
+export type ElicitationPairedField = { readonly name: string; readonly placeholder: string };
 
-/** A paired optional free-text note (Codex `question_N_note`), folded into its choice question. */
-export type ElicitationNote = { readonly name: string; readonly placeholder: string };
+/** Claude's `question_N_custom`, shown as the question's "Other" choice. */
+export type ElicitationOther = ElicitationPairedField;
+
+/** Codex's `question_N_note` (`role: user_note`), an optional note on the question. */
+export type ElicitationNote = ElicitationPairedField;
 
 type ElicitationFieldBase = {
   /** Shorter of title/description, shown small above the label; undefined when only one is present. */
@@ -167,10 +170,9 @@ const customAnswerQuestionId = (property: ElicitationPropertySchema): string | u
   return typeof id === 'string' ? id : undefined;
 };
 
-const noteQuestionId = (name: string, property: ElicitationPropertySchema): string | undefined => {
+const noteQuestionId = (property: ElicitationPropertySchema): string | undefined => {
   const codex = propertyMeta(property)?.codex;
-  if (codex?.role === 'user_note' && typeof codex.questionId === 'string') return codex.questionId;
-  return name.endsWith('_note') ? name.slice(0, -'_note'.length) : undefined;
+  return codex?.role === 'user_note' && typeof codex.questionId === 'string' ? codex.questionId : undefined;
 };
 
 /** Custom-answer fields pair with a choice question and are folded into it as its "Other" choice. */
@@ -178,26 +180,23 @@ export const elicitationFieldViews = (request: CreateElicitationFormRequest): re
   const { properties, required } = request.requestedSchema;
   const entries = Object.entries(properties ?? {});
   const views = entries.map(([name, property]) => toView(name, property, required?.includes(name) ?? false));
-  const others = new Map<string, ElicitationOther>();
-  for (const [name, property] of entries) {
-    const questionId = customAnswerQuestionId(property);
-    const target = views.find(view => view.name === questionId);
-    if (questionId !== undefined && isChoiceView(target)) {
-      others.set(questionId, { name, placeholder: labelPair(name, property).label });
+  const choiceNames = new Set(views.filter(isChoiceView).map(view => view.name));
+  const pair = (
+    questionIdOf: (property: ElicitationPropertySchema) => string | undefined,
+    skip: ReadonlySet<string>,
+  ) => {
+    const paired = new Map<string, ElicitationPairedField>();
+    for (const [name, property] of entries) {
+      const questionId = questionIdOf(property);
+      if (questionId !== undefined && !skip.has(name) && choiceNames.has(questionId)) {
+        paired.set(questionId, { name, placeholder: labelPair(name, property).label });
+      }
     }
-  }
+    return paired;
+  };
+  const others = pair(customAnswerQuestionId, new Set());
   const otherNames = new Set([...others.values()].map(other => other.name));
-  const notes = new Map<string, ElicitationNote>();
-  for (const [name, property] of entries) {
-    const questionId = noteQuestionId(name, property);
-    if (
-      questionId !== undefined &&
-      !otherNames.has(name) &&
-      isChoiceView(views.find(view => view.name === questionId))
-    ) {
-      notes.set(questionId, { name, placeholder: labelPair(name, property).label });
-    }
-  }
+  const notes = pair(noteQuestionId, otherNames);
   const foldedNames = new Set([...otherNames, ...[...notes.values()].map(note => note.name)]);
   return views
     .filter(view => !foldedNames.has(view.name))
@@ -325,7 +324,7 @@ export const elicitationSummaryRows = (
     const noteRaw = isChoiceView(view) && view.note ? values[view.note.name] : undefined;
     const note = isSet(noteRaw) ? String(noteRaw) : undefined;
     if (parts.length === 0) {
-      return note === undefined ? [] : [{ caption: view.caption, label: view.label, value: note }];
+      return note === undefined ? [] : [{ caption: view.caption, label: view.label, note: undefined, value: note }];
     }
     return [{ caption: view.caption, label: view.label, note, value: parts.join(', ') }];
   });

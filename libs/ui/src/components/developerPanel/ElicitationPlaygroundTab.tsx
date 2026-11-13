@@ -32,11 +32,13 @@ const choices = [
 ];
 
 /** Claude pairs a choice question with a free-text "Other" field via `_askUserQuestionCustomAnswer`. */
-const claudeOther = (questionId: string, title = 'Other') => ({
+const claudeOther = (questionId: string) => ({
   _meta: { _askUserQuestionCustomAnswer: { questionId } },
-  title,
+  title: 'Other',
   type: 'string',
 });
+
+const singleChoice = (description: string, title: string) => ({ description, oneOf: choices, title, type: 'string' });
 
 /** Codex pairs a choice question with an optional note via `codex.role: user_note`. */
 const codexNote = (questionId: string) => ({
@@ -88,23 +90,19 @@ const SINGLE_QUESTION: readonly Scenario[] = [
     title: 'Boolean',
   },
   {
-    request: form(
-      'One question',
-      { q0: { description: 'Which approach?', oneOf: choices, title: 'State', type: 'string' } },
-      ['q0'],
-    ),
+    request: form('One question', { q0: singleChoice('Which approach?', 'State') }, ['q0']),
     title: 'Single choice',
   },
   {
     request: form('One question', {
-      q0: { description: 'Which approach?', oneOf: choices, title: 'State', type: 'string' },
+      q0: singleChoice('Which approach?', 'State'),
       q0_custom: claudeOther('q0'),
     }),
     title: 'Single choice + Other (Claude)',
   },
   {
     request: form('One question', {
-      q0: { description: 'Which approach?', oneOf: choices, title: 'State', type: 'string' },
+      q0: singleChoice('Which approach?', 'State'),
       q0_note: codexNote('q0'),
     }),
     title: 'Single choice + note (Codex)',
@@ -152,7 +150,7 @@ const MULTI_QUESTION: readonly Scenario[] = [
     request: form(
       'Mixed question types',
       {
-        q0: { description: 'Approach?', oneOf: choices, title: 'State', type: 'string' },
+        q0: singleChoice('Approach?', 'State'),
         q0_custom: claudeOther('q0'),
         q1: { description: 'Features?', items: { anyOf: choices }, title: 'Features', type: 'array' },
         q2: { description: 'Tests?', title: 'Tests', type: 'boolean' },
@@ -167,7 +165,7 @@ const MULTI_QUESTION: readonly Scenario[] = [
     request: form(
       'Claude AskUserQuestion',
       {
-        question_0: { description: 'Which library?', oneOf: choices, title: 'Library', type: 'string' },
+        question_0: singleChoice('Which library?', 'Library'),
         question_0_custom: claudeOther('question_0'),
         question_1: { description: 'Which extras?', items: { anyOf: choices }, title: 'Extras', type: 'array' },
         question_1_custom: claudeOther('question_1'),
@@ -178,7 +176,7 @@ const MULTI_QUESTION: readonly Scenario[] = [
   },
   {
     request: form('Codex request_user_input', {
-      question_0: { description: 'Which approach?', oneOf: choices, title: 'Approach', type: 'string' },
+      question_0: singleChoice('Which approach?', 'Approach'),
       question_0_note: codexNote('question_0'),
       question_1: {
         _meta: { codex: { isSecret: true } },
@@ -191,7 +189,7 @@ const MULTI_QUESTION: readonly Scenario[] = [
   },
   {
     request: form('Two questions', {
-      q0: { description: 'Approach?', oneOf: choices, title: 'State', type: 'string' },
+      q0: singleChoice('Approach?', 'State'),
       q1: { description: 'Tests?', title: 'Tests', type: 'boolean' },
     }),
     title: 'Two questions',
@@ -224,17 +222,18 @@ const JsonBlock: FC<{ readonly label: string; readonly value: unknown }> = ({ la
 
 const REQUEST_ID = 1;
 
+type Result =
+  | { readonly _tag: 'pending' }
+  | { readonly _tag: 'accepted'; readonly content: ElicitationContent; readonly summary: ElicitationSummary }
+  | { readonly _tag: 'ended'; readonly outcome: 'Cancelled' | 'Declined' };
+
 const ScenarioView: FC<{ readonly scenario: Scenario }> = ({ scenario }) => {
   const [run, setRun] = useState(0);
-  const [summary, setSummary] = useState<ElicitationSummary | undefined>(undefined);
-  const [content, setContent] = useState<ElicitationContent | undefined>(undefined);
-  const [outcome, setOutcome] = useState<string | undefined>(undefined);
+  const [result, setResult] = useState<Result>({ _tag: 'pending' });
 
   const reset = () => {
     setRun(n => n + 1);
-    setSummary(undefined);
-    setContent(undefined);
-    setOutcome(undefined);
+    setResult({ _tag: 'pending' });
   };
 
   return (
@@ -245,43 +244,42 @@ const ScenarioView: FC<{ readonly scenario: Scenario }> = ({ scenario }) => {
           Reset
         </Button>
       </Stack>
-      {summary === undefined && outcome === undefined ? (
+      {result._tag === 'pending' ? (
         <PendingElicitationCard
           agentTitle="Claude"
           key={run}
           onAccept={(nextContent, next) => {
-            setContent(nextContent);
-            setSummary(next);
+            setResult({ _tag: 'accepted', content: nextContent, summary: next });
           }}
           onCancel={() => {
-            setOutcome('Cancelled');
+            setResult({ _tag: 'ended', outcome: 'Cancelled' });
           }}
           onDecline={() => {
-            setOutcome('Declined');
+            setResult({ _tag: 'ended', outcome: 'Declined' });
           }}
           request={scenario.request}
         />
       ) : null}
-      {outcome === undefined ? null : <Typography color="text.secondary">{outcome}</Typography>}
+      {result._tag === 'ended' ? <Typography color="text.secondary">{result.outcome}</Typography> : null}
       <Stack spacing={1} sx={{ mt: 1 }}>
         <JsonBlock
           label="elicitation/create request"
           value={{ id: REQUEST_ID, jsonrpc: '2.0', method: 'elicitation/create', params: scenario.request }}
         />
-        {content === undefined ? null : (
+        {result._tag === 'accepted' ? (
           <JsonBlock
             label="elicitation/create response (Accept)"
-            value={{ id: REQUEST_ID, jsonrpc: '2.0', result: { action: 'accept', content } }}
+            value={{ id: REQUEST_ID, jsonrpc: '2.0', result: { action: 'accept', content: result.content } }}
           />
-        )}
+        ) : null}
       </Stack>
-      {summary === undefined ? null : (
+      {result._tag === 'accepted' ? (
         <List disablePadding>
           <ElicitationSummaryView
-            item={{ ...summary, id: `playground-${scenario.title}`, kind: 'elicitation_summary' }}
+            item={{ ...result.summary, id: `playground-${scenario.title}`, kind: 'elicitation_summary' }}
           />
         </List>
-      )}
+      ) : null}
     </Box>
   );
 };

@@ -295,21 +295,17 @@ describe('elicitation note', () => {
     });
   });
 
-  it('pairs by the `_note` key convention without _meta', () => {
-    const views = elicitationFieldViews(
-      request({ q: codexProperties.question_0, q_note: { title: 'Note', type: 'string' } }),
-    );
-    assert.strictEqual(views.length, 1);
-    assert.strictEqual(views[0].kind === 'single' ? views[0].note?.name : undefined, 'q_note');
-  });
-
   it('keeps a note standalone when its target is not a choice question or is missing', () => {
     const textTarget = elicitationFieldViews(
-      request({ q: { title: 'Q', type: 'string' }, q_note: { title: 'Note', type: 'string' } }),
+      request({ question_0: { title: 'Q', type: 'string' }, question_0_note: codexNote }),
     );
     assert.strictEqual(textTarget.length, 2);
-    const orphan = elicitationFieldViews(request({ other_note: { title: 'Note', type: 'string' } }));
+    const orphan = elicitationFieldViews(request({ other_note: codexNote }));
     assert.strictEqual(orphan.length, 1);
+    const unmarked = elicitationFieldViews(
+      request({ question_0: codexProperties.question_0, question_0_note: { title: 'Note', type: 'string' } }),
+    );
+    assert.strictEqual(unmarked.length, 2);
   });
 
   it('keeps Claude custom-answer pairing as other, not note', () => {
@@ -324,7 +320,7 @@ describe('elicitation note', () => {
     const noteOnly = { question_0_note: 'hello' };
     assert.isTrue(canAcceptElicitation(views, noteOnly));
     assert.deepStrictEqual(elicitationSummaryRows(views, noteOnly), [
-      { caption: 'Pick', label: 'Pick one?', value: 'hello' },
+      { caption: 'Pick', label: 'Pick one?', note: undefined, value: 'hello' },
     ]);
     const both = { question_0: 'a', question_0_note: 'why' };
     assert.deepStrictEqual(elicitationSummaryRows(views, both), [

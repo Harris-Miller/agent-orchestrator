@@ -11,10 +11,11 @@ afterEach(cleanup);
 describe('ElicitationSummaryView', () => {
   it('renders the note under the value', () => {
     const item = {
+      id: 'e1',
       kind: 'elicitation_summary',
       message: 'M',
       rows: [{ caption: undefined, label: 'Q', note: 'because', value: 'Alpha' }],
-    } as unknown as ChatItemOf<'elicitation_summary'>;
+    } satisfies ChatItemOf<'elicitation_summary'>;
     render(<ElicitationSummaryView item={item} />);
     assert.isNotNull(screen.queryByText('Alpha'));
     assert.isNotNull(screen.queryByText('because'));

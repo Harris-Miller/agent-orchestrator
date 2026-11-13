@@ -93,7 +93,7 @@ describe('respondElicitationAtomFn', () => {
         launchTarget: LT,
         response: { action: 'accept', content: {} },
         sessionId: 's1',
-        summary: { message: 'Pick', rows: [{ caption: undefined, label: 'Color', value: 'red' }] },
+        summary: { message: 'Pick', rows: [{ caption: undefined, label: 'Color', note: undefined, value: 'red' }] },
       });
 
       const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;

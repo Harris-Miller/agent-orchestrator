@@ -661,7 +661,7 @@ describe('interaction folds on Subagent holders and accepted summaries', () => {
   it('answerElicitation appends the accepted-form summary to the transcript', () => {
     const pending = pendingElicitation('e1', 's1');
     const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pending }) });
-    const summary = { message: 'Pick', rows: [{ caption: undefined, label: 'Name', value: 'x' }] };
+    const summary = { message: 'Pick', rows: [{ caption: undefined, label: 'Name', note: undefined, value: 'x' }] };
     const next = answerElicitation(snapshot, 's1', pending, summary);
     assert.strictEqual(next.sessions.s1.pendingElicitation, undefined);
     assert.strictEqual(next.sessions.s1.transcript.items.at(-1)?.kind, 'elicitation_summary');

@@ -57,7 +57,41 @@ export const SubmitHandoffArgs = Schema.Struct({
 /** `list_subagent_targets` takes no arguments (the hub declares it with `Tool.EmptyParams`, which an agent calls with `{}`). */
 export const ListSubagentTargetsArgs = Schema.Struct({});
 
-export const HUB_TOOL_NAMES = ['submit_handoff', 'list_subagent_targets'] as const;
+/** The longest a single `wait_subagent` (and a foreground `spawn_subagent`) holds a call open: under Codex's 300 s MCP tool timeout. */
+export const MAX_SUBAGENT_WAIT_MS = 240_000;
+
+export const SpawnSubagentArgs = Schema.Struct({
+  configOptions: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Boolean])),
+  ).annotate({
+    description:
+      'Config option values for the subagent, keyed by option id (e.g. { "model": "gpt-5", "effort": "high" }), as listed by list_subagent_targets. Omit for the target defaults.',
+  }),
+  description: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
+    description: 'A short (3-5 word) name for the subagent, shown to the user.',
+  }),
+  /** A string: the launch target type lives in `@lib/ui`, the handler validates it. */
+  launchTarget: Schema.String.annotate({
+    description: 'The launch target to run the subagent on, as listed by list_subagent_targets.',
+  }),
+  task: Schema.String.check(
+    Schema.makeFilter(task => task.trim().length > 0 || 'The task must not be empty.'),
+    Schema.isMaxLength(MAX_SUBAGENT_TEXT_CHARS),
+  ).annotate({
+    description: `The complete task for the subagent, as self-contained Markdown (at most ${MAX_SUBAGENT_TEXT_CHARS} characters). It starts with no context but the working directory.`,
+  }),
+});
+
+export const WaitSubagentArgs = Schema.Struct({
+  ids: Schema.Array(Schema.String).check(Schema.isMinLength(1), Schema.isMaxLength(16)).annotate({
+    description: 'The subagent ids (as returned by spawn_subagent) to wait for.',
+  }),
+  timeoutMs: Schema.optionalKey(Schema.Number).annotate({
+    description: `How long to wait, in milliseconds (at most ${MAX_SUBAGENT_WAIT_MS}; the default and the maximum).`,
+  }),
+});
+
+export const HUB_TOOL_NAMES = ['submit_handoff', 'list_subagent_targets', 'spawn_subagent', 'wait_subagent'] as const;
 export type HubToolName = (typeof HUB_TOOL_NAMES)[number];
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -7,9 +7,11 @@ import type { HubToolName } from '@lib/hub/protocol';
 
 import { submitHandoffHandler } from './handoffSubmission.ts';
 import type { HubToolHandler } from './hubToolHandler.ts';
-import { listSubagentTargetsHandler } from './spawnSubagentHandler.ts';
+import { listSubagentTargetsHandler, spawnSubagentHandler, waitSubagentHandler } from './spawnSubagentHandler.ts';
 
 export const HUB_TOOL_HANDLERS: Readonly<Record<HubToolName, HubToolHandler>> = {
   list_subagent_targets: listSubagentTargetsHandler,
+  spawn_subagent: spawnSubagentHandler,
   submit_handoff: submitHandoffHandler,
+  wait_subagent: waitSubagentHandler,
 };

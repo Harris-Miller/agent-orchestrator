@@ -114,7 +114,7 @@ describe('hub', () => {
       const list = yield* mcpPost(mcpUrl(port), 'tok-a', listTools, { sessionId });
       assert.deepStrictEqual(
         rpcResult(list.text).result.tools.map(t => t.name),
-        ['submit_handoff', 'list_subagent_targets'],
+        ['submit_handoff', 'list_subagent_targets', 'spawn_subagent', 'wait_subagent'],
       );
 
       const call = yield* Effect.forkChild(

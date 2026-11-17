@@ -6,7 +6,7 @@ import { Effect, Schema } from 'effect';
 import { Tool, Toolkit } from 'effect/ai';
 import type { AiError } from 'effect/ai';
 
-import { HUB_TOOL_NAMES, SubmitHandoffArgs } from './protocol.ts';
+import { HUB_TOOL_NAMES, SpawnSubagentArgs, SubmitHandoffArgs, WaitSubagentArgs } from './protocol.ts';
 import type { HubToolName } from './protocol.ts';
 import type { CallResult } from './state.ts';
 
@@ -26,7 +26,21 @@ export const ListSubagentTargets = Tool.make('list_subagent_targets', {
   parameters: Tool.EmptyParams,
 });
 
-export const HubToolkit = Toolkit.make(SubmitHandoff, ListSubagentTargets);
+export const SpawnSubagent = Tool.make('spawn_subagent', {
+  ...forwarded,
+  description:
+    'Start a subagent on a different agent launch target (provider) and wait for it. Use your own subagent tool for work on your own provider; use this only to run a task on a different launch target (see list_subagent_targets). The subagent starts in your working directory with only the task you give it, and its final message is the result. If it is still running after a few minutes this returns its id with status running: then call wait_subagent.',
+  parameters: SpawnSubagentArgs,
+});
+
+export const WaitSubagent = Tool.make('wait_subagent', {
+  ...forwarded,
+  description:
+    "Wait for subagents you started with spawn_subagent (by id) and get each one's final message, or its status if it is still running after the wait. Only your own subagents.",
+  parameters: WaitSubagentArgs,
+});
+
+export const HubToolkit = Toolkit.make(SubmitHandoff, ListSubagentTargets, SpawnSubagent, WaitSubagent);
 
 type Handlers = Toolkit.HandlersFrom<typeof HubToolkit.tools>;
 

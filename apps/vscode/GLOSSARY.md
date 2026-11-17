@@ -5,7 +5,7 @@ VS Code extension Host app: extension-host fulfillment plus webview that present
 ## Language
 
 **Extension host**:
-The Node VS Code extension process that fulfills spawn, filesystem, BundledResource, OpenFile, OS snapshot, window focus (`WindowFocus`, for Notifier), and HTTP fetch behind Host IPC (extension↔webview wire). OpenFile opens files, reveals directories, and opens image data by writing it to `<tmpdir>/hoa-images/<sha256-prefix>.<ext>`. In Extension Development it may load host `OTEL_*` development defaults into process env so they reach the webview via OS snapshot.
+The Node VS Code extension process that fulfills spawn, filesystem, BundledResource, OpenFile, OS snapshot, window focus (`WindowFocus`, for Notifier), and HTTP fetch behind Host IPC (extension↔webview wire). OpenFile opens files (jumping to an optional 1-based line), reveals directories, and opens image data by writing it to `<tmpdir>/hoa-images/<sha256-prefix>.<ext>`. In Extension Development it may load host `OTEL_*` development defaults into process env so they reach the webview via OS snapshot.
 
 **Host IPC fulfillment**:
 The extension host's side of Host IPC for one webview: an answer for every Host IPC request (its Result, or an Error when the work fails) and handling for every webview→extension Host IPC push. Anything else it receives is ignored, never answered.

@@ -18,6 +18,14 @@ const vscodeStub = vi.hoisted(() => ({
   commands: { executeCommand: vi.fn(() => Promise.resolve(undefined)) },
   env: { openExternal: vi.fn(() => Promise.resolve(true)) },
   FileType: { Directory: 2, File: 1 },
+  Range: class {
+    constructor(
+      readonly startLine: number,
+      readonly startCharacter: number,
+      readonly endLine: number,
+      readonly endCharacter: number,
+    ) {}
+  },
   Uri: {
     file: (fsPath: string) => ({ fsPath, scheme: 'file' }),
     parse: (value: string) => ({ scheme: 'https', value }),
@@ -274,6 +282,28 @@ describe('Host IPC fulfillment', () => {
       assert.deepStrictEqual(vscodeStub.commands.executeCommand.mock.lastCall, [
         'vscode.open',
         { fsPath: '/some/file.ts', scheme: 'file' },
+      ]);
+    }),
+  );
+
+  it.effect('jumps to the requested line of a file, clamped to line 1; directories ignore it', () =>
+    Effect.gen(function* () {
+      const { client } = yield* fulfillment;
+      yield* client.request({ _tag: 'OpenFile', line: 14, path: '/some/file.ts' });
+      assert.deepStrictEqual(vscodeStub.commands.executeCommand.mock.lastCall, [
+        'vscode.open',
+        { fsPath: '/some/file.ts', scheme: 'file' },
+        { selection: new vscodeStub.Range(13, 0, 13, 0) },
+      ]);
+      yield* client.request({ _tag: 'OpenFile', line: 0, path: '/some/file.ts' });
+      assert.deepStrictEqual(vscodeStub.commands.executeCommand.mock.lastCall?.[2], {
+        selection: new vscodeStub.Range(0, 0, 0, 0),
+      });
+      vscodeStub.workspace.fs.stat.mockResolvedValueOnce({ type: vscodeStub.FileType.Directory });
+      yield* client.request({ _tag: 'OpenFile', line: 5, path: '/some/dir' });
+      assert.deepStrictEqual(vscodeStub.commands.executeCommand.mock.lastCall, [
+        'revealInExplorer',
+        { fsPath: '/some/dir', scheme: 'file' },
       ]);
     }),
   );

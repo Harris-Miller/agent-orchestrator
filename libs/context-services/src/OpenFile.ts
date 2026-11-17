@@ -26,7 +26,8 @@ export type Base64Image = typeof Base64Image.Type;
 /** Portable editor opener. */
 export interface OpenFile {
   readonly supported: boolean;
-  readonly open: (path: string) => Effect.Effect<void, OpenFileFailed>;
+  /** `line` is 1-based; Hosts that cannot jump to a line ignore it. */
+  readonly open: (path: string, line?: number) => Effect.Effect<void, OpenFileFailed>;
   /** Open an in-memory image via a Host temp file. */
   readonly openImageData: (image: Base64Image) => Effect.Effect<void, OpenFileFailed>;
 }

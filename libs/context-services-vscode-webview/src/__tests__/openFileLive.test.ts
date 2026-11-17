@@ -24,6 +24,27 @@ describe('makeOpenFileLive', () => {
     }),
   );
 
+  it.effect('forwards the line over Host IPC', () =>
+    Effect.gen(function* () {
+      const [webview, extension] = connectFakePeers();
+      const seen: unknown[] = [];
+      extension.onMessage(raw => {
+        const message = decodeIpcMessage(raw);
+        if (message._tag === 'OpenFile') {
+          seen.push({ line: message.line, path: message.path });
+          extension.postMessage(encodeIpcMessage({ _tag: 'OpenFileResult', id: message.id }));
+        }
+      });
+      const openFile = yield* OpenFile.pipe(Effect.provide(makeOpenFileLive(new IpcClient(webview))));
+      yield* openFile.open('/tmp/a.ts', 14);
+      yield* openFile.open('/tmp/a.ts');
+      assert.deepStrictEqual(seen, [
+        { line: 14, path: '/tmp/a.ts' },
+        { line: undefined, path: '/tmp/a.ts' },
+      ]);
+    }),
+  );
+
   it.effect('fails when response tag is unexpected', () =>
     Effect.gen(function* () {
       const [webview, extension] = connectFakePeers();

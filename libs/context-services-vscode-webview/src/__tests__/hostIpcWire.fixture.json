@@ -796,6 +796,24 @@
       "id": {
         "type": "string"
       },
+      "line": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "enum": ["Infinity", "-Infinity", "NaN"],
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "path": {
         "type": "string"
       }

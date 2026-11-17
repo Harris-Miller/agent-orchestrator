@@ -1,15 +1,18 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Deferred } from 'effect';
 
-import { addLink, isLinked, linkOfChild, linksOfParent, removeLink, updateLink } from './subagentLinks.ts';
+import { addLink, claimHandle, isLinked, linkOfChild, linksOfParent, removeLink, updateLink } from './subagentLinks.ts';
 import type { SpawnedLink, SpawnedLinks } from './subagentLinks.ts';
 
 const link = (childSessionId: string, parentSessionId = 'p1'): SpawnedLink => ({
   childLaunchTarget: 'claude-agent-acp',
   childSessionId,
+  description: 'd',
+  handleState: 'open',
   outcome: Deferred.makeUnsafe(),
   parentLaunchTarget: 'codex-acp',
   parentSessionId,
+  task: 't',
 });
 
 describe('spawned subagent links', () => {
@@ -37,5 +40,13 @@ describe('spawned subagent links', () => {
     const updated = updateLink(links, 'claude-agent-acp', 'c1', { parentSessionId: 'p9' });
     assert.strictEqual(linkOfChild(updated, 'claude-agent-acp', 'c1')?.parentSessionId, 'p9');
     assert.strictEqual(updateLink(links, 'claude-agent-acp', 'nope', { parentSessionId: 'x' }), links);
+  });
+
+  it('hands the outcome over once: the first claim wins', () => {
+    const links = addLink(new Map(), link('c1'));
+    const [first, afterFirst] = claimHandle(links, 'claude-agent-acp', 'c1', 'waited');
+    const [second, afterSecond] = claimHandle(afterFirst, 'claude-agent-acp', 'c1', 'reported');
+    assert.deepStrictEqual([first, second], [true, false]);
+    assert.strictEqual(linkOfChild(afterSecond, 'claude-agent-acp', 'c1')?.handleState, 'waited');
   });
 });

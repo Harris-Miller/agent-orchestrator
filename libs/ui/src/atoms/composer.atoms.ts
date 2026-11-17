@@ -40,9 +40,8 @@
  * - Every write goes through the registry (a re-invoked AtomFn's `FnContext.set` is a no-op).
  */
 import { FileDialog } from '@lib/context-services';
-import { Cause, Effect, Option } from 'effect';
-import { Atom } from 'effect/reactivity';
-import type { AtomRegistry } from 'effect/reactivity';
+import { Cause, Effect, Option, Stream } from 'effect';
+import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -95,6 +94,17 @@ const sessionAttachmentsAtom = Atom.family((sessionId: string) =>
 const sessionQueuedAtom = Atom.family((sessionId: string) =>
   Atom.make<Draft | undefined>(undefined).pipe(Atom.withLabel(`sessionQueued:${sessionId}`), Atom.keepAlive),
 );
+
+/** Whether the Session has a Queued message (read-only: the Harness must not occupy or evict the user's slot). */
+export const hasQueuedMessage = (registry: AtomRegistry.AtomRegistry, sessionId: string): boolean =>
+  registry.get(sessionQueuedAtom(sessionId)) !== undefined;
+
+/** Resolves once the Session's Queued message slot is empty (its Send has begun, or it was unqueued). */
+export const awaitQueuedMessageTaken = (registry: AtomRegistry.AtomRegistry, sessionId: string) =>
+  AtomRegistry.toStream(registry, sessionQueuedAtom(sessionId)).pipe(
+    Stream.filter(queued => queued === undefined),
+    Stream.runHead,
+  );
 
 export type ComposerTarget =
   | { readonly _tag: 'Session'; readonly launchTarget: AgentLaunchTarget | undefined; readonly sessionId: string }

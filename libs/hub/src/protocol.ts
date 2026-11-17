@@ -74,12 +74,20 @@ export const SpawnSubagentArgs = Schema.Struct({
   launchTarget: Schema.String.annotate({
     description: 'The launch target to run the subagent on, as listed by list_subagent_targets.',
   }),
+  runInBackground: Schema.optionalKey(Schema.Boolean).annotate({
+    description:
+      'When true, return at once with the subagent id; its result arrives later as a <subagent-report> message. Default false: wait for the result.',
+  }),
   task: Schema.String.check(
     Schema.makeFilter(task => task.trim().length > 0 || 'The task must not be empty.'),
     Schema.isMaxLength(MAX_SUBAGENT_TEXT_CHARS),
   ).annotate({
     description: `The complete task for the subagent, as self-contained Markdown (at most ${MAX_SUBAGENT_TEXT_CHARS} characters). It starts with no context but the working directory.`,
   }),
+});
+
+export const CancelSubagentArgs = Schema.Struct({
+  subagentId: Schema.String.annotate({ description: 'The id of a subagent you started with spawn_subagent.' }),
 });
 
 export const WaitSubagentArgs = Schema.Struct({
@@ -91,7 +99,13 @@ export const WaitSubagentArgs = Schema.Struct({
   }),
 });
 
-export const HUB_TOOL_NAMES = ['submit_handoff', 'list_subagent_targets', 'spawn_subagent', 'wait_subagent'] as const;
+export const HUB_TOOL_NAMES = [
+  'submit_handoff',
+  'list_subagent_targets',
+  'spawn_subagent',
+  'cancel_subagent',
+  'wait_subagent',
+] as const;
 export type HubToolName = (typeof HUB_TOOL_NAMES)[number];
 
 // ---------------------------------------------------------------------------------------------------------------------

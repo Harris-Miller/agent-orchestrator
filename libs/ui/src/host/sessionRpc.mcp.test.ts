@@ -74,6 +74,7 @@ describe('hub MCP injection', () => {
               'mcp__hoa-hub__submit_handoff',
               'mcp__hoa-hub__list_subagent_targets',
               'mcp__hoa-hub__spawn_subagent',
+              'mcp__hoa-hub__cancel_subagent',
               'mcp__hoa-hub__wait_subagent',
             ],
           },

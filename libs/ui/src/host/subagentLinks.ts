@@ -13,13 +13,26 @@ export type SubagentOutcome = {
   readonly text: string;
 };
 
+/**
+ * Who has handed the outcome to the agent: nobody yet (`open`), a `wait_subagent` that returned it (`waited`, which
+ * suppresses the report), or the Subagent report (`reported`). First write wins.
+ */
+export type SpawnedHandleState = 'open' | 'reported' | 'waited';
+
 export type SpawnedLink = {
   readonly childLaunchTarget: AgentLaunchTarget;
   readonly childSessionId: string;
+  /** The mirror's name; it labels the Subagent report. */
+  readonly description: string;
+  readonly handleState: SpawnedHandleState;
   /** First write wins: the one outcome of the child's turn. */
   readonly outcome: Deferred.Deferred<SubagentOutcome>;
   readonly parentLaunchTarget: AgentLaunchTarget;
   readonly parentSessionId: string;
+  /** The fiber delivering the Subagent report once the outcome is in; interrupted when the link ends. */
+  readonly reporter?: Fiber.Fiber<unknown>;
+  /** The trimmed task text, as sent. */
+  readonly task: string;
   /** The fiber projecting the child's root entry onto its mirror; interrupted when the link ends. */
   readonly projection?: Fiber.Fiber<unknown>;
 };
@@ -63,4 +76,20 @@ export const updateLink = (
 ): SpawnedLinks => {
   const link = linkOfChild(links, launchTarget, sessionId);
   return link === undefined ? links : new Map(links).set(linkKey(launchTarget, sessionId), { ...link, ...patch });
+};
+
+/**
+ * Take the outcome's hand-off for `by` while it is still `open`. True when this call took it (the caller then hands the
+ * outcome to the agent); false when the other party already did.
+ */
+export const claimHandle = (
+  links: SpawnedLinks,
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+  by: Exclude<SpawnedHandleState, 'open'>,
+): [claimed: boolean, next: SpawnedLinks] => {
+  const link = linkOfChild(links, launchTarget, sessionId);
+  return link?.handleState === 'open'
+    ? [true, updateLink(links, launchTarget, sessionId, { handleState: by })]
+    : [false, links];
 };

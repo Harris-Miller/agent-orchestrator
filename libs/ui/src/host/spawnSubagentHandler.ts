@@ -1,5 +1,11 @@
 /** The Harness side of the Hub's subagent tools: list targets, spawn, wait (cancel follows). */
-import { ListSubagentTargetsArgs, MAX_SUBAGENT_WAIT_MS, SpawnSubagentArgs, WaitSubagentArgs } from '@lib/hub/protocol';
+import {
+  CancelSubagentArgs,
+  ListSubagentTargetsArgs,
+  MAX_SUBAGENT_WAIT_MS,
+  SpawnSubagentArgs,
+  WaitSubagentArgs,
+} from '@lib/hub/protocol';
 import { Deferred, Duration, Effect, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
@@ -7,6 +13,7 @@ import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { cancelPromptTurn } from '../atoms/promptTurn.ts';
 import { SpawnSubagentError, startSpawnedSubagent } from '../atoms/spawnedSubagent.ts';
 import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
+import { startReporter } from '../atoms/subagentReportDelivery.ts';
 import { usableSubagentTarget } from '../atoms/subagentTargets.atoms.ts';
 
 import { supportsMcpHttp } from './agentCapabilities.ts';
@@ -15,7 +22,7 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { hubToolHandler, toolError } from './hubToolHandler.ts';
 import type { HubToolCaller, HubToolResult } from './hubToolHandler.ts';
 import { getPromptSpan } from './sessionRpc.ts';
-import { linksOfParent } from './subagentLinks.ts';
+import { claimHandle, linkOfChild, linksOfParent } from './subagentLinks.ts';
 import type { SubagentOutcome } from './subagentLinks.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
@@ -107,15 +114,33 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       return toolError(started.message);
     }
     const child = { launchTarget, sessionId: started.childSessionId };
+    const link = linkOfChild(registry.get(spawnedLinksAtom), launchTarget, started.childSessionId);
+    if (args.runInBackground === true) {
+      if (link !== undefined) {
+        yield* startReporter(registry, link);
+      }
+      return {
+        isError: false,
+        text: JSON.stringify({
+          note: 'The subagent runs in the background. Its result arrives later as a <subagent-report> message; or call wait_subagent with this id.',
+          status: 'running',
+          subagentId: started.childSessionId,
+        }),
+      };
+    }
     // The child runs in a detached fiber (the spawn core), so this wait may be interrupted (hub connection lost) without
     // stopping it; the call then ends, and the link keeps the outcome for `wait_subagent`.
     const waited = yield* Effect.raceAllFirst([
       Effect.map(Deferred.await(started.outcome), (outcome): Waited => ({ _tag: 'Outcome', outcome })),
       Effect.as(callerGone(registry, caller, harnessStartedTurn), { _tag: 'CallerGone' } satisfies Waited),
       Effect.as(Effect.sleep(ctx.foregroundBound ?? DEFAULT_BOUND), { _tag: 'Bound' } satisfies Waited),
-    ]);
+    ]).pipe(
+      // The agent's call is gone (hub connection lost): the child's result still reaches it, as a Subagent report.
+      Effect.onInterrupt(() => (link === undefined ? Effect.void : startReporter(registry, link))),
+    );
     switch (waited._tag) {
       case 'Outcome': {
+        registry.update(spawnedLinksAtom, links => claimHandle(links, launchTarget, child.sessionId, 'waited')[1]);
         return outcomeResult(waited.outcome);
       }
       case 'CallerGone': {
@@ -156,14 +181,39 @@ export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, calle
           ? Effect.succeed('')
           : Deferred.await(link.outcome).pipe(
               Effect.timeoutOption(bound),
-              Effect.map(outcome =>
-                outcome._tag === 'None'
-                  ? `<subagent id="${link.childSessionId}" status="running" />`
-                  : `<subagent id="${link.childSessionId}" status="${outcome.value.status}">\n${outcome.value.text}\n</subagent>`,
-              ),
+              Effect.map(outcome => {
+                if (outcome._tag === 'None') {
+                  return `<subagent id="${link.childSessionId}" status="running" />`;
+                }
+                // The agent has the outcome now: no Subagent report on top of it.
+                ctx.registry.update(
+                  spawnedLinksAtom,
+                  all => claimHandle(all, link.childLaunchTarget, link.childSessionId, 'waited')[1],
+                );
+                return `<subagent id="${link.childSessionId}" status="${outcome.value.status}">\n${outcome.value.text}\n</subagent>`;
+              }),
             ),
       { concurrency: 'unbounded' },
     );
     return { isError: false, text: lines.join('\n') };
+  }),
+);
+
+export const cancelSubagentHandler = hubToolHandler(CancelSubagentArgs, (args, caller, ctx) =>
+  Effect.gen(function* () {
+    const link = linksOfParent(ctx.registry.get(spawnedLinksAtom), caller.launchTarget, caller.sessionId).find(
+      candidate => candidate.childSessionId === args.subagentId,
+    );
+    if (link === undefined) {
+      return toolError(`You have no subagent with id ${JSON.stringify(args.subagentId)}.`);
+    }
+    if (Deferred.isDoneUnsafe(link.outcome)) {
+      return { isError: false, text: 'The subagent has already finished.' };
+    }
+    yield* cancelPromptTurn(ctx.registry, {
+      launchTarget: link.childLaunchTarget,
+      sessionId: link.childSessionId,
+    }).pipe(Effect.ignore);
+    return { isError: false, text: 'Cancel requested; the subagent stops shortly.' };
   }),
 );

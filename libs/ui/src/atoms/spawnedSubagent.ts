@@ -101,6 +101,9 @@ export const endLink = Effect.fnUntraced(function* (
   }
   registry.update(spawnedLinksAtom, links => removeLink(links, child.launchTarget, child.sessionId));
   yield* stopProjection(link);
+  if (link.reporter !== undefined) {
+    yield* Fiber.interrupt(link.reporter);
+  }
   if (options.dropMirror === true) {
     updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
   }
@@ -228,9 +231,12 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   const link: SpawnedLink = {
     childLaunchTarget: child.launchTarget,
     childSessionId: child.sessionId,
+    description: input.description,
+    handleState: 'open',
     outcome: Deferred.makeUnsafe<SubagentOutcome>(),
     parentLaunchTarget: parent.launchTarget,
     parentSessionId: parent.sessionId,
+    task,
   };
   registry.update(spawnedLinksAtom, links => addLink(links, link));
   if (!parentIsActive(registry, parent)) {

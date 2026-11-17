@@ -6,7 +6,13 @@ import { Effect, Schema } from 'effect';
 import { Tool, Toolkit } from 'effect/ai';
 import type { AiError } from 'effect/ai';
 
-import { HUB_TOOL_NAMES, SpawnSubagentArgs, SubmitHandoffArgs, WaitSubagentArgs } from './protocol.ts';
+import {
+  CancelSubagentArgs,
+  HUB_TOOL_NAMES,
+  SpawnSubagentArgs,
+  SubmitHandoffArgs,
+  WaitSubagentArgs,
+} from './protocol.ts';
 import type { HubToolName } from './protocol.ts';
 import type { CallResult } from './state.ts';
 
@@ -33,6 +39,13 @@ export const SpawnSubagent = Tool.make('spawn_subagent', {
   parameters: SpawnSubagentArgs,
 });
 
+export const CancelSubagent = Tool.make('cancel_subagent', {
+  ...forwarded,
+  description:
+    "Cancel a subagent's current work (stop it). Only subagents you started with spawn_subagent. A cancelled subagent reports status cancelled.",
+  parameters: CancelSubagentArgs,
+});
+
 export const WaitSubagent = Tool.make('wait_subagent', {
   ...forwarded,
   description:
@@ -40,7 +53,7 @@ export const WaitSubagent = Tool.make('wait_subagent', {
   parameters: WaitSubagentArgs,
 });
 
-export const HubToolkit = Toolkit.make(SubmitHandoff, ListSubagentTargets, SpawnSubagent, WaitSubagent);
+export const HubToolkit = Toolkit.make(SubmitHandoff, ListSubagentTargets, SpawnSubagent, CancelSubagent, WaitSubagent);
 
 type Handlers = Toolkit.HandlersFrom<typeof HubToolkit.tools>;
 

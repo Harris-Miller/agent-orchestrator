@@ -108,3 +108,9 @@ export const spawnDepth = (links: SpawnedLinks, launchTarget: AgentLaunchTarget,
 /** Children of a parent whose Prompt turn has not ended. */
 export const liveChildCount = (links: SpawnedLinks, launchTarget: AgentLaunchTarget, sessionId: string): number =>
   linksOfParent(links, launchTarget, sessionId).filter(link => !Deferred.isDoneUnsafe(link.outcome)).length;
+
+/** A Session History title for a child that left its link: the first line of its task. */
+export const subagentHistoryTitle = (task: string): string => {
+  const line = (task.split('\n').find(candidate => candidate.trim() !== '') ?? '').trim().replace(/\s+/g, ' ');
+  return line.length <= 80 ? line : `${line.slice(0, 79)}…`;
+};

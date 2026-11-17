@@ -15,7 +15,12 @@ import { getSubagent, subagentTranscriptItems } from '../host/subagent.ts';
 import { anyPromptTurnWorking } from '../host/turnActivity.ts';
 import type { PendingPermission } from '../host/pendingInteractions.ts';
 
-import { backendHarnessSnapshotAtom, configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
+import {
+  backendHarnessSnapshotAtom,
+  configOptionIndexAtom,
+  selectedAtom,
+  unifiedSessionHistoryAtom,
+} from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import { advertise, CLAUDE, CODEX, freshRegistry, installFakeAgent, installFakeHub } from './fakeAgent.testing.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
@@ -300,6 +305,33 @@ describe('a Spawned subagent session pending interaction', () => {
       yield* until(() => h.mirror()?.pendingPermission === undefined);
       assert.isTrue(anyPromptTurnWorking(snapshots()));
       yield* Deferred.succeed(h.release, null);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('Session History of a Spawned subagent session', () => {
+  it.effect('is hidden while linked, even after a session/list refresh, and appears titled once the link ends', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const started = yield* h.start();
+      yield* Deferred.await(started.outcome);
+      const childRows = () => h.registry.get(unifiedSessionHistoryAtom).filter(entry => entry.sessionId === CHILD);
+
+      assert.deepStrictEqual(childRows(), []);
+      // A `session/list` refresh returns the child's row on its target.
+      updateHarnessSnapshot(h.registry, CLAUDE, current => ({
+        ...current,
+        sessionHistory: [...current.sessionHistory, { cwd: '/w', sessionId: CHILD, title: 'From list' }],
+      }));
+      assert.deepStrictEqual(childRows(), []);
+
+      // Without a refresh, a closed child must still appear with a title.
+      updateHarnessSnapshot(h.registry, CLAUDE, current => ({ ...current, sessionHistory: [] }));
+      yield* endLink(h.registry, { launchTarget: CLAUDE, sessionId: CHILD });
+      assert.deepStrictEqual(
+        childRows().map(entry => [entry.launchTarget, entry.title]),
+        [[CLAUDE, 'Review the diff']],
+      );
     }).pipe(Effect.scoped),
   );
 });

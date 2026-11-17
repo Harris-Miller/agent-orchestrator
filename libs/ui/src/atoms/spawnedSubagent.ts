@@ -6,7 +6,7 @@
  */
 import { MAX_SUBAGENT_TEXT_CHARS } from '@lib/hub/protocol';
 import type { HostServices } from '@lib/context-services';
-import { Deferred, Effect, Exit, Fiber, Schema, Stream } from 'effect';
+import { Clock, DateTime, Deferred, Effect, Exit, Fiber, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../host/acpSessionBootstrap.ts';
@@ -22,6 +22,7 @@ import {
   mirrorChildIntoParent,
   projectChildOnto,
   setMirrorWorkState,
+  withHistoryEntryIfAbsent,
 } from '../host/harnessStateTransitions.ts';
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
@@ -35,6 +36,7 @@ import {
   MAX_SPAWN_DEPTH,
   removeLink,
   spawnDepth,
+  subagentHistoryTitle,
   updateLink,
 } from '../host/subagentLinks.ts';
 import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
@@ -117,7 +119,21 @@ export const endLink = Effect.fnUntraced(function* (
   }
   if (options.dropMirror === true) {
     updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
+    return;
   }
+  // Unhidden from Session History: a child bound without a row has none until a `session/list`, so give it one now.
+  const updatedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+  updateHarnessSnapshot(registry, link.childLaunchTarget, current => {
+    const cwd = link.childSessionId in current.sessions ? current.sessions[link.childSessionId].cwd : undefined;
+    return cwd === undefined
+      ? current
+      : withHistoryEntryIfAbsent(current, {
+          cwd,
+          sessionId: link.childSessionId,
+          title: subagentHistoryTitle(link.task),
+          updatedAt,
+        });
+  });
 });
 
 /**

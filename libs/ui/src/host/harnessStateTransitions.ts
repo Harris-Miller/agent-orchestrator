@@ -733,6 +733,15 @@ export const setMirrorWorkState = (
     : { ...snapshot, subagents: { ...snapshot.subagents, [childId]: withSubagentWorkState(mirror, state) } };
 };
 
+/** A Session History row for a Session that has none (a row already there, from a list refresh, is kept). */
+export const withHistoryEntryIfAbsent = (
+  snapshot: BackendHarnessSnapshot,
+  entry: NormalizedSessionInfo,
+): BackendHarnessSnapshot =>
+  snapshot.sessionHistory.some(row => row.sessionId === entry.sessionId)
+    ? snapshot
+    : upsertIntoSnapshot(snapshot, { historyEntry: entry });
+
 /** Remove a mirror (a child that never ran). */
 export const dropMirror = (snapshot: BackendHarnessSnapshot, childId: string): BackendHarnessSnapshot => {
   const { [childId]: _removed, ...subagents } = snapshot.subagents;

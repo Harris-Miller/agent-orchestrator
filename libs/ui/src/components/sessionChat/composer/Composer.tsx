@@ -76,16 +76,16 @@ export const Composer: FC<{
   );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  const { fsListing, selectedSessionId: activeSessionId, sessionCwd } = useSelectedSessionFsListing();
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
   const refreshFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
   const onMentionOpen = useCallback(() => {
-    if (selectedSessionId === undefined || sessionCwd === undefined) {
+    if (activeSessionId === undefined || sessionCwd === undefined) {
       return;
     }
-    refreshFsListing({ cwd: sessionCwd, sessionId: selectedSessionId }).catch(() => undefined);
-  }, [refreshFsListing, selectedSessionId, sessionCwd]);
+    refreshFsListing({ cwd: sessionCwd, sessionId: activeSessionId }).catch(() => undefined);
+  }, [activeSessionId, refreshFsListing, sessionCwd]);
   const { cancelElicitation } = useElicitationReply();
 
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);

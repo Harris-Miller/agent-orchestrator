@@ -35,7 +35,8 @@ export const createSessionFsListingAtoms = (
   const { atomRuntime } = runtime;
 
   /**
-   * Load / refresh recursive listing for `sessionId`+`cwd`.
+   * Load / refresh recursive listing for `sessionId`+`cwd`. Preloaded on session start, rescanned each time the `@`
+   * menu opens.
    * Replaces cache on success; leaves prior entries until then (stale OK).
    * If cache empty, sets `loading` so UI can show Skeletons.
    * Reads Always-hidden globs at list time — stale until next refresh if Settings change while idle.

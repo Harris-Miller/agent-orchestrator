@@ -56,8 +56,8 @@ describe('arrangeModelChoices', () => {
 describe('prefs updates', () => {
   const all = ['a', 'b', 'c', 'd'];
 
-  it('reorders into the target slot and prunes stale ids', () => {
-    assert.deepStrictEqual(reorderModels(all, ['gone', 'a'], 'd', 'a'), ['d', 'a', 'b', 'c']);
+  it('reorders into the target slot and keeps unadvertised ids last', () => {
+    assert.deepStrictEqual(reorderModels(all, ['gone', 'a'], 'd', 'a'), ['d', 'a', 'b', 'c', 'gone']);
     assert.deepStrictEqual(reorderModels(all, [], 'a', 'c'), ['b', 'c', 'a', 'd']);
     assert.deepStrictEqual(reorderModels(all, [], 'a', 'nope'), all);
   });
@@ -66,14 +66,14 @@ describe('prefs updates', () => {
     assert.deepStrictEqual(orderedModelIds(all, ['c', 'a']), ['c', 'a', 'b', 'd']);
   });
 
-  it('toggles hidden and prunes stale ids', () => {
-    assert.deepStrictEqual(setModelHidden(all, ['gone', 'b'], 'c', true), ['b', 'c']);
-    assert.deepStrictEqual(setModelHidden(all, ['b', 'c'], 'b', false), ['c']);
+  it('toggles hidden, keeping unadvertised ids; pruneHidden filters at render', () => {
+    assert.deepStrictEqual(setModelHidden(['gone', 'b'], 'c', true), ['gone', 'b', 'c']);
+    assert.deepStrictEqual(setModelHidden(['b', 'c'], 'b', false), ['c']);
     assert.deepStrictEqual(pruneHidden(all, ['x', 'd']), ['d']);
   });
 
   it('sets all hidden / none hidden', () => {
-    assert.deepStrictEqual(setAllModelsHidden(all, true), all);
-    assert.deepStrictEqual(setAllModelsHidden(all, false), []);
+    assert.deepStrictEqual(setAllModelsHidden(all, ['gone'], true), ['gone', ...all]);
+    assert.deepStrictEqual(setAllModelsHidden(all, ['gone', 'a'], false), ['gone']);
   });
 });

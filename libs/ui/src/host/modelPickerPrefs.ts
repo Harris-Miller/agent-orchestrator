@@ -33,31 +33,34 @@ export const arrangeModelChoices = <T extends { readonly id: string }>(
     .flatMap(id => byId.get(id) ?? []);
 };
 
-/** Hidden ids for the advertised models only (stale ids pruned). */
+/** Hidden ids for the advertised models only. Render-time only: writes keep unadvertised ids, since the cache may be partial. */
 export const pruneHidden = (advertisedIds: readonly string[], hidden: readonly string[]): readonly string[] => {
   const hiddenSet = new Set(hidden);
   return advertisedIds.filter(id => hiddenSet.has(id));
 };
 
-export const setModelHidden = (
-  advertisedIds: readonly string[],
-  hidden: readonly string[],
-  modelId: string,
-  hide: boolean,
-): readonly string[] => {
+export const setModelHidden = (hidden: readonly string[], modelId: string, hide: boolean): readonly string[] => {
   const next = new Set(hidden);
   if (hide) {
     next.add(modelId);
   } else {
     next.delete(modelId);
   }
-  return pruneHidden(advertisedIds, [...next]);
+  return [...next];
 };
 
-export const setAllModelsHidden = (advertisedIds: readonly string[], hide: boolean): readonly string[] =>
-  hide ? [...advertisedIds] : [];
+/** Hide or show every advertised model; unadvertised hidden ids are kept. */
+export const setAllModelsHidden = (
+  advertisedIds: readonly string[],
+  hidden: readonly string[],
+  hide: boolean,
+): readonly string[] => {
+  const advertised = new Set(advertisedIds);
+  const kept = hidden.filter(id => !advertised.has(id));
+  return hide ? [...kept, ...advertisedIds] : kept;
+};
 
-/** Move `fromId` to `toId`'s slot; returns the full pruned order. Unknown ids leave the order unchanged. */
+/** Move `fromId` to `toId`'s slot. Ids in `order` that are not advertised are kept after the advertised ones. */
 export const reorderModels = (
   advertisedIds: readonly string[],
   order: readonly string[],
@@ -67,10 +70,10 @@ export const reorderModels = (
   const ids = [...orderedModelIds(advertisedIds, order)];
   const from = ids.indexOf(fromId);
   const to = ids.indexOf(toId);
-  if (from === -1 || to === -1 || from === to) {
-    return ids;
+  if (from !== -1 && to !== -1 && from !== to) {
+    ids.splice(from, 1);
+    ids.splice(to, 0, fromId);
   }
-  ids.splice(from, 1);
-  ids.splice(to, 0, fromId);
-  return ids;
+  const advertised = new Set(ids);
+  return [...ids, ...order.filter(id => !advertised.has(id))];
 };

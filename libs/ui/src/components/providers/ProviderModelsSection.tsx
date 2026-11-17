@@ -152,8 +152,8 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
     setPrefs({
       launchTarget,
       prefs: {
-        hidden: pruneHidden(advertisedIds, next.hidden ?? prefs.hidden),
-        order: next.order ?? prefs.order.filter(id => advertisedIds.includes(id)),
+        hidden: next.hidden ?? prefs.hidden,
+        order: next.order ?? prefs.order,
       },
     });
   };
@@ -162,7 +162,7 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
   };
 
   const onHandleKeyDown = (event: KeyboardEvent, id: string) => {
-    if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) {
+    if (filtering || !event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) {
       return;
     }
     event.preventDefault();
@@ -206,7 +206,7 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
           onHandleKeyDown(event, id);
         }}
         onToggle={checked => {
-          write({ hidden: setModelHidden(advertisedIds, prefs.hidden, id, !checked) });
+          write({ hidden: setModelHidden(prefs.hidden, id, !checked) });
         }}
         reorderable={!off && !filtering}
         showId={name !== id ? id : undefined}
@@ -256,7 +256,7 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
             </Button>
             <Button
               onClick={() => {
-                write({ hidden: setAllModelsHidden(advertisedIds, !allHidden) });
+                write({ hidden: setAllModelsHidden(advertisedIds, prefs.hidden, !allHidden) });
               }}
               size="small"
             >

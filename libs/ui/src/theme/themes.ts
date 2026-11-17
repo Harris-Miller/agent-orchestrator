@@ -708,9 +708,18 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
       MuiSwitch: {
         styleOverrides: {
           root: {
-            height: 20,
-            padding: 0,
-            width: 34,
+            // MUI's `size="small"` variant restates this geometry through nested selectors that out-rank the flat
+            // slot overrides below, so repeat it under the size classes: every Switch gets one geometry regardless of `size`.
+            '&.MuiSwitch-sizeSmall, &.MuiSwitch-sizeMedium': {
+              '& .MuiSwitch-switchBase': {
+                '&.Mui-checked': { transform: 'translateX(14px)' },
+                padding: 2,
+              },
+              '& .MuiSwitch-thumb': { height: 16, width: 16 },
+              height: 20,
+              padding: 0,
+              width: 34,
+            },
           },
           switchBase: {
             '&.Mui-checked': {
@@ -719,16 +728,12 @@ export const createAppTheme = (c: ThemeColors, font: ThemeFont = DEFAULT_THEME_F
                 opacity: 1,
               },
               color: c.onAccent,
-              transform: 'translateX(14px)',
             },
             color: c.textPrimary,
-            padding: 2,
             top: 0,
           },
           thumb: {
             boxShadow: 'none',
-            height: 16,
-            width: 16,
           },
           track: {
             backgroundColor: c.switchTrackOff,

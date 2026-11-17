@@ -39,7 +39,7 @@ import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { failLinksOnConnectionLost } from './spawnedSubagent.ts';
+import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
@@ -148,7 +148,7 @@ export const makeHarnessEventFold = ({
         reconcileConnectionLost(current),
       ]);
       cancelPendingRequests(lost);
-      failLinksOnConnectionLost(registry, launchTarget);
+      runFork(onLaunchTargetConnectionLost(registry, launchTarget));
       unbindVirtualOnConnectionLost(registry, launchTarget);
     },
     onElicitationCreate: (sessionId, request, resolve) => {

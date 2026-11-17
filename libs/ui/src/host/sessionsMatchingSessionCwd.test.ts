@@ -4,6 +4,8 @@ import { firstFolderPath, sessionsMatchingSessionCwd } from './sessionsMatchingS
 
 const emptySnapshot = { sessionHistory: [], sessions: {} };
 
+const never = () => false;
+
 describe('sessionsMatchingSessionCwd', () => {
   it('matches active and activating by resolved cwd; skips inactive', () => {
     const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'antigravity-acp') => {
@@ -26,8 +28,31 @@ describe('sessionsMatchingSessionCwd', () => {
       };
     };
 
-    const matches = sessionsMatchingSessionCwd(getSnapshot, '/ws');
+    const matches = sessionsMatchingSessionCwd(getSnapshot, '/ws', never);
     assert.deepStrictEqual(matches.map(m => m.sessionId).sort(), ['a', 'b']);
+  });
+
+  it('leaves out a Spawned subagent session: its parent deactivation ends it', () => {
+    const getSnapshot = (launchTarget: 'claude-agent-acp' | 'codex-acp' | 'cursor-acp' | 'antigravity-acp') =>
+      launchTarget === 'claude-agent-acp'
+        ? {
+            sessionHistory: [],
+            sessions: {
+              child: { cwd: '/ws', sessionId: 'child', status: 'active' as const },
+              own: { cwd: '/ws', sessionId: 'own', status: 'active' as const },
+            },
+          }
+        : emptySnapshot;
+
+    const matches = sessionsMatchingSessionCwd(
+      getSnapshot,
+      '/ws',
+      (launchTarget, sessionId) => launchTarget === 'claude-agent-acp' && sessionId === 'child',
+    );
+    assert.deepStrictEqual(
+      matches.map(m => m.sessionId),
+      ['own'],
+    );
   });
 
   it('uses history cwd when snapshot cwd missing', () => {
@@ -43,8 +68,8 @@ describe('sessionsMatchingSessionCwd', () => {
       };
     };
 
-    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, '/from-history').length, 1);
-    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, undefined).length, 0);
+    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, '/from-history', never).length, 1);
+    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, undefined, never).length, 0);
   });
 
   it('matches undefined previous cwd when session cwd unresolved', () => {
@@ -60,7 +85,7 @@ describe('sessionsMatchingSessionCwd', () => {
       };
     };
 
-    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, undefined).length, 1);
+    assert.strictEqual(sessionsMatchingSessionCwd(getSnapshot, undefined, never).length, 1);
   });
 });
 

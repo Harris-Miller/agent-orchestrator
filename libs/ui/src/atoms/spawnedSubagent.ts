@@ -18,6 +18,7 @@ import {
   bindSession,
   dropMirror,
   dropSession,
+  markSessionInactive,
   mirrorChildIntoParent,
   projectChildOnto,
   setMirrorWorkState,
@@ -25,13 +26,13 @@ import {
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 import { lastAgentMessage } from '../host/sessionUpdateReducer.ts';
-import { addLink, linkOfChild, removeLink, updateLink } from '../host/subagentLinks.ts';
+import { addLink, linkOfChild, linksOfParent, removeLink, updateLink } from '../host/subagentLinks.ts';
 import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
 import { validateSubagentConfig } from '../host/subagentTargets.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { sendPromptTurn } from './promptTurn.ts';
+import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
 import type { PromptTurnResult } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
@@ -270,8 +271,39 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   return { childSessionId: child.sessionId, outcome: link.outcome };
 });
 
-/** Child target Connection lost: every child living on it has failed (the fold calls this). */
-export const failLinksOnConnectionLost = (registry: Registry, launchTarget: AgentLaunchTarget): void => {
+/** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */
+const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink, why: string) {
+  const child = { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId };
+  // Settled first, so the mirror reads cancelled rather than whatever the cancelled turn reports; a finished child keeps its state.
+  settleLink(registry, link, { status: 'cancelled', text: why }, 'cancelled');
+  yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
+  const { agentCapabilities } = registry.get(backendHarnessSnapshotAtom(child.launchTarget));
+  yield* closeOnAgent(agentCapabilities, child.launchTarget, child.sessionId).pipe(Effect.ignore);
+  updateHarnessSnapshot(registry, child.launchTarget, current => markSessionInactive(current, child.sessionId));
+  yield* endLink(registry, child);
+});
+
+/** The parent session was closed or deleted: every child it started ends with it. */
+export const endLinksOfParent = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {
+  for (const link of linksOfParent(registry.get(spawnedLinksAtom), parent.launchTarget, parent.sessionId)) {
+    yield* endChild(registry, link, 'The parent session ended.');
+  }
+});
+
+/** The parent's launch target lost its Backend connection: its sessions died with it, and so do their children. */
+const endLinksOfParentTarget = Effect.fnUntraced(function* (registry: Registry, launchTarget: AgentLaunchTarget) {
+  for (const link of registry.get(spawnedLinksAtom).values()) {
+    if (link.parentLaunchTarget === launchTarget) {
+      yield* endChild(registry, link, 'The parent session ended.');
+    }
+  }
+});
+
+/**
+ * Connection lost on `launchTarget` (the fold calls this): every child living on it has failed, and every child of a
+ * parent living on it ends. Returns the work that ends the children of the lost parents.
+ */
+export const onLaunchTargetConnectionLost = (registry: Registry, launchTarget: AgentLaunchTarget) => {
   for (const link of registry.get(spawnedLinksAtom).values()) {
     if (link.childLaunchTarget === launchTarget) {
       settleLink(registry, link, {
@@ -280,4 +312,5 @@ export const failLinksOnConnectionLost = (registry: Registry, launchTarget: Agen
       });
     }
   }
+  return endLinksOfParentTarget(registry, launchTarget).pipe(Effect.ignore);
 };

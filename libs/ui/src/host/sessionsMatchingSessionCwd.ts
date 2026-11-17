@@ -22,17 +22,22 @@ export type MatchedSession = {
 
 /**
  * Active + activating sessions whose resolved Session cwd equals `previousSessionCwd`
- * (exact equality, including both undefined).
+ * (exact equality, including both undefined), except Spawned subagent sessions.
  */
 export const sessionsMatchingSessionCwd = (
   getSnapshot: (launchTarget: AgentLaunchTarget) => SnapshotLike,
   previousSessionCwd: string | undefined,
+  /** A Spawned subagent session is not matched: its parent's deactivation ends it. */
+  isLinkedChild: (launchTarget: AgentLaunchTarget, sessionId: string) => boolean,
 ): readonly MatchedSession[] => {
   const matches: MatchedSession[] = [];
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const snapshot = getSnapshot(launchTarget);
     for (const session of Object.values(snapshot.sessions)) {
-      if (session.status === 'active' || session.status === 'activating') {
+      if (
+        (session.status === 'active' || session.status === 'activating') &&
+        !isLinkedChild(launchTarget, session.sessionId)
+      ) {
         const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === session.sessionId);
         if (resolveSessionCwd(session.cwd, historyEntry?.cwd) === previousSessionCwd) {
           matches.push({

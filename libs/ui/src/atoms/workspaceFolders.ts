@@ -4,6 +4,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import { stripSessionPendings } from '../host/harnessStateTransitions.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import { isLinked } from '../host/subagentLinks.ts';
 import { firstFolderPath, sessionsMatchingSessionCwd } from '../host/sessionsMatchingSessionCwd.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -19,6 +20,7 @@ import { runAtomFn } from './runAtomFn.ts';
 import { discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
 const stripPendingOnMatched = (
@@ -100,7 +102,10 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
     return;
   }
 
-  const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd);
+  const links = registry.get(spawnedLinksAtom);
+  const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd, (launchTarget, sessionId) =>
+    isLinked(links, launchTarget, sessionId),
+  );
   for (const match of matches) {
     yield* runAtomFn(registry, deactivateSessionAtomFn, {
       launchTarget: match.launchTarget,

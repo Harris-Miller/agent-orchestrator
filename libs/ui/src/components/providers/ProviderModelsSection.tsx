@@ -1,4 +1,6 @@
 /** Settings > Providers > Models: hide models from the pickers and set their order (Hidden model, Model order). */
+import { DragDropProvider } from '@dnd-kit/react';
+import { isSortable, useSortable } from '@dnd-kit/react/sortable';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,7 +10,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { GripVertical } from 'lucide-react';
 import { useState } from 'react';
-import type { FC, KeyboardEvent } from 'react';
+import type { FC } from 'react';
 
 import { modelPickerPrefsAtom, setModelPickerPrefsAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { configOptionIndexAtom } from '../../atoms/backendState.atoms.ts';
@@ -28,103 +30,99 @@ import { SettingsGroup as Group, SettingsSectionTitle as SectionTitle } from '..
 const FILTER_THRESHOLD = 8;
 
 type ModelRowProps = {
+  /** Whether this row is being dragged. */
   readonly dragging: boolean;
+  /** Ref for the drag handle (dnd-kit); absent on rows that cannot be reordered. */
+  readonly handleRef?: (element: Element | null) => void;
   readonly name: string;
   readonly off: boolean;
-  readonly onDragEnd: () => void;
-  /** Returns true when the row accepts the drop (so the browser allows it). */
-  readonly onDragOver: () => boolean;
-  readonly onDragStart: () => void;
-  readonly onDrop: () => void;
-  readonly onHandleKeyDown: (event: KeyboardEvent) => void;
   readonly onToggle: (checked: boolean) => void;
   readonly reorderable: boolean;
+  /** Ref for the row element (dnd-kit); absent on rows that cannot be reordered. */
+  readonly rowRef?: (element: Element | null) => void;
   /** The raw model id, shown when it differs from the name. */
   readonly showId: string | undefined;
-  /** Whether a drag is hovering over this row. */
-  readonly target: boolean;
 };
 
-/** One model row: drag handle (drag starts from the handle only), name, id and visibility switch. */
-const ModelRow: FC<ModelRowProps> = ({
-  dragging,
-  name,
-  off,
-  onDragEnd,
-  onDragOver,
-  onDragStart,
-  onDrop,
-  onHandleKeyDown,
-  onToggle,
-  reorderable,
-  showId,
-  target,
-}) => {
-  const [armed, setArmed] = useState(false);
-  return (
-    <Stack
-      direction="row"
-      draggable={reorderable && armed}
-      onDragEnd={() => {
-        setArmed(false);
-        onDragEnd();
-      }}
-      onDragOver={event => {
-        if (onDragOver()) {
-          event.preventDefault();
-        }
-      }}
-      onDragStart={onDragStart}
-      onDrop={onDrop}
-      sx={{
-        '&:hover': { bgcolor: 'action.hover' },
-        alignItems: 'center',
-        borderTop: 2,
-        borderTopColor: target ? 'primary.main' : 'transparent',
-        gap: 1,
-        opacity: off || dragging ? 0.5 : 1,
-        pl: 0.5,
-        pr: 2,
-        py: 0.5,
-      }}
+/** One model row: drag handle, name, id and visibility switch. Drag behaviour comes in through the refs. */
+const ModelRow: FC<ModelRowProps> = ({ dragging, handleRef, name, off, onToggle, reorderable, rowRef, showId }) => (
+  <Stack
+    direction="row"
+    ref={rowRef}
+    sx={{
+      '&:hover': { bgcolor: 'action.hover' },
+      alignItems: 'center',
+      bgcolor: dragging ? 'background.paper' : undefined,
+      boxShadow: dragging ? 4 : undefined,
+      gap: 1,
+      opacity: off ? 0.5 : 1,
+      pl: 0.5,
+      position: 'relative',
+      pr: 2,
+      py: 0.5,
+      zIndex: dragging ? 1 : undefined,
+    }}
+  >
+    <Box
+      aria-label={`Reorder ${name}`}
+      ref={handleRef}
+      role="button"
+      sx={{ display: 'flex', touchAction: 'none', visibility: off ? 'hidden' : 'visible' }}
+      tabIndex={reorderable ? 0 : -1}
     >
-      <Box
-        aria-label={`Reorder ${name}`}
-        onKeyDown={onHandleKeyDown}
-        onMouseDown={() => {
-          setArmed(true);
+      <LucideMuiIcon
+        icon={GripVertical}
+        sx={{
+          color: 'text.disabled',
+          cursor: reorderable ? (dragging ? 'grabbing' : 'grab') : 'not-allowed',
+          fontSize: 18,
         }}
-        onMouseUp={() => {
-          setArmed(false);
-        }}
-        role="button"
-        sx={{ display: 'flex', visibility: off ? 'hidden' : 'visible' }}
-        tabIndex={reorderable ? 0 : -1}
-      >
-        <LucideMuiIcon
-          icon={GripVertical}
-          sx={{ color: 'text.disabled', cursor: reorderable ? 'grab' : 'not-allowed', fontSize: 18 }}
-        />
-      </Box>
-      <Typography noWrap sx={{ fontSize: 13 }}>
-        {name}
-      </Typography>
-      {showId === undefined ? null : (
-        <Typography noWrap sx={{ color: 'text.disabled', fontFamily: FONT_FAMILY_MONO, fontSize: 11 }}>
-          {showId}
-        </Typography>
-      )}
-      <Box sx={{ flex: 1 }} />
-      <Switch
-        checked={!off}
-        onChange={(_event, checked) => {
-          onToggle(checked);
-        }}
-        slotProps={{ input: { 'aria-label': `Show ${name}` } }}
-        size="small"
       />
-    </Stack>
+    </Box>
+    <Typography noWrap sx={{ fontSize: 13 }}>
+      {name}
+    </Typography>
+    {showId === undefined ? null : (
+      <Typography noWrap sx={{ color: 'text.disabled', fontFamily: FONT_FAMILY_MONO, fontSize: 11 }}>
+        {showId}
+      </Typography>
+    )}
+    <Box sx={{ flex: 1 }} />
+    <Switch
+      checked={!off}
+      onChange={(_event, checked) => {
+        onToggle(checked);
+      }}
+      slotProps={{ input: { 'aria-label': `Show ${name}` } }}
+    />
+  </Stack>
+);
+
+type SortableModelRowProps = Pick<ModelRowProps, 'name' | 'onToggle' | 'showId'> & {
+  readonly disabled: boolean;
+  readonly id: string;
+  /** Position among the shown rows. */
+  readonly index: number;
+};
+
+/** A shown model row wired to dnd-kit: the grip is the only drag handle, and the keyboard sensor works on it. */
+const SortableModelRow: FC<SortableModelRowProps> = ({ disabled, id, index, ...row }) => {
+  const { handleRef, isDragging, ref } = useSortable({ disabled, id, index });
+  return (
+    <ModelRow {...row} dragging={isDragging} handleRef={handleRef} off={false} reorderable={!disabled} rowRef={ref} />
   );
+};
+
+/** The order to write after `fromId` was dropped on the shown row at `toIndex`; undefined when nothing moved. */
+export const orderAfterDrop = (
+  advertisedIds: readonly string[],
+  order: readonly string[],
+  shownIds: readonly string[],
+  fromId: string,
+  toIndex: number,
+): readonly string[] | undefined => {
+  const toId = shownIds[toIndex];
+  return toId === undefined || toId === fromId ? undefined : reorderModels(advertisedIds, order, fromId, toId);
 };
 
 export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
@@ -132,8 +130,6 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
   const prefs = useAtomValue(modelPickerPrefsAtom(launchTarget));
   const setPrefs = useAtomSet(setModelPickerPrefsAtom);
   const [filter, setFilter] = useState('');
-  const [dragId, setDragId] = useState<string | undefined>();
-  const [overId, setOverId] = useState<string | undefined>();
 
   const choices = advertisedModelChoices(index);
   const advertisedIds = choices.map(choice => choice.id);
@@ -157,63 +153,11 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
       },
     });
   };
-  const move = (fromId: string, toId: string) => {
-    write({ order: reorderModels(advertisedIds, prefs.order, fromId, toId) });
+  const onToggle = (id: string) => (checked: boolean) => {
+    write({ hidden: setModelHidden(prefs.hidden, id, !checked) });
   };
-
-  const onHandleKeyDown = (event: KeyboardEvent, id: string) => {
-    if (filtering || !event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) {
-      return;
-    }
-    event.preventDefault();
-    const at = shownIds.indexOf(id);
-    const target = shownIds[event.key === 'ArrowUp' ? at - 1 : at + 1];
-    if (target !== undefined) {
-      move(id, target);
-    }
-  };
-
-  const row = (id: string, off: boolean) => {
-    const name = byId.get(id)?.name ?? id;
-    return (
-      <ModelRow
-        dragging={dragId === id}
-        key={id}
-        name={name}
-        off={off}
-        onDragEnd={() => {
-          setDragId(undefined);
-          setOverId(undefined);
-        }}
-        onDragOver={() => {
-          if (dragId !== undefined && !off) {
-            setOverId(id);
-            return true;
-          }
-          return false;
-        }}
-        onDragStart={() => {
-          setDragId(id);
-        }}
-        onDrop={() => {
-          if (dragId !== undefined && dragId !== id) {
-            move(dragId, id);
-          }
-          setDragId(undefined);
-          setOverId(undefined);
-        }}
-        onHandleKeyDown={event => {
-          onHandleKeyDown(event, id);
-        }}
-        onToggle={checked => {
-          write({ hidden: setModelHidden(prefs.hidden, id, !checked) });
-        }}
-        reorderable={!off && !filtering}
-        showId={name !== id ? id : undefined}
-        target={overId === id && dragId !== id}
-      />
-    );
-  };
+  const nameOf = (id: string) => byId.get(id)?.name ?? id;
+  const showIdOf = (id: string) => (nameOf(id) !== id ? id : undefined);
 
   return (
     <>
@@ -264,13 +208,46 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
             </Button>
           </Stack>
           <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, maxHeight: 380, overflow: 'auto', pb: 1 }}>
-            {shownIds.map(id => row(id, false))}
+            <DragDropProvider
+              onDragEnd={event => {
+                const { source } = event.operation;
+                if (event.canceled || !isSortable(source)) {
+                  return;
+                }
+                const next = orderAfterDrop(advertisedIds, prefs.order, shownIds, String(source.id), source.index);
+                if (next !== undefined) {
+                  write({ order: next });
+                }
+              }}
+            >
+              {shownIds.map((id, position) => (
+                <SortableModelRow
+                  disabled={filtering}
+                  id={id}
+                  index={position}
+                  key={id}
+                  name={nameOf(id)}
+                  onToggle={onToggle(id)}
+                  showId={showIdOf(id)}
+                />
+              ))}
+            </DragDropProvider>
             {hiddenIds.length > 0 ? (
               <Typography color="text.secondary" sx={{ display: 'block', pb: 0.5, pt: 2, px: 2 }} variant="caption">
                 Hidden from picker
               </Typography>
             ) : null}
-            {hiddenIds.map(id => row(id, true))}
+            {hiddenIds.map(id => (
+              <ModelRow
+                dragging={false}
+                key={id}
+                name={nameOf(id)}
+                off
+                onToggle={onToggle(id)}
+                reorderable={false}
+                showId={showIdOf(id)}
+              />
+            ))}
           </Box>
           {filtering ? (
             <Typography color="text.secondary" sx={{ mt: 0.5, px: 0.5 }} variant="caption">

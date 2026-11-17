@@ -2,7 +2,7 @@
 import { RegistryContext } from '@effect/atom-react';
 import { assert, describe, it } from '@effect/vitest';
 import { ThemeProvider } from '@mui/material/styles';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import { afterEach, vi } from 'vitest';
 
@@ -11,7 +11,7 @@ import { userSettingsDocumentAtom } from '../../atoms/userSettings/userSettingsD
 import { configOptionIndexFromProbeResponses, modelSelectOption } from '../../host/configOptionIndexFixtures.ts';
 import { theme } from '../../theme/themes.ts';
 
-import { ProviderModelsSection } from './ProviderModelsSection.tsx';
+import { orderAfterDrop, ProviderModelsSection } from './ProviderModelsSection.tsx';
 
 // The bound atom needs a Host runtime; swap in one that writes the User settings document directly.
 vi.mock('../../atoms/boundHarnessAtoms.ts', async () => {
@@ -37,7 +37,10 @@ vi.mock('../../atoms/boundHarnessAtoms.ts', async () => {
   };
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const mount = (modelIds: readonly string[] | undefined, settings: Record<string, unknown> = {}) => {
   const registry = AtomRegistry.make();
@@ -60,6 +63,12 @@ const mount = (modelIds: readonly string[] | undefined, settings: Record<string,
   const settingsNow = () => registry.get(userSettingsDocumentAtom);
   return { settingsNow };
 };
+
+/** Lets dnd-kit's microtask/animation-frame work settle between key presses. */
+const tick = () =>
+  new Promise<void>(resolve => {
+    setTimeout(resolve, 50);
+  });
 
 const names = () => screen.getAllByLabelText(/^Show /).map(el => el.getAttribute('aria-label'));
 
@@ -93,12 +102,32 @@ describe('ProviderModelsSection', () => {
     assert.isNotNull(screen.queryByText('2 models · 0 hidden'));
   });
 
-  it('reorders with Alt+ArrowDown on the handle and resets order', () => {
-    mount(['a', 'b', 'c']);
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder a' }), { altKey: true, key: 'ArrowDown' });
+  it('resets a custom Model order', () => {
+    mount(['a', 'b', 'c'], { modelOrder: { 'codex-acp': ['b', 'a', 'c'] } });
     assert.deepStrictEqual(names(), ['Show b', 'Show a', 'Show c']);
     fireEvent.click(screen.getByRole('button', { name: 'Reset order' }));
     assert.deepStrictEqual(names(), ['Show a', 'Show b', 'Show c']);
+  });
+
+  it('reorders with the dnd-kit keyboard sensor on the handle', async () => {
+    Object.assign(document, { getAnimations: () => [] });
+    mount(['a', 'b', 'c']);
+    // happy-dom does no layout; give each row its own 30px slot inside a large container so dnd-kit can tell rows apart.
+    const slots = screen.getAllByLabelText(/^Show /).map(input => input.closest('.MuiStack-root'));
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const slot = slots.indexOf(this);
+      return slot === -1 ? new DOMRect(0, 0, 300, 1000) : new DOMRect(0, slot * 30, 300, 30);
+    });
+    const handle = screen.getByRole('button', { name: 'Reorder a' });
+    handle.focus();
+    fireEvent.keyDown(handle, { key: ' ' });
+    await tick();
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    await tick();
+    fireEvent.keyDown(handle, { key: ' ' });
+    await waitFor(() => {
+      assert.deepStrictEqual(names(), ['Show b', 'Show a', 'Show c']);
+    });
   });
 
   it('shows the filter only above 8 models and disables reorder while filtering', () => {
@@ -110,5 +139,24 @@ describe('ProviderModelsSection', () => {
     assert.deepStrictEqual(names(), ['Show x9']);
     assert.strictEqual(screen.getByRole('button', { name: 'Reorder x9' }).tabIndex, -1);
     assert.isNotNull(screen.queryByText('Clear the filter to reorder.'));
+  });
+});
+
+describe('orderAfterDrop', () => {
+  const advertised = ['a', 'b', 'c', 'd'];
+
+  it('moves the dragged id into the dropped-on row slot', () => {
+    assert.deepStrictEqual(orderAfterDrop(advertised, [], advertised, 'a', 2), ['b', 'c', 'a', 'd']);
+    assert.deepStrictEqual(orderAfterDrop(advertised, [], advertised, 'd', 0), ['d', 'a', 'b', 'c']);
+  });
+
+  it('indexes into the shown rows while Hidden models keep their slots', () => {
+    assert.deepStrictEqual(orderAfterDrop(advertised, [], ['a', 'c', 'd'], 'a', 1), ['b', 'c', 'a', 'd']);
+  });
+
+  it('keeps unadvertised ids last and returns undefined when nothing moved', () => {
+    assert.deepStrictEqual(orderAfterDrop(advertised, ['gone'], advertised, 'a', 1), ['b', 'a', 'c', 'd', 'gone']);
+    assert.isUndefined(orderAfterDrop(advertised, [], advertised, 'a', 0));
+    assert.isUndefined(orderAfterDrop(advertised, [], advertised, 'a', 9));
   });
 });

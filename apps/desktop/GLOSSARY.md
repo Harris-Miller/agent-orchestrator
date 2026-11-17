@@ -202,7 +202,7 @@ Harness action that asks the source active session to call the hub's `submit_han
 _Avoid_: Transfer, migrate session, export chat
 
 **Hub**:
-The one machine-wide local process that agents call Harness tools on. It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
+The one machine-wide local process that agents call Harness tools on (hand a Handoff document back, list usable launch targets, spawn or cancel a Spawned subagent session). It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
 _Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
 
 **Hub client**:
@@ -370,8 +370,16 @@ The short setup slice of bringing a backend harness online (spawn, connect, init
 _Avoid_: Connection span, live connection, session (when you mean setup)
 
 **Subagent session**:
-A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
+A child ACP session of a parent session, kept in `subagents` and never selectable as a top-level session: no history row of its own, activation, or Composer. Either native (announced by the parent's agent with `subagent_spawned`, always on the parent's own launch target) or a **Spawned subagent session** (started by the Harness, possibly on another launch target). Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
 _Avoid_: Child chat, nested session, sub-session
+
+**Spawned subagent session**:
+A Subagent session the Harness started on a parent's behalf when the parent's agent called the Hub's `spawn_subagent` tool, on any usable agent launch target (not only the parent's own). Unlike a native Subagent session it is a real session on its own launch target, started in the parent's session cwd and prompted with the Subagent task; but it is shown exactly like a native one (parent transcript item, Subagent view, Work state, its own Pending interactions) and is not listed as a History entry of its own while its parent is live. It reports back to the parent when its Prompt turn ends: as the tool result (foreground) or as a new message to the parent (background). Ends with its parent: cancelling the parent's Prompt turn cancels its foreground children; closing or deleting the parent closes them.
+_Avoid_: Cross-provider subagent (it may share the parent's launch target), delegated session, child session
+
+**Subagent report**:
+The message the Harness sends a parent when a background Spawned subagent session's Prompt turn ends: names the child and its Subagent task, and carries the child's final agent message (or its failure). Delivered as Steering when the parent is mid-turn and Steering is supported, otherwise as a new Prompt turn once the parent is idle; dropped when the parent is gone.
+_Avoid_: notification, callback
 
 **Subagent view**:
 The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.

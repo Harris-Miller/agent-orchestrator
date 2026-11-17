@@ -728,6 +728,19 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
   }
 };
 
+/**
+ * The last non-blank agent message after the last user message: a Spawned subagent session's final message (its task is
+ * the last user message; it never receives Steering). Undefined when the turn produced none.
+ */
+export const lastAgentMessage = (transcript: SessionTranscript): string | undefined => {
+  for (let i = transcript.items.length - 1; i >= 0; i -= 1) {
+    const item = transcript.items[i];
+    if (item.kind === 'user_message') return undefined;
+    if (item.kind === 'agent_message' && item.text.trim().length > 0) return item.text;
+  }
+  return undefined;
+};
+
 const MAX_ACTIVITY_LENGTH = 80;
 
 /** Last tool title, else last agent message collapsed to one truncated line. */

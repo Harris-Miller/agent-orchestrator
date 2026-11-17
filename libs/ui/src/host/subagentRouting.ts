@@ -25,7 +25,7 @@ export type SubagentRouteResult = {
   readonly linked?: { readonly childId: string; readonly parentId: string };
 };
 
-const withParentChatItem = (
+export const withParentChatItem = (
   snapshot: BackendHarnessSnapshot,
   parentId: string,
   childId: string,

@@ -45,10 +45,10 @@ const SubagentViewBody: FC<{
   const parent = getSubagent(snapshot.subagents, parentId);
   const status = subagentStatus(child);
   const running = status === 'running' || status === 'needs_input';
+  // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
+  const childLaunchTarget = child.launchTarget ?? viewed.launchTarget;
   const respond = (reply: ElicitationReply) => {
-    respondElicitation({ launchTarget: viewed.launchTarget, sessionId: child.sessionId, ...reply }).catch(
-      onClientError,
-    );
+    respondElicitation({ launchTarget: childLaunchTarget, sessionId: child.sessionId, ...reply }).catch(onClientError);
   };
   return (
     <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
@@ -92,7 +92,7 @@ const SubagentViewBody: FC<{
                 agentTitle={child.name ?? 'Subagent'}
                 onSelect={optionId => {
                   respondPermission({
-                    launchTarget: viewed.launchTarget,
+                    launchTarget: childLaunchTarget,
                     optionId,
                     sessionId: child.sessionId,
                   }).catch(onClientError);

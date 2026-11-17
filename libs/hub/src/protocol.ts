@@ -42,6 +42,9 @@ export type ClientKind = typeof ClientKind.Type;
 /** Far above any real handoff; an oversize document comes back to the agent as invalid params instead of a 413. */
 export const MAX_HANDOFF_DOCUMENT_CHARS = 100_000;
 
+/** Cap on a subagent task (request bodies are capped at 1 MiB) and on the result text sent back to an agent. */
+export const MAX_SUBAGENT_TEXT_CHARS = 100_000;
+
 export const SubmitHandoffArgs = Schema.Struct({
   document: Schema.String.check(
     Schema.makeFilter(document => document.trim().length > 0 || 'The handoff document must not be empty.'),

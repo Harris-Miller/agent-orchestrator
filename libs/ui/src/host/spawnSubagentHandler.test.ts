@@ -20,7 +20,7 @@ import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { configOptionIndexFromProbeResponses } from './configOptionIndexFixtures.ts';
 import { handleHubToolCall } from './hubSessions.ts';
 import { createSession } from './sessionRpc.ts';
-import { describeSubagentTargets, MAX_TARGETS_LISTING_CHARS } from './subagentTargets.ts';
+import { describeSubagentTargets, MAX_TARGETS_LISTING_CHARS, validateSubagentConfig } from './subagentTargets.ts';
 
 const claudeIndex = configOptionIndexFromProbeResponses('sonnet', {
   opus: {
@@ -152,5 +152,25 @@ describe('describeSubagentTargets', () => {
     ]);
     assert.include(text, 'truncated');
     assert.isBelow(text.length, MAX_TARGETS_LISTING_CHARS + 200);
+  });
+});
+
+describe('validateSubagentConfig', () => {
+  it('accepts the default model, an advertised model and valid per-model options', () => {
+    assert.isUndefined(validateSubagentConfig(claudeIndex, {}));
+    assert.isUndefined(validateSubagentConfig(claudeIndex, { model: 'opus', effort: 'low' }));
+  });
+
+  it('names the valid choices for an unknown model, option or value', () => {
+    assert.include(validateSubagentConfig(claudeIndex, { model: 'gpt-9' }) ?? '', 'Valid models: sonnet, opus');
+    assert.include(validateSubagentConfig(claudeIndex, { model: 'opus', speed: 'x' }) ?? '', 'Valid options: effort');
+    assert.include(
+      validateSubagentConfig(claudeIndex, { model: 'opus', effort: 'max' }) ?? '',
+      'Valid values: low, high',
+    );
+  });
+
+  it('checks options against the chosen model, not the default one', () => {
+    assert.include(validateSubagentConfig(claudeIndex, { effort: 'low' }) ?? '', 'Unknown config option "effort"');
   });
 });

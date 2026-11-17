@@ -13,7 +13,7 @@ import {
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
-import type { AgentCapabilities } from '../host/agentCapabilities.ts';
+import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
@@ -39,7 +39,6 @@ import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
-  closeSession,
   deleteSession,
   forkSession,
   listSessions,
@@ -129,12 +128,6 @@ const updateAndClearSelection = Effect.fnUntraced(function* (
     yield* select(get.registry, undefined);
   }
 });
-
-/** `session/close`: fail-closed when the Agent advertises close, otherwise best-effort (it may still serve it). Never refused. */
-const closeOnAgent = (capabilities: AgentCapabilities, launchTarget: AgentLaunchTarget, sessionId: string) =>
-  capabilities.sessionClose
-    ? closeSession(launchTarget, sessionId)
-    : Effect.asVoid(Effect.exit(closeSession(launchTarget, sessionId)));
 
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
   const { atomRuntime } = runtime;

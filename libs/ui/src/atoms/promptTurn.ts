@@ -18,7 +18,8 @@
  * 3. Soft-cancel. A `session/prompt` failure after Prompt turn cancel succeeds as `{ stopReason: 'cancelled' }`, even if
  *    the Agent's answer was a Request error.
  * 4. Attention. Exactly one turn-end Attention event (fire-and-forget) for a stop reason other than `cancelled`; none on
- *    failure or a Request error.
+ *    failure or a Request error, unless the caller is the Harness running a Spawned subagent session, which has no
+ *    turn-ended Attention (native children never had one).
  * 5. Steering. Only when the Composer action rule decides Steer (and Bootstrap is usable). `injected` appends a Steering user message (no turn
  *    timing) and leaves the Pending client request alone. Any other outcome waits (bounded, no polling) until the
  *    Session has no Pending client request, then runs a full Send; on timeout it fails with
@@ -89,6 +90,8 @@ export type PromptTurnResult =
 export type PromptTurnInput = {
   readonly attachments?: readonly ComposerImageAttachment[];
   readonly launchTarget: AgentLaunchTarget;
+  /** `false` only for a Spawned subagent session's turn: no turn-ended Attention event (default on). */
+  readonly notifyTurnEnd?: false;
   readonly sessionId: string;
   readonly text: string;
 };
@@ -122,7 +125,8 @@ const sessionIn = (registry: Registry, launchTarget: AgentLaunchTarget, sessionI
 /** Prompt blocks → `session/prompt` → soft-cancel → turn-end Attention event. */
 const runPrompt = Effect.fnUntraced(function* (
   registry: Registry,
-  { attachments, launchTarget, sessionId, text }: Required<PromptTurnInput>,
+  { attachments, launchTarget, sessionId, text }: Required<Omit<PromptTurnInput, 'notifyTurnEnd'>>,
+  notifyTurnEnd: boolean,
 ) {
   const prompt = yield* promptBlocksFromComposerDraft(text, {
     attachments,
@@ -133,7 +137,7 @@ const runPrompt = Effect.fnUntraced(function* (
   const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, prompt));
   if (Exit.isSuccess(exit)) {
     const { stopReason } = exit.value;
-    if (isAttentionStopReason(stopReason)) {
+    if (notifyTurnEnd && isAttentionStopReason(stopReason)) {
       yield* Effect.forkDetach(
         notifySessionAttention(
           currentUserSettings(registry),
@@ -180,7 +184,9 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
       if (begun._tag === 'Refused') {
         return yield* refusal('Sending', begun.action);
       }
-      return yield* restore(runPrompt(registry, { attachments, launchTarget, sessionId, text })).pipe(
+      return yield* restore(
+        runPrompt(registry, { attachments, launchTarget, sessionId, text }, input.notifyTurnEnd !== false),
+      ).pipe(
         Effect.onExit(exit =>
           Effect.flatMap(Clock.currentTimeMillis, endedAt =>
             Effect.sync(() => {

@@ -33,11 +33,14 @@ import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
+import { linkOfChild } from '../host/subagentLinks.ts';
 import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
-import { configOptionIndexAtom } from './backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { failLinksOnConnectionLost } from './spawnedSubagent.ts';
+import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
@@ -108,7 +111,19 @@ export const makeHarnessEventFold = ({
       const raised = raise(current);
       return [raised, raised];
     });
-    runFork(notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event));
+    // A Spawned subagent session is a root here, but the user knows it as a child: name it under its parent's title.
+    const link = linkOfChild(registry.get(spawnedLinksAtom), launchTarget, sessionId);
+    runFork(
+      link === undefined
+        ? notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event)
+        : notifySessionAttention(
+            currentUserSettings(registry),
+            registry.get(backendHarnessSnapshotAtom(link.parentLaunchTarget)),
+            link.parentLaunchTarget,
+            sessionId,
+            event,
+          ),
+    );
   };
 
   // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
@@ -133,6 +148,7 @@ export const makeHarnessEventFold = ({
         reconcileConnectionLost(current),
       ]);
       cancelPendingRequests(lost);
+      failLinksOnConnectionLost(registry, launchTarget);
       unbindVirtualOnConnectionLost(registry, launchTarget);
     },
     onElicitationCreate: (sessionId, request, resolve) => {

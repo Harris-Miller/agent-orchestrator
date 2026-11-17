@@ -4,6 +4,7 @@ import type { Option } from 'effect';
 import { Schema } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withoutUndefined } from '../optionalFields.ts';
 
 import { rootAncestor } from './ancestry.ts';
@@ -21,6 +22,11 @@ export type SubagentWorkState = {
 export type SubagentSnapshot = {
   /** Replaced whole by each patch; undefined = none/unconfirmed. */
   readonly capabilities?: Readonly<Record<string, unknown>>;
+  /**
+   * Set only on a Spawned subagent session (the Harness started it on another launch target): the launch target whose
+   * connection it lives on. Its presence is the discriminant; native children are always on the parent's target.
+   */
+  readonly launchTarget?: AgentLaunchTarget;
   readonly name?: string;
   readonly parentSessionId: string;
   readonly pendingElicitation?: PendingElicitation;
@@ -96,14 +102,20 @@ export const initialSubagentSnapshot = (
   sessionId: string,
   parentSessionId: string,
   early?: Pick<SubagentSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+  launchTarget?: AgentLaunchTarget,
 ): SubagentSnapshot =>
   withoutUndefined({
+    launchTarget,
     parentSessionId,
     pendingElicitation: early?.pendingElicitation,
     pendingPermission: early?.pendingPermission,
     sessionId,
     transcript: early?.transcript ?? emptySessionTranscript(),
   });
+
+/** The Harness sets a Spawned subagent session's Work state itself (its agent announces nothing). */
+export const withSubagentWorkState = (child: SubagentSnapshot, state: SubagentWorkState): SubagentSnapshot =>
+  withoutUndefined({ ...child, state, stateUnconfirmed: undefined });
 
 /** Nullable patch: omitted = unchanged, null = clear, concrete = replace whole field. */
 const patchField = <T, U>(

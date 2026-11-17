@@ -26,7 +26,17 @@ import {
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 import { lastAgentMessage } from '../host/sessionUpdateReducer.ts';
-import { addLink, linkOfChild, linksOfParent, removeLink, updateLink } from '../host/subagentLinks.ts';
+import {
+  addLink,
+  linkOfChild,
+  linksOfParent,
+  liveChildCount,
+  MAX_LIVE_CHILDREN,
+  MAX_SPAWN_DEPTH,
+  removeLink,
+  spawnDepth,
+  updateLink,
+} from '../host/subagentLinks.ts';
 import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
 import { validateSubagentConfig } from '../host/subagentTargets.ts';
 
@@ -202,6 +212,15 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   }
   if (task === '') {
     return yield* refuse('The task must not be empty.');
+  }
+  const existing = registry.get(spawnedLinksAtom);
+  if (spawnDepth(existing, parent.launchTarget, parent.sessionId) >= MAX_SPAWN_DEPTH) {
+    return yield* refuse('A subagent cannot start subagents of its own.');
+  }
+  if (liveChildCount(existing, parent.launchTarget, parent.sessionId) >= MAX_LIVE_CHILDREN) {
+    return yield* refuse(
+      `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
+    );
   }
   const parentSnapshot = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
   if (!parentIsActive(registry, parent)) {

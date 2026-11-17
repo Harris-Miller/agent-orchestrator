@@ -3,7 +3,8 @@
  * map operations; the atom that holds the map is `spawnedLinksAtom`. In memory only (like credentials): after a restart
  * the child is just a session on its own launch target.
  */
-import type { Deferred, Fiber } from 'effect';
+import { Deferred } from 'effect';
+import type { Fiber } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
@@ -93,3 +94,17 @@ export const claimHandle = (
     ? [true, updateLink(links, launchTarget, sessionId, { handleState: by })]
     : [false, links];
 };
+
+/** How deep Spawned subagent sessions may nest. A grandchild's mirror would sit in a snapshot the root's Subagent view never reads; raising this is #277's job. */
+export const MAX_SPAWN_DEPTH = 1;
+
+/** Live children one parent may have at once (a fork-bomb guard: a child session is much heavier than a request). */
+export const MAX_LIVE_CHILDREN = 8;
+
+/** 1 when `sessionId` is itself a Spawned subagent session, else 0. */
+export const spawnDepth = (links: SpawnedLinks, launchTarget: AgentLaunchTarget, sessionId: string): number =>
+  isLinked(links, launchTarget, sessionId) ? 1 : 0;
+
+/** Children of a parent whose Prompt turn has not ended. */
+export const liveChildCount = (links: SpawnedLinks, launchTarget: AgentLaunchTarget, sessionId: string): number =>
+  linksOfParent(links, launchTarget, sessionId).filter(link => !Deferred.isDoneUnsafe(link.outcome)).length;

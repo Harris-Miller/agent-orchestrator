@@ -29,6 +29,7 @@ import { createSession } from '../host/sessionRpc.ts';
 import { lastAgentMessage } from '../host/sessionUpdateReducer.ts';
 import {
   addLink,
+  linkKey,
   linkOfChild,
   linksOfParent,
   liveChildCount,
@@ -44,10 +45,10 @@ import { validateSubagentConfig } from '../host/subagentTargets.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
+import { cancelPromptTurn, sendPromptTurn, sessionById, sessionIn } from './promptTurn.ts';
 import type { PromptTurnResult } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { pendingSpawnsAtom, spawnedLinksAtom } from './subagentLinks.atoms.ts';
 import { usableSubagentTarget } from './subagentTargets.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -80,17 +81,15 @@ const capText = (text: string): string =>
     : `${text.slice(0, MAX_SUBAGENT_TEXT_CHARS)}\n… [truncated: the message exceeded ${MAX_SUBAGENT_TEXT_CHARS} characters]`;
 
 const parentIsActive = (registry: Registry, parent: SessionRef): boolean => {
-  const { sessions } = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
-  return parent.sessionId in sessions && sessions[parent.sessionId].status === 'active';
+  return sessionIn(registry, parent.launchTarget, parent.sessionId)?.status === 'active';
 };
 
 /** Copy the child's root entry onto its mirror (no-op while either is missing or they already agree). */
 const projectOnce = (registry: Registry, link: SpawnedLink): void => {
-  const { sessions } = registry.get(backendHarnessSnapshotAtom(link.childLaunchTarget));
-  if (!(link.childSessionId in sessions)) {
+  const root = sessionIn(registry, link.childLaunchTarget, link.childSessionId);
+  if (root === undefined) {
     return;
   }
-  const root = sessions[link.childSessionId];
   updateHarnessSnapshot(registry, link.parentLaunchTarget, current =>
     projectChildOnto(current, link.childSessionId, root),
   );
@@ -124,7 +123,7 @@ export const endLink = Effect.fnUntraced(function* (
   // Unhidden from Session History: a child bound without a row has none until a `session/list`, so give it one now.
   const updatedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
   updateHarnessSnapshot(registry, link.childLaunchTarget, current => {
-    const cwd = link.childSessionId in current.sessions ? current.sessions[link.childSessionId].cwd : undefined;
+    const cwd = sessionById(current.sessions, link.childSessionId)?.cwd;
     return cwd === undefined
       ? current
       : withHistoryEntryIfAbsent(current, {
@@ -169,8 +168,7 @@ const outcomeOfTurn = (registry: Registry, link: SpawnedLink, result: PromptTurn
   if (result.stopReason === 'refusal') {
     return { status: 'failed', text: 'The subagent refused the task.' };
   }
-  const { sessions } = registry.get(backendHarnessSnapshotAtom(link.childLaunchTarget));
-  const transcript = link.childSessionId in sessions ? sessions[link.childSessionId].transcript : undefined;
+  const transcript = sessionIn(registry, link.childLaunchTarget, link.childSessionId)?.transcript;
   return {
     status: 'completed',
     text: capText((transcript === undefined ? undefined : lastAgentMessage(transcript)) ?? ''),
@@ -233,11 +231,6 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   if (spawnDepth(existing, parent.launchTarget, parent.sessionId) >= MAX_SPAWN_DEPTH) {
     return yield* refuse('A subagent cannot start subagents of its own.');
   }
-  if (liveChildCount(existing, parent.launchTarget, parent.sessionId) >= MAX_LIVE_CHILDREN) {
-    return yield* refuse(
-      `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
-    );
-  }
   const parentSnapshot = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
   if (!parentIsActive(registry, parent)) {
     return yield* refuse('The parent session is no longer active.');
@@ -258,7 +251,25 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     return yield* refuse('The parent session has no working directory.');
   }
 
+  // The cap check and the slot's reservation are one synchronous step: parallel spawns cannot all pass the check
+  // while `createSession` runs. The slot is released as the link is written (it counts from then), or on failure.
+  const reserveKey = linkKey(parent.launchTarget, parent.sessionId);
+  const adjustPending = (delta: 1 | -1) =>
+    registry.update(pendingSpawnsAtom, pending =>
+      new Map(pending).set(reserveKey, (pending.get(reserveKey) ?? 0) + delta),
+    );
+  const reserved = registry.modify(pendingSpawnsAtom, pending => {
+    const live = liveChildCount(registry.get(spawnedLinksAtom), parent.launchTarget, parent.sessionId);
+    const taken = live + (pending.get(reserveKey) ?? 0) < MAX_LIVE_CHILDREN;
+    return [taken, taken ? new Map(pending).set(reserveKey, (pending.get(reserveKey) ?? 0) + 1) : pending] as const;
+  });
+  if (!reserved) {
+    return yield* refuse(
+      `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
+    );
+  }
   const created = yield* createSession(input.launchTarget, cwd).pipe(
+    Effect.onError(() => Effect.sync(() => adjustPending(-1))),
     Effect.mapError(error =>
       refuse(`Could not start a session on ${agentLaunchTargetLabel(input.launchTarget)}: ${describeError(error)}`),
     ),
@@ -275,6 +286,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     task,
   };
   registry.update(spawnedLinksAtom, links => addLink(links, link));
+  adjustPending(-1);
   if (!parentIsActive(registry, parent)) {
     yield* abandonSpawn(registry, child);
     return yield* refuse('The parent session was closed while the subagent was starting.');

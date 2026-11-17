@@ -117,10 +117,13 @@ const refusal = (verb: 'Sending' | 'Steering', action: ComposerAction) =>
 const snapshotOf = (registry: Registry, launchTarget: AgentLaunchTarget) =>
   registry.get(backendHarnessSnapshotAtom(launchTarget));
 
-const sessionIn = (registry: Registry, launchTarget: AgentLaunchTarget, sessionId: string) => {
-  const { sessions } = snapshotOf(registry, launchTarget);
-  return sessionId in sessions ? sessions[sessionId] : undefined;
-};
+/** A session's entry in a snapshot's `sessions`, if any. */
+export const sessionById = <S>(sessions: Readonly<Record<string, S>>, sessionId: string): S | undefined =>
+  sessionId in sessions ? sessions[sessionId] : undefined;
+
+/** The session's entry in its launch target's snapshot, if any. */
+export const sessionIn = (registry: Registry, launchTarget: AgentLaunchTarget, sessionId: string) =>
+  sessionById(snapshotOf(registry, launchTarget).sessions, sessionId);
 
 /** Prompt blocks → `session/prompt` → soft-cancel → turn-end Attention event. */
 const runPrompt = Effect.fnUntraced(function* (

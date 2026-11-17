@@ -14,7 +14,7 @@ import { buildSubagentReport } from '../host/subagentReport.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { awaitQueuedMessageTaken, hasQueuedMessage } from './composer.atoms.ts';
-import { awaitTurnEnd, sendPromptTurn, steerPromptTurn } from './promptTurn.ts';
+import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn } from './promptTurn.ts';
 import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -40,10 +40,8 @@ const parentLock = (registry: Registry, link: SpawnedLink): Semaphore.Semaphore 
   return created;
 };
 
-const parentSession = (registry: Registry, link: SpawnedLink) => {
-  const { sessions } = registry.get(backendHarnessSnapshotAtom(link.parentLaunchTarget));
-  return link.parentSessionId in sessions ? sessions[link.parentSessionId] : undefined;
-};
+const parentSession = (registry: Registry, link: SpawnedLink) =>
+  sessionIn(registry, link.parentLaunchTarget, link.parentSessionId);
 
 /** The parent can still be told something: it exists, is active, and the link has not ended. */
 const parentReachable = (registry: Registry, link: SpawnedLink): boolean =>
@@ -53,10 +51,10 @@ const parentReachable = (registry: Registry, link: SpawnedLink): boolean =>
 /** Resolves once the parent's Prompt turn is in flight (our Send began) or its fiber ended first. */
 const awaitTurnBegun = (registry: Registry, link: SpawnedLink) =>
   AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(link.parentLaunchTarget)).pipe(
-    Stream.filter(
-      ({ sessions }) =>
-        !(link.parentSessionId in sessions) || sessions[link.parentSessionId].pendingClientRequest === 'prompt',
-    ),
+    Stream.filter(({ sessions }) => {
+      const parent = sessionById(sessions, link.parentSessionId);
+      return parent === undefined || parent.pendingClientRequest === 'prompt';
+    }),
     Stream.runHead,
   );
 

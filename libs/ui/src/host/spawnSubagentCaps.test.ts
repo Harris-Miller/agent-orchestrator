@@ -65,4 +65,19 @@ describe('spawn caps', () => {
       }
     }).pipe(Effect.scoped),
   );
+
+  it.effect('parallel spawns never exceed eight live children', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const h = yield* setup({ duringPrompt: Deferred.await(release) });
+      const results = yield* Effect.all(
+        Array.from({ length: 12 }, (_unused, i) => h.spawn({ runInBackground: true, task: `Task ${i}` })),
+        { concurrency: 'unbounded' },
+      );
+      assert.strictEqual(results.filter(result => !result.isError).length, 8);
+      assert.strictEqual(results.filter(result => result.isError).length, 4);
+      assert.strictEqual(h.childCalls.filter(call => call === 'new:claude').length, 8);
+      yield* Deferred.succeed(release, null);
+    }).pipe(Effect.scoped),
+  );
 });

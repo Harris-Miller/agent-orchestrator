@@ -44,6 +44,17 @@ describe('spawn_subagent (foreground)', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('wait_subagent reports a message-less child as failed, like the foreground result', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      const started = yield* h.spawn({ runInBackground: true });
+      const { subagentId } = JSON.parse(started.text) as { subagentId: string };
+      const waited = yield* h.call('wait_subagent', { ids: [subagentId] });
+      assert.include(waited.text, 'status="failed"');
+      assert.include(waited.text, 'The subagent finished without producing a final message.');
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('refuses an unknown, same-target or unusable launch target without creating a session', () =>
     Effect.gen(function* () {
       const h = yield* setup();

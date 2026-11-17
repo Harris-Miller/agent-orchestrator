@@ -10,7 +10,7 @@ import { Deferred, Duration, Effect, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
-import { cancelPromptTurn } from '../atoms/promptTurn.ts';
+import { cancelPromptTurn, sessionById } from '../atoms/promptTurn.ts';
 import { SpawnSubagentError, startSpawnedSubagent } from '../atoms/spawnedSubagent.ts';
 import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
 import { startReporter } from '../atoms/subagentReportDelivery.ts';
@@ -22,7 +22,14 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { hubToolHandler, toolError } from './hubToolHandler.ts';
 import type { HubToolCaller, HubToolResult } from './hubToolHandler.ts';
 import { getPromptSpan } from './sessionRpc.ts';
-import { claimHandle, linkOfChild, linksOfParent } from './subagentLinks.ts';
+import {
+  claimHandle,
+  hasNoFinalMessage,
+  linkOfChild,
+  linksOfParent,
+  NO_FINAL_MESSAGE,
+  outcomeForAgent,
+} from './subagentLinks.ts';
 import type { SubagentOutcome } from './subagentLinks.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
@@ -54,10 +61,11 @@ const knownLaunchTarget = (value: string): AgentLaunchTarget | undefined =>
 
 /** One child's outcome as text for the agent: its final message, or why it has none. */
 const outcomeResult = (outcome: SubagentOutcome): HubToolResult => {
+  if (hasNoFinalMessage(outcome)) {
+    return toolError(NO_FINAL_MESSAGE);
+  }
   if (outcome.status === 'completed') {
-    return outcome.text.trim() === ''
-      ? toolError('The subagent finished without producing a final message.')
-      : { isError: false, text: outcome.text };
+    return { isError: false, text: outcome.text };
   }
   return toolError(
     outcome.status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${outcome.text}`,
@@ -68,11 +76,9 @@ const outcomeResult = (outcome: SubagentOutcome): HubToolResult => {
 const callerGone = (registry: AtomRegistry.AtomRegistry, caller: HubToolCaller, harnessStartedTurn: boolean) =>
   AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(caller.launchTarget)).pipe(
     Stream.filter(({ sessions }) => {
-      if (!(caller.sessionId in sessions)) {
-        return true;
-      }
-      const session = sessions[caller.sessionId];
+      const session = sessionById(sessions, caller.sessionId);
       return (
+        session === undefined ||
         session.status !== 'active' ||
         session.promptCancelRequested === true ||
         (harnessStartedTurn && session.pendingClientRequest !== 'prompt')
@@ -190,7 +196,8 @@ export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, calle
                   spawnedLinksAtom,
                   all => claimHandle(all, link.childLaunchTarget, link.childSessionId, 'waited')[1],
                 );
-                return `<subagent id="${link.childSessionId}" status="${outcome.value.status}">\n${outcome.value.text}\n</subagent>`;
+                const { status, text } = outcomeForAgent(outcome.value);
+                return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
               }),
             ),
       { concurrency: 'unbounded' },

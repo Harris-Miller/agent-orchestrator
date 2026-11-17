@@ -168,6 +168,14 @@ _Avoid_: Roster, Session roster, session snapshot
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
+**Hidden model**:
+A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
+_Avoid_: Disabled model, filtered model, blocked model
+
+**Model order**:
+The user's ordering of one launch target's advertised models, set in Settings > Providers and used by every model select. Models it does not list follow it in the agent's own order. Hidden models keep their place in it.
+_Avoid_: Model ranking, model priority, favorites
+
 **Developer panel**:
 Shared Harness UI debug surface (RPC wire log, Session State, Atoms, host-supplied extra tabs). Open preference and the open/close toggle are shared; hosts own pane layout chrome and host-only tabs. Its Atoms tab lists every Atom in the registry with its current value, shown in the form that fits the value's type.
 _Avoid_: Devtools panel, debug drawer (when you mean this surface)

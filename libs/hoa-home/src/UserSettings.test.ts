@@ -18,4 +18,17 @@ describe('UserSettings provider fields', () => {
       assert.deepStrictEqual(JSON.parse(encoded), JSON.parse(input));
     }),
   );
+
+  it.effect('round-trips hiddenModels and modelOrder per launch target', () =>
+    Effect.gen(function* () {
+      const input = JSON.stringify({
+        hiddenModels: { 'codex-acp': ['gpt-5-mini'] },
+        modelOrder: { 'codex-acp': ['gpt-5', 'gpt-5-mini'] },
+      });
+      const decoded = yield* Schema.decodeEffect(UserSettingsJsonString)(input);
+      assert.deepStrictEqual(decoded.hiddenModels?.['codex-acp'], ['gpt-5-mini']);
+      const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(decoded);
+      assert.deepStrictEqual(JSON.parse(encoded), JSON.parse(input));
+    }),
+  );
 });

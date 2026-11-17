@@ -27,8 +27,11 @@ Composer text and attachments the user keeps editing while a prompt turn is in f
 _Avoid_: Queued prompt, pending message, outbox
 
 **Mid-turn send**:
-What the Send button and Enter do while Steering is offered: Steering or Queue, by the `midTurnSend` User setting (Steering when unset). The Send options menu (the chevron next to Send) offers the other one for that message only (shown for Agents with Steering supported, disabled unless Steering is offered). Not offered when Steering is not supported.
+What the Send button and Enter do while Steering is offered: Steering or Queue, by the `midTurnSend` User setting (Steering when unset). A small outlined button beside Send, labelled with the other one, sends that message the other way (shown only while Steering is offered). Not offered when Steering is not supported.
 _Avoid_: Send mode, queue mode
+
+**Session actions strip**:
+The strip above the Composer: the host's cwd control (or a read-only cwd label) on the left, Fork and Handoff icon buttons on the right. Always shown; Fork and Handoff are disabled with a tooltip reason when unavailable, and hidden for a Virtual session. Handoff is also hidden while the User setting `appOrchestratedHandoffEnabled` is off.
 
 **Queued message**:
 In the Composer: shown as one row above the editor with an Edit action that moves it back into the draft (defined in the desktop glossary; desktop ADR-0020).

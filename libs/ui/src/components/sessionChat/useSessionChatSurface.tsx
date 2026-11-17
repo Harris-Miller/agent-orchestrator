@@ -112,6 +112,11 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     selectedSessionId !== undefined &&
     sessionCwd !== undefined &&
     backendSnapshot?.agentCapabilities.sessionFork === true;
+  const forkUnavailableReason = canForkBase
+    ? undefined
+    : backendSnapshot?.agentCapabilities.sessionFork === true
+      ? 'Fork unavailable right now'
+      : 'Agent cannot fork sessions';
 
   const requestFork = useCallback((): Promise<unknown> | undefined => {
     if (
@@ -137,6 +142,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     composer,
     configOptions,
     edit,
+    forkUnavailableReason,
     getConfigOptionIndex,
     handoffUnavailableReason,
     isVirtual,

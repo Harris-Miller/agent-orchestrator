@@ -198,7 +198,7 @@ Agent-reported context-window fill and cumulative session cost on a session snap
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Handoff**:
-Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Handoff (`appOrchestratedHandoffEnabled`, off when unset): while off, the Send options menu has no Handoff item and the Hub client does not start.
+Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Handoff (`appOrchestratedHandoffEnabled`, off when unset): while off, the Session actions strip has no Handoff button and the Hub client does not start.
 _Avoid_: Transfer, migrate session, export chat
 
 **Hub**:
@@ -222,7 +222,7 @@ Harness action that injects a new user message into the in-flight prompt turn vi
 _Avoid_: interrupt, follow-up message (Queue is a different action: see Queued message)
 
 **Queued message**:
-The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; the Send options menu (the chevron next to Send) offers the other.
+The one message per Session a user chose to Queue instead of Steer while a prompt turn is in flight and Steering is offered. Held in the Composer (memory only; merged, newline-joined, if queued again) and sent as a new prompt turn once the in-flight turn is over. Prompt turn cancel returns it to the draft; a refused or failed-to-start send returns it too. Which of Steering or Queue the Send button does is the `midTurnSend` User setting; a second button beside Send offers the other while Steering is offered.
 _Avoid_: Queued prompt, outbox, prompt queue
 
 **Steering supported**:

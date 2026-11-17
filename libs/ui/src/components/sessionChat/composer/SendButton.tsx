@@ -1,5 +1,4 @@
 import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ArrowUp, ListEnd, Square } from 'lucide-react';
 import type { FC } from 'react';
@@ -9,8 +8,8 @@ import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 
 /** The Send button's icon and label for each mid-turn send; the other-mode button shows the same ones. */
-export const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
-export const MID_TURN_SEND_LABEL = { queue: 'Queue', steer: 'Steer' } as const;
+const MID_TURN_SEND_ICON = { queue: ListEnd, steer: ArrowUp } as const;
+const MID_TURN_SEND_LABEL = { queue: 'Queue', steer: 'Steer' } as const;
 
 /**
  * The primary button (the Composer action). While the Composer action is Steer, a small outlined button for the other
@@ -51,34 +50,30 @@ export const SendButton: FC<{
           {MID_TURN_SEND_LABEL[otherMidTurnSend]}
         </Button>
       ) : null}
-      <ButtonGroup variant="contained">
-        <Button
-          aria-label={primaryButton.ariaLabel}
-          disabled={primaryButton.disabled}
-          title={primaryButton.ariaLabel}
-          onClick={
-            action._tag === 'CancelTurn'
-              ? event => {
-                  event.preventDefault();
-                  onCancelPrompt();
-                }
-              : undefined
-          }
-          sx={{ minWidth: 40, px: 1.5 }}
-          type={action._tag === 'CancelTurn' ? 'button' : 'submit'}
-        >
-          {action._tag === 'CancelTurn' ? (
-            <LucideMuiIcon fontSize="small" icon={Square} />
-          ) : sendPending ? (
-            <CircularProgress color="inherit" size={18} />
-          ) : (
-            <LucideMuiIcon
-              fontSize="small"
-              icon={action._tag === 'Steer' ? MID_TURN_SEND_ICON[midTurnSend] : ArrowUp}
-            />
-          )}
-        </Button>
-      </ButtonGroup>
+      <Button
+        aria-label={primaryButton.ariaLabel}
+        disabled={primaryButton.disabled}
+        title={primaryButton.ariaLabel}
+        onClick={
+          action._tag === 'CancelTurn'
+            ? event => {
+                event.preventDefault();
+                onCancelPrompt();
+              }
+            : undefined
+        }
+        sx={{ minWidth: 40, px: 1.5 }}
+        type={action._tag === 'CancelTurn' ? 'button' : 'submit'}
+        variant="contained"
+      >
+        {action._tag === 'CancelTurn' ? (
+          <LucideMuiIcon fontSize="small" icon={Square} />
+        ) : sendPending ? (
+          <CircularProgress color="inherit" size={18} />
+        ) : (
+          <LucideMuiIcon fontSize="small" icon={action._tag === 'Steer' ? MID_TURN_SEND_ICON[midTurnSend] : ArrowUp} />
+        )}
+      </Button>
     </>
   );
 };

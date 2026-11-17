@@ -32,6 +32,7 @@ _Avoid_: Send mode, queue mode
 
 **Session actions strip**:
 The strip above the Composer: the host's cwd control (or a read-only cwd label) on the left, Fork and Handoff icon buttons on the right. Always shown; Fork and Handoff are disabled with a tooltip reason when unavailable, and hidden for a Virtual session. Handoff is also hidden while the User setting `appOrchestratedHandoffEnabled` is off.
+_Avoid_: Send options menu, toolbar
 
 **Queued message**:
 In the Composer: shown as one row above the editor with an Edit action that moves it back into the draft (defined in the desktop glossary; desktop ADR-0020).

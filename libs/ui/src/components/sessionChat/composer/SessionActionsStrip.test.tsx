@@ -66,6 +66,15 @@ describe('SessionActionsStrip', () => {
     }),
   );
 
+  it.effect('names why Fork and Handoff are unavailable in their tooltips', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* mount({ settings: HANDOFF_ON });
+      assert.isNotNull(screen.getByLabelText('Agent cannot fork sessions'));
+      assert.isNotNull(screen.getByLabelText('The hub client has not started.'));
+      registry.dispose();
+    }),
+  );
+
   it.effect('Handoff calls onRequestHandoff when its gate is open', () =>
     Effect.gen(function* () {
       const onRequestHandoff = vi.fn();

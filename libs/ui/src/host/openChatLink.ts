@@ -31,6 +31,17 @@ const classifyPathHref = (href: string, cwd: string): ChatLink | undefined => {
 /** `path:N`, `path:N-M` (first line wins) or `path:N:C` (column ignored); never `scheme://` hrefs. */
 const LINE_SUFFIX = /^(?![a-z][a-z0-9+.-]*:\/\/)(.+?):(\d+)(?:[-–]\d+)?(?::\d+)?$/i;
 
+/** `[./\\]` keeps scheme-like hrefs (`tel:123`) out; returns the path part and 1-based line when `href` is `path:N…`. */
+const splitLineSuffix = (href: string): { readonly path: string; readonly line: number | undefined } | undefined => {
+  const match = LINE_SUFFIX.exec(href);
+  const path = match?.[1];
+  const lineText = match?.[2];
+  if (path === undefined || lineText === undefined || !/[./\\]/.test(path)) return undefined;
+  const line = Number(lineText);
+  // Absurd digit strings overflow to non-integers; open the file without a line instead.
+  return { line: Number.isSafeInteger(line) ? Math.max(1, line) : undefined, path };
+};
+
 const parseUrl = (href: string): URL | undefined => {
   try {
     return new URL(href);
@@ -45,12 +56,10 @@ export const classifyChatLinkHref = (
   cwd?: string,
 ): ChatLink | { readonly kind: 'inert' } => {
   // `a.ts:14` parses as a URL with protocol `a.ts:`, so line suffixes are tried first.
-  const lineMatch = LINE_SUFFIX.exec(href);
-  const stripped = lineMatch?.[1];
-  const lineText = lineMatch?.[2];
-  if (stripped !== undefined && lineText !== undefined && /[./\\]/.test(stripped)) {
-    const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(stripped, cwd) : undefined;
-    if (pathLink?.kind === 'path') return { ...pathLink, line: Math.max(1, Number(lineText)) };
+  const located = splitLineSuffix(href);
+  if (located !== undefined) {
+    const pathLink = openFileSupported && cwd !== undefined ? classifyPathHref(located.path, cwd) : undefined;
+    if (pathLink?.kind === 'path') return located.line === undefined ? pathLink : { ...pathLink, line: located.line };
   }
   // `C:/x` parses as a URL with protocol `c:`, so drive paths take the path branch too.
   const url = WINDOWS_DRIVE.test(href) ? undefined : parseUrl(href);
@@ -94,8 +103,11 @@ export const openChatImageData: (image: Base64Image) => Effect.Effect<void, neve
   effect => Effect.ignore(effect),
 );
 
+// `a.ts:14` has a colon before any slash, so `defaultUrlTransform` would blank it as an unknown protocol.
 export const chatLinkUrlTransform = (value: string, key: string) =>
-  key === 'href' && value.startsWith('file:') ? value : defaultUrlTransform(value);
+  key === 'href' && (value.startsWith('file:') || splitLineSuffix(value) !== undefined)
+    ? value
+    : defaultUrlTransform(value);
 
 export const openChatLink: (link: ChatLink) => Effect.Effect<void, never, OpenFile | OpenUrl | Path> = Effect.fn(
   'openChatLink',

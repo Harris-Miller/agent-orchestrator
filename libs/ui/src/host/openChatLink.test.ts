@@ -53,6 +53,11 @@ describe('classifyChatLinkHref', () => {
     assert.deepStrictEqual(classifyChatLinkHref('./src/a.ts:14-16', true, '/ws'), path('./src/a.ts', 14));
     assert.deepStrictEqual(classifyChatLinkHref('a.ts:14:3', true, '/ws'), path('a.ts', 14));
     assert.deepStrictEqual(classifyChatLinkHref('a.ts:14', true, '/ws'), path('a.ts', 14));
+    assert.deepStrictEqual(classifyChatLinkHref(`a.ts:${'9'.repeat(400)}`, true, '/ws'), {
+      cwd: '/ws',
+      kind: 'path',
+      path: 'a.ts',
+    });
     assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', false, '/ws').kind, 'inert');
     assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', true).kind, 'inert');
   });
@@ -70,6 +75,8 @@ describe('classifyChatLinkHref', () => {
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'href'), 'file:///tmp/a.png');
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'src'), '');
     assert.strictEqual(chatLinkUrlTransform(unsafeScriptHref, 'href'), '');
+    assert.strictEqual(chatLinkUrlTransform('a.ts:14', 'href'), 'a.ts:14');
+    assert.strictEqual(chatLinkUrlTransform('tel:123', 'href'), '');
   });
 });
 

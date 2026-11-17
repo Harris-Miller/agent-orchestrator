@@ -21,9 +21,11 @@ export const optionsWithValues = (
     return option;
   });
 
+/** Whether a Config option is the `model` select. */
+export const isModelOption = (option: { readonly id: string }): boolean => option.id === 'model';
+
 /** The default row's `model` select: its choices are the advertised models (other rows hydrate lazily). */
-const defaultModelOption = (index: ConfigOptionIndex) =>
-  index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
+const defaultModelOption = (index: ConfigOptionIndex) => index.byModel[index.defaultModelId]?.find(isModelOption);
 
 /** Models the agent advertises (choices of the default row's `model` select); empty with no index. */
 export const advertisedModelChoices = (index: ConfigOptionIndex | undefined) => {

@@ -18,6 +18,7 @@ vi.mock('../../atoms/boundHarnessAtoms.ts', async () => {
   const { AsyncResult: R, Atom: A } = await import('effect/reactivity');
   const doc = await import('../../atoms/userSettings/userSettingsDocument.atoms.ts');
   return {
+    modelPickerPrefsAtom: doc.modelPickerPrefsAtom,
     setModelPickerPrefsAtom: A.writable(
       () => undefined,
       (ctx, arg: { launchTarget: never; prefs: never }) => {

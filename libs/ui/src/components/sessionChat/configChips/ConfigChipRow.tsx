@@ -1,11 +1,11 @@
 import { useAtomValue } from '@effect/atom-react';
-import { Atom } from 'effect/reactivity';
 import { useMemo } from 'react';
 import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
-import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettings.atoms.ts';
-import { arrangeModelChoices, EMPTY_MODEL_PICKER_PREFS } from '../../../host/modelPickerPrefs.ts';
+import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
+import { isModelOption } from '../../../host/configOptionIndexUi.ts';
+import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
@@ -14,8 +14,6 @@ import { SessionAgentChip } from './SessionAgentChip.tsx';
 import type { SessionAgentChipProps } from './SessionAgentChip.tsx';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
-
-const noPrefsAtom = Atom.make(EMPTY_MODEL_PICKER_PREFS);
 
 export type ConfigChipRowProps = {
   readonly agent: SessionAgentChipProps;
@@ -34,12 +32,12 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
   onConfigChange,
   unavailableModelIds,
 }) => {
-  const prefs = useAtomValue(agent.value === undefined ? noPrefsAtom : modelPickerPrefsAtom(agent.value));
+  const prefs = useAtomValue(modelPickerPrefsAtom(agent.value));
   const partitioned = useMemo(
     () =>
       partitionComposerConfigOptions(
         configOptions.map(option =>
-          option.id === 'model' && option.type === 'select'
+          isModelOption(option) && option.type === 'select'
             ? { ...option, choices: arrangeModelChoices(option.choices, { ...prefs, currentId: option.currentValue }) }
             : option,
         ),

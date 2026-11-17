@@ -22,7 +22,6 @@ import {
 } from './userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 
-export { modelPickerPrefsAtom } from './userSettingsDocument.atoms.ts';
 export { appOrchestratedHandoffEnabled, showArchivedEnabled, unwrapUserSettings };
 export type { MidTurnSend };
 

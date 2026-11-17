@@ -96,10 +96,11 @@ export const withModelPickerPrefs = (
   };
 };
 
-/** Hidden models + Model order of a launch target, read from the User settings document. Write through `setModelPickerPrefsAtomFn`. */
-export const modelPickerPrefsAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
-  Atom.make(get => modelPickerPrefsOf(unwrapUserSettings(get(userSettingsDocumentAtom)), launchTarget)).pipe(
-    Atom.withLabel(`modelPickerPrefs:${launchTarget}`),
-    Atom.keepAlive,
-  ),
+/** Hidden models + Model order of a launch target, read from the User settings document. Write through `setModelPickerPrefsAtom`. */
+export const modelPickerPrefsAtom = Atom.family((launchTarget: AgentLaunchTarget | undefined) =>
+  Atom.make(get =>
+    launchTarget === undefined
+      ? EMPTY_MODEL_PICKER_PREFS
+      : modelPickerPrefsOf(unwrapUserSettings(get(userSettingsDocumentAtom)), launchTarget),
+  ).pipe(Atom.withLabel(`modelPickerPrefs:${launchTarget ?? 'none'}`), Atom.keepAlive),
 );

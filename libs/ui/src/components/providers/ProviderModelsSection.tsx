@@ -10,9 +10,8 @@ import { GripVertical } from 'lucide-react';
 import { useState } from 'react';
 import type { FC, KeyboardEvent } from 'react';
 
-import { setModelPickerPrefsAtom } from '../../atoms/boundHarnessAtoms.ts';
+import { modelPickerPrefsAtom, setModelPickerPrefsAtom } from '../../atoms/boundHarnessAtoms.ts';
 import { configOptionIndexAtom } from '../../atoms/backendState.atoms.ts';
-import { modelPickerPrefsAtom } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { advertisedModelChoices } from '../../host/configOptionIndexUi.ts';
 import {
@@ -27,6 +26,106 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { SettingsGroup as Group, SettingsSectionTitle as SectionTitle } from '../SettingsSection.tsx';
 
 const FILTER_THRESHOLD = 8;
+
+type ModelRowProps = {
+  readonly dragging: boolean;
+  readonly name: string;
+  readonly off: boolean;
+  readonly onDragEnd: () => void;
+  /** Returns true when the row accepts the drop (so the browser allows it). */
+  readonly onDragOver: () => boolean;
+  readonly onDragStart: () => void;
+  readonly onDrop: () => void;
+  readonly onHandleKeyDown: (event: KeyboardEvent) => void;
+  readonly onToggle: (checked: boolean) => void;
+  readonly reorderable: boolean;
+  /** The raw model id, shown when it differs from the name. */
+  readonly showId: string | undefined;
+  /** Whether a drag is hovering over this row. */
+  readonly target: boolean;
+};
+
+/** One model row: drag handle (drag starts from the handle only), name, id and visibility switch. */
+const ModelRow: FC<ModelRowProps> = ({
+  dragging,
+  name,
+  off,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
+  onHandleKeyDown,
+  onToggle,
+  reorderable,
+  showId,
+  target,
+}) => {
+  const [armed, setArmed] = useState(false);
+  return (
+    <Stack
+      direction="row"
+      draggable={reorderable && armed}
+      onDragEnd={() => {
+        setArmed(false);
+        onDragEnd();
+      }}
+      onDragOver={event => {
+        if (onDragOver()) {
+          event.preventDefault();
+        }
+      }}
+      onDragStart={onDragStart}
+      onDrop={onDrop}
+      sx={{
+        '&:hover': { bgcolor: 'action.hover' },
+        alignItems: 'center',
+        borderTop: 2,
+        borderTopColor: target ? 'primary.main' : 'transparent',
+        gap: 1,
+        opacity: off || dragging ? 0.5 : 1,
+        pl: 0.5,
+        pr: 2,
+        py: 0.5,
+      }}
+    >
+      <Box
+        aria-label={`Reorder ${name}`}
+        onKeyDown={onHandleKeyDown}
+        onMouseDown={() => {
+          setArmed(true);
+        }}
+        onMouseUp={() => {
+          setArmed(false);
+        }}
+        role="button"
+        sx={{ display: 'flex', visibility: off ? 'hidden' : 'visible' }}
+        tabIndex={reorderable ? 0 : -1}
+      >
+        <LucideMuiIcon
+          icon={GripVertical}
+          sx={{ color: 'text.disabled', cursor: reorderable ? 'grab' : 'not-allowed', fontSize: 18 }}
+        />
+      </Box>
+      <Typography noWrap sx={{ fontSize: 13 }}>
+        {name}
+      </Typography>
+      {showId === undefined ? null : (
+        <Typography noWrap sx={{ color: 'text.disabled', fontFamily: FONT_FAMILY_MONO, fontSize: 11 }}>
+          {showId}
+        </Typography>
+      )}
+      <Box sx={{ flex: 1 }} />
+      <Switch
+        checked={!off}
+        onChange={(_event, checked) => {
+          onToggle(checked);
+        }}
+        slotProps={{ input: { 'aria-label': `Show ${name}` } }}
+        size="small"
+      />
+    </Stack>
+  );
+};
 
 export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarget }> = ({ launchTarget }) => {
   const index = useAtomValue(configOptionIndexAtom(launchTarget));
@@ -76,21 +175,22 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
 
   const row = (id: string, off: boolean) => {
     const name = byId.get(id)?.name ?? id;
-    const draggable = !off && !filtering;
     return (
-      <Stack
-        direction="row"
-        draggable={draggable}
+      <ModelRow
+        dragging={dragId === id}
         key={id}
+        name={name}
+        off={off}
         onDragEnd={() => {
           setDragId(undefined);
           setOverId(undefined);
         }}
-        onDragOver={event => {
+        onDragOver={() => {
           if (dragId !== undefined && !off) {
-            event.preventDefault();
             setOverId(id);
+            return true;
           }
+          return false;
         }}
         onDragStart={() => {
           setDragId(id);
@@ -102,50 +202,16 @@ export const ProviderModelsSection: FC<{ readonly launchTarget: AgentLaunchTarge
           setDragId(undefined);
           setOverId(undefined);
         }}
-        sx={{
-          '&:hover': { bgcolor: 'action.hover' },
-          alignItems: 'center',
-          borderTop: 2,
-          borderTopColor: overId === id && dragId !== id ? 'primary.main' : 'transparent',
-          gap: 1,
-          opacity: off || dragId === id ? 0.5 : 1,
-          pl: 0.5,
-          pr: 2,
-          py: 0.5,
+        onHandleKeyDown={event => {
+          onHandleKeyDown(event, id);
         }}
-      >
-        <Box
-          aria-label={`Reorder ${name}`}
-          onKeyDown={event => {
-            onHandleKeyDown(event, id);
-          }}
-          role="button"
-          sx={{ display: 'flex', visibility: off ? 'hidden' : 'visible' }}
-          tabIndex={draggable ? 0 : -1}
-        >
-          <LucideMuiIcon
-            icon={GripVertical}
-            sx={{ color: 'text.disabled', cursor: draggable ? 'grab' : 'not-allowed', fontSize: 18 }}
-          />
-        </Box>
-        <Typography noWrap sx={{ fontSize: 13 }}>
-          {name}
-        </Typography>
-        {name === id ? null : (
-          <Typography noWrap sx={{ color: 'text.disabled', fontFamily: FONT_FAMILY_MONO, fontSize: 11 }}>
-            {id}
-          </Typography>
-        )}
-        <Box sx={{ flex: 1 }} />
-        <Switch
-          checked={!off}
-          onChange={(_event, checked) => {
-            write({ hidden: setModelHidden(advertisedIds, prefs.hidden, id, !checked) });
-          }}
-          slotProps={{ input: { 'aria-label': `Show ${name}` } }}
-          size="small"
-        />
-      </Stack>
+        onToggle={checked => {
+          write({ hidden: setModelHidden(advertisedIds, prefs.hidden, id, !checked) });
+        }}
+        reorderable={!off && !filtering}
+        showId={name !== id ? id : undefined}
+        target={overId === id && dragId !== id}
+      />
     );
   };
 

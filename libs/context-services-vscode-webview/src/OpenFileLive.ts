@@ -7,7 +7,9 @@ import type { IpcClient } from './protocol/ipcClient.ts';
 /** VS Code webview Live for {@link OpenFile}: Host IPC → extension `vscode.open` / `revealInExplorer`. */
 export const makeOpenFileLive = (client: IpcClient): Layer.Layer<OpenFile> => {
   const request = Effect.fn('OpenFile.request')(function* (
-    message: { readonly _tag: 'OpenFile'; readonly path: string } | ({ readonly _tag: 'OpenImageData' } & Base64Image),
+    message:
+      | { readonly _tag: 'OpenFile'; readonly path: string; readonly line?: number }
+      | ({ readonly _tag: 'OpenImageData' } & Base64Image),
   ) {
     yield* client
       .request(message)
@@ -18,7 +20,8 @@ export const makeOpenFileLive = (client: IpcClient): Layer.Layer<OpenFile> => {
       );
   });
   return Layer.succeed(OpenFile, {
-    open: (path: string) => request({ _tag: 'OpenFile', path }),
+    open: (path: string, line?: number) =>
+      request(line === undefined ? { _tag: 'OpenFile', path } : { _tag: 'OpenFile', line, path }),
     openImageData: (image: Base64Image) => request({ _tag: 'OpenImageData', ...image }),
     supported: true,
   });

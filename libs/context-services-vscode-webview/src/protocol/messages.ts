@@ -144,7 +144,7 @@ export const HostIpcRequests = {
     result: {},
   },
   OpenFile: {
-    request: { path: Schema.String },
+    request: { line: Schema.optional(Schema.Number), path: Schema.String },
     result: {},
   },
   OpenImageData: {

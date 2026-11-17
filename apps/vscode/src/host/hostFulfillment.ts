@@ -195,10 +195,14 @@ export const makeHostIpcFulfillment = (deps: {
       const fileStat = await vscode.workspace.fs.stat(uri).then(undefined, () => {
         throw new Error('OpenFile target is not accessible');
       });
-      await vscode.commands.executeCommand(
-        fileStat.type === vscode.FileType.Directory ? 'revealInExplorer' : 'vscode.open',
-        uri,
-      );
+      if (fileStat.type === vscode.FileType.Directory) {
+        await vscode.commands.executeCommand('revealInExplorer', uri);
+      } else if (message.line === undefined) {
+        await vscode.commands.executeCommand('vscode.open', uri);
+      } else {
+        const line = Math.max(1, message.line) - 1;
+        await vscode.commands.executeCommand('vscode.open', uri, { selection: new vscode.Range(line, 0, line, 0) });
+      }
       return {};
     },
     OpenImageData: async message => {

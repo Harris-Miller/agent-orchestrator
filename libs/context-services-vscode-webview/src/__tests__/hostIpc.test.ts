@@ -43,7 +43,7 @@ const WIRE_FIELD_NAMES = {
   HttpFetchResult: ['_tag', 'body', 'headers', 'id', 'status', 'statusText'],
   Kill: ['_tag', 'handleId', 'id'],
   KillResult: ['_tag', 'id'],
-  OpenFile: ['_tag', 'id', 'path'],
+  OpenFile: ['_tag', 'id', 'line', 'path'],
   OpenFileResult: ['_tag', 'id'],
   OpenImageData: ['_tag', 'base64', 'id', 'mimeType'],
   OpenImageDataResult: ['_tag', 'id'],

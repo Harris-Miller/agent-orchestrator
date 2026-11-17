@@ -47,6 +47,25 @@ describe('classifyChatLinkHref', () => {
     assert.strictEqual(classifyChatLinkHref('mailto:a@b', true, '/ws').kind, 'inert');
   });
 
+  it('parses line suffixes into path links', () => {
+    const path = (p: string, line: number) => ({ cwd: '/ws', kind: 'path' as const, line, path: p });
+    assert.deepStrictEqual(classifyChatLinkHref('libs/a.ts:14', true, '/ws'), path('libs/a.ts', 14));
+    assert.deepStrictEqual(classifyChatLinkHref('./src/a.ts:14-16', true, '/ws'), path('./src/a.ts', 14));
+    assert.deepStrictEqual(classifyChatLinkHref('a.ts:14:3', true, '/ws'), path('a.ts', 14));
+    assert.deepStrictEqual(classifyChatLinkHref('a.ts:14', true, '/ws'), path('a.ts', 14));
+    assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', false, '/ws').kind, 'inert');
+    assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', true).kind, 'inert');
+  });
+
+  it('leaves non-file colon-number hrefs unchanged', () => {
+    assert.strictEqual(classifyChatLinkHref('tel:123', true, '/ws').kind, 'inert');
+    assert.strictEqual(classifyChatLinkHref(['java', 'script:1'].join(''), true, '/ws').kind, 'inert');
+    assert.deepStrictEqual(classifyChatLinkHref('http://example.com:8080', true, '/ws'), {
+      kind: 'url',
+      url: 'http://example.com:8080/',
+    });
+  });
+
   it('keeps file hrefs but not file image sources', () => {
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'href'), 'file:///tmp/a.png');
     assert.strictEqual(chatLinkUrlTransform('file:///tmp/a.png', 'src'), '');
@@ -55,6 +74,23 @@ describe('classifyChatLinkHref', () => {
 });
 
 describe('openChatLink', () => {
+  it.effect('forwards the line to OpenFile.open', () =>
+    Effect.gen(function* () {
+      const opened: unknown[] = [];
+      const layer = Layer.mergeAll(
+        Layer.succeed(OpenUrl, { open: () => Effect.void }),
+        Layer.succeed(OpenFile, {
+          open: (path, line) => Effect.sync(() => opened.push([path, line])),
+          openImageData: () => Effect.void,
+          supported: true,
+        }),
+        posixPathLayer,
+      );
+      yield* openChatLink({ cwd: '/ws', kind: 'path', line: 14, path: 'a.ts' }).pipe(Effect.provide(layer));
+      assert.deepStrictEqual(opened, [['/ws/a.ts', 14]]);
+    }),
+  );
+
   it.effect('dispatches URL and decoded file path through Host services', () =>
     Effect.gen(function* () {
       const opened: string[] = [];

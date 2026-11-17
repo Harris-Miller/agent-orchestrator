@@ -4,6 +4,8 @@ import type { UserSettings } from '@lib/hoa-home';
 import { Effect, Exit } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
 
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import type { ModelPickerPrefs } from '../../host/modelPickerPrefs.ts';
 import type { HostRuntimeBag } from '../../createHostRuntime.ts';
 import type { ThemeId } from '../../theme/themeId.ts';
 import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/themePaintCache.ts';
@@ -12,6 +14,7 @@ import {
   appOrchestratedHandoffEnabled,
   appOrchestratedHandoffEnabledAtom,
   midTurnSendModeAtom,
+  withModelPickerPrefs,
   showArchivedAtom,
   showArchivedEnabled,
   unwrapUserSettings,
@@ -19,6 +22,7 @@ import {
 } from './userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 
+export { modelPickerPrefsAtom } from './userSettingsDocument.atoms.ts';
 export { appOrchestratedHandoffEnabled, showArchivedEnabled, unwrapUserSettings };
 export type { MidTurnSend };
 
@@ -214,6 +218,17 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Replace one launch target's Hidden models + Model order. Callers pass already-pruned lists. */
+  const setModelPickerPrefsAtom = Atom.writable(
+    () => undefined,
+    (ctx, arg: { readonly launchTarget: AgentLaunchTarget; readonly prefs: ModelPickerPrefs }) => {
+      ctx.set(
+        userSettingsAtom,
+        withModelPickerPrefs(unwrapUserSettings(ctx.get(userSettingsAtom)), arg.launchTarget, arg.prefs),
+      );
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective theme: paint cache while settings not Success; User settings after. Write paints + updates settings. */
   const themeAtom = Atom.writable(
     get => {
@@ -243,6 +258,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     notificationsEnabledAtom,
     notifyOnlyWhenUnfocusedAtom,
     persistUserSettingsAtomFn,
+    setModelPickerPrefsAtom,
     showArchivedSettingAtom,
     showEmptyCwdGroupsAtom,
     showNoFolderGroupAtom,

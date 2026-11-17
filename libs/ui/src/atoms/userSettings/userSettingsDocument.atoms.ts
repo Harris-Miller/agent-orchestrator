@@ -6,6 +6,10 @@ import { defaultSettings } from '@lib/hoa-home';
 import type { readUserSettings, UserSettings } from '@lib/hoa-home';
 import type { Effect } from 'effect';
 import { AsyncResult, Atom } from 'effect/reactivity';
+
+import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
+import { EMPTY_MODEL_PICKER_PREFS } from '../../host/modelPickerPrefs.ts';
+import type { ModelPickerPrefs } from '../../host/modelPickerPrefs.ts';
 import type { AtomRegistry } from 'effect/reactivity';
 
 export type UserSettingsLoadError = Effect.Error<ReturnType<typeof readUserSettings>>;
@@ -55,3 +59,47 @@ export const midTurnSendMode = (settings: UserSettings): MidTurnSend => settings
 export const midTurnSendModeAtom = Atom.make(get =>
   midTurnSendMode(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('midTurnSend'), Atom.keepAlive);
+
+const withoutKey = <V>(record: Readonly<Record<string, V>> | undefined, key: string): Record<string, V> => {
+  const { [key]: _removed, ...rest } = record ?? {};
+  return rest;
+};
+
+/** Hidden models + Model order for one launch target (empty when unset). */
+export const modelPickerPrefsOf = (settings: UserSettings, launchTarget: AgentLaunchTarget): ModelPickerPrefs => {
+  const hidden = settings.hiddenModels?.[launchTarget];
+  const order = settings.modelOrder?.[launchTarget];
+  return hidden === undefined && order === undefined
+    ? EMPTY_MODEL_PICKER_PREFS
+    : { hidden: hidden ?? [], order: order ?? [] };
+};
+
+/** Settings with one launch target's prefs replaced; empty lists drop the key. */
+export const withModelPickerPrefs = (
+  settings: UserSettings,
+  launchTarget: AgentLaunchTarget,
+  prefs: ModelPickerPrefs,
+): UserSettings => {
+  const hiddenModels =
+    prefs.hidden.length === 0
+      ? withoutKey(settings.hiddenModels, launchTarget)
+      : { ...settings.hiddenModels, [launchTarget]: [...prefs.hidden] };
+  const modelOrder =
+    prefs.order.length === 0
+      ? withoutKey(settings.modelOrder, launchTarget)
+      : { ...settings.modelOrder, [launchTarget]: [...prefs.order] };
+  const { hiddenModels: _h, modelOrder: _o, ...rest } = settings;
+  return {
+    ...rest,
+    ...(Object.keys(hiddenModels).length === 0 ? {} : { hiddenModels }),
+    ...(Object.keys(modelOrder).length === 0 ? {} : { modelOrder }),
+  };
+};
+
+/** Hidden models + Model order of a launch target, read from the User settings document. Write through `setModelPickerPrefsAtomFn`. */
+export const modelPickerPrefsAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
+  Atom.make(get => modelPickerPrefsOf(unwrapUserSettings(get(userSettingsDocumentAtom)), launchTarget)).pipe(
+    Atom.withLabel(`modelPickerPrefs:${launchTarget}`),
+    Atom.keepAlive,
+  ),
+);

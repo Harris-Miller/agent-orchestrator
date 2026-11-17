@@ -32,20 +32,17 @@ describe('arrangeModelChoices', () => {
   });
 
   it('ignores stale ids', () => {
-    assert.deepStrictEqual(ids(arrangeModelChoices(choices, { currentId: 'a', hidden: ['gone'], order: ['gone', 'd'] })), [
-      'd',
-      'a',
-      'b',
-      'c',
-    ]);
+    assert.deepStrictEqual(
+      ids(arrangeModelChoices(choices, { currentId: 'a', hidden: ['gone'], order: ['gone', 'd'] })),
+      ['d', 'a', 'b', 'c'],
+    );
   });
 
   it('drops hidden models but keeps the hidden current model in its slot', () => {
-    assert.deepStrictEqual(ids(arrangeModelChoices(choices, { currentId: 'b', hidden: ['a', 'b'], order: ['c', 'b'] })), [
-      'c',
-      'b',
-      'd',
-    ]);
+    assert.deepStrictEqual(
+      ids(arrangeModelChoices(choices, { currentId: 'b', hidden: ['a', 'b'], order: ['c', 'b'] })),
+      ['c', 'b', 'd'],
+    );
   });
 
   it('shows only the current model when everything is hidden', () => {

@@ -47,6 +47,7 @@ export const {
   notificationsEnabledAtom,
   notifyOnlyWhenUnfocusedAtom,
   persistUserSettingsAtomFn,
+  setModelPickerPrefsAtom,
   showArchivedSettingAtom,
   showEmptyCwdGroupsAtom,
   showNoFolderGroupAtom,

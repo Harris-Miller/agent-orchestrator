@@ -201,7 +201,10 @@ export const makeHostIpcFulfillment = (deps: {
         await vscode.commands.executeCommand('vscode.open', uri);
       } else {
         const line = Math.max(1, message.line) - 1;
-        await vscode.commands.executeCommand('vscode.open', uri, { selection: new vscode.Range(line, 0, line, 0) });
+        // Jumping is best effort: if it fails, open the file without the line.
+        await vscode.commands
+          .executeCommand('vscode.open', uri, { selection: new vscode.Range(line, 0, line, 0) })
+          .then(undefined, () => vscode.commands.executeCommand('vscode.open', uri));
       }
       return {};
     },

@@ -58,6 +58,7 @@ describe('classifyChatLinkHref', () => {
       kind: 'path',
       path: 'a.ts',
     });
+    assert.deepStrictEqual(classifyChatLinkHref('libs/a.ts:14#L14', true, '/ws'), path('libs/a.ts', 14));
     assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', false, '/ws').kind, 'inert');
     assert.strictEqual(classifyChatLinkHref('libs/a.ts:14', true).kind, 'inert');
   });

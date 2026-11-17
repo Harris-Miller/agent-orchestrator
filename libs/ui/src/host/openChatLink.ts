@@ -28,8 +28,8 @@ const classifyPathHref = (href: string, cwd: string): ChatLink | undefined => {
   return path === '' ? undefined : { cwd, kind: 'path', path };
 };
 
-/** `path:N`, `path:N-M` (first line wins) or `path:N:C` (column ignored); never `scheme://` hrefs. */
-const LINE_SUFFIX = /^(?![a-z][a-z0-9+.-]*:\/\/)(.+?):(\d+)(?:[-–]\d+)?(?::\d+)?$/i;
+/** `path:N`, `path:N-M` (first line wins) or `path:N:C` (column ignored), optionally followed by `#…`/`?…`; never `scheme://` hrefs. */
+const LINE_SUFFIX = /^(?![a-z][a-z0-9+.-]*:\/\/)(.+?):(\d+)(?:[-–]\d+)?(?::\d+)?(?:[#?].*)?$/i;
 
 /** `[./\\]` keeps scheme-like hrefs (`tel:123`) out; returns the path part and 1-based line when `href` is `path:N…`. */
 const splitLineSuffix = (href: string): { readonly path: string; readonly line: number | undefined } | undefined => {

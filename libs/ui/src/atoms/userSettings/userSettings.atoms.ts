@@ -14,11 +14,11 @@ import {
   appOrchestratedHandoffEnabled,
   appOrchestratedHandoffEnabledAtom,
   midTurnSendModeAtom,
-  withModelPickerPrefs,
   showArchivedAtom,
   showArchivedEnabled,
   unwrapUserSettings,
   userSettingsDocumentAtom,
+  withModelPickerPrefs,
 } from './userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
 

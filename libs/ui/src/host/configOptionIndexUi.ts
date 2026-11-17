@@ -25,6 +25,12 @@ export const optionsWithValues = (
 const defaultModelOption = (index: ConfigOptionIndex) =>
   index.byModel[index.defaultModelId]?.find(option => option.id === 'model');
 
+/** Models the agent advertises (choices of the default row's `model` select); empty with no index. */
+export const advertisedModelChoices = (index: ConfigOptionIndex | undefined) => {
+  const modelOption = index === undefined ? undefined : defaultModelOption(index);
+  return modelOption?.type === 'select' ? modelOption.choices : [];
+};
+
 /** The default row's `model` select when `modelId` is one of its choices (an advertised model). */
 const advertisedModelSelect = (index: ConfigOptionIndex, modelId: string) => {
   const modelOption = defaultModelOption(index);

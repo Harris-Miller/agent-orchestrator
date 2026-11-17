@@ -35,7 +35,8 @@ export const createSessionFsListingAtoms = (
   const { atomRuntime } = runtime;
 
   /**
-   * Load / refresh recursive listing for `sessionId`+`cwd`.
+   * Load / refresh recursive listing for `sessionId`+`cwd`. Preloaded on session start, rescanned each time the `@`
+   * menu opens.
    * Replaces cache on success; leaves prior entries until then (stale OK).
    * If cache empty, sets `loading` so UI can show Skeletons.
    * Reads Always-hidden globs at list time — stale until next refresh if Settings change while idle.
@@ -53,7 +54,15 @@ export const createSessionFsListingAtoms = (
           get.set(sessionFsListingAtom(key), { cwd: arg.cwd, entries: [], status: 'loading' });
         }
 
-        const exit = yield* Effect.exit(listRecursiveEntries(arg.cwd, alwaysHiddenGlobs));
+        // A newer refresh (any session) interrupts this one; don't leave a first load stuck on `loading`.
+        const resetLoading = Effect.sync(() => {
+          if (get(sessionFsListingAtom(key)).status === 'loading') {
+            get.set(sessionFsListingAtom(key), emptyListing(arg.cwd));
+          }
+        });
+        const exit = yield* Effect.exit(
+          listRecursiveEntries(arg.cwd, alwaysHiddenGlobs).pipe(Effect.onInterrupt(() => resetLoading)),
+        );
         if (Exit.isFailure(exit)) {
           yield* Effect.logWarning('session fs listing failed', arg.sessionId, Redacted.make(arg.cwd), exit.cause);
           if (get(sessionFsListingAtom(key)).status === 'loading') {

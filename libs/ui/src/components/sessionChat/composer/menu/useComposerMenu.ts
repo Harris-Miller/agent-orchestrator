@@ -34,6 +34,8 @@ export type UseComposerMenuArgs = {
   readonly fsListing: Pick<SessionFsListingState, 'entries' | 'status'>;
   readonly launchTarget: AgentLaunchTarget | undefined;
   readonly onClientError: (error: unknown) => void;
+  /** Fires each time the `@` menu opens (closed -> open), not on query changes. */
+  readonly onMentionOpen: () => void;
   readonly sessionCwd: string | undefined;
   readonly setDraft: (text: string) => void;
 };
@@ -57,6 +59,7 @@ export const useComposerMenu = ({
   fsListing,
   launchTarget,
   onClientError,
+  onMentionOpen,
   sessionCwd,
   setDraft,
 }: UseComposerMenuArgs): UseComposerMenu => {
@@ -81,6 +84,17 @@ export const useComposerMenu = ({
     }
     return filterFsListingMatches(fsListing.entries, mentionTrigger.query);
   }, [fsListing.entries, mentionTrigger]);
+
+  const mentionOpen = mentionTrigger !== null;
+  const onMentionOpenRef = useRef(onMentionOpen);
+  useEffect(() => {
+    onMentionOpenRef.current = onMentionOpen;
+  }, [onMentionOpen]);
+  useEffect(() => {
+    if (mentionOpen) {
+      onMentionOpenRef.current();
+    }
+  }, [mentionOpen]);
 
   const mentionLoading = mentionTrigger !== null && fsListing.status === 'loading';
 

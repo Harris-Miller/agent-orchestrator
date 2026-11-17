@@ -9,7 +9,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
-import { handoffSessionAtomFn, setConfigOptionAtomFn } from '../../../atoms/boundHarnessAtoms.ts';
+import {
+  handoffSessionAtomFn,
+  refreshSessionFsListingAtomFn,
+  setConfigOptionAtomFn,
+} from '../../../atoms/boundHarnessAtoms.ts';
 import { useSelectedSessionFsListing } from '../../../atoms/useSelectedSessionFsListing.ts';
 import type { MidTurnSend } from '../../../atoms/userSettings/userSettings.atoms.ts';
 import { isNotSignedIn } from '../../../host/harnessFailure.ts';
@@ -72,9 +76,16 @@ export const Composer: FC<{
   );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
-  const { fsListing, sessionCwd } = useSelectedSessionFsListing();
+  const { fsListing, selectedSessionId: activeSessionId, sessionCwd } = useSelectedSessionFsListing();
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
+  const refreshFsListing = useAtomSet(refreshSessionFsListingAtomFn, { mode: 'promise' });
+  const onMentionOpen = useCallback(() => {
+    if (activeSessionId === undefined || sessionCwd === undefined) {
+      return;
+    }
+    refreshFsListing({ cwd: sessionCwd, sessionId: activeSessionId }).catch(() => undefined);
+  }, [activeSessionId, refreshFsListing, sessionCwd]);
   const { cancelElicitation } = useElicitationReply();
 
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
@@ -92,6 +103,7 @@ export const Composer: FC<{
     fsListing,
     launchTarget: selectedLaunchTarget,
     onClientError,
+    onMentionOpen,
     sessionCwd,
     setDraft,
   });

@@ -5,8 +5,9 @@ import { alwaysHiddenGlobsAtom, refreshSessionFsListingAtomFn } from '../../../.
 import { selectedActiveSessionAtom } from '../../../../atoms/selectedActiveSession.atoms.ts';
 
 /**
- * The one trigger of the `@` FS listing: it loads once the Selected active session (an active Session, or the Bound
- * Virtual one) has an id and a cwd, and again when Always-hidden globs change. Call it once, from the chat surface.
+ * Preloads the `@` FS listing: it loads once the Selected active session (an active Session, or the Bound Virtual one)
+ * has an id and a cwd, and again when Always-hidden globs change. The Composer rescans each time the `@` menu opens.
+ * Call it once, from the chat surface.
  */
 export const usePreloadSessionFsListing = (): void => {
   const active = useAtomValue(selectedActiveSessionAtom);

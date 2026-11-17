@@ -26,6 +26,7 @@ const setup = (overrides: Partial<UseComposerMenuArgs> = {}) => {
   const setDraft = vi.fn((text: string) => {
     state.draft = text;
   });
+  const onMentionOpen = overrides.onMentionOpen ?? vi.fn();
   const hook = renderHook(
     (props: { draft: string }) =>
       useComposerMenu({
@@ -35,6 +36,7 @@ const setup = (overrides: Partial<UseComposerMenuArgs> = {}) => {
         fsListing: { entries: ENTRIES, status: 'ready' },
         launchTarget: 'codex-acp',
         onClientError: () => undefined,
+        onMentionOpen,
         sessionCwd: '/work',
         setDraft,
         ...overrides,
@@ -47,7 +49,7 @@ const setup = (overrides: Partial<UseComposerMenuArgs> = {}) => {
     });
     hook.rerender({ draft: text });
   };
-  return { hook, setDraft, state, type };
+  return { hook, onMentionOpen, setDraft, state, type };
 };
 
 describe('useComposerMenu', () => {
@@ -166,5 +168,24 @@ describe('useComposerMenu', () => {
     assert.deepStrictEqual(attachImages.mock.lastCall, [{ _tag: 'Paths', paths: ['/work/img/pic.png'] }]);
     assert.strictEqual(setDraft.mock.lastCall?.[0], ' ');
     assert.strictEqual(hook.result.current.keyHandlers.open, false);
+  });
+
+  it('onMentionOpen fires once on @, not on query change, again after reopen, never for /', () => {
+    const { hook, onMentionOpen, type } = setup();
+    type('@');
+    assert.strictEqual(vi.mocked(onMentionOpen).mock.calls.length, 1);
+    type('@sr');
+    assert.strictEqual(vi.mocked(onMentionOpen).mock.calls.length, 1);
+    act(() => {
+      hook.result.current.keyHandlers.onDismiss();
+    });
+    type('@');
+    assert.strictEqual(vi.mocked(onMentionOpen).mock.calls.length, 2);
+  });
+
+  it('onMentionOpen does not fire for the command menu', () => {
+    const { onMentionOpen, type } = setup();
+    type('/st');
+    assert.strictEqual(vi.mocked(onMentionOpen).mock.calls.length, 0);
   });
 });

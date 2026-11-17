@@ -52,7 +52,7 @@ export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
     // session RPC the hub reads `connecting` and that RPC waits for it (`awaitHub`) instead of finding it unavailable
     // and starting the session without a credential for good.
     setHubAvailability({ _tag: 'connecting' });
-    return hostHubClientOptions.pipe(
+    return hostHubClientOptions(get.registry).pipe(
       Effect.flatMap(runHubClient),
       Effect.catchTag('HubUnavailable', error =>
         Effect.sync(() => {

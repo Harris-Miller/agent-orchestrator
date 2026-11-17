@@ -5,6 +5,7 @@
  */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Fiber } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -32,7 +33,10 @@ import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 
 const submitHandoff = (received: McpReceived[], document: string): Effect.Effect<HubToolResult> =>
-  handleHubToolCall({ args: { document }, token: bearerOf(received[0].servers), tool: 'submit_handoff' });
+  handleHubToolCall(
+    { args: { document }, token: bearerOf(received[0].servers), tool: 'submit_handoff' },
+    { registry: AtomRegistry.make() },
+  ).pipe(Effect.provide(mockHostLayer));
 
 /** A Codex source session `bound-1`, created through the real RPC so it holds a hub credential. */
 const sourceSession = Effect.fnUntraced(function* (

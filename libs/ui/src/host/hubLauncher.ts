@@ -12,6 +12,7 @@ import { Effect, Option, Redacted, Schema } from 'effect';
 import { requireExecutableOnPath } from './findExecutableOnPath.ts';
 import { HubUnavailable } from './hubClient.ts';
 import type { HubClientOptions } from './hubClient.ts';
+import type { HubToolContext } from './hubToolHandler.ts';
 import { runCapturedProcess } from './runCapturedProcess.ts';
 
 /** Same relative path in both Hosts: Tauri resources (`tauri.conf.json`) and the extension root (VS Code build). */
@@ -55,7 +56,7 @@ export const launchHub = Effect.fnUntraced(function* (port: number) {
  * This Host's hub client options, or the reason it must run degraded. A remote VS Code window (SSH, WSL, containers,
  * Codespaces) runs its agents on the remote machine, which cannot reach a hub on this one.
  */
-export const hostHubClientOptions = Effect.gen(function* () {
+export const hostHubClientOptions = Effect.fnUntraced(function* (registry: HubToolContext['registry']) {
   const env = (yield* OS).env();
   const remote = env[VSCODE_REMOTE_ENV];
   if (remote !== undefined && remote !== '') {
@@ -69,6 +70,7 @@ export const hostHubClientOptions = Effect.gen(function* () {
   return {
     clientKind,
     port,
+    registry,
     startHub: launchHub(port),
   } satisfies HubClientOptions<unknown>;
 });

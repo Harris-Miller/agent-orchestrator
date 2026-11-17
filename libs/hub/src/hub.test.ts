@@ -134,6 +134,23 @@ describe('hub', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.live('keeps a call open while its owner is still working, and answers when the owner does', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-slow');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-slow');
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-slow', sessionId, 'submit_handoff', { document: 'slow' }),
+      );
+      const routed = yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      yield* Effect.sleep('1500 millis');
+      assert.isUndefined(call.pollUnsafe());
+      owner.send({ isError: false, requestId: routed.requestId, text: 'late', type: 'toolResult' });
+      assert.deepStrictEqual((yield* Fiber.join(call)).content, [{ text: 'late', type: 'text' }]);
+    }).pipe(Effect.scoped),
+  );
+
   it.live('refuses an oversize handoff document as invalid params, without routing it', () =>
     Effect.gen(function* () {
       const { port } = yield* hubUp();

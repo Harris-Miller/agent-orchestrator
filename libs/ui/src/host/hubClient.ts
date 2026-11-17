@@ -15,7 +15,7 @@ import {
   PROTOCOL_VERSION,
 } from '@lib/hub/protocol';
 import type { ClientKind, ClientMessage } from '@lib/hub/protocol';
-import type { OS } from '@lib/context-services';
+import type { HostServices, OS } from '@lib/context-services';
 import { Deferred, Duration, Effect, Schedule, Schema } from 'effect';
 import { FileSystem } from 'effect/FileSystem';
 import { Path } from 'effect/Path';
@@ -24,6 +24,7 @@ import { Socket } from 'effect/socket';
 import { installHub, setHubAvailability } from './hubConnection.ts';
 import type { HubConnection } from './hubConnection.ts';
 import { handleHubToolCall, registeredTokens } from './hubSessions.ts';
+import type { HubToolContext } from './hubToolHandler.ts';
 import { recordHubWire } from './hubWireLog.ts';
 
 /** Why the hub cannot be used; `reason` is what the degraded-mode notice shows. */
@@ -34,7 +35,7 @@ export class HubUnavailable extends Schema.TaggedError<HubUnavailable>()('HubUna
 /** An established connection dropped (hub exited or crashed): reconnect at once. */
 class HubConnectionLost extends Schema.TaggedError<HubConnectionLost>()('HubConnectionLost', {}) {}
 
-export type HubClientOptions<R> = {
+export type HubClientOptions<R> = HubToolContext & {
   readonly clientKind: ClientKind;
   readonly port: number;
   /** Start a hub when none answers (the launcher); fails with why it cannot (Node missing, bundle missing…). */
@@ -224,7 +225,7 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
           Deferred.doneUnsafe(answer, Effect.succeed(message.accepted));
           return Effect.void;
         })
-      : handleHubToolCall(message).pipe(
+      : handleHubToolCall(message, { registry: options.registry }).pipe(
           Effect.flatMap(result =>
             send({ isError: result.isError, requestId: message.requestId, text: result.text, type: 'toolResult' }),
           ),
@@ -249,7 +250,7 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
  */
 export const runHubClient = <R>(
   options: HubClientOptions<R>,
-): Effect.Effect<never, never, R | FileSystem | OS | Path> =>
+): Effect.Effect<never, never, R | FileSystem | HostServices | OS | Path> =>
   Effect.gen(function* () {
     setHubAvailability({ _tag: 'connecting' });
     let failures = 0;

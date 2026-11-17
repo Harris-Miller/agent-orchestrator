@@ -1,14 +1,21 @@
 /** Which session RPCs inject the hub as an MCP server, and the credential lifecycle behind it. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit, Fiber, Scope } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { TestClock } from 'effect/testing';
 
+import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { bearerOf, CLAUDE, CODEX, installFakeAgent, installFakeHub } from '../atoms/fakeAgent.testing.ts';
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 
 import { setHubAvailability } from './hubConnection.ts';
-import { beginMcp, currentHubUnavailableReason, handleHubToolCall } from './hubSessions.ts';
+import { beginMcp, handleHubToolCall as callHubTool, currentHubUnavailableReason } from './hubSessions.ts';
+import type { HubToolCall } from './hubSessions.ts';
 import { closeSession, createSession, deleteSession, forkSession, loadSession, resumeSession } from './sessionRpc.ts';
+
+/** A tool call with a throwaway registry and mock Host services (these handlers need neither). */
+const handleHubToolCall = (call: HubToolCall) =>
+  callHubTool(call, { registry: AtomRegistry.make() }).pipe(Effect.provide(mockHostLayer));
 
 describe('hub MCP injection', () => {
   it.effect('new, load, resume and fork each carry a distinct hub server; new binds after the response', () =>

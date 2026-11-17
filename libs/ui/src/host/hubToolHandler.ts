@@ -1,5 +1,7 @@
 /** The shape of a Harness-side hub tool handler, kept apart so feature modules can define one without import cycles. */
+import type { HostServices } from '@lib/context-services';
 import { Effect, Schema } from 'effect';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
@@ -8,7 +10,14 @@ export type HubToolCaller = { readonly launchTarget: AgentLaunchTarget; readonly
 
 export type HubToolResult = { readonly isError: boolean; readonly text: string };
 
-export type HubToolHandler = (args: unknown, caller: HubToolCaller) => Effect.Effect<HubToolResult>;
+/** What the Harness gives every handler besides the call itself: the app's atom registry (the one `hubAtom` runs in). */
+export type HubToolContext = { readonly registry: AtomRegistry.AtomRegistry };
+
+export type HubToolHandler = (
+  args: unknown,
+  caller: HubToolCaller,
+  ctx: HubToolContext,
+) => Effect.Effect<HubToolResult, never, HostServices>;
 
 export const toolError = (text: string): HubToolResult => ({ isError: true, text });
 
@@ -16,12 +25,12 @@ export const toolError = (text: string): HubToolResult => ({ isError: true, text
 export const hubToolHandler =
   <A>(
     schema: Schema.Decoder<A>,
-    run: (args: A, caller: HubToolCaller) => Effect.Effect<HubToolResult>,
+    run: (args: A, caller: HubToolCaller, ctx: HubToolContext) => Effect.Effect<HubToolResult, never, HostServices>,
   ): HubToolHandler =>
-  (args, caller) =>
+  (args, caller, ctx) =>
     Schema.decodeUnknownEffect(schema)(args).pipe(
       Effect.matchEffect({
         onFailure: error => Effect.succeed(toolError(`Invalid arguments: ${error.message}`)),
-        onSuccess: decoded => run(decoded, caller),
+        onSuccess: decoded => run(decoded, caller, ctx),
       }),
     );

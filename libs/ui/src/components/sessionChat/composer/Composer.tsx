@@ -34,6 +34,7 @@ import { useComposerMenu } from './menu/useComposerMenu.ts';
 import { HandoffModal } from './HandoffModal.tsx';
 import { PlanFileBanner } from './PlanFileBanner.tsx';
 import { SendButton } from './SendButton.tsx';
+import { SessionActionsStrip } from './SessionActionsStrip.tsx';
 
 export const Composer: FC<{
   readonly aboveComposer?: ReactNode;
@@ -120,7 +121,7 @@ export const Composer: FC<{
       });
   };
 
-  // Enter, the form and the Send options menu perform only Send or Steering, never Prompt turn cancel (desktop
+  // Enter, the form and the other-mode Send button perform only Send or Steering, never Prompt turn cancel (desktop
   // ADR-0018). Shared with SendButton so closing the Composer Menu on Send lives in one place.
   const submitDraft = (mode?: MidTurnSend) => {
     if (action._tag !== 'Send' && action._tag !== 'Steer') {
@@ -188,24 +189,27 @@ export const Composer: FC<{
         </Box>
       ) : null}
       <Box component="form" onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column' }}>
-        {(aboveComposer !== undefined && aboveComposer !== null) || planFilePath !== undefined ? (
-          <Box
-            sx={{
-              bgcolor: 'action.hover',
-              borderRadius: '14px 14px 0 0',
-              color: 'text.secondary',
-              fontSize: 12,
-              mb: '-10px',
-              mx: 1.5,
-              pb: 1.75,
-              pt: 1,
-              px: 1.5,
+        <Box
+          sx={{
+            bgcolor: 'action.hover',
+            borderRadius: '14px 14px 0 0',
+            color: 'text.secondary',
+            fontSize: 12,
+            mb: '-10px',
+            mx: 1.5,
+            pb: 1.75,
+            pt: 1,
+            px: 1.5,
+          }}
+        >
+          {planFilePath === undefined ? null : <PlanFileBanner path={planFilePath} />}
+          <SessionActionsStrip
+            aboveComposer={aboveComposer}
+            onRequestHandoff={() => {
+              setHandoffModalOpen(true);
             }}
-          >
-            {planFilePath === undefined ? null : <PlanFileBanner path={planFilePath} />}
-            {aboveComposer}
-          </Box>
-        ) : null}
+          />
+        </Box>
         <Paper
           sx={{
             bgcolor: theme => theme.palette.composerBackground,
@@ -289,13 +293,7 @@ export const Composer: FC<{
               <LucideMuiIcon fontSize="small" icon={Paperclip} />
             </IconButton>
             {isVirtual ? null : <UsagePopover usage={selectedSession?.usage} />}
-            <SendButton
-              onCancelPrompt={onCancelPrompt}
-              onRequestHandoff={() => {
-                setHandoffModalOpen(true);
-              }}
-              onSubmitDraft={submitDraft}
-            />
+            <SendButton onCancelPrompt={onCancelPrompt} onSubmitDraft={submitDraft} />
           </Box>
         </Paper>
       </Box>

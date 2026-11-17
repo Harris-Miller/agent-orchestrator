@@ -93,7 +93,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   const hasTranscriptMessage = chatItems.some(
     item => item.kind === 'user_message' || item.kind === 'agent_message' || item.kind === 'agent_thought',
   );
-  const handoffUnavailableReason =
+  const hubReason =
     selectedLaunchTarget === undefined || selectedSessionId === undefined
       ? undefined
       : hubUnavailableReason(hubAvailability, sessionHubStatuses, selectedLaunchTarget, selectedSessionId);
@@ -104,7 +104,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     selectedSessionId !== undefined &&
     hasTranscriptMessage &&
     sessionCwd !== undefined &&
-    handoffUnavailableReason === undefined;
+    hubReason === undefined;
   const canForkBase =
     !isVirtual &&
     composer.controlsEnabled &&
@@ -112,6 +112,19 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     selectedSessionId !== undefined &&
     sessionCwd !== undefined &&
     backendSnapshot?.agentCapabilities.sessionFork === true;
+  const busyReason = composer.controlsEnabled ? undefined : 'Unavailable while a turn or handoff is running';
+  const forkUnavailableReason = canForkBase
+    ? undefined
+    : selectedSessionId === undefined || selectedLaunchTarget === undefined
+      ? 'No active session'
+      : backendSnapshot?.agentCapabilities.sessionFork !== true
+        ? 'Agent cannot fork sessions'
+        : (busyReason ?? 'Session has no working directory');
+  const handoffUnavailableReason = canHandoffBase
+    ? undefined
+    : (hubReason ??
+      busyReason ??
+      (hasTranscriptMessage ? 'Session has no working directory' : 'Needs a message in the chat'));
 
   const requestFork = useCallback((): Promise<unknown> | undefined => {
     if (
@@ -137,6 +150,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     composer,
     configOptions,
     edit,
+    forkUnavailableReason,
     getConfigOptionIndex,
     handoffUnavailableReason,
     isVirtual,

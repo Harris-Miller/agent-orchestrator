@@ -13,7 +13,7 @@ import { renderInSessionChatSurface } from '../sessionChatSurface.testing.tsx';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
 const { SessionChatSurfaceProvider } = await import('../useSessionChatSurface.tsx');
-const { SendOptionsMenu } = await import('./SendOptionsMenu.tsx');
+const { SessionActionsStrip } = await import('./SessionActionsStrip.tsx');
 
 afterEach(cleanup);
 
@@ -30,32 +30,20 @@ const gatedSession = {
 
 const mount = (
   options: Parameters<typeof renderInSessionChatSurface>[1],
-  callbacks: { readonly onClientError?: (error: unknown) => void; readonly onRequestHandoff?: () => void } = {},
+  callbacks: { readonly onRequestHandoff?: () => void } = {},
 ) =>
   renderInSessionChatSurface(
-    <SessionChatSurfaceProvider onClientError={callbacks.onClientError ?? (() => undefined)}>
-      <SendOptionsMenu
-        onRequestHandoff={callbacks.onRequestHandoff ?? (() => undefined)}
-        onSubmitDraft={() => undefined}
-      />
+    <SessionChatSurfaceProvider onClientError={() => undefined}>
+      <SessionActionsStrip onRequestHandoff={callbacks.onRequestHandoff ?? (() => undefined)} />
     </SessionChatSurfaceProvider>,
     options,
   );
 
-const openMenu = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'Open send options' }));
-};
-
-describe('SendOptionsMenu', () => {
-  it.effect('opens with the send-split-menu id and aria wiring', () =>
+describe('SessionActionsStrip', () => {
+  it.effect('shows a read-only cwd label when the host gives no aboveComposer', () =>
     Effect.gen(function* () {
-      const { registry } = yield* mount({});
-      const trigger = screen.getByRole('button', { name: 'Open send options' });
-      assert.strictEqual(trigger.getAttribute('aria-haspopup'), 'menu');
-      assert.strictEqual(trigger.hasAttribute('aria-controls'), false);
-      fireEvent.click(trigger);
-      assert.strictEqual(trigger.getAttribute('aria-expanded'), 'true');
-      assert.strictEqual(trigger.getAttribute('aria-controls'), 'send-split-menu');
+      const { registry } = yield* mount({ session: gatedSession });
+      assert.isNotNull(screen.getByText('proj'));
       registry.dispose();
     }),
   );
@@ -63,9 +51,8 @@ describe('SendOptionsMenu', () => {
   it.effect('hides Handoff while Experimental: App Orchestrated Handoff is off (the default)', () =>
     Effect.gen(function* () {
       const { registry } = yield* mount({ session: gatedSession });
-      openMenu();
-      assert.isNull(screen.queryByRole('menuitem', { name: /^Handoff/ }));
-      assert.isNotNull(screen.getByRole('menuitem', { name: 'Fork' }));
+      assert.isNull(screen.queryByRole('button', { name: 'Handoff' }));
+      assert.isNotNull(screen.getByRole('button', { name: 'Fork' }));
       registry.dispose();
     }),
   );
@@ -73,9 +60,17 @@ describe('SendOptionsMenu', () => {
   it.effect('disables Handoff and Fork when their gates are false', () =>
     Effect.gen(function* () {
       const { registry } = yield* mount({ settings: HANDOFF_ON });
-      openMenu();
-      assert.strictEqual(screen.getByRole('menuitem', { name: /^Handoff/ }).getAttribute('aria-disabled'), 'true');
-      assert.strictEqual(screen.getByRole('menuitem', { name: 'Fork' }).getAttribute('aria-disabled'), 'true');
+      assert.strictEqual(screen.getByRole('button', { name: 'Handoff' }).hasAttribute('disabled'), true);
+      assert.strictEqual(screen.getByRole('button', { name: 'Fork' }).hasAttribute('disabled'), true);
+      registry.dispose();
+    }),
+  );
+
+  it.effect('names why Fork and Handoff are unavailable in their tooltips', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* mount({ settings: HANDOFF_ON });
+      assert.isNotNull(screen.getByLabelText('Agent cannot fork sessions'));
+      assert.isNotNull(screen.getByLabelText('The hub client has not started.'));
       registry.dispose();
     }),
   );
@@ -86,8 +81,7 @@ describe('SendOptionsMenu', () => {
       yield* installFakeHub([]);
       yield* Effect.flatMap(beginMcp(CODEX, true), mcp => mcp.bind('s1'));
       const { registry } = yield* mount({ session: gatedSession, settings: HANDOFF_ON }, { onRequestHandoff });
-      openMenu();
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Handoff' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Handoff' }));
       assert.strictEqual(onRequestHandoff.mock.calls.length, 1);
       registry.dispose();
     }).pipe(Effect.scoped),
@@ -98,9 +92,8 @@ describe('SendOptionsMenu', () => {
       const calls: string[] = [];
       yield* installFakeAgent(calls);
       const { registry } = yield* mount({ capabilities: { sessionFork: true }, session: gatedSession });
-      openMenu();
-      const fork = screen.getByRole('menuitem', { name: 'Fork' });
-      assert.strictEqual(fork.getAttribute('aria-disabled'), null);
+      const fork = screen.getByRole('button', { name: 'Fork' });
+      assert.strictEqual(fork.hasAttribute('disabled'), false);
       fireEvent.click(fork);
       yield* Effect.promise(() => waitFor(() => assert.include(calls, 'fork:s1')));
       registry.dispose();

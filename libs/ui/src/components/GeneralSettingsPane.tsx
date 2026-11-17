@@ -93,7 +93,7 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
         <SettingsRow
           title="Send while an agent is working"
-          description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. The Send options menu offers the other one. Only for agents that support steering."
+          description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. While Steering is offered, a second button beside Send offers the other one. Only for agents that support steering."
         >
           <ToggleButtonGroup
             aria-label="Send while an agent is working"
@@ -190,7 +190,7 @@ export const GeneralSettingsPane: FC = () => {
       <SettingsSection title="Advanced">
         <SettingsRow
           title="Experimental: App Orchestrated Handoff"
-          description="Adds Handoff to the Send options menu. The source agent delivers its handoff document by calling a tool on a local MCP hub that HOA runs. Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
+          description="Adds a Handoff button to the Session actions strip above the Composer. The source agent delivers its handoff document by calling a tool on a local MCP hub that HOA runs. Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
         >
           <Switch
             slotProps={{ input: { 'aria-label': 'Experimental: App Orchestrated Handoff' } }}

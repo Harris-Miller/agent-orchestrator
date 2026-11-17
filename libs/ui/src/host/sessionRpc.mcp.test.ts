@@ -67,7 +67,11 @@ describe('hub MCP injection', () => {
       yield* forkSession(CLAUDE, 's3', '/w');
       yield* createSession(CODEX, '/w');
 
-      const preapproved = { claudeCode: { options: { allowedTools: ['mcp__hoa-hub__submit_handoff'] } } };
+      const preapproved = {
+        claudeCode: {
+          options: { allowedTools: ['mcp__hoa-hub__submit_handoff', 'mcp__hoa-hub__list_subagent_targets'] },
+        },
+      };
       assert.deepStrictEqual(
         received.map(r => r.meta),
         [preapproved, preapproved, preapproved, preapproved, undefined],

@@ -19,7 +19,14 @@ export const SubmitHandoff = Tool.make('submit_handoff', {
   parameters: SubmitHandoffArgs,
 });
 
-export const HubToolkit = Toolkit.make(SubmitHandoff);
+export const ListSubagentTargets = Tool.make('list_subagent_targets', {
+  ...forwarded,
+  description:
+    "List the other agent launch targets (providers) you can start a subagent on, with each one's models and their selectable config options (effort, mode, ...) and values. Call this before choosing a launch target or config options. Your own provider is not listed: use your own subagent tool for work on your own provider.",
+  parameters: Tool.EmptyParams,
+});
+
+export const HubToolkit = Toolkit.make(SubmitHandoff, ListSubagentTargets);
 
 type Handlers = Toolkit.HandlersFrom<typeof HubToolkit.tools>;
 

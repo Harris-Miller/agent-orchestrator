@@ -6,7 +6,7 @@ import { Schema } from 'effect';
 
 export const HUB_APP_ID = 'agent-orchestrator-hub';
 /** Bumped on any incompatible change to `/clients` messages or tool schemas; a mismatch is refused, never half-working. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const DEFAULT_HUB_PORT = 47821;
 export const HUB_HOST = '127.0.0.1';
 /** Distinctive on purpose: Codex skips injected servers whose name already exists in the user's own config. */
@@ -51,7 +51,10 @@ export const SubmitHandoffArgs = Schema.Struct({
   }),
 });
 
-export const HUB_TOOL_NAMES = ['submit_handoff'] as const;
+/** `list_subagent_targets` takes no arguments (the hub declares it with `Tool.EmptyParams`, which an agent calls with `{}`). */
+export const ListSubagentTargetsArgs = Schema.Struct({});
+
+export const HUB_TOOL_NAMES = ['submit_handoff', 'list_subagent_targets'] as const;
 export type HubToolName = (typeof HUB_TOOL_NAMES)[number];
 
 // ---------------------------------------------------------------------------------------------------------------------

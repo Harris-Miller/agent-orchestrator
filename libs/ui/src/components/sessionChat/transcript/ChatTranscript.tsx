@@ -39,6 +39,8 @@ export const ChatTranscript: FC<{
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
+  // Virtualizer scroll adjustments fire scroll events too; only unpin after a user gesture.
+  const userScrollIntentRef = useRef(false);
 
   const agentTitle = selectedLaunchTarget === undefined ? 'Agent' : agentLaunchTargetLabel(selectedLaunchTarget);
 
@@ -94,6 +96,7 @@ export const ChatTranscript: FC<{
   const [openRegionKeys, setOpenRegionKeys] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     pinnedToBottomRef.current = true;
+    userScrollIntentRef.current = false;
     setOpenRegionKeys(new Set());
   }, [selectedLaunchTarget, selectedSession?.sessionId]);
 
@@ -153,10 +156,25 @@ export const ChatTranscript: FC<{
 
   return (
     <Box
+      onKeyDown={event => {
+        if (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Home') {
+          userScrollIntentRef.current = true;
+        }
+      }}
       onScroll={event => {
         const target = event.currentTarget;
-        pinnedToBottomRef.current =
+        const nearBottom =
           target.scrollHeight - target.scrollTop - target.clientHeight <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
+        if (nearBottom) {
+          pinnedToBottomRef.current = true;
+          userScrollIntentRef.current = false;
+        } else if (userScrollIntentRef.current) pinnedToBottomRef.current = false;
+      }}
+      onTouchMove={() => {
+        userScrollIntentRef.current = true;
+      }}
+      onWheel={event => {
+        if (event.deltaY < 0) userScrollIntentRef.current = true;
       }}
       ref={chatScrollRef}
       // No top padding: sticky Work region headers stick at the padding edge, and content would show above them.
@@ -184,7 +202,7 @@ export const ChatTranscript: FC<{
                   disablePadding
                   key={row.key}
                   ref={virtualizer.measureElement}
-                  sx={{ left: 0, position: 'absolute', top: 0, transform: `translateY(${row.start}px)`, width: '100%' }}
+                  sx={{ left: 0, position: 'absolute', top: row.start, width: '100%' }}
                 >
                   {item.kind === 'work_region' ? (
                     <WorkRegionView

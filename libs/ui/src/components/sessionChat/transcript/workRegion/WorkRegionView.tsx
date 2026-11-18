@@ -90,9 +90,6 @@ export const WorkRegionView: FC<{
   region: WorkRegion;
 }> = ({ availableCommands, inFlight, onOpenChange, region }) => {
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    onOpenChange?.(open);
-  }, [onOpenChange, open]);
   const regionRef = useRef<HTMLLIElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -129,6 +126,7 @@ export const WorkRegionView: FC<{
               (regionRef.current?.getBoundingClientRect().top ?? 0) <
               (headerRef.current?.getBoundingClientRect().top ?? 0);
             setOpen(!open);
+            onOpenChange?.(!open);
             setFirstSegmentOpen(false);
             // Header's natural spot is the region's top; bring it back while the body collapses.
             if (open && stuck) regionRef.current?.scrollIntoView({ block: 'start' });

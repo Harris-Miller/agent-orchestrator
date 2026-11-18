@@ -12,7 +12,6 @@ import { SessionAgentChip } from './SessionAgentChip.tsx';
 import type { SessionAgentChipProps } from './SessionAgentChip.tsx';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
-import type { ModelSearchScope } from './SessionModelEffortChip.tsx';
 
 export type ConfigChipRowProps = {
   readonly agent: SessionAgentChipProps;
@@ -20,8 +19,6 @@ export type ConfigChipRowProps = {
   /** Disables model/effort, access and leftover controls. The agent chip follows `agent.disabled`. */
   readonly configDisabled: boolean;
   readonly onConfigChange: (diff: ConfigValueDiff) => void;
-  /** Virtual session only: search models across launch targets. Omit to search the current provider. */
-  readonly modelSearch?: ModelSearchScope;
   readonly unavailableModelIds: readonly string[] | undefined;
 };
 
@@ -30,7 +27,6 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
   agent,
   configDisabled,
   configOptions,
-  modelSearch,
   onConfigChange,
   unavailableModelIds,
 }) => {
@@ -49,7 +45,6 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
           onChange={onConfigChange}
           options={partitioned.modelEffort.options}
           prefs={prefs}
-          search={modelSearch}
           unavailableModelIds={unavailableModelIds}
         />
       ) : null}

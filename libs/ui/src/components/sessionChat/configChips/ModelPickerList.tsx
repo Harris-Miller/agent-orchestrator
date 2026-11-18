@@ -8,7 +8,6 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
-import { agentLaunchTargetLabel } from '../../../host/agentLaunchTarget.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 
 import { searchModelRows, splitModelRows } from './modelPickerList.ts';
@@ -20,14 +19,11 @@ export const ModelPickerList: FC<{
   readonly onHover: (row: ModelRow | undefined) => void;
   readonly onPick: (row: ModelRow) => void;
   readonly rows: readonly ModelRow[];
-  /** Rows searched instead of `rows` while a query is typed (each with a provider badge), e.g. across Virtual launch targets. */
-  readonly searchRows?: () => readonly ModelRow[];
   readonly searchPlaceholder: string;
-}> = ({ currentId, onHover, onPick, rows, searchPlaceholder, searchRows }) => {
+}> = ({ currentId, onHover, onPick, rows, searchPlaceholder }) => {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
   const searching = query.trim() !== '';
-  const crossProvider = searchRows !== undefined;
 
   // Rows unmount without `mouseleave` (search, collapse, popover close), so drop the hovered description explicitly.
   useEffect(
@@ -37,7 +33,7 @@ export const ModelPickerList: FC<{
     [onHover],
   );
 
-  const row = (model: ModelRow, badge: boolean) => (
+  const row = (model: ModelRow) => (
     <MenuItem
       disabled={model.disabled}
       key={`${model.launchTarget ?? ''}:${model.id}`}
@@ -50,21 +46,16 @@ export const ModelPickerList: FC<{
       onMouseLeave={() => {
         onHover(undefined);
       }}
-      selected={model.id === currentId && !badge}
+      selected={model.id === currentId}
       sx={{ borderRadius: 1, gap: 1, opacity: model.hidden ? 0.75 : 1 }}
     >
       <Typography sx={{ flex: 1, fontSize: 14 }}>{model.label}</Typography>
-      {badge && model.launchTarget !== undefined ? (
-        <Typography color="text.secondary" sx={{ fontSize: 11 }}>
-          {agentLaunchTargetLabel(model.launchTarget)}
-        </Typography>
-      ) : null}
-      {model.id === currentId && !badge ? <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} /> : null}
+      {model.id === currentId ? <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} /> : null}
     </MenuItem>
   );
 
   const { hidden, shown } = splitModelRows(rows);
-  const hits = searching ? searchModelRows(searchRows?.() ?? rows, query) : [];
+  const hits = searching ? searchModelRows(rows, query) : [];
 
   return (
     <Box sx={{ minWidth: 0 }}>
@@ -86,11 +77,11 @@ export const ModelPickerList: FC<{
               No models match
             </Typography>
           ) : (
-            hits.map(model => row(model, crossProvider))
+            hits.map(model => row(model))
           )
         ) : (
           <>
-            {shown.map(model => row(model, false))}
+            {shown.map(model => row(model))}
             {hidden.length > 0 ? (
               <Button
                 color="inherit"
@@ -106,7 +97,7 @@ export const ModelPickerList: FC<{
                 {expanded ? 'Hide more' : `Show more (${hidden.length})`}
               </Button>
             ) : null}
-            {expanded ? hidden.map(model => row(model, false)) : null}
+            {expanded ? hidden.map(model => row(model)) : null}
           </>
         )}
       </MenuList>

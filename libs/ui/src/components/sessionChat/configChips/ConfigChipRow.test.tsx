@@ -14,7 +14,6 @@ import { theme } from '../../../theme/themes.ts';
 
 import { ConfigChipRow } from './ConfigChipRow.tsx';
 import type { SessionAgentChipProps } from './SessionAgentChip.tsx';
-import type { ModelSearchScope } from './SessionModelEffortChip.tsx';
 
 afterEach(cleanup);
 
@@ -38,7 +37,6 @@ const mount = (
     readonly agent?: Partial<SessionAgentChipProps>;
     readonly configDisabled?: boolean;
     readonly configOptions?: readonly NormalizedConfigOption[];
-    readonly modelSearch?: ModelSearchScope;
     readonly settings?: Record<string, unknown>;
   } = {},
 ) => {
@@ -61,7 +59,6 @@ const mount = (
           }}
           configDisabled={overrides.configDisabled ?? false}
           configOptions={overrides.configOptions ?? configOptions}
-          modelSearch={overrides.modelSearch}
           onConfigChange={diff => changes.push(diff)}
           unavailableModelIds={undefined}
         />
@@ -215,31 +212,6 @@ describe('ConfigChipRow', () => {
       fireEvent.click(chip(1));
       fireEvent.click(screen.getByRole('menuitem', { name: 'm2' }));
       assert.deepStrictEqual(changes, [{ configId: 'model', type: 'select', value: 'm2' }]);
-    });
-
-    it('Virtual search spans launch targets and picking another target reports it', () => {
-      const picks: string[] = [];
-      mount({
-        configOptions: modelOptions('m1'),
-        modelSearch: {
-          getConfigOptionIndex: target =>
-            target === 'claude-agent-acp'
-              ? {
-                  byModel: { opus: [select('model', 'opus', ['opus'])] },
-                  defaultModelId: 'opus',
-                  unavailableModelIds: [],
-                }
-              : undefined,
-          launchTargets: ['codex-acp', 'claude-agent-acp'],
-          onPickModelOnTarget: (target, modelId) => picks.push(`${target}:${modelId}`),
-        },
-      });
-      fireEvent.click(chip(1));
-      fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'opus' } });
-      const row = screen.getByRole('menuitem');
-      assert.include(row.textContent, 'Claude');
-      fireEvent.click(row);
-      assert.deepStrictEqual(picks, ['claude-agent-acp:opus']);
     });
 
     it('shows Ultra enabled when the model advertises ultra, and restores effort on off', () => {

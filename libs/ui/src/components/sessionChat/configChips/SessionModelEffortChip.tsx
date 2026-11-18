@@ -1,4 +1,3 @@
-import { useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
@@ -10,15 +9,8 @@ import { Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import {
-  modelPickerPrefsOf,
-  unwrapUserSettings,
-  userSettingsDocumentAtom,
-} from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import type { NormalizedConfigOption, NormalizedSelectConfigOption } from '../../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
-import { advertisedModelChoices } from '../../../host/configOptionIndexUi.ts';
-import type { ConfigOptionIndex } from '../../../host/configProbe.ts';
 import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
@@ -32,14 +24,6 @@ import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
 import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
 import { reasoningChoices, ULTRA_EFFORT_ID, ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
 
-/** Virtual session: model search spans every selectable launch target. */
-export type ModelSearchScope = {
-  readonly getConfigOptionIndex: (launchTarget: AgentLaunchTarget) => ConfigOptionIndex | undefined;
-  readonly launchTargets: readonly AgentLaunchTarget[];
-  /** Switch the Virtual draft to `launchTarget`, then set `modelId` on it. */
-  readonly onPickModelOnTarget: (launchTarget: AgentLaunchTarget, modelId: string) => void;
-};
-
 const POPOVER_WIDTH = 680;
 
 export const SessionModelEffortChip: FC<{
@@ -51,21 +35,9 @@ export const SessionModelEffortChip: FC<{
   /** Every Config option besides mode / model / effort: rows of the Options section. */
   readonly options?: readonly NormalizedConfigOption[];
   readonly prefs: ModelPickerPrefs;
-  readonly search?: ModelSearchScope;
   readonly unavailableModelIds?: readonly string[];
-}> = ({
-  disabled = false,
-  effort,
-  launchTarget,
-  model,
-  onChange,
-  options = [],
-  prefs,
-  search,
-  unavailableModelIds = [],
-}) => {
+}> = ({ disabled = false, effort, launchTarget, model, onChange, options = [], prefs, unavailableModelIds = [] }) => {
   const menu = useComposerChromeMenu();
-  const settings = unwrapUserSettings(useAtomValue(userSettingsDocumentAtom));
   const [hover, setHover] = useState<ModelRow | undefined>();
   const previousEffort = useRef<string | undefined>(undefined);
 
@@ -75,20 +47,6 @@ export const SessionModelEffortChip: FC<{
     launchTarget,
     unavailableIds: unavailableModelIds,
   });
-  const searchRows = () =>
-    (search?.launchTargets ?? []).flatMap((target): readonly ModelRow[] => {
-      if (target === launchTarget) {
-        return rows;
-      }
-      const index = search?.getConfigOptionIndex(target);
-      return modelRowsFor(advertisedModelChoices(index), {
-        ...modelPickerPrefsOf(settings, target),
-        currentId: undefined,
-        launchTarget: target,
-        unavailableIds: index?.unavailableModelIds ?? [],
-      });
-    });
-
   const described = hover ??
     rows.find(row => row.id === model.currentValue) ?? { description: undefined, label: model.currentValue };
   const allOptions = effort === undefined ? options : [...options, effort];
@@ -96,11 +54,6 @@ export const SessionModelEffortChip: FC<{
   const suffix = chipSuffixParts(launchTarget, options, effort);
 
   const pickModel = (row: ModelRow) => {
-    if (search !== undefined && row.launchTarget !== undefined && row.launchTarget !== launchTarget) {
-      search.onPickModelOnTarget(row.launchTarget, row.id);
-      menu.close();
-      return;
-    }
     onChange({ configId: model.id, type: 'select', value: row.id });
   };
 
@@ -144,8 +97,7 @@ export const SessionModelEffortChip: FC<{
                 onHover={setHover}
                 onPick={pickModel}
                 rows={rows}
-                searchPlaceholder={search === undefined ? 'Search models…' : 'Search models across providers…'}
-                searchRows={search === undefined ? undefined : searchRows}
+                searchPlaceholder="Search models…"
               />
             </Box>
             <Divider flexItem sx={{ display: { xs: 'none', sm: 'block' } }} orientation="vertical" />

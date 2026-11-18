@@ -60,9 +60,13 @@ export * from './components/sessionChat/SessionChatBody.tsx';
 export * from './components/sessionChat/sessionHeader/SessionHeader.tsx';
 export * from './components/sessionChat/usage/UsageCard.tsx';
 
+export * from './components/sessionHistory/BulkActionBar.tsx';
+export * from './components/sessionHistory/BulkSelectToggle.tsx';
+export * from './components/sessionHistory/ConfirmBulkSessionDeleteDialog.tsx';
 export * from './components/sessionHistory/ConfirmSessionDeleteDialog.tsx';
 export * from './components/sessionHistory/SessionHistoryRow.tsx';
 export * from './components/sessionHistory/ShowArchivedToggle.tsx';
+export * from './components/sessionHistory/useBulkSessionSelection.ts';
 export * from './components/sessionHistory/useSessionDeleteRequest.ts';
 export * from './components/SettingsCategoryContent.tsx';
 export * from './components/ThemeSelect.tsx';

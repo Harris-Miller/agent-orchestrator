@@ -1,6 +1,8 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { NavSessionGroup, UnifiedHistoryEntry } from '@lib/ui';
 import {
+  BulkActionBar,
+  BulkSelectToggle,
   ConfirmSessionDeleteDialog,
   directoryBasename,
   ensureVirtualSessionAtomFn,
@@ -21,6 +23,7 @@ import {
   trackedCwdsAtom,
   unifiedSessionHistoryAtom,
   untrackCwdAtomFn,
+  useBulkSessionSelection,
   useSessionDeleteRequest,
   useSessionHistorySearch,
   visibleSessionHistoryAtom,
@@ -105,6 +108,9 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const untrackCwd = useAtomSet(untrackCwdAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
+  const bulk = useBulkSessionSelection(history);
+  const rowSelection = (entry: UnifiedHistoryEntry) =>
+    bulk.active ? { checked: bulk.isSelected(entry), onToggle: () => bulk.toggle(entry) } : undefined;
   const navigate = useNavigate();
   const search = useSessionHistorySearch({
     entries: unifiedHistory,
@@ -156,6 +162,7 @@ export const WorkbenchNavRail: FC<{
         <PanelHeader
           beforeClose={
             <>
+              <BulkSelectToggle active={bulk.active} onToggle={bulk.toggleMode} />
               <ShowArchivedToggle />
               <IconTooltipButton
                 icon={RotateCw}
@@ -193,6 +200,7 @@ export const WorkbenchNavRail: FC<{
             </Typography>
           }
         />
+        <BulkActionBar onClientError={onClientError} selection={bulk} />
         <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
           <ListItemButton
             onClick={() => {
@@ -246,6 +254,7 @@ export const WorkbenchNavRail: FC<{
                         onClientError={onClientError}
                         onDeleteRequest={requestDelete}
                         selected={selectedSessionId === entry.sessionId}
+                        selection={rowSelection(entry)}
                       />
                     ))}
                   </AccordionDetails>
@@ -343,6 +352,7 @@ export const WorkbenchNavRail: FC<{
                           onClientError={onClientError}
                           onDeleteRequest={requestDelete}
                           selected={selectedSessionId === entry.sessionId}
+                          selection={rowSelection(entry)}
                         />
                       ))}
                       {overflowCount > 0 ? (

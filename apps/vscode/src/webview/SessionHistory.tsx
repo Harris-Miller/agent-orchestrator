@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  BulkActionBar,
+  BulkSelectToggle,
   enabledLaunchTargetPhasesAtom,
   IconTooltipButton,
   isUsablePhase,
@@ -13,6 +15,7 @@ import {
   ShowArchivedToggle,
   ToggleDeveloperPanelButton,
   unifiedSessionHistoryAtom,
+  useBulkSessionSelection,
   useSessionHistorySearch,
   visibleSessionHistoryAtom,
   withoutPinned,
@@ -56,6 +59,7 @@ export const SessionHistory: FC = () => {
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
   const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);
   const sessions = withoutPinned(workspaceSessions, pinnedSessions);
+  const bulk = useBulkSessionSelection(workspaceSessions);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, px: 1, pb: 1 }}>
@@ -67,6 +71,7 @@ export const SessionHistory: FC = () => {
           Session History
         </Typography>
         <Box sx={{ flex: 1 }} />
+        <BulkSelectToggle active={bulk.active} onToggle={bulk.toggleMode} />
         <ShowArchivedToggle />
         <IconTooltipButton
           icon={RotateCw}
@@ -81,6 +86,7 @@ export const SessionHistory: FC = () => {
         <SettingsButton />
       </Stack>
 
+      <BulkActionBar onClientError={onClientError} selection={bulk} />
       {search.field}
       {noFolder ? (
         <Typography color="text.secondary" variant="body2">
@@ -109,7 +115,12 @@ export const SessionHistory: FC = () => {
         </Stack>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', py: 0.5 }}>
-          <SessionRows pinnedSessions={pinnedSessions} selectedSessionId={selectedSessionId} sessions={sessions} />
+          <SessionRows
+            bulk={bulk}
+            pinnedSessions={pinnedSessions}
+            selectedSessionId={selectedSessionId}
+            sessions={sessions}
+          />
         </Box>
       )}
     </Box>

@@ -1384,5 +1384,4 @@ describe('#278 regressions', () => {
       assert.deepStrictEqual(blob(h.registry)?.attachments, [attachment]);
     }).pipe(Effect.scoped),
   );
-
 });

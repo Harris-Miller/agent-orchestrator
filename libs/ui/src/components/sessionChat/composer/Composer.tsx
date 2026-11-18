@@ -108,6 +108,7 @@ export const Composer: FC<{
     onMentionOpen,
     sessionCwd,
     setDraft,
+    targetId: composer.target?._tag === 'Virtual' ? composer.target.blobId : composer.target?.sessionId,
   });
   const focusComposerEndRef = useRef<(() => void) | null>(null);
 

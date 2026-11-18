@@ -10,6 +10,26 @@ import type { UseComposerMenuArgs } from './useComposerMenu.ts';
 
 import { mockHostLayer } from '../../../../atoms/mockHostLayer.testing.ts';
 
+const resolver = vi.hoisted(() => ({
+  pending: [] as ((value: { draft: string; imageAbsolutePaths: string[] }) => void)[],
+}));
+
+vi.mock('./resolveComposerFsMentions.ts', async importOriginal => {
+  const original = await importOriginal<typeof import('./resolveComposerFsMentions.ts')>();
+  const { Effect: E } = await import('effect');
+  return {
+    ...original,
+    // Held per call: each resolution waits until the test releases it.
+    resolveComposerFsMentions: () =>
+      E.promise(
+        () =>
+          new Promise<{ draft: string; imageAbsolutePaths: string[] }>(resolve => {
+            resolver.pending.push(resolve);
+          }),
+      ),
+  };
+});
+
 bindHostRuntime(createHostRuntime(mockHostLayer));
 
 afterEach(cleanup);
@@ -43,6 +63,7 @@ const setup = (overrides: Partial<UseComposerMenuArgs> = {}) => {
         onMentionOpen,
         sessionCwd: '/work',
         setDraft,
+        targetId: 'A',
         ...overrides,
       }),
     { initialProps: { draft: '' } },
@@ -239,5 +260,52 @@ describe('useComposerMenu', () => {
     const { onMentionOpen, type } = setup();
     type('/st');
     assert.strictEqual(vi.mocked(onMentionOpen).mock.calls.length, 0);
+  });
+});
+
+describe('#278 F4: delayed FS resolution stays with the Session it started on', () => {
+  it('resolving A after switching to B (same cwd, same draft) leaves B untouched', async () => {
+    const DRAFT = '@slow.png ';
+    // Stand-in for the Composer: `setDraft` / `attachImages` are stable and pick the target at call time (the Selected Session).
+    const drafts: Record<string, string> = { A: DRAFT, B: DRAFT };
+    const attachments: Record<string, string[]> = { A: [], B: [] };
+    let selected = 'A';
+    const setDraft = (text: string) => {
+      drafts[selected] = text;
+    };
+    const attachImages = (source: { _tag: 'Paths'; paths: readonly string[] }) => {
+      attachments[selected].push(...source.paths);
+      return Promise.resolve();
+    };
+    const args = {
+      attachImages: attachImages as UseComposerMenuArgs['attachImages'],
+      availableCommands: COMMANDS,
+      fsListing: { entries: ENTRIES, status: 'ready' },
+      launchTarget: 'codex-acp',
+      onClientError: () => undefined,
+      onMentionOpen: () => undefined,
+      sessionCwd: '/work',
+      setDraft,
+    } as const;
+    resolver.pending.length = 0;
+    const hook = renderHook((props: { draft: string; targetId: string }) =>
+        useComposerMenu({ ...args, draft: props.draft, targetId: props.targetId }),
+      {
+        initialProps: { draft: DRAFT, targetId: 'A' },
+      },
+    );
+    assert.strictEqual(resolver.pending.length, 1);
+
+    // Select B: same cwd, same draft text, menu closed; only the target changes.
+    selected = 'B';
+    hook.rerender({ draft: DRAFT, targetId: 'B' });
+
+    await act(async () => {
+      resolver.pending[0]({ draft: '', imageAbsolutePaths: ['/work/slow.png'] });
+      await Promise.resolve();
+    });
+
+    assert.strictEqual(drafts.B, DRAFT, 'B draft was rewritten by A resolution');
+    assert.deepStrictEqual(attachments.B, [], 'B received the image attachment resolved for A');
   });
 });

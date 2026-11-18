@@ -287,35 +287,45 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   };
   registry.update(spawnedLinksAtom, links => addLink(links, link));
   adjustPending(-1);
-  if (!parentIsActive(registry, parent)) {
-    yield* abandonSpawn(registry, child);
-    return yield* refuse('The parent session was closed while the subagent was starting.');
-  }
+  // The hub connection can drop mid-setup (interrupting this handler): whatever was written is torn down then too.
+  return yield* Effect.gen(function* () {
+    if (!parentIsActive(registry, parent)) {
+      yield* abandonSpawn(registry, child);
+      return yield* refuse('The parent session was closed while the subagent was starting.');
+    }
 
-  updateHarnessSnapshot(registry, child.launchTarget, current => bindSession(current, created));
-  updateHarnessSnapshot(registry, parent.launchTarget, current =>
-    mirrorChildIntoParent(current, {
-      childId: child.sessionId,
-      launchTarget: child.launchTarget,
-      name: input.description,
-      parentId: parent.sessionId,
-      task,
-    }),
+    updateHarnessSnapshot(registry, child.launchTarget, current => bindSession(current, created));
+    updateHarnessSnapshot(registry, parent.launchTarget, current =>
+      mirrorChildIntoParent(current, {
+        childId: child.sessionId,
+        launchTarget: child.launchTarget,
+        name: input.description,
+        parentId: parent.sessionId,
+        task,
+      }),
+    );
+    const projection = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(child.launchTarget)).pipe(
+      Stream.runForEach(() => Effect.sync(() => projectOnce(registry, link))),
+      Effect.forkDetach,
+    );
+    registry.update(spawnedLinksAtom, links => updateLink(links, child.launchTarget, child.sessionId, { projection }));
+
+    const configured = yield* applySessionConfigValues(registry, child, input.configOptions);
+    if (configured.stoppedEarly) {
+      yield* abandonSpawn(registry, child);
+      return yield* refuse('Could not apply the requested config options to the new subagent.');
+    }
+
+    yield* Effect.forkDetach(runChildTurn(registry, { ...link, projection }, task));
+    return { childSessionId: child.sessionId, outcome: link.outcome };
+  }).pipe(
+    Effect.onExit(exit =>
+      Exit.isSuccess(exit) ||
+      linkOfChild(registry.get(spawnedLinksAtom), child.launchTarget, child.sessionId) === undefined
+        ? Effect.void
+        : abandonSpawn(registry, child),
+    ),
   );
-  const projection = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(child.launchTarget)).pipe(
-    Stream.runForEach(() => Effect.sync(() => projectOnce(registry, link))),
-    Effect.forkDetach,
-  );
-  registry.update(spawnedLinksAtom, links => updateLink(links, child.launchTarget, child.sessionId, { projection }));
-
-  const configured = yield* applySessionConfigValues(registry, child, input.configOptions);
-  if (configured.stoppedEarly) {
-    yield* abandonSpawn(registry, child);
-    return yield* refuse('Could not apply the requested config options to the new subagent.');
-  }
-
-  yield* Effect.forkDetach(runChildTurn(registry, { ...link, projection }, task));
-  return { childSessionId: child.sessionId, outcome: link.outcome };
 });
 
 /** A child ends with its parent: cancelled, its turn cancelled and its session closed (never deleted), the link removed. */

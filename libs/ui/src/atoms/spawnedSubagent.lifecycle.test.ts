@@ -1,6 +1,7 @@
 /** A Spawned subagent session's life ends with its parent's: close, delete, Prompt turn cancel, Connection lost. */
 import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber } from 'effect';
+import { TestClock } from 'effect/testing';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { answer, CHILD, PARENT, setup, until } from '../host/spawnSubagent.testing.ts';
@@ -147,6 +148,31 @@ describe('a finished child', () => {
       const mirror = getSubagent(h.registry.get(backendHarnessSnapshotAtom(CODEX)).subagents, CHILD);
       assert.strictEqual(mirror?.state?.state, 'completed');
       assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 0);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('a Subagent report the parent refuses', () => {
+  it.effect('is retried after a backoff instead of dropped in a tight loop', () =>
+    Effect.gen(function* () {
+      const parentPrompts: string[] = [];
+      const fold: { current?: { onSessionUpdate: (id: string, update: unknown) => void } } = {};
+      const h = yield* setup(
+        { duringPrompt: Effect.sync(() => fold.current?.onSessionUpdate(CHILD, answer('done'))) },
+        { promptTexts: parentPrompts },
+      );
+      fold.current = h.childFold;
+      // The parent is busy with a non-prompt request, so a Send is refused.
+      h.setParent({ pendingClientRequest: 'config' });
+      assert.isFalse((yield* h.spawn({ runInBackground: true })).isError);
+      yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
+      for (let i = 0; i < 50; i += 1) {
+        yield* Effect.yieldNow;
+      }
+      h.setParent({ pendingClientRequest: undefined });
+      yield* TestClock.adjust('250 millis');
+      yield* until(() => parentPrompts.length > 0);
+      assert.include(parentPrompts[0], 'done');
     }).pipe(Effect.scoped),
   );
 });

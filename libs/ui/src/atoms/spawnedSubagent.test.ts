@@ -5,7 +5,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Notifier } from '@lib/context-services';
 import type { HostServices } from '@lib/context-services';
-import { Deferred, Effect, Layer } from 'effect';
+import { Deferred, Effect, Fiber, Layer } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -29,7 +29,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { endLink, SpawnSubagentError, startSpawnedSubagent } from './spawnedSubagent.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { pendingSpawnsAtom, spawnedLinksAtom } from './subagentLinks.atoms.ts';
 
 const CHILD = 'claude-1';
 const PARENT = 'bound-1';
@@ -385,6 +385,19 @@ describe('startSpawnedSubagent refusals', () => {
       assert.include(error.message, 'closed');
       assert.include(h.childCalls, `close:${CHILD}`);
       assert.deepStrictEqual(left(h), { history: [], link: 0, mirror: undefined, root: undefined });
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('leaves nothing behind, and frees its slot, when interrupted during setup', () =>
+    Effect.gen(function* () {
+      const h = yield* setup({ duringSetConfig: Effect.never });
+      const fiber = yield* Effect.forkChild(h.start());
+      yield* until(() => h.childCalls.includes(`set:model:o1`));
+      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 1);
+      yield* Fiber.interrupt(fiber);
+      assert.include(h.childCalls, `close:${CHILD}`);
+      assert.deepStrictEqual(left(h), { history: [], link: 0, mirror: undefined, root: undefined });
+      assert.strictEqual(h.registry.get(pendingSpawnsAtom).get(`${CODEX}\u0000${PARENT}`) ?? 0, 0);
     }).pipe(Effect.scoped),
   );
 

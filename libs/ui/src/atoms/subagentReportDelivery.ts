@@ -4,7 +4,7 @@
  * turn of its own once the parent is idle. Reports for one parent are serialized, each holding the parent until its
  * turn has begun; a report is dropped when its parent is gone.
  */
-import { Deferred, Effect, Exit, Fiber, Semaphore, Stream } from 'effect';
+import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
@@ -21,6 +21,9 @@ type Registry = AtomRegistry.AtomRegistry;
 
 /** Delivery attempts for one report before it is dropped (a Send is refused while another turn begins). */
 const MAX_DELIVERY_ATTEMPTS = 5;
+
+/** Wait after a refused Send before trying again. */
+const RETRY_BACKOFF = Duration.millis(250);
 
 /** One lock per parent, per registry. */
 const parentLocksAtom = Atom.make(() => new Map<string, Semaphore.Semaphore>()).pipe(
@@ -107,7 +110,12 @@ const attempt = Effect.fnUntraced(function* (
   if (begun._tag === 'Begun') {
     return 'delivered' as Attempt;
   }
-  return Exit.isSuccess(begun.exit) ? ('delivered' as Attempt) : ('retry' as Attempt);
+  if (Exit.isSuccess(begun.exit)) {
+    return 'delivered' as Attempt;
+  }
+  // Refused (another turn is beginning): back off on the Clock so the retries do not spin.
+  yield* Effect.sleep(RETRY_BACKOFF);
+  return 'retry' as Attempt;
 });
 
 /** Deliver `text` to the link's parent, serialized with its other reports. Resolves with what happened to it. */

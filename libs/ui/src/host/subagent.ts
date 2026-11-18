@@ -102,16 +102,21 @@ export const initialSubagentSnapshot = (
   sessionId: string,
   parentSessionId: string,
   early?: Pick<SubagentSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
-  launchTarget?: AgentLaunchTarget,
 ): SubagentSnapshot =>
   withoutUndefined({
-    launchTarget,
     parentSessionId,
     pendingElicitation: early?.pendingElicitation,
     pendingPermission: early?.pendingPermission,
     sessionId,
     transcript: early?.transcript ?? emptySessionTranscript(),
   });
+
+/** A Spawned subagent session's first snapshot: it lives on `launchTarget`'s connection, not the parent's. */
+export const initialSpawnedSubagentSnapshot = (
+  sessionId: string,
+  parentSessionId: string,
+  launchTarget: AgentLaunchTarget,
+): SubagentSnapshot => ({ ...initialSubagentSnapshot(sessionId, parentSessionId), launchTarget });
 
 /** The Harness sets a Spawned subagent session's Work state itself (its agent announces nothing). */
 export const withSubagentWorkState = (child: SubagentSnapshot, state: SubagentWorkState): SubagentSnapshot =>

@@ -139,7 +139,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
     const waited = yield* Effect.raceAllFirst([
       Effect.map(Deferred.await(started.outcome), (outcome): Waited => ({ _tag: 'Outcome', outcome })),
       Effect.as(callerGone(registry, caller, harnessStartedTurn), { _tag: 'CallerGone' } satisfies Waited),
-      Effect.as(Effect.sleep(ctx.foregroundBound ?? DEFAULT_BOUND), { _tag: 'Bound' } satisfies Waited),
+      Effect.as(Effect.sleep(DEFAULT_BOUND), { _tag: 'Bound' } satisfies Waited),
     ]).pipe(
       // The agent's call is gone (hub connection lost): the child's result still reaches it, as a Subagent report.
       Effect.onInterrupt(() => (link === undefined ? Effect.void : startReporter(registry, link))),
@@ -151,7 +151,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       }
       case 'CallerGone': {
         yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
-        yield* Deferred.await(started.outcome).pipe(Effect.timeoutOption(ctx.foregroundBound ?? DEFAULT_BOUND));
+        yield* Deferred.await(started.outcome).pipe(Effect.timeoutOption(DEFAULT_BOUND));
         return toolError('The subagent was cancelled because your turn ended.');
       }
       case 'Bound': {
@@ -176,10 +176,7 @@ export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, calle
     if (unknown.length > 0) {
       return toolError(`You have no subagent with id ${unknown.map(id => JSON.stringify(id)).join(', ')}.`);
     }
-    const bound = Duration.min(
-      Duration.millis(args.timeoutMs ?? MAX_SUBAGENT_WAIT_MS),
-      ctx.foregroundBound === undefined ? DEFAULT_BOUND : Duration.fromInputUnsafe(ctx.foregroundBound),
-    );
+    const bound = Duration.min(Duration.millis(args.timeoutMs ?? MAX_SUBAGENT_WAIT_MS), DEFAULT_BOUND);
     const lines = yield* Effect.forEach(
       children,
       link =>

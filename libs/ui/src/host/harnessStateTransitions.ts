@@ -40,7 +40,12 @@ import {
   stampUserMessageTiming,
 } from './sessionUpdateReducer.ts';
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
-import { getSubagent, initialSubagentSnapshot, resetSubagentLiveState, withSubagentWorkState } from './subagent.ts';
+import {
+  getSubagent,
+  initialSpawnedSubagentSnapshot,
+  resetSubagentLiveState,
+  withSubagentWorkState,
+} from './subagent.ts';
 import type { SubagentWorkState } from './subagent.ts';
 import {
   patchSessionOrSubagent,
@@ -676,7 +681,7 @@ export const mirrorChildIntoParent = (
         ...snapshot.subagents,
         [mirror.childId]: withSubagentWorkState(
           {
-            ...initialSubagentSnapshot(mirror.childId, mirror.parentId, undefined, mirror.launchTarget),
+            ...initialSpawnedSubagentSnapshot(mirror.childId, mirror.parentId, mirror.launchTarget),
             capabilities: { cancel: {} },
             name: mirror.name,
             task: mirror.task,

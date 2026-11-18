@@ -46,6 +46,7 @@ import {
   stripSessionPendings,
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
+import { appendUserChatMessage } from './sessionUpdateReducer.ts';
 
 describe('mergeListedHistory', () => {
   const current = [
@@ -542,17 +543,26 @@ describe('activation folds', () => {
     const snapshot = readySnapshot({
       s1: { ...initialSessionSnapshot('s1'), defects: ['x'], usage: { used: 1 } as never },
     });
-    const begun = beginActivation(snapshot, 's1', '/proj');
+    const begun = beginActivation(snapshot, 's1', '/proj', 'resume');
     assert.deepStrictEqual(
       [begun.sessions.s1.cwd, begun.sessions.s1.defects, begun.sessions.s1.status, begun.sessions.s1.usage],
       ['/proj', undefined, 'activating', undefined],
     );
-    assert.strictEqual(beginActivation(readySnapshot(), 'new', '/p').sessions.new.status, 'activating');
+    assert.strictEqual(beginActivation(readySnapshot(), 'new', '/p', 'load').sessions.new.status, 'activating');
+  });
+
+  it('beginActivation load starts from an empty transcript; resume keeps it; failActivation restores it', () => {
+    const transcript = appendUserChatMessage(initialSessionSnapshot('s1').transcript, 'hello');
+    const snapshot = readySnapshot({ s1: { ...initialSessionSnapshot('s1'), transcript } });
+    assert.strictEqual(beginActivation(snapshot, 's1', '/proj', 'resume').sessions.s1.transcript, transcript);
+    const loading = beginActivation(snapshot, 's1', '/proj', 'load');
+    assert.strictEqual(loading.sessions.s1.transcript.items.length, 0);
+    assert.strictEqual(failActivation(loading, 's1', defects, transcript).sessions.s1.transcript, transcript);
   });
 
   it('failActivation records defects and goes inactive; failUnarchive records defects only', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
-    const failed = failActivation(snapshot, 's1', defects);
+    const failed = failActivation(snapshot, 's1', defects, snapshot.sessions.s1.transcript);
     assert.deepStrictEqual([failed.sessions.s1.defects, failed.sessions.s1.status], [defects, 'inactive']);
     const unarchive = failUnarchive(snapshot, 's1', defects);
     assert.deepStrictEqual([unarchive.sessions.s1.defects, unarchive.sessions.s1.status], [defects, 'active']);
@@ -566,7 +576,7 @@ describe('activation folds', () => {
 
   it('applyLoadedConfiguration then finishActivation: active, with the latest configuration and carried fields', () => {
     const loaded = modelOption('gpt');
-    const activating = beginActivation(readySnapshot(), 's1', '/proj');
+    const activating = beginActivation(readySnapshot(), 's1', '/proj', 'resume');
     const finished = finishActivation(applyLoadedConfiguration(activating, 's1', loaded), 's1');
     assert.strictEqual(finished.sessions.s1.status, 'active');
     assert.strictEqual(finished.sessions.s1.configuration, loaded);

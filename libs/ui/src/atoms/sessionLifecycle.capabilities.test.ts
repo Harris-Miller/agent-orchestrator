@@ -8,11 +8,12 @@ import type { SessionSnapshot, SessionStatus } from '../host/acpSessionBootstrap
 import { AgentCapabilityMissing } from '../host/agentCapabilities.ts';
 import type { AgentCapability } from '../host/agentCapabilities.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
+import { appendUserChatMessage, reduceSessionUpdate } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
+import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -227,6 +228,71 @@ describe('Activate resumes only when the Agent capabilities allow it', () => {
           s.calls.filter(call => call.startsWith('load:') || call.startsWith('resume:')),
           [expected],
         );
+      }).pipe(Effect.scoped),
+    );
+  }
+});
+
+describe('#278 F5: no-resume session/load replays into a clean transcript', () => {
+  const replayed = (messageId: string | undefined) => {
+    const id = messageId === undefined ? {} : { messageId };
+    return [
+      { ...id, content: { text: 'hello', type: 'text' }, sessionUpdate: 'user_message_chunk' },
+      { ...id, content: { text: 'hi there', type: 'text' }, sessionUpdate: 'agent_message_chunk' },
+    ] as const;
+  };
+
+  const replayCases = [
+    { ids: ['u1', 'a1'], name: 'stable message IDs' },
+    { ids: [undefined, undefined], name: 'omitted message IDs' },
+  ] as const;
+
+  for (const { ids, name } of replayCases) {
+    it.effect(`activate twice with ${name}: one copy of the exchange each time`, () =>
+      Effect.gen(function* () {
+        const calls: string[] = [];
+        const registry = yield* freshRegistry;
+        enableProviders(registry, [CLAUDE, CODEX, CURSOR]);
+        const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+        const [user] = replayed(ids[0]);
+        const [, agent] = replayed(ids[1]);
+        yield* installFakeAgent(
+          calls,
+          {
+            duringLoad: Effect.sync(() => {
+              fold.onSessionUpdate('s1', user);
+              fold.onSessionUpdate('s1', agent);
+            }),
+          },
+          CODEX,
+        );
+        const runtime = createHostRuntime(mockHostLayer);
+        const { cancelPromptAtomFn } = createChatAtoms(runtime);
+        const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+        // Local transcript already holds the same exchange (user + agent), as after a completed turn.
+        const base = session('inactive');
+        let { transcript } = base;
+        transcript = reduceSessionUpdate(transcript, user);
+        transcript = reduceSessionUpdate(transcript, agent);
+        updateHarnessSnapshot(registry, CODEX, current => ({
+          ...current,
+          sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
+          sessions: { s1: { ...base, transcript } },
+        }));
+        advertise(registry, CODEX, {});
+        const target = { launchTarget: CODEX, sessionId: 's1' } as const;
+        const texts = () =>
+          registry
+            .get(backendHarnessSnapshotAtom(CODEX))
+            .sessions.s1.transcript.items.map(item => `${item.kind}:${'text' in item ? item.text : ''}`);
+
+        yield* runAtomFn(registry, atoms.activateSessionAtomFn, target);
+        assert.deepStrictEqual(calls, ['load:s1']);
+        assert.deepStrictEqual(texts(), ['user_message:hello', 'agent_message:hi there']);
+
+        yield* runAtomFn(registry, atoms.deactivateSessionAtomFn, target);
+        yield* runAtomFn(registry, atoms.activateSessionAtomFn, target);
+        assert.deepStrictEqual(texts(), ['user_message:hello', 'agent_message:hi there']);
       }).pipe(Effect.scoped),
     );
   }

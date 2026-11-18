@@ -73,6 +73,8 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly rejectFork?: boolean;
   /** Receives what the Backend connection reports (pass the Harness event fold); ignores everything by default. */
   readonly reports?: BackendConnectionReports;
+  /** Runs inside `session/load` before it resolves (history replay). */
+  readonly duringLoad?: Effect.Effect<void>;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
   readonly duringNew?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
@@ -152,7 +154,9 @@ export const installFakeAgent = (
         }) => {
           calls.push(`load:${sessionId}`);
           opts.mcp?.received.push({ meta: _meta, rpc: 'load', servers: mcpServers });
-          return opts.failLoad === true ? Effect.fail('load-fail') : Effect.succeed(selectableConfig);
+          return opts.failLoad === true
+            ? Effect.fail('load-fail')
+            : Effect.as(opts.duringLoad ?? Effect.void, selectableConfig);
         },
         'session/new': ({ _meta, mcpServers }: { _meta?: unknown; mcpServers: readonly unknown[] }) => {
           calls.push(isClaude ? 'new:claude' : 'new');

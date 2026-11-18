@@ -36,6 +36,7 @@ import {
   appendElicitationSummary,
   appendRequestErrorItem,
   appendUserChatMessage,
+  emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
   stampUserMessageTiming,
 } from './sessionUpdateReducer.ts';
@@ -461,11 +462,15 @@ export const applySessionList = (
 ): BackendHarnessSnapshot =>
   replaceSessionHistory(snapshot, historyAfterList(snapshot.sessionHistory, listResult, scope, boundSessionId));
 
-/** Activation begins: cwd stamped, defects and usage cleared, status `activating`, descendant Subagents reset. */
+/**
+ * Activation begins: cwd stamped, defects and usage cleared, status `activating`, descendant Subagents reset. A `load`
+ * replays the whole history, so it starts from an empty transcript; a `resume` keeps the local one.
+ */
 export const beginActivation = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
   cwd: string,
+  mode: 'load' | 'resume',
 ): BackendHarnessSnapshot =>
   resetSubagentsOfRoot(
     {
@@ -475,20 +480,30 @@ export const beginActivation = (
         cwd,
         defects: undefined,
         status: 'activating',
+        ...(mode === 'load' ? { transcript: emptySessionTranscript() } : {}),
         usage: undefined,
       })),
     },
     sessionId,
   );
 
-/** `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`. */
+/**
+ * `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`, and the
+ * transcript it had before activation began restored (a failed load must not lose the prior view).
+ */
 export const failActivation = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
   defects: readonly unknown[],
+  previousTranscript: SessionSnapshot['transcript'] | undefined,
 ): BackendHarnessSnapshot => ({
   ...snapshot,
-  sessions: patchSession(snapshot.sessions, sessionId, session => ({ ...session, defects, status: 'inactive' })),
+  sessions: patchSession(snapshot.sessions, sessionId, session => ({
+    ...session,
+    defects,
+    status: 'inactive',
+    ...(previousTranscript === undefined ? {} : { transcript: previousTranscript }),
+  })),
 });
 
 /** `session/unarchive` failed before activation: the failure's defects recorded, status untouched. */

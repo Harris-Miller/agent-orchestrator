@@ -11,7 +11,7 @@ import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import type { ultraRow } from './ultra.ts';
-import { isPlanOn, optionControlKind, optionRowLabel, planToggleDiff } from './wellKnownConfigOption.ts';
+import { isPlanOn, isPlanOption, optionRowLabel, planToggleDiff } from './wellKnownConfigOption.ts';
 
 const labelSx = { fontSize: 13 } as const;
 
@@ -26,6 +26,26 @@ const Row: FC<{ readonly children: ReactNode; readonly label: string; readonly t
   </Box>
 );
 
+const SwitchRow: FC<{
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly label: string;
+  readonly onChange: (on: boolean) => void;
+  readonly title?: string;
+}> = ({ checked, disabled, label, onChange, title }) => (
+  <Row label={label} title={title}>
+    <Switch
+      checked={checked}
+      disabled={disabled}
+      slotProps={{ input: { 'aria-label': label } }}
+      onChange={event => {
+        onChange(event.target.checked);
+      }}
+      size="small"
+    />
+  </Row>
+);
+
 /** Ultra / Ultracode: always the first row, disabled with the reason as a tooltip. */
 export const UltraOptionRow: FC<{
   readonly disabled: boolean;
@@ -34,22 +54,17 @@ export const UltraOptionRow: FC<{
 }> = ({ disabled, onToggle, row }) => (
   <Tooltip title={row.disabledReason ?? ''}>
     <span>
-      <Row label={row.label}>
-        <Switch
-          checked={row.on}
-          disabled={disabled || row.disabledReason !== undefined}
-          slotProps={{ input: { 'aria-label': row.label } }}
-          onChange={event => {
-            onToggle(event.target.checked);
-          }}
-          size="small"
-        />
-      </Row>
+      <SwitchRow
+        checked={row.on}
+        disabled={disabled || row.disabledReason !== undefined}
+        label={row.label}
+        onChange={onToggle}
+      />
     </span>
   </Tooltip>
 );
 
-/** One Config option as a label + control row: bespoke for well-known options, generic by `type` otherwise. */
+/** One Config option as a label + control row: the Plan toggle is bespoke, others get the generic control for their `type`. */
 export const OptionRow: FC<{
   readonly disabled: boolean;
   readonly launchTarget: AgentLaunchTarget | undefined;
@@ -57,36 +72,31 @@ export const OptionRow: FC<{
   readonly option: NormalizedConfigOption;
 }> = ({ disabled, launchTarget, onChange, option }) => {
   const label = optionRowLabel(launchTarget, option);
-  const kind = optionControlKind(launchTarget, option);
 
   if (option.type === 'boolean') {
     return (
-      <Row label={label} title={option.description}>
-        <Switch
-          checked={option.currentValue === true}
-          disabled={disabled}
-          slotProps={{ input: { 'aria-label': label } }}
-          onChange={event => {
-            onChange({ configId: option.id, type: 'boolean', value: event.target.checked });
-          }}
-          size="small"
-        />
-      </Row>
+      <SwitchRow
+        checked={option.currentValue === true}
+        disabled={disabled}
+        label={label}
+        onChange={on => {
+          onChange({ configId: option.id, type: 'boolean', value: on });
+        }}
+        title={option.description}
+      />
     );
   }
-  if (kind === 'plan-toggle') {
+  if (isPlanOption(launchTarget, option)) {
     return (
-      <Row label={label} title={option.description}>
-        <Switch
-          checked={isPlanOn(option)}
-          disabled={disabled}
-          slotProps={{ input: { 'aria-label': label } }}
-          onChange={event => {
-            onChange(planToggleDiff(option, event.target.checked));
-          }}
-          size="small"
-        />
-      </Row>
+      <SwitchRow
+        checked={isPlanOn(option)}
+        disabled={disabled}
+        label={label}
+        onChange={on => {
+          onChange(planToggleDiff(option, on));
+        }}
+        title={option.description}
+      />
     );
   }
   if (option.choices.length === 0) {

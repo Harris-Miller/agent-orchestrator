@@ -173,6 +173,43 @@ describe('ConfigChipRow', () => {
       assert.deepStrictEqual(menuModels(), ['m1', 'm3', 'm2']);
     });
 
+    it('describes the hovered model, and falls back to the selected one when the row unmounts', () => {
+      const described = [
+        { description: 'first', id: 'm1', name: 'm1' },
+        { description: 'second', id: 'm2', name: 'm2' },
+      ];
+      mount({
+        configOptions: [
+          {
+            choices: described,
+            currentValue: 'm1',
+            id: 'model',
+            name: 'model',
+            type: 'select',
+          },
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.isNotNull(screen.queryByText('first'));
+      fireEvent.mouseEnter(screen.getByRole('menuitem', { name: 'm2' }));
+      assert.isNotNull(screen.queryByText('second'));
+      fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'm1' } });
+      assert.isNull(screen.queryByText('second'));
+      assert.isNotNull(screen.queryByText('first'));
+    });
+
+    it('lists a boolean ultracode option only on the Ultra row', () => {
+      mount({
+        agent: { value: 'claude-agent-acp' },
+        configOptions: [
+          select('model', 'opus', ['opus']),
+          { currentValue: false, id: 'ultracode', name: 'Ultracode', type: 'boolean' },
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.lengthOf(screen.getAllByLabelText('Ultracode'), 1);
+    });
+
     it('sets the picked model', () => {
       const { changes } = mount({ configOptions: modelOptions('m1') });
       fireEvent.click(chip(1));

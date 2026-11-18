@@ -169,18 +169,15 @@ A model id advertised on `session/new` whose `session/set_config_option(model)` 
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Hidden model**:
-A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
+A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model. The Composer's model picker does not drop Hidden models but tucks them behind "Show more (N)" / "Hide more" at the bottom of the list, and its search matches Hidden and unhidden models alike, unhidden first.
 _Avoid_: Disabled model, filtered model, blocked model
-
-**Hidden model** (picker):
-In the Composer's model picker a Hidden model is not dropped but tucked behind "Show more (N)" at the bottom of the model list, and shown again under it; the current model is never counted as hidden. Search matches Hidden and unhidden models alike, unhidden first.
 
 **Options section**:
 The always-visible part of the Composer's model picker listing every Config option the agent advertises except mode, model and effort, one label + control row each, with no collapsed sub-menu, so options a provider adds later appear without a Composer change. Ultra (Ultracode on Claude) is always its first row, disabled with a reason when the current model or provider does not offer it.
 _Avoid_: Advanced, more options
 
 **Well-known Config option**:
-A Config option with a bespoke Composer control, identified by launch target and option id: Claude `agent` (dropdown of subagent types), Claude `fast` and Codex `fast-mode` (toggles), Codex `collaboration_mode` (a "Plan" toggle). Every other option gets the generic control for its type (select or boolean).
+A Config option the Composer treats specially, identified by launch target and option id. Codex `collaboration_mode` renders as a "Plan" toggle; Claude `fast` and Codex `fast-mode` render as ordinary boolean switches but add "Fast" to the model chip when on. Every other option gets the generic control for its type (select or boolean).
 _Avoid_: special option, custom option
 
 **Starting model**:

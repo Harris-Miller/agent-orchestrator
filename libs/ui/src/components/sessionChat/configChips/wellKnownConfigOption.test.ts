@@ -5,10 +5,10 @@ import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.t
 import {
   isFastOption,
   isPlanOn,
-  isWellKnownOption,
-  optionControlKind,
+  isPlanOption,
   optionRowLabel,
   planToggleDiff,
+  toggleSuffixParts,
 } from './wellKnownConfigOption.ts';
 
 const select = (id: string, currentValue = 'default'): NormalizedConfigOption => ({
@@ -21,25 +21,14 @@ const select = (id: string, currentValue = 'default'): NormalizedConfigOption =>
 const bool = (id: string): NormalizedConfigOption => ({ currentValue: false, id, name: id, type: 'boolean' });
 
 describe('wellKnownConfigOption', () => {
-  it('maps well-known options by launch target and id', () => {
-    assert.strictEqual(optionControlKind('claude-agent-acp', select('agent')), 'agent-select');
-    assert.strictEqual(optionControlKind('claude-agent-acp', bool('fast')), 'toggle');
-    assert.strictEqual(optionControlKind('codex-acp', bool('fast-mode')), 'toggle');
-    assert.strictEqual(optionControlKind('codex-acp', select('collaboration_mode')), 'plan-toggle');
-  });
-
-  it('does not apply a well-known mapping to another launch target', () => {
-    assert.strictEqual(optionControlKind('codex-acp', select('agent')), 'select');
-    assert.strictEqual(optionControlKind('claude-agent-acp', select('collaboration_mode')), 'select');
-    assert.isFalse(isFastOption('claude-agent-acp', 'fast-mode'));
-    assert.isTrue(isFastOption('claude-agent-acp', 'fast'));
-  });
-
-  it('falls back to a generic control by type', () => {
-    assert.strictEqual(optionControlKind('cursor-acp', select('x')), 'select');
-    assert.strictEqual(optionControlKind('cursor-acp', bool('x')), 'toggle');
-    assert.isFalse(isWellKnownOption('cursor-acp', bool('x')));
-    assert.isTrue(isWellKnownOption('codex-acp', bool('fast-mode')));
+  it('recognises Fast and Plan options per launch target', () => {
+    assert.isTrue(isFastOption('claude-agent-acp', bool('fast')));
+    assert.isTrue(isFastOption('codex-acp', bool('fast-mode')));
+    assert.isFalse(isFastOption('claude-agent-acp', bool('fast-mode')));
+    assert.isFalse(isFastOption('claude-agent-acp', select('fast')));
+    assert.isTrue(isPlanOption('codex-acp', select('collaboration_mode')));
+    assert.isFalse(isPlanOption('claude-agent-acp', select('collaboration_mode')));
+    assert.isFalse(isPlanOption('cursor-acp', select('collaboration_mode')));
   });
 
   it('maps the Plan toggle to plan/default', () => {
@@ -52,5 +41,13 @@ describe('wellKnownConfigOption', () => {
     });
     assert.deepStrictEqual(planToggleDiff(option, true).value, 'plan');
     assert.strictEqual(optionRowLabel('codex-acp', option), 'Plan');
+    assert.strictEqual(optionRowLabel('claude-agent-acp', option), 'collaboration_mode');
+  });
+
+  it('suffixes Fast / Plan only for the provider that owns the option', () => {
+    const fastOn: NormalizedConfigOption = { currentValue: true, id: 'fast-mode', name: 'fast-mode', type: 'boolean' };
+    const planOn = select('collaboration_mode', 'plan');
+    assert.deepStrictEqual(toggleSuffixParts('codex-acp', [fastOn, planOn]), ['Fast', 'Plan']);
+    assert.deepStrictEqual(toggleSuffixParts('claude-agent-acp', [fastOn, planOn]), []);
   });
 });

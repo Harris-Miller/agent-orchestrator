@@ -82,18 +82,19 @@ describe('chipSuffixParts', () => {
   };
 
   it('lists effort, Fast and Plan', () => {
-    assert.deepStrictEqual(chipSuffixParts('codex-acp', [fast, plan], effort, 'Ultra'), ['High', 'Fast', 'Plan']);
+    assert.deepStrictEqual(chipSuffixParts('codex-acp', [fast, plan], effort), ['High', 'Fast', 'Plan']);
   });
 
   it('replaces effort with the Ultra label when ultra effort is on', () => {
-    assert.deepStrictEqual(chipSuffixParts('codex-acp', [], { ...effort, currentValue: 'ultra' }, 'Ultra'), ['Ultra']);
+    assert.deepStrictEqual(chipSuffixParts('codex-acp', [], { ...effort, currentValue: 'ultra' }), ['Ultra']);
+  });
+
+  it('does not show Plan for a Claude option named collaboration_mode', () => {
+    assert.deepStrictEqual(chipSuffixParts('claude-agent-acp', [plan], effort), ['High']);
   });
 
   it('adds Ultracode when the boolean option is on', () => {
     const ultracode: NormalizedConfigOption = { currentValue: true, id: 'ultracode', name: 'u', type: 'boolean' };
-    assert.deepStrictEqual(chipSuffixParts('claude-agent-acp', [ultracode], effort, 'Ultracode'), [
-      'High',
-      'Ultracode',
-    ]);
+    assert.deepStrictEqual(chipSuffixParts('claude-agent-acp', [ultracode], effort), ['High', 'Ultracode']);
   });
 });

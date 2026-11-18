@@ -3,8 +3,8 @@ import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 
-import { isFastOption, isPlanOn } from './wellKnownConfigOption.ts';
-import { ULTRA_EFFORT_ID, ULTRACODE_OPTION_ID } from './ultra.ts';
+import { ULTRA_EFFORT_ID, ultraSuffixParts } from './ultra.ts';
+import { toggleSuffixParts } from './wellKnownConfigOption.ts';
 import { modelSelectChoiceLabel } from './sessionConfigOptionSelectViews.ts';
 
 /** One row of the picker's model list. */
@@ -58,20 +58,16 @@ export const searchModelRows = (rows: readonly ModelRow[], query: string): reado
   return [...hits.filter(row => !row.hidden), ...hits.filter(row => row.hidden)];
 };
 
-/** Chip suffix parts after the model name: effort (or Ultra label), then Fast / Plan when on. */
+/** Chip suffix parts after the model name: effort (or Ultra label), then Ultracode, Fast and Plan when on. */
 export const chipSuffixParts = (
   launchTarget: AgentLaunchTarget | undefined,
   options: readonly NormalizedConfigOption[],
   effort: NormalizedSelectConfigOption | undefined,
-  ultraLabel: string,
 ): readonly string[] => {
   const effortName = effort?.choices.find(choice => choice.id === effort.currentValue)?.name ?? effort?.currentValue;
-  const ultraByEffort = effort?.currentValue === ULTRA_EFFORT_ID;
-  const ultracodeOn = options.some(option => option.id === ULTRACODE_OPTION_ID && option.currentValue === true);
-  return [
-    ultraByEffort ? ultraLabel : effortName,
-    ultracodeOn ? ultraLabel : undefined,
-    options.some(option => isFastOption(launchTarget, option.id) && option.currentValue === true) ? 'Fast' : undefined,
-    options.some(option => option.id === 'collaboration_mode' && isPlanOn(option)) ? 'Plan' : undefined,
-  ].filter((part): part is string => part !== undefined && part !== '');
+  const ultra = ultraSuffixParts(launchTarget, effort === undefined ? options : [...options, effort]);
+  const isUltraEffort = effort?.currentValue === ULTRA_EFFORT_ID;
+  return [...(isUltraEffort ? [] : [effortName]), ...ultra, ...toggleSuffixParts(launchTarget, options)].filter(
+    (part): part is string => part !== undefined && part !== '',
+  );
 };

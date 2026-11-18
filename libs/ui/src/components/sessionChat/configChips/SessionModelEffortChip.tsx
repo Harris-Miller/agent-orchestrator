@@ -30,7 +30,7 @@ import type { ModelRow } from './modelPickerList.ts';
 import { ModelPickerList } from './ModelPickerList.tsx';
 import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
 import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
-import { reasoningChoices, ULTRA_EFFORT_ID, ultraLabel, ultraRow, ultraToggleDiffs } from './ultra.ts';
+import { reasoningChoices, ULTRA_EFFORT_ID, ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
 
 /** Virtual session: model search spans every selectable launch target. */
 export type ModelSearchScope = {
@@ -93,7 +93,7 @@ export const SessionModelEffortChip: FC<{
     rows.find(row => row.id === model.currentValue) ?? { description: undefined, label: model.currentValue };
   const allOptions = effort === undefined ? options : [...options, effort];
   const ultra = ultraRow(launchTarget, allOptions);
-  const suffix = chipSuffixParts(launchTarget, options, effort, ultraLabel(launchTarget));
+  const suffix = chipSuffixParts(launchTarget, options, effort);
 
   const pickModel = (row: ModelRow) => {
     if (search !== undefined && row.launchTarget !== undefined && row.launchTarget !== launchTarget) {
@@ -128,8 +128,12 @@ export const SessionModelEffortChip: FC<{
       <Popover
         anchorEl={menu.menuProps.anchorEl}
         anchorOrigin={menu.menuProps.anchorOrigin}
-        onClose={menu.close}
+        onClose={() => {
+          setHover(undefined);
+          menu.close();
+        }}
         open={menu.menuProps.open}
+        slotProps={{ paper: { sx: { maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' } } }}
         transformOrigin={menu.menuProps.transformOrigin}
       >
         <Box sx={{ maxWidth: '100vw', width: POPOVER_WIDTH }}>
@@ -174,9 +178,9 @@ export const SessionModelEffortChip: FC<{
               <Typography color="text.secondary" sx={{ display: 'block', px: 2, pt: 1.25 }} variant="caption">
                 Options
               </Typography>
-              <Stack spacing={1} sx={{ maxHeight: 260, overflowY: 'auto', px: 2, py: 1 }}>
+              <Stack spacing={1} sx={{ px: 2, py: 1 }}>
                 {ultra === undefined ? null : <UltraOptionRow disabled={disabled} onToggle={toggleUltra} row={ultra} />}
-                {options.map(option => (
+                {withoutUltraOption(options).map(option => (
                   <OptionRow
                     disabled={disabled}
                     key={option.id}

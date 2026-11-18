@@ -5,7 +5,7 @@ import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import Typography from '@mui/material/Typography';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { agentLaunchTargetLabel } from '../../../host/agentLaunchTarget.ts';
@@ -28,6 +28,14 @@ export const ModelPickerList: FC<{
   const [expanded, setExpanded] = useState(false);
   const searching = query.trim() !== '';
   const crossProvider = searchRows !== undefined;
+
+  // Rows unmount without `mouseleave` (search, collapse, popover close), so drop the hovered description explicitly.
+  useEffect(
+    () => () => {
+      onHover(undefined);
+    },
+    [onHover],
+  );
 
   const row = (model: ModelRow, badge: boolean) => (
     <MenuItem
@@ -65,6 +73,7 @@ export const ModelPickerList: FC<{
         inputProps={{ 'aria-label': 'Search models' }}
         onChange={event => {
           setQuery(event.target.value);
+          onHover(undefined);
         }}
         placeholder={searchPlaceholder}
         sx={{ borderBottom: 1, borderColor: 'divider', fontSize: 14, px: 2, py: 1, width: '100%' }}
@@ -89,6 +98,7 @@ export const ModelPickerList: FC<{
                 fullWidth
                 onClick={() => {
                   setExpanded(!expanded);
+                  onHover(undefined);
                 }}
                 size="small"
                 sx={{ color: 'text.secondary', justifyContent: 'flex-start', textTransform: 'none' }}

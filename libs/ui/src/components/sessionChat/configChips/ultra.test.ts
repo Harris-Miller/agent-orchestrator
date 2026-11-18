@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
 
-import { reasoningChoices, ultraRow, ultraToggleDiffs } from './ultra.ts';
+import { reasoningChoices, ultraRow, ultraSuffixParts, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
 
 const effort = (currentValue: string, choices: readonly string[]): NormalizedConfigOption => ({
   choices: choices.map(id => ({ id, name: id })),
@@ -46,9 +46,29 @@ describe('ultra', () => {
     assert.deepStrictEqual(ultraToggleDiffs(options, false, 'high'), [
       { configId: 'reasoning_effort', type: 'select', value: 'high' },
     ]);
-    assert.deepStrictEqual(ultraToggleDiffs(options, false, undefined), [
-      { configId: 'reasoning_effort', type: 'select', value: 'low' },
-    ]);
+  });
+
+  it('without a remembered effort, Ultra off falls back to medium, then high, then the middle choice', () => {
+    const off = (choices: readonly string[], previous?: string) =>
+      ultraToggleDiffs([effort('ultra', [...choices, 'ultra'])], false, previous)[0]?.value;
+    assert.strictEqual(off(['low', 'medium', 'high']), 'medium');
+    assert.strictEqual(off(['low', 'high', 'max']), 'high');
+    assert.strictEqual(off(['a', 'b', 'c', 'd', 'e']), 'c');
+    assert.strictEqual(off(['low', 'medium', 'high'], 'gone'), 'medium');
+    assert.strictEqual(off(['low', 'medium', 'high'], 'low'), 'low');
+  });
+
+  it('excludes the boolean ultracode option from generic rows', () => {
+    const ultracode: NormalizedConfigOption = { currentValue: false, id: 'ultracode', name: 'x', type: 'boolean' };
+    const other: NormalizedConfigOption = { currentValue: false, id: 'fast', name: 'f', type: 'boolean' };
+    assert.deepStrictEqual(withoutUltraOption([ultracode, other]), [other]);
+  });
+
+  it('suffixes the Ultra label only when on', () => {
+    const on: NormalizedConfigOption = { currentValue: true, id: 'ultracode', name: 'x', type: 'boolean' };
+    assert.deepStrictEqual(ultraSuffixParts('claude-agent-acp', [on]), ['Ultracode']);
+    assert.deepStrictEqual(ultraSuffixParts('claude-agent-acp', [{ ...on, currentValue: false }]), []);
+    assert.deepStrictEqual(ultraSuffixParts('codex-acp', [effort('ultra', ['low', 'ultra'])]), ['Ultra']);
   });
 
   it('toggles a boolean ultracode option directly', () => {

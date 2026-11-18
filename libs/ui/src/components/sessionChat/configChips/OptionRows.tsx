@@ -11,7 +11,14 @@ import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import type { ultraRow } from './ultra.ts';
-import { isPlanOn, isPlanOption, optionRowLabel, planToggleDiff } from './wellKnownConfigOption.ts';
+import {
+  isPlanOn,
+  isPlanSwitch,
+  NOT_AVAILABLE_FOR_MODEL,
+  optionRowLabel,
+  planToggleDiff,
+} from './wellKnownConfigOption.ts';
+import type { AbsentOptionRow } from './wellKnownConfigOption.ts';
 
 const labelSx = { fontSize: 13 } as const;
 
@@ -64,7 +71,7 @@ export const UltraOptionRow: FC<{
   </Tooltip>
 );
 
-/** One Config option as a label + control row: the Plan toggle is bespoke, others get the generic control for their `type`. */
+/** One Config option as a label + control row: the Plan switch is bespoke (a dropdown if it ever has more than default|plan), others get the generic control for their `type`. */
 export const OptionRow: FC<{
   readonly disabled: boolean;
   readonly launchTarget: AgentLaunchTarget | undefined;
@@ -86,7 +93,7 @@ export const OptionRow: FC<{
       />
     );
   }
-  if (isPlanOption(launchTarget, option)) {
+  if (isPlanSwitch(launchTarget, option)) {
     return (
       <SwitchRow
         checked={isPlanOn(option)}
@@ -123,3 +130,12 @@ export const OptionRow: FC<{
     </Row>
   );
 };
+
+/** A well-known option the session did not report for this model: off, disabled, with the reason as a tooltip. */
+export const AbsentOptionRowView: FC<{ readonly row: AbsentOptionRow }> = ({ row }) => (
+  <Tooltip title={NOT_AVAILABLE_FOR_MODEL}>
+    <span>
+      <SwitchRow checked={false} disabled label={row.label} onChange={() => undefined} />
+    </span>
+  </Tooltip>
+);

@@ -230,6 +230,26 @@ describe('ConfigChipRow', () => {
       assert.isTrue(screen.getByLabelText<HTMLInputElement>('Ultracode').disabled);
     });
 
+    it('always shows Plan and Fast, disabled when the session does not report them', () => {
+      mount({ agent: { value: 'codex-acp' }, configOptions: [select('model', 'gpt', ['gpt'])] });
+      fireEvent.click(chip(1));
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Plan').disabled);
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Fast mode').disabled);
+    });
+
+    it('falls back to a dropdown when collaboration_mode has more than default|plan', () => {
+      mount({
+        agent: { value: 'codex-acp' },
+        configOptions: [
+          select('model', 'gpt', ['gpt']),
+          select('collaboration_mode', 'default', ['default', 'plan', 'review']),
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.isNull(screen.queryByRole('checkbox', { name: 'Plan' }));
+      assert.isNotNull(screen.getByLabelText('collaboration_mode'));
+    });
+
     it('renders the Plan toggle for collaboration_mode', () => {
       const { changes } = mount({
         configOptions: [select('model', 'gpt', ['gpt']), select('collaboration_mode', 'default', ['default', 'plan'])],

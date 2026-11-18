@@ -21,9 +21,10 @@ import { chipSuffixParts, modelRowsFor } from './modelPickerList.ts';
 import { modelListMaxHeight, pickerPaneHeight } from './pickerLayout.ts';
 import type { ModelRow } from './modelPickerList.ts';
 import { ModelPickerList } from './ModelPickerList.tsx';
-import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
+import { AbsentOptionRowView, OptionRow, UltraOptionRow } from './OptionRows.tsx';
 import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
 import { ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
+import { optionRowsFor } from './wellKnownConfigOption.ts';
 
 const POPOVER_WIDTH = 680;
 
@@ -52,7 +53,7 @@ export const SessionModelEffortChip: FC<{
   const allOptions = effort === undefined ? options : [...options, effort];
   const ultra = ultraRow(launchTarget, allOptions);
   const suffix = chipSuffixParts(launchTarget, options, effort);
-  const optionRows = withoutUltraOption(options);
+  const optionRows = optionRowsFor(launchTarget, withoutUltraOption(options));
   const reasoning = effort?.choices ?? [];
   const paneHeight = pickerPaneHeight(reasoning.length, optionRows.length + (ultra === undefined ? 0 : 1));
 
@@ -133,15 +134,19 @@ export const SessionModelEffortChip: FC<{
               </Typography>
               <Stack spacing={1} sx={{ px: 2, py: 1 }}>
                 {ultra === undefined ? null : <UltraOptionRow disabled={disabled} onToggle={toggleUltra} row={ultra} />}
-                {optionRows.map(option => (
-                  <OptionRow
-                    disabled={disabled}
-                    key={option.id}
-                    launchTarget={launchTarget}
-                    onChange={onChange}
-                    option={option}
-                  />
-                ))}
+                {optionRows.map(row =>
+                  row.kind === 'absent' ? (
+                    <AbsentOptionRowView key={row.label} row={row} />
+                  ) : (
+                    <OptionRow
+                      disabled={disabled}
+                      key={row.option.id}
+                      launchTarget={launchTarget}
+                      onChange={onChange}
+                      option={row.option}
+                    />
+                  ),
+                )}
               </Stack>
             </Box>
           </Box>

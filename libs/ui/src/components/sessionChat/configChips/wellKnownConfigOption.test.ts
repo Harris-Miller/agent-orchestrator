@@ -6,13 +6,18 @@ import {
   isFastOption,
   isPlanOn,
   isPlanOption,
+  isPlanSwitch,
   optionRowLabel,
+  optionRowsFor,
   planToggleDiff,
   toggleSuffixParts,
 } from './wellKnownConfigOption.ts';
 
 const select = (id: string, currentValue = 'default'): NormalizedConfigOption => ({
-  choices: [{ id: 'default', name: 'Default' }],
+  choices: [
+    { id: 'default', name: 'Default' },
+    { id: 'plan', name: 'Plan' },
+  ],
   currentValue,
   id,
   name: id,
@@ -49,5 +54,37 @@ describe('wellKnownConfigOption', () => {
     const planOn = select('collaboration_mode', 'plan');
     assert.deepStrictEqual(toggleSuffixParts('codex-acp', [fastOn, planOn]), ['Fast', 'Plan']);
     assert.deepStrictEqual(toggleSuffixParts('claude-agent-acp', [fastOn, planOn]), []);
+  });
+});
+
+describe('always-shown options', () => {
+  it('shows disabled placeholders for Plan and Fast when the session omits them', () => {
+    assert.deepStrictEqual(optionRowsFor('codex-acp', []), [
+      { kind: 'absent', label: 'Plan' },
+      { kind: 'absent', label: 'Fast mode' },
+    ]);
+    assert.deepStrictEqual(optionRowsFor('claude-agent-acp', []), [{ kind: 'absent', label: 'Fast mode' }]);
+    assert.deepStrictEqual(optionRowsFor('cursor-acp', []), []);
+  });
+
+  it('uses the reported options, Plan then Fast first, then the rest; Codex accepts fast_mode', () => {
+    const other = bool('web');
+    const fast = bool('fast_mode');
+    const plan = select('collaboration_mode');
+    assert.deepStrictEqual(optionRowsFor('codex-acp', [other, fast, plan]), [
+      { kind: 'option', option: plan },
+      { kind: 'option', option: fast },
+      { kind: 'option', option: other },
+    ]);
+  });
+
+  it('is a Plan switch only for exactly default|plan', () => {
+    const three = {
+      ...select('collaboration_mode'),
+      choices: ['default', 'plan', 'review'].map(id => ({ id, name: id })),
+    };
+    assert.isTrue(isPlanSwitch('codex-acp', select('collaboration_mode')));
+    assert.isFalse(isPlanSwitch('codex-acp', three));
+    assert.strictEqual(optionRowLabel('codex-acp', three), 'collaboration_mode');
   });
 });

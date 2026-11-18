@@ -177,7 +177,7 @@ The always-visible part of the Composer's model picker listing every Config opti
 _Avoid_: Advanced, more options
 
 **Well-known Config option**:
-A Config option the Composer treats specially, identified by launch target and option id. Codex `collaboration_mode` renders as a "Plan" toggle; Claude `fast` and Codex `fast-mode` render as ordinary boolean switches but add "Fast" to the model chip when on. Every other option gets the generic control for its type (select or boolean).
+A Config option the Composer treats specially, identified by launch target and option id. Codex `collaboration_mode` renders as a "Plan" switch while its choices are just `default` and `plan` (a dropdown if it ever has more); Claude `fast` and Codex `fast-mode` / `fast_mode` render as boolean switches and add "Fast" to the model chip when on. These are always shown for their provider, disabled with "Not available for this model" while the session's Config options omit them (for example after a model or reasoning change). Every other option gets the generic control for its type (select or boolean).
 _Avoid_: special option, custom option
 
 **Starting model**:

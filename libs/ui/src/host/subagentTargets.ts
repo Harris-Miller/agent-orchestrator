@@ -51,7 +51,7 @@ export const validateSubagentConfig = (
   configOptions: ConfigOptionValues,
 ): string | undefined => {
   const { ids } = modelChoices(index);
-  const model = configOptions['model'] ?? index.defaultModelId;
+  const model = configOptions.model ?? index.defaultModelId;
   if (typeof model !== 'string' || !ids.includes(model)) {
     return `Unknown model ${JSON.stringify(model)}. Valid models: ${ids.join(', ')}.`;
   }

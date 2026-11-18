@@ -18,18 +18,30 @@ import { appOrchestratedAgentsEnabledAtom, userSettingsLoadedAtom } from './user
 const HUB_DISABLED_REASON = 'Experimental: App Orchestrated Agents is off in Settings.';
 
 export const hubAvailabilityAtom = Atom.make((get): HubAvailability => {
-  get.addFinalizer(onHubAvailability(next => get.setSelf(next)));
+  get.addFinalizer(
+    onHubAvailability(next => {
+      get.setSelf(next);
+    }),
+  );
   return hubAvailability();
 }).pipe(Atom.keepAlive);
 
 export const sessionHubStatusesAtom = Atom.make((get): ReadonlyMap<string, SessionHubStatus> => {
-  get.addFinalizer(onSessionHubStatuses(next => get.setSelf(next)));
+  get.addFinalizer(
+    onSessionHubStatuses(next => {
+      get.setSelf(next);
+    }),
+  );
   return sessionHubStatuses();
 }).pipe(Atom.keepAlive);
 
 /** `/clients` frames sent and received (developer panel). */
 export const hubWireEntriesAtom = Atom.make((get): readonly HubWireEntry[] => {
-  get.addFinalizer(onHubWireEntries(next => get.setSelf(next)));
+  get.addFinalizer(
+    onHubWireEntries(next => {
+      get.setSelf(next);
+    }),
+  );
   return hubWireEntries();
 }).pipe(Atom.keepAlive);
 

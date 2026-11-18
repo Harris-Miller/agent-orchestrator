@@ -44,7 +44,9 @@ describe('spawn_subagent (background)', () => {
       const release = Deferred.makeUnsafe<null>();
       const parentPrompts: string[] = [];
       const h = yield* setup(
-        child(release, 'All good.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+        child(release, 'All good.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
         {
           promptTexts: parentPrompts,
         },
@@ -52,7 +54,7 @@ describe('spawn_subagent (background)', () => {
 
       const started = yield* h.spawn({ runInBackground: true });
       assert.isFalse(started.isError);
-      assert.strictEqual(JSON.parse(started.text).subagentId, CHILD);
+      assert.strictEqual((JSON.parse(started.text) as { subagentId: string }).subagentId, CHILD);
       assert.deepStrictEqual(parentPrompts, []);
 
       yield* Deferred.succeed(release, null);
@@ -64,7 +66,11 @@ describe('spawn_subagent (background)', () => {
   it.effect('reports as Steering when the parent is mid-turn and supports it', () =>
     Effect.gen(function* () {
       const release = Deferred.makeUnsafe<null>();
-      const h = yield* setup(child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)));
+      const h = yield* setup(
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
+      );
       advertise(h.registry, CODEX, STEERING);
       h.setParent({ pendingClientRequest: 'prompt' });
 
@@ -82,7 +88,9 @@ describe('spawn_subagent (background)', () => {
       const release = Deferred.makeUnsafe<null>();
       const parentPrompts: string[] = [];
       const h = yield* setup(
-        child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
         {
           promptTexts: parentPrompts,
         },
@@ -151,7 +159,9 @@ describe('spawn_subagent (background)', () => {
         const parentPrompts: string[] = [];
         // Steering is offered but the agent refuses it, so the report waits for the turn end like the Queued message.
         const h = yield* setup(
-          child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+          child(release, 'Done.', () => (id, update) => {
+            h.childFold.onSessionUpdate(id, update);
+          }),
           {
             promptTexts: parentPrompts,
             steering: 'fail',
@@ -187,7 +197,9 @@ describe('spawn_subagent (background)', () => {
       const release = Deferred.makeUnsafe<null>();
       const parentPrompts: string[] = [];
       const h = yield* setup(
-        child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
         {
           promptTexts: parentPrompts,
         },
@@ -207,7 +219,9 @@ describe('spawn_subagent (background)', () => {
       const release = Deferred.makeUnsafe<null>();
       const parentPrompts: string[] = [];
       const h = yield* setup(
-        child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
         {
           promptTexts: parentPrompts,
         },
@@ -231,7 +245,9 @@ describe('spawn_subagent (background)', () => {
       const release = Deferred.makeUnsafe<null>();
       const parentPrompts: string[] = [];
       const h = yield* setup(
-        child(release, 'Done.', () => (id, update) => h.childFold.onSessionUpdate(id, update)),
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
         {
           promptTexts: parentPrompts,
         },

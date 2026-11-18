@@ -57,8 +57,7 @@ const callerGone = (registry: AtomRegistry.AtomRegistry, caller: HubToolCaller, 
     Stream.filter(({ sessions }) => {
       const session = sessionById(sessions, caller.sessionId);
       return (
-        session === undefined ||
-        session.status !== 'active' ||
+        session?.status !== 'active' ||
         session.promptCancelRequested === true ||
         (harnessStartedTurn && session.pendingClientRequest !== 'prompt')
       );

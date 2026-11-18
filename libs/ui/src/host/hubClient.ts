@@ -153,7 +153,9 @@ const connectOnce = Effect.fnUntraced(function* <R>(options: HubClientOptions<R>
   const writer = yield* socket.writer;
   const send = (message: ClientMessage) =>
     Effect.andThen(
-      Effect.sync(() => recordHubWire('sent', message)),
+      Effect.sync(() => {
+        recordHubWire('sent', message);
+      }),
       writer.write(JSON.stringify(message)).pipe(Effect.ignore),
     );
 

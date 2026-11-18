@@ -79,8 +79,8 @@ export const startHub = Effect.fnUntraced(function* (
   const BearerAuth = HttpRouter.middleware<{ provides: CallerToken }>()(httpEffect =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest;
-      const header = request.headers['authorization'];
-      const token = header?.startsWith('Bearer ') === true ? header.slice('Bearer '.length) : undefined;
+      const header = request.headers.authorization;
+      const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
       if (token === undefined || !state.isRegistered(token)) {
         return HttpServerResponse.text('Unauthorized', { status: 401 });
       }
@@ -98,10 +98,14 @@ export const startHub = Effect.fnUntraced(function* (
         return send({ accepted: state.register(clientId, message.token), token: message.token, type: 'registered' });
       }
       case 'bind': {
-        return Effect.sync(() => state.bind(clientId, message.token, message.launchTarget, message.sessionId));
+        return Effect.sync(() => {
+          state.bind(clientId, message.token, message.launchTarget, message.sessionId);
+        });
       }
       case 'revoke': {
-        return Effect.sync(() => state.revoke(clientId, message.token));
+        return Effect.sync(() => {
+          state.revoke(clientId, message.token);
+        });
       }
       case 'toolResult': {
         return state.resolve(clientId, message.requestId, { isError: message.isError, text: message.text });

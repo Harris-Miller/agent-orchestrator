@@ -133,7 +133,14 @@ export const WorkbenchNavRail: FC<{
     search.active,
   );
   const rowSelection = (entry: UnifiedHistoryEntry) =>
-    bulk.active ? { checked: bulk.isSelected(entry), onToggle: () => bulk.toggle(entry) } : undefined;
+    bulk.active
+      ? {
+          checked: bulk.isSelected(entry),
+          onToggle: () => {
+            bulk.toggle(entry);
+          },
+        }
+      : undefined;
   // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
   // archived, a list refresh) keeps its state; only a header click changes it.
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
@@ -370,7 +377,13 @@ export const WorkbenchNavRail: FC<{
                             mt: 0.5,
                           }}
                         >
-                          <Button onClick={() => toggleShowMoreBox(presentation.key)} size="small" variant="outlined">
+                          <Button
+                            onClick={() => {
+                              toggleShowMoreBox(presentation.key);
+                            }}
+                            size="small"
+                            variant="outlined"
+                          >
                             {showAllRows ? 'Show less' : `Show more (${overflowCount})`}
                           </Button>
                         </Box>

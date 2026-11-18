@@ -24,12 +24,12 @@ export const CheckGlyph: FC<{ readonly checked?: boolean; readonly mixed?: boole
       height="15"
       rx="3.5"
       stroke="currentColor"
-      fill={checked || mixed ? 'currentColor' : 'none'}
+      fill={checked === true || mixed === true ? 'currentColor' : 'none'}
     />
-    {checked || mixed ? (
+    {checked === true || mixed === true ? (
       <Box component="g" sx={{ color: 'primary.contrastText' }}>
         <path
-          d={mixed ? 'M4 8h8' : 'm3 8 3 3 7-7'}
+          d={mixed === true ? 'M4 8h8' : 'm3 8 3 3 7-7'}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.8"
@@ -57,6 +57,6 @@ export const RadioGlyph: FC<{ readonly checked?: boolean }> = ({ checked }) => (
     }}
   >
     <circle cx="8" cy="8" r="7.5" stroke="currentColor" fill="none" />
-    {checked ? <circle cx="8" cy="8" r="4" fill="currentColor" /> : null}
+    {checked === true ? <circle cx="8" cy="8" r="4" fill="currentColor" /> : null}
   </Box>
 );

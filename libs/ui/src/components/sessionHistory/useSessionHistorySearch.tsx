@@ -38,7 +38,9 @@ export const useSessionHistorySearch = ({
 }) => {
   const [state, setState] = useAtom(sessionHistorySearchAtom);
   const query = state.scope === scope ? state.query : '';
-  const setQuery = (value: string) => setState({ scope, query: value });
+  const setQuery = (value: string) => {
+    setState({ scope, query: value });
+  };
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
   const phases = useAtomValue(allLaunchTargetPhasesAtom);
@@ -75,7 +77,7 @@ export const useSessionHistorySearch = ({
         eligibleKeys,
         index: Math.max(0, Math.min(available.length - 1, highlightedIndex + (event.key === 'ArrowDown' ? 1 : -1))),
       });
-    } else if (event.key === 'Enter' && highlighted) {
+    } else if (event.key === 'Enter' && highlighted !== undefined) {
       event.preventDefault();
       setQuery('');
       activate({ launchTarget: highlighted.entry.launchTarget, sessionId: highlighted.entry.sessionId }).catch(
@@ -93,7 +95,9 @@ export const useSessionHistorySearch = ({
         sx={{ '& .MuiInputBase-input': { py: 1.5 }, '& .MuiOutlinedInput-root': { px: '7px' } }}
         value={query}
         inputRef={inputRef}
-        onChange={event => setQuery(event.target.value)}
+        onChange={event => {
+          setQuery(event.target.value);
+        }}
         onKeyDown={onKeyDown}
         slotProps={{
           input: {
@@ -119,7 +123,7 @@ export const useSessionHistorySearch = ({
         aria-live="polite"
         sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}
       >
-        {trimmed && highlighted ? `Highlighted ${highlighted.entry.title ?? 'New Session'}` : ''}
+        {trimmed && highlighted !== undefined ? `Highlighted ${highlighted.entry.title ?? 'New Session'}` : ''}
       </Box>
     </Box>
   );
@@ -134,13 +138,17 @@ export const useSessionHistorySearch = ({
         resetKey={`${scope}:${query}:${eligibleKeys}:${highlightedIndex}`}
         renderRow={(entry, positions, onInteractionChange) => (
           <SessionHistoryRow
-            onInteractionChange={active => onInteractionChange(sessionEntryKey(entry), active)}
+            onInteractionChange={active => {
+              onInteractionChange(sessionEntryKey(entry), active);
+            }}
             caption={caption?.(entry)}
             entry={entry}
             selected={selectedSessionId === entry.sessionId}
             highlighted={highlighted !== undefined && sessionEntryKey(highlighted.entry) === sessionEntryKey(entry)}
             positions={positions}
-            onActivate={() => setQuery('')}
+            onActivate={() => {
+              setQuery('');
+            }}
             onClientError={onClientError}
             onDeleteRequest={requestDelete}
           />

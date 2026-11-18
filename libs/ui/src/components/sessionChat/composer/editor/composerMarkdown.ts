@@ -261,7 +261,7 @@ type OpenFence = { readonly char: string; readonly length: number };
 
 const openFenceOf = (line: string): OpenFence | undefined => {
   const match = FENCE_RE.exec(line);
-  if (match === null || (match[1][0] === '`' && match[2].includes('`'))) {
+  if (match === null || (match[1].startsWith('`') && match[2].includes('`'))) {
     return undefined;
   }
   return { char: match[1][0], length: match[1].length };
@@ -269,7 +269,7 @@ const openFenceOf = (line: string): OpenFence | undefined => {
 
 const closesFence = (line: string, fence: OpenFence): boolean => {
   const match = FENCE_RE.exec(line);
-  return match !== null && match[1][0] === fence.char && match[1].length >= fence.length && match[2].trim() === '';
+  return match !== null && match[1].startsWith(fence.char) && match[1].length >= fence.length && match[2].trim() === '';
 };
 
 const plainRun = (text: string, block: MarkdownBlock, role: MarkdownRole): MarkdownRun => ({

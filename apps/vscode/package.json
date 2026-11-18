@@ -19,7 +19,7 @@
     "build": "pnpm run build:main && pnpm run build:renderer",
     "build:main": "tsdown",
     "build:renderer": "vite build",
-    "lint": "oxlint . --deny-warnings",
+    "lint": "oxlint . --type-aware --deny-warnings --report-unused-disable-directives",
     "package": "node scripts/package.mjs",
     "typecheck": "tsc -b tsconfig.json --noEmit",
     "test": "vitest run",

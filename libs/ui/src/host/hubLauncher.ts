@@ -66,7 +66,7 @@ export const hostHubClientOptions = Effect.fnUntraced(function* (registry: HubTo
   }
   const clientKind: ClientKind = env[VSCODE_HOST_ENV] === 'vscode' ? 'vscode' : 'desktop';
   const settings = yield* readUserSettings().pipe(Effect.orElseSucceed(() => defaultSettings));
-  const port = Option.getOrElse(decodeHubPort(settings['hubPort']), () => DEFAULT_HUB_PORT);
+  const port = Option.getOrElse(decodeHubPort(settings.hubPort), () => DEFAULT_HUB_PORT);
   return {
     clientKind,
     port,

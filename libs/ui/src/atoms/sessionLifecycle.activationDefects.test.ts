@@ -21,7 +21,7 @@ const wireFailure = (defect: unknown) => ({
   receivedAt: 1,
 });
 
-const failActivation = Effect.fnUntraced(function* (seed: unknown | undefined) {
+const failActivation = Effect.fnUntraced(function* (seed: unknown) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
   const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);

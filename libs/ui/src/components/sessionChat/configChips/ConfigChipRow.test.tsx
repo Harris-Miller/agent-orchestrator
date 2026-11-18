@@ -68,7 +68,7 @@ const mount = (
   return { agentChanges, changes };
 };
 
-const chip = (index: number) => screen.getAllByRole<HTMLButtonElement>('button')[index]!;
+const chip = (index: number) => screen.getAllByRole<HTMLButtonElement>('button')[index];
 
 describe('ConfigChipRow', () => {
   it('renders agent, model/effort, access chips then leftover controls in order', () => {

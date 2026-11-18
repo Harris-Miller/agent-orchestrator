@@ -29,6 +29,14 @@ export const base = () => [
     rules: {
       ...typescriptRules,
       'typescript/consistent-return': 'off',
+      // Without `noUncheckedIndexedAccess` it flags every `=== undefined` check on a Record / array / regex index.
+      // TODO: come back and look at this and add `noUncheckedIndexedAccess` to `tsconfig.base.json`
+      'typescript/no-unnecessary-condition': 'off',
+      // this will be changes to this upstream, remove once done
+      'typescript/switch-exhaustiveness-check': [
+        'error',
+        { considerDefaultExhaustiveForUnions: true, requireDefaultForNonUnion: true },
+      ],
       'typescript/explicit-module-boundary-types': 'off',
     },
   },

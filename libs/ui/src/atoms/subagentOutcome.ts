@@ -131,8 +131,6 @@ const awaitTurnBegun = (registry: Registry, link: SpawnedLink) =>
     Stream.runHead,
   );
 
-type Attempt = 'delivered' | 'dropped' | 'retry';
-
 /** One delivery attempt, from whatever state the parent is in now. */
 const attempt = Effect.fnUntraced(function* (
   registry: Registry,
@@ -141,7 +139,7 @@ const attempt = Effect.fnUntraced(function* (
   claim: () => boolean,
 ) {
   if (!parentReachable(registry, link)) {
-    return 'dropped' as Attempt;
+    return 'dropped';
   }
   const snapshot = registry.get(backendHarnessSnapshotAtom(link.parentLaunchTarget));
   const target = { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId };
@@ -154,23 +152,23 @@ const attempt = Effect.fnUntraced(function* (
     });
     if (action._tag === 'Steer') {
       if (!claim()) {
-        return 'dropped' as Attempt;
+        return 'dropped';
       }
       const steered = yield* Effect.exit(steerPromptTurn(registry, { ...target, text }));
       if (Exit.isSuccess(steered)) {
-        return 'delivered' as Attempt;
+        return 'delivered';
       }
     }
     yield* awaitTurnEnd(registry, link.parentLaunchTarget, link.parentSessionId);
-    return 'retry' as Attempt;
+    return 'retry';
   }
   if (hasQueuedMessage(registry, link.parentSessionId)) {
     // The user's Queued message goes first: it sends the moment it is taken, and our Send would be refused after it.
     yield* awaitQueuedMessageTaken(registry, link.parentSessionId);
-    return 'retry' as Attempt;
+    return 'retry';
   }
   if (!claim()) {
-    return 'dropped' as Attempt;
+    return 'dropped';
   }
   const turn = yield* Effect.forkDetach(Effect.exit(sendPromptTurn(registry, { ...target, text })));
   const begun = yield* Effect.raceFirst(
@@ -178,14 +176,14 @@ const attempt = Effect.fnUntraced(function* (
     Effect.as(awaitTurnBegun(registry, link), { _tag: 'Begun' } as const),
   );
   if (begun._tag === 'Begun') {
-    return 'delivered' as Attempt;
+    return 'delivered';
   }
   if (Exit.isSuccess(begun.exit)) {
-    return 'delivered' as Attempt;
+    return 'delivered';
   }
   // Refused (another turn is beginning): back off on the Clock so the retries do not spin.
   yield* Effect.sleep(RETRY_BACKOFF);
-  return 'retry' as Attempt;
+  return 'retry';
 });
 
 /** Deliver `text` to the link's parent, serialized with its other reports. Resolves with what happened to it. */
@@ -210,7 +208,7 @@ const deliver = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome
           return result;
         }
       }
-      return 'dropped' as Attempt;
+      return 'dropped';
     }),
   );
 

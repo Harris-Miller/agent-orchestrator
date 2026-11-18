@@ -277,7 +277,11 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       }),
     );
     const projection = yield* AtomRegistry.toStream(registry, backendHarnessSnapshotAtom(child.launchTarget)).pipe(
-      Stream.runForEach(() => Effect.sync(() => projectOnce(registry, link))),
+      Stream.runForEach(() =>
+        Effect.sync(() => {
+          projectOnce(registry, link);
+        }),
+      ),
       Effect.forkDetach,
     );
     attach(registry, child, { projection });

@@ -46,7 +46,7 @@ export const SessionActionsStrip: FC<{
   return (
     <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
       <Box sx={{ alignItems: 'center', display: 'flex', flexGrow: 1, minWidth: 0 }}>
-        {aboveComposer === undefined || aboveComposer === null ? <CwdLabel /> : aboveComposer}
+        {aboveComposer ?? <CwdLabel />}
       </Box>
       {isVirtual ? null : (
         <>

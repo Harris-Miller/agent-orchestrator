@@ -179,7 +179,7 @@ describe('startSpawnedSubagent', () => {
       assert.isDefined(mirror);
       // The task row is the Subagent view's; the transcript after it is the child's.
       assert.deepStrictEqual(
-        subagentTranscriptItems(mirror!).map(item => item.kind),
+        subagentTranscriptItems(mirror).map(item => item.kind),
         ['agent_message', 'tool_call', 'agent_message'],
       );
     }).pipe(Effect.scoped),

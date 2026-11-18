@@ -65,8 +65,12 @@ describe('hub bundles', () => {
       assert.isTrue(existsSync(join(home, 'logs', 'hub.log')));
 
       // No client ever connects: the hub exits after its grace and takes its discovery file with it.
-      yield* eventually(() => assert.isFalse(existsSync(join(home, DISCOVERY_FILENAME))));
-      yield* eventually(() => assert.isFalse(isAlive(discovery.pid)));
+      yield* eventually(() => {
+        assert.isFalse(existsSync(join(home, DISCOVERY_FILENAME)));
+      });
+      yield* eventually(() => {
+        assert.isFalse(isAlive(discovery.pid));
+      });
     }),
   );
 
@@ -80,7 +84,9 @@ describe('hub bundles', () => {
       const discovery = yield* readDiscovery(home);
       assert.strictEqual(readFileSync(join(home, 'logs', 'hub.log.1'), 'utf8'), previous);
       assert.isBelow(statSync(join(home, 'logs', 'hub.log')).size, previous.length);
-      yield* eventually(() => assert.isFalse(isAlive(discovery.pid)));
+      yield* eventually(() => {
+        assert.isFalse(isAlive(discovery.pid));
+      });
     }),
   );
 });

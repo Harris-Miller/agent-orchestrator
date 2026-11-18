@@ -122,7 +122,9 @@ const revokeWhere = (matches: (credential: Credential, token: string) => boolean
 export const revokeSessionMcp = (launchTarget: AgentLaunchTarget, sessionId: string): Effect.Effect<void> =>
   Effect.andThen(
     revokeWhere(credential => credential.launchTarget === launchTarget && credential.sessionId === sessionId),
-    Effect.sync(() => setStatus(launchTarget, sessionId, undefined)),
+    Effect.sync(() => {
+      setStatus(launchTarget, sessionId, undefined);
+    }),
   );
 
 /** Revoke every credential of a launch target whose Backend connection is gone (its sessions died with it). */
@@ -154,7 +156,9 @@ const noMcp = (launchTarget: AgentLaunchTarget, reason: string): McpInjection =>
   bind: sessionId =>
     Effect.andThen(
       revokeWhere(credential => credential.launchTarget === launchTarget && credential.sessionId === sessionId),
-      Effect.sync(() => setStatus(launchTarget, sessionId, { _tag: 'none', reason })),
+      Effect.sync(() => {
+        setStatus(launchTarget, sessionId, { _tag: 'none', reason });
+      }),
     ),
   params: { mcpServers: [] },
 });

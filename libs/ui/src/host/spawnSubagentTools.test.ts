@@ -175,7 +175,7 @@ describe('spawn_subagent (foreground)', () => {
       const call = yield* Effect.forkChild(h.spawn());
       yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
       yield* TestClock.adjust('240 seconds');
-      assert.strictEqual(JSON.parse((yield* Fiber.join(call)).text).status, 'running');
+      assert.strictEqual((JSON.parse((yield* Fiber.join(call)).text) as { status: string }).status, 'running');
 
       yield* Deferred.succeed(release, null);
       yield* until(() => parentPrompts.length > 0);

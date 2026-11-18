@@ -181,7 +181,7 @@ describe('ComposerPromptEditor Markdown styling', () => {
         assert.strictEqual(editable().querySelector('strong')?.textContent, 'now');
       });
       assert.isNotNull(editable().querySelector('[data-testid="composer-command-chip"]'));
-      assert.strictEqual(editable().textContent?.endsWith('**now**'), true);
+      assert.strictEqual(editable().textContent.endsWith('**now**'), true);
     }),
   );
 

@@ -114,8 +114,9 @@ export interface Slot {
 /** Atomic cap check + reservation. `undefined` when the parent already has MAX_LIVE_CHILDREN (live + reserved). */
 export const reserveSlot = (registry: Registry, parent: SessionRef): Slot | undefined => {
   const key = linkKey(parent);
-  const adjustPending = (delta: 1 | -1) =>
+  const adjustPending = (delta: 1 | -1) => {
     registry.update(pendingSpawnsAtom, pending => new Map(pending).set(key, (pending.get(key) ?? 0) + delta));
+  };
   const taken = registry.modify(pendingSpawnsAtom, pending => {
     const ok = liveChildCount(registry, parent) + (pending.get(key) ?? 0) < MAX_LIVE_CHILDREN;
     return [ok, ok ? new Map(pending).set(key, (pending.get(key) ?? 0) + 1) : pending] as const;

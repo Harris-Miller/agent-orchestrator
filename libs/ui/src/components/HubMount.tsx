@@ -24,7 +24,13 @@ export const HubMount: FC = () => {
       anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
       open={reason !== undefined && reason !== dismissed}
     >
-      <Alert onClose={() => setDismissed(reason)} severity="info" variant="filled">
+      <Alert
+        onClose={() => {
+          setDismissed(reason);
+        }}
+        severity="info"
+        variant="filled"
+      >
         <AlertTitle>Not all features are available</AlertTitle>
         Handoff is unavailable. {reason}
       </Alert>

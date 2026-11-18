@@ -62,7 +62,11 @@ describe('ConfirmSessionDeleteDialog is optimistic', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
       assert.strictEqual(onCancel.mock.calls.length, 1);
-      yield* Effect.promise(() => waitFor(() => assert.strictEqual(onClientError.mock.calls.length, 1)));
+      yield* Effect.promise(() =>
+        waitFor(() => {
+          assert.strictEqual(onClientError.mock.calls.length, 1);
+        }),
+      );
       registry.dispose();
     }).pipe(Effect.scoped),
   );

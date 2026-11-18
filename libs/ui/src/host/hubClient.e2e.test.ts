@@ -36,7 +36,9 @@ const freePort = Effect.promise(
       const server = createServer();
       server.listen(0, '127.0.0.1', () => {
         const { port } = server.address() as AddressInfo;
-        server.close(() => resolve(port));
+        server.close(() => {
+          resolve(port);
+        });
       });
     }),
 );
@@ -175,12 +177,12 @@ describe('hub client + hub', () => {
         yield* Effect.forkIn(
           Effect.andThen(
             Effect.sleep('500 millis'),
-            Effect.sync(() =>
+            Effect.sync(() => {
               writeFileSync(
                 join(home, '.hoa', 'hub.json'),
                 JSON.stringify({ pid: hubPid, port, protocolVersion: PROTOCOL_VERSION, secret: 'live' }),
-              ),
-            ),
+              );
+            }),
           ),
           testScope,
         );
@@ -218,7 +220,9 @@ describe('hub client + hub', () => {
           Effect.promise(
             () =>
               new Promise<void>(resolve => {
-                squatter.close(() => resolve());
+                squatter.close(() => {
+                  resolve();
+                });
               }),
           ),
       );

@@ -20,7 +20,14 @@ export const SessionRows: FC<{
   const onClientError = useContext(OnClientErrorContext);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const rowSelection = (entry: UnifiedHistoryEntry) =>
-    bulk?.active === true ? { checked: bulk.isSelected(entry), onToggle: () => bulk.toggle(entry) } : undefined;
+    bulk?.active === true
+      ? {
+          checked: bulk.isSelected(entry),
+          onToggle: () => {
+            bulk.toggle(entry);
+          },
+        }
+      : undefined;
 
   return (
     <>

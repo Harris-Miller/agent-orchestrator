@@ -116,6 +116,7 @@ describe('PendingElicitationCard', () => {
       form({ q: { oneOf: [{ const: 'a', title: 'A' }], title: 'Pick', type: 'string' } }, ['q']),
     );
     assert.isNull(screen.queryByRole('tab'));
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint resolves testing-library types differently from tsc
     assert.isTrue((screen.getByRole('button', { name: 'Accept' }) as HTMLButtonElement).disabled);
     press('Enter');
     assert.strictEqual(onAccept.mock.calls.length, 0);
@@ -126,7 +127,7 @@ describe('PendingElicitationCard', () => {
 
   it('Enter on the selected tab advances', () => {
     setup();
-    const selected = screen.getAllByRole('tab')[0] as HTMLElement;
+    const [selected] = screen.getAllByRole('tab');
     selected.focus();
     fireEvent.keyDown(selected, { key: 'Enter' });
     assert.strictEqual(screen.getAllByRole('tab')[1]?.getAttribute('aria-selected'), 'true');
@@ -137,6 +138,7 @@ describe('PendingElicitationCard', () => {
     fireEvent.keyDown(document.activeElement ?? document.body, { ctrlKey: true, key: '2' });
     fireEvent.keyDown(document.activeElement ?? document.body, { key: '2', metaKey: true });
     fireEvent.keyDown(document.activeElement ?? document.body, { altKey: true, key: '2' });
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint resolves testing-library types differently from tsc
     assert.isFalse((screen.getByRole('radio', { name: /Reducer/ }) as HTMLInputElement).checked);
   });
 
@@ -165,7 +167,8 @@ describe('PendingElicitationCard', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     assert.deepStrictEqual(onAccept.mock.calls[0]?.[0], { question_0: 'a', question_0_note: 'because' });
-    assert.strictEqual(onAccept.mock.calls[0]?.[1].rows[0].note, 'because');
+    const [, payload] = onAccept.mock.calls[0] as [unknown, { rows: { note: string }[] }];
+    assert.strictEqual(payload.rows[0]?.note, 'because');
   });
 
   it('shows the question as a heading and labels the text input with it', () => {

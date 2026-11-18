@@ -95,7 +95,11 @@ describe('SessionActionsStrip', () => {
       const fork = screen.getByRole('button', { name: 'Fork' });
       assert.strictEqual(fork.hasAttribute('disabled'), false);
       fireEvent.click(fork);
-      yield* Effect.promise(() => waitFor(() => assert.include(calls, 'fork:s1')));
+      yield* Effect.promise(() =>
+        waitFor(() => {
+          assert.include(calls, 'fork:s1');
+        }),
+      );
       registry.dispose();
     }).pipe(Effect.scoped),
   );

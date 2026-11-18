@@ -86,16 +86,16 @@ describe('installDevStateBridge', () => {
     const bridge = target.__HOA__;
     assert.isDefined(bridge);
 
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge?.atoms.get('items'))), {
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge.atoms.get('items'))), {
       $type: 'Map',
       entries: [['k', 1]],
     });
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge?.atoms.values())), {
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(bridge.atoms.values())), {
       flag: true,
       items: { $type: 'Map', entries: [['k', 1]] },
     });
-    assert.deepStrictEqual(bridge?.atoms.get('derived'), { $type: 'Uncomputed' });
-    assert.throws(() => bridge?.atoms.get('nope'), /No atom labeled "nope".*derived, flag, items/);
+    assert.deepStrictEqual(bridge.atoms.get('derived'), { $type: 'Uncomputed' });
+    assert.throws(() => bridge.atoms.get('nope'), /No atom labeled "nope".*derived, flag, items/);
     assert.isUndefined((bridge as { registry?: unknown } | undefined)?.registry);
   });
 

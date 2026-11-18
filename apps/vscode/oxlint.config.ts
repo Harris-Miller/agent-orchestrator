@@ -2,6 +2,7 @@ import { defineConfig } from 'oxlint';
 import { base, node, react, vitest } from '@tooling/oxlint';
 
 export default defineConfig({
+  categories: { correctness: 'off' },
   ignorePatterns: ['.repos/**', 'dist/**', 'graphify-out/**', '.agents/**', 'coverage/**', 'src/**/__tests__/**'],
   overrides: [
     ...base(),

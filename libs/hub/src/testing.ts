@@ -47,7 +47,11 @@ export const mcpInitialize = Effect.fnUntraced(function* (url: string, token: st
     id: 1,
     jsonrpc: '2.0',
     method: 'initialize',
-    params: { capabilities: {}, clientInfo: { name: 'test-agent', version: '0' }, protocolVersion },
+    params: {
+      capabilities: {},
+      clientInfo: { name: 'test-agent', version: '0' },
+      protocolVersion: String(protocolVersion),
+    },
   });
   const sessionId = response.headers.get('mcp-session-id') ?? undefined;
   yield* mcpPost(url, token, { jsonrpc: '2.0', method: 'notifications/initialized' }, { sessionId });
@@ -89,7 +93,9 @@ export const connectTestClient = (port: number, query = clientsQuery({ clientKin
           const ws = new WebSocket(`ws://127.0.0.1:${port}/clients?${query}`);
           const received: HubTestMessage[] = [];
           const waitClosed = new Promise<void>(done => {
-            ws.addEventListener('close', () => done());
+            ws.addEventListener('close', () => {
+              done();
+            });
           });
           const waiters: { predicate: (m: HubTestMessage) => boolean; resolve: (m: HubTestMessage) => void }[] = [];
           ws.addEventListener('message', event => {
@@ -103,11 +109,15 @@ export const connectTestClient = (port: number, query = clientsQuery({ clientKin
               }
             }
           });
-          ws.addEventListener('open', () =>
+          ws.addEventListener('open', () => {
             resolve({
-              close: () => ws.close(),
+              close: () => {
+                ws.close();
+              },
               received,
-              send: message => ws.send(JSON.stringify(message)),
+              send: message => {
+                ws.send(JSON.stringify(message));
+              },
               waitClosed,
               waitFor: predicate =>
                 new Promise(done => {
@@ -118,12 +128,17 @@ export const connectTestClient = (port: number, query = clientsQuery({ clientKin
                     done(hit);
                   }
                 }),
-            }),
-          );
-          ws.addEventListener('error', () => reject(new Error('ws failed to open')));
+            });
+          });
+          ws.addEventListener('error', () => {
+            reject(new Error('ws failed to open'));
+          });
         }),
     ),
-    client => Effect.sync(() => client.close()),
+    client =>
+      Effect.sync(() => {
+        client.close();
+      }),
   );
 
 /** Register `token` from `client` and wait for the hub's answer. */

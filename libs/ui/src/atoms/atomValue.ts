@@ -77,7 +77,7 @@ export const classifyValue = (value: unknown): ClassifiedValue => {
   if (value instanceof Error) {
     return { kind: 'error', value };
   }
-  return { kind: 'object', value: value as object };
+  return { kind: 'object', value };
 };
 
 /** How many of `total` items {@link MAX_ITEMS} leaves out. */

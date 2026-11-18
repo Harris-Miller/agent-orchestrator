@@ -96,7 +96,11 @@ describe('SendButton other-mode button', () => {
         onSubmitDraft,
         'more',
       );
-      yield* Effect.promise(() => act(async () => undefined));
+      yield* Effect.promise(() =>
+        act(async () => {
+          await Promise.resolve();
+        }),
+      );
       fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
       assert.deepStrictEqual(onSubmitDraft.mock.calls, [['queue']]);
       assert.isNotNull(screen.getByRole('button', { name: 'Steer' }));

@@ -30,7 +30,7 @@ export class ProcessTracker {
   };
 
   public readonly killAll = (): void => {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Deleting during iteration requires a snapshot.
+    // Deleting during iteration requires a snapshot.
     for (const webviewId of [...this.byWebview.keys()]) {
       this.killAllForWebview(webviewId);
     }

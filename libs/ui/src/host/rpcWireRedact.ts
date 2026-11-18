@@ -5,7 +5,7 @@ export const REDACTED = '[redacted]';
 
 const redactNameValues = (entries: unknown): unknown =>
   Array.isArray(entries)
-    ? entries.map(entry => (Predicate.isObject(entry) ? { ...entry, value: REDACTED } : entry))
+    ? entries.map((entry: unknown) => (Predicate.isObject(entry) ? { ...entry, value: REDACTED } : entry))
     : entries;
 
 const redactServer = (server: unknown): unknown =>

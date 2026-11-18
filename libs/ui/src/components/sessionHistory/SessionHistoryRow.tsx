@@ -99,7 +99,9 @@ export const SessionHistoryRow: FC<{
 
   return (
     <ListItem
-      onFocusCapture={() => setFocused(true)}
+      onFocusCapture={() => {
+        setFocused(true);
+      }}
       onBlurCapture={event => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
@@ -121,7 +123,9 @@ export const SessionHistoryRow: FC<{
         role="button"
         sx={{
           ...sessionCardSx(selected, archived),
-          ...(highlighted ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' } : {}),
+          ...(highlighted === true
+            ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' }
+            : {}),
           ...(unavailable ? { cursor: 'default', opacity: 0.55 } : {}),
         }}
         tabIndex={0}
@@ -132,7 +136,9 @@ export const SessionHistoryRow: FC<{
               checked={selection.checked}
               disabled={unavailable}
               onChange={selection.onToggle}
-              onClick={event => event.stopPropagation()}
+              onClick={event => {
+                event.stopPropagation();
+              }}
               size="small"
               slotProps={{ input: { 'aria-label': `Select ${displayTitle}` } }}
               sx={{ ml: -0.75, p: 0.5 }}

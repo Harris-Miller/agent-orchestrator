@@ -24,7 +24,7 @@ export const VirtualSearchResults = ({
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const [activeKeys, setActiveKeys] = useState<ReadonlySet<string>>(new Set());
-  const onInteractionChange = (key: string, active: boolean) =>
+  const onInteractionChange = (key: string, active: boolean) => {
     setActiveKeys(previous => {
       if (previous.has(key) === active) return previous;
       const next = new Set(previous);
@@ -32,11 +32,12 @@ export const VirtualSearchResults = ({
       else next.delete(key);
       return next;
     });
+  };
   const indexByKey = useMemo(
     () => new Map(matches.map(({ entry }, index) => [sessionEntryKey(entry), index])),
     [matches],
   );
-  const getItemKey = useCallback((index: number) => sessionEntryKey(matches[index]!.entry), [matches]);
+  const getItemKey = useCallback((index: number) => sessionEntryKey(matches[index].entry), [matches]);
   const virtualizer = useVirtualizer({
     count: matches.length,
     getScrollElement: () => parentRef.current,
@@ -72,7 +73,7 @@ export const VirtualSearchResults = ({
       ) : (
         <Box sx={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
           {virtualizer.getVirtualItems().map(row => {
-            const match = matches[row.index]!;
+            const match = matches[row.index];
             return (
               <Box
                 key={row.key}

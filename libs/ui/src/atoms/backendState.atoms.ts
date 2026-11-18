@@ -81,7 +81,7 @@ export const enabledLaunchTargetsAtom = Atom.make(get => {
     return [];
   }
   const enabled = unwrapUserSettings(get(userSettingsDocumentAtom)).providerEnabled ?? {};
-  return MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget] === true);
+  return MOUNTED_AGENT_LAUNCH_TARGETS.filter(launchTarget => enabled[launchTarget]);
 }).pipe(Atom.keepAlive);
 
 /** Runtime job state per provider (Download / Install / Remove). Install and Remove mean "switching". */

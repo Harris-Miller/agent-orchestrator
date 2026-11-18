@@ -21,7 +21,7 @@ describe('Session History search', () => {
       results.map(result => result.entry.sessionId),
       ['one'],
     );
-    assert.deepStrictEqual(results[0]!.positions, new Set([0, 6]));
+    assert.deepStrictEqual(results[0].positions, new Set([0, 6]));
     assert.deepStrictEqual(
       filterSessionHistoryMatches([entry('two')], 'New').map(result => result.entry.sessionId),
       ['two'],

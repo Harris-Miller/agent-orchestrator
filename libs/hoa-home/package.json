@@ -8,7 +8,7 @@
     "./testing": "./src/testing/mapFsTestServices.ts"
   },
   "scripts": {
-    "lint": "oxlint . --deny-warnings",
+    "lint": "oxlint . --type-aware --deny-warnings --report-unused-disable-directives",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

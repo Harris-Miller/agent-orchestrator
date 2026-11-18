@@ -48,8 +48,8 @@ const mount = (modelIds: readonly string[] | undefined, settings: Record<string,
   if (modelIds !== undefined) {
     registry.set(
       configOptionIndexAtom('codex-acp'),
-      configOptionIndexFromProbeResponses(modelIds[0]!, {
-        [modelIds[0]!]: { configOptions: [modelSelectOption(modelIds[0]!, modelIds)] },
+      configOptionIndexFromProbeResponses(modelIds[0], {
+        [modelIds[0]]: { configOptions: [modelSelectOption(modelIds[0], modelIds)] },
       }),
     );
   }

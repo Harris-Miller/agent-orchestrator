@@ -157,6 +157,8 @@ export const overallStatus = (p: ProviderView): OverallStatus => {
           return 'downloading';
         case 'Idle':
           return 'needs-runtime';
+        default:
+          break;
       }
     }
   }

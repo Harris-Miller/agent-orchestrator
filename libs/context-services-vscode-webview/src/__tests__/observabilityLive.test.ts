@@ -13,13 +13,13 @@ interface FetchCall {
 const exportedWith = (target: BuildTarget) =>
   Effect.gen(function* () {
     const calls: FetchCall[] = [];
-    const fetchLive = Layer.succeed(FetchHttpClient.Fetch, async (input, init) => {
+    const fetchLive = Layer.succeed(FetchHttpClient.Fetch, (input, init) => {
       const body = init?.body;
       calls.push({
         body: typeof body === 'string' ? body : new TextDecoder().decode(body as Uint8Array),
-        url: String(input),
+        url: typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
       });
-      return new Response(null, { status: 200 });
+      return Promise.resolve(new Response(null, { status: 200 }));
     });
     const configLive = ConfigProvider.layer(
       ConfigProvider.fromUnknown({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318' }),

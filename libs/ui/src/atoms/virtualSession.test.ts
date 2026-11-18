@@ -12,7 +12,7 @@ import { configValue } from '../host/sessionConfiguration.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
 import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
-import { createComposerAtoms } from './composer.atoms.ts';
+import { composerAtom, createComposerAtoms } from './composer.atoms.ts';
 import {
   CLAUDE,
   CODEX,
@@ -1348,6 +1348,118 @@ describe('#278 regressions', () => {
       yield* Fiber.join(pick);
       yield* Fiber.join(send);
       assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F3: a provider switch while parked on a held pick sends on the new provider without releasing it', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      yield* installFakeAgent(calls, {}, CLAUDE);
+      const registry = yield* freshRegistry;
+      setPhase(registry, CLAUDE, 'ready');
+      yield* seedBound(registry, calls, { draft: 'hello' });
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+      const recorder = recordingPrompt(calls);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* settle;
+      yield* setVirtualLaunchTarget(registry, CLAUDE);
+      yield* settle;
+
+      // A's pick is still held: B was prompted anyway.
+      assert.deepStrictEqual(
+        calls.filter(call => call.startsWith('prompt:')),
+        ['prompt:claude-1'],
+      );
+
+      yield* gate.release;
+      yield* Fiber.join(pick);
+      yield* Fiber.join(send);
+      assert.notInclude(calls, 'prompt:bound-1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F3: a failed pick lets Send proceed with the previous selection', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { setConfig: () => Effect.andThen(gate.during, Effect.fail('pick-failed')) });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'gpt' });
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+      const recorder = recordingPrompt(calls);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* settle;
+      assert.deepStrictEqual(recorder.prompted, []);
+
+      yield* gate.release;
+      yield* Fiber.join(pick);
+      yield* Fiber.join(send);
+
+      assert.strictEqual(recorder.prompted.length, 1);
+      assert.strictEqual(registry.get(lastCreateDefaultsAtom)?.configValues.model, 'gpt');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F3: Send sees the picked model once the pick settles', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello' });
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+      const recorder = recordingPrompt(calls);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* settle;
+      yield* gate.release;
+      yield* Fiber.join(pick);
+      yield* Fiber.join(send);
+
+      assert.strictEqual(registry.get(lastCreateDefaultsAtom)?.configValues.model, 'o1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F3: Send waits for every overlapping pick', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello' });
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+      const recorder = recordingPrompt(calls);
+      const arg = { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' } as const;
+
+      // The first pick is held; the second one settles at once and must not hide the first from Send.
+      const first = yield* Effect.forkChild(setVirtualConfigOption(registry, arg));
+      yield* gate.started;
+      const second = yield* Effect.forkChild(setVirtualConfigOption(registry, arg));
+      yield* Fiber.join(second);
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* settle;
+      assert.deepStrictEqual(recorder.prompted, []);
+
+      yield* gate.release;
+      yield* Fiber.join(first);
+      yield* Fiber.join(send);
+      assert.strictEqual(recorder.prompted.length, 1);
     }).pipe(Effect.scoped),
   );
 

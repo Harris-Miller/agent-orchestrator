@@ -29,6 +29,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import {
@@ -161,9 +162,12 @@ type PendingPick = {
   readonly key: string;
 };
 
-const pendingPickAtom = Atom.make<PendingPick | undefined>(undefined).pipe(Atom.keepAlive);
+/** Every in-flight pick (overlapping picks all count); each removes only its own entry when it settles. */
+const pendingPicksAtom = Atom.make<readonly PendingPick[]>([]).pipe(Atom.keepAlive);
 
-const pickKey = (virtual: VirtualSession, launchTarget: AgentLaunchTarget): string => `${virtual.id}:${launchTarget}`;
+/** Blob id + launch target + cwd + Bound session id: a pick only matches the exact target it started on. */
+const pickKey = (virtual: VirtualSession): string =>
+  `${virtual.id}:${virtual.launchTarget ?? ''}:${virtual.cwd ?? ''}:${virtual.sessionId ?? ''}`;
 
 const setBlob = (registry: Registry, blob: null | VirtualSession): void => {
   registry.set(writableVirtualSessionAtom, blob);
@@ -524,6 +528,26 @@ const awaitProviderSettled = (registry: Registry, launchTarget: AgentLaunchTarge
     return Effect.sync(cleanup);
   });
 
+/** Resolves once the blob no longer has the pick key `key` (provider / cwd / Bound id / blob churn). */
+const awaitPickTargetChanged = (registry: Registry, key: string) =>
+  Effect.callback<undefined>(resume => {
+    const changed = () => {
+      const current = registry.get(virtualSessionAtom);
+      return current === null || pickKey(current) !== key;
+    };
+    if (changed()) {
+      resume(Effect.succeed(undefined));
+      return;
+    }
+    const unsubscribe = registry.subscribe(virtualSessionAtom, () => {
+      if (changed()) {
+        unsubscribe();
+        resume(Effect.succeed(undefined));
+      }
+    });
+    return Effect.sync(unsubscribe);
+  });
+
 /** A Virtual draft with content, a Bound session, and the cwd / launch target it was Bound for. */
 type BoundVirtualTarget = VirtualSession &
   BindKey & {
@@ -556,10 +580,14 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
       yield* requestBind(registry);
       const boundId = yield* awaitCurrentBind(registry);
       const latest = registry.get(virtualSessionAtom);
-      const pick = registry.get(pendingPickAtom);
-      if (latest !== null && pick?.key === pickKey(latest, launchTarget)) {
-        // A Lazy hydrate pick for this target is on the wire: let it land, then loop and re-read everything.
-        yield* Deferred.await(pick.done);
+      const targetKey = latest === null ? undefined : pickKey(latest);
+      const picks = registry.get(pendingPicksAtom).filter(pick => pick.key === targetKey);
+      if (targetKey !== undefined && picks.length > 0) {
+        // Lazy hydrate picks for this exact target are on the wire: let them all land (or the target churn), then loop.
+        yield* Effect.raceFirst(
+          Effect.forEach(picks, pick => Deferred.await(pick.done), { discard: true }),
+          awaitPickTargetChanged(registry, targetKey),
+        );
       } else if (latest !== null && bindKeyMatches(latest, key)) {
         // (Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.)
         if (boundId === undefined || latest.sessionId !== boundId) {
@@ -571,6 +599,10 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
     }
   }
 });
+
+/** The Bound session is in the snapshot and active. */
+const isLiveActive = (snapshot: BackendHarnessSnapshot, sessionId: string): boolean =>
+  sessionId in snapshot.sessions && snapshot.sessions[sessionId].status === 'active';
 
 /**
  * Under the Lifecycle lock: apply Virtual Config diffs to the Bound session (each response folded into the latest
@@ -585,7 +617,7 @@ const materialize = Effect.fn('materialize')(
     yield* Effect.logInfo('UI materialize', launchTarget, { cwd: Redacted.make(cwd), sessionId });
 
     const liveSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
-    if (!(sessionId in liveSnapshot.sessions) || liveSnapshot.sessions[sessionId].status !== 'active') {
+    if (!isLiveActive(liveSnapshot, sessionId)) {
       yield* Effect.logError('materialize missing Bound session', launchTarget, sessionId);
       return undefined;
     }
@@ -598,11 +630,7 @@ const materialize = Effect.fn('materialize')(
 
     // The connection may have died during the RPCs: keep the blob (draft, attachments) and only forget the dead id.
     const afterSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
-    if (
-      !isUsablePhase(afterSnapshot.phase) ||
-      !(sessionId in afterSnapshot.sessions) ||
-      afterSnapshot.sessions[sessionId].status !== 'active'
-    ) {
+    if (!isUsablePhase(afterSnapshot.phase) || !isLiveActive(afterSnapshot, sessionId)) {
       const virtual = registry.get(virtualSessionAtom);
       if (virtual?.sessionId === sessionId) {
         setBlob(registry, { ...virtual, sessionId: undefined });
@@ -716,37 +744,43 @@ export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(functi
     boundSessionId !== undefined &&
     needsLazyHydrate(registry.get(configOptionIndexAtom(arg.launchTarget)), boundSessionId, arg.value)
   ) {
-    const pending = { done: yield* Deferred.make<undefined>(), key: pickKey(before, arg.launchTarget) };
-    registry.set(pendingPickAtom, pending);
-    const pick = yield* Effect.exit(
-      applySessionConfigValue(
-        registry,
-        { launchTarget: arg.launchTarget, sessionId: boundSessionId },
-        { configId: 'model', type: 'select', value: arg.value },
-      ),
-    ).pipe(
+    const pending: PendingPick = { done: yield* Deferred.make<undefined>(), key: pickKey(before) };
+    registry.set(pendingPicksAtom, [...registry.get(pendingPicksAtom), pending]);
+    // `done` completes only after the target guard + patch, so a waiting Send never re-reads a stale blob.
+    yield* Effect.gen(function* () {
+      const pick = yield* Effect.exit(
+        applySessionConfigValue(
+          registry,
+          { launchTarget: arg.launchTarget, sessionId: boundSessionId },
+          { configId: 'model', type: 'select', value: arg.value },
+        ),
+      );
+      if (Exit.isFailure(pick)) {
+        return;
+      }
+      // The response hydrated the originating provider's cache; the draft only follows if the target is unchanged.
+      const after = registry.get(virtualSessionAtom);
+      if (
+        after?.id !== before.id ||
+        after.launchTarget !== before.launchTarget ||
+        after.cwd !== before.cwd ||
+        after.sessionId !== boundSessionId
+      ) {
+        return;
+      }
+      patchBlobConfigValue(registry, registry.get(configOptionIndexAtom(arg.launchTarget)), arg.configId, arg.value);
+    }).pipe(
       Effect.ensuring(
         Effect.sync(() => {
-          if (registry.get(pendingPickAtom) === pending) {
-            registry.set(pendingPickAtom, undefined);
-          }
+          registry.set(
+            pendingPicksAtom,
+            registry.get(pendingPicksAtom).filter(entry => entry !== pending),
+          );
           Deferred.doneUnsafe(pending.done, Exit.succeed(undefined));
         }),
       ),
     );
-    if (Exit.isFailure(pick)) {
-      return;
-    }
-    // The response hydrated the originating provider's cache; the draft only follows if the target is unchanged.
-    const after = registry.get(virtualSessionAtom);
-    if (
-      after?.id !== before.id ||
-      after.launchTarget !== before.launchTarget ||
-      after.cwd !== before.cwd ||
-      after.sessionId !== boundSessionId
-    ) {
-      return;
-    }
+    return;
   }
   patchBlobConfigValue(registry, registry.get(configOptionIndexAtom(arg.launchTarget)), arg.configId, arg.value);
 });

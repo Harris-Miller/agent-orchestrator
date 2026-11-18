@@ -45,10 +45,19 @@ describe('arrangeModelChoices', () => {
     );
   });
 
-  it('shows only the current model when everything is hidden', () => {
+  it('ignores hiding when everything is hidden', () => {
     assert.deepStrictEqual(
-      ids(arrangeModelChoices(choices, { currentId: 'c', hidden: ['a', 'b', 'c', 'd'], order: [] })),
-      ['c'],
+      ids(arrangeModelChoices(choices, { currentId: 'c', hidden: ['a', 'b', 'c', 'd'], order: ['d'] })),
+      ['d', 'a', 'b', 'c'],
+    );
+  });
+});
+
+describe('arrangeModelChoices with Unavailable models', () => {
+  it('ignores hiding when every other model is hidden and the rest are Unavailable', () => {
+    assert.deepStrictEqual(
+      ids(arrangeModelChoices(choices, { currentId: 'd', hidden: ['a', 'b'], order: [], unavailableIds: ['c', 'd'] })),
+      ['a', 'b', 'c', 'd'],
     );
   });
 });

@@ -126,11 +126,20 @@ describe('ConfigChipRow', () => {
     it('keeps a hidden current model in the menu, selected', () => {
       mount({
         configOptions: modelOptions('m2'),
-        settings: { hiddenModels: { 'codex-acp': ['m1', 'm2', 'm3'] } },
+        settings: { hiddenModels: { 'codex-acp': ['m1', 'm2'] } },
       });
       assert.include(chip(1).textContent, 'm2');
       fireEvent.click(chip(1));
-      assert.deepStrictEqual(menuModels(), ['m2']);
+      assert.deepStrictEqual(menuModels(), ['m2', 'm3']);
+    });
+
+    it('lists every model when all are hidden', () => {
+      mount({
+        configOptions: modelOptions('m2'),
+        settings: { hiddenModels: { 'codex-acp': ['m1', 'm2', 'm3'] } },
+      });
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(menuModels(), models);
     });
 
     it('ignores prefs of other launch targets', () => {

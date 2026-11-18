@@ -23,6 +23,7 @@ import {
   submitComposerAtomFn,
   unqueueComposerAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
+import { modelPickerPrefsAtom } from '../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import { composerAtom } from '../../atoms/composer.atoms.ts';
 import { hubAvailabilityAtom, sessionHubStatusesAtom } from '../../atoms/hub.atoms.ts';
 import { useSelectedSessionFsListing } from '../../atoms/useSelectedSessionFsListing.ts';
@@ -30,7 +31,7 @@ import { virtualSessionAtom } from '../../atoms/virtualSession.atoms.ts';
 import type { MidTurnSend } from '../../atoms/userSettings/userSettings.atoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { optionsWithValues, rowForModel } from '../../host/configOptionIndexUi.ts';
+import { optionsWithValues, rowForModel, startingModelId } from '../../host/configOptionIndexUi.ts';
 import { hubUnavailableReason } from '../../host/hubSessions.ts';
 
 /** Stable empty configuration, so memoized consumers do not re-run before the agent reports one. */
@@ -85,8 +86,11 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   const virtualConfigIndex =
     isVirtual && selectedLaunchTarget !== undefined ? getConfigOptionIndex(selectedLaunchTarget) : undefined;
   const virtualConfigValues = virtualSession?.configValues ?? {};
+  const virtualPrefs = useAtomValue(modelPickerPrefsAtom(selectedLaunchTarget));
   const virtualSelectedModelId =
-    typeof virtualConfigValues.model === 'string' ? virtualConfigValues.model : virtualConfigIndex?.defaultModelId;
+    typeof virtualConfigValues.model === 'string'
+      ? virtualConfigValues.model
+      : virtualConfigIndex && startingModelId(virtualConfigIndex, virtualPrefs);
   const configOptions = isVirtual
     ? optionsWithValues(rowForModel(virtualConfigIndex, virtualSelectedModelId), virtualConfigValues)
     : (selectedSession?.configuration ?? EMPTY_CONFIGURATION);

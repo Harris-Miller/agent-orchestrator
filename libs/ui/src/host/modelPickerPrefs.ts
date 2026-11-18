@@ -16,21 +16,27 @@ export const orderedModelIds = (advertisedIds: readonly string[], order: readonl
 };
 
 /**
- * Choices for a model select: Model order applied, Hidden models dropped unless one is `currentId`
+ * Choices for a model select: Model order applied, Hidden models dropped unless one is `currentId` (or every model is hidden)
  * (kept at its place so the current value still renders).
  */
 export const arrangeModelChoices = <T extends { readonly id: string }>(
   choices: readonly T[],
-  options: ModelPickerPrefs & { readonly currentId: string | undefined },
+  options: ModelPickerPrefs & {
+    readonly currentId: string | undefined;
+    /** Unavailable models do not count as shown: hiding every other model is still "everything hidden". */
+    readonly unavailableIds?: readonly string[];
+  },
 ): readonly T[] => {
   const byId = new Map(choices.map(choice => [choice.id, choice]));
   const hidden = new Set(options.hidden);
-  return orderedModelIds(
+  const ids = orderedModelIds(
     choices.map(choice => choice.id),
     options.order,
-  )
-    .filter(id => !hidden.has(id) || id === options.currentId)
-    .flatMap(id => byId.get(id) ?? []);
+  );
+  // Hiding every usable model would leave nothing to pick: ignore it.
+  const unavailable = new Set(options.unavailableIds);
+  const hideAll = ids.every(id => unavailable.has(id) || hidden.has(id));
+  return ids.filter(id => hideAll || !hidden.has(id) || id === options.currentId).flatMap(id => byId.get(id) ?? []);
 };
 
 /** Hidden ids for the advertised models only. Render-time only: writes keep unadvertised ids, since the cache may be partial. */

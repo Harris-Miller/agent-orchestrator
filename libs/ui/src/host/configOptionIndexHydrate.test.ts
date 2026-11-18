@@ -73,4 +73,18 @@ describe('mergeConfigOptionIndex', () => {
     assert.isUndefined(mergeConfigOptionIndex(undefined, { _tag: 'ModelPickFailed', modelId: 'x' }));
     assert.isUndefined(mergeConfigOptionIndex(undefined, { _tag: 'ModelPicked', modelId: 'x', response: {} }));
   });
+
+  it('characterization: ModelPicked stores the row under the requested modelId even if the response reports another currentValue', () => {
+    const seeded = mergeConfigOptionIndex(undefined, {
+      _tag: 'SessionNew',
+      response: { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus'])] },
+    });
+    const next = mergeConfigOptionIndex(seeded, {
+      _tag: 'ModelPicked',
+      modelId: 'opus',
+      response: { configOptions: [modelSelectOption('sonnet', ['sonnet', 'opus']), effortOption('high')] },
+    });
+    assert.deepStrictEqual(rowIds(next, 'opus'), ['model', 'effort']);
+    assert.strictEqual(next?.byModel.opus?.[0]?.currentValue, 'sonnet');
+  });
 });

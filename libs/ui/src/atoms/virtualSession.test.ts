@@ -1,5 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
+import { defaultSettings } from '@lib/hoa-home';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
+import { AsyncResult } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
@@ -9,6 +11,7 @@ import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
+import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { createComposerAtoms } from './composer.atoms.ts';
 import {
   CLAUDE,
@@ -191,6 +194,58 @@ describe('ensure / edits', () => {
       assert.strictEqual(virtual?.cwd, '/proj');
       assert.strictEqual(virtual?.launchTarget, CODEX);
       assert.strictEqual(virtual?.configValues.model, 'gpt');
+    }).pipe(Effect.scoped),
+  );
+
+  const twoModels = (): ConfigOptionIndex => {
+    const row = (current: string) => [
+      {
+        choices: [
+          { id: 'sonnet', name: 'sonnet' },
+          { id: 'opus', name: 'opus' },
+        ],
+        currentValue: current,
+        id: 'model',
+        name: 'Model',
+        type: 'select' as const,
+      },
+    ];
+    return { byModel: { opus: row('opus'), sonnet: row('sonnet') }, defaultModelId: 'sonnet', unavailableModelIds: [] };
+  };
+  const hideSonnet = (registry: Registry, launchTarget: AgentLaunchTarget) => {
+    registry.set(
+      userSettingsDocumentAtom,
+      AsyncResult.success({
+        ...defaultSettings,
+        hiddenModels: { [launchTarget]: ['sonnet'] },
+        providerEnabled: { [CLAUDE]: true, [CODEX]: true },
+      }),
+    );
+  };
+
+  it.effect('a new Virtual on another provider starts on a shown model when the default is Hidden', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      registry.set(configOptionIndexAtom(CODEX), twoModels());
+      hideSonnet(registry, CODEX);
+      yield* ensureVirtual(registry, { cwd: '/proj' });
+
+      yield* setVirtualLaunchTarget(registry, CODEX);
+
+      assert.strictEqual(blob(registry)?.configValues.model, 'opus');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a last-create default naming a Hidden model is not reused', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      registry.set(configOptionIndexAtom(CODEX), twoModels());
+      registry.set(lastCreateDefaultsAtom, { configValues: { model: 'sonnet' }, launchTarget: CODEX });
+      hideSonnet(registry, CODEX);
+
+      yield* ensureVirtual(registry);
+
+      assert.strictEqual(blob(registry)?.configValues.model, 'opus');
     }).pipe(Effect.scoped),
   );
 

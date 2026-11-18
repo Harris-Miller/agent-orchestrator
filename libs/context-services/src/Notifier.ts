@@ -8,8 +8,9 @@ export class NotifyFailed extends Schema.TaggedError<NotifyFailed>()('NotifyFail
 }) {}
 
 /**
- * Portable OS notification. The system Notification sound rides on the Notification
- * (`sound: true`); it is never played alone. React never imports host notification SDKs.
+ * Portable OS notification plus a standalone chime. The system Notification sound rides on the Notification
+ * (`sound: true`); `playSound` is the app-played chime used when Notifications are off. React never imports
+ * host notification SDKs.
  */
 export interface Notifier {
   /** Whether the Host window currently has focus. */
@@ -19,6 +20,8 @@ export interface Notifier {
     readonly sound: boolean;
     readonly title: string;
   }) => Effect.Effect<void, NotifyFailed>;
+  /** Play the app's own chime, with no Notification. A no-op on an `'in-app'` Notifier. */
+  readonly playSound: Effect.Effect<void, NotifyFailed>;
   /** `'os'`: native toast. `'in-app'`: Host-level message only (no OS toast / sound). */
   readonly supported: 'in-app' | 'os';
 }

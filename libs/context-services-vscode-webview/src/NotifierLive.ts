@@ -1,4 +1,4 @@
-import { Notifier, NotifyFailed } from '@lib/context-services';
+import { Notifier, NotifyFailed, playChime } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 
 import type { IpcClient } from './protocol/ipcClient.ts';
@@ -32,5 +32,6 @@ export const makeNotifierLive = (client: IpcClient): Layer.Layer<Notifier> =>
         },
       });
     }),
+    playSound: playChime,
     supported: 'os',
   });

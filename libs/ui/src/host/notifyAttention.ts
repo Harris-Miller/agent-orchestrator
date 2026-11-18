@@ -36,12 +36,14 @@ export const attentionBody = (event: AttentionEvent): string => {
 export const isAttentionStopReason = (stopReason: StopReason): boolean => stopReason !== 'cancelled';
 
 /**
- * Raise a Notification for an Attention event, honoring `settings` (the in-memory User settings). Never fails:
+ * Raise a Notification and/or Notification sound for an Attention event, honoring `settings` (the in-memory User settings). Never fails:
  * focus probe and notify errors are swallowed so a turn is never affected.
  */
 export const notifyAttention = (settings: UserSettings, title: string, event: AttentionEvent) =>
   Effect.gen(function* () {
-    if (!notificationsEnabled(settings)) {
+    const notifications = notificationsEnabled(settings);
+    const sound = notificationSoundEnabled(settings);
+    if (!notifications && !sound) {
       return;
     }
     const notifier = yield* Notifier;
@@ -49,11 +51,11 @@ export const notifyAttention = (settings: UserSettings, title: string, event: At
     if (notifier.supported === 'os' && notifyOnlyWhenUnfocusedEnabled(settings) && (yield* notifier.isWindowFocused)) {
       return;
     }
-    yield* notifier.notify({
-      body: attentionBody(event),
-      sound: notificationSoundEnabled(settings),
-      title,
-    });
+    if (notifications) {
+      yield* notifier.notify({ body: attentionBody(event), sound, title });
+    } else {
+      yield* notifier.playSound;
+    }
   }).pipe(Effect.ignore);
 
 /** {@link notifyAttention} titled with the session's chat title (history entry title or launch target label; `Chat` before a history entry exists). */

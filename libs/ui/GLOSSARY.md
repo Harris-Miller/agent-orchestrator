@@ -232,7 +232,7 @@ A draft-side image added from the Host FileDialog, by an image Filesystem Mentio
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Attention event**:
-A moment the user should notice in any session (not only the Selected one): a Prompt turn ending with any stop reason except `cancelled` (Handoff's Prompt turns included), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
+A moment the user should notice in any session (not only the Selected one): a Prompt turn ending with any stop reason except `cancelled` (Handoff's Prompt turns included), a new Pending permission, or a new Pending elicitation. RPC errors are not Attention events. Each raises a Notification (title = session chat title, or `Chat` before the session has a history entry; fixed body phrase) and/or a Notification sound, subject to the Notifications, Notification sound, and Only-notify-when-unfocused User settings.
 _Avoid_: alert, ping, completion event
 
 **Keep-awake hold**:

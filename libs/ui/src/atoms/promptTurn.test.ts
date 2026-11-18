@@ -37,6 +37,7 @@ const sent: Sent[] = [];
 const hostLayer = Layer.mergeAll(
   Layer.succeed(Notifier, {
     isWindowFocused: Effect.succeed(false),
+    playSound: Effect.void,
     notify: input => {
       sent.push({ ...input });
       return Effect.void;

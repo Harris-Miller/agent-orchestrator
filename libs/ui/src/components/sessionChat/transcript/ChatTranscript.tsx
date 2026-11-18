@@ -9,12 +9,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
-import { activateSessionAtomFn, chatWidthAtom, respondPermissionAtomFn } from '../../../atoms/boundHarnessAtoms.ts';
+import { activateSessionAtomFn, respondPermissionAtomFn } from '../../../atoms/boundHarnessAtoms.ts';
 import { isUsablePhase } from '../../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel } from '../../../host/agentLaunchTarget.ts';
 import { hasPendingInteraction } from '../../../host/pendingInteractions.ts';
 import { describeError } from '../../../host/requestError.ts';
-import { chatWidthSx } from '../chatWidth.ts';
+import { useChatWidthSx } from '../chatWidth.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 import { ChatItemView } from './ChatItemView.tsx';
@@ -34,7 +34,7 @@ export const ChatTranscript: FC<{
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
 
-  const chatWidth = useAtomValue(chatWidthAtom);
+  const chatWidthSx = useChatWidthSx();
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
 
@@ -120,7 +120,7 @@ export const ChatTranscript: FC<{
       // No top padding: sticky Work region headers stick at the padding edge, and content would show above them.
       sx={{ bgcolor: 'transparent', flex: 1, minHeight: 0, overflow: 'auto', pb: 0.5, pt: 0, px: 0.5 }}
     >
-      <List dense disablePadding sx={chatWidthSx(chatWidth)}>
+      <List dense disablePadding sx={chatWidthSx}>
         {showVirtualEmptyState ? (
           virtualEmptyState
         ) : isChatEmpty ? (

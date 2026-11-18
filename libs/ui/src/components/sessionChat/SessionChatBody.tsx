@@ -3,8 +3,7 @@ import Box from '@mui/material/Box';
 import type { FC, ReactNode } from 'react';
 
 import { subagentViewAtom } from '../../atoms/backendState.atoms.ts';
-import { chatWidthAtom } from '../../atoms/boundHarnessAtoms.ts';
-import { chatWidthSx } from './chatWidth.ts';
+import { useChatWidthSx } from './chatWidth.ts';
 import { Composer } from './composer/Composer.tsx';
 import { usePreloadSessionFsListing } from './composer/menu/usePreloadSessionFsListing.ts';
 import { PendingElicitationDock } from './pendingInteractions/PendingElicitationDock.tsx';
@@ -17,7 +16,7 @@ const SessionChatBodyInner: FC<{
   readonly virtualEmptyState?: ReactNode;
 }> = ({ aboveComposer, virtualEmptyState }) => {
   usePreloadSessionFsListing();
-  const chatWidth = useAtomValue(chatWidthAtom);
+  const chatWidthSx = useChatWidthSx();
 
   return (
     <Box
@@ -35,7 +34,7 @@ const SessionChatBodyInner: FC<{
       }}
     >
       <ChatTranscript virtualEmptyState={virtualEmptyState} />
-      <Box sx={{ ...chatWidthSx(chatWidth), display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+      <Box sx={{ ...chatWidthSx, display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
         <PendingElicitationDock />
         <Composer aboveComposer={aboveComposer} />
       </Box>

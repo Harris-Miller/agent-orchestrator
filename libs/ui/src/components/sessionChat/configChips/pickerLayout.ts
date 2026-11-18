@@ -1,7 +1,7 @@
-/** Rough px sizes of the right pane's pieces (dense MenuItem, Options row + gap, headers, paddings). */
-const REASONING_ROW = 32;
-const OPTION_ROW = 40;
-const HEADERS_AND_PADDING = 40 + 8 + 1 + 32 + 16;
+/** Measured px of the right pane's pieces (dense MenuItem, Options row pitch, headers + paddings + divider). */
+const REASONING_ROW = 28.5;
+const OPTION_ROW = 28;
+const HEADERS_AND_PADDING = 78;
 /** Search box above the model list. */
 const SEARCH_BOX = 41;
 

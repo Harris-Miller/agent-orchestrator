@@ -32,7 +32,7 @@ _Avoid_: toast service, plugin-notification, `new Notification` (when you mean t
 The OS toast a Notifier raises for an Attention event. Title is the session's chat title; body is a fixed phrase, never agent text. See `@lib/ui` Attention event.
 
 **Notification sound**:
-The sound that accompanies an Attention event, independent of Notifications. With Notifications on it is the system sound attached to the Notification (`sound: true`; a silent Notification is `sound: false`); with Notifications off it is a chime the app plays itself (`playSound`).
+The sound that accompanies an Attention event, independent of Notifications. With Notifications on it is the system sound attached to the Notification (`sound: true`; a silent Notification is `sound: false`); with Notifications off it is a chime the app plays itself.
 
 **OpenUrl** (service):
 The host capability to open an absolute http(s) URL in the system default browser / handler (`open`). Used for Antigravity Sign in, chat Markdown links, and similar external auth flows — not ACP elicitation URL mode.

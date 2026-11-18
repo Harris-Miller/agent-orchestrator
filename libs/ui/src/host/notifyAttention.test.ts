@@ -120,6 +120,15 @@ describe('notifyAttention', () => {
     }),
   );
 
+  it.effect('notifications on + sound off: one silent notification, no standalone sound', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: false, settings: { notificationSoundEnabled: false } });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sent, [{ body: 'Needs permission', sound: false, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sounds, []);
+    }),
+  );
+
   it.effect('sound off sends a silent notification', () =>
     Effect.gen(function* () {
       const h = harness({ focused: false, settings: { notificationSoundEnabled: false } });

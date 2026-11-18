@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
-import { listAllSessions, SessionListPagingError } from './listAllSessions.ts';
+import { listAllSessions, RepeatedSessionListCursor, TooManySessionListPages } from './listAllSessions.ts';
 
 type Page = { readonly sessions: readonly { sessionId: string; cwd: string }[]; readonly nextCursor?: string };
 const s = (id: string) => ({ sessionId: id, cwd: '/w' });
@@ -63,8 +63,24 @@ describe('listAllSessions', () => {
         c1: { sessions: [s('b')], nextCursor: 'c1' },
       });
       const error = yield* Effect.flip(listAllSessions(agent, {}));
-      assert.instanceOf(error, SessionListPagingError);
-      assert.strictEqual(error.reason, 'RepeatedCursor');
+      assert.instanceOf(error, RepeatedSessionListCursor);
+      assert.strictEqual(error.cursor, 'c1');
+    }),
+  );
+
+  it.effect('an agent that always returns a fresh cursor fails at the page cap', () =>
+    Effect.gen(function* () {
+      let calls = 0;
+      const agent = {
+        'session/list': () =>
+          Effect.sync(() => {
+            calls += 1;
+            return { sessions: [s('x')], nextCursor: `c${calls}` };
+          }),
+      } as unknown as Parameters<typeof listAllSessions>[0];
+      const error = yield* Effect.flip(listAllSessions(agent, {}));
+      assert.instanceOf(error, TooManySessionListPages);
+      assert.strictEqual(error.pages, calls);
     }),
   );
 });

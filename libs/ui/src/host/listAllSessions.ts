@@ -2,11 +2,17 @@ import type { AcpAgentConnection, ListSessionsResponse } from '@libs/effect-acp'
 import { Effect, Schema } from 'effect';
 
 /** Safety cap on `session/list` pages followed in one call. */
-export const MAX_LIST_PAGES = 100;
+const MAX_LIST_PAGES = 100;
 
-export class SessionListPagingError extends Schema.TaggedError<SessionListPagingError>()('SessionListPagingError', {
-  reason: Schema.Literals(['RepeatedCursor', 'TooManyPages']),
-  cursor: Schema.optional(Schema.String),
+/** The agent kept returning a `nextCursor` already followed. */
+export class RepeatedSessionListCursor extends Schema.TaggedError<RepeatedSessionListCursor>()(
+  'RepeatedSessionListCursor',
+  { cursor: Schema.String },
+) {}
+
+/** The agent kept paging past `MAX_LIST_PAGES`. */
+export class TooManySessionListPages extends Schema.TaggedError<TooManySessionListPages>()('TooManySessionListPages', {
+  pages: Schema.Number,
 }) {}
 
 type ListAgent = Pick<AcpAgentConnection['agent'], 'session/list'>;
@@ -22,7 +28,7 @@ export const listAllSessions = Effect.fnUntraced(function* (agent: ListAgent, pa
   let cursor: string | undefined;
   for (let page = 0; ; page += 1) {
     if (page >= MAX_LIST_PAGES) {
-      return yield* new SessionListPagingError({ reason: 'TooManyPages', cursor });
+      return yield* new TooManySessionListPages({ pages: page });
     }
     const response = yield* agent['session/list'](cursor === undefined ? payload : { ...payload, cursor });
     sessions.push(...response.sessions);
@@ -31,7 +37,7 @@ export const listAllSessions = Effect.fnUntraced(function* (agent: ListAgent, pa
       return { ...rest, sessions };
     }
     if (seen.has(nextCursor)) {
-      return yield* new SessionListPagingError({ reason: 'RepeatedCursor', cursor: nextCursor });
+      return yield* new RepeatedSessionListCursor({ cursor: nextCursor });
     }
     seen.add(nextCursor);
     cursor = nextCursor;

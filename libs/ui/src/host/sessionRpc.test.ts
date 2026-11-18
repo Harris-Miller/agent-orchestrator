@@ -14,6 +14,19 @@ const fakeConnection = (name: string) =>
     agent: { 'session/list': () => Effect.succeed({ name, sessions: [] }) },
   }) as unknown as Parameters<typeof registerBackendConnection>[1];
 
+/** Connection whose `session/list` serves `pages` by cursor ('' = first); a page of `'fail'` fails. */
+const pagedConnection = (
+  pages: Record<string, { sessions: { sessionId: string; cwd: string }[]; nextCursor?: string } | 'fail'>,
+) =>
+  ({
+    agent: {
+      'session/list': (req: { cursor?: string }) => {
+        const page = pages[req.cursor ?? ''];
+        return page === 'fail' ? Effect.fail(new Error('boom')) : Effect.succeed(page);
+      },
+    },
+  }) as unknown as Parameters<typeof registerBackendConnection>[1];
+
 const recordingReports = (events: string[]): BackendConnectionReports => ({
   onConfigIndexEvent: () => undefined,
   onConnectionLost: () => {
@@ -57,6 +70,38 @@ describe('registerBackendConnection', () => {
       assert.deepStrictEqual(eventsB, ['lost']);
       const error = yield* Effect.flip(listedName);
       assert.instanceOf(error, BackendNotConnected);
+    }),
+  );
+
+  it.effect('listSessions merges every page of the agent list', () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make();
+      const s = (sessionId: string) => ({ sessionId, cwd: '/w' });
+      yield* registerBackendConnection(
+        LT,
+        pagedConnection({ '': { sessions: [s('a')], nextCursor: 'c1' }, c1: { sessions: [s('b')] } }),
+        recordingReports([]),
+      ).pipe(Scope.provide(scope));
+      const result = yield* listSessions(LT, listPayload);
+      assert.deepStrictEqual(
+        result.sessions.map(x => x.sessionId),
+        ['a', 'b'],
+      );
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('listSessions fails when a later page fails', () =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make();
+      yield* registerBackendConnection(
+        LT,
+        pagedConnection({ '': { sessions: [{ sessionId: 'a', cwd: '/w' }], nextCursor: 'c1' }, c1: 'fail' }),
+        recordingReports([]),
+      ).pipe(Scope.provide(scope));
+      const exit = yield* Effect.exit(listSessions(LT, listPayload));
+      assert.isTrue(Exit.isFailure(exit));
+      yield* Scope.close(scope, Exit.void);
     }),
   );
 });

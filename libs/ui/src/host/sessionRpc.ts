@@ -13,6 +13,7 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { rootAncestor } from './ancestry.ts';
 import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { beginMcp, revokeLaunchTargetMcp, revokeSessionMcp } from './hubSessions.ts';
+import { listAllSessions } from './listAllSessions.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
@@ -126,7 +127,7 @@ const requireBackendConnection = (
 export const listSessions = Effect.fn('listSessions')(
   function* (launchTarget: AgentLaunchTarget, payload: ListSessionsPayload) {
     const { agent } = yield* requireBackendConnection(launchTarget);
-    return yield* agent['session/list'](payload);
+    return yield* listAllSessions(agent, payload);
   },
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),

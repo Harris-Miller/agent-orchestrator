@@ -30,6 +30,7 @@ import { runConfigProbe } from './configProbe.ts';
 import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
+import { listAllSessions } from './listAllSessions.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
 import type { BackendConnectionReports } from './sessionRpc.ts';
 import { registerBackendConnection, setBackendMcpHttp } from './sessionRpc.ts';
@@ -164,7 +165,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     const listPayload = listSessionsPayload(listScope);
     if (listPayload !== undefined) {
       handlers.onSessionHistoryRequest();
-      const listResult = yield* agent['session/list'](listPayload);
+      const listResult = yield* listAllSessions(agent, listPayload);
       handlers.onSessionHistoryResult(listResult, listScope);
     }
     handlers.onPhase('ready');

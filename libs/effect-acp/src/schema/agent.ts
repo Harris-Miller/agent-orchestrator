@@ -48,6 +48,7 @@ const ListSessionsMetaField = optional(
         air: Schema.Struct({
           list: Schema.Struct({
             archived: Schema.Literals(['unarchived', 'archived', 'all']),
+            limit: optional(Schema.Number),
           }),
           version: Schema.Literal(1),
         }),

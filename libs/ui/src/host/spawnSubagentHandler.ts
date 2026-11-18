@@ -12,7 +12,8 @@ import { AtomRegistry } from 'effect/reactivity';
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { cancelPromptTurn, sessionById } from '../atoms/promptTurn.ts';
 import { SpawnSubagentError, startSpawnedSubagent } from '../atoms/spawnedSubagent.ts';
-import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
+import { childrenOf } from '../atoms/subagentLinkRegistry.ts';
+import type { SubagentOutcome } from '../atoms/subagentLinkRegistry.ts';
 import { awaitOutcomeEntry, startReporter, takeOutcomeAsToolResult } from '../atoms/subagentOutcome.ts';
 import { usableSubagentTarget } from '../atoms/subagentTargets.atoms.ts';
 
@@ -22,8 +23,6 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { hubToolHandler, toolError } from './hubToolHandler.ts';
 import type { HubToolCaller } from './hubToolHandler.ts';
 import { getPromptSpan } from './sessionRpc.ts';
-import { linksOfParent } from './subagentLinks.ts';
-import type { SubagentOutcome } from './subagentLinks.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
 
@@ -149,7 +148,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
 
 export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, caller, ctx) =>
   Effect.gen(function* () {
-    const links = linksOfParent(ctx.registry.get(spawnedLinksAtom), caller.launchTarget, caller.sessionId);
+    const links = childrenOf(ctx.registry, caller);
     const children = args.ids.map(id => links.find(link => link.childSessionId === id));
     const unknown = args.ids.filter((_id, index) => children[index] === undefined);
     if (unknown.length > 0) {
@@ -167,9 +166,7 @@ export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, calle
 
 export const cancelSubagentHandler = hubToolHandler(CancelSubagentArgs, (args, caller, ctx) =>
   Effect.gen(function* () {
-    const link = linksOfParent(ctx.registry.get(spawnedLinksAtom), caller.launchTarget, caller.sessionId).find(
-      candidate => candidate.childSessionId === args.subagentId,
-    );
+    const link = childrenOf(ctx.registry, caller).find(candidate => candidate.childSessionId === args.subagentId);
     if (link === undefined) {
       return toolError(`You have no subagent with id ${JSON.stringify(args.subagentId)}.`);
     }

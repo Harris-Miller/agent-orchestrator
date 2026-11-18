@@ -3,29 +3,24 @@ import { Deferred, Duration, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { addLink, linkOfChild } from '../host/subagentLinks.ts';
-import type { SpawnedHandleState, SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
-
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { attach, claimHandle, linkOf, reserveSlot } from './subagentLinkRegistry.ts';
+import type { SpawnedHandleState, SubagentOutcome } from './subagentLinkRegistry.ts';
 import { awaitOutcomeEntry, buildSubagentReport, startReporter, takeOutcomeAsToolResult } from './subagentOutcome.ts';
 
 const child = { launchTarget: 'claude-agent-acp', sessionId: 'c1' } as const;
 
 const setup = (handleState: SpawnedHandleState = 'open') => {
   const registry = AtomRegistry.make();
-  const link: SpawnedLink = {
-    childLaunchTarget: 'claude-agent-acp',
-    childSessionId: 'c1',
-    description: 'd',
-    handleState,
-    outcome: Deferred.makeUnsafe<SubagentOutcome>(),
-    parentLaunchTarget: 'codex-acp',
-    parentSessionId: 'p1',
-    task: 't',
-  };
-  registry.update(spawnedLinksAtom, links => addLink(links, link));
-  const state = () => linkOfChild(registry.get(spawnedLinksAtom), 'claude-agent-acp', 'c1')?.handleState;
+  const slot = reserveSlot(registry, { launchTarget: 'codex-acp', sessionId: 'p1' });
+  if (slot === undefined) {
+    throw new Error('no slot');
+  }
+  const link = slot.register({ child, description: 'd', task: 't' });
+  if (handleState !== 'open') {
+    claimHandle(registry, child, handleState);
+  }
+  const state = () => linkOf(registry, child)?.handleState;
   return { link, registry, state };
 };
 
@@ -155,12 +150,9 @@ describe('startReporter', () => {
     Effect.gen(function* () {
       const { registry } = setup();
       const first = yield* Effect.forkChild(Effect.never);
-      registry.update(spawnedLinksAtom, links => {
-        const existing = linkOfChild(links, 'claude-agent-acp', 'c1');
-        return existing === undefined ? links : addLink(links, { ...existing, reporter: first });
-      });
+      attach(registry, child, { reporter: first });
       yield* startReporter(registry, child);
-      assert.strictEqual(linkOfChild(registry.get(spawnedLinksAtom), 'claude-agent-acp', 'c1')?.reporter, first);
+      assert.strictEqual(linkOf(registry, child)?.reporter, first);
     }).pipe(Effect.provide(mockHostLayer)),
   );
 });

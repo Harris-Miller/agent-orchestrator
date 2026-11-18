@@ -17,7 +17,7 @@ import { makeHarnessEventFold } from '../atoms/harnessEventFold.ts';
 import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { endLink } from '../atoms/spawnedSubagent.ts';
-import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
+import { allLinks } from '../atoms/subagentLinkRegistry.ts';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { configOptionIndexFromProbeResponses } from './configOptionIndexFixtures.ts';
@@ -68,7 +68,7 @@ export const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {},
   const childCalls: string[] = [];
   yield* installFakeAgent(childCalls, { reports: childFold, ...childOpts }, CLAUDE);
   yield* Effect.addFinalizer(() =>
-    Effect.forEach([...registry.get(spawnedLinksAtom).values()], link =>
+    Effect.forEach(allLinks(registry), link =>
       endLink(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId }),
     ),
   );

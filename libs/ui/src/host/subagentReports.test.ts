@@ -10,7 +10,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { advertise, CODEX } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { select } from '../atoms/virtualSession.atoms.ts';
-import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
+import { allLinks } from '../atoms/subagentLinkRegistry.ts';
 
 import { answer, CHILD, PARENT, setup, until } from './spawnSubagent.testing.ts';
 
@@ -263,7 +263,7 @@ describe('cancel_subagent', () => {
       assert.include(h.childCalls, `cancel:${CHILD}`);
 
       yield* Deferred.succeed(release, null);
-      const [link] = [...h.registry.get(spawnedLinksAtom).values()];
+      const [link] = allLinks(h.registry);
       assert.strictEqual((yield* Deferred.await(link.outcome)).status, 'cancelled');
       assert.include((yield* h.call('cancel_subagent', { subagentId: CHILD })).text, 'already finished');
     }).pipe(Effect.scoped),

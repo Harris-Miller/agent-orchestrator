@@ -14,7 +14,7 @@ import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { allLinks } from './subagentLinkRegistry.ts';
 
 const SECOND = 'claude-2';
 
@@ -51,7 +51,7 @@ describe('ending a parent ends its children', () => {
 
       assert.includeMembers(h.childCalls, [`cancel:${CHILD}`, `cancel:${SECOND}`, `close:${CHILD}`, `close:${SECOND}`]);
       assert.notInclude(h.childCalls, `delete:${CHILD}`);
-      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 0);
+      assert.strictEqual(allLinks(h.registry).length, 0);
       assert.deepStrictEqual(h.mirrors(), ['cancelled', 'cancelled']);
       const child = h.registry.get(backendHarnessSnapshotAtom('claude-agent-acp')).sessions[CHILD];
       assert.strictEqual(child.status, 'inactive');
@@ -71,7 +71,7 @@ describe('ending a parent ends its children', () => {
       assert.includeMembers(h.childCalls, [`close:${CHILD}`, `close:${SECOND}`]);
       assert.notInclude(h.childCalls, `delete:${CHILD}`);
       assert.notInclude(h.childCalls, `delete:${SECOND}`);
-      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 0);
+      assert.strictEqual(allLinks(h.registry).length, 0);
       yield* Deferred.succeed(h.release, null);
     }).pipe(Effect.scoped),
   );
@@ -84,7 +84,7 @@ describe('ending a parent ends its children', () => {
       yield* until(() => h.childCalls.includes(`cancel:${CHILD}`));
 
       assert.notInclude(h.childCalls, `cancel:${SECOND}`);
-      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 2);
+      assert.strictEqual(allLinks(h.registry).length, 2);
       yield* Deferred.succeed(h.release, null);
     }).pipe(Effect.scoped),
   );
@@ -101,7 +101,7 @@ describe('ending a parent ends its children', () => {
       });
 
       parentFold.onConnectionLost();
-      yield* until(() => h.registry.get(spawnedLinksAtom).size === 0);
+      yield* until(() => allLinks(h.registry).length === 0);
 
       assert.includeMembers(h.childCalls, [`close:${CHILD}`, `close:${SECOND}`]);
       yield* Deferred.succeed(h.release, null);
@@ -147,7 +147,7 @@ describe('a finished child', () => {
 
       const mirror = getSubagent(h.registry.get(backendHarnessSnapshotAtom(CODEX)).subagents, CHILD);
       assert.strictEqual(mirror?.state?.state, 'completed');
-      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 0);
+      assert.strictEqual(allLinks(h.registry).length, 0);
     }).pipe(Effect.scoped),
   );
 });

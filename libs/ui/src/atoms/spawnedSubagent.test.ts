@@ -29,7 +29,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { endLink, SpawnSubagentError, startSpawnedSubagent } from './spawnedSubagent.ts';
-import { pendingSpawnsAtom, spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { allLinks, slotsInUse } from './subagentLinkRegistry.ts';
 
 const CHILD = 'claude-1';
 const PARENT = 'bound-1';
@@ -90,7 +90,7 @@ const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
   const prompts: string[] = [];
   yield* installFakeAgent(childCalls, { promptTexts: prompts, reports: childFold, ...childOpts }, CLAUDE);
   yield* Effect.addFinalizer(() =>
-    Effect.forEach([...registry.get(spawnedLinksAtom).values()], link =>
+    Effect.forEach(allLinks(registry), link =>
       endLink(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId }),
     ),
   );
@@ -344,7 +344,7 @@ describe('Session History of a Spawned subagent session', () => {
 
 describe('startSpawnedSubagent refusals', () => {
   const left = (h: Effect.Success<ReturnType<typeof setup>>) => ({
-    link: h.registry.get(spawnedLinksAtom).size,
+    link: allLinks(h.registry).length,
     mirror: h.mirror(),
     root: h.root(),
     history: registryHistory(h.registry),
@@ -399,11 +399,11 @@ describe('startSpawnedSubagent refusals', () => {
       const h = yield* setup({ duringSetConfig: Effect.never });
       const fiber = yield* Effect.forkChild(h.start());
       yield* until(() => h.childCalls.includes(`set:model:o1`));
-      assert.strictEqual(h.registry.get(spawnedLinksAtom).size, 1);
+      assert.strictEqual(allLinks(h.registry).length, 1);
       yield* Fiber.interrupt(fiber);
       assert.include(h.childCalls, `close:${CHILD}`);
       assert.deepStrictEqual(left(h), { history: [], link: 0, mirror: undefined, root: undefined });
-      assert.strictEqual(h.registry.get(pendingSpawnsAtom).get(`${CODEX}\u0000${PARENT}`) ?? 0, 0);
+      assert.strictEqual(slotsInUse(h.registry, { launchTarget: CODEX, sessionId: PARENT }), 0);
     }).pipe(Effect.scoped),
   );
 

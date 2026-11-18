@@ -5,7 +5,7 @@ import { TestClock } from 'effect/testing';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { CODEX, enableProviders } from '../atoms/fakeAgent.testing.ts';
-import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
+import { allLinks } from '../atoms/subagentLinkRegistry.ts';
 
 import { getSubagent } from './subagent.ts';
 import { answer, CHILD, setup, until } from './spawnSubagent.testing.ts';
@@ -244,7 +244,7 @@ describe('spawn_subagent (foreground)', () => {
       for (let i = 0; i < 30; i += 1) {
         yield* Effect.yieldNow;
       }
-      const [link] = [...h.registry.get(spawnedLinksAtom).values()];
+      const [link] = allLinks(h.registry);
       assert.strictEqual(link.handleState, 'reported');
       assert.strictEqual(parentPrompts.length, 1);
     }).pipe(Effect.scoped),
@@ -274,7 +274,7 @@ describe('spawn_subagent (foreground)', () => {
 
       yield* Fiber.interrupt(call);
       yield* Deferred.succeed(release, null);
-      const [link] = [...h.registry.get(spawnedLinksAtom).values()];
+      const [link] = allLinks(h.registry);
       assert.deepStrictEqual(yield* Deferred.await(link.outcome), { status: 'completed', text: 'kept going' });
       const mirror = getSubagent(h.registry.get(backendHarnessSnapshotAtom(CODEX)).subagents, CHILD);
       assert.strictEqual(mirror?.state?.state, 'completed');

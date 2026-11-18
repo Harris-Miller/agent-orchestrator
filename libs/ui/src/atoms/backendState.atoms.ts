@@ -16,11 +16,10 @@ import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent } from '../host/subagent.ts';
-import { isLinked } from '../host/subagentLinks.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { isChildIn, subagentLinksAtom } from './subagentLinkRegistry.ts';
 import {
   showArchivedAtom,
   unwrapUserSettings,
@@ -111,11 +110,11 @@ export const requireLaunchTargetUsable = (get: AtomGetter, launchTarget: AgentLa
 
 /** Every launch target's Session History rows, except Spawned subagent sessions while their link is live (ADR 0011). */
 export const unifiedSessionHistoryAtom = Atom.make(get => {
-  const links = get(spawnedLinksAtom);
+  const links = get(subagentLinksAtom);
   const entries: UnifiedHistoryEntry[] = [];
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     for (const entry of get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory) {
-      if (!isLinked(links, launchTarget, entry.sessionId)) {
+      if (!isChildIn(links, { launchTarget, sessionId: entry.sessionId })) {
         entries.push({ ...entry, launchTarget });
       }
     }

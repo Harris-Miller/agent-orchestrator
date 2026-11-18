@@ -6,7 +6,7 @@
  */
 import { MAX_SUBAGENT_TEXT_CHARS } from '@lib/hub/protocol';
 import type { HostServices } from '@lib/context-services';
-import { Clock, DateTime, Deferred, Effect, Exit, Fiber, Schema, Stream } from 'effect';
+import { Clock, DateTime, Deferred, Effect, Exit, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../host/acpSessionBootstrap.ts';
@@ -27,20 +27,6 @@ import {
 import { describeError } from '../host/requestError.ts';
 import { createSession } from '../host/sessionRpc.ts';
 import { lastAgentMessage } from '../host/sessionUpdateReducer.ts';
-import {
-  addLink,
-  linkKey,
-  linkOfChild,
-  linksOfParent,
-  liveChildCount,
-  MAX_LIVE_CHILDREN,
-  MAX_SPAWN_DEPTH,
-  removeLink,
-  spawnDepth,
-  subagentHistoryTitle,
-  updateLink,
-} from '../host/subagentLinks.ts';
-import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
 import { validateSubagentConfig } from '../host/subagentTargets.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -48,7 +34,17 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { cancelPromptTurn, sendPromptTurn, sessionById, sessionIn } from './promptTurn.ts';
 import type { PromptTurnResult } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
-import { pendingSpawnsAtom, spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import {
+  allLinks,
+  atMaxSpawnDepth,
+  attach,
+  childrenOf,
+  end,
+  linkOf,
+  MAX_LIVE_CHILDREN,
+  reserveSlot,
+} from './subagentLinkRegistry.ts';
+import type { SpawnedLink, SubagentOutcome } from './subagentLinkRegistry.ts';
 import { usableSubagentTarget } from './subagentTargets.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -94,8 +90,11 @@ const projectOnce = (registry: Registry, link: SpawnedLink): void => {
   );
 };
 
-const stopProjection = (link: SpawnedLink | undefined) =>
-  link?.projection === undefined ? Effect.void : Fiber.interrupt(link.projection);
+/** A Session History title for a child that left its link: the first line of its task. */
+const subagentHistoryTitle = (task: string): string => {
+  const line = (task.split('\n').find(candidate => candidate.trim() !== '') ?? '').trim().replace(/\s+/g, ' ');
+  return line.length <= 80 ? line : `${line.slice(0, 79)}…`;
+};
 
 /**
  * End a link: its projection stops and it leaves the registry. The mirror stays (the transcript stays viewable) unless
@@ -106,14 +105,9 @@ export const endLink = Effect.fnUntraced(function* (
   child: SessionRef,
   options: { readonly dropMirror?: true } = {},
 ) {
-  const link = linkOfChild(registry.get(spawnedLinksAtom), child.launchTarget, child.sessionId);
+  const link = yield* end(registry, child);
   if (link === undefined) {
     return;
-  }
-  registry.update(spawnedLinksAtom, links => removeLink(links, child.launchTarget, child.sessionId));
-  yield* stopProjection(link);
-  if (link.reporter !== undefined) {
-    yield* Fiber.interrupt(link.reporter);
   }
   if (options.dropMirror === true) {
     updateHarnessSnapshot(registry, link.parentLaunchTarget, current => dropMirror(current, link.childSessionId));
@@ -226,8 +220,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
   if (task === '') {
     return yield* refuse('The task must not be empty.');
   }
-  const existing = registry.get(spawnedLinksAtom);
-  if (spawnDepth(existing, parent.launchTarget, parent.sessionId) >= MAX_SPAWN_DEPTH) {
+  if (atMaxSpawnDepth(registry, parent)) {
     return yield* refuse('A subagent cannot start subagents of its own.');
   }
   const parentSnapshot = registry.get(backendHarnessSnapshotAtom(parent.launchTarget));
@@ -252,40 +245,20 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
 
   // The cap check and the slot's reservation are one synchronous step: parallel spawns cannot all pass the check
   // while `createSession` runs. The slot is released as the link is written (it counts from then), or on failure.
-  const reserveKey = linkKey(parent.launchTarget, parent.sessionId);
-  const adjustPending = (delta: 1 | -1) =>
-    registry.update(pendingSpawnsAtom, pending =>
-      new Map(pending).set(reserveKey, (pending.get(reserveKey) ?? 0) + delta),
-    );
-  const reserved = registry.modify(pendingSpawnsAtom, pending => {
-    const live = liveChildCount(registry.get(spawnedLinksAtom), parent.launchTarget, parent.sessionId);
-    const taken = live + (pending.get(reserveKey) ?? 0) < MAX_LIVE_CHILDREN;
-    return [taken, taken ? new Map(pending).set(reserveKey, (pending.get(reserveKey) ?? 0) + 1) : pending] as const;
-  });
-  if (!reserved) {
+  const slot = reserveSlot(registry, parent);
+  if (slot === undefined) {
     return yield* refuse(
       `You already have ${MAX_LIVE_CHILDREN} subagents running. Wait for one to finish (wait_subagent) before starting another.`,
     );
   }
   const created = yield* createSession(input.launchTarget, cwd).pipe(
-    Effect.onError(() => Effect.sync(() => adjustPending(-1))),
+    Effect.onError(() => Effect.sync(slot.release)),
     Effect.mapError(error =>
       refuse(`Could not start a session on ${agentLaunchTargetLabel(input.launchTarget)}: ${describeError(error)}`),
     ),
   );
   const child = { launchTarget: input.launchTarget, sessionId: created.result.sessionId } as const;
-  const link: SpawnedLink = {
-    childLaunchTarget: child.launchTarget,
-    childSessionId: child.sessionId,
-    description: input.description,
-    handleState: 'open',
-    outcome: Deferred.makeUnsafe<SubagentOutcome>(),
-    parentLaunchTarget: parent.launchTarget,
-    parentSessionId: parent.sessionId,
-    task,
-  };
-  registry.update(spawnedLinksAtom, links => addLink(links, link));
-  adjustPending(-1);
+  const link = slot.register({ child, description: input.description, task });
   // The hub connection can drop mid-setup (interrupting this handler): whatever was written is torn down then too.
   return yield* Effect.gen(function* () {
     if (!parentIsActive(registry, parent)) {
@@ -307,7 +280,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
       Stream.runForEach(() => Effect.sync(() => projectOnce(registry, link))),
       Effect.forkDetach,
     );
-    registry.update(spawnedLinksAtom, links => updateLink(links, child.launchTarget, child.sessionId, { projection }));
+    attach(registry, child, { projection });
 
     const configured = yield* applySessionConfigValues(registry, child, input.configOptions);
     if (configured.stoppedEarly) {
@@ -319,10 +292,7 @@ export const startSpawnedSubagent = Effect.fn('startSpawnedSubagent')(function* 
     return { childSessionId: child.sessionId, outcome: link.outcome };
   }).pipe(
     Effect.onExit(exit =>
-      Exit.isSuccess(exit) ||
-      linkOfChild(registry.get(spawnedLinksAtom), child.launchTarget, child.sessionId) === undefined
-        ? Effect.void
-        : abandonSpawn(registry, child),
+      Exit.isSuccess(exit) || linkOf(registry, child) === undefined ? Effect.void : abandonSpawn(registry, child),
     ),
   );
 });
@@ -341,14 +311,14 @@ const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedL
 
 /** The parent session was closed or deleted: every child it started ends with it. */
 export const endLinksOfParent = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {
-  for (const link of linksOfParent(registry.get(spawnedLinksAtom), parent.launchTarget, parent.sessionId)) {
+  for (const link of childrenOf(registry, parent)) {
     yield* endChild(registry, link, 'The parent session ended.');
   }
 });
 
 /** The parent's launch target lost its Backend connection: its sessions died with it, and so do their children. */
 const endLinksOfParentTarget = Effect.fnUntraced(function* (registry: Registry, launchTarget: AgentLaunchTarget) {
-  for (const link of registry.get(spawnedLinksAtom).values()) {
+  for (const link of allLinks(registry)) {
     if (link.parentLaunchTarget === launchTarget) {
       yield* endChild(registry, link, 'The parent session ended.');
     }
@@ -360,7 +330,7 @@ const endLinksOfParentTarget = Effect.fnUntraced(function* (registry: Registry, 
  * parent living on it ends. Returns the work that ends the children of the lost parents.
  */
 export const onLaunchTargetConnectionLost = (registry: Registry, launchTarget: AgentLaunchTarget) => {
-  for (const link of registry.get(spawnedLinksAtom).values()) {
+  for (const link of allLinks(registry)) {
     if (link.childLaunchTarget === launchTarget) {
       settleLink(registry, link, {
         status: 'failed',

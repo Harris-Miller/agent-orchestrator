@@ -33,14 +33,13 @@ import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
-import { linkOfChild } from '../host/subagentLinks.ts';
 import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { linkOf } from './subagentLinkRegistry.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
@@ -112,7 +111,7 @@ export const makeHarnessEventFold = ({
       return [raised, raised];
     });
     // A Spawned subagent session is a root here, but the user knows it as a child: name it under its parent's title.
-    const link = linkOfChild(registry.get(spawnedLinksAtom), launchTarget, sessionId);
+    const link = linkOf(registry, { launchTarget, sessionId });
     runFork(
       link === undefined
         ? notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event)

@@ -14,13 +14,12 @@ import type { SessionRef } from '../host/agentLaunchTarget.ts';
 import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
 import { toolError } from '../host/hubToolHandler.ts';
 import type { HubToolResult } from '../host/hubToolHandler.ts';
-import { claimHandle, linkOfChild, updateLink } from '../host/subagentLinks.ts';
-import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { awaitQueuedMessageTaken, hasQueuedMessage } from './composer.atoms.ts';
 import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn } from './promptTurn.ts';
-import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
+import { attach, claimHandle, linkOf } from './subagentLinkRegistry.ts';
+import type { SpawnedLink, SubagentOutcome } from './subagentLinkRegistry.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -38,10 +37,6 @@ const childRef = (link: SpawnedLink): SessionRef => ({
   launchTarget: link.childLaunchTarget,
   sessionId: link.childSessionId,
 });
-
-/** Take the outcome's hand-over for `by` while it is still open. True when this call took it. */
-const claimOutcome = (registry: Registry, child: SessionRef, by: 'reported' | 'waited'): boolean =>
-  registry.modify(spawnedLinksAtom, links => claimHandle(links, child.launchTarget, child.sessionId, by));
 
 const MAX_REPORTED_TASK_CHARS = 1000;
 
@@ -67,7 +62,7 @@ export const takeOutcomeAsToolResult = (
   child: SessionRef,
   outcome: SubagentOutcome,
 ): HubToolResult => {
-  claimOutcome(registry, child, 'waited');
+  claimHandle(registry, child, 'waited');
   if (hasNoFinalMessage(outcome)) {
     return toolError(NO_FINAL_MESSAGE);
   }
@@ -89,7 +84,7 @@ export const awaitOutcomeEntry = (registry: Registry, link: SpawnedLink, bound: 
       if (outcome._tag === 'None') {
         return `<subagent id="${link.childSessionId}" status="running" />`;
       }
-      claimOutcome(registry, childRef(link), 'waited');
+      claimHandle(registry, childRef(link), 'waited');
       const { status, text } = asAgentOutcome(outcome.value);
       return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
     }),
@@ -124,8 +119,7 @@ const parentSession = (registry: Registry, link: SpawnedLink) =>
 
 /** The parent can still be told something: it exists, is active, and the link has not ended. */
 const parentReachable = (registry: Registry, link: SpawnedLink): boolean =>
-  parentSession(registry, link)?.status === 'active' &&
-  linkOfChild(registry.get(spawnedLinksAtom), link.childLaunchTarget, link.childSessionId) !== undefined;
+  parentSession(registry, link)?.status === 'active' && linkOf(registry, childRef(link)) !== undefined;
 
 /** Resolves once the parent's Prompt turn is in flight (our Send began) or its fiber ended first. */
 const awaitTurnBegun = (registry: Registry, link: SpawnedLink) =>
@@ -207,7 +201,7 @@ const deliver = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome
       // The outcome is handed over at the moment of sending, so a `wait_subagent` until then suppresses the report.
       let claimed = false;
       const claim = () => {
-        claimed ||= claimOutcome(registry, childRef(link), 'reported');
+        claimed ||= claimHandle(registry, childRef(link), 'reported');
         return claimed;
       };
       for (let attempts = 0; attempts < MAX_DELIVERY_ATTEMPTS; attempts += 1) {
@@ -234,12 +228,10 @@ const reportWhenDone = Effect.fnUntraced(function* (registry: Registry, link: Sp
 
 /** Start reporting for a child (no-op if its link is gone or already has a reporter); it ends with the link. */
 export const startReporter = Effect.fnUntraced(function* (registry: Registry, child: SessionRef) {
-  const link = linkOfChild(registry.get(spawnedLinksAtom), child.launchTarget, child.sessionId);
+  const link = linkOf(registry, child);
   if (link === undefined || link.reporter !== undefined) {
     return;
   }
   const reporter = yield* Effect.forkDetach(reportWhenDone(registry, link));
-  registry.update(spawnedLinksAtom, links =>
-    updateLink(links, link.childLaunchTarget, link.childSessionId, { reporter }),
-  );
+  attach(registry, child, { reporter });
 });

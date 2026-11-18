@@ -565,6 +565,20 @@ const materialize = Effect.fn('materialize')(
       yield* Effect.logWarning('materialize Config diffs stopped early', launchTarget, sessionId);
     }
 
+    // The connection may have died during the RPCs: keep the blob (draft, attachments) and only forget the dead id.
+    const afterSnapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
+    if (
+      !isUsablePhase(afterSnapshot.phase) ||
+      !(sessionId in afterSnapshot.sessions) ||
+      afterSnapshot.sessions[sessionId].status !== 'active'
+    ) {
+      const virtual = registry.get(virtualSessionAtom);
+      if (virtual?.sessionId === sessionId) {
+        setBlob(registry, { ...virtual, sessionId: undefined });
+      }
+      return yield* new ProviderUnavailable({ message: 'Provider connection lost while starting the session' });
+    }
+
     const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
     if (historyEntry !== undefined) {
       updateHarnessSnapshot(registry, launchTarget, current => upsertIntoSnapshot(current, { historyEntry }));

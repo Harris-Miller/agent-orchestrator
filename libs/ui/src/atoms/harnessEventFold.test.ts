@@ -391,11 +391,15 @@ describe('Harness event fold: Connection lost', () => {
       yield* h.drain;
       assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
 
-      yield* sendVirtual(h.registry, () => Effect.void);
+      // The session died mid-Materialize: the Send fails, the blob keeps its draft and forgets the dead id.
+      const error = yield* Effect.flip(sendVirtual(h.registry, () => Effect.void));
       yield* h.drain;
 
+      assert.strictEqual(error._tag, 'ProviderUnavailable');
       assert.deepStrictEqual(during, { inSnapshot: true, locked: true, sessionId: 'bound-1' });
       assert.deepStrictEqual(calls, ['new', 'set:model:o1']);
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.draft, 'hello');
+      assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, undefined);
     }),
   );
 

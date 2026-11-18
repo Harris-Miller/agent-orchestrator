@@ -1230,3 +1230,43 @@ describe('AtomFns', () => {
     }).pipe(Effect.scoped),
   );
 });
+
+/** Let every runnable fiber progress (no TestClock timeouts under `it.effect`). */
+const settle = Effect.forEach(Array.from({ length: 50 }), () => Effect.yieldNow, { discard: true });
+
+describe('#278 regressions', () => {
+  it.effect('R1: Connection lost during Materialize keeps the draft and attachments, with no prompt', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      const h = yield* atomFnHarness;
+      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry: h.registry, runFork: () => undefined });
+      yield* installFakeAgent(calls, {
+        reports: fold,
+        setConfig: () => Effect.andThen(gate.during, Effect.fail('connection lost')),
+      });
+      const attachment = {
+        byteLength: 1,
+        id: 'a1',
+        mimeType: 'image/png',
+        name: 'a.png',
+        previewDataUrl: 'data:image/png;base64,AA==',
+        uri: 'file:///a.png',
+      };
+      yield* seedBound(h.registry, calls, { draft: 'hello', model: 'o1' });
+      yield* editVirtual(h.registry, { attachments: [attachment] });
+
+      h.registry.set(h.submitComposerAtomFn, undefined);
+      yield* gate.started;
+      fold.onConnectionLost();
+      yield* gate.release;
+      yield* settle;
+
+      assert.isFalse(h.registry.get(virtualMaterializingAtom));
+      assert.notInclude(calls, 'prompt:bound-1');
+      assert.strictEqual(blob(h.registry)?.draft, 'hello');
+      assert.deepStrictEqual(blob(h.registry)?.attachments, [attachment]);
+    }).pipe(Effect.scoped),
+  );
+
+});

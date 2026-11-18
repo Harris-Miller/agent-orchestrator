@@ -189,11 +189,11 @@ Opt-in (a button in the Developer panel's Atoms tab), read-only access to the cu
 _Avoid_: state dump, debug API, devtools hook
 
 **Available Command**:
-A session-advertised ACP command entry from `available_commands_update` (`name`, optional `description`, and a Skill flag), stored on the session snapshot for the Composer Menu and Command Chip matching.
+A session-advertised ACP command entry from `available_commands_update` (`name`, optional `description`, and whether it is a Skill), stored on the session snapshot for the Composer Menu and Command Chip matching.
 _Avoid_: slash palette entry, skill definition (when you mean this list item)
 
 **Skill**:
-An Available Command the Agent marks as a skill (AIR meta `kind: 'skill'` or `skillPath`, or a Codex `$name`). The `$` Composer Trigger lists Skills for every Provider and inserts that Provider's native invocation (`/name` for Claude, `$name` for Codex). A Skill's chip is just a Command Chip.
+An Available Command the Agent identifies as a skill. The `$` Composer Trigger lists Skills for every Provider and inserts that Provider's native invocation (`/name` for Claude, `$name` for Codex). A Skill's chip is just a Command Chip.
 _Avoid_: skill definition, skill pill
 
 **Composer Trigger**:

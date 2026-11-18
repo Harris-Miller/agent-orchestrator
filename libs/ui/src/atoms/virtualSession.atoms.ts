@@ -419,6 +419,23 @@ const requestBind = Effect.fn('requestBind')(function* (registry: Registry) {
   return bind;
 });
 
+/** Resolves once `bind` is no longer the current Bind (superseded, or settled and cleared). */
+const awaitBindSuperseded = (registry: Registry, bind: VirtualBind) =>
+  Effect.callback<undefined>(resume => {
+    const superseded = () => registry.get(virtualBindAtom).current !== bind;
+    if (superseded()) {
+      resume(Effect.succeed(undefined));
+      return;
+    }
+    const unsubscribe = registry.subscribe(virtualBindAtom, () => {
+      if (superseded()) {
+        unsubscribe();
+        resume(Effect.succeed(undefined));
+      }
+    });
+    return Effect.sync(unsubscribe);
+  });
+
 /**
  * Wait for the newest Bind to settle (re-awaiting if a newer one supersedes it meanwhile).
  * Resolves to the Bound id on the blob, or `undefined` when nothing is bound.
@@ -431,7 +448,7 @@ const awaitCurrentBind = Effect.fn('awaitCurrentBind')(function* (registry: Regi
       return registry.get(virtualSessionAtom)?.sessionId;
     }
     awaited = current;
-    yield* Deferred.await(current.done);
+    yield* Effect.raceFirst(Deferred.await(current.done), awaitBindSuperseded(registry, current));
   }
 });
 

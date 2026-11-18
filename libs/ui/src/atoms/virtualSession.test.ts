@@ -1235,6 +1235,35 @@ describe('AtomFns', () => {
 const settle = Effect.forEach(Array.from({ length: 50 }), () => Effect.yieldNow, { discard: true });
 
 describe('#278 regressions', () => {
+  it.effect('F1: Send follows the newer provider Bind while the obsolete Bind is still held', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, {}, CLAUDE);
+      const registry = yield* freshRegistry;
+      setPhase(registry, CLAUDE, 'ready');
+      yield* seedUnbound(registry, { draft: 'hello' });
+      const recorder = recordingPrompt(calls);
+
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* gate.started;
+      yield* setVirtualLaunchTarget(registry, CLAUDE);
+      yield* settle;
+
+      // A (Codex) `session/new` is still held: B must already have been prompted exactly once.
+      assert.deepStrictEqual(
+        calls.filter(call => call.startsWith('prompt:')),
+        ['prompt:claude-1'],
+      );
+
+      yield* gate.release;
+      yield* Fiber.join(send);
+      assert.notInclude(calls, 'prompt:bound-1');
+      assert.include(calls, 'delete:bound-1');
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('F2: a delayed lazy model pick does not overwrite the Config of a switched provider', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

@@ -7,6 +7,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
     alwaysHiddenGlobs: Schema.optionalKey(Schema.Array(Schema.String)),
     appOrchestratedAgentsEnabled: Schema.optionalKey(Schema.Boolean),
+    chatWidth: Schema.optionalKey(Schema.Literals(['comfortable', 'wide', 'full'])),
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     hiddenModels: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(Schema.String))),

@@ -1,8 +1,10 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
 import type { FC } from 'react';
 
-import { matchVscodeThemeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
+import { chatWidthAtom, matchVscodeThemeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { hostThemeAtom } from '../atoms/theme.atoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 
@@ -14,6 +16,8 @@ export const AppearanceSettingsPane: FC = () => {
   const hostTheme = useAtomValue(hostThemeAtom);
   const matchVscodeTheme = useAtomValue(matchVscodeThemeAtom);
   const setMatchVscodeTheme = useAtomSet(matchVscodeThemeAtom);
+  const chatWidth = useAtomValue(chatWidthAtom);
+  const setChatWidth = useAtomSet(chatWidthAtom);
   const editsDisabled = userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
   const hostThemeInUse = hostTheme !== undefined && matchVscodeTheme;
 
@@ -28,6 +32,24 @@ export const AppearanceSettingsPane: FC = () => {
         }
       >
         <ThemeSelect disabled={hostThemeInUse} />
+      </SettingsRow>
+      <SettingsRow
+        title="Chat width"
+        description="How wide the conversation and message box are. Comfortable keeps lines readable; Full uses the whole window."
+      >
+        <Select
+          disabled={editsDisabled}
+          inputProps={{ 'aria-label': 'Chat width' }}
+          onChange={event => {
+            setChatWidth(event.target.value);
+          }}
+          size="small"
+          value={chatWidth}
+        >
+          <MenuItem value="comfortable">Comfortable</MenuItem>
+          <MenuItem value="wide">Wide</MenuItem>
+          <MenuItem value="full">Full</MenuItem>
+        </Select>
       </SettingsRow>
       {hostTheme === undefined ? null : (
         <SettingsRow

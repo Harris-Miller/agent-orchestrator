@@ -79,6 +79,31 @@ describe('useComposerMenu $ trigger on Claude', () => {
   });
 });
 
+describe('useComposerMenu / trigger on Codex mid-draft', () => {
+  const codex = {
+    availableCommands: [...COMMANDS, { isSkill: true, name: '$caveman' }, { isSkill: true, name: '$stash-skill' }],
+    launchTarget: 'codex-acp',
+  } as const;
+
+  it('lists only skills past draft start', () => {
+    const { hook, type } = setup(codex);
+    type('use /st');
+    assert.deepStrictEqual(
+      hook.result.current.commandMenuProps.matches.map(m => m.command.name),
+      ['$stash-skill'],
+    );
+  });
+
+  it('lists commands and skills at draft start', () => {
+    const { hook, type } = setup(codex);
+    type('/st');
+    assert.deepStrictEqual(
+      hook.result.current.commandMenuProps.matches.map(m => m.command.name),
+      ['status', 'stash', '$stash-skill'],
+    );
+  });
+});
+
 describe('useComposerMenu', () => {
   it('typing / opens the command menu with matches', () => {
     const { hook, type } = setup();

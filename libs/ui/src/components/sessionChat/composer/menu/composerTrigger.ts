@@ -12,7 +12,7 @@ export type DetectComposerTriggerArgs = {
 /**
  * Detect an in-progress `/`, `$`, or `@` composer trigger from draft text + logical cursor.
  * `$` whitespace-bounded anywhere for all agents (lists skills).
- * Codex: `/` only at draft index 0; other agents: `/` whitespace-bounded anywhere.
+ * `/` whitespace-bounded anywhere for all agents (Codex lists only skills past draft index 0).
  * `@` whitespace-bounded anywhere for all agents; menu opens from `@` alone.
  */
 export const detectComposerTrigger = ({
@@ -36,8 +36,6 @@ export const detectComposerTrigger = ({
     return null;
   }
 
-  const isCodex = launchTarget === 'codex-acp';
-
   if (token.startsWith('@')) {
     return {
       kind: 'at',
@@ -48,9 +46,6 @@ export const detectComposerTrigger = ({
   }
 
   if (token.startsWith('/')) {
-    if (isCodex && rangeStart !== 0) {
-      return null;
-    }
     return {
       kind: 'slash',
       query: token.slice(1),

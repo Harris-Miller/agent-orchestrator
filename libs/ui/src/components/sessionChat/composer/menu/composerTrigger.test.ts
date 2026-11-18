@@ -16,7 +16,7 @@ describe('replaceComposerTriggerRange', () => {
 });
 
 describe('detectComposerTrigger', () => {
-  it('claude: $ opens anywhere; / anywhere; codex / mid-draft stays null', () => {
+  it('claude: $ opens anywhere; / anywhere', () => {
     const base = { adjacentToToken: false, launchTarget: 'claude-agent-acp' } as const;
     assert.deepStrictEqual(detectComposerTrigger({ ...base, cursor: 8, text: 'use $cav' }), {
       kind: 'dollar',
@@ -26,13 +26,9 @@ describe('detectComposerTrigger', () => {
     });
     assert.strictEqual(detectComposerTrigger({ ...base, cursor: 2, text: '$5' })?.kind, 'dollar');
     assert.strictEqual(detectComposerTrigger({ ...base, cursor: 8, text: 'say /sta' })?.kind, 'slash');
-    assert.strictEqual(
-      detectComposerTrigger({ ...base, cursor: 8, launchTarget: 'codex-acp', text: 'say /sta' }),
-      null,
-    );
   });
 
-  it('codex: / only at draft start; $ anywhere', () => {
+  it('codex: / and $ anywhere', () => {
     assert.deepStrictEqual(
       detectComposerTrigger({
         adjacentToToken: false,
@@ -48,8 +44,8 @@ describe('detectComposerTrigger', () => {
         cursor: 8,
         launchTarget: 'codex-acp',
         text: 'say /sta',
-      }),
-      null,
+      })?.kind,
+      'slash',
     );
     assert.deepStrictEqual(
       detectComposerTrigger({

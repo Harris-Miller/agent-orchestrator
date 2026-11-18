@@ -74,7 +74,12 @@ export const useComposerMenu = ({
     if (!isCommandTrigger(composerTrigger)) {
       return [];
     }
-    return filterAvailableCommandMatches(availableCommands, composerTrigger.kind, composerTrigger.query, launchTarget);
+    // Codex commands only run at draft start: a `/` Trigger later in the draft lists skills only.
+    const kind =
+      launchTarget === 'codex-acp' && composerTrigger.kind === 'slash' && composerTrigger.rangeStart !== 0
+        ? 'dollar'
+        : composerTrigger.kind;
+    return filterAvailableCommandMatches(availableCommands, kind, composerTrigger.query, launchTarget);
   }, [availableCommands, composerTrigger, launchTarget]);
 
   // A `$` Trigger with no matching skill is treated as closed so Enter/Tab/arrows pass through (`$5`, `$HOME`).

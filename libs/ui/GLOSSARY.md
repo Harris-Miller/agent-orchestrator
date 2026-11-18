@@ -197,7 +197,7 @@ An Available Command the Agent identifies as a skill. The `$` Composer Trigger l
 _Avoid_: skill definition, skill pill
 
 **Composer Trigger**:
-An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Menu (`$` and `@` are whitespace-bounded for every Provider; Codex only allows `/` at draft start; `@` opens from `@` alone).
+An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Menu (`/`, `$` and `@` are whitespace-bounded for every Provider; Codex Commands only run at draft start, so a later `/` lists Skills only; `@` opens from `@` alone).
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Markdown styling**:

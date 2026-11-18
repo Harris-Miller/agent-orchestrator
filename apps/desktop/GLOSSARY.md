@@ -198,11 +198,11 @@ Agent-reported context-window fill and cumulative session cost on a session snap
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Handoff**:
-Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Handoff (`appOrchestratedHandoffEnabled`, off when unset): while off, the Session actions strip has no Handoff button and the Hub client does not start.
+Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Agents (`appOrchestratedAgentsEnabled`, off when unset; also gates Spawned subagent sessions): while off, the Session actions strip has no Handoff button and the Hub client does not start.
 _Avoid_: Transfer, migrate session, export chat
 
 **Hub**:
-The one machine-wide local process that agents call Harness tools on. It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
+The one machine-wide local process that agents call Harness tools on (hand a Handoff document back, list usable launch targets, spawn or cancel a Spawned subagent session). It only routes: each session's credential names the Harness client that owns the session, and the tool's logic runs in that Harness. Whichever client finds none running starts it; it exits shortly after its last client disconnects. Shared by the desktop app and every local VS Code window.
 _Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
 
 **Hub client**:
@@ -370,8 +370,24 @@ The short setup slice of bringing a backend harness online (spawn, connect, init
 _Avoid_: Connection span, live connection, session (when you mean setup)
 
 **Subagent session**:
-A child ACP session announced by a parent session (`subagent_spawned`) and kept in `subagents`, never as a top-level session: no history row, activation, prompt, or launch-target lookup. Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
+A child ACP session of a parent session, kept in `subagents` and never selectable as a top-level session: no history row of its own, activation, or Composer. Either native (announced by the parent's agent with `subagent_spawned`, always on the parent's own launch target) or a **Spawned subagent session** (started by the Harness, always on a different launch target than its parent). Has a **parent** (announcing session; never reparented) and its own transcript, pending interactions, **work state**, and capabilities. Replayed spawns upsert by child id.
 _Avoid_: Child chat, nested session, sub-session
+
+**Spawned subagent session**:
+A Subagent session the Harness started on a parent's behalf when the parent's agent called the Hub's `spawn_subagent` tool, on any other usable agent launch target (never the parent's own: for its own provider the agent uses its native subagent tool). Unlike a native Subagent session it is a real session on its own launch target, started in the parent's session cwd and prompted with the Subagent task; but it is shown exactly like a native one (parent transcript item, Subagent view, Work state, its own Pending interactions) and is not listed as a History entry of its own while its parent is live. It reports back to the parent when its Prompt turn ends: as the tool result (foreground) or as a new message to the parent (background). Ends with its parent: cancelling the parent's Prompt turn cancels its foreground children; closing or deleting the parent closes them.
+_Avoid_: Delegated session, child session
+
+**Spawned subagent link**:
+The Harness's memory-only record that a session on one launch target is a Spawned subagent session of a parent session, kept from spawn until the child or its parent ends and gone after a restart. While it exists the child is hidden from Session History, is never swept by a workspace folder change, and has its Attention events named under its parent. Until its Prompt turn ends the child is a **live child** of the parent, and a parent may have only a fixed number of live children at once; a child cannot itself spawn.
+_Avoid_: parent link (the parent recorded on a native Subagent session for turn tracing), subagent registration
+
+**Subagent outcome**:
+How a Spawned subagent session's Prompt turn ended: completed with its final agent message, failed with a cause, or cancelled. A turn that completes without any message counts as failed, so the parent's agent always gets something to act on. It reaches the parent's agent by one of two routes: as the result of the agent's own call (the foreground `spawn_subagent`, or `wait_subagent`), or as a Subagent report. A call that collects it before the Subagent report is sent suppresses the report; a Subagent report is never sent twice.
+_Avoid_: Handoff (a different term), subagent result, response
+
+**Subagent report**:
+The message the Harness sends a parent when a background Spawned subagent session's Prompt turn ends: names the child and its Subagent task, and carries the child's final agent message (or its failure). Delivered as Steering when the parent is mid-turn and Steering is supported, otherwise as a new Prompt turn once the parent is idle; dropped when the parent is gone.
+_Avoid_: notification, callback
 
 **Subagent view**:
 The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.

@@ -34,14 +34,14 @@ export const showArchivedAtom = Atom.make(get =>
   showArchivedEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('showArchived'), Atom.keepAlive);
 
-/** Experimental: App Orchestrated Handoff is off when the Settings field is unset. */
-export const appOrchestratedHandoffEnabled = (settings: UserSettings): boolean =>
-  settings.appOrchestratedHandoffEnabled === true;
+/** Experimental: App Orchestrated Agents is off when the Settings field is unset. */
+export const appOrchestratedAgentsEnabled = (settings: UserSettings): boolean =>
+  settings.appOrchestratedAgentsEnabled === true;
 
-/** Effective Experimental: App Orchestrated Handoff, read from the User settings document. Write through `appOrchestratedHandoffAtom`. */
-export const appOrchestratedHandoffEnabledAtom = Atom.make(get =>
-  appOrchestratedHandoffEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
-).pipe(Atom.withLabel('appOrchestratedHandoff'), Atom.keepAlive);
+/** Effective Experimental: App Orchestrated Agents, read from the User settings document. Write through `appOrchestratedAgentsAtom`. */
+export const appOrchestratedAgentsEnabledAtom = Atom.make(get =>
+  appOrchestratedAgentsEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
+).pipe(Atom.withLabel('appOrchestratedAgents'), Atom.keepAlive);
 
 /** Whether the User settings document has been read yet (the hub waits for it to know if it is wanted). */
 export const userSettingsLoadedAtom = Atom.make(get => !AsyncResult.isInitial(get(userSettingsDocumentAtom))).pipe(

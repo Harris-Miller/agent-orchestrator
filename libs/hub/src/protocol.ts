@@ -6,7 +6,7 @@ import { Schema } from 'effect';
 
 export const HUB_APP_ID = 'agent-orchestrator-hub';
 /** Bumped on any incompatible change to `/clients` messages or tool schemas; a mismatch is refused, never half-working. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const DEFAULT_HUB_PORT = 47821;
 export const HUB_HOST = '127.0.0.1';
 /** Distinctive on purpose: Codex skips injected servers whose name already exists in the user's own config. */
@@ -42,6 +42,9 @@ export type ClientKind = typeof ClientKind.Type;
 /** Far above any real handoff; an oversize document comes back to the agent as invalid params instead of a 413. */
 export const MAX_HANDOFF_DOCUMENT_CHARS = 100_000;
 
+/** Cap on a subagent task (request bodies are capped at 1 MiB) and on the result text sent back to an agent. */
+export const MAX_SUBAGENT_TEXT_CHARS = 100_000;
+
 export const SubmitHandoffArgs = Schema.Struct({
   document: Schema.String.check(
     Schema.makeFilter(document => document.trim().length > 0 || 'The handoff document must not be empty.'),
@@ -51,7 +54,58 @@ export const SubmitHandoffArgs = Schema.Struct({
   }),
 });
 
-export const HUB_TOOL_NAMES = ['submit_handoff'] as const;
+/** `list_subagent_targets` takes no arguments (the hub declares it with `Tool.EmptyParams`, which an agent calls with `{}`). */
+export const ListSubagentTargetsArgs = Schema.Struct({});
+
+/** The longest a single `wait_subagent` (and a foreground `spawn_subagent`) holds a call open: under Codex's 300 s MCP tool timeout. */
+export const MAX_SUBAGENT_WAIT_MS = 240_000;
+
+export const SpawnSubagentArgs = Schema.Struct({
+  configOptions: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Boolean])),
+  ).annotate({
+    description:
+      'Config option values for the subagent, keyed by option id (e.g. { "model": "gpt-5", "effort": "high" }), as listed by list_subagent_targets. Omit for the target defaults.',
+  }),
+  description: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200)).annotate({
+    description: 'A short (3-5 word) name for the subagent, shown to the user.',
+  }),
+  /** A string: the launch target type lives in `@lib/ui`, the handler validates it. */
+  launchTarget: Schema.String.annotate({
+    description: 'The launch target to run the subagent on, as listed by list_subagent_targets.',
+  }),
+  runInBackground: Schema.optionalKey(Schema.Boolean).annotate({
+    description:
+      'When true, return at once with the subagent id; its result arrives later as a <subagent-report> message. Default false: wait for the result.',
+  }),
+  task: Schema.String.check(
+    Schema.makeFilter(task => task.trim().length > 0 || 'The task must not be empty.'),
+    Schema.isMaxLength(MAX_SUBAGENT_TEXT_CHARS),
+  ).annotate({
+    description: `The complete task for the subagent, as self-contained Markdown (at most ${MAX_SUBAGENT_TEXT_CHARS} characters). It starts with no context but the working directory.`,
+  }),
+});
+
+export const CancelSubagentArgs = Schema.Struct({
+  subagentId: Schema.String.annotate({ description: 'The id of a subagent you started with spawn_subagent.' }),
+});
+
+export const WaitSubagentArgs = Schema.Struct({
+  ids: Schema.Array(Schema.String).check(Schema.isMinLength(1), Schema.isMaxLength(16)).annotate({
+    description: 'The subagent ids (as returned by spawn_subagent) to wait for.',
+  }),
+  timeoutMs: Schema.optionalKey(Schema.Number).annotate({
+    description: `How long to wait, in milliseconds (at most ${MAX_SUBAGENT_WAIT_MS}; the default and the maximum).`,
+  }),
+});
+
+export const HUB_TOOL_NAMES = [
+  'submit_handoff',
+  'list_subagent_targets',
+  'spawn_subagent',
+  'cancel_subagent',
+  'wait_subagent',
+] as const;
 export type HubToolName = (typeof HUB_TOOL_NAMES)[number];
 
 // ---------------------------------------------------------------------------------------------------------------------

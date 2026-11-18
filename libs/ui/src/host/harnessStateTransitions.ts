@@ -40,8 +40,20 @@ import {
   stampUserMessageTiming,
 } from './sessionUpdateReducer.ts';
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
-import { resetSubagentLiveState } from './subagent.ts';
-import { patchSessionOrSubagent, resetSubagentsOfRoot, sessionOrSubagentOf } from './subagentRouting.ts';
+import {
+  getSubagent,
+  initialSpawnedSubagentSnapshot,
+  resetSubagentLiveState,
+  withSubagentWorkState,
+} from './subagent.ts';
+import type { SubagentWorkState } from './subagent.ts';
+import {
+  patchSessionOrSubagent,
+  resetSubagentsOfRoot,
+  sessionOrSubagentOf,
+  withParentChatItem,
+} from './subagentRouting.ts';
+import { withoutUndefined } from '../optionalFields.ts';
 import type { SessionListScope } from './sessionListScope.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
@@ -643,3 +655,100 @@ export const applySessionUpdatePatch = (
   sessionHistory: patch.sessionHistory ?? snapshot.sessionHistory,
   sessions: upsertSession(snapshot.sessions, patch.session),
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Spawned subagent session mirror (libs/ui ADR 0011): the child is a root Session on its own launch target; its parent's
+// launch target holds a Subagent session that projects it, so the Subagent view, Work state and Attention read it
+// like a native child. Mirror and root always live in different snapshots.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** The mirror in the parent's snapshot, running, with its row in the parent's transcript; before the child's first prompt. */
+export const mirrorChildIntoParent = (
+  snapshot: BackendHarnessSnapshot,
+  mirror: {
+    readonly childId: string;
+    readonly launchTarget: AgentLaunchTarget;
+    readonly name: string;
+    readonly parentId: string;
+    /** Exactly the text `beginPromptTurn` appends, so the Subagent view strips it from the transcript. */
+    readonly task: string;
+  },
+): BackendHarnessSnapshot =>
+  withParentChatItem(
+    {
+      ...snapshot,
+      subagents: {
+        ...snapshot.subagents,
+        [mirror.childId]: withSubagentWorkState(
+          {
+            ...initialSpawnedSubagentSnapshot(mirror.childId, mirror.parentId, mirror.launchTarget),
+            capabilities: { cancel: {} },
+            name: mirror.name,
+            task: mirror.task,
+          },
+          { state: 'running' },
+        ),
+      },
+    },
+    mirror.parentId,
+    mirror.childId,
+  );
+
+/**
+ * Project the child's root entry onto its mirror: transcript and Pending interactions (the same objects, so answering on
+ * the root entry is answering the mirror's). A mirror that is gone, or already equal, is left alone.
+ */
+export const projectChildOnto = (
+  snapshot: BackendHarnessSnapshot,
+  childId: string,
+  root: Pick<SessionSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+): BackendHarnessSnapshot => {
+  const mirror = getSubagent(snapshot.subagents, childId);
+  if (
+    mirror === undefined ||
+    (mirror.transcript === root.transcript &&
+      mirror.pendingPermission === root.pendingPermission &&
+      mirror.pendingElicitation === root.pendingElicitation)
+  ) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    subagents: {
+      ...snapshot.subagents,
+      [childId]: withoutUndefined({
+        ...mirror,
+        pendingElicitation: root.pendingElicitation,
+        pendingPermission: root.pendingPermission,
+        transcript: root.transcript,
+      }),
+    },
+  };
+};
+
+/** Set a Spawned subagent session's Work state on its mirror (a mirror that is gone stays gone). */
+export const setMirrorWorkState = (
+  snapshot: BackendHarnessSnapshot,
+  childId: string,
+  state: SubagentWorkState,
+): BackendHarnessSnapshot => {
+  const mirror = getSubagent(snapshot.subagents, childId);
+  return mirror === undefined
+    ? snapshot
+    : { ...snapshot, subagents: { ...snapshot.subagents, [childId]: withSubagentWorkState(mirror, state) } };
+};
+
+/** A Session History row for a Session that has none (a row already there, from a list refresh, is kept). */
+export const withHistoryEntryIfAbsent = (
+  snapshot: BackendHarnessSnapshot,
+  entry: NormalizedSessionInfo,
+): BackendHarnessSnapshot =>
+  snapshot.sessionHistory.some(row => row.sessionId === entry.sessionId)
+    ? snapshot
+    : upsertIntoSnapshot(snapshot, { historyEntry: entry });
+
+/** Remove a mirror (a child that never ran). */
+export const dropMirror = (snapshot: BackendHarnessSnapshot, childId: string): BackendHarnessSnapshot => {
+  const { [childId]: _removed, ...subagents } = snapshot.subagents;
+  return getSubagent(snapshot.subagents, childId) === undefined ? snapshot : { ...snapshot, subagents };
+};

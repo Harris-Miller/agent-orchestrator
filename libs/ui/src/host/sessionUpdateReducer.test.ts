@@ -4,6 +4,7 @@ import type { ChatItem } from './sessionUpdateReducer.ts';
 import {
   appendUserChatMessage,
   emptySessionTranscript,
+  lastAgentMessage,
   markNonFinishedToolCallsCancelled,
   reduceSessionUpdate,
   stampUserMessageTiming,
@@ -461,5 +462,27 @@ describe('reduceSessionUpdate planFilePath', () => {
   it('ignores relative and non-string paths', () => {
     assert.strictEqual(planOf(call('plans/a.md')), undefined);
     assert.strictEqual(planOf(call(42)), undefined);
+  });
+});
+
+describe('lastAgentMessage', () => {
+  const chunk = (text: string) => ({ content: { text, type: 'text' }, sessionUpdate: 'agent_message_chunk' });
+  const tool = { sessionUpdate: 'tool_call', status: 'completed', title: 'Read', toolCallId: 't1' };
+  const after = (transcript: ReturnType<typeof emptySessionTranscript>, ...updates: object[]) =>
+    updates.reduce<ReturnType<typeof emptySessionTranscript>>(
+      (current, update) => reduceSessionUpdate(current, update),
+      transcript,
+    );
+
+  it('is the last agent message after the last user message, not an earlier one', () => {
+    const task = appendUserChatMessage(emptySessionTranscript(), 'task');
+    const transcript = after(task, chunk('first'), tool, chunk('final'));
+    assert.strictEqual(lastAgentMessage(transcript), 'final');
+  });
+
+  it('is undefined when the turn produced no message, even if an earlier turn did', () => {
+    const earlier = after(appendUserChatMessage(emptySessionTranscript(), 'one'), chunk('old answer'));
+    assert.isUndefined(lastAgentMessage(appendUserChatMessage(earlier, 'two')));
+    assert.isUndefined(lastAgentMessage(after(appendUserChatMessage(emptySessionTranscript(), 'x'), chunk('  '))));
   });
 });

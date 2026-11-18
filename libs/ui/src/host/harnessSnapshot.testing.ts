@@ -3,7 +3,7 @@ import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSess
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
-import type { SubagentSnapshot } from './subagent.ts';
+import type { NativeSubagentSnapshot, SubagentSnapshot } from './subagent.ts';
 
 export const permission = (sessionId: string) => ({ sessionId }) as unknown as PendingPermission;
 export const elicitation = (sessionId: string) => ({ sessionId }) as unknown as PendingElicitation;
@@ -16,8 +16,9 @@ export const session = (sessionId: string, patch: Partial<SessionSnapshot> = {})
 export const subagent = (
   sessionId: string,
   parentSessionId: string,
-  patch: Partial<SubagentSnapshot> = {},
+  patch: Partial<NativeSubagentSnapshot> = {},
 ): SubagentSnapshot => ({
+  kind: 'native',
   parentSessionId,
   sessionId,
   transcript: emptySessionTranscript(),

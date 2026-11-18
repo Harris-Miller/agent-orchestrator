@@ -17,7 +17,7 @@ const { SessionActionsStrip } = await import('./SessionActionsStrip.tsx');
 
 afterEach(cleanup);
 
-const HANDOFF_ON = { appOrchestratedHandoffEnabled: true } as const;
+const HANDOFF_ON = { appOrchestratedAgentsEnabled: true } as const;
 
 const gatedSession = {
   cwd: '/proj',
@@ -48,7 +48,7 @@ describe('SessionActionsStrip', () => {
     }),
   );
 
-  it.effect('hides Handoff while Experimental: App Orchestrated Handoff is off (the default)', () =>
+  it.effect('hides Handoff while Experimental: App Orchestrated Agents is off (the default)', () =>
     Effect.gen(function* () {
       const { registry } = yield* mount({ session: gatedSession });
       assert.isNull(screen.queryByRole('button', { name: 'Handoff' }));

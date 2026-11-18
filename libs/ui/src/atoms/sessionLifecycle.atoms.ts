@@ -13,7 +13,7 @@ import {
   resolveSessionCwd,
 } from '../host/acpSessionBootstrap.ts';
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
-import type { AgentCapabilities } from '../host/agentCapabilities.ts';
+import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
@@ -39,7 +39,6 @@ import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
 import {
   archiveSession,
-  closeSession,
   deleteSession,
   forkSession,
   listSessions,
@@ -57,6 +56,7 @@ import {
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
 import { reportRequestError } from './reportRequestError.ts';
+import { endLinksOfParent } from './spawnedSubagent.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
@@ -129,12 +129,6 @@ const updateAndClearSelection = Effect.fnUntraced(function* (
     yield* select(get.registry, undefined);
   }
 });
-
-/** `session/close`: fail-closed when the Agent advertises close, otherwise best-effort (it may still serve it). Never refused. */
-const closeOnAgent = (capabilities: AgentCapabilities, launchTarget: AgentLaunchTarget, sessionId: string) =>
-  capabilities.sessionClose
-    ? closeSession(launchTarget, sessionId)
-    : Effect.asVoid(Effect.exit(closeSession(launchTarget, sessionId)));
 
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
   const { atomRuntime } = runtime;
@@ -355,6 +349,9 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
             yield* runAtomFn(get.registry, cancelPromptAtomFn, arg).pipe(Effect.ignore);
           }
 
+          // Children the Harness started for this session end with it (a Prompt turn cancel alone spares background ones).
+          yield* endLinksOfParent(get.registry, arg);
+
           yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
           yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
 
@@ -457,6 +454,8 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
 
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           const needsClose = session !== undefined && session.status !== 'inactive';
+
+          yield* endLinksOfParent(get.registry, arg);
 
           // Optimistic: drop locally first; a failed RPC surfaces to the caller and the next list refresh reconciles. Pins stay until the RPC succeeds.
           yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>

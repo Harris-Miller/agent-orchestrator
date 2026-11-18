@@ -11,7 +11,7 @@ import type { FC } from 'react';
 
 import {
   alwaysHiddenGlobsAtom,
-  appOrchestratedHandoffAtom,
+  appOrchestratedAgentsAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
   keepAwakeEnabledAtom,
@@ -35,8 +35,8 @@ export const GeneralSettingsPane: FC = () => {
   const settingsResult = useAtomValue(userSettingsAtom);
   const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
   const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
-  const appOrchestratedHandoff = useAtomValue(appOrchestratedHandoffAtom);
-  const setAppOrchestratedHandoff = useAtomSet(appOrchestratedHandoffAtom);
+  const appOrchestratedAgents = useAtomValue(appOrchestratedAgentsAtom);
+  const setAppOrchestratedAgents = useAtomSet(appOrchestratedAgentsAtom);
   const developerMode = useAtomValue(developerModeAtom);
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
@@ -189,15 +189,15 @@ export const GeneralSettingsPane: FC = () => {
       </SettingsSection>
       <SettingsSection title="Advanced">
         <SettingsRow
-          title="Experimental: App Orchestrated Handoff"
-          description="Adds a Handoff button to the Session actions strip above the Composer. The source agent delivers its handoff document by calling a tool on a local MCP hub that HOA runs. Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
+          title="Experimental: App Orchestrated Agents"
+          description="Adds a Handoff button to the Session actions strip above the Composer, and lets agents start subagents on other providers. Agents call tools on a local MCP hub that HOA runs (a handoff document is delivered this way). Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
         >
           <Switch
-            slotProps={{ input: { 'aria-label': 'Experimental: App Orchestrated Handoff' } }}
-            checked={appOrchestratedHandoff}
+            slotProps={{ input: { 'aria-label': 'Experimental: App Orchestrated Agents' } }}
+            checked={appOrchestratedAgents}
             disabled={editsDisabled}
             onChange={(_event, checked) => {
-              setAppOrchestratedHandoff(checked);
+              setAppOrchestratedAgents(checked);
             }}
           />
         </SettingsRow>

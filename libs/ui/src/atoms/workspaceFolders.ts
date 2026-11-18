@@ -19,6 +19,7 @@ import { runAtomFn } from './runAtomFn.ts';
 import { discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { isChild } from './subagentLinkRegistry.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
 const stripPendingOnMatched = (
@@ -100,7 +101,9 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
     return;
   }
 
-  const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd);
+  const matches = sessionsMatchingSessionCwd(getSnapshot, previousSessionCwd, (launchTarget, sessionId) =>
+    isChild(registry, { launchTarget, sessionId }),
+  );
   for (const match of matches) {
     yield* runAtomFn(registry, deactivateSessionAtomFn, {
       launchTarget: match.launchTarget,

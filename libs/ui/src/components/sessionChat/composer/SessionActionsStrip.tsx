@@ -6,7 +6,7 @@ import { ArrowRightLeft, FolderOpen, GitFork } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
 import { virtualSessionAtom } from '../../../atoms/virtualSession.atoms.ts';
-import { appOrchestratedHandoffEnabledAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
+import { appOrchestratedAgentsEnabledAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import { directoryBasename } from '../../../host/directoryBasename.ts';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
@@ -41,7 +41,7 @@ export const SessionActionsStrip: FC<{
     onClientError,
     requestFork,
   } = useSessionChatSurface();
-  const handoffEnabled = useAtomValue(appOrchestratedHandoffEnabledAtom);
+  const handoffEnabled = useAtomValue(appOrchestratedAgentsEnabledAtom);
 
   return (
     <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>

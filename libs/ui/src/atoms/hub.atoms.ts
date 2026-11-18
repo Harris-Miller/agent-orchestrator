@@ -12,13 +12,10 @@ import type { SessionHubStatus } from '../host/hubSessions.ts';
 import { hubWireEntries, onHubWireEntries } from '../host/hubWireLog.ts';
 import type { HubWireEntry } from '../host/hubWireLog.ts';
 
-import {
-  appOrchestratedHandoffEnabledAtom,
-  userSettingsLoadedAtom,
-} from './userSettings/userSettingsDocument.atoms.ts';
+import { appOrchestratedAgentsEnabledAtom, userSettingsLoadedAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
-/** Shown (developer panel, session status) while Experimental: App Orchestrated Handoff is off. */
-const HUB_DISABLED_REASON = 'Experimental: App Orchestrated Handoff is off in Settings.';
+/** Shown (developer panel, session status) while Experimental: App Orchestrated Agents is off. */
+const HUB_DISABLED_REASON = 'Experimental: App Orchestrated Agents is off in Settings.';
 
 export const hubAvailabilityAtom = Atom.make((get): HubAvailability => {
   get.addFinalizer(onHubAvailability(next => get.setSelf(next)));
@@ -38,7 +35,7 @@ export const hubWireEntriesAtom = Atom.make((get): readonly HubWireEntry[] => {
 
 export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
   /**
-   * Mount for the app's lifetime (`HubMount`): while Experimental: App Orchestrated Handoff is on, ensures a hub,
+   * Mount for the app's lifetime (`HubMount`): while Experimental: App Orchestrated Agents is on, ensures a hub,
    * connects, reconnects; degraded when it cannot. Turning the setting off closes the connection. The setting is awaited
    * (as `connecting`) before deciding, so a session RPC at startup does not mistake "not loaded yet" for "off".
    */
@@ -47,7 +44,7 @@ export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
       setHubAvailability({ _tag: 'connecting' });
       return Effect.never;
     }
-    if (!get(appOrchestratedHandoffEnabledAtom)) {
+    if (!get(appOrchestratedAgentsEnabledAtom)) {
       setHubAvailability({ _tag: 'unavailable', reason: HUB_DISABLED_REASON });
       return Effect.void;
     }
@@ -55,7 +52,7 @@ export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
     // session RPC the hub reads `connecting` and that RPC waits for it (`awaitHub`) instead of finding it unavailable
     // and starting the session without a credential for good.
     setHubAvailability({ _tag: 'connecting' });
-    return hostHubClientOptions.pipe(
+    return hostHubClientOptions(get.registry).pipe(
       Effect.flatMap(runHubClient),
       Effect.catchTag('HubUnavailable', error =>
         Effect.sync(() => {

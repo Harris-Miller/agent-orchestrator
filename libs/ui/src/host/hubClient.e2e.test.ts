@@ -10,6 +10,7 @@ import { runHubProcess, startHub as startHubServer } from '@lib/hub';
 import { PROTOCOL_VERSION } from '@lib/hub/protocol';
 import { mcpCallTool, mcpInitialize } from '@lib/hub/testing';
 import { Deferred, Effect, Exit, Layer, Scope } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -18,6 +19,7 @@ import { pid as hubPid } from 'node:process';
 import { join } from 'node:path';
 
 import { bearerOf, installFakeAgent } from '../atoms/fakeAgent.testing.ts';
+import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import type { McpReceived } from '../atoms/fakeAgent.testing.ts';
 
 import { expectHandoff } from './handoffSubmission.ts';
@@ -42,6 +44,7 @@ const freePort = Effect.promise(
 /** A temp OS home; the hub writes `<home>/.hoa/hub.json` and the client reads it from there. */
 const homeLayer = (home: string) =>
   Layer.mergeAll(
+    mockHostLayer,
     NodeFileSystem.layer,
     NodePath.layer,
     Layer.succeed(OS, {
@@ -99,6 +102,8 @@ const reset = Effect.sync(() => {
   setHubAvailability({ _tag: 'unavailable', reason: 'No hub in this test.' });
 });
 
+const registry = AtomRegistry.make();
+
 describe('hub client + hub', () => {
   it.live('starts a hub when none answers, then routes an agent tool call to the owning session', () => {
     const home = mkdtempSync(join(tmpdir(), 'hoa-e2e-'));
@@ -112,7 +117,7 @@ describe('hub client + hub', () => {
         hub = yield* startHubIn(home, port);
       }).pipe(Effect.mapError(() => new HubUnavailable({ reason: 'start failed' })));
 
-      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, startHub }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       yield* waitFor(isAvailable);
 
       const { sessionId, token, url } = yield* sessionWithCredential;
@@ -132,7 +137,7 @@ describe('hub client + hub', () => {
         hub = yield* startHubIn(home, port);
       }).pipe(Effect.mapError(() => new HubUnavailable({ reason: 'start failed' })));
 
-      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, startHub }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       yield* waitFor(isAvailable);
       const { sessionId, token, url } = yield* sessionWithCredential;
 
@@ -189,7 +194,7 @@ describe('hub client + hub', () => {
         unsubscribe => Effect.sync(unsubscribe),
       );
 
-      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, startHub }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       yield* waitFor(isAvailable);
       assert.notInclude(seen, 'unavailable');
     }).pipe(Effect.scoped, Effect.provide(homeLayer(home)));
@@ -219,7 +224,7 @@ describe('hub client + hub', () => {
       );
       const startHub = Effect.fail(new HubUnavailable({ reason: 'must not be started' }));
 
-      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, startHub }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       const degraded = yield* waitFor(availability => availability._tag === 'unavailable');
       assert.include(degraded._tag === 'unavailable' ? degraded.reason : '', `port ${port}`);
     }).pipe(Effect.scoped, Effect.provide(homeLayer(mkdtempSync(join(tmpdir(), 'hoa-e2e-'))))),
@@ -231,7 +236,7 @@ describe('hub client + hub', () => {
       const port = yield* freePort;
       const startHub = Effect.fail(new HubUnavailable({ reason: 'Node.js was not found on PATH.' }));
 
-      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, startHub }));
+      yield* Effect.forkScoped(runHubClient({ clientKind: 'test', port, registry, startHub }));
       const degraded = yield* waitFor(availability => availability._tag === 'unavailable');
       assert.deepStrictEqual(degraded, { _tag: 'unavailable', reason: 'Node.js was not found on PATH.' });
     }).pipe(Effect.scoped, Effect.provide(homeLayer(mkdtempSync(join(tmpdir(), 'hoa-e2e-'))))),

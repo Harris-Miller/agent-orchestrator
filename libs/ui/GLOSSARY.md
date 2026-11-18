@@ -31,7 +31,7 @@ What the Send button and Enter do while Steering is offered: Steering or Queue, 
 _Avoid_: Send mode, queue mode
 
 **Session actions strip**:
-The strip above the Composer: the host's cwd control (or a read-only cwd label) on the left, Fork and Handoff icon buttons on the right. Always shown; Fork and Handoff are disabled with a tooltip reason when unavailable, and hidden for a Virtual session. Handoff is also hidden while the User setting `appOrchestratedHandoffEnabled` is off.
+The strip above the Composer: the host's cwd control (or a read-only cwd label) on the left, Fork and Handoff icon buttons on the right. Always shown; Fork and Handoff are disabled with a tooltip reason when unavailable, and hidden for a Virtual session. Handoff is also hidden while the User setting `appOrchestratedAgentsEnabled` is off.
 _Avoid_: Send options menu, toolbar
 
 **Queued message**:

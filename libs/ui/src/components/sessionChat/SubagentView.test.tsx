@@ -10,7 +10,7 @@ import { CODEX } from '../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { harness, session, subagent } from '../../host/harnessSnapshot.testing.ts';
-import type { SubagentSnapshot } from '../../host/subagent.ts';
+import type { NativeSubagentSnapshot, SubagentSnapshot } from '../../host/subagent.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
 import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
 import { theme } from '../../theme/themes.ts';
@@ -21,7 +21,7 @@ const { SubagentView } = await import('./SubagentView.tsx');
 
 afterEach(cleanup);
 
-const mount = (patch: Partial<SubagentSnapshot>, extraItems: SubagentSnapshot['transcript']['items'] = []) => {
+const mount = (patch: Partial<NativeSubagentSnapshot>, extraItems: SubagentSnapshot['transcript']['items'] = []) => {
   const registry = AtomRegistry.make();
   const child = subagent('c1', 's1', {
     name: 'Reply alpha',

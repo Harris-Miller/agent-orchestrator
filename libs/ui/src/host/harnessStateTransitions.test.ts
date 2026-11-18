@@ -655,7 +655,14 @@ describe('prompt turn and interaction folds', () => {
 describe('interaction folds on Subagent holders and accepted summaries', () => {
   const withSubagent = (): BackendHarnessSnapshot => ({
     ...readySnapshot(),
-    subagents: { c1: { parentSessionId: 'p1', sessionId: 'c1', transcript: initialSessionSnapshot('c1').transcript } },
+    subagents: {
+      c1: {
+        kind: 'native',
+        parentSessionId: 'p1',
+        sessionId: 'c1',
+        transcript: initialSessionSnapshot('c1').transcript,
+      },
+    },
   });
 
   it('answerElicitation appends the accepted-form summary to the transcript', () => {

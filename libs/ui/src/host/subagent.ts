@@ -4,6 +4,7 @@ import type { Option } from 'effect';
 import { Schema } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withoutUndefined } from '../optionalFields.ts';
 
 import { rootAncestor } from './ancestry.ts';
@@ -18,7 +19,7 @@ export type SubagentWorkState = {
   readonly stopReason?: string;
 };
 
-export type SubagentSnapshot = {
+type SubagentSnapshotBase = {
   /** Replaced whole by each patch; undefined = none/unconfirmed. */
   readonly capabilities?: Readonly<Record<string, unknown>>;
   readonly name?: string;
@@ -33,6 +34,16 @@ export type SubagentSnapshot = {
   readonly task?: string;
   readonly transcript: SessionTranscript;
 };
+
+/**
+ * `native`: the agent announced it; always on the parent's launch target. `spawned`: the Harness started it on another
+ * launch target, whose connection it lives on.
+ */
+export type NativeSubagentSnapshot = SubagentSnapshotBase & { readonly kind: 'native' };
+
+export type SubagentSnapshot =
+  | NativeSubagentSnapshot
+  | (SubagentSnapshotBase & { readonly kind: 'spawned'; readonly launchTarget: AgentLaunchTarget });
 
 export type SubagentRecord = Readonly<Record<string, SubagentSnapshot>>;
 
@@ -95,15 +106,27 @@ const toWorkState = (value: NonNullable<SubagentUpdate['state']>): SubagentWorkS
 export const initialSubagentSnapshot = (
   sessionId: string,
   parentSessionId: string,
-  early?: Pick<SubagentSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
-): SubagentSnapshot =>
+  early?: Pick<SubagentSnapshotBase, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+): NativeSubagentSnapshot =>
   withoutUndefined({
+    kind: 'native' as const,
     parentSessionId,
     pendingElicitation: early?.pendingElicitation,
     pendingPermission: early?.pendingPermission,
     sessionId,
     transcript: early?.transcript ?? emptySessionTranscript(),
   });
+
+/** A Spawned subagent session's first snapshot: it lives on `launchTarget`'s connection, not the parent's. */
+export const initialSpawnedSubagentSnapshot = (
+  sessionId: string,
+  parentSessionId: string,
+  launchTarget: AgentLaunchTarget,
+): SubagentSnapshot => ({ ...initialSubagentSnapshot(sessionId, parentSessionId), kind: 'spawned', launchTarget });
+
+/** The Harness sets a Spawned subagent session's Work state itself (its agent announces nothing). */
+export const withSubagentWorkState = (child: SubagentSnapshot, state: SubagentWorkState): SubagentSnapshot =>
+  withoutUndefined({ ...child, state, stateUnconfirmed: undefined });
 
 /** Nullable patch: omitted = unchanged, null = clear, concrete = replace whole field. */
 const patchField = <T, U>(

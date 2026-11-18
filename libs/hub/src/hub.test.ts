@@ -114,7 +114,7 @@ describe('hub', () => {
       const list = yield* mcpPost(mcpUrl(port), 'tok-a', listTools, { sessionId });
       assert.deepStrictEqual(
         rpcResult(list.text).result.tools.map(t => t.name),
-        ['submit_handoff'],
+        ['submit_handoff', 'list_subagent_targets', 'spawn_subagent', 'cancel_subagent', 'wait_subagent'],
       );
 
       const call = yield* Effect.forkChild(
@@ -131,6 +131,40 @@ describe('hub', () => {
         bystander.received.filter(m => m.type === 'toolCall'),
         [],
       );
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('routes list_subagent_targets with empty args', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-list');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-list');
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-list', sessionId, 'list_subagent_targets', {}),
+      );
+      const routed = yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      assert.strictEqual(routed.tool, 'list_subagent_targets');
+      assert.deepStrictEqual(routed.args, {});
+      owner.send({ isError: false, requestId: routed.requestId, text: '{}', type: 'toolResult' });
+      assert.strictEqual((yield* Fiber.join(call)).isError, false);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live('keeps a call open while its owner is still working, and answers when the owner does', () =>
+    Effect.gen(function* () {
+      const { port } = yield* hubUp();
+      const owner = yield* connectTestClient(port);
+      yield* registerToken(owner, 'tok-slow');
+      const { sessionId } = yield* mcpInitialize(mcpUrl(port), 'tok-slow');
+      const call = yield* Effect.forkChild(
+        mcpCallTool(mcpUrl(port), 'tok-slow', sessionId, 'submit_handoff', { document: 'slow' }),
+      );
+      const routed = yield* Effect.promise(() => owner.waitFor(m => m.type === 'toolCall'));
+      yield* Effect.sleep('1500 millis');
+      assert.isUndefined(call.pollUnsafe());
+      owner.send({ isError: false, requestId: routed.requestId, text: 'late', type: 'toolResult' });
+      assert.deepStrictEqual((yield* Fiber.join(call)).content, [{ text: 'late', type: 'text' }]);
     }).pipe(Effect.scoped),
   );
 

@@ -5,6 +5,7 @@
  */
 import { HUB_TOOL_NAMES, MCP_SERVER_NAME } from '@lib/hub/protocol';
 import type { HubToolName } from '@lib/hub/protocol';
+import type { HostServices } from '@lib/context-services';
 import type { McpServer } from '@libs/effect-acp';
 import { Duration, Effect } from 'effect';
 
@@ -14,7 +15,7 @@ import { agentLaunchTargetLabel } from './agentLaunchTarget.ts';
 import { awaitHub, currentHub, hubAvailability } from './hubConnection.ts';
 import type { HubAvailability } from './hubConnection.ts';
 import { toolError } from './hubToolHandler.ts';
-import type { HubToolResult } from './hubToolHandler.ts';
+import type { HubToolContext, HubToolResult } from './hubToolHandler.ts';
 import { HUB_TOOL_HANDLERS } from './hubTools.ts';
 
 /** How long a session RPC waits for a hub that is still connecting (startup, or a hub being started). */
@@ -234,7 +235,10 @@ export type HubToolCall = { readonly args: unknown; readonly token: string; read
 const isHubToolName = (tool: string): tool is HubToolName => (HUB_TOOL_NAMES as readonly string[]).includes(tool);
 
 /** Run one tool call routed from the hub, as the session that owns `call.token`. */
-export const handleHubToolCall = (call: HubToolCall): Effect.Effect<HubToolResult> => {
+export const handleHubToolCall = (
+  call: HubToolCall,
+  ctx: HubToolContext,
+): Effect.Effect<HubToolResult, never, HostServices> => {
   const credential = credentials.get(call.token);
   if (credential?.sessionId === undefined) {
     return Effect.succeed(toolError('This session is not connected to the Harness.'));
@@ -242,8 +246,12 @@ export const handleHubToolCall = (call: HubToolCall): Effect.Effect<HubToolResul
   if (!isHubToolName(call.tool)) {
     return Effect.succeed(toolError(`Unknown tool: ${call.tool}`));
   }
-  return HUB_TOOL_HANDLERS[call.tool](call.args, {
-    launchTarget: credential.launchTarget,
-    sessionId: credential.sessionId,
-  });
+  return HUB_TOOL_HANDLERS[call.tool](
+    call.args,
+    {
+      launchTarget: credential.launchTarget,
+      sessionId: credential.sessionId,
+    },
+    ctx,
+  );
 };

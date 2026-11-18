@@ -1292,6 +1292,36 @@ describe('#278 regressions', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('F3: Send waits for a pending lazy model pick before prompting', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello' });
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+      const recorder = recordingPrompt(calls);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* settle;
+
+      // The pick's response is still held: no prompt may have reached the agent.
+      assert.deepStrictEqual(
+        calls.filter(call => call.startsWith('prompt:')),
+        [],
+      );
+
+      yield* gate.release;
+      yield* Fiber.join(pick);
+      yield* Fiber.join(send);
+      assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('R1: Connection lost during Materialize keeps the draft and attachments, with no prompt', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

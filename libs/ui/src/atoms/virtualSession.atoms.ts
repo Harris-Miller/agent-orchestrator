@@ -539,7 +539,11 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
       yield* requestBind(registry);
       const boundId = yield* awaitCurrentBind(registry);
       const latest = registry.get(virtualSessionAtom);
-      if (latest !== null && bindKeyMatches(latest, key)) {
+      const pick = registry.get(pendingPickAtom);
+      if (latest !== null && pick?.key === pickKey(latest, launchTarget)) {
+        // A Lazy hydrate pick for this target is on the wire: let it land, then loop and re-read everything.
+        yield* Deferred.await(pick.done);
+      } else if (latest !== null && bindKeyMatches(latest, key)) {
         // (Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.)
         if (boundId === undefined || latest.sessionId !== boundId) {
           return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });

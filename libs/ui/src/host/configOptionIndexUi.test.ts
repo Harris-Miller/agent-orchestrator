@@ -236,6 +236,10 @@ describe('Hidden models and the Starting model', () => {
     assert.strictEqual(startingModelId(four(['opus']), prefs(['sonnet'])), 'haiku');
   });
 
+  it('startingModelId: every usable model hidden and the default unavailable -> first usable, never the unavailable one', () => {
+    assert.strictEqual(startingModelId(four(['sonnet']), prefs(['opus', 'haiku'])), 'opus');
+  });
+
   it('hardResetForAgent starts on a shown model when the default is hidden', () => {
     assert.strictEqual(hardResetForAgent(four(), prefs(['sonnet'])).values.model, 'opus');
   });

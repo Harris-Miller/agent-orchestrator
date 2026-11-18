@@ -77,16 +77,19 @@ export const needsLazyHydrate = (
 
 /**
  * Starting model for automatic choices (new Session, Handoff target, fallbacks): the default when shown,
- * else the first shown usable model in Model order, else the default (everything hidden/unusable).
+ * else the first shown usable model in Model order. When every usable model is hidden, hiding is ignored
+ * (the default if usable, else the first usable); with nothing usable, the default.
  */
 export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPrefs): string => {
   const hidden = new Set(prefs.hidden);
   const unavailable = new Set(index.unavailableModelIds);
-  const shown = orderedModelIds(
+  const usable = orderedModelIds(
     advertisedModelChoices(index).map(choice => choice.id),
     prefs.order,
-  ).filter(id => !unavailable.has(id) && !hidden.has(id));
-  return shown.includes(index.defaultModelId) ? index.defaultModelId : (shown[0] ?? index.defaultModelId);
+  ).filter(id => !unavailable.has(id));
+  const shown = usable.filter(id => !hidden.has(id));
+  const candidates = shown.length > 0 ? shown : usable;
+  return candidates.includes(index.defaultModelId) ? index.defaultModelId : (candidates[0] ?? index.defaultModelId);
 };
 
 export const hardResetForAgent = (
@@ -115,8 +118,9 @@ export const sanitizeConfigValuesForIndex = (
   const starting = startingModelId(index, prefs);
   const modelId = typeof values.model === 'string' ? values.model : starting;
   // A hidden stored model is replaced only when another model is shown (starting is shown).
-  const hiddenElsewhere = prefs.hidden.includes(modelId) && !prefs.hidden.includes(starting);
-  const modelOk = isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId) && !hiddenElsewhere;
+  const hiddenWhileOthersShown = prefs.hidden.includes(modelId) && !prefs.hidden.includes(starting);
+  const modelOk =
+    isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId) && !hiddenWhileOthersShown;
   const effectiveModel = modelOk ? modelId : starting;
   if (!isHydrated(index, effectiveModel)) {
     return { ...values, model: effectiveModel };

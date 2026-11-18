@@ -38,11 +38,18 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
       partitionComposerConfigOptions(
         configOptions.map(option =>
           isModelOption(option) && option.type === 'select'
-            ? { ...option, choices: arrangeModelChoices(option.choices, { ...prefs, currentId: option.currentValue }) }
+            ? {
+                ...option,
+                choices: arrangeModelChoices(option.choices, {
+                  ...prefs,
+                  currentId: option.currentValue,
+                  unavailableIds: unavailableModelIds,
+                }),
+              }
             : option,
         ),
       ),
-    [configOptions, prefs],
+    [configOptions, prefs, unavailableModelIds],
   );
 
   return (

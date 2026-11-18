@@ -169,7 +169,7 @@ A model id advertised on `session/new` whose `session/set_config_option(model)` 
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Hidden model**:
-A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
+A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
 _Avoid_: Disabled model, filtered model, blocked model
 
 **Starting model**:

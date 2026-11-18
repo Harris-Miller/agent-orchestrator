@@ -21,7 +21,11 @@ export const orderedModelIds = (advertisedIds: readonly string[], order: readonl
  */
 export const arrangeModelChoices = <T extends { readonly id: string }>(
   choices: readonly T[],
-  options: ModelPickerPrefs & { readonly currentId: string | undefined },
+  options: ModelPickerPrefs & {
+    readonly currentId: string | undefined;
+    /** Unavailable models do not count as shown: hiding every other model is still "everything hidden". */
+    readonly unavailableIds?: readonly string[];
+  },
 ): readonly T[] => {
   const byId = new Map(choices.map(choice => [choice.id, choice]));
   const hidden = new Set(options.hidden);
@@ -29,8 +33,9 @@ export const arrangeModelChoices = <T extends { readonly id: string }>(
     choices.map(choice => choice.id),
     options.order,
   );
-  // Hiding every model would leave nothing to pick: ignore it.
-  const hideAll = ids.every(id => hidden.has(id));
+  // Hiding every usable model would leave nothing to pick: ignore it.
+  const unavailable = new Set(options.unavailableIds);
+  const hideAll = ids.every(id => unavailable.has(id) || hidden.has(id));
   return ids.filter(id => hideAll || !hidden.has(id) || id === options.currentId).flatMap(id => byId.get(id) ?? []);
 };
 

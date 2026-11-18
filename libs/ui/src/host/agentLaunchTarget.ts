@@ -8,6 +8,9 @@ declare const process: { readonly env: Record<string, string | undefined> };
 
 export type AgentLaunchTarget = 'antigravity-acp' | 'claude-agent-acp' | 'codex-acp' | 'cursor-acp';
 
+/** A session on a launch target. */
+export type SessionRef = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
+
 /** Launch targets that spawn a Node ACP adapter from the adapter resource tree. */
 export type AcpAdapterLaunchTarget = 'claude-agent-acp' | 'codex-acp';
 

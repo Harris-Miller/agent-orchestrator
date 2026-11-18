@@ -1,17 +1,19 @@
 /**
  * A Spawned subagent's outcome on its way to the parent's agent (glossary: Subagent outcome, Subagent report, Steering,
  * Prompt turn, Queued message): collected by one of the agent's own calls, or reported. Whichever hands it over first
- * wins, so it reaches the agent once. Reporting: the Harness never occupies the user's one Queued message slot: a report is Steering into a turn in flight, or a Prompt
- * turn of its own once the parent is idle. Reports for one parent are serialized, each holding the parent until its
- * turn has begun; a report is dropped when its parent is gone.
+ * wins, so it reaches the agent once.
+ *
+ * Reporting: the Harness never occupies the user's one Queued message slot. A report is Steering into a turn in
+ * flight, or a Prompt turn of its own once the parent is idle. Reports for one parent are serialized, each holding the
+ * parent until its turn has begun; a report is dropped when its parent is gone.
  */
 import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
+import type { SessionRef } from '../host/agentLaunchTarget.ts';
 import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
 import { toolError } from '../host/hubToolHandler.ts';
 import type { HubToolResult } from '../host/hubToolHandler.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { claimHandle, linkOfChild, updateLink } from '../host/subagentLinks.ts';
 import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
 
@@ -22,8 +24,6 @@ import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
-type SessionRef = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
-
 /** What the agent reads for a turn that ended without any message (a failure: there is nothing to act on). */
 const NO_FINAL_MESSAGE = 'The subagent finished without producing a final message.';
 
@@ -33,6 +33,11 @@ const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
 /** The outcome as the agent reads it: a completed turn with no message is `failed` with `NO_FINAL_MESSAGE`. */
 const asAgentOutcome = (outcome: SubagentOutcome): SubagentOutcome =>
   hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
+
+const childRef = (link: SpawnedLink): SessionRef => ({
+  launchTarget: link.childLaunchTarget,
+  sessionId: link.childSessionId,
+});
 
 /** Take the outcome's hand-over for `by` while it is still open. True when this call took it. */
 const claimOutcome = (registry: Registry, child: SessionRef, by: 'reported' | 'waited'): boolean =>
@@ -66,12 +71,11 @@ export const takeOutcomeAsToolResult = (
   if (hasNoFinalMessage(outcome)) {
     return toolError(NO_FINAL_MESSAGE);
   }
-  if (outcome.status === 'completed') {
-    return { isError: false, text: outcome.text };
+  const { status, text } = asAgentOutcome(outcome);
+  if (status === 'completed') {
+    return { isError: false, text };
   }
-  return toolError(
-    outcome.status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${outcome.text}`,
-  );
+  return toolError(status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${text}`);
 };
 
 /**
@@ -85,7 +89,7 @@ export const awaitOutcomeEntry = (registry: Registry, link: SpawnedLink, bound: 
       if (outcome._tag === 'None') {
         return `<subagent id="${link.childSessionId}" status="running" />`;
       }
-      claimOutcome(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId }, 'waited');
+      claimOutcome(registry, childRef(link), 'waited');
       const { status, text } = asAgentOutcome(outcome.value);
       return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
     }),
@@ -203,11 +207,7 @@ const deliver = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome
       // The outcome is handed over at the moment of sending, so a `wait_subagent` until then suppresses the report.
       let claimed = false;
       const claim = () => {
-        claimed ||= claimOutcome(
-          registry,
-          { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId },
-          'reported',
-        );
+        claimed ||= claimOutcome(registry, childRef(link), 'reported');
         return claimed;
       };
       for (let attempts = 0; attempts < MAX_DELIVERY_ATTEMPTS; attempts += 1) {

@@ -10,7 +10,7 @@ import { Clock, DateTime, Deferred, Effect, Exit, Fiber, Schema, Stream } from '
 import { AtomRegistry } from 'effect/reactivity';
 
 import { resolveSessionCwd } from '../host/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import type { ConfigOptionValues } from '../host/configProbe.ts';
@@ -52,7 +52,6 @@ import { pendingSpawnsAtom, spawnedLinksAtom } from './subagentLinks.atoms.ts';
 import { usableSubagentTarget } from './subagentTargets.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
-type SessionRef = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
 
 /** The tool's refusal of a spawn, naming the cause for the agent. */
 export class SpawnSubagentError extends Schema.TaggedError<SpawnSubagentError>()('SpawnSubagentError', {

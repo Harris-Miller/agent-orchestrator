@@ -215,6 +215,41 @@ describe('spawn_subagent (foreground)', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('wait_subagent after the report went out still answers, and the report is not sent twice', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const parentPrompts: string[] = [];
+      const h = yield* setup(
+        {
+          duringPrompt: Effect.andThen(
+            Deferred.await(release),
+            Effect.sync(() => {
+              h.childFold.onSessionUpdate(CHILD, answer('late result'));
+            }),
+          ),
+        },
+        { promptTexts: parentPrompts },
+      );
+      const call = yield* Effect.forkChild(h.spawn());
+      yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
+      yield* TestClock.adjust('240 seconds');
+      yield* Fiber.join(call);
+      yield* Deferred.succeed(release, null);
+      yield* until(() => parentPrompts.length > 0);
+      const waited = yield* h.call('wait_subagent', { ids: [CHILD] });
+      assert.deepStrictEqual(waited, {
+        isError: false,
+        text: `<subagent id="${CHILD}" status="completed">\nlate result\n</subagent>`,
+      });
+      for (let i = 0; i < 30; i += 1) {
+        yield* Effect.yieldNow;
+      }
+      const [link] = [...h.registry.get(spawnedLinksAtom).values()];
+      assert.strictEqual(link.handleState, 'reported');
+      assert.strictEqual(parentPrompts.length, 1);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('wait_subagent refuses an id that is not the caller own child', () =>
     Effect.gen(function* () {
       const h = yield* setup();

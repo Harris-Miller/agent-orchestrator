@@ -291,7 +291,7 @@ describe('applySessionConfigValues (Config diffs)', () => {
           Effect.as(
             Effect.sync(() => {
               fold.onSessionUpdate('s1', {
-                availableCommands: [{ name: 'review' }],
+                availableCommands: [{ isSkill: false, name: 'review' }],
                 sessionUpdate: 'available_commands_update',
               });
               fold.onSessionUpdate('s1', configUpdate(report('o1', 'plan').configOptions));
@@ -303,7 +303,7 @@ describe('applySessionConfigValues (Config diffs)', () => {
       const result = yield* applySessionConfigValues(h.registry, target, { model: 'o1' });
 
       assert.deepStrictEqual(result, { stoppedEarly: false });
-      assert.deepStrictEqual(h.s1().availableCommands, [{ description: undefined, name: 'review' }]);
+      assert.deepStrictEqual(h.s1().availableCommands, [{ description: undefined, isSkill: false, name: 'review' }]);
       assert.strictEqual(configValue(h.s1().configuration, 'mode'), 'plan');
     }).pipe(Effect.scoped),
   );

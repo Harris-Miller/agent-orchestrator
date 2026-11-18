@@ -22,7 +22,7 @@ const HIDDEN_COMMAND_NAMES: Readonly<Partial<Record<AgentLaunchTarget, ReadonlyS
 };
 
 const matchesTriggerKind = (command: AvailableCommand, kind: ComposerCommandTriggerKind): boolean =>
-  kind === 'dollar' ? command.name.startsWith('$') : !command.name.startsWith('$');
+  kind === 'dollar' ? command.isSkill : true;
 
 const isHidden = (command: AvailableCommand, launchTarget: AgentLaunchTarget | undefined): boolean => {
   if (launchTarget === undefined) {

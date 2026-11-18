@@ -10,14 +10,14 @@ describe('composerPlaceholder', () => {
     assert.strictEqual(composerPlaceholder(undefined, false), 'Select a session…');
   });
 
-  it('mentions skills only for Codex', () => {
+  it('mentions skills for every provider', () => {
     assert.strictEqual(
       composerPlaceholder('codex-acp', false),
       `Ask ${agentLaunchTargetLabel('codex-acp')} anything. @ files, $ skills, / commands`,
     );
     assert.strictEqual(
       composerPlaceholder('claude-agent-acp', true),
-      `Ask ${agentLaunchTargetLabel('claude-agent-acp')} anything. @ files, / commands`,
+      `Ask ${agentLaunchTargetLabel('claude-agent-acp')} anything. @ files, $ skills, / commands`,
     );
   });
 });

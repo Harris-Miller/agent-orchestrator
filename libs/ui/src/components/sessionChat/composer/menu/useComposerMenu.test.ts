@@ -14,7 +14,11 @@ bindHostRuntime(createHostRuntime(mockHostLayer));
 
 afterEach(cleanup);
 
-const COMMANDS = [{ name: 'status' }, { name: 'stash' }, { name: 'compact' }];
+const COMMANDS = [
+  { isSkill: false, name: 'status' },
+  { isSkill: false, name: 'stash' },
+  { isSkill: false, name: 'compact' },
+];
 const ENTRIES = [
   { kind: 'file', path: 'src/app.ts' },
   { kind: 'file', path: 'README.md' },
@@ -51,6 +55,54 @@ const setup = (overrides: Partial<UseComposerMenuArgs> = {}) => {
   };
   return { hook, onMentionOpen, setDraft, state, type };
 };
+
+describe('useComposerMenu $ trigger on Claude', () => {
+  const claude = {
+    availableCommands: [...COMMANDS, { isSkill: true, name: 'caveman' }],
+    launchTarget: 'claude-agent-acp',
+  } as const;
+
+  it('$ with no matching skill is closed so Enter is not trapped', () => {
+    const { hook, type } = setup(claude);
+    type('$5');
+    assert.strictEqual(hook.result.current.keyHandlers.open, false);
+    assert.strictEqual(hook.result.current.commandMenuProps.open, false);
+  });
+
+  it('$ with a matching skill opens; / with no match stays open', () => {
+    const { hook, type } = setup(claude);
+    type('$cav');
+    assert.strictEqual(hook.result.current.keyHandlers.open, true);
+    assert.strictEqual(hook.result.current.commandMenuProps.open, true);
+    type('/zzz');
+    assert.strictEqual(hook.result.current.keyHandlers.open, true);
+  });
+});
+
+describe('useComposerMenu / trigger on Codex mid-draft', () => {
+  const codex = {
+    availableCommands: [...COMMANDS, { isSkill: true, name: '$caveman' }, { isSkill: true, name: '$stash-skill' }],
+    launchTarget: 'codex-acp',
+  } as const;
+
+  it('lists only skills past draft start', () => {
+    const { hook, type } = setup(codex);
+    type('use /st');
+    assert.deepStrictEqual(
+      hook.result.current.commandMenuProps.matches.map(m => m.command.name),
+      ['$stash-skill'],
+    );
+  });
+
+  it('lists commands and skills at draft start', () => {
+    const { hook, type } = setup(codex);
+    type('/st');
+    assert.deepStrictEqual(
+      hook.result.current.commandMenuProps.matches.map(m => m.command.name),
+      ['status', 'stash', '$stash-skill'],
+    );
+  });
+});
 
 describe('useComposerMenu', () => {
   it('typing / opens the command menu with matches', () => {

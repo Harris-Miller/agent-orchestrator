@@ -13,7 +13,7 @@ const { $getLogicalCursorAndAdjacency, $readEditorPieces, $setComposerContent, $
   await import('./editorDraft.ts');
 const { COMPOSER_NODES } = await import('./nodes/composerChipNode.ts');
 
-const commands = [{ description: 'Show status', name: 'status' }] as const;
+const commands = [{ description: 'Show status', isSkill: false, name: 'status' }] as const;
 const draft = 'hi /status and [docs](https://x.dev)\nnext';
 
 const makeEditor = () =>

@@ -1,4 +1,3 @@
-import { supportsDollarTrigger } from '../../../../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../../../../host/agentLaunchTarget.ts';
 
 import { isWhitespace } from '../../isWhitespace.ts';
@@ -12,8 +11,8 @@ export type DetectComposerTriggerArgs = {
 
 /**
  * Detect an in-progress `/`, `$`, or `@` composer trigger from draft text + logical cursor.
- * Codex: `/` only at draft index 0; `$` whitespace-bounded anywhere.
- * Non-Codex: `/` whitespace-bounded anywhere; no `$` menu.
+ * `$` whitespace-bounded anywhere for all agents (lists skills).
+ * `/` whitespace-bounded anywhere for all agents (Codex lists only skills past draft index 0).
  * `@` whitespace-bounded anywhere for all agents; menu opens from `@` alone.
  */
 export const detectComposerTrigger = ({
@@ -37,8 +36,6 @@ export const detectComposerTrigger = ({
     return null;
   }
 
-  const isCodex = supportsDollarTrigger(launchTarget);
-
   if (token.startsWith('@')) {
     return {
       kind: 'at',
@@ -49,9 +46,6 @@ export const detectComposerTrigger = ({
   }
 
   if (token.startsWith('/')) {
-    if (isCodex && rangeStart !== 0) {
-      return null;
-    }
     return {
       kind: 'slash',
       query: token.slice(1),
@@ -61,9 +55,6 @@ export const detectComposerTrigger = ({
   }
 
   if (token.startsWith('$')) {
-    if (!isCodex) {
-      return null;
-    }
     return {
       kind: 'dollar',
       query: token.slice(1),

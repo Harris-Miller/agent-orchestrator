@@ -68,15 +68,23 @@ export const useComposerMenu = ({
   const cursorRef = useRef(0);
   const syncCursorRef = useRef<null | number>(null);
 
-  const commandOpen = isCommandTrigger(composerTrigger);
   const mentionTrigger = composerTrigger?.kind === 'at' ? composerTrigger : null;
 
   const filteredCommandMatches = useMemo(() => {
     if (!isCommandTrigger(composerTrigger)) {
       return [];
     }
-    return filterAvailableCommandMatches(availableCommands, composerTrigger.kind, composerTrigger.query, launchTarget);
+    // Codex commands only run at draft start: a `/` Trigger later in the draft lists skills only.
+    const kind =
+      launchTarget === 'codex-acp' && composerTrigger.kind === 'slash' && composerTrigger.rangeStart !== 0
+        ? 'dollar'
+        : composerTrigger.kind;
+    return filterAvailableCommandMatches(availableCommands, kind, composerTrigger.query, launchTarget);
   }, [availableCommands, composerTrigger, launchTarget]);
+
+  // A `$` Trigger with no matching skill is treated as closed so Enter/Tab/arrows pass through (`$5`, `$HOME`).
+  const commandOpen =
+    isCommandTrigger(composerTrigger) && (composerTrigger.kind === 'slash' || filteredCommandMatches.length > 0);
 
   const filteredMentions = useMemo(() => {
     if (mentionTrigger === null) {
@@ -163,7 +171,7 @@ export const useComposerMenu = ({
         chooseMenuItem({ _tag: 'Command', command: commandMatch.command });
       },
       onSpaceDismiss: close,
-      open: composerTrigger !== null,
+      open: mentionTrigger !== null || commandOpen,
     }),
     [
       activeMenuCount,
@@ -171,7 +179,7 @@ export const useComposerMenu = ({
       clampedCommandFocus,
       clampedMentionFocus,
       close,
-      composerTrigger,
+      commandOpen,
       filteredCommandMatches,
       filteredMentions,
       mentionTrigger,

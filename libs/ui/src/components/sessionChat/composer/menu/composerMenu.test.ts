@@ -13,7 +13,7 @@ const CODEX = 'codex-acp' as const;
 
 const at = (draft: string) => ({ cursor: draft.length, draft, launchTarget: CODEX, sessionCwd: '/proj' });
 
-const status = { _tag: 'Command', command: { name: 'status' } } as const;
+const status = { _tag: 'Command', command: { isSkill: false, name: 'status' } } as const;
 const fileMention = (path: string) => ({ _tag: 'Mention', entry: { kind: 'file', path } }) as const;
 
 describe('applyComposerMenuChoice', () => {
@@ -48,6 +48,21 @@ describe('applyComposerMenuChoice', () => {
     assert.isUndefined(applyComposerMenuChoice({ ...at('see @src'), sessionCwd: undefined }, fileMention('src/a.ts')));
     assert.isUndefined(applyComposerMenuChoice({ ...at('/sta now'), cursor: 8 }, status));
     assert.isUndefined(applyComposerMenuChoice({ ...at('/sta'), launchTarget: undefined }, status));
+  });
+});
+
+describe('cross-provider skills', () => {
+  it('a Claude skill picked from $ inserts /name', () => {
+    const skill = { _tag: 'Command', command: { isSkill: true, name: 'caveman' } } as const;
+    assert.strictEqual(
+      applyComposerMenuChoice({ ...at('$cav'), launchTarget: 'claude-agent-acp' }, skill)?.draft,
+      '/caveman ',
+    );
+  });
+
+  it('a Codex skill picked from / inserts $name', () => {
+    const skill = { _tag: 'Command', command: { isSkill: true, name: '$caveman' } } as const;
+    assert.strictEqual(applyComposerMenuChoice(at('/cav'), skill)?.draft, '$caveman ');
   });
 });
 

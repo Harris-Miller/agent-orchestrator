@@ -5,9 +5,9 @@ import type { AvailableCommand } from '../../../host/sessionUpdateReducer.ts';
 import { commandInvocation, findExactCommandMatch, segmentText, splitChipSegments } from './chipSegments.ts';
 
 const commands = [
-  { description: 'Show status', name: 'status' },
-  { description: 'Compact context', name: 'compact' },
-  { description: 'Caveman mode', name: '$caveman' },
+  { description: 'Show status', isSkill: false, name: 'status' },
+  { description: 'Compact context', isSkill: false, name: 'compact' },
+  { description: 'Caveman mode', isSkill: true, name: '$caveman' },
 ] as const;
 
 describe('commandInvocation', () => {
@@ -88,11 +88,11 @@ describe('user message chip segments', () => {
 
   it('re-evaluates command chips when availableCommands changes', () => {
     const text = '/status /compact';
-    assert.deepStrictEqual(userMessageSegments(text, [{ name: 'status' }]), [
+    assert.deepStrictEqual(userMessageSegments(text, [{ isSkill: false, name: 'status' }]), [
       { kind: 'command', value: '/status' },
       { kind: 'text', value: ' /compact' },
     ]);
-    assert.deepStrictEqual(userMessageSegments(text, [{ name: 'compact' }]), [
+    assert.deepStrictEqual(userMessageSegments(text, [{ isSkill: false, name: 'compact' }]), [
       { kind: 'text', value: '/status ' },
       { kind: 'command', value: '/compact' },
     ]);
@@ -119,5 +119,13 @@ describe('segment round trip', () => {
       new Set(segments.map(segment => segment.kind)),
       new Set(['text', 'command', 'markdownLink']),
     );
+  });
+});
+
+describe('Claude skills', () => {
+  const claude = [{ isSkill: true, name: 'caveman' }] as const;
+  it('chips /caveman but not $caveman', () => {
+    assert.deepStrictEqual(splitChipSegments('/caveman', claude), [{ kind: 'command', value: '/caveman' }]);
+    assert.deepStrictEqual(splitChipSegments('$caveman', claude), [{ kind: 'text', value: '$caveman' }]);
   });
 });

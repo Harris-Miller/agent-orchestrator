@@ -189,11 +189,15 @@ Opt-in (a button in the Developer panel's Atoms tab), read-only access to the cu
 _Avoid_: state dump, debug API, devtools hook
 
 **Available Command**:
-A session-advertised ACP command entry from `available_commands_update` (`name` + optional `description`), stored on the session snapshot for the Composer Menu and Command Chip matching.
+A session-advertised ACP command entry from `available_commands_update` (`name`, optional `description`, and whether it is a Skill), stored on the session snapshot for the Composer Menu and Command Chip matching.
 _Avoid_: slash palette entry, skill definition (when you mean this list item)
 
+**Skill**:
+An Available Command the Agent identifies as a skill. The `$` Composer Trigger lists Skills for every Provider and inserts that Provider's native invocation (`/name` for Claude, `$name` for Codex). A Skill's chip is just a Command Chip.
+_Avoid_: skill definition, skill pill
+
 **Composer Trigger**:
-An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Menu (agent-specific rules for where `/` and `$` may start; `@` is whitespace-bounded and opens from `@` alone).
+An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Menu (`/`, `$` and `@` are whitespace-bounded for every Provider; Codex Commands only run at draft start, so a later `/` lists Skills only; `@` opens from `@` alone).
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Markdown styling**:
@@ -205,7 +209,7 @@ Markdown styling shows an inline Markdown marker (`**`, `*`, `~~`, `` ` ``) only
 _Avoid_: source mode, marker toggle
 
 **Composer Menu**:
-The floating list opened by a Composer Trigger — Available Commands for `/` and `$`, or filesystem paths for `@`. Choosing an item replaces the Composer Trigger under the caret; if the caret is no longer in a matching Trigger, choosing only closes the menu.
+The floating list opened by a Composer Trigger — all Available Commands (including Skills) for `/`, only Skills for `$` (a `$` Trigger with no matching Skill shows no menu), or filesystem paths for `@`. Choosing an item replaces the Composer Trigger under the caret; if the caret is no longer in a matching Trigger, choosing only closes the menu.
 _Avoid_: autocomplete, slash palette, picker (when you mean this list)
 
 **Filesystem Mention**:

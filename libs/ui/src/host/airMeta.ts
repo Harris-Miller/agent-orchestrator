@@ -35,3 +35,16 @@ export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry:
   const air = Predicate.isObject(jetbrains.air) ? jetbrains.air : {};
   return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, archived } } } };
 };
+
+/** True when an ACP available command is a skill: AIR `kind: 'skill'`, an AIR `skillPath`, or a Codex `$name`. */
+export const isSkillCommand = (entry: Readonly<Record<string, unknown>>): boolean => {
+  const { _meta: meta, name } = entry;
+  if (typeof name === 'string' && name.startsWith('$')) {
+    return true;
+  }
+  if (!Predicate.isObject(meta) || !Predicate.isObject(meta.jetbrains) || !Predicate.isObject(meta.jetbrains.air)) {
+    return false;
+  }
+  const { air } = meta.jetbrains;
+  return air.kind === 'skill' || typeof air.skillPath === 'string';
+};

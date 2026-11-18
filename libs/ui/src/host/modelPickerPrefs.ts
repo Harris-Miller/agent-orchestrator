@@ -16,7 +16,7 @@ export const orderedModelIds = (advertisedIds: readonly string[], order: readonl
 };
 
 /**
- * Choices for a model select: Model order applied, Hidden models dropped unless one is `currentId`
+ * Choices for a model select: Model order applied, Hidden models dropped unless one is `currentId` (or every model is hidden)
  * (kept at its place so the current value still renders).
  */
 export const arrangeModelChoices = <T extends { readonly id: string }>(
@@ -25,12 +25,13 @@ export const arrangeModelChoices = <T extends { readonly id: string }>(
 ): readonly T[] => {
   const byId = new Map(choices.map(choice => [choice.id, choice]));
   const hidden = new Set(options.hidden);
-  return orderedModelIds(
+  const ids = orderedModelIds(
     choices.map(choice => choice.id),
     options.order,
-  )
-    .filter(id => !hidden.has(id) || id === options.currentId)
-    .flatMap(id => byId.get(id) ?? []);
+  );
+  // Hiding every model would leave nothing to pick: ignore it.
+  const hideAll = ids.every(id => hidden.has(id));
+  return ids.filter(id => hideAll || !hidden.has(id) || id === options.currentId).flatMap(id => byId.get(id) ?? []);
 };
 
 /** Hidden ids for the advertised models only. Render-time only: writes keep unadvertised ids, since the cache may be partial. */

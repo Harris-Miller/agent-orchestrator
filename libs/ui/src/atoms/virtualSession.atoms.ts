@@ -55,6 +55,7 @@ import {
 } from './backendState.atoms.ts';
 import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
@@ -180,7 +181,11 @@ const seedFromLastDefaults = (registry: Registry): Pick<VirtualSession, 'configV
   }
   const index = registry.get(configOptionIndexAtom(defaults.launchTarget));
   return {
-    configValues: sanitizeConfigValuesForIndex(index, defaults.configValues),
+    configValues: sanitizeConfigValuesForIndex(
+      index,
+      defaults.configValues,
+      registry.get(modelPickerPrefsAtom(defaults.launchTarget)),
+    ),
     launchTarget: defaults.launchTarget,
   };
 };
@@ -244,10 +249,11 @@ const setBlobLaunchTarget = (registry: Registry, launchTarget: AgentLaunchTarget
   }
   const index = registry.get(configOptionIndexAtom(launchTarget));
   const defaults = registry.get(lastCreateDefaultsAtom);
+  const prefs = registry.get(modelPickerPrefsAtom(launchTarget));
   const configValues =
     defaults?.launchTarget === launchTarget
-      ? sanitizeConfigValuesForIndex(index, defaults.configValues)
-      : hardResetForAgent(index).values;
+      ? sanitizeConfigValuesForIndex(index, defaults.configValues, prefs)
+      : hardResetForAgent(index, prefs).values;
   setBlob(registry, { ...current, configValues, launchTarget, sessionId: undefined });
 };
 
@@ -813,7 +819,14 @@ export const resetVirtualUnsupportedConfig = (
   if (virtual?.launchTarget !== launchTarget) {
     return;
   }
-  setBlob(registry, { ...virtual, configValues: resetUnsupportedConfigValues(index, virtual.configValues) });
+  setBlob(registry, {
+    ...virtual,
+    configValues: resetUnsupportedConfigValues(
+      index,
+      virtual.configValues,
+      registry.get(modelPickerPrefsAtom(launchTarget)),
+    ),
+  });
 };
 
 /** Clear a Selected Session that no longer exists on any provider (not while the Lifecycle lock is held). */

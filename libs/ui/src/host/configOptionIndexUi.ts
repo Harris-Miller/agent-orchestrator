@@ -2,6 +2,8 @@
 import type { NormalizedConfigOption } from './acpSessionBootstrap.ts';
 import { configValuesFromOptions, preserveConfigValuesOnModelChange } from './configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from './configProbe.ts';
+import { orderedModelIds } from './modelPickerPrefs.ts';
+import type { ModelPickerPrefs } from './modelPickerPrefs.ts';
 
 export const optionsWithValues = (
   options: readonly NormalizedConfigOption[],
@@ -73,8 +75,23 @@ export const needsLazyHydrate = (
   !index.unavailableModelIds.includes(modelId) &&
   advertisedModelSelect(index, modelId) !== undefined;
 
+/**
+ * Starting model for automatic choices (new Session, Handoff target, fallbacks): the default when shown,
+ * else the first shown usable model in Model order, else the default (everything hidden/unusable).
+ */
+export const startingModelId = (index: ConfigOptionIndex, prefs: ModelPickerPrefs): string => {
+  const hidden = new Set(prefs.hidden);
+  const unavailable = new Set(index.unavailableModelIds);
+  const shown = orderedModelIds(
+    advertisedModelChoices(index).map(choice => choice.id),
+    prefs.order,
+  ).filter(id => !unavailable.has(id) && !hidden.has(id));
+  return shown.includes(index.defaultModelId) ? index.defaultModelId : (shown[0] ?? index.defaultModelId);
+};
+
 export const hardResetForAgent = (
   index: ConfigOptionIndex | undefined,
+  prefs: ModelPickerPrefs,
 ): {
   readonly options: readonly NormalizedConfigOption[];
   readonly values: ConfigOptionValues;
@@ -82,7 +99,7 @@ export const hardResetForAgent = (
   if (index === undefined) {
     return { options: [], values: {} };
   }
-  const options = rowForModel(index, index.defaultModelId);
+  const options = rowForModel(index, startingModelId(index, prefs));
   return { options, values: configValuesFromOptions(options) };
 };
 
@@ -90,13 +107,17 @@ export const hardResetForAgent = (
 export const sanitizeConfigValuesForIndex = (
   index: ConfigOptionIndex | undefined,
   values: ConfigOptionValues,
+  prefs: ModelPickerPrefs,
 ): ConfigOptionValues => {
   if (index === undefined) {
     return values;
   }
-  const modelId = typeof values.model === 'string' ? values.model : index.defaultModelId;
-  const modelOk = isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId);
-  const effectiveModel = modelOk ? modelId : index.defaultModelId;
+  const starting = startingModelId(index, prefs);
+  const modelId = typeof values.model === 'string' ? values.model : starting;
+  // A hidden stored model is replaced only when another model is shown (starting is shown).
+  const hiddenElsewhere = prefs.hidden.includes(modelId) && !prefs.hidden.includes(starting);
+  const modelOk = isKnownModel(index, modelId) && !index.unavailableModelIds.includes(modelId) && !hiddenElsewhere;
+  const effectiveModel = modelOk ? modelId : starting;
   if (!isHydrated(index, effectiveModel)) {
     return { ...values, model: effectiveModel };
   }
@@ -106,11 +127,12 @@ export const sanitizeConfigValuesForIndex = (
 export const resetUnsupportedConfigValues = (
   index: ConfigOptionIndex | undefined,
   values: ConfigOptionValues,
+  prefs: ModelPickerPrefs,
 ): ConfigOptionValues => {
   if (index === undefined) return values;
   const modelId = values.model;
   if (typeof modelId !== 'string' || !isKnownModel(index, modelId) || index.unavailableModelIds.includes(modelId)) {
-    return hardResetForAgent(index).values;
+    return hardResetForAgent(index, prefs).values;
   }
   if (!isHydrated(index, modelId)) {
     return values;

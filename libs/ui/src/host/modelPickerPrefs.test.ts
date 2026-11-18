@@ -45,10 +45,10 @@ describe('arrangeModelChoices', () => {
     );
   });
 
-  it('shows only the current model when everything is hidden', () => {
+  it('ignores hiding when everything is hidden', () => {
     assert.deepStrictEqual(
-      ids(arrangeModelChoices(choices, { currentId: 'c', hidden: ['a', 'b', 'c', 'd'], order: [] })),
-      ['c'],
+      ids(arrangeModelChoices(choices, { currentId: 'c', hidden: ['a', 'b', 'c', 'd'], order: ['d'] })),
+      ['d', 'a', 'b', 'c'],
     );
   });
 });

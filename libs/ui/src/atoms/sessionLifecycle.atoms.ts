@@ -60,6 +60,7 @@ import { endLinksOfParent } from './spawnedSubagent.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
+import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -259,7 +260,11 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         const reset = yield* applySessionConfigValues(
           get.registry,
           { launchTarget: arg.launchTarget, sessionId: arg.sessionId },
-          resetUnsupportedConfigValues(get(configOptionIndexAtom(arg.launchTarget)), configValuesFromOptions(loaded)),
+          resetUnsupportedConfigValues(
+            get(configOptionIndexAtom(arg.launchTarget)),
+            configValuesFromOptions(loaded),
+            get(modelPickerPrefsAtom(arg.launchTarget)),
+          ),
         );
         if (reset.stoppedEarly) {
           yield* Effect.logWarning('Session config reset failed during activation', arg.launchTarget, arg.sessionId);

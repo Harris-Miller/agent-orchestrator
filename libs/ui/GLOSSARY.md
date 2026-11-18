@@ -265,5 +265,9 @@ _Avoid_: VS Code theme id, custom theme
 The User setting (`matchVscodeTheme`, on when unset) that makes the Harness UI use the Host theme instead of the Theme preference, following the VS Code color theme live. Offered only where a Host theme exists, so desktop never shows it and ignores the setting. The Theme preference is disabled while it is on, and still picks the file-icon set.
 _Avoid_: VS Code theme preference, sync theme, follow VS Code
 
+**Chat width**:
+The User setting (`chatWidth`, Comfortable when unset) that caps the Chat transcript and Composer column at the `md` breakpoint (Comfortable), the `lg` breakpoint (Wide), or the full pane (Full). The transcript scrollbar stays at the pane edge.
+_Avoid_: layout width, content width
+
 **Session History search**:
 A search by Session title within the host’s Session History scope that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.

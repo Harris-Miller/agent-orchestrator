@@ -36,6 +36,7 @@ export {
 } from './home.ts';
 export { type LaunchTarget, LaunchTargetSchema } from './LaunchTarget.ts';
 export {
+  CHAT_WIDTHS,
   defaultSettings,
   normalizeAlwaysHiddenGlobs,
   type UserSettings,

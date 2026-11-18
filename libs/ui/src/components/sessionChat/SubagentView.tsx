@@ -22,6 +22,7 @@ import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { canCancelSubagent, getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
 
+import { useChatWidthSx } from './chatWidth.ts';
 import { SubagentDock } from './SubagentDock.tsx';
 import { ChatItemView } from './transcript/ChatItemView.tsx';
 import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
@@ -45,6 +46,7 @@ const SubagentViewBody: FC<{
   const setViewed = useAtomSet(viewedSubagentAtom);
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(viewed.launchTarget));
   const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
+  const chatWidthSx = useChatWidthSx();
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
@@ -96,7 +98,7 @@ const SubagentViewBody: FC<{
         ) : null}
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 0.5 }}>
-        <List dense disablePadding>
+        <List dense disablePadding sx={chatWidthSx}>
           <SubagentTaskView task={child.task} />
           {subagentTranscriptItems(child).map(item => (
             <ChatItemView item={item} key={item.id} />
@@ -119,7 +121,7 @@ const SubagentViewBody: FC<{
         </List>
       </Box>
       {child.pendingElicitation === undefined ? null : (
-        <Box sx={{ maxHeight: '40%', overflowY: 'auto', px: 1, py: 0.5 }}>
+        <Box sx={{ ...chatWidthSx, maxHeight: '40%', overflowY: 'auto', px: 1, py: 0.5 }}>
           <PendingElicitationCard
             agentTitle={child.name ?? 'Subagent'}
             key={child.pendingElicitation.id}
@@ -136,11 +138,13 @@ const SubagentViewBody: FC<{
           />
         </Box>
       )}
-      <SubagentDock
-        configOptions={configOptions}
-        launchTarget={childLaunchTarget}
-        unavailableModelIds={configOptionIndexes[childLaunchTarget]?.unavailableModelIds}
-      />
+      <Box sx={chatWidthSx}>
+        <SubagentDock
+          configOptions={configOptions}
+          launchTarget={childLaunchTarget}
+          unavailableModelIds={configOptionIndexes[childLaunchTarget]?.unavailableModelIds}
+        />
+      </Box>
     </Box>
   );
 };

@@ -13,6 +13,7 @@ import { clampThemeId, readPaintThemeId, writePaintThemeId } from '../../theme/t
 import {
   appOrchestratedAgentsEnabled,
   appOrchestratedAgentsEnabledAtom,
+  chatWidthModeAtom,
   midTurnSendModeAtom,
   showArchivedAtom,
   showArchivedEnabled,
@@ -20,10 +21,10 @@ import {
   userSettingsDocumentAtom,
   withModelPickerPrefs,
 } from './userSettingsDocument.atoms.ts';
-import type { MidTurnSend } from './userSettingsDocument.atoms.ts';
+import type { ChatWidth, MidTurnSend } from './userSettingsDocument.atoms.ts';
 
 export { appOrchestratedAgentsEnabled, showArchivedEnabled, unwrapUserSettings };
-export type { MidTurnSend };
+export type { ChatWidth, MidTurnSend };
 
 type AtomRuntime = HostRuntimeBag['atomRuntime'];
 
@@ -148,6 +149,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     },
   ).pipe(Atom.keepAlive);
 
+  /** Effective Chat width (Comfortable when unset). Write patches User settings. */
+  const chatWidthAtom = Atom.writable(
+    get => get(chatWidthModeAtom),
+    (ctx, width: ChatWidth) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), chatWidth: width });
+    },
+  ).pipe(Atom.keepAlive);
+
   /** Effective mid-turn send (Steer when unset). Write patches User settings. */
   const midTurnSendAtom = Atom.writable(
     get => get(midTurnSendModeAtom),
@@ -248,6 +257,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   return {
     alwaysHiddenGlobsAtom,
     appOrchestratedAgentsAtom,
+    chatWidthAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,
     keepAwakeEnabledAtom,

@@ -1,19 +1,27 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
+import { CHAT_WIDTHS } from '@lib/hoa-home';
 import type { FC } from 'react';
 
-import { matchVscodeThemeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
+import { chatWidthAtom, matchVscodeThemeAtom, userSettingsAtom } from '../atoms/boundHarnessAtoms.ts';
 import { hostThemeAtom } from '../atoms/theme.atoms.ts';
+import type { ChatWidth } from '../atoms/userSettings/userSettings.atoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 
 import { SettingsRow, SettingsSection } from './SettingsSection.tsx';
 import { ThemeSelect } from './ThemeSelect.tsx';
 
-/** Settings → Appearance: Theme preference, plus Match VS Code theme where the Host supplies a theme. */
+const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = { comfortable: 'Comfortable', full: 'Full', wide: 'Wide' };
+
+/** Settings → Appearance: Theme preference, Chat width, plus Match VS Code theme where the Host supplies a theme. */
 export const AppearanceSettingsPane: FC = () => {
   const hostTheme = useAtomValue(hostThemeAtom);
   const matchVscodeTheme = useAtomValue(matchVscodeThemeAtom);
   const setMatchVscodeTheme = useAtomSet(matchVscodeThemeAtom);
+  const chatWidth = useAtomValue(chatWidthAtom);
+  const setChatWidth = useAtomSet(chatWidthAtom);
   const editsDisabled = userSettingsEditsDisabled(useAtomValue(userSettingsAtom));
   const hostThemeInUse = hostTheme !== undefined && matchVscodeTheme;
 
@@ -28,6 +36,26 @@ export const AppearanceSettingsPane: FC = () => {
         }
       >
         <ThemeSelect disabled={hostThemeInUse} />
+      </SettingsRow>
+      <SettingsRow
+        title="Chat width"
+        description="How wide the conversation and message box are. Comfortable keeps lines readable; Full uses the whole window."
+      >
+        <Select
+          disabled={editsDisabled}
+          inputProps={{ 'aria-label': 'Chat width' }}
+          onChange={event => {
+            setChatWidth(event.target.value);
+          }}
+          size="small"
+          value={chatWidth}
+        >
+          {CHAT_WIDTHS.map(width => (
+            <MenuItem key={width} value={width}>
+              {CHAT_WIDTH_LABELS[width]}
+            </MenuItem>
+          ))}
+        </Select>
       </SettingsRow>
       {hostTheme === undefined ? null : (
         <SettingsRow

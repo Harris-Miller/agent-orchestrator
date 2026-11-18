@@ -1,5 +1,8 @@
 import { Schema } from 'effect';
 
+/** Chat width options, narrowest to widest. */
+export const CHAT_WIDTHS = ['comfortable', 'wide', 'full'] as const;
+
 /**
  * User settings schema: known preference fields + passthrough unknown keys.
  */
@@ -7,6 +10,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
   Schema.Struct({
     alwaysHiddenGlobs: Schema.optionalKey(Schema.Array(Schema.String)),
     appOrchestratedAgentsEnabled: Schema.optionalKey(Schema.Boolean),
+    chatWidth: Schema.optionalKey(Schema.Literals(CHAT_WIDTHS)),
     confirmSessionDelete: Schema.optionalKey(Schema.Boolean),
     developerModeEnabled: Schema.optionalKey(Schema.Boolean),
     hiddenModels: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(Schema.String))),

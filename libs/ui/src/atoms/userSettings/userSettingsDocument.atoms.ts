@@ -60,6 +60,17 @@ export const midTurnSendModeAtom = Atom.make(get =>
   midTurnSendMode(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('midTurnSend'), Atom.keepAlive);
 
+/** How wide the Chat transcript and Composer column is. */
+export type ChatWidth = NonNullable<UserSettings['chatWidth']>;
+
+/** Comfortable is the Chat width when the Settings field is unset. */
+export const chatWidthMode = (settings: UserSettings): ChatWidth => settings.chatWidth ?? 'comfortable';
+
+/** Effective Chat width, read from the User settings document. Write through `chatWidthAtom`. */
+export const chatWidthModeAtom = Atom.make(get =>
+  chatWidthMode(unwrapUserSettings(get(userSettingsDocumentAtom))),
+).pipe(Atom.withLabel('chatWidth'), Atom.keepAlive);
+
 const withoutKey = <V>(record: Readonly<Record<string, V>> | undefined, key: string): Record<string, V> => {
   const { [key]: _removed, ...rest } = record ?? {};
   return rest;

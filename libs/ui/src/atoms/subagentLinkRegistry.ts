@@ -11,6 +11,7 @@ import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts
 
 type Registry = AtomRegistry.AtomRegistry;
 
+// Lives here, not in subagentOutcome.ts: `SpawnedLink` needs it and subagentOutcome imports this module (a move would cycle).
 /** How a Spawned subagent session's Prompt turn ended; `text` is its final message (completed) or the cause. */
 export type SubagentOutcome = {
   readonly status: 'cancelled' | 'completed' | 'failed';

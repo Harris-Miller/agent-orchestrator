@@ -37,18 +37,16 @@ const link = (registry: AtomRegistry.AtomRegistry, c: SessionRef, of: SessionRef
   reserve(registry, of).register({ child: c, description: 'd', task: 't' });
 
 describe('identity', () => {
-  it('keys a child by launch target and session id', () => {
+  it.each([
+    ['same launch target and session', child('c1'), true],
+    ['other launch target', child('c1', 'codex-acp'), false],
+    ['other session id', child('c2'), false],
+  ] as const)('keys a child by launch target and session id: %s', (_label, ref, expected) => {
     const registry = AtomRegistry.make();
     link(registry, child('c1'));
-    for (const [ref, expected] of [
-      [child('c1'), true],
-      [child('c1', 'codex-acp'), false],
-      [child('c2'), false],
-    ] as const) {
-      assert.strictEqual(isChild(registry, ref), expected);
-      assert.strictEqual(isChildIn(registry.get(subagentLinksAtom), ref), expected);
-      assert.strictEqual(linkOf(registry, ref) !== undefined, expected);
-    }
+    assert.strictEqual(isChild(registry, ref), expected);
+    assert.strictEqual(isChildIn(registry.get(subagentLinksAtom), ref), expected);
+    assert.strictEqual(linkOf(registry, ref) !== undefined, expected);
   });
 
   it('lists children of one parent; allLinks lists all', () => {

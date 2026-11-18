@@ -173,7 +173,7 @@ A model the user turned off for one launch target in Settings > Providers, so mo
 _Avoid_: Disabled model, filtered model, blocked model
 
 **Options section**:
-The always-visible part of the Composer's model picker listing every Config option the agent advertises except mode, model and effort, one label + control row each, with no collapsed sub-menu, so options a provider adds later appear without a Composer change. Ultra (Ultracode on Claude) is always its first row, disabled with a reason when the current model or provider does not offer it.
+The always-visible part of the Composer's model picker listing every Config option the agent advertises except mode, model and effort, one label + control row each, with no collapsed sub-menu, so options a provider adds later appear without a Composer change. Claude Ultracode is always its first row, disabled with a reason when the provider does not advertise it. Codex Ultra is not an option: it is an ordinary choice in the Reasoning list.
 _Avoid_: Advanced, more options
 
 **Well-known Config option**:

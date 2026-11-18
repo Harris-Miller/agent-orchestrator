@@ -85,8 +85,8 @@ describe('chipSuffixParts', () => {
     assert.deepStrictEqual(chipSuffixParts('codex-acp', [fast, plan], effort), ['High', 'Fast', 'Plan']);
   });
 
-  it('replaces effort with the Ultra label when ultra effort is on', () => {
-    assert.deepStrictEqual(chipSuffixParts('codex-acp', [], { ...effort, currentValue: 'ultra' }), ['Ultra']);
+  it('shows an ultra effort by its own name', () => {
+    assert.deepStrictEqual(chipSuffixParts('codex-acp', [], { ...effort, currentValue: 'ultra' }), ['ultra']);
   });
 
   it('does not show Plan for a Claude option named collaboration_mode', () => {

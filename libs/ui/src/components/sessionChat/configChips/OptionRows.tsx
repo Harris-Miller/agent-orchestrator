@@ -46,7 +46,7 @@ const SwitchRow: FC<{
   </Row>
 );
 
-/** Ultra / Ultracode: always the first row, disabled with the reason as a tooltip. */
+/** Claude Ultracode: always the first row, disabled with the reason as a tooltip. */
 export const UltraOptionRow: FC<{
   readonly disabled: boolean;
   readonly onToggle: (on: boolean) => void;

@@ -214,19 +214,20 @@ describe('ConfigChipRow', () => {
       assert.deepStrictEqual(changes, [{ configId: 'model', type: 'select', value: 'm2' }]);
     });
 
-    it('shows Ultra enabled when the model advertises ultra, and restores effort on off', () => {
+    it('lists Codex ultra as a normal Reasoning choice, with no Ultra row', () => {
       const { changes } = mount({
         configOptions: [select('model', 'gpt', ['gpt']), select('reasoning_effort', 'high', ['high', 'ultra'])],
       });
       fireEvent.click(chip(1));
-      fireEvent.click(screen.getByLabelText('Ultra'));
+      assert.isNull(screen.queryByLabelText('Ultra'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'ultra' }));
       assert.deepStrictEqual(changes, [{ configId: 'reasoning_effort', type: 'select', value: 'ultra' }]);
     });
 
-    it('disables Ultra when unsupported and hides ultra from Reasoning', () => {
-      mount({ configOptions: [select('model', 'gpt', ['gpt']), select('reasoning_effort', 'high', ['high'])] });
+    it('shows a disabled Ultracode row for Claude without an ultracode option', () => {
+      mount({ agent: { value: 'claude-agent-acp' }, configOptions: [select('model', 'opus', ['opus'])] });
       fireEvent.click(chip(1));
-      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Ultra').disabled);
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Ultracode').disabled);
     });
 
     it('renders the Plan toggle for collaboration_mode', () => {

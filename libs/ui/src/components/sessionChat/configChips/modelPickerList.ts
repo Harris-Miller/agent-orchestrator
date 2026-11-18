@@ -3,7 +3,7 @@ import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 
-import { ULTRA_EFFORT_ID, ultraSuffixParts } from './ultra.ts';
+import { ultraSuffixParts } from './ultra.ts';
 import { toggleSuffixParts } from './wellKnownConfigOption.ts';
 import { modelSelectChoiceLabel } from './sessionConfigOptionSelectViews.ts';
 
@@ -58,7 +58,7 @@ export const searchModelRows = (rows: readonly ModelRow[], query: string): reado
   return [...hits.filter(row => !row.hidden), ...hits.filter(row => row.hidden)];
 };
 
-/** Chip suffix parts after the model name: effort (or Ultra label), then Ultracode, Fast and Plan when on. */
+/** Chip suffix parts after the model name: effort, then Ultracode, Fast and Plan when on. */
 export const chipSuffixParts = (
   launchTarget: AgentLaunchTarget | undefined,
   options: readonly NormalizedConfigOption[],
@@ -66,8 +66,7 @@ export const chipSuffixParts = (
 ): readonly string[] => {
   const effortName = effort?.choices.find(choice => choice.id === effort.currentValue)?.name ?? effort?.currentValue;
   const ultra = ultraSuffixParts(launchTarget, effort === undefined ? options : [...options, effort]);
-  const isUltraEffort = effort?.currentValue === ULTRA_EFFORT_ID;
-  return [...(isUltraEffort ? [] : [effortName]), ...ultra, ...toggleSuffixParts(launchTarget, options)].filter(
+  return [effortName, ...ultra, ...toggleSuffixParts(launchTarget, options)].filter(
     (part): part is string => part !== undefined && part !== '',
   );
 };

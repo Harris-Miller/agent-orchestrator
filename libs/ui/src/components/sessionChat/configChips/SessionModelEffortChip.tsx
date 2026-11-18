@@ -6,7 +6,7 @@ import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Check } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import type { NormalizedConfigOption, NormalizedSelectConfigOption } from '../../../host/acpSessionBootstrap.ts';
@@ -23,7 +23,7 @@ import type { ModelRow } from './modelPickerList.ts';
 import { ModelPickerList } from './ModelPickerList.tsx';
 import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
 import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
-import { reasoningChoices, ULTRA_EFFORT_ID, ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
+import { ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
 
 const POPOVER_WIDTH = 680;
 
@@ -40,7 +40,6 @@ export const SessionModelEffortChip: FC<{
 }> = ({ disabled = false, effort, launchTarget, model, onChange, options = [], prefs, unavailableModelIds = [] }) => {
   const menu = useComposerChromeMenu();
   const [hover, setHover] = useState<ModelRow | undefined>();
-  const previousEffort = useRef<string | undefined>(undefined);
 
   const rows = modelRowsFor(model.choices, {
     ...prefs,
@@ -54,7 +53,7 @@ export const SessionModelEffortChip: FC<{
   const ultra = ultraRow(launchTarget, allOptions);
   const suffix = chipSuffixParts(launchTarget, options, effort);
   const optionRows = withoutUltraOption(options);
-  const reasoning = effort === undefined ? [] : reasoningChoices(effort);
+  const reasoning = effort?.choices ?? [];
   const paneHeight = pickerPaneHeight(reasoning.length, optionRows.length + (ultra === undefined ? 0 : 1));
 
   const pickModel = (row: ModelRow) => {
@@ -62,10 +61,7 @@ export const SessionModelEffortChip: FC<{
   };
 
   const toggleUltra = (on: boolean) => {
-    if (on && effort !== undefined && effort.currentValue !== ULTRA_EFFORT_ID) {
-      previousEffort.current = effort.currentValue;
-    }
-    for (const diff of ultraToggleDiffs(allOptions, on, previousEffort.current)) {
+    for (const diff of ultraToggleDiffs(allOptions, on)) {
       onChange(diff);
     }
   };

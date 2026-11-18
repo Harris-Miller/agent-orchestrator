@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import List from '@mui/material/List';
@@ -9,21 +8,30 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import type { ElicitationReply } from '../../atoms/chat.atoms.ts';
-import { backendHarnessSnapshotAtom, viewedSubagentAtom } from '../../atoms/backendState.atoms.ts';
+import {
+  backendHarnessSnapshotAtom,
+  configOptionIndexByLaunchTargetAtom,
+  viewedSubagentAtom,
+} from '../../atoms/backendState.atoms.ts';
 import {
   cancelSubagentAtomFn,
   respondElicitationAtomFn,
   respondPermissionAtomFn,
 } from '../../atoms/boundHarnessAtoms.ts';
+import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 import { canCancelSubagent, getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
 
+import { SubagentDock } from './SubagentDock.tsx';
 import { ChatItemView } from './transcript/ChatItemView.tsx';
 import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './pendingInteractions/PendingPermissionCard.tsx';
 import { SubagentStatusIndicator } from './transcript/chatItems/SubagentStatusIndicator.tsx';
 import { SubagentTaskView } from './transcript/chatItems/SubagentTaskView.tsx';
 import { subagentStatus } from './transcript/chatItems/subagentStateLabel.ts';
+
+/** Stable empty configuration: Native subagents report none. */
+const EMPTY_CONFIGURATION: SessionConfiguration = [];
 
 const SubagentViewBody: FC<{
   readonly onClientError: (error: unknown) => void;
@@ -36,17 +44,19 @@ const SubagentViewBody: FC<{
   const [cancelRequested, setCancelRequested] = useState(false);
   const setViewed = useAtomSet(viewedSubagentAtom);
   const snapshot = useAtomValue(backendHarnessSnapshotAtom(viewed.launchTarget));
+  const configOptionIndexes = useAtomValue(configOptionIndexByLaunchTargetAtom);
   const cancel = useAtomSet(cancelSubagentAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const child = getSubagent(snapshot.subagents, viewed.childId);
+  // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
+  const childLaunchTarget = child?.kind === 'spawned' ? child.launchTarget : viewed.launchTarget;
+  const childSnapshot = useAtomValue(backendHarnessSnapshotAtom(childLaunchTarget));
   if (child === undefined) return null;
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
   const status = subagentStatus(child);
   const running = status === 'running' || status === 'needs_input';
-  // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
-  const childLaunchTarget = child.kind === 'spawned' ? child.launchTarget : viewed.launchTarget;
   const respond = (reply: ElicitationReply) => {
     respondElicitation({ launchTarget: childLaunchTarget, sessionId: child.sessionId, ...reply }).catch(onClientError);
   };
@@ -121,9 +131,15 @@ const SubagentViewBody: FC<{
           />
         </Box>
       )}
-      <Alert severity="info" sx={{ m: 1 }}>
-        Subagent session — read-only.
-      </Alert>
+      <SubagentDock
+        configOptions={
+          child.kind === 'spawned'
+            ? (childSnapshot.sessions[child.sessionId]?.configuration ?? EMPTY_CONFIGURATION)
+            : EMPTY_CONFIGURATION
+        }
+        launchTarget={childLaunchTarget}
+        unavailableModelIds={configOptionIndexes[childLaunchTarget]?.unavailableModelIds}
+      />
     </Box>
   );
 };

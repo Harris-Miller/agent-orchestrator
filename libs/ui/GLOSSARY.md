@@ -169,8 +169,16 @@ A model id advertised on `session/new` whose `session/set_config_option(model)` 
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)
 
 **Hidden model**:
-A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
+A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model. The Composer's model picker does not drop Hidden models but tucks them behind "Show more (N)" / "Hide more" at the bottom of the list, and its search matches Hidden and unhidden models alike, unhidden first.
 _Avoid_: Disabled model, filtered model, blocked model
+
+**Options section**:
+The always-visible part of the Composer's model picker listing every Config option the agent advertises except mode, model and effort, one label + control row each, with no collapsed sub-menu, so options a provider adds later appear without a Composer change. Claude Ultracode is always its first row, disabled with a reason when the provider does not advertise it. Codex Ultra is not an option: it is an ordinary choice in the Reasoning list.
+_Avoid_: Advanced, more options
+
+**Well-known Config option**:
+A Config option the Composer treats specially, identified by launch target and option id. Codex `collaboration_mode` renders as a "Plan" switch while its choices are just `default` and `plan` (a dropdown if it ever has more); Claude `fast` and Codex `fast-mode` / `fast_mode` render as boolean switches and add "Fast" to the model chip when on. These are always shown for their provider, disabled with "Not available for this model" while the session's Config options omit them (for example after a model or reasoning change). Every other option gets the generic control for its type (select or boolean).
+_Avoid_: special option, custom option
 
 **Starting model**:
 The model a new Virtual draft or Handoff target begins on when nothing the user chose applies (no last-create default for that launch target, or that default names a Hidden or Unavailable model): the agent's default model if shown, else the first shown model in Model order. Unavailable models are never picked. A model the user already chose (a Session's current model, a Virtual draft's value, a Handoff form's value) is applied as-is even if it is later hidden: hiding changes what is offered, never what a Session already has.

@@ -4,8 +4,6 @@ import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
 import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
-import { isModelOption } from '../../../host/configOptionIndexUi.ts';
-import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
@@ -33,24 +31,7 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
   unavailableModelIds,
 }) => {
   const prefs = useAtomValue(modelPickerPrefsAtom(agent.value));
-  const partitioned = useMemo(
-    () =>
-      partitionComposerConfigOptions(
-        configOptions.map(option =>
-          isModelOption(option) && option.type === 'select'
-            ? {
-                ...option,
-                choices: arrangeModelChoices(option.choices, {
-                  ...prefs,
-                  currentId: option.currentValue,
-                  unavailableIds: unavailableModelIds,
-                }),
-              }
-            : option,
-        ),
-      ),
-    [configOptions, prefs, unavailableModelIds],
-  );
+  const partitioned = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
 
   return (
     <>
@@ -59,8 +40,11 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
         <SessionModelEffortChip
           disabled={configDisabled}
           effort={partitioned.modelEffort.effort}
+          launchTarget={agent.value}
           model={partitioned.modelEffort.model}
           onChange={onConfigChange}
+          options={partitioned.modelEffort.options}
+          prefs={prefs}
           unavailableModelIds={unavailableModelIds}
         />
       ) : null}

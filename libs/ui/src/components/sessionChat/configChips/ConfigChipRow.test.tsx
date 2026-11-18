@@ -71,18 +71,19 @@ const mount = (
 const chip = (index: number) => screen.getAllByRole<HTMLButtonElement>('button')[index];
 
 describe('ConfigChipRow', () => {
-  it('renders agent, model/effort, access chips then leftover controls in order', () => {
+  it('renders agent, model/effort and access chips in order, with other options inside the picker', () => {
     mount();
     const order = Array.from(document.querySelectorAll('button, input')).map(el => el.tagName);
-    assert.deepStrictEqual(order, ['BUTTON', 'BUTTON', 'BUTTON', 'INPUT']);
+    assert.deepStrictEqual(order, ['BUTTON', 'BUTTON', 'BUTTON']);
     assert.include(chip(0).textContent, 'Codex');
     assert.include(chip(1).textContent, 'sonnet');
     assert.include(chip(1).textContent, 'high');
     assert.include(chip(2).textContent, 'default');
   });
 
-  it('reports a leftover control change as a Config change diff', () => {
+  it('reports an Options row change as a Config change diff', () => {
     const { changes } = mount();
+    fireEvent.click(chip(1));
     fireEvent.click(screen.getByLabelText('Fast mode'));
     assert.deepStrictEqual(changes, [{ configId: 'fast-mode', type: 'boolean', value: true }]);
   });
@@ -99,14 +100,12 @@ describe('ConfigChipRow', () => {
     assert.isFalse(chip(0).disabled);
     assert.isTrue(chip(1).disabled);
     assert.isTrue(chip(2).disabled);
-    assert.isTrue(screen.getByLabelText<HTMLInputElement>('Fast mode').disabled);
   });
 
   it('agent disabled disables the agent chip but not config controls', () => {
     mount({ agent: { disabled: true } });
     assert.isTrue(chip(0).disabled);
     assert.isFalse(chip(1).disabled);
-    assert.isFalse(screen.getByLabelText<HTMLInputElement>('Fast mode').disabled);
   });
 
   describe('model picker prefs', () => {
@@ -146,6 +145,118 @@ describe('ConfigChipRow', () => {
       mount({ configOptions: modelOptions('m1'), settings: { hiddenModels: { 'claude-agent-acp': ['m2'] } } });
       fireEvent.click(chip(1));
       assert.deepStrictEqual(menuModels(), models);
+    });
+  });
+
+  describe('model picker popover', () => {
+    const models = ['m1', 'm2', 'm3'];
+    const modelOptions = (current: string): readonly NormalizedConfigOption[] => [select('model', current, models)];
+    const menuModels = () => screen.getAllByRole('menuitem').map(item => item.textContent);
+
+    it('reveals Hidden models under Show more and re-hides them', () => {
+      mount({ configOptions: modelOptions('m1'), settings: { hiddenModels: { 'codex-acp': ['m2'] } } });
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(menuModels(), ['m1', 'm3']);
+      fireEvent.click(screen.getByRole('button', { name: 'Show more (1)' }));
+      assert.deepStrictEqual(menuModels(), ['m1', 'm3', 'm2']);
+      fireEvent.click(screen.getByRole('button', { name: 'Hide more' }));
+      assert.deepStrictEqual(menuModels(), ['m1', 'm3']);
+    });
+
+    it('search matches Hidden models after unhidden ones', () => {
+      mount({ configOptions: modelOptions('m1'), settings: { hiddenModels: { 'codex-acp': ['m2'] } } });
+      fireEvent.click(chip(1));
+      fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'm' } });
+      assert.deepStrictEqual(menuModels(), ['m1', 'm3', 'm2']);
+    });
+
+    it('describes the hovered model, and falls back to the selected one when the row unmounts', () => {
+      const described = [
+        { description: 'first', id: 'm1', name: 'm1' },
+        { description: 'second', id: 'm2', name: 'm2' },
+      ];
+      mount({
+        configOptions: [
+          {
+            choices: described,
+            currentValue: 'm1',
+            id: 'model',
+            name: 'model',
+            type: 'select',
+          },
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.isNotNull(screen.queryByText('first'));
+      fireEvent.mouseEnter(screen.getByRole('menuitem', { name: 'm2' }));
+      assert.isNotNull(screen.queryByText('second'));
+      fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'm1' } });
+      assert.isNull(screen.queryByText('second'));
+      assert.isNotNull(screen.queryByText('first'));
+    });
+
+    it('lists a boolean ultracode option only on the Ultracode row', () => {
+      mount({
+        agent: { value: 'claude-agent-acp' },
+        configOptions: [
+          select('model', 'opus', ['opus']),
+          { currentValue: false, id: 'ultracode', name: 'Ultracode', type: 'boolean' },
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.lengthOf(screen.getAllByLabelText('Ultracode'), 1);
+    });
+
+    it('sets the picked model', () => {
+      const { changes } = mount({ configOptions: modelOptions('m1') });
+      fireEvent.click(chip(1));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'm2' }));
+      assert.deepStrictEqual(changes, [{ configId: 'model', type: 'select', value: 'm2' }]);
+    });
+
+    it('lists Codex ultra as a normal Reasoning choice, with no Ultracode row', () => {
+      const { changes } = mount({
+        configOptions: [select('model', 'gpt', ['gpt']), select('reasoning_effort', 'high', ['high', 'ultra'])],
+      });
+      fireEvent.click(chip(1));
+      assert.isNull(screen.queryByLabelText('Ultracode'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'ultra' }));
+      assert.deepStrictEqual(changes, [{ configId: 'reasoning_effort', type: 'select', value: 'ultra' }]);
+    });
+
+    it('shows a disabled Ultracode row for Claude without an ultracode option', () => {
+      mount({ agent: { value: 'claude-agent-acp' }, configOptions: [select('model', 'opus', ['opus'])] });
+      fireEvent.click(chip(1));
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Ultracode').disabled);
+    });
+
+    it('always shows Plan and Fast, disabled when the session does not report them', () => {
+      mount({ agent: { value: 'codex-acp' }, configOptions: [select('model', 'gpt', ['gpt'])] });
+      fireEvent.click(chip(1));
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Plan').disabled);
+      assert.isTrue(screen.getByLabelText<HTMLInputElement>('Fast mode').disabled);
+    });
+
+    it('falls back to a dropdown when collaboration_mode has more than default|plan', () => {
+      mount({
+        agent: { value: 'codex-acp' },
+        configOptions: [
+          select('model', 'gpt', ['gpt']),
+          select('collaboration_mode', 'default', ['default', 'plan', 'review']),
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.isNull(screen.queryByRole('checkbox', { name: 'Plan' }));
+      assert.isNotNull(screen.getByLabelText('collaboration_mode'));
+    });
+
+    it('renders the Plan toggle for collaboration_mode', () => {
+      const { changes } = mount({
+        configOptions: [select('model', 'gpt', ['gpt']), select('collaboration_mode', 'default', ['default', 'plan'])],
+      });
+      fireEvent.click(chip(1));
+      fireEvent.click(screen.getByLabelText('Plan'));
+      assert.deepStrictEqual(changes, [{ configId: 'collaboration_mode', type: 'select', value: 'plan' }]);
     });
   });
 });

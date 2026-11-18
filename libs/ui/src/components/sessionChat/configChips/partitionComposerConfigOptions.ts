@@ -11,11 +11,16 @@ export type PartitionedComposerConfigOptions = {
     | {
         readonly effort: NormalizedSelectConfigOption | undefined;
         readonly model: NormalizedSelectConfigOption;
+        /** Every other Config option: rows of the picker's Options section. */
+        readonly options: readonly NormalizedConfigOption[];
       }
     | undefined;
 };
 
-/** Split Config options for composer chrome: `mode`; model slot when `model` present (effort optional). */
+/**
+ * Split Config options for composer chrome: `mode`; model slot when `model` present (effort optional), which also
+ * takes every other option (`options`). Without `model`, the rest stay `leftovers`.
+ */
 export const partitionComposerConfigOptions = (
   options: readonly NormalizedConfigOption[],
 ): PartitionedComposerConfigOptions => {
@@ -37,7 +42,7 @@ export const partitionComposerConfigOptions = (
   }
 
   if (model !== undefined) {
-    return { leftovers, mode, modelEffort: { effort, model } };
+    return { leftovers: [], mode, modelEffort: { effort, model, options: leftovers } };
   }
 
   if (effort !== undefined) {

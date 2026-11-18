@@ -111,7 +111,7 @@ export const SessionChatPage: FC = () => {
           onClientError={onClientError}
           titleProps={{ sx: { fontWeight: 600 }, variant: 'subtitle1' }}
         />
-        <CreateVirtualSessionButton disabled={noFolder || inFlight} />
+        {!isVirtual && <CreateVirtualSessionButton disabled={noFolder || inFlight} />}
         <SettingsButton />
         <IconTooltipButton icon={History} label="Session History" onClick={onBack} />
         <ToggleDeveloperPanelButton />

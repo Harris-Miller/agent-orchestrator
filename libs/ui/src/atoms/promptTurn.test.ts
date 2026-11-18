@@ -306,7 +306,7 @@ layer(hostLayer)('Send', layeredIt => {
       const h = yield* harness();
       yield* send(h.registry);
       yield* settle;
-      assert.deepStrictEqual(sent, [{ body: 'Finished', sound: true, title: 'My chat' }]);
+      assert.deepStrictEqual(sent, [{ body: 'Finished', sound: false, title: 'My chat' }]);
     }).pipe(Effect.scoped),
   );
 

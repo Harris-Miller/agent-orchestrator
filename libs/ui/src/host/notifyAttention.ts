@@ -36,7 +36,7 @@ export const attentionBody = (event: AttentionEvent): string => {
 export const isAttentionStopReason = (stopReason: StopReason): boolean => stopReason !== 'cancelled';
 
 /**
- * Raise a Notification and/or Notification sound for an Attention event, honoring `settings` (the in-memory User settings). Never fails:
+ * Raise a silent Notification and/or the in-app Notification sound for an Attention event, honoring `settings` (the in-memory User settings). Never fails:
  * focus probe and notify errors are swallowed so a turn is never affected.
  */
 export const notifyAttention = (settings: UserSettings, title: string, event: AttentionEvent) =>
@@ -51,10 +51,12 @@ export const notifyAttention = (settings: UserSettings, title: string, event: At
     if (notifier.supported === 'os' && notifyOnlyWhenUnfocusedEnabled(settings) && (yield* notifier.isWindowFocused)) {
       return;
     }
+    // The sound is always the in-app chime; the OS notification is always silent.
+    if (sound) {
+      yield* Effect.ignore(notifier.playSound);
+    }
     if (notifications) {
-      yield* notifier.notify({ body: attentionBody(event), sound, title });
-    } else {
-      yield* notifier.playSound;
+      yield* notifier.notify({ body: attentionBody(event), sound: false, title });
     }
   }).pipe(Effect.ignore);
 

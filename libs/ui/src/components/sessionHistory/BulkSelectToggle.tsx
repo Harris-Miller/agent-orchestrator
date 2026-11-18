@@ -6,14 +6,16 @@ import type { FC } from 'react';
 import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 /** Session History header toggle for Bulk select. */
-export const BulkSelectToggle: FC<{ readonly active: boolean; readonly onToggle: () => void }> = ({
-  active,
-  onToggle,
-}) => (
+export const BulkSelectToggle: FC<{
+  readonly active: boolean;
+  readonly disabled?: boolean;
+  readonly onToggle: () => void;
+}> = ({ active, disabled = false, onToggle }) => (
   <Tooltip title={active ? 'Exit selection' : 'Select sessions'}>
     <IconButton
       aria-label="Select sessions"
       aria-pressed={active}
+      disabled={disabled}
       color={active ? 'primary' : 'default'}
       onClick={onToggle}
       size="small"

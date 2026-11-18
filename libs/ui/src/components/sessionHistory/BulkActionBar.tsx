@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import { archiveCapableLaunchTargetsAtom } from '../../atoms/backendState.atoms.ts';
 import {
   archiveSessionsAtomFn,
   confirmSessionDeleteAtom,
@@ -29,11 +30,14 @@ export const BulkActionBar: FC<{
   const unarchiveSessions = useAtomSet(unarchiveSessionsAtomFn, { mode: 'promise' });
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
   const confirmSessionDelete = useAtomValue(confirmSessionDeleteAtom);
+  const archiveCapable = useAtomValue(archiveCapableLaunchTargetsAtom);
   const [confirmingDelete, setConfirmingDelete] = useState<readonly UnifiedHistoryEntry[]>([]);
 
   if (!selection.active) return null;
 
-  const { all, archivable, unarchivable } = partitionForBulk(selection.selectedEntries);
+  const { all, archivable, unarchivable } = partitionForBulk(selection.selectedEntries, entry =>
+    archiveCapable.has(entry.launchTarget),
+  );
 
   const runDelete = (entries: readonly UnifiedHistoryEntry[]) => {
     Promise.allSettled(entries.map(entry => deleteSession(targetOf(entry)))).then(results => {

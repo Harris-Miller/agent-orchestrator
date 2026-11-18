@@ -11,19 +11,24 @@ export const ConfirmBulkSessionDeleteDialog: FC<{
   readonly count: number;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
-}> = ({ count, onCancel, onConfirm }) => (
-  <Dialog onClose={onCancel} open={count > 0}>
-    <DialogTitle>Delete {count} sessions?</DialogTitle>
-    <DialogContent>
-      <DialogContentText>
-        This will permanently delete {count} sessions. This action cannot be undone.
-      </DialogContentText>
-    </DialogContent>
-    <DialogActions>
-      <Button onClick={onCancel}>Cancel</Button>
-      <Button color="error" onClick={onConfirm} variant="contained">
-        Delete
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+}> = ({ count, onCancel, onConfirm }) => {
+  const noun = count === 1 ? 'session' : 'sessions';
+  return (
+    <Dialog onClose={onCancel} open={count > 0}>
+      <DialogTitle>
+        Delete {count} {noun}?
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          This will permanently delete {count} {noun}. This action cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button color="error" onClick={onConfirm} variant="contained">
+          Delete
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};

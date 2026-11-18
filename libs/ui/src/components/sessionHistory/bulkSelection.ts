@@ -20,15 +20,19 @@ export const toggleKey = (keys: ReadonlySet<string>, key: string): ReadonlySet<s
 export const selectAllKeys = (entries: readonly UnifiedHistoryEntry[]): ReadonlySet<string> =>
   new Set(entries.map(sessionEntryKey));
 
-/** Which Bulk actions fit the selection: Archive to unarchived entries, Unarchive to archived ones, Delete to all. */
+/**
+ * Which Bulk actions fit the selection: Archive to unarchived entries, Unarchive to archived ones (both only for
+ * entries whose agent can archive), Delete to all.
+ */
 export const partitionForBulk = (
   selectedEntries: readonly UnifiedHistoryEntry[],
+  canArchive: (entry: UnifiedHistoryEntry) => boolean,
 ): {
   readonly all: readonly UnifiedHistoryEntry[];
   readonly archivable: readonly UnifiedHistoryEntry[];
   readonly unarchivable: readonly UnifiedHistoryEntry[];
 } => ({
   all: selectedEntries,
-  archivable: selectedEntries.filter(entry => !isArchivedEntry(entry)),
-  unarchivable: selectedEntries.filter(entry => isArchivedEntry(entry)),
+  archivable: selectedEntries.filter(entry => canArchive(entry) && !isArchivedEntry(entry)),
+  unarchivable: selectedEntries.filter(entry => canArchive(entry) && isArchivedEntry(entry)),
 });

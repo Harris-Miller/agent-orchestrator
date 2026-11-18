@@ -28,7 +28,7 @@ describe('bulkSelection', () => {
   });
 
   it('partitions archive vs unarchive candidates', () => {
-    const parts = partitionForBulk([entry('a'), entry('b', true)]);
+    const parts = partitionForBulk([entry('a'), entry('b', true)], () => true);
     assert.deepStrictEqual(
       parts.archivable.map(e => e.sessionId),
       ['a'],
@@ -37,6 +37,13 @@ describe('bulkSelection', () => {
       parts.unarchivable.map(e => e.sessionId),
       ['b'],
     );
+    assert.strictEqual(parts.all.length, 2);
+  });
+
+  it('leaves out entries whose agent cannot archive, but keeps them for delete', () => {
+    const parts = partitionForBulk([entry('a'), entry('b', true)], () => false);
+    assert.strictEqual(parts.archivable.length, 0);
+    assert.strictEqual(parts.unarchivable.length, 0);
     assert.strictEqual(parts.all.length, 2);
   });
 });

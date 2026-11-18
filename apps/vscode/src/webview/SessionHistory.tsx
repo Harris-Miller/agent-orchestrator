@@ -59,7 +59,7 @@ export const SessionHistory: FC = () => {
   const workspaceSessions = sessionsForCwd(history, sessionCwd);
   const pinnedSessions = sessionsForCwd(pinnedAll, sessionCwd);
   const sessions = withoutPinned(workspaceSessions, pinnedSessions);
-  const bulk = useBulkSessionSelection(workspaceSessions);
+  const bulk = useBulkSessionSelection(workspaceSessions, search.active);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, px: 1, pb: 1 }}>
@@ -71,7 +71,7 @@ export const SessionHistory: FC = () => {
           Session History
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <BulkSelectToggle active={bulk.active} onToggle={bulk.toggleMode} />
+        <BulkSelectToggle active={bulk.active} disabled={search.active} onToggle={bulk.toggleMode} />
         <ShowArchivedToggle />
         <IconTooltipButton
           icon={RotateCw}

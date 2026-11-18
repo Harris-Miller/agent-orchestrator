@@ -16,6 +16,12 @@ describe('ConfirmBulkSessionDeleteDialog', () => {
     assert.strictEqual(onConfirm.mock.calls.length, 1);
   });
 
+  it('uses the singular for one session', () => {
+    render(<ConfirmBulkSessionDeleteDialog count={1} onCancel={vi.fn()} onConfirm={vi.fn()} />);
+    assert.isNotNull(screen.queryByText('Delete 1 session?'));
+    assert.isNotNull(screen.queryByText(/permanently delete 1 session\./));
+  });
+
   it('is closed for a zero count', () => {
     render(<ConfirmBulkSessionDeleteDialog count={0} onCancel={vi.fn()} onConfirm={vi.fn()} />);
     assert.isNull(screen.queryByRole('dialog'));

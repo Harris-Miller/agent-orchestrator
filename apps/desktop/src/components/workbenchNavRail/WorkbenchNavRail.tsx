@@ -108,9 +108,6 @@ export const WorkbenchNavRail: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const untrackCwd = useAtomSet(untrackCwdAtomFn, { mode: 'promise' });
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
-  const bulk = useBulkSessionSelection(history);
-  const rowSelection = (entry: UnifiedHistoryEntry) =>
-    bulk.active ? { checked: bulk.isSelected(entry), onToggle: () => bulk.toggle(entry) } : undefined;
   const navigate = useNavigate();
   const search = useSessionHistorySearch({
     entries: unifiedHistory,
@@ -119,6 +116,24 @@ export const WorkbenchNavRail: FC<{
     selectedSessionId,
     caption: pinnedCaption,
   });
+
+  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+"). A group is
+  // empty (and can be untracked) only when it had no rows before the pinned ones were taken out.
+  const navGroups = groupAndSortSessionsForNav(history, showEmptyCwdGroups ? trackedCwds : [])
+    .filter(group => group.kind !== 'noFolder' || showNoFolderGroup)
+    .map(group => ({
+      ...group,
+      empty: group.sessions.length === 0,
+      sessions: withoutPinned(group.sessions, pinnedEntries),
+    }));
+
+  // Exactly the rows the rail renders (rows behind Show more or a collapsed section stay selectable).
+  const bulk = useBulkSessionSelection(
+    [...pinnedEntries, ...navGroups.flatMap(group => group.sessions)],
+    search.active,
+  );
+  const rowSelection = (entry: UnifiedHistoryEntry) =>
+    bulk.active ? { checked: bulk.isSelected(entry), onToggle: () => bulk.toggle(entry) } : undefined;
   // Section keys the user collapsed. Held here, not in each Accordion, so a section that unmounts and remounts (Show
   // archived, a list refresh) keeps its state; only a header click changes it.
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<string>>(new Set());
@@ -136,16 +151,6 @@ export const WorkbenchNavRail: FC<{
     setShowMoreExpandedGroups(current => withKey(current, key, !current.has(key)));
   };
 
-  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+"). A group is
-  // empty (and can be untracked) only when it had no rows before the pinned ones were taken out.
-  const navGroups = groupAndSortSessionsForNav(history, showEmptyCwdGroups ? trackedCwds : [])
-    .filter(group => group.kind !== 'noFolder' || showNoFolderGroup)
-    .map(group => ({
-      ...group,
-      empty: group.sessions.length === 0,
-      sessions: withoutPinned(group.sessions, pinnedEntries),
-    }));
-
   return (
     <>
       <Box
@@ -162,7 +167,7 @@ export const WorkbenchNavRail: FC<{
         <PanelHeader
           beforeClose={
             <>
-              <BulkSelectToggle active={bulk.active} onToggle={bulk.toggleMode} />
+              <BulkSelectToggle active={bulk.active} disabled={search.active} onToggle={bulk.toggleMode} />
               <ShowArchivedToggle />
               <IconTooltipButton
                 icon={RotateCw}

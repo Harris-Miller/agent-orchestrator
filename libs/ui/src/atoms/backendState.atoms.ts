@@ -122,6 +122,16 @@ export const unifiedSessionHistoryAtom = Atom.make(get => {
   return entries;
 }).pipe(Atom.keepAlive);
 
+/** Launch targets whose agent can archive/unarchive sessions. */
+export const archiveCapableLaunchTargetsAtom = Atom.make(
+  get =>
+    new Set(
+      MOUNTED_AGENT_LAUNCH_TARGETS.filter(
+        launchTarget => get(backendHarnessSnapshotAtom(launchTarget)).agentCapabilities.sessionArchive,
+      ),
+    ),
+).pipe(Atom.keepAlive);
+
 /** Session History rows the UI shows: every row is listed (`archived: 'all'`); archived ones only with Show archived. */
 export const visibleSessionHistoryAtom = Atom.make(get => {
   const history = get(unifiedSessionHistoryAtom);

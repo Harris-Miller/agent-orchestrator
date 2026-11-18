@@ -24,6 +24,7 @@ import { ConfigChipRow } from '../configChips/ConfigChipRow.tsx';
 import { useElicitationReply } from '../pendingInteractions/useElicitationReply.ts';
 import { UsagePopover } from '../usage/UsagePopover.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
+import { composerChipRowSx, composerPaperSx } from './composerChrome.ts';
 import { composerPlaceholder } from './composerPlaceholder.ts';
 import { ComposerImageAttachments } from './ComposerImageAttachments.tsx';
 import { ComposerPromptEditor } from './editor/ComposerPromptEditor.tsx';
@@ -210,20 +211,7 @@ export const Composer: FC<{
             }}
           />
         </Box>
-        <Paper
-          sx={{
-            bgcolor: theme => theme.palette.composerBackground,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 3,
-            boxShadow: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-            p: 1.5,
-            position: 'relative',
-          }}
-        >
+        <Paper sx={[composerPaperSx, { position: 'relative' }]}>
           <ComposerCommandMenu {...commandMenuProps} />
           <ComposerMentionMenu {...mentionMenuProps} />
           {queued === undefined ? null : (
@@ -270,7 +258,7 @@ export const Composer: FC<{
             syncCursorRef={syncCursorRef}
             value={draft}
           />
-          <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Box sx={composerChipRowSx}>
             <ConfigChipRow
               agent={{
                 disabled: chromeLocked,

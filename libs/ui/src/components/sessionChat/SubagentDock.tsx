@@ -1,11 +1,12 @@
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
 
+import { composerChipRowSx, composerPaperSx } from './composer/composerChrome.ts';
 import { ConfigChipRow } from './configChips/ConfigChipRow.tsx';
 
 const noop = () => undefined;
@@ -16,24 +17,9 @@ export const SubagentDock: FC<{
   readonly launchTarget: AgentLaunchTarget;
   readonly unavailableModelIds: readonly string[] | undefined;
 }> = ({ configOptions, launchTarget, unavailableModelIds }) => (
-  <Paper
-    sx={{
-      bgcolor: theme => theme.palette.composerBackground,
-      border: '1px solid',
-      borderColor: 'divider',
-      borderRadius: 3,
-      boxShadow: 3,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 1,
-      m: 1,
-      p: 1.5,
-    }}
-  >
-    <Typography color="text.secondary" variant="body2">
-      Subagent session — read-only.
-    </Typography>
-    <Box sx={{ alignItems: 'center', display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+  <Paper sx={[composerPaperSx, { m: 1 }]}>
+    <Alert severity="info">Subagent session — read-only.</Alert>
+    <Box sx={composerChipRowSx}>
       <ConfigChipRow
         agent={{
           disabled: true,

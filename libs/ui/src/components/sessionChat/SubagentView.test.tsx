@@ -8,6 +8,7 @@ import { afterEach } from 'vitest';
 
 import { CLAUDE, CODEX } from '../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
+import type { NormalizedConfigOption } from '../../host/acpSessionBootstrap.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { harness, session, subagent } from '../../host/harnessSnapshot.testing.ts';
 import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
@@ -22,6 +23,17 @@ const { SubagentView } = await import('./SubagentView.tsx');
 
 afterEach(cleanup);
 
+const renderView = (registry: AtomRegistry.AtomRegistry) => {
+  registry.set(viewedSubagentAtom, { childId: 'c1', launchTarget: CODEX, rootSessionId: 's1' });
+  return render(
+    <RegistryContext.Provider value={registry}>
+      <ThemeProvider theme={theme}>
+        <SubagentView onClientError={() => undefined} />
+      </ThemeProvider>
+    </RegistryContext.Provider>,
+  );
+};
+
 const mount = (patch: Partial<NativeSubagentSnapshot>, extraItems: SubagentSnapshot['transcript']['items'] = []) => {
   const registry = AtomRegistry.make();
   const child = subagent('c1', 's1', {
@@ -34,14 +46,19 @@ const mount = (patch: Partial<NativeSubagentSnapshot>, extraItems: SubagentSnaps
     ...patch,
   });
   updateHarnessSnapshot(registry, CODEX, () => harness([session('s1')], [child]));
-  registry.set(viewedSubagentAtom, { childId: 'c1', launchTarget: CODEX, rootSessionId: 's1' });
-  return render(
-    <RegistryContext.Provider value={registry}>
-      <ThemeProvider theme={theme}>
-        <SubagentView onClientError={() => undefined} />
-      </ThemeProvider>
-    </RegistryContext.Provider>,
-  );
+  return renderView(registry);
+};
+
+const mountSpawned = (configuration: NormalizedConfigOption[]) => {
+  const registry = AtomRegistry.make();
+  const child: SubagentSnapshot = {
+    ...subagent('c1', 's1', { name: 'Spawned' }),
+    kind: 'spawned',
+    launchTarget: CLAUDE,
+  };
+  updateHarnessSnapshot(registry, CODEX, () => harness([session('s1')], [child]));
+  updateHarnessSnapshot(registry, CLAUDE, () => harness([session('c1', { configuration })]));
+  return renderView(registry);
 };
 
 describe('SubagentView task', () => {
@@ -83,51 +100,33 @@ describe('SubagentView dock', () => {
     assert.isNull(screen.queryByText('Opus'));
   });
 
-  it('shows a spawned child Provider and disabled model chip', () => {
-    const registry = AtomRegistry.make();
-    const child: SubagentSnapshot = {
-      ...subagent('c1', 's1', { name: 'Spawned' }),
-      kind: 'spawned',
-      launchTarget: CLAUDE,
-    };
-    updateHarnessSnapshot(registry, CODEX, () => harness([session('s1')], [child]));
-    updateHarnessSnapshot(registry, CLAUDE, () =>
-      harness([
-        session('c1', {
-          configuration: [
-            {
-              choices: [{ id: 'opus', name: 'Opus' }],
-              currentValue: 'opus',
-              id: 'model',
-              name: 'Model',
-              type: 'select',
-            },
-          ],
-        }),
-      ]),
-    );
-    registry.set(viewedSubagentAtom, { childId: 'c1', launchTarget: CODEX, rootSessionId: 's1' });
-    render(
-      <RegistryContext.Provider value={registry}>
-        <ThemeProvider theme={theme}>
-          <SubagentView onClientError={() => undefined} />
-        </ThemeProvider>
-      </RegistryContext.Provider>,
-    );
+  it('shows a spawned child Provider and disabled model and effort chip', () => {
+    mountSpawned([
+      {
+        choices: [{ id: 'opus', name: 'Opus' }],
+        currentValue: 'opus',
+        id: 'model',
+        name: 'Model',
+        type: 'select',
+      },
+      {
+        choices: [{ id: 'high', name: 'High' }],
+        currentValue: 'high',
+        id: 'effort',
+        name: 'Effort',
+        type: 'select',
+      },
+    ]);
     assert.isNotNull(screen.getByText(agentLaunchTargetLabel(CLAUDE)));
-    const chip = screen.getByText('Opus').closest('[role="button"], button, .MuiChip-root');
-    assert.isNotNull(chip);
-    assert.isTrue(
-      chip?.classList.contains('Mui-disabled') === true ||
-        chip?.getAttribute('aria-disabled') === 'true' ||
-        (chip as HTMLButtonElement).disabled,
-    );
+    assert.isNotNull(screen.getByText('High', { exact: false }));
+    const chip = screen.getByRole<HTMLButtonElement>('button', { name: /Opus/ });
+    assert.isTrue(chip.disabled);
   });
 
   it('renders no editor, attach or send controls', () => {
     mount({});
     assert.isNull(screen.queryByRole('textbox'));
-    assert.isNull(screen.queryByLabelText('Attach images'));
-    assert.isNull(screen.queryByLabelText('Send'));
+    assert.isNull(screen.queryByRole('button', { name: 'Attach images' }));
+    assert.isNull(screen.queryByRole('button', { name: 'Send' }));
   });
 });

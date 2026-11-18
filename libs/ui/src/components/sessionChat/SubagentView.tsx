@@ -51,12 +51,17 @@ const SubagentViewBody: FC<{
   const child = getSubagent(snapshot.subagents, viewed.childId);
   // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
   const childLaunchTarget = child?.kind === 'spawned' ? child.launchTarget : viewed.launchTarget;
+  // Hook must run before the `child === undefined` early return (rules of hooks).
   const childSnapshot = useAtomValue(backendHarnessSnapshotAtom(childLaunchTarget));
   if (child === undefined) return null;
   const parentId = child.parentSessionId;
   const parent = getSubagent(snapshot.subagents, parentId);
   const status = subagentStatus(child);
   const running = status === 'running' || status === 'needs_input';
+  const configOptions =
+    child.kind === 'spawned'
+      ? (childSnapshot.sessions[child.sessionId]?.configuration ?? EMPTY_CONFIGURATION)
+      : EMPTY_CONFIGURATION;
   const respond = (reply: ElicitationReply) => {
     respondElicitation({ launchTarget: childLaunchTarget, sessionId: child.sessionId, ...reply }).catch(onClientError);
   };
@@ -132,11 +137,7 @@ const SubagentViewBody: FC<{
         </Box>
       )}
       <SubagentDock
-        configOptions={
-          child.kind === 'spawned'
-            ? (childSnapshot.sessions[child.sessionId]?.configuration ?? EMPTY_CONFIGURATION)
-            : EMPTY_CONFIGURATION
-        }
+        configOptions={configOptions}
         launchTarget={childLaunchTarget}
         unavailableModelIds={configOptionIndexes[childLaunchTarget]?.unavailableModelIds}
       />

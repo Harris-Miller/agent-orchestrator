@@ -1463,6 +1463,181 @@ describe('#278 regressions', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('F1: a cwd change while waiting follows the newest Bind and cleans up the orphan', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringNew: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry, { draft: 'hello' });
+      const recorder = recordingPrompt(calls);
+
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* gate.started;
+      yield* editVirtual(registry, { cwd: '/other' });
+      yield* settle;
+
+      assert.deepStrictEqual(
+        calls.filter(call => call.startsWith('prompt:')),
+        ['prompt:bound-2'],
+      );
+
+      yield* gate.release;
+      yield* Fiber.join(send);
+      yield* settle;
+      assert.include(calls, 'delete:bound-1');
+      assert.notInclude(calls, 'prompt:bound-1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F1: a failed replacement Bind fails Send with ProviderUnavailable and cleans up the orphan', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringNew: gate.during });
+      yield* installFakeAgent(calls, { failNew: true }, CLAUDE);
+      const registry = yield* freshRegistry;
+      setPhase(registry, CLAUDE, 'ready');
+      yield* seedUnbound(registry, { draft: 'hello' });
+      const recorder = recordingPrompt(calls);
+
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* gate.started;
+      yield* setVirtualLaunchTarget(registry, CLAUDE);
+      const exit = yield* Fiber.await(send);
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(recorder.prompted, []);
+      assert.strictEqual(blob(registry)?.draft, 'hello');
+
+      yield* gate.release;
+      yield* settle;
+      assert.include(calls, 'delete:bound-1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F1: Connection lost while waiting does not prompt, keeps the draft, and cleans up the orphan', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      const registry = yield* freshRegistry;
+      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+      yield* installFakeAgent(calls, { duringNew: gate.during, reports: fold });
+      yield* seedUnbound(registry, { draft: 'hello' });
+      const recorder = recordingPrompt(calls);
+
+      const send = yield* Effect.forkChild(sendVirtual(registry, recorder.prompt));
+      yield* gate.started;
+      fold.onConnectionLost();
+      yield* gate.release;
+      yield* settle;
+      setPhase(registry, CODEX, 'error');
+      const exit = yield* Fiber.await(send);
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(recorder.prompted, []);
+      assert.strictEqual(blob(registry)?.draft, 'hello');
+      assert.isFalse(registry.get(virtualSendPendingAtom));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('R1: a refused first prompt restores the draft and attachments to the Session', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const h = yield* atomFnHarness;
+      yield* installFakeAgent(calls, {
+        duringSetConfig: Effect.sync(() => {
+          // A turn is somehow in flight on the Session: Send is refused before any user message.
+          updateHarnessSnapshot(h.registry, CODEX, current => ({
+            ...current,
+            sessions: {
+              ...current.sessions,
+              'bound-1': { ...current.sessions['bound-1'], pendingClientRequest: 'prompt' },
+            },
+          }));
+        }),
+      });
+      const attachment = {
+        byteLength: 1,
+        id: 'a1',
+        mimeType: 'image/png',
+        name: 'a.png',
+        previewDataUrl: 'data:image/png;base64,AA==',
+        uri: 'file:///a.png',
+      };
+      yield* seedBound(h.registry, calls, { draft: 'hello', model: 'o1' });
+      yield* editVirtual(h.registry, { attachments: [attachment] });
+
+      yield* Effect.exit(runAtomFn(h.registry, h.submitComposerAtomFn, undefined));
+
+      assert.notInclude(calls, 'prompt:bound-1');
+      assert.deepStrictEqual(h.registry.get(selectedAtom), { _tag: 'Session', sessionId: 'bound-1' });
+      const composer = h.registry.get(composerAtom);
+      assert.strictEqual(composer.draft, 'hello');
+      assert.deepStrictEqual(composer.attachments, [attachment]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('R1: a prompt that began is not restored to the Session draft', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, { prompt: 'fail' });
+      const h = yield* atomFnHarness;
+      yield* seedBound(h.registry, calls, { draft: 'hello' });
+
+      yield* Effect.exit(runAtomFn(h.registry, h.submitComposerAtomFn, undefined));
+
+      assert.include(calls, 'prompt:bound-1');
+      assert.strictEqual(h.registry.get(composerAtom).draft, '');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('R1: an explicit provider Stop during Materialize keeps the draft; a later Send prompts once', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+      const first = recordingPrompt(calls);
+
+      const send = yield* Effect.forkChild(sendVirtual(registry, first.prompt));
+      yield* gate.started;
+      // Stop: the harness drops the live sessions and resets the Virtual target.
+      updateHarnessSnapshot(registry, CODEX, current => ({ ...current, sessions: {} }));
+      resetVirtualOnProviderStopped(registry, CODEX);
+      setPhase(registry, CODEX, 'connecting');
+      yield* gate.release;
+      const exit = yield* Fiber.await(send);
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(first.prompted, []);
+      assert.strictEqual(blob(registry)?.draft, 'hello');
+      assert.isFalse(registry.get(virtualMaterializingAtom));
+
+      setPhase(registry, CODEX, 'ready');
+      yield* setVirtualLaunchTarget(registry, CODEX);
+      const second = recordingPrompt(calls);
+      yield* sendVirtual(registry, second.prompt);
+      assert.strictEqual(second.prompted.length, 1);
+      assert.strictEqual(first.prompted.length + second.prompted.length, 1);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('R1: an ordinary Config rejection on a live Session keeps the soft behavior (Send still prompts)', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* installFakeAgent(calls, { rejectSetConfig: true });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls, { draft: 'hello', model: 'o1' });
+      const recorder = recordingPrompt(calls);
+
+      yield* sendVirtual(registry, recorder.prompt);
+
+      assert.strictEqual(recorder.prompted.length, 1);
+      assert.isNull(blob(registry));
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('R1: Connection lost during Materialize keeps the draft and attachments, with no prompt', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

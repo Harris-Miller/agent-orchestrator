@@ -136,9 +136,9 @@ export const SessionModelEffortChip: FC<{
         slotProps={{ paper: { sx: { maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' } } }}
         transformOrigin={menu.menuProps.transformOrigin}
       >
-        <Box sx={{ maxWidth: '100vw', width: POPOVER_WIDTH }}>
-          <Box sx={{ display: 'flex' }}>
-            <Box sx={{ flex: 1, minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
+        <Box sx={{ maxWidth: 'calc(100vw - 32px)', width: POPOVER_WIDTH }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+            <Box sx={{ flex: '1 1 240px', minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
               <ModelPickerList
                 currentId={model.currentValue}
                 onHover={setHover}
@@ -148,8 +148,8 @@ export const SessionModelEffortChip: FC<{
                 searchRows={search === undefined ? undefined : searchRows}
               />
             </Box>
-            <Divider flexItem orientation="vertical" />
-            <Box sx={{ width: 300 }}>
+            <Divider flexItem sx={{ display: { xs: 'none', sm: 'block' } }} orientation="vertical" />
+            <Box sx={{ flex: '1 1 240px', maxWidth: { sm: 300 } }}>
               {effort === undefined ? null : (
                 <>
                   <Typography color="text.secondary" sx={{ display: 'block', px: 2, py: 1.25 }} variant="caption">

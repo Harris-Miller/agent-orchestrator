@@ -394,7 +394,7 @@ The message the Harness sends a parent when a background Spawned subagent sessio
 _Avoid_: notification, callback
 
 **Subagent view**:
-The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
+The read-only, full-pane transcript of one Subagent session of the Selected session, shown in place of the Selected session's transcript and Composer. Opens with the Subagent task, then the transcript, and ends with a read-only dock that shows the child's Provider and, when known, its Model and Effort (a Spawned subagent session's Session configuration; a native one reports none, so only its Provider shows) as disabled Config chips beside a "Subagent session — read-only." note, with no editor or send controls. Shown only while that Subagent session still exists; otherwise the Selected session's transcript shows.
 _Avoid_: child view, subagent page, viewed subagent (when you mean what is on screen)
 
 **Subagent task**:

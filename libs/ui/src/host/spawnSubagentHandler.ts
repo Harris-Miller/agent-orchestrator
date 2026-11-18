@@ -13,23 +13,16 @@ import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { cancelPromptTurn, sessionById } from '../atoms/promptTurn.ts';
 import { SpawnSubagentError, startSpawnedSubagent } from '../atoms/spawnedSubagent.ts';
 import { spawnedLinksAtom } from '../atoms/subagentLinks.atoms.ts';
-import { startReporter } from '../atoms/subagentReportDelivery.ts';
+import { awaitOutcomeEntry, startReporter, takeOutcomeAsToolResult } from '../atoms/subagentOutcome.ts';
 import { usableSubagentTarget } from '../atoms/subagentTargets.atoms.ts';
 
 import { supportsMcpHttp } from './agentCapabilities.ts';
 import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS, MOUNTED_AGENT_LAUNCH_TARGETS } from './agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { hubToolHandler, toolError } from './hubToolHandler.ts';
-import type { HubToolCaller, HubToolResult } from './hubToolHandler.ts';
+import type { HubToolCaller } from './hubToolHandler.ts';
 import { getPromptSpan } from './sessionRpc.ts';
-import {
-  claimHandle,
-  hasNoFinalMessage,
-  linkOfChild,
-  linksOfParent,
-  NO_FINAL_MESSAGE,
-  outcomeForAgent,
-} from './subagentLinks.ts';
+import { linksOfParent } from './subagentLinks.ts';
 import type { SubagentOutcome } from './subagentLinks.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
@@ -58,19 +51,6 @@ const DEFAULT_BOUND = Duration.millis(MAX_SUBAGENT_WAIT_MS);
 
 const knownLaunchTarget = (value: string): AgentLaunchTarget | undefined =>
   ALL_AGENT_LAUNCH_TARGETS.find(candidate => candidate === value);
-
-/** One child's outcome as text for the agent: its final message, or why it has none. */
-const outcomeResult = (outcome: SubagentOutcome): HubToolResult => {
-  if (hasNoFinalMessage(outcome)) {
-    return toolError(NO_FINAL_MESSAGE);
-  }
-  if (outcome.status === 'completed') {
-    return { isError: false, text: outcome.text };
-  }
-  return toolError(
-    outcome.status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${outcome.text}`,
-  );
-};
 
 /** Whether the caller's turn is over: cancelled, closed, or (for a turn the Harness started) ended. */
 const callerGone = (registry: AtomRegistry.AtomRegistry, caller: HubToolCaller, harnessStartedTurn: boolean) =>
@@ -120,11 +100,8 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       return toolError(started.message);
     }
     const child = { launchTarget, sessionId: started.childSessionId };
-    const link = linkOfChild(registry.get(spawnedLinksAtom), launchTarget, started.childSessionId);
     if (args.runInBackground === true) {
-      if (link !== undefined) {
-        yield* startReporter(registry, link);
-      }
+      yield* startReporter(registry, child);
       return {
         isError: false,
         text: JSON.stringify({
@@ -142,12 +119,11 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       Effect.as(Effect.sleep(DEFAULT_BOUND), { _tag: 'Bound' } satisfies Waited),
     ]).pipe(
       // The agent's call is gone (hub connection lost): the child's result still reaches it, as a Subagent report.
-      Effect.onInterrupt(() => (link === undefined ? Effect.void : startReporter(registry, link))),
+      Effect.onInterrupt(() => startReporter(registry, child)),
     );
     switch (waited._tag) {
       case 'Outcome': {
-        registry.update(spawnedLinksAtom, links => claimHandle(links, launchTarget, child.sessionId, 'waited')[1]);
-        return outcomeResult(waited.outcome);
+        return takeOutcomeAsToolResult(registry, child, waited.outcome);
       }
       case 'CallerGone': {
         yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
@@ -157,9 +133,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       case 'Bound': {
         // Promote to a background child: if the agent never calls `wait_subagent`, the result arrives as a Subagent
         // report (a `wait_subagent` that collects it first suppresses the report).
-        if (link !== undefined) {
-          yield* startReporter(registry, link);
-        }
+        yield* startReporter(registry, child);
         return {
           isError: false,
           text: JSON.stringify({
@@ -184,24 +158,7 @@ export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, calle
     const bound = Duration.min(Duration.millis(args.timeoutMs ?? MAX_SUBAGENT_WAIT_MS), DEFAULT_BOUND);
     const lines = yield* Effect.forEach(
       children,
-      link =>
-        link === undefined
-          ? Effect.succeed('')
-          : Deferred.await(link.outcome).pipe(
-              Effect.timeoutOption(bound),
-              Effect.map(outcome => {
-                if (outcome._tag === 'None') {
-                  return `<subagent id="${link.childSessionId}" status="running" />`;
-                }
-                // The agent has the outcome now: no Subagent report on top of it.
-                ctx.registry.update(
-                  spawnedLinksAtom,
-                  all => claimHandle(all, link.childLaunchTarget, link.childSessionId, 'waited')[1],
-                );
-                const { status, text } = outcomeForAgent(outcome.value);
-                return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
-              }),
-            ),
+      link => (link === undefined ? Effect.succeed('') : awaitOutcomeEntry(ctx.registry, link, bound)),
       { concurrency: 'unbounded' },
     );
     return { isError: false, text: lines.join('\n') };

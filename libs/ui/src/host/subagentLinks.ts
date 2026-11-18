@@ -14,16 +14,6 @@ export type SubagentOutcome = {
   readonly text: string;
 };
 
-/** What the agent reads for a turn that ended without any message (a failure: there is nothing to act on). */
-export const NO_FINAL_MESSAGE = 'The subagent finished without producing a final message.';
-
-export const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
-  outcome.status === 'completed' && outcome.text.trim() === '';
-
-/** The outcome as the agent reads it: a completed turn with no message is `failed` with `NO_FINAL_MESSAGE`. */
-export const outcomeForAgent = (outcome: SubagentOutcome): SubagentOutcome =>
-  hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
-
 /**
  * Who has handed the outcome to the agent: nobody yet (`open`), a `wait_subagent` that returned it (`waited`, which
  * suppresses the report), or the Subagent report (`reported`). First write wins.
@@ -91,7 +81,8 @@ export const updateLink = (
 
 /**
  * Take the outcome's hand-off for `by` while it is still `open`. True when this call took it (the caller then hands the
- * outcome to the agent); false when the other party already did.
+ * outcome to the agent); false when the other party already did. Callers go through `claimOutcome` in
+ * `atoms/subagentOutcome.ts`.
  */
 export const claimHandle = (
   links: SpawnedLinks,

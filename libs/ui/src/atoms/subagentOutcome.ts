@@ -1,6 +1,7 @@
 /**
- * Delivering a Subagent report to its parent (glossary: Subagent report, Steering, Prompt turn, Queued message). The
- * Harness never occupies the user's one Queued message slot: a report is Steering into a turn in flight, or a Prompt
+ * A Spawned subagent's outcome on its way to the parent's agent (glossary: Subagent outcome, Subagent report, Steering,
+ * Prompt turn, Queued message): collected by one of the agent's own calls, or reported. Whichever hands it over first
+ * wins, so it reaches the agent once. Reporting: the Harness never occupies the user's one Queued message slot: a report is Steering into a turn in flight, or a Prompt
  * turn of its own once the parent is idle. Reports for one parent are serialized, each holding the parent until its
  * turn has begun; a report is dropped when its parent is gone.
  */
@@ -8,9 +9,11 @@ import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effe
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
+import { toolError } from '../host/hubToolHandler.ts';
+import type { HubToolResult } from '../host/hubToolHandler.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { claimHandle, linkOfChild, updateLink } from '../host/subagentLinks.ts';
 import type { SpawnedLink, SubagentOutcome } from '../host/subagentLinks.ts';
-import { buildSubagentReport } from '../host/subagentReport.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { awaitQueuedMessageTaken, hasQueuedMessage } from './composer.atoms.ts';
@@ -18,6 +21,75 @@ import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn }
 import { spawnedLinksAtom } from './subagentLinks.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
+
+type SessionRef = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
+
+/** What the agent reads for a turn that ended without any message (a failure: there is nothing to act on). */
+const NO_FINAL_MESSAGE = 'The subagent finished without producing a final message.';
+
+const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
+  outcome.status === 'completed' && outcome.text.trim() === '';
+
+/** The outcome as the agent reads it: a completed turn with no message is `failed` with `NO_FINAL_MESSAGE`. */
+const asAgentOutcome = (outcome: SubagentOutcome): SubagentOutcome =>
+  hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
+
+/** Take the outcome's hand-over for `by` while it is still open. True when this call took it. */
+const claimOutcome = (registry: Registry, child: SessionRef, by: 'reported' | 'waited'): boolean =>
+  registry.modify(spawnedLinksAtom, links => claimHandle(links, child.launchTarget, child.sessionId, by));
+
+const MAX_REPORTED_TASK_CHARS = 1000;
+
+/** The Subagent report text: one neutral shape for every provider. The task is echoed (cut when long). */
+export const buildSubagentReport = (report: {
+  readonly description: string;
+  readonly id: string;
+  readonly outcome: SubagentOutcome;
+  readonly task: string;
+}): string => {
+  const { status, text: body } = asAgentOutcome(report.outcome);
+  const task =
+    report.task.length <= MAX_REPORTED_TASK_CHARS ? report.task : `${report.task.slice(0, MAX_REPORTED_TASK_CHARS)}…`;
+  return `<subagent-report id="${report.id}" status="${status}">\nsubagent: ${report.description}\ntask: ${task}\n\n${body}\n</subagent-report>`;
+};
+
+/**
+ * The agent's own foreground call collects `outcome`: the hand-over is taken (suppressing a report not yet sent) and
+ * the call's tool result returned. It always answers, even when a report already went out.
+ */
+export const takeOutcomeAsToolResult = (
+  registry: Registry,
+  child: SessionRef,
+  outcome: SubagentOutcome,
+): HubToolResult => {
+  claimOutcome(registry, child, 'waited');
+  if (hasNoFinalMessage(outcome)) {
+    return toolError(NO_FINAL_MESSAGE);
+  }
+  if (outcome.status === 'completed') {
+    return { isError: false, text: outcome.text };
+  }
+  return toolError(
+    outcome.status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${outcome.text}`,
+  );
+};
+
+/**
+ * One `wait_subagent` entry: waits up to `bound` for the link's outcome, then `<subagent id status="running" />`, or
+ * the collected outcome (taking the hand-over like `takeOutcomeAsToolResult`).
+ */
+export const awaitOutcomeEntry = (registry: Registry, link: SpawnedLink, bound: Duration.Duration) =>
+  Deferred.await(link.outcome).pipe(
+    Effect.timeoutOption(bound),
+    Effect.map(outcome => {
+      if (outcome._tag === 'None') {
+        return `<subagent id="${link.childSessionId}" status="running" />`;
+      }
+      claimOutcome(registry, { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId }, 'waited');
+      const { status, text } = asAgentOutcome(outcome.value);
+      return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
+    }),
+  );
 
 /** Delivery attempts for one report before it is dropped (a Send is refused while another turn begins). */
 const MAX_DELIVERY_ATTEMPTS = 5;
@@ -131,8 +203,10 @@ const deliver = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome
       // The outcome is handed over at the moment of sending, so a `wait_subagent` until then suppresses the report.
       let claimed = false;
       const claim = () => {
-        claimed ||= registry.modify(spawnedLinksAtom, links =>
-          claimHandle(links, link.childLaunchTarget, link.childSessionId, 'reported'),
+        claimed ||= claimOutcome(
+          registry,
+          { launchTarget: link.childLaunchTarget, sessionId: link.childSessionId },
+          'reported',
         );
         return claimed;
       };
@@ -150,7 +224,7 @@ const deliver = (registry: Registry, link: SpawnedLink, outcome: SubagentOutcome
  * Once the link's outcome is in, send the parent its Subagent report, unless a `wait_subagent` already handed the
  * outcome to the agent. A report is delivered at most once, and dropped when the parent is gone.
  */
-export const reportWhenDone = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink) {
+const reportWhenDone = Effect.fnUntraced(function* (registry: Registry, link: SpawnedLink) {
   const outcome = yield* Deferred.await(link.outcome);
   const result = yield* deliver(registry, link, outcome);
   if (result === 'dropped') {
@@ -158,9 +232,9 @@ export const reportWhenDone = Effect.fnUntraced(function* (registry: Registry, l
   }
 });
 
-/** Start reporting for a child (at most one reporter per link); it ends with the link. */
-export const startReporter = Effect.fnUntraced(function* (registry: Registry, child: SpawnedLink) {
-  const link = linkOfChild(registry.get(spawnedLinksAtom), child.childLaunchTarget, child.childSessionId);
+/** Start reporting for a child (no-op if its link is gone or already has a reporter); it ends with the link. */
+export const startReporter = Effect.fnUntraced(function* (registry: Registry, child: SessionRef) {
+  const link = linkOfChild(registry.get(spawnedLinksAtom), child.launchTarget, child.sessionId);
   if (link === undefined || link.reporter !== undefined) {
     return;
   }

@@ -377,6 +377,10 @@ _Avoid_: Child chat, nested session, sub-session
 A Subagent session the Harness started on a parent's behalf when the parent's agent called the Hub's `spawn_subagent` tool, on any other usable agent launch target (never the parent's own: for its own provider the agent uses its native subagent tool). Unlike a native Subagent session it is a real session on its own launch target, started in the parent's session cwd and prompted with the Subagent task; but it is shown exactly like a native one (parent transcript item, Subagent view, Work state, its own Pending interactions) and is not listed as a History entry of its own while its parent is live. It reports back to the parent when its Prompt turn ends: as the tool result (foreground) or as a new message to the parent (background). Ends with its parent: cancelling the parent's Prompt turn cancels its foreground children; closing or deleting the parent closes them.
 _Avoid_: Delegated session, child session
 
+**Subagent outcome**:
+How a Spawned subagent session's Prompt turn ended: completed with its final agent message, failed with a cause, or cancelled. A turn that completes without any message counts as failed, so the parent's agent always gets something to act on. It reaches the parent's agent by one of two routes: as the result of the agent's own call (the foreground `spawn_subagent`, or `wait_subagent`), or as a Subagent report. A call that collects it before the Subagent report is sent suppresses the report; a Subagent report is never sent twice.
+_Avoid_: Handoff (a different term), subagent result, response
+
 **Subagent report**:
 The message the Harness sends a parent when a background Spawned subagent session's Prompt turn ends: names the child and its Subagent task, and carries the child's final agent message (or its failure). Delivered as Steering when the parent is mid-turn and Steering is supported, otherwise as a new Prompt turn once the parent is idle; dropped when the parent is gone.
 _Avoid_: notification, callback

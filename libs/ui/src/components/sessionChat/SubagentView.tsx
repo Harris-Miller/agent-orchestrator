@@ -46,7 +46,7 @@ const SubagentViewBody: FC<{
   const status = subagentStatus(child);
   const running = status === 'running' || status === 'needs_input';
   // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
-  const childLaunchTarget = child.launchTarget ?? viewed.launchTarget;
+  const childLaunchTarget = child.kind === 'spawned' ? child.launchTarget : viewed.launchTarget;
   const respond = (reply: ElicitationReply) => {
     respondElicitation({ launchTarget: childLaunchTarget, sessionId: child.sessionId, ...reply }).catch(onClientError);
   };

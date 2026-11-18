@@ -155,6 +155,11 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
         return toolError('The subagent was cancelled because your turn ended.');
       }
       case 'Bound': {
+        // Promote to a background child: if the agent never calls `wait_subagent`, the result arrives as a Subagent
+        // report (a `wait_subagent` that collects it first suppresses the report).
+        if (link !== undefined) {
+          yield* startReporter(registry, link);
+        }
         return {
           isError: false,
           text: JSON.stringify({

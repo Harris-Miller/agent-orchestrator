@@ -15,10 +15,11 @@ import {
   subagentLatestActivity,
   subagentNeedsInput,
 } from './subagent.ts';
+import type { SubagentSnapshot } from './subagent.ts';
 import { emptySessionTranscript, reduceSessionUpdate, upsertSubagentChatItem } from './sessionUpdateReducer.ts';
 
 const [, fixtureMessage] = fixture;
-const child = () => initialSubagentSnapshot('c1', 'p1');
+const child = (): SubagentSnapshot => initialSubagentSnapshot('c1', 'p1');
 
 const patchChild = (current: ReturnType<typeof child>, fields: object) =>
   applySubagentPatch(

@@ -55,7 +55,7 @@ export const createChatAtoms = (runtime: HostRuntimeBag) => {
           }
           // A Spawned subagent session is a root on its own launch target: its Prompt turn cancel (soft-cancel, Pending
           // interactions resolved) does the work, not a raw `session/cancel`.
-          if (child.launchTarget !== undefined) {
+          if (child.kind === 'spawned') {
             yield* cancelPromptTurn(get.registry, { launchTarget: child.launchTarget, sessionId: child.sessionId });
             return;
           }

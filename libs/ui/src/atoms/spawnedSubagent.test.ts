@@ -137,7 +137,13 @@ describe('startSpawnedSubagent', () => {
       assert.deepStrictEqual(h.prompts, ['Review the diff']);
       // The mirror existed, running, before the child's first prompt reported anything.
       assert.deepStrictEqual(
-        [seenMirror?.state, seenMirror?.launchTarget, seenMirror?.name, seenMirror?.task, seenMirror?.parentSessionId],
+        [
+          seenMirror?.state,
+          seenMirror?.kind === 'spawned' ? seenMirror.launchTarget : undefined,
+          seenMirror?.name,
+          seenMirror?.task,
+          seenMirror?.parentSessionId,
+        ],
         [{ state: 'running' }, CLAUDE, 'Review the diff', 'Review the diff', PARENT],
       );
       assert.deepStrictEqual(outcome, { status: 'completed', text: 'Looks fine.' });

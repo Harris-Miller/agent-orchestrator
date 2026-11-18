@@ -157,6 +157,64 @@ describe('spawn_subagent (foreground)', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('a child finishing after the bound without wait_subagent is reported to the parent', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const parentPrompts: string[] = [];
+      const h = yield* setup(
+        {
+          duringPrompt: Effect.andThen(
+            Deferred.await(release),
+            Effect.sync(() => {
+              h.childFold.onSessionUpdate(CHILD, answer('late result'));
+            }),
+          ),
+        },
+        { promptTexts: parentPrompts },
+      );
+      const call = yield* Effect.forkChild(h.spawn());
+      yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
+      yield* TestClock.adjust('240 seconds');
+      assert.strictEqual(JSON.parse((yield* Fiber.join(call)).text).status, 'running');
+
+      yield* Deferred.succeed(release, null);
+      yield* until(() => parentPrompts.length > 0);
+      assert.include(parentPrompts[0], 'late result');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a child collected by wait_subagent after the bound is not also reported', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const parentPrompts: string[] = [];
+      const h = yield* setup(
+        {
+          duringPrompt: Effect.andThen(
+            Deferred.await(release),
+            Effect.sync(() => {
+              h.childFold.onSessionUpdate(CHILD, answer('late result'));
+            }),
+          ),
+        },
+        { promptTexts: parentPrompts },
+      );
+      const call = yield* Effect.forkChild(h.spawn());
+      yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
+      yield* TestClock.adjust('240 seconds');
+      yield* Fiber.join(call);
+      // Busy parent: a report would wait for the turn end, so the wait gets there first.
+      h.setParent({ pendingClientRequest: 'prompt' });
+      const waiting = yield* Effect.forkChild(h.call('wait_subagent', { ids: [CHILD] }));
+      yield* Deferred.succeed(release, null);
+      assert.include((yield* Fiber.join(waiting)).text, 'late result');
+      h.setParent({ pendingClientRequest: undefined });
+      for (let i = 0; i < 30; i += 1) {
+        yield* Effect.yieldNow;
+      }
+      assert.deepStrictEqual(parentPrompts, []);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('wait_subagent refuses an id that is not the caller own child', () =>
     Effect.gen(function* () {
       const h = yield* setup();

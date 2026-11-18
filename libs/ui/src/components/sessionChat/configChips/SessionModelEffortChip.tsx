@@ -1,30 +1,117 @@
+import { useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
-import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
+import Popover from '@mui/material/Popover';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { Check } from 'lucide-react';
+import { useRef, useState } from 'react';
 import type { FC } from 'react';
 
-import type { NormalizedSelectConfigOption } from '../../../host/acpSessionBootstrap.ts';
+import {
+  modelPickerPrefsOf,
+  unwrapUserSettings,
+  userSettingsDocumentAtom,
+} from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
+import type { NormalizedConfigOption, NormalizedSelectConfigOption } from '../../../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
+import { advertisedModelChoices } from '../../../host/configOptionIndexUi.ts';
+import type { ConfigOptionIndex } from '../../../host/configProbe.ts';
+import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
+import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';
-import { configOptionChoiceLabel, selectChoiceViews } from './sessionConfigOptionSelectViews.ts';
+import { chipSuffixParts, modelRowsFor } from './modelPickerList.ts';
+import type { ModelRow } from './modelPickerList.ts';
+import { ModelPickerList } from './ModelPickerList.tsx';
+import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
+import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
+import { reasoningChoices, ULTRA_EFFORT_ID, ultraLabel, ultraRow, ultraToggleDiffs } from './ultra.ts';
+
+/** Virtual session: model search spans every selectable launch target. */
+export type ModelSearchScope = {
+  readonly getConfigOptionIndex: (launchTarget: AgentLaunchTarget) => ConfigOptionIndex | undefined;
+  readonly launchTargets: readonly AgentLaunchTarget[];
+  /** Switch the Virtual draft to `launchTarget`, then set `modelId` on it. */
+  readonly onPickModelOnTarget: (launchTarget: AgentLaunchTarget, modelId: string) => void;
+};
+
+const POPOVER_WIDTH = 680;
 
 export const SessionModelEffortChip: FC<{
   readonly disabled?: boolean;
   readonly effort?: NormalizedSelectConfigOption;
+  readonly launchTarget?: AgentLaunchTarget;
   readonly model: NormalizedSelectConfigOption;
   readonly onChange: (diff: ConfigValueDiff) => void;
+  /** Every Config option besides mode / model / effort: rows of the Options section. */
+  readonly options?: readonly NormalizedConfigOption[];
+  readonly prefs: ModelPickerPrefs;
+  readonly search?: ModelSearchScope;
   readonly unavailableModelIds?: readonly string[];
-}> = ({ disabled = false, effort, model, onChange, unavailableModelIds = [] }) => {
+}> = ({
+  disabled = false,
+  effort,
+  launchTarget,
+  model,
+  onChange,
+  options = [],
+  prefs,
+  search,
+  unavailableModelIds = [],
+}) => {
   const menu = useComposerChromeMenu();
-  const modelViews = selectChoiceViews(model, unavailableModelIds);
-  const effortViews = effort === undefined ? [] : selectChoiceViews(effort);
-  const dualColumn = effort !== undefined;
+  const settings = unwrapUserSettings(useAtomValue(userSettingsDocumentAtom));
+  const [hover, setHover] = useState<ModelRow | undefined>();
+  const previousEffort = useRef<string | undefined>(undefined);
+
+  const rows = modelRowsFor(model.choices, {
+    ...prefs,
+    currentId: model.currentValue,
+    launchTarget,
+    unavailableIds: unavailableModelIds,
+  });
+  const searchRows = () =>
+    (search?.launchTargets ?? []).flatMap((target): readonly ModelRow[] => {
+      if (target === launchTarget) {
+        return rows;
+      }
+      const index = search?.getConfigOptionIndex(target);
+      return modelRowsFor(advertisedModelChoices(index), {
+        ...modelPickerPrefsOf(settings, target),
+        currentId: undefined,
+        launchTarget: target,
+        unavailableIds: index?.unavailableModelIds ?? [],
+      });
+    });
+
+  const described = hover ??
+    rows.find(row => row.id === model.currentValue) ?? { description: undefined, label: model.currentValue };
+  const allOptions = effort === undefined ? options : [...options, effort];
+  const ultra = ultraRow(launchTarget, allOptions);
+  const suffix = chipSuffixParts(launchTarget, options, effort, ultraLabel(launchTarget));
+
+  const pickModel = (row: ModelRow) => {
+    if (search !== undefined && row.launchTarget !== undefined && row.launchTarget !== launchTarget) {
+      search.onPickModelOnTarget(row.launchTarget, row.id);
+      menu.close();
+      return;
+    }
+    onChange({ configId: model.id, type: 'select', value: row.id });
+  };
+
+  const toggleUltra = (on: boolean) => {
+    if (on && effort !== undefined && effort.currentValue !== ULTRA_EFFORT_ID) {
+      previousEffort.current = effort.currentValue;
+    }
+    for (const diff of ultraToggleDiffs(allOptions, on, previousEffort.current)) {
+      onChange(diff);
+    }
+  };
 
   return (
     <>
@@ -32,65 +119,84 @@ export const SessionModelEffortChip: FC<{
         <Typography component="span" sx={{ color: 'text.primary', fontSize: 13 }}>
           {configOptionChoiceLabel(model)}
         </Typography>
-        {effort !== undefined ? (
+        {suffix.length > 0 ? (
           <Typography component="span" sx={{ color: 'text.secondary', fontSize: 13 }}>
-            · {configOptionChoiceLabel(effort)}
+            · {suffix.join(' · ')}
           </Typography>
         ) : null}
       </ComposerChromeChip>
-      <Menu
-        {...menu.menuProps}
-        slotProps={dualColumn ? { list: { sx: { display: 'flex', flexDirection: 'row', p: 0 } } } : undefined}
+      <Popover
+        anchorEl={menu.menuProps.anchorEl}
+        anchorOrigin={menu.menuProps.anchorOrigin}
+        onClose={menu.close}
+        open={menu.menuProps.open}
+        transformOrigin={menu.menuProps.transformOrigin}
       >
-        <Box sx={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH, py: 0.5 }}>
-          {dualColumn ? (
-            <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
-              Model
-            </Typography>
-          ) : null}
-          <MenuList dense disablePadding>
-            {modelViews.map(view => (
-              <MenuItem
-                disabled={view.disabled}
-                key={view.id}
-                onClick={() => {
-                  onChange({ configId: model.id, type: 'select', value: view.id });
-                  if (!dualColumn) {
-                    menu.close();
-                  }
-                }}
-                selected={model.currentValue === view.id}
-              >
-                <ListItemText primary={view.label} secondary={view.description} />
-              </MenuItem>
-            ))}
-          </MenuList>
-        </Box>
-        {effort !== undefined ? (
-          <>
-            <Divider flexItem orientation="vertical" />
-            <Box sx={{ minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH, py: 0.5 }}>
-              <Typography color="text.secondary" sx={{ px: 2, py: 0.5 }} variant="caption">
-                Effort
-              </Typography>
-              <MenuList dense disablePadding>
-                {effortViews.map(view => (
-                  <MenuItem
-                    key={view.id}
-                    onClick={() => {
-                      onChange({ configId: effort.id, type: 'select', value: view.id });
-                      menu.close();
-                    }}
-                    selected={effort.currentValue === view.id}
-                  >
-                    <ListItemText primary={view.label} secondary={view.description} />
-                  </MenuItem>
-                ))}
-              </MenuList>
+        <Box sx={{ maxWidth: '100vw', width: POPOVER_WIDTH }}>
+          <Box sx={{ display: 'flex' }}>
+            <Box sx={{ flex: 1, minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
+              <ModelPickerList
+                currentId={model.currentValue}
+                onHover={setHover}
+                onPick={pickModel}
+                rows={rows}
+                searchPlaceholder={search === undefined ? 'Search models…' : 'Search models across providers…'}
+                searchRows={search === undefined ? undefined : searchRows}
+              />
             </Box>
-          </>
-        ) : null}
-      </Menu>
+            <Divider flexItem orientation="vertical" />
+            <Box sx={{ width: 300 }}>
+              {effort === undefined ? null : (
+                <>
+                  <Typography color="text.secondary" sx={{ display: 'block', px: 2, py: 1.25 }} variant="caption">
+                    Reasoning
+                  </Typography>
+                  <MenuList dense sx={{ p: 1, pt: 0 }}>
+                    {reasoningChoices(effort).map(choice => (
+                      <MenuItem
+                        key={choice.id}
+                        onClick={() => {
+                          onChange({ configId: effort.id, type: 'select', value: choice.id });
+                        }}
+                        selected={effort.currentValue === choice.id}
+                        sx={{ borderRadius: 1 }}
+                      >
+                        <Typography sx={{ flex: 1, fontSize: 14 }}>{choice.name}</Typography>
+                        {effort.currentValue === choice.id ? (
+                          <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} />
+                        ) : null}
+                      </MenuItem>
+                    ))}
+                  </MenuList>
+                  <Divider />
+                </>
+              )}
+              <Typography color="text.secondary" sx={{ display: 'block', px: 2, pt: 1.25 }} variant="caption">
+                Options
+              </Typography>
+              <Stack spacing={1} sx={{ maxHeight: 260, overflowY: 'auto', px: 2, py: 1 }}>
+                {ultra === undefined ? null : <UltraOptionRow disabled={disabled} onToggle={toggleUltra} row={ultra} />}
+                {options.map(option => (
+                  <OptionRow
+                    disabled={disabled}
+                    key={option.id}
+                    launchTarget={launchTarget}
+                    onChange={onChange}
+                    option={option}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          </Box>
+          <Divider />
+          <Box sx={{ minHeight: 56, px: 2, py: 1 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{described.label}</Typography>
+            <Typography color="text.secondary" sx={{ fontSize: 12.5 }}>
+              {described.description}
+            </Typography>
+          </Box>
+        </Box>
+      </Popover>
     </>
   );
 };

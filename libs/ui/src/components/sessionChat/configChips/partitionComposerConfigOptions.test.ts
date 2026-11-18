@@ -38,8 +38,8 @@ describe('partitionComposerConfigOptions', () => {
     const partitioned = partitionComposerConfigOptions([mode, model, effort, fast]);
 
     assert.strictEqual(partitioned.mode, mode);
-    assert.deepStrictEqual(partitioned.modelEffort, { effort, model });
-    assert.deepStrictEqual(partitioned.leftovers, [fast]);
+    assert.deepStrictEqual(partitioned.modelEffort, { effort, model, options: [fast] });
+    assert.deepStrictEqual(partitioned.leftovers, []);
   });
 
   it('groups model + reasoning_effort', () => {
@@ -48,7 +48,7 @@ describe('partitionComposerConfigOptions', () => {
     const partitioned = partitionComposerConfigOptions([model, effort]);
 
     assert.isUndefined(partitioned.mode);
-    assert.deepStrictEqual(partitioned.modelEffort, { effort, model });
+    assert.deepStrictEqual(partitioned.modelEffort, { effort, model, options: [] });
     assert.deepStrictEqual(partitioned.leftovers, []);
   });
 
@@ -58,7 +58,7 @@ describe('partitionComposerConfigOptions', () => {
     const partitioned = partitionComposerConfigOptions([model, mode]);
 
     assert.strictEqual(partitioned.mode, mode);
-    assert.deepStrictEqual(partitioned.modelEffort, { effort: undefined, model });
+    assert.deepStrictEqual(partitioned.modelEffort, { effort: undefined, model, options: [] });
     assert.deepStrictEqual(partitioned.leftovers, []);
   });
 

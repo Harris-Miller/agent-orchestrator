@@ -172,6 +172,17 @@ _Avoid_: Missing model, failed model, disabled model (when you mean this outcome
 A model the user turned off for one launch target in Settings > Providers, so model selects (Composer, Handoff target) omit it, except while it is the select's current value. Never chosen as a Starting model while another model is shown. When every usable (non-Unavailable) advertised model is hidden, hiding is ignored: selects list all of them and the Starting model is the agent's default. User settings only; never changes the Config option index, Session configuration, or what the agent reports. Not an Unavailable model.
 _Avoid_: Disabled model, filtered model, blocked model
 
+**Hidden model** (picker):
+In the Composer's model picker a Hidden model is not dropped but tucked behind "Show more (N)" at the bottom of the model list, and shown again under it; the current model is never counted as hidden. Search matches Hidden and unhidden models alike, unhidden first.
+
+**Options section**:
+The always-visible part of the Composer's model picker listing every Config option the agent advertises except mode, model and effort, one label + control row each, with no collapsed sub-menu, so options a provider adds later appear without a Composer change. Ultra (Ultracode on Claude) is always its first row, disabled with a reason when the current model or provider does not offer it.
+_Avoid_: Advanced, more options
+
+**Well-known Config option**:
+A Config option with a bespoke Composer control, identified by launch target and option id: Claude `agent` (dropdown of subagent types), Claude `fast` and Codex `fast-mode` (toggles), Codex `collaboration_mode` (a "Plan" toggle). Every other option gets the generic control for its type (select or boolean).
+_Avoid_: special option, custom option
+
 **Starting model**:
 The model a new Virtual draft or Handoff target begins on when nothing the user chose applies (no last-create default for that launch target, or that default names a Hidden or Unavailable model): the agent's default model if shown, else the first shown model in Model order. Unavailable models are never picked. A model the user already chose (a Session's current model, a Virtual draft's value, a Handoff form's value) is applied as-is even if it is later hidden: hiding changes what is offered, never what a Session already has.
 _Avoid_: Default model (that is the agent's own, in the Config option index), fallback model

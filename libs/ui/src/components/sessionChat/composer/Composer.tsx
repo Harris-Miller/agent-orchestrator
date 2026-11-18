@@ -274,6 +274,21 @@ export const Composer: FC<{
               }}
               configDisabled={configControlsDisabled}
               configOptions={configOptions}
+              modelSearch={
+                isVirtual
+                  ? {
+                      getConfigOptionIndex,
+                      launchTargets: selectableLaunchTargets,
+                      onPickModelOnTarget: (launchTarget, modelId) => {
+                        setVirtualLaunchTarget(launchTarget)
+                          .then(() =>
+                            setConfigOption({ configId: 'model', launchTarget, type: 'select', value: modelId }),
+                          )
+                          .catch(onClientError);
+                      },
+                    }
+                  : undefined
+              }
               onConfigChange={onConfigOptionChange}
               unavailableModelIds={unavailableModelIds}
             />

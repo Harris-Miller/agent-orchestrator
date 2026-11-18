@@ -4,8 +4,6 @@ import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
 import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
-import { isModelOption } from '../../../host/configOptionIndexUi.ts';
-import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
@@ -14,6 +12,7 @@ import { SessionAgentChip } from './SessionAgentChip.tsx';
 import type { SessionAgentChipProps } from './SessionAgentChip.tsx';
 import { SessionConfigOptionControl } from './SessionConfigOptionControl.tsx';
 import { SessionModelEffortChip } from './SessionModelEffortChip.tsx';
+import type { ModelSearchScope } from './SessionModelEffortChip.tsx';
 
 export type ConfigChipRowProps = {
   readonly agent: SessionAgentChipProps;
@@ -21,6 +20,8 @@ export type ConfigChipRowProps = {
   /** Disables model/effort, access and leftover controls. The agent chip follows `agent.disabled`. */
   readonly configDisabled: boolean;
   readonly onConfigChange: (diff: ConfigValueDiff) => void;
+  /** Virtual session only: search models across launch targets. Omit to search the current provider. */
+  readonly modelSearch?: ModelSearchScope;
   readonly unavailableModelIds: readonly string[] | undefined;
 };
 
@@ -29,28 +30,12 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
   agent,
   configDisabled,
   configOptions,
+  modelSearch,
   onConfigChange,
   unavailableModelIds,
 }) => {
   const prefs = useAtomValue(modelPickerPrefsAtom(agent.value));
-  const partitioned = useMemo(
-    () =>
-      partitionComposerConfigOptions(
-        configOptions.map(option =>
-          isModelOption(option) && option.type === 'select'
-            ? {
-                ...option,
-                choices: arrangeModelChoices(option.choices, {
-                  ...prefs,
-                  currentId: option.currentValue,
-                  unavailableIds: unavailableModelIds,
-                }),
-              }
-            : option,
-        ),
-      ),
-    [configOptions, prefs, unavailableModelIds],
-  );
+  const partitioned = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
 
   return (
     <>
@@ -59,8 +44,12 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
         <SessionModelEffortChip
           disabled={configDisabled}
           effort={partitioned.modelEffort.effort}
+          launchTarget={agent.value}
           model={partitioned.modelEffort.model}
           onChange={onConfigChange}
+          options={partitioned.modelEffort.options}
+          prefs={prefs}
+          search={modelSearch}
           unavailableModelIds={unavailableModelIds}
         />
       ) : null}

@@ -1,6 +1,7 @@
 import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItem from '@mui/material/ListItem';
 import Paper from '@mui/material/Paper';
@@ -49,6 +50,8 @@ export const SessionHistoryRow: FC<{
   readonly positions?: ReadonlySet<number>;
   readonly highlighted?: boolean;
   readonly onActivate?: () => void;
+  /** Bulk select mode: a checkbox replaces activation and the Session actions menu. */
+  readonly selection?: { readonly checked: boolean; readonly onToggle: () => void };
 }> = ({
   caption,
   onInteractionChange,
@@ -59,6 +62,7 @@ export const SessionHistoryRow: FC<{
   positions,
   highlighted,
   onActivate,
+  selection,
 }) => {
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -84,6 +88,10 @@ export const SessionHistoryRow: FC<{
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
+    if (selection !== undefined) {
+      selection.onToggle();
+      return;
+    }
     onActivate?.();
     // activateSession selects + no-ops when already active/activating (Codex-safe); unarchives an archived entry first.
     activateSession({ launchTarget: entry.launchTarget, sessionId: entry.sessionId }).catch(onClientError);
@@ -119,6 +127,17 @@ export const SessionHistoryRow: FC<{
         tabIndex={0}
       >
         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+          {selection === undefined ? null : (
+            <Checkbox
+              checked={selection.checked}
+              disabled={unavailable}
+              onChange={selection.onToggle}
+              onClick={event => event.stopPropagation()}
+              size="small"
+              slotProps={{ input: { 'aria-label': `Select ${displayTitle}` } }}
+              sx={{ ml: -0.75, p: 0.5 }}
+            />
+          )}
           <Box sx={{ display: 'inline-flex', opacity: archived ? 0.5 : 1 }}>
             <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
           </Box>
@@ -156,14 +175,16 @@ export const SessionHistoryRow: FC<{
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}
-          <SessionActionsMenu
-            onInteractionChange={setMenuOpen}
-            entry={entry}
-            onClientError={onClientError}
-            onDeleteRequest={onDeleteRequest}
-            onRenameRequest={rename.onRenameRequest}
-            sx={{ mr: -0.5 }}
-          />
+          {selection === undefined ? (
+            <SessionActionsMenu
+              onInteractionChange={setMenuOpen}
+              entry={entry}
+              onClientError={onClientError}
+              onDeleteRequest={onDeleteRequest}
+              onRenameRequest={rename.onRenameRequest}
+              sx={{ mr: -0.5 }}
+            />
+          ) : null}
         </Stack>
       </Paper>
     </ListItem>

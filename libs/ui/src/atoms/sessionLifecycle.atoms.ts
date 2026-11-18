@@ -131,6 +131,57 @@ const updateAndClearSelection = Effect.fnUntraced(function* (
   }
 });
 
+/** `session/archive` then mark the row archived (and drop it from selection). A no-op when the backend is not usable. */
+const archiveOne = Effect.fnUntraced(function* (get: Atom.FnContext, arg: SessionTarget) {
+  const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'archiveSession');
+  if (snapshot === undefined) {
+    return;
+  }
+  yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
+
+  yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
+  yield* archiveSession(arg.launchTarget, arg.sessionId);
+  yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
+    setSessionArchived(current, arg.sessionId, true),
+  );
+});
+
+/** `session/unarchive` then mark the row unarchived. Unlike activate, never opens or selects the session. */
+const unarchiveOne = Effect.fnUntraced(function* (get: Atom.FnContext, arg: SessionTarget) {
+  const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'unarchiveSession');
+  if (snapshot === undefined) {
+    return;
+  }
+  yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
+
+  yield* Effect.logInfo('Unarchiving session', arg.launchTarget, arg.sessionId);
+  yield* unarchiveSession(arg.launchTarget, arg.sessionId);
+  updateHarnessSnapshot(get.registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
+});
+
+/** Run `one` for each target in order, continuing past failures; then fail with the first failure, if any. */
+const forEachTargetContinuing = <E, R>(
+  targets: readonly SessionTarget[],
+  one: (arg: SessionTarget) => Effect.Effect<void, E, R>,
+  failureLabel: string,
+) =>
+  Effect.gen(function* () {
+    const exits = yield* Effect.forEach(
+      targets,
+      arg =>
+        Effect.exit(
+          one(arg).pipe(
+            Effect.tapError(error => Effect.logError(failureLabel, arg.launchTarget, arg.sessionId, error)),
+          ),
+        ),
+      { concurrency: 1 },
+    );
+    const failed = exits.find(Exit.isFailure);
+    if (failed !== undefined) {
+      return yield* failed;
+    }
+  });
+
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
   const { atomRuntime } = runtime;
 
@@ -382,17 +433,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
       Effect.fn('archiveSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'archiveSession');
-          if (snapshot === undefined) {
-            return;
-          }
-          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
-
-          yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
-          yield* archiveSession(arg.launchTarget, arg.sessionId);
-          yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
-            setSessionArchived(current, arg.sessionId, true),
-          );
+          yield* archiveOne(get, arg);
         },
         (effect, arg) =>
           effect.pipe(
@@ -401,6 +442,47 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
             ),
           ),
       ),
+    )
+    .pipe(Atom.keepAlive);
+
+  const unarchiveSessionAtomFn = atomRuntime
+    .fn(
+      Effect.fn('unarchiveSessionAtomFn', { root: true })(
+        function* (arg: SessionTarget, get: Atom.FnContext) {
+          yield* sessionSpan(arg);
+          yield* unarchiveOne(get, arg);
+        },
+        (effect, arg) =>
+          effect.pipe(
+            Effect.tapError(error =>
+              Effect.logError('unarchiveSessionAtomFn failed', arg.launchTarget, arg.sessionId, error),
+            ),
+          ),
+      ),
+    )
+    .pipe(Atom.keepAlive);
+
+  // Bulk: one atom run walking the entries in order (a non-concurrent Atom fn interrupts its previous call, so the
+  // single atoms must not be called in a loop).
+  const archiveSessionsAtomFn = atomRuntime
+    .fn(
+      Effect.fn('archiveSessionsAtomFn', { root: true })(function* (
+        targets: readonly SessionTarget[],
+        get: Atom.FnContext,
+      ) {
+        yield* forEachTargetContinuing(targets, arg => archiveOne(get, arg), 'archiveSessions entry failed');
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  const unarchiveSessionsAtomFn = atomRuntime
+    .fn(
+      Effect.fn('unarchiveSessionsAtomFn', { root: true })(function* (
+        targets: readonly SessionTarget[],
+        get: Atom.FnContext,
+      ) {
+        yield* forEachTargetContinuing(targets, arg => unarchiveOne(get, arg), 'unarchiveSessions entry failed');
+      }),
     )
     .pipe(Atom.keepAlive);
 
@@ -494,11 +576,14 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
   return {
     activateSessionAtomFn,
     archiveSessionAtomFn,
+    archiveSessionsAtomFn,
     clearSelectedAtomFn,
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
     renameSessionAtomFn,
+    unarchiveSessionAtomFn,
+    unarchiveSessionsAtomFn,
   };
 };

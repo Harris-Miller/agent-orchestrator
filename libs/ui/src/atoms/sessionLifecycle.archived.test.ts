@@ -206,3 +206,79 @@ describe('Archive', () => {
     }).pipe(Effect.scoped),
   );
 });
+
+describe('Bulk archive / unarchive', () => {
+  const targets = ['s1', 's2', 's3'].map(sessionId => ({ launchTarget: CODEX, sessionId }));
+
+  const setupMany = Effect.fnUntraced(function* (options: {
+    readonly archived: boolean;
+    readonly failArchiveFor?: string;
+    readonly fake?: FakeAgentOpts;
+  }) {
+    const archiveCalls: string[] = [];
+    const registry = yield* freshRegistry;
+    yield* connectFakeAgent(CODEX, {
+      ...options.fake,
+      sessionArchive: ({ sessionId }: { sessionId: string }) => {
+        archiveCalls.push(sessionId);
+        return sessionId === options.failArchiveFor ? Effect.die('archive-fail') : Effect.void;
+      },
+      sessionUnarchive: () => Effect.void,
+    });
+    const atoms = makeAtoms();
+    updateHarnessSnapshot(registry, CODEX, current => ({
+      ...current,
+      sessionHistory: targets.map(({ sessionId }) => ({
+        cwd: '/proj',
+        sessionId,
+        ...(options.archived ? { _meta: archivedMeta } : {}),
+      })),
+    }));
+    advertise(registry, CODEX, advertisesArchive);
+    const archivedIds = () =>
+      registry
+        .get(backendHarnessSnapshotAtom(CODEX))
+        .sessionHistory.filter(entry => isArchivedEntry(entry))
+        .map(entry => entry.sessionId);
+    return { archiveCalls, archivedIds, atoms, registry };
+  });
+
+  it.effect('archives every entry in order within one run', () =>
+    Effect.gen(function* () {
+      const s = yield* setupMany({ archived: false });
+      yield* runAtomFn(s.registry, s.atoms.archiveSessionsAtomFn, targets);
+      assert.deepStrictEqual(s.archiveCalls, ['s1', 's2', 's3']);
+      assert.deepStrictEqual(s.archivedIds(), ['s1', 's2', 's3']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('continues past a failing entry, then fails the run', () =>
+    Effect.gen(function* () {
+      const s = yield* setupMany({ archived: false, failArchiveFor: 's2' });
+      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.archiveSessionsAtomFn, targets));
+      assert.isTrue(Exit.isFailure(exit));
+      assert.deepStrictEqual(s.archiveCalls, ['s1', 's2', 's3']);
+      assert.deepStrictEqual(s.archivedIds(), ['s1', 's3']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('unarchives every entry without selecting or activating any', () =>
+    Effect.gen(function* () {
+      const s = yield* setupMany({ archived: true });
+      yield* runAtomFn(s.registry, s.atoms.unarchiveSessionsAtomFn, targets);
+      assert.deepStrictEqual(s.archivedIds(), []);
+      assert.isUndefined(s.registry.get(selectedAtom));
+      assert.notProperty(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions, 's1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('single unarchive does not open the session', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: true });
+      yield* runAtomFn(s.registry, s.atoms.unarchiveSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isUndefined(s.registry.get(selectedAtom));
+    }).pipe(Effect.scoped),
+  );
+});

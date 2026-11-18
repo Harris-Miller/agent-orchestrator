@@ -106,12 +106,15 @@ export const {
 export const {
   activateSessionAtomFn,
   archiveSessionAtomFn,
+  archiveSessionsAtomFn,
   clearSelectedAtomFn,
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
   renameSessionAtomFn,
+  unarchiveSessionAtomFn,
+  unarchiveSessionsAtomFn,
 } = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);

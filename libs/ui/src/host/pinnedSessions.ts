@@ -6,7 +6,7 @@ import type { SessionListScope } from './sessionListScope.ts';
 
 /**
  * Pins to drop after a successful `session/list`: those (existing before the request was sent) missing from the raw
- * listed ids, within the list scope. A response with `nextCursor` is partial, so nothing is swept.
+ * listed ids, within the list scope. A response still carrying `nextCursor` is partial, so nothing is swept (defensive: `listAllSessions` merges every page).
  */
 export const pinsToUnpinAfterList = (
   pinsBeforeRequest: readonly PinnedSession[],

@@ -10,7 +10,7 @@ describe('sessionListScope', () => {
 
   it('listSessionsPayload covers Unscoped / Cwd / Skip', () => {
     const activeSessions = {
-      _meta: { jetbrains: { air: { list: { archived: 'all' as const }, version: 1 as const } } },
+      _meta: { jetbrains: { air: { list: { archived: 'all' as const, limit: 100 }, version: 1 as const } } },
     };
     assert.deepStrictEqual(listSessionsPayload(unscopedSessionListScope), activeSessions);
     assert.deepStrictEqual(listSessionsPayload({ _tag: 'Cwd', cwd: '/ws' }), { ...activeSessions, cwd: '/ws' });

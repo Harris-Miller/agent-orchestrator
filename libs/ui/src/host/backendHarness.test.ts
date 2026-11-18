@@ -75,6 +75,37 @@ const run = (events: string[], cached: boolean) =>
   );
 
 describe('runBackendHarness', () => {
+  it.effect('bootstrap follows every session/list page and reports history once with all sessions', () =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      const results: string[][] = [];
+      let lists = 0;
+      control.listGate = Effect.suspend(() => {
+        lists += 1;
+        return Effect.succeed(
+          lists === 1
+            ? { sessions: [{ sessionId: 'a', cwd: '/w' }], nextCursor: 'c1' }
+            : { sessions: [{ sessionId: 'b', cwd: '/w' }] },
+        );
+      });
+      const handlers: BackendHarnessCallbacks = {
+        ...makeHandlers(events, true),
+        onSessionHistoryResult: result => {
+          results.push((result as { sessions: { sessionId: string }[] }).sessions.map(x => x.sessionId));
+        },
+      };
+
+      const fiber = yield* Effect.forkChild(
+        Effect.scoped(runBackendHarness(LT, handlers, () => scope)) as Effect.Effect<void>,
+      );
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(results, [['a', 'b']]);
+      assert.strictEqual(lists, 2);
+      yield* Fiber.interrupt(fiber);
+    }),
+  );
+
   it.effect('with a cached index: usable immediately, no probe, ready after session/list', () =>
     Effect.gen(function* () {
       const events: string[] = [];

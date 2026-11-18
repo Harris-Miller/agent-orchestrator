@@ -67,7 +67,7 @@ Every ACP message sent or received for one launch target, in order, for the Deve
 _Avoid_: rpcCalls, wire trace, message log
 
 **Backend harness snapshot**:
-The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, Session History, Session snapshots, and Subagent sessions. Excludes the RPC wire log. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
+The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, Session History (every `session/list` page, merged), Session snapshots, and Subagent sessions. Excludes the RPC wire log. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:

@@ -85,9 +85,14 @@ const WorkSegmentView: FC<{
 export const WorkRegionView: FC<{
   availableCommands?: readonly AvailableCommand[];
   inFlight: boolean;
+  /** Lets a virtualized parent keep this region mounted while open (its open state is local). */
+  onOpenChange?: (open: boolean) => void;
   region: WorkRegion;
-}> = ({ availableCommands, inFlight, region }) => {
+}> = ({ availableCommands, inFlight, onOpenChange, region }) => {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [onOpenChange, open]);
   const regionRef = useRef<HTMLLIElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => Date.now());

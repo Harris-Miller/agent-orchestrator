@@ -5,7 +5,8 @@ import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
@@ -16,11 +17,14 @@ import { hasPendingInteraction } from '../../../host/pendingInteractions.ts';
 import { describeError } from '../../../host/requestError.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
+import { chatRowKey, withKeptRows } from './chatRows.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { groupChatItems, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
 import { WorkRegionView } from './workRegion/WorkRegionView.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
+const ESTIMATED_ROW_PX = 80;
+const ROW_OVERSCAN = 6;
 
 /** Scroll container for the Selected session's Chat items, pinned to the bottom until the user scrolls up. */
 export const ChatTranscript: FC<{
@@ -87,9 +91,43 @@ export const ChatTranscript: FC<{
     chatItems.length === 0 && (selectedSession === undefined || !hasPendingInteraction(selectedSession));
   const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;
 
+  const [openRegionKeys, setOpenRegionKeys] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     pinnedToBottomRef.current = true;
+    setOpenRegionKeys(new Set());
   }, [selectedLaunchTarget, selectedSession?.sessionId]);
+
+  const onRegionOpenChange = useCallback((key: string, open: boolean) => {
+    setOpenRegionKeys(previous => {
+      if (previous.has(key) === open) return previous;
+      const next = new Set(previous);
+      if (open) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+  const indexByKey = useMemo(
+    () => new Map(groupedItems.map((item, index) => [chatRowKey(item), index])),
+    [groupedItems],
+  );
+  const getItemKey = useCallback((index: number) => chatRowKey(groupedItems[index]!), [groupedItems]);
+  const virtualizer = useVirtualizer({
+    count: showVirtualEmptyState || isChatEmpty ? 0 : groupedItems.length,
+    getItemKey,
+    getScrollElement: () => chatScrollRef.current,
+    estimateSize: () => ESTIMATED_ROW_PX,
+    overscan: ROW_OVERSCAN,
+    rangeExtractor: range =>
+      withKeptRows(
+        defaultRangeExtractor(range),
+        [...openRegionKeys].flatMap(key => {
+          const index = indexByKey.get(key);
+          return index === undefined ? [] : [index];
+        }),
+      ),
+    useFlushSync: false,
+  });
+  const totalSize = virtualizer.getTotalSize();
 
   useLayoutEffect(() => {
     const chatScroll = chatScrollRef.current;
@@ -105,7 +143,13 @@ export const ChatTranscript: FC<{
     }
 
     chatScroll.scrollTop = chatScroll.scrollHeight;
-  }, [chatItems, selectedSession?.pendingElicitation, selectedSession?.pendingPermission, showVirtualEmptyState]);
+  }, [
+    chatItems,
+    selectedSession?.pendingElicitation,
+    selectedSession?.pendingPermission,
+    showVirtualEmptyState,
+    totalSize,
+  ]);
 
   return (
     <Box
@@ -130,18 +174,34 @@ export const ChatTranscript: FC<{
             />
           </ListItem>
         ) : (
-          groupedItems.map(item =>
-            item.kind === 'work_region' ? (
-              <WorkRegionView
-                availableCommands={availableCommands}
-                inFlight={isLiveRegion(item) && selectedSession?.pendingClientRequest === 'prompt'}
-                key={`work-${item.id}`}
-                region={item}
-              />
-            ) : (
-              <ChatItemView availableCommands={availableCommands} item={item} key={item.id} />
-            ),
-          )
+          <Box sx={{ height: totalSize, position: 'relative', width: '100%' }}>
+            {virtualizer.getVirtualItems().map(row => {
+              const item = groupedItems[row.index]!;
+              return (
+                <List
+                  data-index={row.index}
+                  dense
+                  disablePadding
+                  key={row.key}
+                  ref={virtualizer.measureElement}
+                  sx={{ left: 0, position: 'absolute', top: 0, transform: `translateY(${row.start}px)`, width: '100%' }}
+                >
+                  {item.kind === 'work_region' ? (
+                    <WorkRegionView
+                      availableCommands={availableCommands}
+                      inFlight={isLiveRegion(item) && selectedSession?.pendingClientRequest === 'prompt'}
+                      onOpenChange={open => {
+                        onRegionOpenChange(chatRowKey(item), open);
+                      }}
+                      region={item}
+                    />
+                  ) : (
+                    <ChatItemView availableCommands={availableCommands} item={item} />
+                  )}
+                </List>
+              );
+            })}
+          </Box>
         )}
         {selectedSession?.pendingPermission !== undefined && selectedLaunchTarget !== undefined ? (
           <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>

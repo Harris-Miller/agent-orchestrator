@@ -1,11 +1,8 @@
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
-import MenuItem from '@mui/material/MenuItem';
-import MenuList from '@mui/material/MenuList';
 import Popover from '@mui/material/Popover';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Check } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -13,18 +10,17 @@ import type { NormalizedConfigOption, NormalizedSelectConfigOption } from '../..
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
-import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';
-import { chipSuffixParts, modelRowsFor } from './modelPickerList.ts';
-import { modelListMaxHeight, pickerPaneHeight } from './pickerLayout.ts';
+import { pickerViewModel } from './modelPickerList.ts';
+import { modelListMaxHeight } from './pickerLayout.ts';
 import type { ModelRow } from './modelPickerList.ts';
 import { ModelPickerList } from './ModelPickerList.tsx';
-import { AbsentOptionRowView, OptionRow, UltraOptionRow } from './OptionRows.tsx';
+import { AbsentOptionRowView, OptionRow, UltracodeOptionRow } from './OptionRows.tsx';
+import { ReasoningList } from './ReasoningList.tsx';
 import { configOptionChoiceLabel } from './sessionConfigOptionSelectViews.ts';
-import { ultraRow, ultraToggleDiffs, withoutUltraOption } from './ultra.ts';
-import { optionRowsFor } from './wellKnownConfigOption.ts';
+import { ultracodeToggleDiffs } from './ultracode.ts';
 
 const POPOVER_WIDTH = 680;
 
@@ -42,27 +38,22 @@ export const SessionModelEffortChip: FC<{
   const menu = useComposerChromeMenu();
   const [hover, setHover] = useState<ModelRow | undefined>();
 
-  const rows = modelRowsFor(model.choices, {
-    ...prefs,
-    currentId: model.currentValue,
-    launchTarget,
-    unavailableIds: unavailableModelIds,
+  const { optionRows, paneHeight, rows, suffix, ultracode } = pickerViewModel(launchTarget, {
+    effort,
+    model,
+    options,
+    prefs,
+    unavailableModelIds,
   });
   const described = hover ??
     rows.find(row => row.id === model.currentValue) ?? { description: undefined, label: model.currentValue };
-  const allOptions = effort === undefined ? options : [...options, effort];
-  const ultra = ultraRow(launchTarget, allOptions);
-  const suffix = chipSuffixParts(launchTarget, options, effort);
-  const optionRows = optionRowsFor(launchTarget, withoutUltraOption(options));
-  const reasoning = effort?.choices ?? [];
-  const paneHeight = pickerPaneHeight(reasoning.length, optionRows.length + (ultra === undefined ? 0 : 1));
 
   const pickModel = (row: ModelRow) => {
     onChange({ configId: model.id, type: 'select', value: row.id });
   };
 
-  const toggleUltra = (on: boolean) => {
-    for (const diff of ultraToggleDiffs(allOptions, on)) {
+  const toggleUltracode = (on: boolean) => {
+    for (const diff of ultracodeToggleDiffs(options, on)) {
       onChange(diff);
     }
   };
@@ -104,36 +95,14 @@ export const SessionModelEffortChip: FC<{
             </Box>
             <Divider flexItem sx={{ display: { xs: 'none', sm: 'block' } }} orientation="vertical" />
             <Box sx={{ flex: '1 1 240px', maxWidth: { sm: 300 }, minHeight: { sm: paneHeight } }}>
-              {effort === undefined ? null : (
-                <>
-                  <Typography color="text.secondary" sx={{ display: 'block', px: 2, py: 1.25 }} variant="caption">
-                    Reasoning
-                  </Typography>
-                  <MenuList dense sx={{ p: 1, pt: 0 }}>
-                    {reasoning.map(choice => (
-                      <MenuItem
-                        key={choice.id}
-                        onClick={() => {
-                          onChange({ configId: effort.id, type: 'select', value: choice.id });
-                        }}
-                        selected={effort.currentValue === choice.id}
-                        sx={{ borderRadius: 1 }}
-                      >
-                        <Typography sx={{ flex: 1, fontSize: 14 }}>{choice.name}</Typography>
-                        {effort.currentValue === choice.id ? (
-                          <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} />
-                        ) : null}
-                      </MenuItem>
-                    ))}
-                  </MenuList>
-                  <Divider />
-                </>
-              )}
+              {effort === undefined ? null : <ReasoningList effort={effort} onChange={onChange} />}
               <Typography color="text.secondary" sx={{ display: 'block', px: 2, pt: 1.25 }} variant="caption">
                 Options
               </Typography>
               <Stack spacing={1} sx={{ px: 2, py: 1 }}>
-                {ultra === undefined ? null : <UltraOptionRow disabled={disabled} onToggle={toggleUltra} row={ultra} />}
+                {ultracode === undefined ? null : (
+                  <UltracodeOptionRow disabled={disabled} onToggle={toggleUltracode} row={ultracode} />
+                )}
                 {optionRows.map(row =>
                   row.kind === 'absent' ? (
                     <AbsentOptionRowView key={row.label} row={row} />

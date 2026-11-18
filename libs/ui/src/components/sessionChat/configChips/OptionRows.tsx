@@ -10,7 +10,7 @@ import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.t
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
-import type { ultraRow } from './ultra.ts';
+import type { ultracodeRow } from './ultracode.ts';
 import {
   isPlanOn,
   isPlanSwitch,
@@ -54,10 +54,10 @@ const SwitchRow: FC<{
 );
 
 /** Claude Ultracode: always the first row, disabled with the reason as a tooltip. */
-export const UltraOptionRow: FC<{
+export const UltracodeOptionRow: FC<{
   readonly disabled: boolean;
   readonly onToggle: (on: boolean) => void;
-  readonly row: NonNullable<ReturnType<typeof ultraRow>>;
+  readonly row: NonNullable<ReturnType<typeof ultracodeRow>>;
 }> = ({ disabled, onToggle, row }) => (
   <Tooltip title={row.disabledReason ?? ''}>
     <span>

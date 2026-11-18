@@ -11,7 +11,7 @@ const ULTRACODE_LABEL = 'Ultracode';
  * The always-first Options row for Claude Ultracode (a boolean `ultracode` option). Codex "Ultra" is not this: it is a
  * plain `ultra` choice in the Reasoning list.
  */
-export type UltraRow = {
+export type UltracodeRow = {
   readonly label: string;
   readonly on: boolean;
   /** Why the row is disabled; undefined when it can be toggled. */
@@ -22,14 +22,14 @@ const isUltracodeOption = (option: NormalizedConfigOption) =>
   option.id === ULTRACODE_OPTION_ID && option.type === 'boolean';
 
 /** Options for the generic rows: the boolean `ultracode` option lives on the Ultracode row. */
-export const withoutUltraOption = (options: readonly NormalizedConfigOption[]) =>
+export const withoutUltracodeOption = (options: readonly NormalizedConfigOption[]) =>
   options.filter(option => !isUltracodeOption(option));
 
 /** `undefined` when the provider has no Ultracode concept at all (nothing to show). */
-export const ultraRow = (
+export const ultracodeRow = (
   launchTarget: AgentLaunchTarget | undefined,
   options: readonly NormalizedConfigOption[],
-): UltraRow | undefined => {
+): UltracodeRow | undefined => {
   const ultracode = options.find(isUltracodeOption);
   if (ultracode !== undefined) {
     return { disabledReason: undefined, label: ULTRACODE_LABEL, on: ultracode.currentValue === true };
@@ -39,13 +39,13 @@ export const ultraRow = (
 };
 
 /** Chip suffix part: "Ultracode" when the option is on. */
-export const ultraSuffixParts = (
+export const ultracodeSuffixParts = (
   launchTarget: AgentLaunchTarget | undefined,
   options: readonly NormalizedConfigOption[],
-): readonly string[] => (ultraRow(launchTarget, options)?.on === true ? [ULTRACODE_LABEL] : []);
+): readonly string[] => (ultracodeRow(launchTarget, options)?.on === true ? [ULTRACODE_LABEL] : []);
 
 /** Diffs for flipping the Ultracode option. */
-export const ultraToggleDiffs = (
+export const ultracodeToggleDiffs = (
   options: readonly NormalizedConfigOption[],
   on: boolean,
 ): readonly ConfigValueDiff[] => {

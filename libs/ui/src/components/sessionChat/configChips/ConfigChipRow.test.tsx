@@ -195,7 +195,7 @@ describe('ConfigChipRow', () => {
       assert.isNotNull(screen.queryByText('first'));
     });
 
-    it('lists a boolean ultracode option only on the Ultra row', () => {
+    it('lists a boolean ultracode option only on the Ultracode row', () => {
       mount({
         agent: { value: 'claude-agent-acp' },
         configOptions: [
@@ -214,12 +214,12 @@ describe('ConfigChipRow', () => {
       assert.deepStrictEqual(changes, [{ configId: 'model', type: 'select', value: 'm2' }]);
     });
 
-    it('lists Codex ultra as a normal Reasoning choice, with no Ultra row', () => {
+    it('lists Codex ultra as a normal Reasoning choice, with no Ultracode row', () => {
       const { changes } = mount({
         configOptions: [select('model', 'gpt', ['gpt']), select('reasoning_effort', 'high', ['high', 'ultra'])],
       });
       fireEvent.click(chip(1));
-      assert.isNull(screen.queryByLabelText('Ultra'));
+      assert.isNull(screen.queryByLabelText('Ultracode'));
       fireEvent.click(screen.getByRole('menuitem', { name: 'ultra' }));
       assert.deepStrictEqual(changes, [{ configId: 'reasoning_effort', type: 'select', value: 'ultra' }]);
     });

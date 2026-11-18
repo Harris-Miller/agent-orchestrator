@@ -3,8 +3,12 @@ import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ModelPickerPrefs } from '../../../host/modelPickerPrefs.ts';
 
-import { ultraSuffixParts } from './ultra.ts';
-import { toggleSuffixParts } from './wellKnownConfigOption.ts';
+import { pickerPaneHeight } from './pickerLayout.ts';
+import type { OptionRowKind } from './pickerLayout.ts';
+import { ultracodeRow, ultracodeSuffixParts, withoutUltracodeOption } from './ultracode.ts';
+import type { UltracodeRow } from './ultracode.ts';
+import { isPlanSwitch, optionRowsFor, toggleSuffixParts } from './wellKnownConfigOption.ts';
+import type { OptionRowModel } from './wellKnownConfigOption.ts';
 import { modelSelectChoiceLabel } from './sessionConfigOptionSelectViews.ts';
 
 /** One row of the picker's model list. */
@@ -65,8 +69,64 @@ export const chipSuffixParts = (
   effort: NormalizedSelectConfigOption | undefined,
 ): readonly string[] => {
   const effortName = effort?.choices.find(choice => choice.id === effort.currentValue)?.name ?? effort?.currentValue;
-  const ultra = ultraSuffixParts(launchTarget, effort === undefined ? options : [...options, effort]);
-  return [effortName, ...ultra, ...toggleSuffixParts(launchTarget, options)].filter(
+  const ultracode = ultracodeSuffixParts(launchTarget, options);
+  return [effortName, ...ultracode, ...toggleSuffixParts(launchTarget, options)].filter(
     (part): part is string => part !== undefined && part !== '',
   );
+};
+
+/** What `OptionRow` renders for a row: a switch, a select, or nothing (a select with no choices). */
+const optionRowKind = (launchTarget: AgentLaunchTarget | undefined, row: OptionRowModel): OptionRowKind | undefined => {
+  if (row.kind === 'absent' || row.option.type === 'boolean' || isPlanSwitch(launchTarget, row.option)) {
+    return 'switch';
+  }
+  return row.option.choices.length === 0 ? undefined : 'select';
+};
+
+/** Everything the picker popover derives from the session's Config options. */
+export type PickerViewModel = {
+  /** Rows OptionRow renders after the Ultracode row; empty selects are already dropped. */
+  readonly optionRows: readonly OptionRowModel[];
+  readonly paneHeight: number;
+  readonly reasoning: NormalizedSelectConfigOption['choices'];
+  readonly rows: readonly ModelRow[];
+  readonly suffix: readonly string[];
+  readonly ultracode: UltracodeRow | undefined;
+};
+
+export const pickerViewModel = (
+  launchTarget: AgentLaunchTarget | undefined,
+  input: {
+    readonly effort: NormalizedSelectConfigOption | undefined;
+    readonly model: NormalizedSelectConfigOption;
+    readonly options: readonly NormalizedConfigOption[];
+    readonly prefs: ModelPickerPrefs;
+    readonly unavailableModelIds: readonly string[];
+  },
+): PickerViewModel => {
+  const { effort, model, options, prefs, unavailableModelIds } = input;
+  const ultracode = ultracodeRow(launchTarget, options);
+  const kinds = optionRowsFor(launchTarget, withoutUltracodeOption(options)).map(row => ({
+    kind: optionRowKind(launchTarget, row),
+    row,
+  }));
+  const optionRows = kinds.filter(entry => entry.kind !== undefined).map(entry => entry.row);
+  const rowKinds = [
+    ...(ultracode === undefined ? [] : ['switch' as const]),
+    ...kinds.flatMap(entry => (entry.kind === undefined ? [] : [entry.kind])),
+  ];
+  const reasoning = effort?.choices ?? [];
+  return {
+    optionRows,
+    paneHeight: pickerPaneHeight(reasoning.length, rowKinds),
+    reasoning,
+    rows: modelRowsFor(model.choices, {
+      ...prefs,
+      currentId: model.currentValue,
+      launchTarget,
+      unavailableIds: unavailableModelIds,
+    }),
+    suffix: chipSuffixParts(launchTarget, options, effort),
+    ultracode,
+  };
 };

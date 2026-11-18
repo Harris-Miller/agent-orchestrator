@@ -1,15 +1,15 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InputBase from '@mui/material/InputBase';
-import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import Typography from '@mui/material/Typography';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 
+import { CheckedMenuItem } from './CheckedMenuItem.tsx';
 import { searchModelRows, splitModelRows } from './modelPickerList.ts';
 import type { ModelRow } from './modelPickerList.ts';
 
@@ -36,11 +36,14 @@ export const ModelPickerList: FC<{
   );
 
   const row = (model: ModelRow) => (
-    <MenuItem
-      disabled={model.disabled}
+    <CheckedMenuItem
       key={`${model.launchTarget ?? ''}:${model.id}`}
-      onClick={() => {
-        onPick(model);
+      label={model.label}
+      onBlur={() => {
+        onHover(undefined);
+      }}
+      onFocus={() => {
+        onHover(model);
       }}
       onMouseEnter={() => {
         onHover(model);
@@ -48,12 +51,13 @@ export const ModelPickerList: FC<{
       onMouseLeave={() => {
         onHover(undefined);
       }}
+      onSelect={() => {
+        onPick(model);
+      }}
+      opacity={model.hidden ? 0.75 : 1}
       selected={model.id === currentId}
-      sx={{ borderRadius: 1, gap: 1, opacity: model.hidden ? 0.75 : 1 }}
-    >
-      <Typography sx={{ flex: 1, fontSize: 14 }}>{model.label}</Typography>
-      {model.id === currentId ? <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} /> : null}
-    </MenuItem>
+      unavailable={model.disabled}
+    />
   );
 
   const { hidden, shown } = splitModelRows(rows);

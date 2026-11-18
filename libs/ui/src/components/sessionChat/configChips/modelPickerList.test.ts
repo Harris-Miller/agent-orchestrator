@@ -2,7 +2,7 @@ import { assert, describe, it } from '@effect/vitest';
 
 import type { NormalizedConfigOption, NormalizedSelectConfigOption } from '../../../host/acpSessionBootstrap.ts';
 
-import { chipSuffixParts, modelRowsFor, searchModelRows, splitModelRows } from './modelPickerList.ts';
+import { chipSuffixParts, modelRowsFor, pickerViewModel, searchModelRows, splitModelRows } from './modelPickerList.ts';
 
 const choices = ['m1', 'm2', 'm3'].map(id => ({ description: `${id} d`, id, name: id.toUpperCase() }));
 const rows = (
@@ -96,5 +96,64 @@ describe('chipSuffixParts', () => {
   it('adds Ultracode when the boolean option is on', () => {
     const ultracode: NormalizedConfigOption = { currentValue: true, id: 'ultracode', name: 'u', type: 'boolean' };
     assert.deepStrictEqual(chipSuffixParts('claude-agent-acp', [ultracode], effort), ['High', 'Ultracode']);
+  });
+});
+
+describe('pickerViewModel', () => {
+  const model: NormalizedSelectConfigOption = {
+    choices,
+    currentValue: 'm1',
+    id: 'model',
+    name: 'Model',
+    type: 'select',
+  };
+  const input = { effort: undefined, model, options: [], prefs: { hidden: [], order: [] }, unavailableModelIds: [] };
+  const emptySelect: NormalizedConfigOption = {
+    choices: [],
+    currentValue: undefined,
+    id: 'empty',
+    name: 'Empty',
+    type: 'select',
+  };
+  const ultracodeOption: NormalizedConfigOption = {
+    currentValue: false,
+    id: 'ultracode',
+    name: 'u',
+    type: 'boolean',
+  };
+
+  it('drops selects with no choices and the Ultracode option from optionRows', () => {
+    const view = pickerViewModel('claude-agent-acp', { ...input, options: [ultracodeOption, emptySelect] });
+    assert.isFalse(view.optionRows.some(row => row.kind === 'option' && row.option.id === 'empty'));
+    assert.isFalse(view.optionRows.some(row => row.kind === 'option' && row.option.id === 'ultracode'));
+    assert.strictEqual(view.ultracode?.label, 'Ultracode');
+  });
+
+  it('sizes the pane taller for a select row than a switch row', () => {
+    const select: NormalizedConfigOption = {
+      choices: [{ id: 'a', name: 'A' }],
+      currentValue: 'a',
+      id: 'sel',
+      name: 'Sel',
+      type: 'select',
+    };
+    const flag: NormalizedConfigOption = { currentValue: false, id: 'flag', name: 'Flag', type: 'boolean' };
+    const withSelect = pickerViewModel(undefined, { ...input, options: [select] });
+    const withSwitch = pickerViewModel(undefined, { ...input, options: [flag] });
+    assert.isAbove(withSelect.paneHeight, withSwitch.paneHeight);
+  });
+
+  it('exposes model rows, reasoning choices and the chip suffix', () => {
+    const effort: NormalizedSelectConfigOption = {
+      choices: [{ id: 'high', name: 'High' }],
+      currentValue: 'high',
+      id: 'effort',
+      name: 'Effort',
+      type: 'select',
+    };
+    const view = pickerViewModel('codex-acp', { ...input, effort });
+    assert.lengthOf(view.rows, 3);
+    assert.lengthOf(view.reasoning, 1);
+    assert.deepStrictEqual(view.suffix, ['High']);
   });
 });

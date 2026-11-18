@@ -19,8 +19,10 @@ export const ModelPickerList: FC<{
   readonly onHover: (row: ModelRow | undefined) => void;
   readonly onPick: (row: ModelRow) => void;
   readonly rows: readonly ModelRow[];
+  /** The list scrolls past this height instead of growing the popover. */
+  readonly maxHeight: number;
   readonly searchPlaceholder: string;
-}> = ({ currentId, onHover, onPick, rows, searchPlaceholder }) => {
+}> = ({ currentId, maxHeight, onHover, onPick, rows, searchPlaceholder }) => {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
   const searching = query.trim() !== '';
@@ -70,7 +72,7 @@ export const ModelPickerList: FC<{
         sx={{ borderBottom: 1, borderColor: 'divider', fontSize: 14, px: 2, py: 1, width: '100%' }}
         value={query}
       />
-      <MenuList dense sx={{ maxHeight: 300, overflowY: 'auto', p: 1 }}>
+      <MenuList dense sx={{ maxHeight: { sm: maxHeight, xs: 300 }, overflowY: 'auto', p: 1 }}>
         {searching ? (
           hits.length === 0 ? (
             <Typography color="text.secondary" sx={{ fontSize: 13, px: 1, py: 1 }}>

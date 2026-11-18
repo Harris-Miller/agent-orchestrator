@@ -18,6 +18,7 @@ import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 import { ComposerChromeChip } from './ComposerChromeChip.tsx';
 import { COMPOSER_MODEL_MENU_MIN_WIDTH, useComposerChromeMenu } from './composerChromeMenu.ts';
 import { chipSuffixParts, modelRowsFor } from './modelPickerList.ts';
+import { modelListMaxHeight, pickerPaneHeight } from './pickerLayout.ts';
 import type { ModelRow } from './modelPickerList.ts';
 import { ModelPickerList } from './ModelPickerList.tsx';
 import { OptionRow, UltraOptionRow } from './OptionRows.tsx';
@@ -52,6 +53,9 @@ export const SessionModelEffortChip: FC<{
   const allOptions = effort === undefined ? options : [...options, effort];
   const ultra = ultraRow(launchTarget, allOptions);
   const suffix = chipSuffixParts(launchTarget, options, effort);
+  const optionRows = withoutUltraOption(options);
+  const reasoning = effort === undefined ? [] : reasoningChoices(effort);
+  const paneHeight = pickerPaneHeight(reasoning.length, optionRows.length + (ultra === undefined ? 0 : 1));
 
   const pickModel = (row: ModelRow) => {
     onChange({ configId: model.id, type: 'select', value: row.id });
@@ -93,6 +97,7 @@ export const SessionModelEffortChip: FC<{
           <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
             <Box sx={{ flex: '1 1 240px', minWidth: COMPOSER_MODEL_MENU_MIN_WIDTH }}>
               <ModelPickerList
+                maxHeight={modelListMaxHeight(paneHeight)}
                 currentId={model.currentValue}
                 onHover={setHover}
                 onPick={pickModel}
@@ -101,14 +106,14 @@ export const SessionModelEffortChip: FC<{
               />
             </Box>
             <Divider flexItem sx={{ display: { xs: 'none', sm: 'block' } }} orientation="vertical" />
-            <Box sx={{ flex: '1 1 240px', maxWidth: { sm: 300 } }}>
+            <Box sx={{ flex: '1 1 240px', maxWidth: { sm: 300 }, minHeight: { sm: paneHeight } }}>
               {effort === undefined ? null : (
                 <>
                   <Typography color="text.secondary" sx={{ display: 'block', px: 2, py: 1.25 }} variant="caption">
                     Reasoning
                   </Typography>
                   <MenuList dense sx={{ p: 1, pt: 0 }}>
-                    {reasoningChoices(effort).map(choice => (
+                    {reasoning.map(choice => (
                       <MenuItem
                         key={choice.id}
                         onClick={() => {
@@ -132,7 +137,7 @@ export const SessionModelEffortChip: FC<{
               </Typography>
               <Stack spacing={1} sx={{ px: 2, py: 1 }}>
                 {ultra === undefined ? null : <UltraOptionRow disabled={disabled} onToggle={toggleUltra} row={ultra} />}
-                {withoutUltraOption(options).map(option => (
+                {optionRows.map(option => (
                   <OptionRow
                     disabled={disabled}
                     key={option.id}

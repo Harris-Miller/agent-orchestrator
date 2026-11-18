@@ -42,6 +42,7 @@ import {
   useProviderControls,
 } from './providerUi.tsx';
 import type { ProviderRequest } from './providerUi.tsx';
+import { ProviderModelsSection } from './ProviderModelsSection.tsx';
 import { VscodeExtensionRow } from './VscodeExtensionRow.tsx';
 
 const Mono: FC<{ readonly children: ReactNode }> = ({ children }) => (
@@ -263,6 +264,8 @@ const ProviderDetail: FC<{ readonly provider: ProviderView; readonly request: Pr
           </>
         )}
       </Group>
+
+      <ProviderModelsSection launchTarget={provider.id} />
     </>
   );
 };
@@ -338,7 +341,7 @@ export const ProvidersSettingsPane: FC = () => {
           <VscodeExtensionRow />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 3 }}>
-          <ProviderDetail provider={selectedProvider} request={request} />
+          <ProviderDetail key={selectedProvider.id} provider={selectedProvider} request={request} />
         </Box>
       </Box>
       {dialog}

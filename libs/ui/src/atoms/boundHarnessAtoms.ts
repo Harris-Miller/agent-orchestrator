@@ -47,12 +47,15 @@ export const {
   notificationsEnabledAtom,
   notifyOnlyWhenUnfocusedAtom,
   persistUserSettingsAtomFn,
+  setModelPickerPrefsAtom,
   showArchivedSettingAtom,
   showEmptyCwdGroupsAtom,
   showNoFolderGroupAtom,
   themeAtom,
   userSettingsAtom,
 } = createUserSettingsAtoms(atomRuntime);
+
+export { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
 export const { effectiveThemeAtom } = createThemeAtoms({ matchVscodeThemeAtom, themeAtom });
 

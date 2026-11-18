@@ -8,6 +8,7 @@ catalogMode: 'strict'
 catalog:
   '@effect/atom-react': '^4.0.5'
   '@cursor/sdk': '^1.0.23'
+  '@dnd-kit/react': '^0.5.3'
   '@effect/tsgo': ^0.63.0
   '@effect/opentelemetry': '^4.0.5'
   '@effect/platform-node': '^4.0.5'

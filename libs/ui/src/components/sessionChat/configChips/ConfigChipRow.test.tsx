@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
+import { RegistryContext } from '@effect/atom-react';
 import { assert, describe, it } from '@effect/vitest';
 import { ThemeProvider } from '@mui/material/styles';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { AsyncResult, AtomRegistry } from 'effect/reactivity';
 import { afterEach } from 'vitest';
 
+import { userSettingsDocumentAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../../host/agentLaunchTarget.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
@@ -30,28 +33,37 @@ const configOptions: readonly NormalizedConfigOption[] = [
 ];
 
 const mount = (
-  overrides: { readonly agent?: Partial<SessionAgentChipProps>; readonly configDisabled?: boolean } = {},
+  overrides: {
+    readonly agent?: Partial<SessionAgentChipProps>;
+    readonly configDisabled?: boolean;
+    readonly configOptions?: readonly NormalizedConfigOption[];
+    readonly settings?: Record<string, unknown>;
+  } = {},
 ) => {
+  const registry = AtomRegistry.make();
+  registry.set(userSettingsDocumentAtom, AsyncResult.success(overrides.settings ?? {}));
   const changes: ConfigValueDiff[] = [];
   const agentChanges: AgentLaunchTarget[] = [];
   render(
-    <ThemeProvider theme={theme}>
-      <ConfigChipRow
-        agent={{
-          disabled: false,
-          interactive: true,
-          onChange: target => agentChanges.push(target),
-          selectableLaunchTargets: ['codex-acp', 'claude-agent-acp'],
-          usableLaunchTargets: ['codex-acp', 'claude-agent-acp'],
-          value: 'codex-acp',
-          ...overrides.agent,
-        }}
-        configDisabled={overrides.configDisabled ?? false}
-        configOptions={configOptions}
-        onConfigChange={diff => changes.push(diff)}
-        unavailableModelIds={undefined}
-      />
-    </ThemeProvider>,
+    <RegistryContext.Provider value={registry}>
+      <ThemeProvider theme={theme}>
+        <ConfigChipRow
+          agent={{
+            disabled: false,
+            interactive: true,
+            onChange: target => agentChanges.push(target),
+            selectableLaunchTargets: ['codex-acp', 'claude-agent-acp'],
+            usableLaunchTargets: ['codex-acp', 'claude-agent-acp'],
+            value: 'codex-acp',
+            ...overrides.agent,
+          }}
+          configDisabled={overrides.configDisabled ?? false}
+          configOptions={overrides.configOptions ?? configOptions}
+          onConfigChange={diff => changes.push(diff)}
+          unavailableModelIds={undefined}
+        />
+      </ThemeProvider>
+    </RegistryContext.Provider>,
   );
   return { agentChanges, changes };
 };
@@ -95,5 +107,36 @@ describe('ConfigChipRow', () => {
     assert.isTrue(chip(0).disabled);
     assert.isFalse(chip(1).disabled);
     assert.isFalse(screen.getByLabelText<HTMLInputElement>('Fast mode').disabled);
+  });
+
+  describe('model picker prefs', () => {
+    const models = ['m1', 'm2', 'm3'];
+    const modelOptions = (current: string): readonly NormalizedConfigOption[] => [select('model', current, models)];
+    const menuModels = () => screen.getAllByRole('menuitem').map(item => item.textContent);
+
+    it('hides Hidden models and applies Model order for the launch target', () => {
+      mount({
+        configOptions: modelOptions('m1'),
+        settings: { hiddenModels: { 'codex-acp': ['m2'] }, modelOrder: { 'codex-acp': ['m3'] } },
+      });
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(menuModels(), ['m3', 'm1']);
+    });
+
+    it('keeps a hidden current model in the menu, selected', () => {
+      mount({
+        configOptions: modelOptions('m2'),
+        settings: { hiddenModels: { 'codex-acp': ['m1', 'm2', 'm3'] } },
+      });
+      assert.include(chip(1).textContent, 'm2');
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(menuModels(), ['m2']);
+    });
+
+    it('ignores prefs of other launch targets', () => {
+      mount({ configOptions: modelOptions('m1'), settings: { hiddenModels: { 'claude-agent-acp': ['m2'] } } });
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(menuModels(), models);
+    });
   });
 });

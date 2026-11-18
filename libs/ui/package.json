@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dnd-kit/react": "catalog:",
     "@effect/atom-react": "catalog:",
     "@emotion/react": "catalog:",
     "@emotion/styled": "catalog:",

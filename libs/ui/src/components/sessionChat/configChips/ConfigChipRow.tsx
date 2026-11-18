@@ -1,7 +1,11 @@
+import { useAtomValue } from '@effect/atom-react';
 import { useMemo } from 'react';
 import type { FC } from 'react';
 
 import type { NormalizedConfigOption } from '../../../host/acpSessionBootstrap.ts';
+import { modelPickerPrefsAtom } from '../../../atoms/userSettings/userSettingsDocument.atoms.ts';
+import { isModelOption } from '../../../host/configOptionIndexUi.ts';
+import { arrangeModelChoices } from '../../../host/modelPickerPrefs.ts';
 import type { ConfigValueDiff } from '../../../host/sessionConfiguration.ts';
 
 import { partitionComposerConfigOptions } from './partitionComposerConfigOptions.ts';
@@ -28,7 +32,18 @@ export const ConfigChipRow: FC<ConfigChipRowProps> = ({
   onConfigChange,
   unavailableModelIds,
 }) => {
-  const partitioned = useMemo(() => partitionComposerConfigOptions(configOptions), [configOptions]);
+  const prefs = useAtomValue(modelPickerPrefsAtom(agent.value));
+  const partitioned = useMemo(
+    () =>
+      partitionComposerConfigOptions(
+        configOptions.map(option =>
+          isModelOption(option) && option.type === 'select'
+            ? { ...option, choices: arrangeModelChoices(option.choices, { ...prefs, currentId: option.currentValue }) }
+            : option,
+        ),
+      ),
+    [configOptions, prefs],
+  );
 
   return (
     <>

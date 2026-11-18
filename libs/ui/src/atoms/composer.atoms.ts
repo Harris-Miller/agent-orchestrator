@@ -387,7 +387,14 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
           if (action._tag === 'Send') {
             // The draft stays on the Virtual session until Materialize succeeds (ui ADR-0007).
             yield* sendVirtual(registry, materialized =>
-              sendPromptTurn(registry, { ...materialized, text: materialized.draft }),
+              sendPromptTurn(registry, { ...materialized, text: materialized.draft }).pipe(
+                // Refused before the user message was appended: the Session is Selected now, so the draft goes back.
+                Effect.tapErrorTag('ComposerActionUnavailable', () =>
+                  Effect.sync(() => {
+                    restoreSessionDraft(registry, materialized.sessionId, materialized);
+                  }),
+                ),
+              ),
             );
           }
           return;

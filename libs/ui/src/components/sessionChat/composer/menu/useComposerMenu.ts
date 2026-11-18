@@ -38,6 +38,8 @@ export type UseComposerMenuArgs = {
   readonly onMentionOpen: () => void;
   readonly sessionCwd: string | undefined;
   readonly setDraft: (text: string) => void;
+  /** Selected Session id, or the Virtual blob id: a resolution started on one target is cancelled when it changes. */
+  readonly targetId: string | undefined;
 };
 
 export type UseComposerMenu = {
@@ -62,6 +64,7 @@ export const useComposerMenu = ({
   onMentionOpen,
   sessionCwd,
   setDraft,
+  targetId,
 }: UseComposerMenuArgs): UseComposerMenu => {
   const [menu, setMenu] = useState(CLOSED_COMPOSER_MENU);
   const composerTrigger = menu.trigger;
@@ -213,7 +216,7 @@ export const useComposerMenu = ({
     return () => {
       cancelled = true;
     };
-  }, [attachImages, composerTrigger, draft, sessionCwd, setDraft]);
+  }, [attachImages, composerTrigger, draft, sessionCwd, setDraft, targetId]);
 
   return {
     close,

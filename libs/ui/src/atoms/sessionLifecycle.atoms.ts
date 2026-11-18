@@ -286,7 +286,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           mode: useResume ? 'resume' : 'load',
         });
 
-        updateHarnessSnapshot(get.registry, arg.launchTarget, current => beginActivation(current, arg.sessionId, cwd));
+        const previousTranscript = existingSession?.transcript;
+        updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
+          beginActivation(current, arg.sessionId, cwd, useResume ? 'resume' : 'load'),
+        );
 
         const exit = yield* Effect.exit(
           useResume
@@ -298,7 +301,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           yield* Effect.logError('Session activation failed', arg.launchTarget, arg.sessionId);
           const defects = activationDefects(get, arg.launchTarget, exit.cause);
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            failActivation(current, arg.sessionId, defects),
+            failActivation(current, arg.sessionId, defects, previousTranscript),
           );
           return;
         }

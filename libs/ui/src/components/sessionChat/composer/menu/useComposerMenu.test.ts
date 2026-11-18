@@ -288,7 +288,8 @@ describe('#278 F4: delayed FS resolution stays with the Session it started on', 
       setDraft,
     } as const;
     resolver.pending.length = 0;
-    const hook = renderHook((props: { draft: string; targetId: string }) =>
+    const hook = renderHook(
+      (props: { draft: string; targetId: string }) =>
         useComposerMenu({ ...args, draft: props.draft, targetId: props.targetId }),
       {
         initialProps: { draft: DRAFT, targetId: 'A' },

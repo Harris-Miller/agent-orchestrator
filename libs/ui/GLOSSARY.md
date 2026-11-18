@@ -55,7 +55,7 @@ Short lock held only while a Virtual session Materializes (Config diffs + histor
 _Avoid_: Bind lock, in-flight lock
 
 **Send pending**:
-The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable` and for the latest Bind, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure) leaves it in place.
+The span from pressing Send on a Virtual draft until Materialize finishes: the Send waits for the provider to be `usable`, for the latest Bind (never an obsolete one or its cleanup), and for a pending Lazy hydrate pick on the same target, then Materializes. Blocks double-submit and freezes only the draft text and attachments; the draft stays until Materialize succeeds, and a failure (provider `error`, Bind failure, Connection lost during Materialize) leaves it in place.
 _Avoid_: Queued send, outbox
 
 **Leaving Virtual**:
@@ -157,7 +157,7 @@ Cold-cache seed of the Config option index, run before Bootstrap `usable`. Not a
 _Avoid_: Session create, materialize, activate
 
 **Lazy hydrate**:
-Keeping the Config option index current from live agent responses instead of probing every model. Canonical definition in the desktop glossary.
+Keeping the Config option index current from live agent responses instead of probing every model. Canonical definition in the desktop glossary. On a Virtual draft a pick lands on the target it started on only: a launch target, cwd or blob change meanwhile discards the draft write.
 _Avoid_: refresh, re-probe
 
 **Session History**:

@@ -20,7 +20,7 @@ const mount = (item: Partial<ChatItemOf<'user_message'>>) =>
   render(
     <ThemeProvider theme={theme}>
       <UserMessageView
-        availableCommands={[{ name: 'review' }]}
+        availableCommands={[{ isSkill: false, name: 'review' }]}
         item={{ id: 'u1', kind: 'user_message', text: '', ...item }}
       />
     </ThemeProvider>,

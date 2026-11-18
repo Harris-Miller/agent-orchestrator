@@ -8,7 +8,7 @@ import {
 } from './composerPieces.ts';
 import type { ComposerPiece } from './composerPieces.ts';
 
-const commands = [{ description: 'Show status', name: 'status' }] as const;
+const commands = [{ description: 'Show status', isSkill: false, name: 'status' }] as const;
 
 /** Compact form: `text:<role m|f|empty><flags>:<value>`, `cmd:<value>`, `link:<label>`, `br`. */
 const showPiece = (piece: ComposerPiece): string => {

@@ -98,7 +98,7 @@ describe('handoffSessionAtomFn', () => {
           duringSetConfig: Effect.sync(() => {
             // A session/update landing during the target Config diffs survives the Handoff.
             targetFold.onSessionUpdate('claude-1', {
-              availableCommands: [{ description: 'Review the diff', name: 'review' }],
+              availableCommands: [{ description: 'Review the diff', isSkill: false, name: 'review' }],
               sessionUpdate: 'available_commands_update',
             });
           }),
@@ -118,7 +118,9 @@ describe('handoffSessionAtomFn', () => {
       assert.deepStrictEqual(registry.get(selectedAtom), { _tag: 'Session', sessionId: 'claude-1' });
       const target = registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions['claude-1'];
       assert.strictEqual(configValue(target.configuration, 'model'), 'o1');
-      assert.deepStrictEqual(target.availableCommands, [{ description: 'Review the diff', name: 'review' }]);
+      assert.deepStrictEqual(target.availableCommands, [
+        { description: 'Review the diff', isSkill: false, name: 'review' },
+      ]);
     }),
   );
 

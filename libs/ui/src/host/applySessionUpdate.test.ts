@@ -32,12 +32,14 @@ describe('applySessionUpdate', () => {
   it('sets availableCommands for available_commands_update', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, {
-      availableCommands: [{ description: 'Run tests', name: 'test' }],
+      availableCommands: [{ description: 'Run tests', isSkill: false, name: 'test' }],
       sessionUpdate: 'available_commands_update',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
-      assert.deepStrictEqual(result.session.availableCommands, [{ description: 'Run tests', name: 'test' }]);
+      assert.deepStrictEqual(result.session.availableCommands, [
+        { description: 'Run tests', isSkill: false, name: 'test' },
+      ]);
     }
   });
 
@@ -118,16 +120,35 @@ describe('applySessionUpdate', () => {
     }
   });
 
+  it('flags skill commands from AIR meta', () => {
+    const result = applySessionUpdate(undefined, 's1', emptyHistory, {
+      availableCommands: [{ _meta: { jetbrains: { air: { kind: 'skill' } } }, name: 'caveman' }, { name: 'status' }],
+      sessionUpdate: 'available_commands_update',
+    });
+    assert.strictEqual(result.kind, 'patch');
+    if (result.kind === 'patch') {
+      assert.deepStrictEqual(
+        result.session.availableCommands?.map(c => [c.name, c.isSkill]),
+        [
+          ['caveman', true],
+          ['status', false],
+        ],
+      );
+    }
+  });
+
   it('seeds initialSessionSnapshot when session is undefined', () => {
     const result = applySessionUpdate(undefined, 's1', emptyHistory, {
-      availableCommands: [{ name: 'help' }],
+      availableCommands: [{ isSkill: false, name: 'help' }],
       sessionUpdate: 'available_commands_update',
     });
     assert.strictEqual(result.kind, 'patch');
     if (result.kind === 'patch') {
       assert.strictEqual(result.session.sessionId, 's1');
       assert.strictEqual(result.session.status, 'inactive');
-      assert.deepStrictEqual(result.session.availableCommands, [{ description: undefined, name: 'help' }]);
+      assert.deepStrictEqual(result.session.availableCommands, [
+        { description: undefined, isSkill: false, name: 'help' },
+      ]);
     }
   });
 

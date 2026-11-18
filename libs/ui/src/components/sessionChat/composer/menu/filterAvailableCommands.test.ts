@@ -3,16 +3,16 @@ import { assert, describe, it } from '@effect/vitest';
 import { bareNameMatchPositions, filterAvailableCommandMatches } from './filterAvailableCommands.ts';
 
 const commands = [
-  { description: 'Show status', name: 'status' },
-  { description: 'Compact context', name: 'compact' },
-  { description: 'Caveman mode', name: '$caveman' },
+  { description: 'Show status', isSkill: false, name: 'status' },
+  { description: 'Compact context', isSkill: false, name: 'compact' },
+  { description: 'Caveman mode', isSkill: true, name: '$caveman' },
 ] as const;
 
 describe('filterAvailableCommandMatches', () => {
   it('splits by kind and lists all when query empty', () => {
     assert.deepStrictEqual(
       filterAvailableCommandMatches(commands, 'slash', '').map(match => match.command.name),
-      ['status', 'compact'],
+      ['status', 'compact', '$caveman'],
     );
     assert.deepStrictEqual(
       filterAvailableCommandMatches(commands, 'dollar', '').map(match => match.command.name),
@@ -62,18 +62,20 @@ describe('filterAvailableCommandMatches', () => {
 
   it('exact bare-name matches first, then remaining fzf hits', () => {
     const mixed = [
-      { description: 'Grill something', name: 'grill' },
-      { description: 'Grill me harder', name: 'grill-me' },
-      { description: 'Mentions grill in prose', name: 'status' },
+      { description: 'Grill something', isSkill: false, name: 'grill' },
+      { description: 'Grill me harder', isSkill: false, name: 'grill-me' },
+      { description: 'Mentions grill in prose', isSkill: false, name: 'status' },
     ] as const;
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', 'grill').map(match => match.command.name),
       ['grill', 'grill-me', 'status'],
     );
     assert.deepStrictEqual(
-      filterAvailableCommandMatches([{ description: 'Mode', name: '$caveman' }], 'dollar', 'caveman').map(
-        match => match.command.name,
-      ),
+      filterAvailableCommandMatches(
+        [{ description: 'Mode', isSkill: true, name: '$caveman' }],
+        'dollar',
+        'caveman',
+      ).map(match => match.command.name),
       ['$caveman'],
     );
   });
@@ -103,9 +105,9 @@ describe('filterAvailableCommandMatches', () => {
 
   it('lists name matches before description matches without duplicates', () => {
     const mixed = [
-      { description: 'unrelated', name: 'alpha-tool' },
-      { description: 'mentions alpha in prose', name: 'other' },
-      { description: 'alpha also in description', name: 'alpha-helper' },
+      { description: 'unrelated', isSkill: false, name: 'alpha-tool' },
+      { description: 'mentions alpha in prose', isSkill: false, name: 'other' },
+      { description: 'alpha also in description', isSkill: false, name: 'alpha-helper' },
     ] as const;
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', 'alpha').map(match => match.command.name),
@@ -115,14 +117,14 @@ describe('filterAvailableCommandMatches', () => {
 
   it('hides per-agent blocklisted slash commands from the menu', () => {
     const mixed = [
-      { description: 'Color', name: 'color' },
-      { description: 'Config', name: 'config' },
-      { description: 'Dataviz', name: 'dataviz' },
-      { description: 'Effect', name: 'effect' },
-      { description: 'Fast', name: 'fast' },
-      { description: 'Model', name: 'model' },
-      { description: 'Logout', name: 'logout' },
-      { description: 'Status', name: 'status' },
+      { description: 'Color', isSkill: false, name: 'color' },
+      { description: 'Config', isSkill: false, name: 'config' },
+      { description: 'Dataviz', isSkill: false, name: 'dataviz' },
+      { description: 'Effect', isSkill: false, name: 'effect' },
+      { description: 'Fast', isSkill: false, name: 'fast' },
+      { description: 'Model', isSkill: false, name: 'model' },
+      { description: 'Logout', isSkill: false, name: 'logout' },
+      { description: 'Status', isSkill: false, name: 'status' },
     ] as const;
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', '', 'claude-agent-acp').map(match => match.command.name),
@@ -135,6 +137,26 @@ describe('filterAvailableCommandMatches', () => {
     assert.deepStrictEqual(
       filterAvailableCommandMatches(mixed, 'slash', 'eff', 'claude-agent-acp').map(match => match.command.name),
       [],
+    );
+  });
+});
+
+describe('cross-provider skills', () => {
+  const claude = [
+    { isSkill: false, name: 'status' },
+    { isSkill: true, name: 'caveman' },
+    { isSkill: true, name: 'dataviz' },
+  ];
+  it('$ lists only skills (hidden names dropped); / lists everything', () => {
+    assert.deepStrictEqual(
+      filterAvailableCommandMatches(claude, 'dollar', '', 'claude-agent-acp').map(m => m.command.name),
+      ['caveman'],
+    );
+    assert.deepStrictEqual(
+      filterAvailableCommandMatches([...claude, { isSkill: true, name: '$tdd' }], 'slash', '', 'claude-agent-acp').map(
+        m => m.command.name,
+      ),
+      ['status', 'caveman', '$tdd'],
     );
   });
 });

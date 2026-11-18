@@ -683,7 +683,7 @@ describe('Send', () => {
       yield* installFakeAgent(calls, {
         duringSetConfig: Effect.sync(() => {
           fold.onSessionUpdate('bound-1', {
-            availableCommands: [{ description: 'Review the diff', name: 'review' }],
+            availableCommands: [{ description: 'Review the diff', isSkill: false, name: 'review' }],
             sessionUpdate: 'available_commands_update',
           });
         }),
@@ -694,7 +694,7 @@ describe('Send', () => {
 
       assert.deepStrictEqual(calls, ['set:model:o1', 'prompt:bound-1']);
       assert.deepStrictEqual(sessionsOf(registry)['bound-1'].availableCommands, [
-        { description: 'Review the diff', name: 'review' },
+        { description: 'Review the diff', isSkill: false, name: 'review' },
       ]);
     }).pipe(Effect.scoped),
   );

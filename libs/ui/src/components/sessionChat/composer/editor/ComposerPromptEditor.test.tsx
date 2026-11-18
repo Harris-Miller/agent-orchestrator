@@ -32,7 +32,7 @@ const { ComposerPromptEditor } = await import('./ComposerPromptEditor.tsx');
 
 afterEach(cleanup);
 
-const statusCommand: readonly AvailableCommand[] = [{ description: 'Show status', name: 'status' }];
+const statusCommand: readonly AvailableCommand[] = [{ description: 'Show status', isSkill: false, name: 'status' }];
 
 const mount = (
   value: string,

@@ -12,6 +12,7 @@ import {
   mimeTypeForDataImageHref,
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
+import { isSkillCommand } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
 
@@ -23,6 +24,7 @@ export type PlanEntry = {
 
 export type AvailableCommand = {
   readonly description?: string;
+  readonly isSkill: boolean;
   readonly name: string;
 };
 
@@ -497,6 +499,7 @@ export const parseAvailableCommands = (value: unknown): readonly AvailableComman
     return [
       {
         description: typeof command.description === 'string' ? command.description : undefined,
+        isSkill: isSkillCommand(command),
         name: command.name,
       },
     ];

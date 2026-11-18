@@ -5,9 +5,9 @@ import { prepareChatMarkdownText } from '../markdown/stripEmbeddedContextBlocks.
 import { chipSegmentsMarkdown, userMessageMarkdown } from './userMessageClipboard.ts';
 
 const commands = [
-  { description: 'Show status', name: 'status' },
-  { description: 'Compact context', name: 'compact' },
-  { description: 'Caveman mode', name: '$caveman' },
+  { description: 'Show status', isSkill: false, name: 'status' },
+  { description: 'Compact context', isSkill: false, name: 'compact' },
+  { description: 'Caveman mode', isSkill: true, name: '$caveman' },
 ] as const;
 
 describe('user message chip segments', () => {

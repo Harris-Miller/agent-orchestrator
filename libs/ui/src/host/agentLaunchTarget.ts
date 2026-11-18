@@ -40,10 +40,6 @@ export const isLaunchTargetEnabled = (launchTarget: AgentLaunchTarget): boolean 
 /** Launch targets mounted / shown in this build (beta flags applied). */
 export const MOUNTED_AGENT_LAUNCH_TARGETS = ALL_AGENT_LAUNCH_TARGETS.filter(isLaunchTargetEnabled);
 
-/** Only Codex treats `$` as a Composer trigger (Available Commands). */
-export const supportsDollarTrigger = (launchTarget: AgentLaunchTarget | undefined): boolean =>
-  launchTarget === 'codex-acp';
-
 export const agentLaunchTargetLabel = (launchTarget: AgentLaunchTarget): string => {
   switch (launchTarget) {
     case 'antigravity-acp':

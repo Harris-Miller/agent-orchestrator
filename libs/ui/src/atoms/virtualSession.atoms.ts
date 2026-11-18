@@ -155,6 +155,16 @@ type VirtualBindState = {
 
 const virtualBindAtom = Atom.make<VirtualBindState>({ current: undefined, latest: 0 }).pipe(Atom.keepAlive);
 
+/** A Lazy hydrate pick on the wire; Send waits for it. Keyed by the target it started on. */
+type PendingPick = {
+  readonly done: Deferred.Deferred<undefined>;
+  readonly key: string;
+};
+
+const pendingPickAtom = Atom.make<PendingPick | undefined>(undefined).pipe(Atom.keepAlive);
+
+const pickKey = (virtual: VirtualSession, launchTarget: AgentLaunchTarget): string => `${virtual.id}:${launchTarget}`;
+
 const setBlob = (registry: Registry, blob: null | VirtualSession): void => {
   registry.set(writableVirtualSessionAtom, blob);
 };
@@ -529,8 +539,8 @@ const awaitBoundVirtual = Effect.fn('awaitBoundVirtual')(function* (
       yield* requestBind(registry);
       const boundId = yield* awaitCurrentBind(registry);
       const latest = registry.get(virtualSessionAtom);
-      // Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.
       if (latest !== null && bindKeyMatches(latest, key)) {
+        // (Blob churned (provider / cwd) while awaiting → loop and follow the newest Bind.)
         if (boundId === undefined || latest.sessionId !== boundId) {
           return yield* new ProviderUnavailable({ message: 'Could not start a session for this provider' });
         }
@@ -676,21 +686,44 @@ export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(functi
   registry: Registry,
   arg: VirtualConfigOptionArg,
 ) {
-  const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
+  const before = registry.get(virtualSessionAtom);
+  const boundSessionId = before?.sessionId;
   if (
+    before !== null &&
     arg.type === 'select' &&
     arg.configId === 'model' &&
     boundSessionId !== undefined &&
     needsLazyHydrate(registry.get(configOptionIndexAtom(arg.launchTarget)), boundSessionId, arg.value)
   ) {
+    const pending = { done: yield* Deferred.make<undefined>(), key: pickKey(before, arg.launchTarget) };
+    registry.set(pendingPickAtom, pending);
     const pick = yield* Effect.exit(
       applySessionConfigValue(
         registry,
         { launchTarget: arg.launchTarget, sessionId: boundSessionId },
         { configId: 'model', type: 'select', value: arg.value },
       ),
+    ).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (registry.get(pendingPickAtom) === pending) {
+            registry.set(pendingPickAtom, undefined);
+          }
+          Deferred.doneUnsafe(pending.done, Exit.succeed(undefined));
+        }),
+      ),
     );
     if (Exit.isFailure(pick)) {
+      return;
+    }
+    // The response hydrated the originating provider's cache; the draft only follows if the target is unchanged.
+    const after = registry.get(virtualSessionAtom);
+    if (
+      after?.id !== before.id ||
+      after.launchTarget !== before.launchTarget ||
+      after.cwd !== before.cwd ||
+      after.sessionId !== boundSessionId
+    ) {
       return;
     }
   }

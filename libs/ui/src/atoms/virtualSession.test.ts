@@ -1235,6 +1235,63 @@ describe('AtomFns', () => {
 const settle = Effect.forEach(Array.from({ length: 50 }), () => Effect.yieldNow, { discard: true });
 
 describe('#278 regressions', () => {
+  it.effect('F2: a delayed lazy model pick does not overwrite the Config of a switched provider', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      yield* installFakeAgent(calls, {}, CLAUDE);
+      const registry = yield* freshRegistry;
+      setPhase(registry, CLAUDE, 'ready');
+      yield* seedBound(registry, calls);
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      yield* setVirtualLaunchTarget(registry, CLAUDE);
+      yield* bindVirtualOnUsable(registry, CLAUDE);
+      const claudeValues = blob(registry)?.configValues;
+      assert.deepStrictEqual(claudeValues, {});
+
+      yield* gate.release;
+      yield* Fiber.join(pick);
+
+      assert.strictEqual(blob(registry)?.launchTarget, CLAUDE);
+      assert.deepStrictEqual(blob(registry)?.configValues, {});
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('F2: a delayed lazy model pick does not write into a replacement blob', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringSetConfig: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedBound(registry, calls);
+      registry.set(configOptionIndexAtom(CODEX), advertisedO1Index);
+
+      const pick = yield* Effect.forkChild(
+        setVirtualConfigOption(registry, { configId: 'model', launchTarget: CODEX, type: 'select', value: 'o1' }),
+      );
+      yield* gate.started;
+      yield* discardVirtual(registry);
+      yield* ensureVirtual(registry, { cwd: '/proj' });
+      yield* setVirtualLaunchTarget(registry, CODEX);
+      const replacementId = blob(registry)?.id;
+      const before = blob(registry)?.configValues;
+
+      yield* gate.release;
+      yield* Fiber.join(pick);
+      // Let the replacement blob's detached Bind finish so it cannot leak into the next test.
+      yield* settle;
+
+      assert.strictEqual(blob(registry)?.id, replacementId);
+      assert.deepStrictEqual(blob(registry)?.configValues, before);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('R1: Connection lost during Materialize keeps the draft and attachments, with no prompt', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

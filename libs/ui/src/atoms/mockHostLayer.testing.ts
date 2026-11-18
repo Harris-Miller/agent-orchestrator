@@ -37,6 +37,7 @@ export const mockHostLayer: Layer.Layer<HostServices> = Layer.mergeAll(
   // Never raises anything; window reported focused.
   Layer.succeed(Notifier, {
     isWindowFocused: Effect.succeed(true),
+    playSound: Effect.void,
     notify: () => Effect.void,
     supported: 'os',
   }),

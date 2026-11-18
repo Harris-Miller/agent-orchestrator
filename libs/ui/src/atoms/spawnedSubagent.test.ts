@@ -62,6 +62,7 @@ const hostLayer = Layer.mergeAll(
       Effect.sync(() => {
         notified.push({ body: notification.body, title: notification.title });
       }),
+    playSound: Effect.void,
     supported: 'os',
   }),
 );

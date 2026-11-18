@@ -58,6 +58,7 @@ const setup = Effect.fnUntraced(function* () {
     mapFsTestServices(store),
     Layer.succeed(Notifier, {
       isWindowFocused: Effect.succeed(false),
+      playSound: Effect.void,
       notify: ({ body, title }) =>
         Effect.sync(() => {
           notified.push({ body, title });

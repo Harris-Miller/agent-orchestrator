@@ -1,4 +1,4 @@
-import { Notifier, NotifyFailed } from '@lib/context-services';
+import { Notifier, NotifyFailed, playChime } from '@lib/context-services';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { Effect, Layer } from 'effect';
@@ -28,5 +28,6 @@ export const NotifierLive = Layer.succeed(Notifier, {
       },
     });
   }),
+  playSound: playChime,
   supported: 'os',
 });

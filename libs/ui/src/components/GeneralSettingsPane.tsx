@@ -138,12 +138,12 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
         <SettingsRow
           title="Notification sound"
-          description="Play a sound with notifications when supported by this host."
+          description="Play a sound when an agent needs you. With Notifications on, it plays with the notification; with Notifications off, the app plays it."
         >
           <Switch
             slotProps={{ input: { 'aria-label': 'Notification sound' } }}
             checked={notificationSoundOn}
-            disabled={editsDisabled || !notificationsOn}
+            disabled={editsDisabled}
             onChange={(_event, checked) => {
               setNotificationSoundOn(checked);
             }}
@@ -151,12 +151,12 @@ export const GeneralSettingsPane: FC = () => {
         </SettingsRow>
         <SettingsRow
           title="Only notify when window unfocused"
-          description="Suppress notifications while you are using this window."
+          description="Suppress notifications and sounds while you are using this window."
         >
           <Switch
             slotProps={{ input: { 'aria-label': 'Only notify when window unfocused' } }}
             checked={notifyOnlyWhenUnfocused}
-            disabled={editsDisabled || !notificationsOn}
+            disabled={editsDisabled || (!notificationsOn && !notificationSoundOn)}
             onChange={(_event, checked) => {
               setNotifyOnlyWhenUnfocused(checked);
             }}

@@ -25,14 +25,14 @@ The host capability to pick filesystem paths via a native open dialog (`pickFile
 _Avoid_: showOpenDialog, plugin-dialog, `<input type="file">` (when you mean the portable Seam)
 
 **Notifier** (service):
-The host capability to raise an OS Notification (`notify({ title, body, sound })`), report whether the Host window is focused (`isWindowFocused`), and report `supported: 'os' | 'in-app'`. Used for Attention events. Failures are swallowed by callers.
+The host capability to raise an OS Notification (`notify({ title, body, sound })`), play its own chime without a Notification (`playSound`), report whether the Host window is focused (`isWindowFocused`), and report `supported: 'os' | 'in-app'`. Used for Attention events. Failures are swallowed by callers.
 _Avoid_: toast service, plugin-notification, `new Notification` (when you mean the portable Seam)
 
 **Notification**:
 The OS toast a Notifier raises for an Attention event. Title is the session's chat title; body is a fixed phrase, never agent text. See `@lib/ui` Attention event.
 
 **Notification sound**:
-The system notification sound attached to a Notification (`sound: true`). Never played alone; a silent Notification is `sound: false`.
+The sound that accompanies an Attention event, independent of Notifications. With Notifications on it is the system sound attached to the Notification (`sound: true`; a silent Notification is `sound: false`); with Notifications off it is a chime the app plays itself.
 
 **OpenUrl** (service):
 The host capability to open an absolute http(s) URL in the system default browser / handler (`open`). Used for Antigravity Sign in, chat Markdown links, and similar external auth flows — not ACP elicitation URL mode.

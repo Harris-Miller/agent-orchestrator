@@ -7,25 +7,37 @@ import { attentionBody, isAttentionStopReason, notifyAttention } from './notifyA
 
 type Sent = { body: string; sound: boolean; title: string };
 
-const harness = (opts: { failNotify?: boolean; focused: boolean; inApp?: boolean; settings?: UserSettings }) => {
+const harness = (opts: {
+  failNotify?: boolean;
+  failSound?: boolean;
+  focused: boolean;
+  inApp?: boolean;
+  settings?: UserSettings;
+}) => {
   const sent: Sent[] = [];
+  const sounds: string[] = [];
   const layer = Layer.succeed(Notifier, {
     isWindowFocused: Effect.succeed(opts.focused),
     notify: input => {
       sent.push({ ...input });
       return opts.failNotify === true ? Effect.fail(new NotifyFailed({ message: 'boom' })) : Effect.void;
     },
+    playSound: Effect.suspend(() => {
+      sounds.push('chime');
+      return opts.failSound === true ? Effect.fail(new NotifyFailed({ message: 'blocked' })) : Effect.void;
+    }),
     supported: opts.inApp === true ? 'in-app' : 'os',
   });
-  return { layer, sent, settings: opts.settings ?? {} };
+  return { layer, sent, sounds, settings: opts.settings ?? {} };
 };
 
 describe('notifyAttention', () => {
-  it.effect('defaults: notifies with sound when unfocused', () =>
+  it.effect('defaults: silent notification plus in-app sound when unfocused', () =>
     Effect.gen(function* () {
       const h = harness({ focused: false });
       yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
-      assert.deepStrictEqual(h.sent, [{ body: 'Needs permission', sound: true, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sent, [{ body: 'Needs permission', sound: false, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sounds, ['chime']);
     }),
   );
 
@@ -43,7 +55,7 @@ describe('notifyAttention', () => {
       yield* notifyAttention(h.settings, 'Chat A', { kind: 'turn-ended', stopReason: 'end_turn' }).pipe(
         Effect.provide(h.layer),
       );
-      assert.deepStrictEqual(h.sent, [{ body: 'Finished', sound: true, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sent, [{ body: 'Finished', sound: false, title: 'Chat A' }]);
     }),
   );
 
@@ -55,11 +67,67 @@ describe('notifyAttention', () => {
     }),
   );
 
-  it.effect('notifications off sends nothing', () =>
+  it.effect('notifications on + sound on: one silent notification and the in-app sound', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: false });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sent, [{ body: 'Needs permission', sound: false, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sounds, ['chime']);
+    }),
+  );
+
+  it.effect('notifications off + sound on: sound only', () =>
     Effect.gen(function* () {
       const h = harness({ focused: false, settings: { notificationsEnabled: false } });
       yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
       assert.deepStrictEqual(h.sent, []);
+      assert.deepStrictEqual(h.sounds, ['chime']);
+    }),
+  );
+
+  it.effect('notifications off + sound off: nothing', () =>
+    Effect.gen(function* () {
+      const h = harness({
+        focused: false,
+        settings: { notificationsEnabled: false, notificationSoundEnabled: false },
+      });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sent, []);
+      assert.deepStrictEqual(h.sounds, []);
+    }),
+  );
+
+  it.effect('sound only is suppressed while focused', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: true, settings: { notificationsEnabled: false } });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sounds, []);
+    }),
+  );
+
+  it.effect('sound only plays while focused when only-unfocused is off', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: true, settings: { notificationsEnabled: false, notifyOnlyWhenUnfocused: false } });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sounds, ['chime']);
+    }),
+  );
+
+  it.effect('sound failure does not fail the effect or skip the notification', () =>
+    Effect.gen(function* () {
+      const h = harness({ failSound: true, focused: false });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sounds, ['chime']);
+      assert.strictEqual(h.sent.length, 1);
+    }),
+  );
+
+  it.effect('notifications on + sound off: one silent notification, no standalone sound', () =>
+    Effect.gen(function* () {
+      const h = harness({ focused: false, settings: { notificationSoundEnabled: false } });
+      yield* notifyAttention(h.settings, 'Chat A', { kind: 'permission' }).pipe(Effect.provide(h.layer));
+      assert.deepStrictEqual(h.sent, [{ body: 'Needs permission', sound: false, title: 'Chat A' }]);
+      assert.deepStrictEqual(h.sounds, []);
     }),
   );
 

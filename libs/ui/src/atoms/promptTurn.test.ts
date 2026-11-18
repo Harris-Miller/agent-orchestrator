@@ -37,6 +37,7 @@ const sent: Sent[] = [];
 const hostLayer = Layer.mergeAll(
   Layer.succeed(Notifier, {
     isWindowFocused: Effect.succeed(false),
+    playSound: Effect.void,
     notify: input => {
       sent.push({ ...input });
       return Effect.void;
@@ -305,7 +306,7 @@ layer(hostLayer)('Send', layeredIt => {
       const h = yield* harness();
       yield* send(h.registry);
       yield* settle;
-      assert.deepStrictEqual(sent, [{ body: 'Finished', sound: true, title: 'My chat' }]);
+      assert.deepStrictEqual(sent, [{ body: 'Finished', sound: false, title: 'My chat' }]);
     }).pipe(Effect.scoped),
   );
 

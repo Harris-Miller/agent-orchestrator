@@ -3,6 +3,7 @@
   "ui": "tui",
   "agentGuidance": true,
   "tasks": {
+    "//#typecheck-root": {},
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

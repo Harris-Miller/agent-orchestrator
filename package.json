@@ -8,7 +8,7 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist'",
+    "clean": "rimraf --glob '**/.turbo' '**/coverage' 'apps/*/dist' '**/node_modules/.tmp'",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "hub:start": "pnpm --filter=@lib/hub start",
@@ -18,7 +18,8 @@
     "tauri:build": "turbo run tauri:build --filter=@apps/desktop",
     "tauri:dev": "turbo run tauri:dev --filter=@apps/desktop",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck-root typecheck",
+    "typecheck-root": "tsc --noEmit",
     "vscode:build": "turbo run build --filter=hoa-vscode",
     "vscode:dev": "turbo run watch:main watch:renderer --filter=hoa-vscode",
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\""
@@ -28,6 +29,7 @@
     "@agentclientprotocol/codex-acp": "catalog:",
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
     "effect": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",

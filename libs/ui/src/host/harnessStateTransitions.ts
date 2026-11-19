@@ -2,7 +2,7 @@
  * Pure Harness state transitions over BackendHarnessSnapshot: the only place the snapshot's next value is computed.
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
-import type { AcpError } from '@libs/effect-acp';
+import type { AcpError, SessionFailure } from '@libs/effect-acp';
 
 import type {
   AcpBootstrapPhase,
@@ -39,6 +39,7 @@ import {
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
   stampUserMessageTiming,
+  upsertSessionFailure,
 } from './sessionUpdateReducer.ts';
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
 import {
@@ -376,6 +377,22 @@ export const endPromptTurn = (
 };
 
 /** The Agent answered a Client→Agent request for `sessionId` with an error: it joins that Session's transcript. A dropped Session stays dropped. */
+/** Add or revise the Session failure row in `sessionId`'s chat (see `upsertSessionFailure`); unknown session: unchanged. */
+export const applySessionFailure = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  failure: SessionFailure,
+): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, session => ({
+          ...session,
+          transcript: upsertSessionFailure(session.transcript, failure),
+        })),
+      }
+    : snapshot;
+
 export const appendRequestError = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,

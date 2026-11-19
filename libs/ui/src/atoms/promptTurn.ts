@@ -38,7 +38,7 @@
  * user message stays; the Steer fallback wraps any other failure of its Send in {@link SteerFallbackTurnFailed} so
  * callers can tell it apart.
  */
-import type { AcpError, StopReason } from '@libs/effect-acp';
+import type { AcpError, SessionFailure, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Option, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
@@ -49,11 +49,13 @@ import { promptBlocksFromComposerDraft } from '../host/draftToContentBlocks.ts';
 import {
   appendRequestError,
   appendSteeredMessage,
+  applySessionFailure,
   beginPromptTurn,
   endPromptTurn,
   requestPromptCancel,
   sessionTurnAction,
 } from '../host/harnessStateTransitions.ts';
+import { sessionFailureOf } from '../host/airMeta.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { acpErrorOfCause } from '../host/requestError.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
@@ -84,7 +86,7 @@ export class SteeringRejected extends Schema.TaggedError<SteeringRejected>()('St
 
 /** How a started Prompt turn ended: the Agent's stop reason, or its error response (the Request error is in the chat). */
 export type PromptTurnResult =
-  | { readonly _tag: 'Ended'; readonly stopReason: StopReason }
+  | { readonly _tag: 'Ended'; readonly failure?: SessionFailure; readonly stopReason: StopReason }
   | { readonly _tag: 'Rejected'; readonly error: AcpError };
 
 export type PromptTurnInput = {
@@ -140,6 +142,7 @@ const runPrompt = Effect.fnUntraced(function* (
   const exit = yield* Effect.exit(sendPrompt(launchTarget, sessionId, prompt));
   if (Exit.isSuccess(exit)) {
     const { stopReason } = exit.value;
+    const failure = Option.getOrUndefined(sessionFailureOf(exit.value._meta));
     if (notifyTurnEnd && isAttentionStopReason(stopReason)) {
       yield* Effect.forkDetach(
         notifySessionAttention(
@@ -154,7 +157,11 @@ const runPrompt = Effect.fnUntraced(function* (
         ),
       );
     }
-    return { _tag: 'Ended', stopReason } satisfies PromptTurnResult;
+    return {
+      _tag: 'Ended',
+      ...(failure === undefined ? {} : { failure }),
+      stopReason,
+    } satisfies PromptTurnResult;
   }
   if (sessionIn(registry, launchTarget, sessionId)?.promptCancelRequested === true) {
     yield* Effect.logDebug('session/prompt error after Prompt turn cancel', launchTarget, sessionId, exit.cause);
@@ -193,12 +200,14 @@ export const sendPromptTurn = Effect.fn('sendPromptTurn')(function* (registry: R
         Effect.onExit(exit =>
           Effect.flatMap(Clock.currentTimeMillis, endedAt =>
             Effect.sync(() => {
-              const rejection = Exit.isSuccess(exit) && exit.value._tag === 'Rejected' ? exit.value : undefined;
+              const result = Exit.isSuccess(exit) ? exit.value : undefined;
               updateHarnessSnapshot(registry, launchTarget, current => {
                 const ended = endPromptTurn(current, sessionId, begun.turnId, endedAt);
-                return rejection === undefined
-                  ? ended
-                  : appendRequestError(ended, sessionId, { error: rejection.error, method: 'session/prompt' });
+                if (result?._tag === 'Rejected') {
+                  return appendRequestError(ended, sessionId, { error: result.error, method: 'session/prompt' });
+                }
+                // Same write as the turn end (invariant 2); a failure already seen via `session_info_update` is a no-op.
+                return result?.failure === undefined ? ended : applySessionFailure(ended, sessionId, result.failure);
               });
             }),
           ),

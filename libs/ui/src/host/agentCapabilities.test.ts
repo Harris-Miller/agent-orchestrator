@@ -118,7 +118,7 @@ describe('clientCapabilitiesFor', () => {
     for (const launchTarget of ['claude-agent-acp', 'codex-acp'] as const) {
       assert.deepStrictEqual(clientCapabilitiesFor(launchTarget), {
         ...base,
-        _meta: { jetbrains: { air: { capabilities: ['sessionIndex'], version: 1 } } },
+        _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure'], version: 1 } } },
       });
     }
   });

@@ -85,6 +85,8 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly mcp?: { readonly http?: boolean; readonly received: McpReceived[] };
   /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`; `reject` answers with {@link REJECTION} then. */
   readonly prompt?: 'fail' | 'reject' | StopReason;
+  /** `_meta` on the `session/prompt` response (e.g. an AIR `sessionFailure`). */
+  readonly promptMeta?: Record<string, unknown>;
   /** Runs inside `_session/steering` before it resolves. */
   readonly duringSteering?: Effect.Effect<void>;
   /** `_session/steering` result (default `injected`); `fail` makes the RPC fail; `reject` answers with {@link REJECTION}. */
@@ -183,7 +185,10 @@ export const installFakeAgent = (
           }
           return opts.prompt === 'fail'
             ? Effect.andThen(during, Effect.fail('prompt-fail'))
-            : Effect.as(during, { stopReason: opts.prompt ?? 'end_turn' });
+            : Effect.as(during, {
+                ...(opts.promptMeta === undefined ? {} : { _meta: opts.promptMeta }),
+                stopReason: opts.prompt ?? 'end_turn',
+              });
         },
         'session/resume': ({
           _meta,

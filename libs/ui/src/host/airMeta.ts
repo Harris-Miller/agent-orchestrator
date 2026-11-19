@@ -1,9 +1,11 @@
 /** JetBrains AIR `_meta.jetbrains.air` envelope. Initialize and `session/list` share it. */
 
-import { Predicate } from 'effect';
+import { SessionFailure } from '@libs/effect-acp';
+import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {
   sessionArchive: 'sessionArchive',
+  sessionFailure: 'sessionFailure',
   sessionIndex: 'sessionIndex',
   sessionRename: 'sessionRename',
 } as const;
@@ -47,4 +49,14 @@ export const isSkillCommand = (entry: Readonly<Record<string, unknown>>): boolea
   }
   const { air } = meta.jetbrains;
   return air.kind === 'skill' || typeof air.skillPath === 'string';
+};
+
+const decodeSessionFailure = Schema.decodeUnknownOption(SessionFailure);
+
+/** The AIR `_meta.jetbrains.air.sessionFailure` payload of an update / response `_meta`; malformed reads as None. */
+export const sessionFailureOf = (meta: unknown): Option.Option<SessionFailure> => {
+  if (!Predicate.isObject(meta) || !Predicate.isObject(meta.jetbrains) || !Predicate.isObject(meta.jetbrains.air)) {
+    return Option.none();
+  }
+  return decodeSessionFailure(meta.jetbrains.air.sessionFailure);
 };

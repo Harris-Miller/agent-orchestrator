@@ -457,5 +457,23 @@ export const createComposerAtoms = (runtime: HostRuntimeBag) => {
     )
     .pipe(Atom.keepAlive);
 
-  return { attachComposerImagesAtomFn, editComposerAtomFn, submitComposerAtomFn, unqueueComposerAtomFn };
+  /** Re-send `text` to a Session as a new Prompt turn (Session failure Retry); refused like any Send when not idle. */
+  const resendPromptAtomFn = atomRuntime
+    .fn(
+      Effect.fn('resendPromptAtomFn', { root: true })(function* (
+        arg: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string; readonly text: string },
+        get: Atom.FnContext,
+      ) {
+        yield* sendPromptTurn(get.registry, arg);
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  return {
+    attachComposerImagesAtomFn,
+    editComposerAtomFn,
+    resendPromptAtomFn,
+    submitComposerAtomFn,
+    unqueueComposerAtomFn,
+  };
 };

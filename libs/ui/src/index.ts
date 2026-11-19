@@ -84,6 +84,7 @@ export * from './host/clientHandlers.ts';
 export * from './host/configOptionIndexUi.ts';
 export * from './host/configProbe.ts';
 export * from './host/directoryBasename.ts';
+export * from './host/projectParentCaption.ts';
 export * from './host/draftToContentBlocks.ts';
 export * from './host/fdInstallCommands.ts';
 export * from './host/fdListing.ts';

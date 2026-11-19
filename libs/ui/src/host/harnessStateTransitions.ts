@@ -66,7 +66,7 @@ export const mergeListedHistory = (
   current: readonly HistoryEntry[],
   listed: readonly NormalizedSessionInfo[],
 ): readonly HistoryEntry[] => {
-  const byId = new Map(current.map(entry => [entry.sessionId, entry as HistoryEntry]));
+  const byId = new Map(current.map(entry => [entry.sessionId, entry]));
   for (const entry of listed) byId.set(entry.sessionId, entry);
   return [...byId.values()];
 };

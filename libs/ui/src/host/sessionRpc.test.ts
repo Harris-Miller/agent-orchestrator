@@ -37,7 +37,7 @@ const recordingReports = (events: string[]): BackendConnectionReports => ({
 const listedName = Effect.suspend(() => {
   let name = '';
   return listSessions(LT, listPayload, page => {
-    ({ name } = page as unknown as { name: string });
+    ({ name } = page as { name: string });
   }).pipe(Effect.map(() => name));
 });
 

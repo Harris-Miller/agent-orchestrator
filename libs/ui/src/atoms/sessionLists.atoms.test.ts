@@ -33,7 +33,7 @@ const listingAgent = (requests: Record<string, unknown>[], pages: Record<string,
 const setup = Effect.fnUntraced(function* (launchTargets: readonly AgentLaunchTarget[] = [CODEX]) {
   const registry = yield* freshRegistry;
   const store = new Map<string, MapFsEntry>();
-  const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store)) as Layer.Layer<HostServices>;
+  const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
   const forked: Effect.Effect<void, never, HostServices>[] = [];
   const runFork = (effect: Effect.Effect<void, never, HostServices>) => {
     forked.push(effect);

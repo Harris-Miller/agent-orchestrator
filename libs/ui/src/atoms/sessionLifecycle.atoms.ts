@@ -15,6 +15,7 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -60,11 +61,17 @@ import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
-import { projectsAtom } from './projects.atoms.ts';
+import { projectActiveSessionsAtom, projectsAtom, removeProjectEverywhere } from './projects.atoms.ts';
 import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { clearSelectedIfMissing, select } from './virtualSession.atoms.ts';
+import {
+  clearSelectedIfMissing,
+  discardVirtual,
+  ensureVirtual,
+  select,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
 
 type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
 
@@ -412,6 +419,50 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     )
     .pipe(Atom.keepAlive);
 
+  /**
+   * Stop tracking a Project: cancels in-flight prompts and Deactivates each of its active sessions (a close failure is
+   * collected and raised at the end, never blocking the stop), resets Selected to a fresh Virtual draft when it belonged
+   * to the Project, then removes the Project with its rows and index entries. Never deletes sessions or pins.
+   */
+  const stopTrackingProjectAtomFn = atomRuntime
+    .fn(
+      Effect.fn('stopTrackingProjectAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
+        const virtual = get(virtualSessionAtom);
+        const selected = get(selectedAtom);
+        const selectedInProject =
+          selected?._tag === 'Session' &&
+          MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => {
+            const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
+            const { sessionId } = selected;
+            return (
+              (sessionId in snapshot.sessions ? snapshot.sessions[sessionId].cwd : undefined) === cwd ||
+              snapshot.sessionHistory.some(entry => entry.sessionId === sessionId && entry.cwd === cwd)
+            );
+          });
+        // The Virtual blob's Bound session is closed and deleted by discarding the blob.
+        const virtualInProject = virtual?.cwd === cwd;
+        const toClose = get(projectActiveSessionsAtom(cwd)).filter(
+          target => !(virtualInProject && target.sessionId === virtual.sessionId),
+        );
+        const exits = yield* Effect.forEach(
+          toClose,
+          target => Effect.exit(runAtomFn(get.registry, deactivateSessionAtomFn, target)),
+          { concurrency: 'unbounded' },
+        );
+        if (selectedInProject || virtualInProject) {
+          yield* discardVirtual(get.registry);
+          yield* ensureVirtual(get.registry, {});
+        }
+        yield* removeProjectEverywhere(get.registry, cwd);
+        clearSelectedIfMissing(get.registry);
+        const failed = exits.find(Exit.isFailure);
+        if (failed !== undefined) {
+          return yield* failed;
+        }
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
   const archiveSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('archiveSessionAtomFn', { root: true })(
@@ -568,6 +619,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     refreshAllSessionHistoriesAtomFn,
     retryProjectListsAtomFn,
     renameSessionAtomFn,
+    stopTrackingProjectAtomFn,
     unarchiveSessionAtomFn,
     unarchiveSessionsAtomFn,
   };

@@ -22,7 +22,11 @@ export const runSessionList = <E, R>(
   pages: (onPage: (page: unknown) => void) => Effect.Effect<void, E, R>,
 ) =>
   pages(run.page).pipe(
-    Effect.onError(() => Effect.sync(() => run.fail())),
+    Effect.onError(() =>
+      Effect.sync(() => {
+        run.fail();
+      }),
+    ),
     Effect.andThen(() => run.complete()),
     Effect.catchCause(cause =>
       Cause.hasInterruptsOnly(cause) ? Effect.failCause(cause) : Effect.logWarning('session/list failed', cause),

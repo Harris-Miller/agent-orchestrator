@@ -16,6 +16,76 @@ const expectUserMessage = (item: ChatItem | undefined) => {
   return item as Extract<ChatItem, { readonly kind: 'user_message' }>;
 };
 
+const failureUpdate = (body: object) => ({
+  _meta: {
+    jetbrains: {
+      air: {
+        sessionFailure: {
+          actions: ['retry'],
+          category: 'connection',
+          id: 'f1',
+          revision: 1,
+          severity: 'warning',
+          title: 'T',
+          ...body,
+        },
+      },
+    },
+  },
+  sessionUpdate: 'session_info_update',
+});
+
+describe('session failure rows', () => {
+  it('appends a row for a first failure', () => {
+    const next = reduceSessionUpdate(emptySessionTranscript(), failureUpdate({ reason: 'attempt 1 of 3' }));
+    assert.deepStrictEqual(next.items, [
+      {
+        actions: ['retry'],
+        category: 'connection',
+        id: 'f1',
+        kind: 'session_failure',
+        reason: 'attempt 1 of 3',
+        revision: 1,
+        severity: 'warning',
+        title: 'T',
+      },
+    ]);
+  });
+
+  it('replaces in place on a higher revision, keeps position', () => {
+    let t = reduceSessionUpdate(emptySessionTranscript(), failureUpdate({ reason: 'attempt 1 of 3' }));
+    t = appendUserChatMessage(t, 'hi');
+    t = reduceSessionUpdate(t, failureUpdate({ reason: 'attempt 2 of 3', revision: 2 }));
+    assert.strictEqual(t.items.length, 2);
+    const [row] = t.items;
+    assert.ok(row?.kind === 'session_failure');
+    assert.strictEqual(row.reason, 'attempt 2 of 3');
+  });
+
+  it('ignores equal and lower revisions', () => {
+    const t = reduceSessionUpdate(emptySessionTranscript(), failureUpdate({ revision: 3, title: 'new' }));
+    assert.strictEqual(reduceSessionUpdate(t, failureUpdate({ revision: 3, title: 'x' })), t);
+    assert.strictEqual(reduceSessionUpdate(t, failureUpdate({ revision: 2, title: 'x' })), t);
+  });
+
+  it('keeps distinct ids as distinct rows', () => {
+    let t = reduceSessionUpdate(emptySessionTranscript(), failureUpdate({}));
+    t = reduceSessionUpdate(t, failureUpdate({ id: 'f2' }));
+    assert.strictEqual(t.items.length, 2);
+  });
+
+  it('drops unknown actions, dedupes, and maps unknown severity to warning', () => {
+    const t = reduceSessionUpdate(
+      emptySessionTranscript(),
+      failureUpdate({ actions: ['login', 'teleport', 'login', 'retry'], severity: 'doom' }),
+    );
+    const [row] = t.items;
+    assert.ok(row?.kind === 'session_failure');
+    assert.deepStrictEqual(row.actions, ['login', 'retry']);
+    assert.strictEqual(row.severity, 'warning');
+  });
+});
+
 describe('reduceSessionUpdate', () => {
   it('ignores session_info_update (no chat item)', () => {
     const next = reduceSessionUpdate(emptySessionTranscript(), {

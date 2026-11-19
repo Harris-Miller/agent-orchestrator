@@ -120,6 +120,24 @@ describe('applySessionUpdate', () => {
     }
   });
 
+  it('patches the transcript with a session failure row', () => {
+    const session = initialSessionSnapshot('s1', 'active');
+    const result = applySessionUpdate(session, 's1', emptyHistory, {
+      _meta: {
+        jetbrains: {
+          air: {
+            sessionFailure: { actions: [], category: 'service', id: 'f1', revision: 1, severity: 'error', title: 'T' },
+          },
+        },
+      },
+      sessionUpdate: 'session_info_update',
+    });
+    assert.strictEqual(result.kind, 'patch');
+    if (result.kind === 'patch') {
+      assert.strictEqual(result.session.transcript.items[0]?.kind, 'session_failure');
+    }
+  });
+
   it('flags skill commands from AIR meta', () => {
     const result = applySessionUpdate(undefined, 's1', emptyHistory, {
       availableCommands: [{ _meta: { jetbrains: { air: { kind: 'skill' } } }, name: 'caveman' }, { name: 'status' }],

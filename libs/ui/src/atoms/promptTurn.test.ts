@@ -155,6 +155,27 @@ layer(hostLayer)('Send', layeredIt => {
     setPhase(registry, CODEX, 'initialized');
   });
 
+  layeredIt.effect('a session failure in the prompt response is a row, deduped by id and revision', () =>
+    Effect.gen(function* () {
+      const failure = {
+        actions: ['retry'],
+        category: 'service',
+        id: 'f1',
+        revision: 1,
+        severity: 'error',
+        title: 'Down',
+      };
+      const h = yield* harness({ promptMeta: { jetbrains: { air: { sessionFailure: failure } } } });
+      const result = yield* send(h.registry);
+      assert.strictEqual(result._tag, 'Ended');
+      const rows = () => sessionOf(h.registry).transcript.items.filter(item => item.kind === 'session_failure');
+      assert.strictEqual(rows().length, 1);
+      assert.isUndefined(sessionOf(h.registry).pendingClientRequest);
+      yield* send(h.registry, 'again');
+      assert.strictEqual(rows().length, 1);
+    }),
+  );
+
   layeredIt.effect('a turn records its timing and clears its request', () =>
     Effect.gen(function* () {
       const h = yield* harness({ duringPrompt: TestClock.adjust('3 seconds') });

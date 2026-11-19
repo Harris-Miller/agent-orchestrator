@@ -27,6 +27,15 @@ const s = (id: string): ChatItem => ({ id, kind: 'elicitation_summary', message:
 const th = (id: string): ChatItem => ({ id, kind: 'agent_thought', text: id });
 const p = (id: string): ChatItem => ({ entries: [], id, kind: 'plan' });
 const sub = (id: string): ChatItem => ({ id, kind: 'subagent', subagentSessionId: id });
+const fail = (id: string): ChatItem => ({
+  actions: [],
+  category: 'connection',
+  id,
+  kind: 'session_failure',
+  revision: 1,
+  severity: 'error',
+  title: id,
+});
 const shape = (items: readonly ChatItem[]) =>
   groupChatItems(items.filter(item => !isWaitToolCall(item))).map(i =>
     i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id,
@@ -42,6 +51,10 @@ describe('groupChatItems', () => {
   it('keeps tool calls that only match one of kind or title', () => {
     const items = [u('u'), wait('w1', { toolKind: 'read' }), wait('w2', { title: 'wait for build' })];
     assert.deepStrictEqual(shape(items), ['u', 'R[w1,w2]']);
+  });
+  it('session failure alone forms a region; with tool calls it joins them', () => {
+    assert.deepStrictEqual(shape([u('u'), fail('f')]), ['u', 'R[f]']);
+    assert.deepStrictEqual(shape([u('u'), t('t'), fail('f'), a('a')]), ['u', 'R[t,f]', 'a']);
   });
   it('answer-only turn has no region', () => {
     assert.deepStrictEqual(shape([u('u'), a('a')]), ['u', 'a']);
@@ -113,6 +126,9 @@ describe('splitWorkSegments', () => {
   });
   it('non-Work items between dividers are dividers, never an unlabeled segment', () => {
     assert.deepStrictEqual(segShape([t('t1'), a('x'), s('s'), a('y'), t('t2')]), ['St1[t1]', 'x', 's', 'y', 'St2[t2]']);
+  });
+  it('session failure is a work item in the segment', () => {
+    assert.deepStrictEqual(segShape([t('t1'), fail('f')]), ['St1[t1,f]']);
   });
   it('agent thought is a work item, not a divider', () => {
     assert.deepStrictEqual(segShape([th('h1'), a('x'), th('h2')]), ['Sh1[h1]', 'x', 'Sh2[h2]']);

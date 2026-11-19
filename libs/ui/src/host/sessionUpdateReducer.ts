@@ -12,7 +12,10 @@ import {
   mimeTypeForDataImageHref,
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
-import { isSkillCommand } from './airMeta.ts';
+import type { SessionFailure, SessionFailureAction, SessionFailureSeverity } from '@libs/effect-acp';
+import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-acp';
+
+import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
 
@@ -84,7 +87,22 @@ export type ChatItem =
   /** Row for a spawned child; live fields come from `BackendHarnessSnapshot.subagents[subagentSessionId]`. */
   | { readonly id: string; readonly kind: 'subagent'; readonly subagentSessionId: string }
   | InterSessionMessage
-  | RequestErrorItem;
+  | RequestErrorItem
+  | SessionFailureItem;
+
+/** AIR Session failure row; `id` is the failure id, a higher `revision` replaces the row in place. */
+export type SessionFailureItem = {
+  /** Known actions only, deduped, in the order the agent sent them. */
+  readonly actions: readonly SessionFailureAction[];
+  readonly category: string;
+  readonly details?: string;
+  readonly id: string;
+  readonly kind: 'session_failure';
+  readonly reason?: string;
+  readonly revision: number;
+  readonly severity: SessionFailureSeverity;
+  readonly title: string;
+};
 
 /** The Agent's error response to a Client→Agent request for this Session (`method` is the request it answered). */
 export type RequestErrorItem = {
@@ -447,6 +465,32 @@ export const upsertSubagentChatItem = (transcript: SessionTranscript, subagentSe
     : { ...transcript, items: [...transcript.items, { id, kind: 'subagent', subagentSessionId }] };
 };
 
+/**
+ * Add the failure row, or replace the row with the same id when `failure.revision` is higher (position kept). Equal /
+ * lower revisions are ignored, so a failure delivered twice (update and prompt response) stays one row.
+ */
+export const upsertSessionFailure = (transcript: SessionTranscript, failure: SessionFailure): SessionTranscript => {
+  const item: SessionFailureItem = {
+    actions: [...new Set(failure.actions)].filter(isSessionFailureAction),
+    category: failure.category,
+    ...withoutUndefined({ details: failure.details ?? undefined, reason: failure.reason ?? undefined }),
+    id: failure.id,
+    kind: 'session_failure',
+    revision: failure.revision,
+    severity: isSessionFailureSeverity(failure.severity) ? failure.severity : 'warning',
+    title: failure.title,
+  };
+  const index = transcript.items.findIndex(existing => existing.kind === 'session_failure' && existing.id === item.id);
+  if (index === -1) {
+    return { ...transcript, items: [...transcript.items, item] };
+  }
+  const existing = transcript.items[index];
+  if (existing?.kind !== 'session_failure' || existing.revision >= item.revision) {
+    return transcript;
+  }
+  return { ...transcript, items: transcript.items.map((entry, i) => (i === index ? item : entry)) };
+};
+
 const parsePlanEntries = (value: unknown): readonly PlanEntry[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -616,9 +660,13 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
 
     case 'available_commands_update':
     case 'config_option_update':
-    case 'session_info_update':
     case 'usage_update':
       return transcript;
+
+    case 'session_info_update': {
+      const failure = sessionFailureOf(update._meta);
+      return failure._tag === 'Some' ? upsertSessionFailure(transcript, failure.value) : transcript;
+    }
 
     case 'plan': {
       const entries = parsePlanEntries(update.entries);

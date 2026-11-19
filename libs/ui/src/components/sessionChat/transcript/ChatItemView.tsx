@@ -8,6 +8,7 @@ import { ElicitationSummaryView } from './chatItems/ElicitationSummaryView.tsx';
 import { PlanView } from './chatItems/PlanView.tsx';
 import { RequestErrorView } from './chatItems/RequestErrorView.tsx';
 import { InterSessionMessageView } from './chatItems/InterSessionMessageView.tsx';
+import { SessionFailureRow } from './chatItems/SessionFailureRow.tsx';
 import { SubagentItemView } from './chatItems/SubagentItemView.tsx';
 import { ToolCallView } from './chatItems/ToolCallView.tsx';
 import { UserMessageView } from './chatItems/UserMessageView.tsx';
@@ -34,6 +35,9 @@ export const ChatItemView: FC<{
 
     case 'request_error':
       return <RequestErrorView item={item} />;
+
+    case 'session_failure':
+      return <SessionFailureRow item={item} />;
 
     case 'subagent':
       return <SubagentItemView item={item} />;

@@ -114,10 +114,14 @@ export const mcpToolPreapprovalMeta = (
     ? { claudeCode: { options: { allowedTools: tools.map(tool => `mcp__${serverName}__${tool}`) } } }
     : undefined;
 
-/** `clientCapabilities` for this launch target's initialize request (AIR `sessionIndex` offer for Claude / Codex). */
+/**
+ * `clientCapabilities` for this launch target's initialize request (AIR `sessionIndex` + `sessionFailure` offer for
+ * Claude / Codex). `sessionFailure` is client-side only: declaring it makes the adapters send typed failure rows
+ * instead of plain-text chunks (e.g. Codex `Warning:` text), so the client filters nothing.
+ */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
   ...(PROVIDER_QUIRKS[launchTarget].airClient
-    ? { _meta: airMeta({ capabilities: [airCapability.sessionIndex] }) }
+    ? { _meta: airMeta({ capabilities: [airCapability.sessionIndex, airCapability.sessionFailure] }) }
     : {}),
   elicitation: { form: {} },
   session: { configOptions: { boolean: {} } },

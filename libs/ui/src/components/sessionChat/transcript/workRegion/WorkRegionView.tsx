@@ -9,6 +9,7 @@ import type { FC } from 'react';
 
 import type { AvailableCommand, ChatItem } from '../../../../host/sessionUpdateReducer.ts';
 import { LucideMuiIcon } from '../../../LucideMuiIcon.tsx';
+import { SessionFailureRow } from '../chatItems/SessionFailureRow.tsx';
 import { ToolCallView } from '../chatItems/ToolCallView.tsx';
 import { ChatItemView } from '../ChatItemView.tsx';
 import { DisclosureButton, DisclosureChevron } from '../DisclosureButton.tsx';
@@ -25,6 +26,8 @@ const WorkItemPreview: FC<{ item: ChatItem }> = ({ item }) => {
       return <ToolCallView item={item} preview />;
     case 'subagent':
       return <SubagentItemView item={item} />;
+    case 'session_failure':
+      return <SessionFailureRow item={item} />;
     case 'agent_thought':
     case 'plan':
       return (

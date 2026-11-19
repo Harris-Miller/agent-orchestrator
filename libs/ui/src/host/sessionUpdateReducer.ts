@@ -12,7 +12,8 @@ import {
   mimeTypeForDataImageHref,
   mimeTypeForImagePath,
 } from './composerImageAttachment.ts';
-import type { SessionFailure } from '@libs/effect-acp';
+import type { SessionFailure, SessionFailureAction, SessionFailureSeverity } from '@libs/effect-acp';
+import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-acp';
 
 import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
@@ -89,9 +90,6 @@ export type ChatItem =
   | RequestErrorItem
   | SessionFailureItem;
 
-export const SESSION_FAILURE_ACTIONS = ['retry', 'login', 'new_session'] as const;
-export type SessionFailureAction = (typeof SESSION_FAILURE_ACTIONS)[number];
-
 /** AIR Session failure row; `id` is the failure id, a higher `revision` replaces the row in place. */
 export type SessionFailureItem = {
   /** Known actions only, deduped, in the order the agent sent them. */
@@ -102,7 +100,7 @@ export type SessionFailureItem = {
   readonly kind: 'session_failure';
   readonly reason?: string;
   readonly revision: number;
-  readonly severity: 'error' | 'warning';
+  readonly severity: SessionFailureSeverity;
   readonly title: string;
 };
 
@@ -467,9 +465,6 @@ export const upsertSubagentChatItem = (transcript: SessionTranscript, subagentSe
     : { ...transcript, items: [...transcript.items, { id, kind: 'subagent', subagentSessionId }] };
 };
 
-const isSessionFailureAction = (value: string): value is SessionFailureAction =>
-  SESSION_FAILURE_ACTIONS.includes(value as SessionFailureAction);
-
 /**
  * Add the failure row, or replace the row with the same id when `failure.revision` is higher (position kept). Equal /
  * lower revisions are ignored, so a failure delivered twice (update and prompt response) stays one row.
@@ -482,7 +477,7 @@ export const upsertSessionFailure = (transcript: SessionTranscript, failure: Ses
     id: failure.id,
     kind: 'session_failure',
     revision: failure.revision,
-    severity: failure.severity === 'error' ? 'error' : 'warning',
+    severity: isSessionFailureSeverity(failure.severity) ? failure.severity : 'warning',
     title: failure.title,
   };
   const index = transcript.items.findIndex(existing => existing.kind === 'session_failure' && existing.id === item.id);

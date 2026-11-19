@@ -1,4 +1,4 @@
-/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by HarnessCacheGate, swept after each complete Project list. */
+/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by `hydrateHarnessCaches`, swept after each complete Project list. */
 import { pinSession, unpinSessions } from '@lib/hoa-home';
 import type { PinnedSession } from '@lib/hoa-home';
 import { Effect } from 'effect';

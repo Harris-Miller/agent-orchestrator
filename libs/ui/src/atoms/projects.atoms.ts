@@ -1,4 +1,4 @@
-/** Projects: one hoa-home list for all launch targets, hydrated by HarnessCacheGate. Never grown from rows or probe cwds. */
+/** Projects: one hoa-home list for all launch targets, hydrated by `hydrateHarnessCaches`. Never grown from rows or probe cwds. */
 import { addProject, removeProject } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';

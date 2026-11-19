@@ -202,7 +202,7 @@ describe('Host IPC fulfillment', () => {
   it.effect('atomically replaces provider state', () =>
     Effect.gen(function* () {
       const { client, tmp } = yield* fulfillment;
-      vi.stubEnv('HOME', tmp);
+      vi.stubEnv(process.platform === 'win32' ? 'USERPROFILE' : 'HOME', tmp);
       const dir = join(tmp, '.hoa', 'providers', 'p');
       const path = join(dir, 'current.json');
 
@@ -311,7 +311,7 @@ describe('Host IPC fulfillment', () => {
   it.effect('writes image data to a temp file and opens it', () =>
     Effect.gen(function* () {
       const { client, tmp } = yield* fulfillment;
-      vi.stubEnv('TMPDIR', tmp);
+      vi.stubEnv(process.platform === 'win32' ? 'TEMP' : 'TMPDIR', tmp);
       const base64 = Buffer.from([9, 8, 7]).toString('base64');
 
       yield* client.request({ _tag: 'OpenImageData', base64, mimeType: 'image/png' });

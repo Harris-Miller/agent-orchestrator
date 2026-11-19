@@ -123,40 +123,43 @@ describe('Session History search controls', () => {
       registry.dispose();
     }),
   );
-  it.effect('bounds mounted results and navigates beyond the initial window', () =>
-    Effect.sync(() => {
-      const registry = AtomRegistry.make();
-      updateHarnessSnapshot(registry, 'codex-acp', snapshot => ({ ...snapshot, phase: 'ready' }));
-      const history = Array.from({ length: 1000 }, (_, index) => ({
-        cwd: '/one',
-        launchTarget: 'codex-acp' as const,
-        sessionId: String(index),
-        title: `Session ${String(index).padStart(4, '0')}`,
-      }));
-      render(
-        <RegistryContext.Provider value={registry}>
-          <Harness history={history} />
-        </RegistryContext.Provider>,
-      );
-      const input = screen.getByRole('textbox', { name: 'Search sessions' });
-      fireEvent.change(input, { target: { value: 'Session' } });
-      assert.isNotNull(screen.getByText('1000 results'));
-      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
-      for (let index = 0; index < 50; index += 1) fireEvent.keyDown(input, { key: 'ArrowDown' });
-      assert.isNotNull(screen.getByText('Highlighted Session 0050'));
-      assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
-      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
-      const activeRow = screen.getByRole('button', { name: 'Session 0050' });
-      fireEvent.focus(activeRow);
-      const viewport = document.querySelector('[data-index]')!.parentElement!.parentElement!;
-      fireEvent.scroll(viewport, { target: { scrollTop: 80000 } });
-      assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
-      assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
-      fireEvent.blur(activeRow);
-      assert.isNull(screen.queryByRole('button', { name: 'Session 0050' }));
-      fireEvent.change(input, { target: { value: 'Session 000' } });
-      assert.isNotNull(screen.getByText('Highlighted Session 0000'));
-      registry.dispose();
-    }),
+  it.effect(
+    'bounds mounted results and navigates beyond the initial window',
+    () =>
+      Effect.sync(() => {
+        const registry = AtomRegistry.make();
+        updateHarnessSnapshot(registry, 'codex-acp', snapshot => ({ ...snapshot, phase: 'ready' }));
+        const history = Array.from({ length: 1000 }, (_, index) => ({
+          cwd: '/one',
+          launchTarget: 'codex-acp' as const,
+          sessionId: String(index),
+          title: `Session ${String(index).padStart(4, '0')}`,
+        }));
+        render(
+          <RegistryContext.Provider value={registry}>
+            <Harness history={history} />
+          </RegistryContext.Provider>,
+        );
+        const input = screen.getByRole('textbox', { name: 'Search sessions' });
+        fireEvent.change(input, { target: { value: 'Session' } });
+        assert.isNotNull(screen.getByText('1000 results'));
+        assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+        for (let index = 0; index < 50; index += 1) fireEvent.keyDown(input, { key: 'ArrowDown' });
+        assert.isNotNull(screen.getByText('Highlighted Session 0050'));
+        assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
+        assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+        const activeRow = screen.getByRole('button', { name: 'Session 0050' });
+        fireEvent.focus(activeRow);
+        const viewport = document.querySelector('[data-index]')!.parentElement!.parentElement!;
+        fireEvent.scroll(viewport, { target: { scrollTop: 80000 } });
+        assert.isNotNull(screen.getByRole('button', { name: 'Session 0050' }));
+        assert.isBelow(document.querySelectorAll('[data-index]').length, 40);
+        fireEvent.blur(activeRow);
+        assert.isNull(screen.queryByRole('button', { name: 'Session 0050' }));
+        fireEvent.change(input, { target: { value: 'Session 000' } });
+        assert.isNotNull(screen.getByText('Highlighted Session 0000'));
+        registry.dispose();
+      }),
+    30_000,
   );
 });

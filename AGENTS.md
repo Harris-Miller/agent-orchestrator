@@ -21,6 +21,8 @@ Multi-context: root `GLOSSARY-MAP.md` points to per-package `GLOSSARY.md` files;
 
 ## Coding Style
 
+- **Cross-platform paths in unit tests**: Build file paths and expected paths with platform-aware helpers such as `join()` and `resolve()` so tests pass on Windows and macOS. Preserve raw path segments when testing traversal or other intentionally malformed paths.
+
 - **Mutually exclusive construction options** (e.g. pass a `port` _or_ an existing `client`, not “maybe both”): use TypeScript **overloads** and/or a **discriminated union**. Do not use a bag of optional fields plus `instanceof` / runtime “if both set, throw” to tell cases apart — encode exclusivity in the type.
 
 ```ts

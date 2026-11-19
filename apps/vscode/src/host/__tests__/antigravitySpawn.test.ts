@@ -1,8 +1,10 @@
 import { assert, describe, it } from 'vitest';
 
+import { join, resolve } from 'node:path';
+
 import { resolveAntigravitySpawn } from '../antigravitySpawn';
 
-const HOME = '/home/operator';
+const HOME = resolve('/home/operator');
 const binary = (cmd: string) => ({
   _tag: 'binary',
   archive: 'https://dl.google.com/agy-extensions/a.zip',
@@ -31,7 +33,7 @@ describe('resolveAntigravitySpawn', () => {
   it('maps the active runtime to its recorded command and arguments', () => {
     assert.deepStrictEqual(resolveAntigravitySpawn(HOME, doc()), {
       args: ['--uid='],
-      command: `${HOME}/.hoa/providers/antigravity-acp/runtime/1.4.5/agy_acp_server.par`,
+      command: join(HOME, '.hoa', 'providers', 'antigravity-acp', 'runtime', '1.4.5', 'agy_acp_server.par'),
     });
   });
 

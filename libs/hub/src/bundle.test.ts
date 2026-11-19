@@ -56,7 +56,9 @@ describe('hub bundles', () => {
       const home = mkdtempSync(join(tmpdir(), 'hoa-hub-bundle-'));
       yield* launch(home);
       const discovery = yield* readDiscovery(home);
-      assert.strictEqual((statSync(join(home, DISCOVERY_FILENAME)).mode % 0o1000).toString(8), '600');
+      if (process.platform !== 'win32') {
+        assert.strictEqual((statSync(join(home, DISCOVERY_FILENAME)).mode % 0o1000).toString(8), '600');
+      }
 
       const health = yield* Effect.promise(() =>
         fetch(`http://127.0.0.1:${discovery.port}/health`).then(response => response.json()),

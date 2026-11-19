@@ -323,7 +323,10 @@ describe('hub', () => {
       yield* Effect.scoped(
         Effect.gen(function* () {
           yield* runHubProcess({ home, idleGrace: '5 seconds', port: 0 });
-          assert.strictEqual((statSync(discovery).mode % 0o1000).toString(8), '600');
+          assert.isTrue(existsSync(discovery));
+          if (process.platform !== 'win32') {
+            assert.strictEqual((statSync(discovery).mode % 0o1000).toString(8), '600');
+          }
         }),
       );
       assert.isFalse(existsSync(discovery));

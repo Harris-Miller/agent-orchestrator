@@ -59,6 +59,7 @@ import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
+import type { SessionTarget } from '../host/projectSessions.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
 import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
@@ -72,11 +73,6 @@ import {
 } from './virtualSession.atoms.ts';
 
 type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
-
-type SessionTarget = {
-  readonly launchTarget: AgentLaunchTarget;
-  readonly sessionId: string;
-};
 
 const sessionSpan = (arg: SessionTarget) =>
   Effect.annotateCurrentSpan({
@@ -427,8 +423,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
       Effect.fn('stopTrackingProjectAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
         const { activeSessions, selectedInProject, virtualBoundInProject } = get(projectMembershipAtom(cwd));
         const virtual = get(virtualSessionAtom);
-        // Only a Virtual blob whose Bound session lives in the Project is discarded (closing that session). A draft
-        // with no Bound session is untouched, whatever its cwd.
+        // The Bound Virtual session is closed by discarding the blob below, not here; see `projectMembership` for the rule.
         const toClose = activeSessions.filter(
           target => !(virtualBoundInProject && target.sessionId === virtual?.sessionId),
         );

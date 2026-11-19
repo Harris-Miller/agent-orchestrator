@@ -8,7 +8,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectMembership } from '../host/projectSessions.ts';
-import type { ProjectMembership, ProjectSession } from '../host/projectSessions.ts';
+import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -20,8 +20,6 @@ export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel
 
 /** True once the file was read. Stays false when it is malformed, so adding and Stop tracking never overwrite it. */
 export const projectsLoadedAtom = Atom.make(false).pipe(Atom.withLabel('projectsLoaded'), Atom.keepAlive);
-
-export type ProjectActiveSession = ProjectSession;
 
 /** Membership of a Project: its active sessions (what Stop tracking closes) and whether Selected / the Bound Virtual belong to it. */
 export const projectMembershipAtom = Atom.family((cwd: string) =>

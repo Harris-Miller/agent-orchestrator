@@ -185,7 +185,7 @@ describe('Stop tracking a Project', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('a Bound Virtual whose snapshot cwd differs from virtual.cwd: dialog count equals what is closed', () =>
+  it.effect('closes a Bound Virtual by its snapshot cwd, once', () =>
     Effect.gen(function* () {
       const s = yield* setup({});
       yield* ensureVirtual(s.registry, { cwd: '/keep' });
@@ -208,7 +208,8 @@ describe('Stop tracking a Project', () => {
       // Everything the dialog counted is closed, the Bound one exactly once (via the Virtual discard).
       assert.strictEqual(s.calls.filter(call => call === 'close:live').length, 1);
       assert.strictEqual(s.calls.filter(call => call === `close:${boundId}`).length, 1);
-      assert.notStrictEqual(s.registry.get(virtualSessionAtom)?.sessionId, boundId);
+      assert.isUndefined(s.registry.get(virtualSessionAtom)?.sessionId);
+      assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Virtual' });
     }).pipe(Effect.scoped),
   );
 });

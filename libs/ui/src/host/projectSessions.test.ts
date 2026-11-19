@@ -55,9 +55,9 @@ describe('projectMembership', () => {
   });
 
   it('never counts a Virtual draft with no Bound session', () => {
-    const next = { ...base, sessions: { other: { ...initialSessionSnapshot('other', 'active'), cwd: '/q' } } };
+    const next = { ...base, sessions: { live: { ...initialSessionSnapshot('live', 'active'), cwd: '/p' } } };
     const m = projectMembership(on(next), { cwd: '/p', launchTarget: target }, undefined, '/p');
-    assert.deepStrictEqual(m.activeSessions, []);
+    assert.deepStrictEqual(m.activeSessions, [{ launchTarget: target, sessionId: 'live' }]);
     assert.isFalse(m.virtualBoundInProject);
   });
 

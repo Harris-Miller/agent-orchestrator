@@ -1,4 +1,5 @@
 import type { Selected } from '../atoms/backendState.atoms.ts';
+import type { VirtualSession } from '../atoms/virtualSession.atoms.ts';
 import { isSessionActiveOrActivating, resolveSessionCwd } from './acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -10,10 +11,11 @@ export const sessionCwdInSnapshot = (snapshot: BackendHarnessSnapshot, sessionId
     snapshot.sessionHistory.find(entry => entry.sessionId === sessionId)?.cwd,
   );
 
-export type ProjectSession = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
+/** An ACP session on one launch target. */
+export type SessionTarget = { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string };
 
 export type ProjectMembership = {
-  readonly activeSessions: readonly ProjectSession[];
+  readonly activeSessions: readonly SessionTarget[];
   readonly selectedInProject: boolean;
   readonly virtualBoundInProject: boolean;
 };
@@ -25,14 +27,7 @@ export type ProjectMembership = {
  */
 export const projectMembership = (
   snapshots: readonly { readonly launchTarget: AgentLaunchTarget; readonly snapshot: BackendHarnessSnapshot }[],
-  virtual:
-    | {
-        readonly cwd: string | undefined;
-        readonly launchTarget: AgentLaunchTarget | undefined;
-        readonly sessionId?: string;
-      }
-    | null
-    | undefined,
+  virtual: Pick<VirtualSession, 'cwd' | 'launchTarget' | 'sessionId'> | null | undefined,
   selected: Selected | undefined,
   cwd: string,
 ): ProjectMembership => {

@@ -280,6 +280,25 @@ describe('Per-Project Session History lists', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('a forked pin sweep of a run superseded before it executes leaves pins unchanged', () =>
+    Effect.gen(function* () {
+      const { layer, registry } = yield* setup();
+      const pinned = yield* pinSession(toLaunchTarget(CODEX), { cwd: '/a', sessionId: 'pinned-a' }).pipe(
+        Effect.provide(layer),
+      );
+      registry.set(pinnedSessionsAtom(CODEX), pinned.pinned);
+      registry.set(pinsLoadedAtom(CODEX), true);
+      const forkedEffects: Effect.Effect<void, never, HostServices>[] = [];
+      const run = beginSessionList(registry, CODEX, '/a', effect => forkedEffects.push(effect));
+      run.page({ sessions: [row('/a', 'other')] });
+      yield* run.complete();
+      assert.strictEqual(forkedEffects.length, 1);
+      clearListStatesOfCwd(registry, '/a');
+      yield* forkedEffects[0].pipe(Effect.provide(layer));
+      assert.deepStrictEqual(registry.get(pinnedSessionsAtom(CODEX)), pinned.pinned);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('Stop tracking then re-add: the old run is a no-op and the new run works', () =>
     Effect.gen(function* () {
       const { history, registry } = yield* setup();
@@ -299,7 +318,7 @@ describe('Per-Project Session History lists', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('a page is normalized once: a malformed row is neither merged nor counted as listed', () =>
+  it.effect('a malformed row in a page is skipped and never reaches Session History', () =>
     Effect.gen(function* () {
       const { history, registry } = yield* setup();
       updateHarnessSnapshot(registry, CODEX, current => ({

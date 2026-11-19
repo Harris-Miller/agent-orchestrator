@@ -47,18 +47,16 @@ const setListState = (
   registry.update(sessionListStatesAtom, current => new Map(current).set(listKey(launchTarget, cwd), state));
 };
 
-/** Drops every list state of a Project (Stop tracking). */
+/** Drops every list state and cancels every in-flight run of a Project (Stop tracking). */
 export const clearListStatesOfCwd = (registry: AtomRegistry.AtomRegistry, cwd: string): void => {
-  registry.update(runTokensAtom, current => {
+  const keys = MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => listKey(launchTarget, cwd));
+  const without = <V>(current: ReadonlyMap<string, V>): ReadonlyMap<string, V> => {
     const next = new Map(current);
-    for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) next.delete(listKey(launchTarget, cwd));
+    for (const key of keys) next.delete(key);
     return next;
-  });
-  registry.update(sessionListStatesAtom, current => {
-    const next = new Map(current);
-    for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) next.delete(listKey(launchTarget, cwd));
-    return next;
-  });
+  };
+  registry.update(runTokensAtom, without);
+  registry.update(sessionListStatesAtom, without);
 };
 
 export type ProjectListStatus = {
@@ -120,21 +118,27 @@ export const beginSessionList = (
   // Read before the request so pins made while it is in flight (session/new races) are never swept.
   const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
   const listedIds = new Set<string>();
-  const cancelled = () => registry.get(runTokensAtom).get(key) !== token;
+  const stale = () => registry.get(runTokensAtom).get(key) !== token;
   return {
     complete: () =>
       Effect.sync(() => {
-        if (cancelled()) return;
+        if (stale()) return;
         updateHarnessSnapshot(registry, launchTarget, current => dropUnlistedRows(current, cwd, listedIds, idsAtStart));
-        runFork(removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBefore, listedIds, cwd)));
+        runFork(
+          Effect.suspend(() =>
+            stale()
+              ? Effect.void
+              : removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBefore, listedIds, cwd)),
+          ),
+        );
         setListState(registry, launchTarget, cwd, 'complete');
       }),
     fail: () => {
-      if (cancelled()) return;
+      if (stale()) return;
       setListState(registry, launchTarget, cwd, 'incomplete');
     },
     page: page => {
-      if (cancelled()) return;
+      if (stale()) return;
       const rows = normalizeSessionHistory(page);
       for (const { sessionId } of rows) listedIds.add(sessionId);
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;

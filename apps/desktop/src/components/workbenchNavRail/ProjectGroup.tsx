@@ -26,11 +26,12 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { Ellipsis, Folder, FolderOpen, SquarePen, TriangleAlert } from 'lucide-react';
+import { Ellipsis, EyeOff, Folder, FolderOpen, RotateCw, SquarePen, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -218,6 +219,9 @@ export const ProjectGroup: FC<{
             reload({ cwd }).catch(onClientError);
           }}
         >
+          <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
+            <LucideMuiIcon fontSize="small" icon={RotateCw} />
+          </ListItemIcon>
           Reload sessions
         </MenuItem>
         <MenuItem
@@ -231,6 +235,9 @@ export const ProjectGroup: FC<{
           }}
           sx={{ color: 'error.main' }}
         >
+          <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
+            <LucideMuiIcon fontSize="small" icon={EyeOff} />
+          </ListItemIcon>
           Stop tracking
         </MenuItem>
       </Menu>

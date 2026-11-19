@@ -25,7 +25,7 @@ import { SessionActionsMenu } from './SessionActionsMenu.tsx';
 import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 import { useSessionTitleRename } from './useSessionTitleRename.ts';
 
-const sessionCardSx = (selected: boolean) =>
+const sessionCardSx = (selected: boolean, actionsPinned: boolean) =>
   ({
     borderLeft: 2,
     borderLeftStyle: 'solid',
@@ -35,9 +35,11 @@ const sessionCardSx = (selected: boolean) =>
     overflow: 'hidden',
     width: '100%',
     bgcolor: selected ? 'action.selected' : 'transparent',
+    '& .row-actions': { opacity: actionsPinned ? 1 : 0 },
     '&:hover': {
       bgcolor: selected ? 'action.selected' : 'action.hover',
     },
+    '&:hover .row-actions, &:focus-within .row-actions': { opacity: 1 },
   }) as const;
 
 export const SessionHistoryRow: FC<{
@@ -123,7 +125,7 @@ export const SessionHistoryRow: FC<{
         }}
         role="button"
         sx={{
-          ...sessionCardSx(selected),
+          ...sessionCardSx(selected, menuOpen),
           ...(highlighted === true
             ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' }
             : {}),
@@ -184,6 +186,7 @@ export const SessionHistoryRow: FC<{
           ) : null}
           {selection === undefined ? (
             <SessionActionsMenu
+              className="row-actions"
               onInteractionChange={setMenuOpen}
               entry={entry}
               onClientError={onClientError}

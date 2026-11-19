@@ -93,6 +93,8 @@ export const ProjectGroup: FC<{
         <AccordionSummary
           sx={{
             '&:hover': { bgcolor: 'action.hover' },
+            '& .header-action': { opacity: menuAnchor === null ? 0 : 1 },
+            '&:hover .header-action, &:focus-within .header-action': { opacity: 1 },
             '& .folder-open': { display: 'none' },
             '&.Mui-expanded .folder-closed': { display: 'none' },
             '&.Mui-expanded .folder-open': { display: 'inline-flex' },
@@ -126,6 +128,7 @@ export const ProjectGroup: FC<{
           ) : null}
           <IconButton
             aria-label={`Project actions for ${label}`}
+            className="header-action"
             component="span"
             onClick={event => {
               event.stopPropagation();
@@ -138,6 +141,7 @@ export const ProjectGroup: FC<{
           </IconButton>
           <IconButton
             aria-label={`Create session in ${label}`}
+            className="header-action"
             component="span"
             edge="end"
             onClick={event => {

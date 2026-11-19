@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { pinSession, updateSessionIndex } from '@lib/hoa-home';
+import { pinSession } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
 import type { HostServices } from '@lib/context-services';
@@ -13,7 +13,6 @@ import { advertise, CLAUDE, CODEX, connectFakeAgent, freshRegistry, setPhase } f
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
-import { hydrateCachedRows } from './projects.atoms.ts';
 import {
   beginSessionList,
   clearListStatesOfCwd,
@@ -329,34 +328,6 @@ describe('Per-Project Session History lists', () => {
       run.page({ sessions: [row('/a', 'ok'), { cwd: '/a' }, { sessionId: 'no-cwd' }] });
       yield* run.complete();
       assert.deepStrictEqual(history(CODEX), ['ok']);
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect('hydrates a newly added Project cached rows as unavailable without duplicating live rows', () =>
-    Effect.gen(function* () {
-      const { layer, registry } = yield* setup();
-      yield* updateSessionIndex(
-        toLaunchTarget(CODEX),
-        {
-          '/new': [
-            { cwd: '/new', sessionId: 'cached' },
-            { cwd: '/new', sessionId: 'live' },
-          ],
-        },
-        new Set(),
-      ).pipe(Effect.provide(layer));
-      updateHarnessSnapshot(registry, CODEX, current => ({
-        ...current,
-        sessionHistory: [{ cwd: '/new', sessionId: 'live' }],
-      }));
-      yield* hydrateCachedRows(registry, ['/new']).pipe(Effect.provide(layer));
-      assert.deepStrictEqual(
-        registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.map(e => [e.sessionId, e.unavailable]),
-        [
-          ['live', undefined],
-          ['cached', true],
-        ],
-      );
     }).pipe(Effect.scoped),
   );
 });

@@ -1,17 +1,18 @@
 /** Projects: one hoa-home list for all launch targets, hydrated by HarnessCacheGate. Never grown from rows or probe cwds. */
-import { addProject, readSessionIndex, removeProject, removeSessionIndexCwds, sessionIndexRows } from '@lib/hoa-home';
+import { addProject, removeProject } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
+import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { activeSessionsInCwd } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { hydrateSessionCache, removeSessionCacheCwd } from './sessionCache.ts';
 import { clearListStatesOfCwd, listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
@@ -63,38 +64,8 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
     );
   }
   clearListStatesOfCwd(registry, cwd);
-  yield* Effect.forEach(
-    MOUNTED_AGENT_LAUNCH_TARGETS,
-    launchTarget =>
-      removeSessionIndexCwds(toLaunchTarget(launchTarget), [cwd]).pipe(
-        Effect.catchCause(cause => Effect.logWarning('session index cleanup failed', launchTarget, cause)),
-      ),
-    { discard: true },
-  );
+  yield* removeSessionCacheCwd(cwd);
 });
-
-/** Hydrates cached `session-index.json` rows of newly added Projects as unavailable rows (like startup hydration). */
-export const hydrateCachedRows = (registry: AtomRegistry.AtomRegistry, cwds: readonly string[]) =>
-  Effect.forEach(
-    MOUNTED_AGENT_LAUNCH_TARGETS,
-    launchTarget =>
-      readSessionIndex(toLaunchTarget(launchTarget)).pipe(
-        Effect.flatMap(document =>
-          Effect.sync(() => {
-            const cached = markHistoryUnavailable(sessionIndexRows(document, new Set(cwds)));
-            updateHarnessSnapshot(registry, launchTarget, current => {
-              const present = new Set(current.sessionHistory.map(entry => entry.sessionId));
-              return replaceSessionHistory(current, [
-                ...current.sessionHistory,
-                ...cached.filter(entry => !present.has(entry.sessionId)),
-              ]);
-            });
-          }),
-        ),
-        Effect.catchCause(cause => Effect.logWarning('session index hydrate failed', launchTarget, cause)),
-      ),
-    { discard: true },
-  );
 
 export const createProjectsAtoms = ({
   atomRuntime,
@@ -114,7 +85,11 @@ export const createProjectsAtoms = ({
         get.set(projectsAtom, document.projects);
         const added = document.projects.filter(project => !known.includes(project));
         if (added.length > 0) {
-          yield* hydrateCachedRows(get.registry, added);
+          yield* Effect.forEach(
+            MOUNTED_AGENT_LAUNCH_TARGETS,
+            launchTarget => hydrateSessionCache(get.registry, launchTarget, added),
+            { discard: true },
+          );
           yield* listCwdsOnUsableTargets(get.registry, added, effect => {
             hostRunFork(effect);
           });

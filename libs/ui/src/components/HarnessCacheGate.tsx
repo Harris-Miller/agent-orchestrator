@@ -1,26 +1,18 @@
 import { RegistryContext } from '@effect/atom-react';
-import {
-  readConfigOptionIndexCache,
-  readPinnedSessions,
-  readProjects,
-  readSessionIndex,
-  sessionIndexRows,
-} from '@lib/hoa-home';
+import { readConfigOptionIndexCache, readPinnedSessions, readProjects } from '@lib/hoa-home';
 import { Effect, Exit, Option } from 'effect';
 import { useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
-import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { listedCwdsAtom } from '../atoms/listedCwds.atoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from '../atoms/projects.atoms.ts';
-import { startSessionIndexPersistence } from '../atoms/sessionIndexPersistence.ts';
+import { hydrateSessionCache, startSessionCachePersistence } from '../atoms/sessionCache.ts';
 import { sessionListScopeAtom } from '../atoms/sessionListScope.atoms.ts';
 import { scopeReadsProjects } from '../host/sessionListScope.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
 
 export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ children }) => {
@@ -49,20 +41,9 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
             launchTarget =>
               Effect.gen(function* () {
                 const target = toLaunchTarget(launchTarget);
-                const historyRead = yield* Effect.exit(readSessionIndex(target));
-                const document = Exit.isSuccess(historyRead) ? historyRead.value : { cwds: {} };
-                if (Exit.isFailure(historyRead)) {
-                  yield* Effect.logWarning('session index hydrate failed', launchTarget, historyRead.cause);
-                }
                 // Only the cwds this host lists hydrate; other cwds' entries stay in the file untouched.
-                updateHarnessSnapshot(registry, launchTarget, current =>
-                  replaceSessionHistory(
-                    current,
-                    markHistoryUnavailable(sessionIndexRows(document, new Set(listedCwds()))),
-                  ),
-                );
-                if (Exit.isSuccess(historyRead)) {
-                  unsubscribers.push(startSessionIndexPersistence(registry, launchTarget, listedCwds));
+                if (yield* hydrateSessionCache(registry, launchTarget, listedCwds())) {
+                  unsubscribers.push(yield* startSessionCachePersistence(registry, launchTarget, listedCwds));
                 }
                 const pinsRead = yield* Effect.exit(readPinnedSessions(target));
                 if (Exit.isSuccess(pinsRead)) {

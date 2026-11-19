@@ -68,12 +68,14 @@ export const projectListStatusAtom = Atom.family((cwd: string) =>
       state: states.get(listKey(launchTarget, cwd)),
     }));
     const incompleteLaunchTargets = entries.filter(entry => entry.state === 'incomplete').map(e => e.launchTarget);
-    // A target with no list yet is still pending (loading) unless it already failed to start.
-    const pending = entries.some(
-      entry =>
-        entry.state === 'loading' ||
-        (entry.state === undefined && get(backendHarnessSnapshotAtom(entry.launchTarget)).phase !== 'error'),
-    );
+    // A target with no list yet is pending only while it is still on its way to `usable`; error and signing-in targets
+    // may never list, so they must not hold the Project in loading forever.
+    const pending = entries.some(entry => {
+      if (entry.state === 'loading') return true;
+      if (entry.state !== undefined) return false;
+      const { phase } = get(backendHarnessSnapshotAtom(entry.launchTarget));
+      return phase === 'connecting' || phase === 'initialized';
+    });
     if (pending) return { incompleteLaunchTargets, state: 'loading' };
     return { incompleteLaunchTargets, state: incompleteLaunchTargets.length > 0 ? 'incomplete' : 'complete' };
   }).pipe(Atom.keepAlive),

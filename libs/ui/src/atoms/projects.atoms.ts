@@ -5,8 +5,10 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
+import { directoryBasename } from '../host/directoryBasename.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
+import { projectParentCaption } from '../host/projectParentCaption.ts';
 import { projectMembership } from '../host/projectSessions.ts';
 import type { ProjectMembership } from '../host/projectSessions.ts';
 
@@ -20,6 +22,14 @@ export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel
 
 /** True once the file was read. Stays false when it is malformed, so adding and Stop tracking never overwrite it. */
 export const projectsLoadedAtom = Atom.make(false).pipe(Atom.withLabel('projectsLoaded'), Atom.keepAlive);
+
+/** How a Project is presented: its basename label, plus the parent path when another Project shares that basename. */
+export const projectDisplayAtom = Atom.family((cwd: string) =>
+  Atom.make(get => ({
+    label: directoryBasename(cwd),
+    parentCaption: projectParentCaption(cwd, get(projectsAtom)),
+  })).pipe(Atom.keepAlive),
+);
 
 /** Membership of a Project: its active sessions (what Stop tracking closes) and whether Selected / the Bound Virtual belong to it. */
 export const projectMembershipAtom = Atom.family((cwd: string) =>

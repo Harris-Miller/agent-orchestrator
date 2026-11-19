@@ -253,7 +253,6 @@ export const WorkbenchNavRail: FC<{
                 const key = navSessionGroupStableKey(group);
                 return (
                   <ProjectGroup
-                    allProjects={projects}
                     expansion={sectionExpansion(key)}
                     group={group}
                     key={key}

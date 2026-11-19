@@ -2,12 +2,11 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
   agentLaunchTargetLabel,
-  directoryBasename,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
+  projectDisplayAtom,
   projectListStatusAtom,
   projectMembershipAtom,
-  projectParentCaption,
   refreshAllSessionHistoriesAtomFn,
   retryProjectListsAtomFn,
   sessionEntryKey,
@@ -47,7 +46,6 @@ export type ProjectGroupData = {
 
 /** A Project's Session History accordion: status glyph, `⋯` menu (Reload sessions, Stop tracking), "+", banner and rows. */
 export const ProjectGroup: FC<{
-  readonly allProjects: readonly string[];
   readonly expansion: { readonly expanded: boolean; readonly onChange: (event: unknown, expanded: boolean) => void };
   readonly group: ProjectGroupData;
   readonly onClientError: (error: unknown) => void;
@@ -59,7 +57,6 @@ export const ProjectGroup: FC<{
   readonly selectedSessionId: string | undefined;
   readonly showAllRows: boolean;
 }> = ({
-  allProjects,
   expansion,
   group,
   onClientError,
@@ -70,8 +67,7 @@ export const ProjectGroup: FC<{
   showAllRows,
 }) => {
   const { cwd } = group;
-  const label = directoryBasename(cwd);
-  const parentCaption = projectParentCaption(cwd, allProjects);
+  const { label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
   const status = useAtomValue(projectListStatusAtom(cwd));
   const { activeSessions } = useAtomValue(projectMembershipAtom(cwd));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });

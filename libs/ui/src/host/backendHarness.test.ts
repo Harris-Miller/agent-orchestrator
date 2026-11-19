@@ -58,27 +58,36 @@ const makeHandlers = (events: string[], cached: boolean): BackendHarnessCallback
     events.push(phase);
   },
   onRpcMessage: () => undefined,
-  onSessionHistoryRequest: () => undefined,
-  onSessionHistoryResult: () => {
-    events.push('history');
-  },
+  onSessionListBegin: () => ({
+    complete: () =>
+      Effect.sync(() => {
+        events.push('history');
+      }),
+    fail: () => {
+      events.push('list-failed');
+    },
+    page: () => {
+      events.push('page');
+    },
+  }),
   onSessionUpdate: () => undefined,
 });
 
-const scope = { _tag: 'Unscoped' } as const;
+const cwds = ['/w'] as const;
 const LT = 'claude-agent-acp' as const;
-const listPayload = listSessionsPayload(scope)!;
+const listPayload = listSessionsPayload(LT, '/w');
+const noPage = () => undefined;
 
 const run = (events: string[], cached: boolean) =>
   Effect.forkChild(
-    Effect.scoped(runBackendHarness(LT, makeHandlers(events, cached), () => scope)) as Effect.Effect<void>,
+    Effect.scoped(runBackendHarness(LT, makeHandlers(events, cached), () => cwds)) as Effect.Effect<void>,
   );
 
 describe('runBackendHarness', () => {
-  it.effect('bootstrap follows every session/list page and reports history once with all sessions', () =>
+  it.effect('bootstrap follows every session/list page of every Project cwd, handing pages over as they arrive', () =>
     Effect.gen(function* () {
       const events: string[] = [];
-      const results: string[][] = [];
+      const pages: string[][] = [];
       let lists = 0;
       control.listGate = Effect.suspend(() => {
         lists += 1;
@@ -90,23 +99,31 @@ describe('runBackendHarness', () => {
       });
       const handlers: BackendHarnessCallbacks = {
         ...makeHandlers(events, true),
-        onSessionHistoryResult: result => {
-          results.push((result as { sessions: { sessionId: string }[] }).sessions.map(x => x.sessionId));
-        },
+        onSessionListBegin: () => ({
+          complete: () =>
+            Effect.sync(() => {
+              events.push('history');
+            }),
+          fail: () => undefined,
+          page: page => {
+            pages.push((page as { sessions: { sessionId: string }[] }).sessions.map(x => x.sessionId));
+          },
+        }),
       };
 
       const fiber = yield* Effect.forkChild(
-        Effect.scoped(runBackendHarness(LT, handlers, () => scope)) as Effect.Effect<void>,
+        Effect.scoped(runBackendHarness(LT, handlers, () => cwds)) as Effect.Effect<void>,
       );
       yield* Effect.yieldNow;
       yield* Effect.yieldNow;
-      assert.deepStrictEqual(results, [['a', 'b']]);
+      assert.deepStrictEqual(pages, [['a'], ['b']]);
       assert.strictEqual(lists, 2);
+      assert.include(events, 'history');
       yield* Fiber.interrupt(fiber);
     }),
   );
 
-  it.effect('with a cached index: usable immediately, no probe, ready after session/list', () =>
+  it.effect('with a cached index: usable immediately, no probe, ready without waiting for session/list', () =>
     Effect.gen(function* () {
       const events: string[] = [];
       const listGate = yield* Deferred.make<{ sessions: unknown[] }>();
@@ -117,12 +134,13 @@ describe('runBackendHarness', () => {
       yield* Effect.yieldNow;
       yield* Effect.yieldNow;
       assert.include(events, 'usable');
-      assert.notInclude(events, 'ready');
+      assert.include(events, 'ready');
+      assert.notInclude(events, 'history');
 
       yield* Deferred.succeed(listGate, { sessions: [] });
       yield* Effect.yieldNow;
       yield* Effect.yieldNow;
-      assert.isBelow(events.indexOf('history'), events.indexOf('ready'));
+      assert.isAbove(events.indexOf('history'), events.indexOf('ready'));
       assert.strictEqual(control.probeCalls, 0);
       assert.notInclude(events, 'index');
       yield* Fiber.interrupt(fiber);
@@ -170,22 +188,17 @@ describe('runBackendHarness', () => {
     }),
   );
 
-  it.effect('a session/list failure after usable reports Connection lost before the error, then reconnects', () =>
+  it.effect('a session/list failure after usable marks that list incomplete and never fails the harness', () =>
     Effect.gen(function* () {
       const events: string[] = [];
-      let lists = 0;
-      control.listGate = Effect.suspend(() => {
-        lists += 1;
-        return lists === 1 ? Effect.fail(new Error('list boom')) : Effect.never;
-      });
+      control.listGate = Effect.fail(new Error('list boom'));
 
       const fiber = yield* run(events, true);
       yield* Effect.yieldNow;
       yield* Effect.yieldNow;
-      assert.deepStrictEqual(events, ['connecting', 'initialized', 'usable', 'lost', 'error']);
-
-      yield* TestClock.adjust('1 second');
-      assert.deepStrictEqual(events.slice(5, 8), ['connecting', 'initialized', 'usable']);
+      assert.sameMembers(events, ['connecting', 'initialized', 'usable', 'list-failed', 'ready']);
+      assert.notInclude(events, 'error');
+      assert.notInclude(events, 'lost');
       yield* Fiber.interrupt(fiber);
     }),
   );
@@ -201,14 +214,14 @@ describe('runBackendHarness', () => {
         yield* Effect.yieldNow;
         yield* Effect.yieldNow;
         assert.include(events, 'ready');
-        assert.deepStrictEqual(yield* listSessions(LT, listPayload), { sessions: [] });
+        yield* listSessions(LT, listPayload, noPage);
 
         yield* Fiber.interrupt(fiber);
         assert.deepStrictEqual(
           events.filter(event => event === 'lost' || event === 'error'),
           ['lost'],
         );
-        const error = yield* Effect.flip(listSessions(LT, listPayload));
+        const error = yield* Effect.flip(listSessions(LT, listPayload, noPage));
         assert.instanceOf(error, BackendNotConnected);
       }),
   );
@@ -216,14 +229,14 @@ describe('runBackendHarness', () => {
   it.effect('retries exhausted leaves no connection registered', () =>
     Effect.gen(function* () {
       const events: string[] = [];
-      control.listGate = Effect.fail(new Error('list boom'));
+      control.probe = Effect.fail(new Error('probe boom'));
 
-      const fiber = yield* run(events, true);
+      const fiber = yield* run(events, false);
       yield* TestClock.adjust('1 second');
       yield* TestClock.adjust('1 second');
       yield* Fiber.await(fiber);
       assert.strictEqual(events.filter(event => event === 'error').length, 3);
-      const error = yield* Effect.flip(listSessions(LT, listPayload));
+      const error = yield* Effect.flip(listSessions(LT, listPayload, noPage));
       assert.instanceOf(error, BackendNotConnected);
     }),
   );

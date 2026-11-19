@@ -19,22 +19,26 @@ type ListAgent = Pick<AcpAgentConnection['agent'], 'session/list'>;
 type ListPayload = Parameters<ListAgent['session/list']>[0];
 
 /**
- * `session/list` across every page: follows `nextCursor` until exhausted and merges `sessions` in order. Any page
- * failure fails the whole effect (nothing partial). The result is the last page with merged sessions and no `nextCursor`.
+ * `session/list` across every page: follows `nextCursor` until exhausted, handing each page to `onPage` as it
+ * arrives (so earlier pages survive a later failure). A page failure, a repeated cursor or the page cap fails this
+ * one list only.
  */
-export const listAllSessions = Effect.fnUntraced(function* (agent: ListAgent, payload: Omit<ListPayload, 'cursor'>) {
+export const listSessionPages = Effect.fnUntraced(function* (
+  agent: ListAgent,
+  payload: Omit<ListPayload, 'cursor'>,
+  onPage: (page: ListSessionsResponse) => void,
+) {
   const seen = new Set<string>();
-  const sessions: ListSessionsResponse['sessions'][number][] = [];
   let cursor: string | undefined;
   for (let page = 0; ; page += 1) {
     if (page >= MAX_LIST_PAGES) {
       return yield* new TooManySessionListPages({ pages: page });
     }
     const response = yield* agent['session/list'](cursor === undefined ? payload : { ...payload, cursor });
-    sessions.push(...response.sessions);
-    const { nextCursor, ...rest } = response;
+    onPage(response);
+    const { nextCursor } = response;
     if (nextCursor === undefined || nextCursor === null) {
-      return { ...rest, sessions };
+      return;
     }
     if (seen.has(nextCursor)) {
       return yield* new RepeatedSessionListCursor({ cursor: nextCursor });

@@ -87,7 +87,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by session cwd (desktop nav: groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first) except sessions classified into the No Folder group, which is listed last. Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and listed per Project on desktop (one `session/list` per launch target and Project `cwd`, paged to exhaustion in the background after the Harness is usable; pages merge by `sessionId` as they arrive; see **Project list completeness**) and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first). Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Show archived**:
@@ -98,36 +98,32 @@ _Avoid_: archive filter, list filter (when you mean this toggle)
 Desktop-only control under a long Session History cwd group that toggles the group between its first rows and all of them. Session-only UI state; the Pinned section never has one.
 _Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
-**No Folder group**:
-Session History display group for Session cwds that match vendor Desktop projectless/scratch path-segment conventions (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`). One shared group across providers; not creatable from the Session History accordion; visibility gated by User settings (default shown). Does not write vendor Desktop state. Classification is segment-based by design (see `@lib/ui` ADR-0004); known miss: Codex custom `projectlessWorkspaceRoot` outside `Documents/Codex` will not classify.
-_Avoid_: VS Code Workspace cwd absence, AO Session directory, project root, code `noFolder`
+**Project**:
+An absolute directory the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History lists sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent) and removed only by **Stop tracking**. Never added from Session History rows, Config probe cwds, or a cwd loaded through VS Code. Paths compare exact after trailing-separator normalization.
+_Avoid_: tracked cwd, remembered folder, saved cwd, workspace
 
-**Tracked cwd**:
-A Session cwd the Harness remembers beyond its Session History rows, persisted in hoa-home (one list shared across launch targets and host apps). A cwd becomes tracked as soon as a visible Session History row carries it (No Folder cwds never are) and stays tracked until the user untracks it, so it outlives deleted or archived sessions. Tracking continues while Show empty folders is off.
-_Avoid_: project, remembered folder, saved cwd
+**Project cwd group**:
+A desktop Session History accordion group for one Project, always shown (spinner while its lists load, "No sessions" when empty), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: completeness glyph, "+" (create a session there), and a `⋯` menu (Reload sessions, Stop tracking). Shows a thin progress bar while loading and an incomplete banner with Retry when a list failed.
+_Avoid_: empty cwd group, ghost group
 
-**Empty cwd group**:
-A desktop Session History cwd group for a Tracked cwd with no visible Session History rows (every session deleted, or archived while Show archived is off). Shown with its "+" (create a session there) and an Untrack button only while Show empty folders is on. A cwd group that still has rows, even only pinned ones, is not empty.
-_Avoid_: empty project, ghost group
+**Project list completeness**:
+Per (launch target, Project) state of that `session/list`: `loading` (paging in progress), `complete` (paged to exhaustion), or `incomplete` (a page failed, a cursor repeated, or the page cap hit; rows already merged are kept and nothing is dropped). Retry re-lists only the incomplete lists.
+_Avoid_: sync status, load error
 
-**Show empty folders**:
-User settings toggle (`showEmptyCwdGroups`) that lists Empty cwd groups among the cwd groups; on when unset. Display only: it never changes what is tracked.
-_Avoid_: show empty projects, show tracked
-
-**Untrack**:
-The user action, offered only on an Empty cwd group, that removes its Tracked cwd. The cwd is tracked again when a visible Session History row carries it.
-_Avoid_: forget project, delete folder (nothing on disk changes)
+**Stop tracking**:
+The user action, on any Project, that removes it: its rows leave in-app Session History and its persisted index entries are removed. Never deletes sessions on the agent and never deletes pins; re-adding the Project restores everything. With Active sessions in the Project, asks for confirmation, then cancels in-flight prompts and Deactivates each (an agent without `sessionCapabilities.close` is marked inactive locally; a close failure is reported and does not block). If the Selected session belonged to the Project, Selected resets to a fresh Virtual draft.
+_Avoid_: untrack, forget project, delete folder (nothing on disk changes)
 
 **Session header**:
 The top row of the chat surface, the same in desktop main chat and VS Code Chat: the agent launch target icon and Session title of what is Selected (`New Session` while Virtual), plus Session actions when they apply (see **Session actions**): Rename right beside the title, the other actions as icon buttons at the far end (no Pin/Unpin there). When the header row is narrow they collapse back into the menu (Rename included, still without Pin/Unpin). Each host adds its own controls before and after it.
 _Avoid_: chat header, title bar
 
 **Pin**:
-A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
+A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A pin is unpinned automatically only when its session is missing from a complete list of its own Project (a partial, incomplete or other-Project list never unpins), or when the session is deleted in the UI. A pin whose cwd is not a loaded Project is hidden on desktop but kept (it may belong to a VS Code workspace).
 _Avoid_: favorite, star, bookmark
 
 **Pinned section**:
-The top Session History region listing visible pinned entries, unarchived before archived, each newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename ("No Folder" for scratch cwds), shown regardless of the No Folder group setting. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
+The top Session History region listing visible pinned entries, unarchived before archived, each newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
 
 **Session actions**:
 The per-session actions (a menu on a History entry row, icon buttons without Pin/Unpin in the Session header): Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown; optimistic: the confirm dialog closes, Selected clears and the History entry leaves Session History at once, `session/delete` runs in the background and a failure is shown as an error toast, the Pin is removed only after it succeeds, and the entry returns on the next list refresh). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry they are Unarchive (which also opens it), Pin/Unpin, and Delete. Both presentations share the same actions and availability rules. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).

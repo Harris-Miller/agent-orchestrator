@@ -1,4 +1,4 @@
-/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by HarnessCacheGate, swept after successful lists. */
+/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by `hydrateHarnessCaches`, swept after each complete Project list. */
 import { pinSession, unpinSessions } from '@lib/hoa-home';
 import type { PinnedSession } from '@lib/hoa-home';
 import { Effect } from 'effect';
@@ -10,10 +10,8 @@ import { compareHistoryEntries } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
-import type { SessionListScope } from '../host/sessionListScope.ts';
 
-import { visibleSessionHistoryAtom } from './backendState.atoms.ts';
+import { visibleListedSessionHistoryAtom } from './listedCwds.atoms.ts';
 
 export const pinnedSessionsAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<readonly PinnedSession[]>([]).pipe(Atom.withLabel(`pinnedSessions:${launchTarget}`), Atom.keepAlive),
@@ -24,7 +22,10 @@ export const pinsLoadedAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make(false).pipe(Atom.withLabel(`pinsLoaded:${launchTarget}`), Atom.keepAlive),
 );
 
-/** Visible pinned rows across launch targets, in Session History order. Hidden archived pins stay stored. */
+/**
+ * Visible pinned rows across launch targets, in Session History order. Hidden archived pins stay stored, as do pins
+ * whose cwd is not listed by this host (not a loaded Project): hidden here, never removed.
+ */
 export const pinnedEntriesAtom = Atom.make(get => {
   const pinnedIds = new Map(
     MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => [
@@ -32,7 +33,7 @@ export const pinnedEntriesAtom = Atom.make(get => {
       new Set(get(pinnedSessionsAtom(launchTarget)).map(pin => pin.sessionId)),
     ]),
   );
-  return get(visibleSessionHistoryAtom)
+  return get(visibleListedSessionHistoryAtom)
     .filter((entry: UnifiedHistoryEntry) => pinnedIds.get(entry.launchTarget)?.has(entry.sessionId) === true)
     .sort(compareHistoryEntries);
 }).pipe(Atom.keepAlive);
@@ -48,18 +49,6 @@ export const removePins = Effect.fn('removePins')(
   },
   Effect.catchCause(cause => Effect.logWarning('unpin sessions failed', cause)),
 );
-
-/**
- * Shared "after successful list" step for every list path. `pinsBeforeRequest` must be read before the request is
- * sent so pins made while it was in flight (session/new races) are never swept.
- */
-export const reconcilePinsAfterList = (
-  registry: AtomRegistry.AtomRegistry,
-  launchTarget: AgentLaunchTarget,
-  pinsBeforeRequest: readonly PinnedSession[],
-  listResult: unknown,
-  scope: SessionListScope,
-) => removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBeforeRequest, listResult, scope));
 
 export type PinTarget = {
   readonly launchTarget: AgentLaunchTarget;

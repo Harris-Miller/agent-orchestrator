@@ -448,7 +448,7 @@ describe('Harness event fold: Connection lost', () => {
 
 describe('Harness event fold: Session History list', () => {
   it.effect(
-    'merges the listed scope, hides the Bound Virtual id, and keeps pins made while the list was in flight',
+    'a complete Project list replaces that cwd, hides the Bound Virtual id, and keeps pins made while the list was in flight',
     () =>
       Effect.gen(function* () {
         const h = yield* setup();
@@ -470,20 +470,18 @@ describe('Harness event fold: Session History list', () => {
         h.registry.set(pinnedSessionsAtom(LT), before.pinned);
         h.registry.set(pinsLoadedAtom(LT), true);
 
-        h.fold.onSessionHistoryRequest();
+        const run = h.fold.onSessionListBegin('/a');
         const during = yield* pinSession(toLaunchTarget(LT), { cwd: '/a', sessionId: 'a-new-pin' }).pipe(
           Effect.provide(h.layer),
         );
         h.registry.set(pinnedSessionsAtom(LT), during.pinned);
-        h.fold.onSessionHistoryResult(
-          {
-            sessions: [
-              { cwd: '/a', sessionId: 'a-listed' },
-              { cwd: '/a', sessionId: 'bound' },
-            ],
-          },
-          { _tag: 'Cwd', cwd: '/a' },
-        );
+        run.page({
+          sessions: [
+            { cwd: '/a', sessionId: 'a-listed' },
+            { cwd: '/a', sessionId: 'bound' },
+          ],
+        });
+        yield* run.complete().pipe(Effect.provide(h.layer));
         yield* h.drain;
 
         assert.sameMembers(

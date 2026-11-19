@@ -12,7 +12,10 @@ export const SessionIndexEntrySchema = Schema.StructWithRest(
 
 export type SessionIndexEntry = typeof SessionIndexEntrySchema.Type;
 
-export const SessionIndexDocumentSchema = Schema.Struct({ sessions: Schema.Array(SessionIndexEntrySchema) });
+/** Rows grouped by session cwd, so a host rewrites only the cwds it lists (merge-on-write). */
+export const SessionIndexDocumentSchema = Schema.Struct({
+  cwds: Schema.Record(Schema.String, Schema.Array(SessionIndexEntrySchema)),
+});
 export type SessionIndexDocument = typeof SessionIndexDocumentSchema.Type;
-export const emptySessionIndex: SessionIndexDocument = { sessions: [] };
+export const emptySessionIndex: SessionIndexDocument = { cwds: {} };
 export const SessionIndexDocumentJsonString = Schema.fromJsonString(SessionIndexDocumentSchema, { space: 2 });

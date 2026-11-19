@@ -9,3 +9,5 @@ Writes use last-write-wins without a filesystem lock. The webview filesystem doe
 The Config option index cache hydrates before the agent probe and is replaced only after successful probe publication. Removed models reset to provider defaults; removed or invalid option values reset to the option's current default. Active sessions reconcile after successful load/resume; failures are logged and do not fail activation.
 
 Partially supersedes [ADR 0007](./0007-config-option-index-via-config-probe.md), which described the index as ephemeral.
+
+Amended by [ADR 0021](./0021-per-cwd-session-index-merge-on-write.md): the index is per cwd, and reconciliation is per cwd rather than by scope.

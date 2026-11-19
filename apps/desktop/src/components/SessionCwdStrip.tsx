@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  addProjectAtomFn,
   directoryBasename,
   LucideMuiIcon,
   patchVirtualSessionAtomFn,
@@ -16,12 +17,13 @@ import type { FC } from 'react';
 import { CreateSessionDirectoryPicker } from './workbenchNavRail/CreateSessionDirectoryPicker.tsx';
 
 /** Desktop Session cwd strip (tucked by SessionChatBody aboveComposer). Clickable only for Virtual. */
-export const SessionCwdStrip: FC = () => {
+export const SessionCwdStrip: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
   const selected = useAtomValue(selectedAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (selected === undefined) {
@@ -67,10 +69,12 @@ export const SessionCwdStrip: FC = () => {
       </Box>
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
+          confirmLabel="Select"
           onClose={() => {
             setPickerOpen(false);
           }}
           onSelectDirectory={nextCwd => {
+            addProject(nextCwd).catch(onClientError);
             patchVirtual({ cwd: nextCwd }).catch(() => undefined);
           }}
         />

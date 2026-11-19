@@ -82,6 +82,10 @@ const PROVIDER_QUIRKS: Readonly<Record<AgentLaunchTarget, ProviderQuirks>> = {
   'cursor-acp': { airClientCapabilities: [], claudeCodeOptions: false, neverResume: true },
 };
 
+/** True when the client offers AIR `sessionIndex` to this launch target (its `session/list` honours the AIR list meta). */
+export const declaresSessionIndex = (launchTarget: AgentLaunchTarget): boolean =>
+  PROVIDER_QUIRKS[launchTarget].airClientCapabilities.includes(airCapability.sessionIndex);
+
 /** Value at `path`, or undefined when any step is not an object. */
 const at = (value: unknown, path: readonly string[]): unknown =>
   path.reduce<unknown>((node, key) => (Predicate.isObject(node) ? node[key] : undefined), value);

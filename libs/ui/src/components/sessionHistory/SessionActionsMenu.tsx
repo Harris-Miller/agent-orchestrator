@@ -22,6 +22,7 @@ const stopPropagation = (event: SyntheticEvent) => {
 export const SessionActionsMenu: FC<{
   readonly entry: UnifiedHistoryEntry;
   readonly onBeforeAction?: () => void;
+  readonly className?: string;
   readonly omitPin?: boolean;
   readonly onInteractionChange?: (active: boolean) => void;
   readonly onClientError?: (error: unknown) => void;
@@ -29,6 +30,7 @@ export const SessionActionsMenu: FC<{
   readonly onRenameRequest?: () => void;
   readonly sx?: { readonly mr?: number };
 }> = ({
+  className,
   omitPin = false,
   onBeforeAction,
   onInteractionChange,
@@ -52,6 +54,7 @@ export const SessionActionsMenu: FC<{
     <>
       <IconButton
         aria-label="Session actions"
+        className={className}
         onClick={event => {
           event.stopPropagation();
           setMenuAnchor(event.currentTarget);

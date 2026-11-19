@@ -21,8 +21,6 @@ import {
   notificationSoundEnabledAtom,
   notifierSupportedAtom,
   notifyOnlyWhenUnfocusedAtom,
-  showEmptyCwdGroupsAtom,
-  showNoFolderGroupAtom,
   userSettingsAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
@@ -39,12 +37,8 @@ export const GeneralSettingsPane: FC = () => {
   const setAppOrchestratedAgents = useAtomSet(appOrchestratedAgentsAtom);
   const developerMode = useAtomValue(developerModeAtom);
   const setDeveloperMode = useAtomSet(developerModeAtom);
-  const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
-  const setShowNoFolderGroup = useAtomSet(showNoFolderGroupAtom);
   const midTurnSend = useAtomValue(midTurnSendAtom);
   const setMidTurnSend = useAtomSet(midTurnSendAtom);
-  const showEmptyCwdGroups = useAtomValue(showEmptyCwdGroupsAtom);
-  const setShowEmptyCwdGroups = useAtomSet(showEmptyCwdGroupsAtom);
   const notificationsOn = useAtomValue(notificationsEnabledAtom);
   const setNotificationsOn = useAtomSet(notificationsEnabledAtom);
   const notificationSoundOn = useAtomValue(notificationSoundEnabledAtom);
@@ -79,19 +73,6 @@ export const GeneralSettingsPane: FC = () => {
           />
         </SettingsRow>
         <SettingsRow
-          title="Show No Folder group in Sessions"
-          description="Include sessions without a folder in the session list."
-        >
-          <Switch
-            slotProps={{ input: { 'aria-label': 'Show No Folder group in Sessions' } }}
-            checked={showNoFolderGroup}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setShowNoFolderGroup(checked);
-            }}
-          />
-        </SettingsRow>
-        <SettingsRow
           title="Send while an agent is working"
           description="Steer sends your message into the running turn. Queue holds it and sends it when the turn ends. While Steering is offered, a second button beside Send offers the other one. Only for agents that support steering."
         >
@@ -110,19 +91,6 @@ export const GeneralSettingsPane: FC = () => {
             <ToggleButton value="steer">Steer</ToggleButton>
             <ToggleButton value="queue">Queue</ToggleButton>
           </ToggleButtonGroup>
-        </SettingsRow>
-        <SettingsRow
-          title="Show empty folders in Sessions"
-          description="Keep folders you have used in Session History after their sessions are deleted or archived."
-        >
-          <Switch
-            slotProps={{ input: { 'aria-label': 'Show empty folders in Sessions' } }}
-            checked={showEmptyCwdGroups}
-            disabled={editsDisabled}
-            onChange={(_event, checked) => {
-              setShowEmptyCwdGroups(checked);
-            }}
-          />
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title="Notifications">

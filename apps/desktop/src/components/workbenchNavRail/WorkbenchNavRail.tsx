@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import type { NavSessionGroup, UnifiedHistoryEntry } from '@lib/ui';
+import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
+  addProjectAtomFn,
   BulkActionBar,
   BulkSelectToggle,
   ConfirmSessionDeleteDialog,
@@ -8,50 +9,44 @@ import {
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
-  isNoFolderSessionCwd,
+  listedSessionHistoryAtom,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
   pinnedEntriesAtom,
+  projectsAtom,
   refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionEntryKey,
   SessionHistoryRow,
   ShowArchivedToggle,
-  showEmptyCwdGroupsAtom,
-  showNoFolderGroupAtom,
-  trackedCwdsAtom,
-  unifiedSessionHistoryAtom,
-  untrackCwdAtomFn,
   useBulkSessionSelection,
   useSessionDeleteRequest,
   useSessionHistorySearch,
-  visibleSessionHistoryAtom,
+  visibleListedSessionHistoryAtom,
   withoutPinned,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { Folder, FolderOpen, PanelLeftClose, Pin, Plus, RotateCw, Settings, SquarePen, X } from 'lucide-react';
+import { FolderPlus, PanelLeftClose, Pin, RotateCw, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
+
+import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
+import { ProjectGroup } from './ProjectGroup.tsx';
 
 export const WORKBENCH_NAV_RAIL_WIDTH = 400;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
-/** Rows a Session History cwd group shows before its Show more box. */
-const CWD_GROUP_ROW_LIMIT = 10;
 // Panel widths (px) at which the header title grows from "HOA" to "The HOA" to the full name; leaves room for header actions.
 // Kept just under WORKBENCH_NAV_RAIL_WIDTH so the full name shows at the default width.
 const TITLE_MEDIUM_MIN_WIDTH = 260;
@@ -64,68 +59,39 @@ const withKey = (keys: ReadonlySet<string>, key: string, present: boolean): Read
   return next;
 };
 
-const pinnedCaption = (entry: UnifiedHistoryEntry): string =>
-  isNoFolderSessionCwd(entry.cwd) ? 'No Folder' : directoryBasename(entry.cwd);
-
-const NO_FOLDER_TOOLTIP = 'Projectless / scratch sessions';
-
-type NavGroupPresentation = {
-  readonly createCwd: string | undefined;
-  readonly key: string;
-  readonly label: string;
-  readonly tooltip: string;
-};
-
-const navGroupPresentation = (group: NavSessionGroup<UnifiedHistoryEntry>): NavGroupPresentation => {
-  if (group.kind === 'cwd') {
-    return {
-      createCwd: group.cwd,
-      key: navSessionGroupStableKey(group),
-      label: directoryBasename(group.cwd),
-      tooltip: group.cwd,
-    };
-  }
-  return {
-    createCwd: undefined,
-    key: navSessionGroupStableKey(group),
-    label: 'No Folder',
-    tooltip: NO_FOLDER_TOOLTIP,
-  };
-};
+const pinnedCaption = (entry: UnifiedHistoryEntry): string => directoryBasename(entry.cwd);
 
 export const WorkbenchNavRail: FC<{
   readonly onClientError: (error: unknown) => void;
   readonly onClose: () => void;
 }> = ({ onClientError, onClose }) => {
-  const history = useAtomValue(visibleSessionHistoryAtom);
-  const unifiedHistory = useAtomValue(unifiedSessionHistoryAtom);
+  const history = useAtomValue(visibleListedSessionHistoryAtom);
+  const listedHistory = useAtomValue(listedSessionHistoryAtom);
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
-  const showNoFolderGroup = useAtomValue(showNoFolderGroupAtom);
-  const showEmptyCwdGroups = useAtomValue(showEmptyCwdGroupsAtom);
-  const trackedCwds = useAtomValue(trackedCwdsAtom);
+  const projects = useAtomValue(projectsAtom);
   const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
-  const untrackCwd = useAtomSet(untrackCwdAtomFn, { mode: 'promise' });
+  const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
+  const [addingProject, setAddingProject] = useState(false);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
   const search = useSessionHistorySearch({
-    entries: unifiedHistory,
+    // Search covers every loaded Project's sessions (archived or not), nothing else.
+    entries: listedHistory,
     scope: 'desktop',
     onClientError,
     selectedSessionId,
     caption: pinnedCaption,
   });
 
-  // Pinned rows render once, in the Pinned section; a group left with no rows keeps its header (and "+"). A group is
-  // empty (and can be untracked) only when it had no rows before the pinned ones were taken out.
-  const navGroups = groupAndSortSessionsForNav(history, showEmptyCwdGroups ? trackedCwds : [])
-    .filter(group => group.kind !== 'noFolder' || showNoFolderGroup)
-    .map(group => ({
-      ...group,
-      empty: group.sessions.length === 0,
-      sessions: withoutPinned(group.sessions, pinnedEntries),
-    }));
+  // Pinned rows render once, in the Pinned section; a Project group left with no rows keeps its header (and "+"). A group
+  // is empty ("No sessions") only when it had no rows before the pinned ones were taken out.
+  const navGroups = groupAndSortSessionsForNav(history, projects).map(group => ({
+    ...group,
+    empty: group.sessions.length === 0,
+    sessions: withoutPinned(group.sessions, pinnedEntries),
+  }));
 
   // Exactly the rows the rail renders (rows behind Show more or a collapsed section stay selectable).
   const bulk = useBulkSessionSelection(
@@ -225,14 +191,25 @@ export const WorkbenchNavRail: FC<{
             </ListItemIcon>
             <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
           </ListItemButton>
+          <ListItemButton
+            onClick={() => {
+              setAddingProject(true);
+            }}
+            sx={{ borderRadius: 1, py: 0.75 }}
+          >
+            <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+              <LucideMuiIcon fontSize="small" icon={FolderPlus} />
+            </ListItemIcon>
+            <ListItemText primary="Add Project" slotProps={{ primary: { variant: 'body2' } }} />
+          </ListItemButton>
         </Box>
         <Box sx={{ pl: 2 }}>{search.field}</Box>
         <Box sx={{ flex: 1, minHeight: 0, overflow: search.active ? 'hidden' : 'auto' }}>
           {search.active ? (
             <Box sx={{ pl: 2, height: '100%', minHeight: 0 }}>{search.results}</Box>
-          ) : history.length === 0 && navGroups.length === 0 ? (
+          ) : navGroups.length === 0 && pinnedEntries.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
-              No sessions yet. Create one to get started.
+              No Projects yet. Add a Project to see its sessions.
             </Typography>
           ) : (
             <Box sx={{ py: 0.5 }}>
@@ -273,123 +250,21 @@ export const WorkbenchNavRail: FC<{
                 </Accordion>
               ) : null}
               {navGroups.map(group => {
-                const presentation = navGroupPresentation(group);
-                const createCwdForGroup = presentation.createCwd;
-                const showAllRows = showMoreExpandedGroups.has(presentation.key);
-                const overflowCount = group.sessions.length - CWD_GROUP_ROW_LIMIT;
+                const key = navSessionGroupStableKey(group);
                 return (
-                  <Accordion
-                    {...sectionExpansion(presentation.key)}
-                    key={presentation.key}
-                    sx={{ bgcolor: 'transparent', borderBottom: 0 }}
-                  >
-                    <AccordionSummary
-                      sx={{
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                        },
-                        '& .folder-open': { display: 'none' },
-                        '&.Mui-expanded .folder-closed': { display: 'none' },
-                        '&.Mui-expanded .folder-open': { display: 'inline-flex' },
-                        '& .MuiAccordionSummary-content': {
-                          gap: 0.75,
-                          m: 0,
-                          width: '100%',
-                        },
-                        fontWeight: 600,
-                        minHeight: 0,
-                        px: 2,
-                        py: 1,
-                      }}
-                    >
-                      <LucideMuiIcon className="folder-closed" icon={Folder} sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                      <LucideMuiIcon
-                        className="folder-open"
-                        icon={FolderOpen}
-                        sx={{ flexShrink: 0, fontSize: '1rem' }}
-                      />
-                      <Tooltip title={presentation.tooltip}>
-                        <Box
-                          component="span"
-                          sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', whiteSpace: 'normal' }}
-                        >
-                          {presentation.label}
-                        </Box>
-                      </Tooltip>
-                      {group.kind === 'cwd' && group.empty ? (
-                        <Tooltip title="Untrack folder">
-                          <IconButton
-                            aria-label={`Untrack ${presentation.label}`}
-                            component="span"
-                            onClick={event => {
-                              event.stopPropagation();
-                              untrackCwd(group.cwd).catch(() => undefined);
-                            }}
-                            size="small"
-                            sx={{ flexShrink: 0, ml: 'auto' }}
-                          >
-                            <LucideMuiIcon fontSize="small" icon={X} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : null}
-                      {createCwdForGroup !== undefined ? (
-                        <IconButton
-                          aria-label={`Create session in ${presentation.label}`}
-                          component="span"
-                          edge="end"
-                          onClick={event => {
-                            event.stopPropagation();
-                            ensureVirtualSession({
-                              cwd: createCwdForGroup,
-                              patchCwdIfSelectedVirtual: true,
-                            }).catch(() => undefined);
-                          }}
-                          size="small"
-                          sx={{ flexShrink: 0, ml: 'auto' }}
-                        >
-                          <LucideMuiIcon fontSize="small" icon={Plus} />
-                        </IconButton>
-                      ) : null}
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                      {group.empty ? (
-                        <Typography color="text.secondary" sx={{ px: 2, py: 1 }} variant="body2">
-                          No sessions
-                        </Typography>
-                      ) : null}
-                      {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
-                        <SessionHistoryRow
-                          entry={entry}
-                          key={sessionEntryKey(entry)}
-                          onClientError={onClientError}
-                          onDeleteRequest={requestDelete}
-                          selected={selectedSessionId === entry.sessionId}
-                          selection={rowSelection(entry)}
-                        />
-                      ))}
-                      {overflowCount > 0 ? (
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            mb: 1,
-                            mr: 2,
-                            mt: 0.5,
-                          }}
-                        >
-                          <Button
-                            onClick={() => {
-                              toggleShowMoreBox(presentation.key);
-                            }}
-                            size="small"
-                            variant="outlined"
-                          >
-                            {showAllRows ? 'Show less' : `Show more (${overflowCount})`}
-                          </Button>
-                        </Box>
-                      ) : null}
-                    </AccordionDetails>
-                  </Accordion>
+                  <ProjectGroup
+                    expansion={sectionExpansion(key)}
+                    group={group}
+                    key={key}
+                    onClientError={onClientError}
+                    onDeleteRequest={requestDelete}
+                    onToggleShowMore={() => {
+                      toggleShowMoreBox(key);
+                    }}
+                    rowSelection={rowSelection}
+                    selectedSessionId={selectedSessionId}
+                    showAllRows={showMoreExpandedGroups.has(key)}
+                  />
                 );
               })}
             </Box>
@@ -407,6 +282,17 @@ export const WorkbenchNavRail: FC<{
         </Box>
       </Box>
 
+      {addingProject ? (
+        <CreateSessionDirectoryPicker
+          confirmLabel="Add Project"
+          onClose={() => {
+            setAddingProject(false);
+          }}
+          onSelectDirectory={cwd => {
+            addProject(cwd).catch(onClientError);
+          }}
+        />
+      ) : null}
       <ConfirmSessionDeleteDialog onCancel={clearDeleteTarget} onClientError={onClientError} target={deleteTarget} />
     </>
   );

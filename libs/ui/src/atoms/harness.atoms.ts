@@ -14,7 +14,7 @@ import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearRpcWireLog } from './rpcWireLog.ts';
-import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
 export const createHarnessAtoms = (
@@ -47,7 +47,7 @@ export const createHarnessAtoms = (
       });
       lifecycle.start(
         launchTarget,
-        runBackendHarness(launchTarget, fold, () => registry.get(sessionListScopeAtom)),
+        runBackendHarness(launchTarget, fold, () => registry.get(listedCwdsAtom)),
       );
     }).pipe(Atom.withLabel(`backendHarness:${launchTarget}`), Atom.keepAlive),
   );

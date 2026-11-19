@@ -7,7 +7,7 @@ import * as developerPanelOpen from './developerPanelOpen.atoms.ts';
 import * as pinnedSessions from './pinnedSessions.atoms.ts';
 import * as selectedActiveSession from './selectedActiveSession.atoms.ts';
 import * as sessionListScope from './sessionListScope.atoms.ts';
-import * as trackedCwds from './trackedCwds.atoms.ts';
+import * as projects from './projects.atoms.ts';
 import * as virtualSession from './virtualSession.atoms.ts';
 import * as workspaceFolderPaths from './workspaceFolderPaths.atoms.ts';
 
@@ -18,7 +18,7 @@ const modules: readonly Record<string, unknown>[] = [
   pinnedSessions,
   selectedActiveSession,
   sessionListScope,
-  trackedCwds,
+  projects,
   virtualSession,
   workspaceFolderPaths,
 ];

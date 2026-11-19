@@ -434,11 +434,10 @@ describe('auth messages through bootstrap publication', () => {
             phases.push({ failure, phase });
           },
           onRpcMessage: noop,
-          onSessionHistoryRequest: noop,
-          onSessionHistoryResult: noop,
+          onSessionListBegin: () => ({ complete: () => Effect.void, fail: noop, page: noop }),
           onSessionUpdate: noop,
         },
-        () => ({ _tag: 'Skip' }),
+        () => [],
       );
       assert.deepStrictEqual(phases.at(-1), {
         failure: { _tag: 'NotSignedIn', message: '`claude` is not authenticated — run `claude` and log in' },

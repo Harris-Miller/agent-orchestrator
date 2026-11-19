@@ -1,4 +1,12 @@
-export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
+export {
+  capSessionIndexRows,
+  readSessionIndex,
+  removeSessionIndexCwds,
+  SESSION_INDEX_ROWS_PER_CWD,
+  sessionIndexPath,
+  sessionIndexRows,
+  updateSessionIndex,
+} from './sessionIndex.ts';
 export {
   emptySessionIndex,
   SessionIndexDocumentJsonString,
@@ -100,19 +108,20 @@ export {
   updatePinnedSessions,
 } from './pinnedSessions.ts';
 export {
-  readTrackedCwds,
-  trackCwds,
-  TrackedCwdsMalformed,
-  trackedCwdsPath,
-  untrackCwd,
-  updateTrackedCwds,
-} from './trackedCwds.ts';
+  addProject,
+  normalizeProjectPath,
+  projectsPath,
+  ProjectsMalformed,
+  readProjects,
+  removeProject,
+  updateProjects,
+} from './projects.ts';
 export {
-  emptyTrackedCwds,
-  type TrackedCwdsDocument,
-  TrackedCwdsDocumentJsonString,
-  TrackedCwdsDocumentSchema,
-} from './TrackedCwdsDocument.ts';
+  emptyProjects,
+  type ProjectsDocument,
+  ProjectsDocumentJsonString,
+  ProjectsDocumentSchema,
+} from './ProjectsDocument.ts';
 export {
   emptyPinnedSessions,
   type PinnedSession,

@@ -6,7 +6,7 @@ import { listSessionsPayload } from './sessionListScope.ts';
 import { BackendNotConnected, listSessions, registerBackendConnection } from './sessionRpc.ts';
 
 const LT = 'codex-acp' as const;
-const listPayload = listSessionsPayload({ _tag: 'Unscoped' })!;
+const listPayload = listSessionsPayload(LT, '/w');
 
 /** Connection whose `session/list` answers with `name`; reports record `'lost'` in `events`. */
 const fakeConnection = (name: string) =>
@@ -34,9 +34,12 @@ const recordingReports = (events: string[]): BackendConnectionReports => ({
   },
 });
 
-const listedName = listSessions(LT, listPayload).pipe(
-  Effect.map(result => (result as unknown as { name: string }).name),
-);
+const listedName = Effect.suspend(() => {
+  let name = '';
+  return listSessions(LT, listPayload, page => {
+    ({ name } = page as { name: string });
+  }).pipe(Effect.map(() => name));
+});
 
 describe('registerBackendConnection', () => {
   it.effect('session RPCs reach the connection while registered and fail BackendNotConnected after release', () =>
@@ -73,7 +76,7 @@ describe('registerBackendConnection', () => {
     }),
   );
 
-  it.effect('listSessions merges every page of the agent list', () =>
+  it.effect('listSessions hands over every page of the agent list', () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make();
       const s = (sessionId: string) => ({ sessionId, cwd: '/w' });
@@ -82,16 +85,16 @@ describe('registerBackendConnection', () => {
         pagedConnection({ '': { sessions: [s('a')], nextCursor: 'c1' }, c1: { sessions: [s('b')] } }),
         recordingReports([]),
       ).pipe(Scope.provide(scope));
-      const result = yield* listSessions(LT, listPayload);
-      assert.deepStrictEqual(
-        result.sessions.map(x => x.sessionId),
-        ['a', 'b'],
-      );
+      const ids: string[] = [];
+      yield* listSessions(LT, listPayload, page => {
+        ids.push(...(page as { sessions: { sessionId: string }[] }).sessions.map(x => x.sessionId));
+      });
+      assert.deepStrictEqual(ids, ['a', 'b']);
       yield* Scope.close(scope, Exit.void);
     }),
   );
 
-  it.effect('listSessions fails when a later page fails', () =>
+  it.effect('listSessions fails when a later page fails (earlier pages were already handed over)', () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make();
       yield* registerBackendConnection(
@@ -99,7 +102,7 @@ describe('registerBackendConnection', () => {
         pagedConnection({ '': { sessions: [{ sessionId: 'a', cwd: '/w' }], nextCursor: 'c1' }, c1: 'fail' }),
         recordingReports([]),
       ).pipe(Scope.provide(scope));
-      const exit = yield* Effect.exit(listSessions(LT, listPayload));
+      const exit = yield* Effect.exit(listSessions(LT, listPayload, () => undefined));
       assert.isTrue(Exit.isFailure(exit));
       yield* Scope.close(scope, Exit.void);
     }),

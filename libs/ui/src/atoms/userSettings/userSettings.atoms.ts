@@ -38,12 +38,6 @@ export const confirmSessionDeleteEnabled = (settings: UserSettings): boolean => 
 /** Developer mode is off when the Settings field is unset. */
 export const developerModeEnabled = (settings: UserSettings): boolean => settings.developerModeEnabled === true;
 
-/** Prefer showing the No Folder group when the Settings field is unset. */
-export const showNoFolderGroupEnabled = (settings: UserSettings): boolean => settings.showNoFolderGroup !== false;
-
-/** Prefer showing Empty cwd groups when the Settings field is unset. */
-export const showEmptyCwdGroupsEnabled = (settings: UserSettings): boolean => settings.showEmptyCwdGroups !== false;
-
 /** Notifications are on when the Settings field is unset. */
 export const notificationsEnabled = (settings: UserSettings): boolean => settings.notificationsEnabled !== false;
 
@@ -122,22 +116,6 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
         ...unwrapUserSettings(ctx.get(userSettingsAtom)),
         appOrchestratedAgentsEnabled: enabled,
       });
-    },
-  ).pipe(Atom.keepAlive);
-
-  /** Effective No Folder group visibility (on when unset). Write patches User settings. */
-  const showNoFolderGroupAtom = Atom.writable(
-    get => showNoFolderGroupEnabled(unwrapUserSettings(get(userSettingsAtom))),
-    (ctx, enabled: boolean) => {
-      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showNoFolderGroup: enabled });
-    },
-  ).pipe(Atom.keepAlive);
-
-  /** Effective Show empty folders (on when unset). Write patches User settings. */
-  const showEmptyCwdGroupsAtom = Atom.writable(
-    get => showEmptyCwdGroupsEnabled(unwrapUserSettings(get(userSettingsAtom))),
-    (ctx, enabled: boolean) => {
-      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), showEmptyCwdGroups: enabled });
     },
   ).pipe(Atom.keepAlive);
 
@@ -269,8 +247,6 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
     persistUserSettingsAtomFn,
     setModelPickerPrefsAtom,
     showArchivedSettingAtom,
-    showEmptyCwdGroupsAtom,
-    showNoFolderGroupAtom,
     themeAtom,
     userSettingsAtom,
   };

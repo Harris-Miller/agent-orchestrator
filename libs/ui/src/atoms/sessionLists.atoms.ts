@@ -1,0 +1,174 @@
+/**
+ * Per (launch target, Project) `session/list` state and the shared fold for one list: pages merge into Session History
+ * by `sessionId` as they arrive; a complete list does the cwd-scoped replace and the pin sweep; a failed one keeps rows.
+ */
+import type { HostServices } from '@lib/context-services';
+import { Effect } from 'effect';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
+
+import { isUsablePhase, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { applySessionListPage, dropUnlistedRows } from '../host/harnessStateTransitions.ts';
+import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
+import { runSessionLists } from '../host/sessionListRun.ts';
+import type { SessionListRun } from '../host/sessionListRun.ts';
+import { listSessionsPayload } from '../host/sessionListScope.ts';
+import { listSessions } from '../host/sessionRpc.ts';
+
+import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
+import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { pinnedSessionsAtom, removePins } from './pinnedSessions.atoms.ts';
+import { virtualSessionAtom } from './virtualSession.atoms.ts';
+
+/** Completeness of one (launch target, Project) list. */
+export type SessionListState = 'complete' | 'incomplete' | 'loading';
+
+export const listKey = (launchTarget: AgentLaunchTarget, cwd: string): string => `${launchTarget}\n${cwd}`;
+
+export const sessionListStatesAtom = Atom.make<ReadonlyMap<string, SessionListState>>(new Map()).pipe(
+  Atom.withLabel('sessionListStates'),
+  Atom.keepAlive,
+);
+
+/** The current run per list key; a run is live only while its token is the one recorded here. */
+const runTokensAtom = Atom.make<ReadonlyMap<string, symbol>>(new Map()).pipe(
+  Atom.withLabel('sessionListRunTokens'),
+  Atom.keepAlive,
+);
+
+const setListState = (
+  registry: AtomRegistry.AtomRegistry,
+  launchTarget: AgentLaunchTarget,
+  cwd: string,
+  state: SessionListState,
+): void => {
+  registry.update(sessionListStatesAtom, current => new Map(current).set(listKey(launchTarget, cwd), state));
+};
+
+/** Drops every list state and cancels every in-flight run of a Project (Stop tracking). */
+export const clearListStatesOfCwd = (registry: AtomRegistry.AtomRegistry, cwd: string): void => {
+  const keys = MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => listKey(launchTarget, cwd));
+  const without = <V>(current: ReadonlyMap<string, V>): ReadonlyMap<string, V> => {
+    const next = new Map(current);
+    for (const key of keys) next.delete(key);
+    return next;
+  };
+  registry.update(runTokensAtom, without);
+  registry.update(sessionListStatesAtom, without);
+};
+
+export type ProjectListStatus = {
+  readonly state: SessionListState;
+  /** Launch targets whose list for the Project is incomplete. */
+  readonly incompleteLaunchTargets: readonly AgentLaunchTarget[];
+};
+
+/**
+ * A Project's aggregate completeness: loading while any list loads (or none has started yet), else incomplete if
+ * any is. `incompleteLaunchTargets` is reported even while other lists load.
+ */
+export const projectListStatusAtom = Atom.family((cwd: string) =>
+  Atom.make((get): ProjectListStatus => {
+    const states = get(sessionListStatesAtom);
+    const entries = MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+      launchTarget,
+      state: states.get(listKey(launchTarget, cwd)),
+    }));
+    const incompleteLaunchTargets = entries.filter(entry => entry.state === 'incomplete').map(e => e.launchTarget);
+    // No list at all yet: loading until a provider comes up. A mounted target that never starts (not installed, beta
+    // target without a CLI) stays in `connecting`, so once any list exists the others must not hold the Project in loading.
+    const pending =
+      entries.some(entry => entry.state === 'loading') ||
+      (entries.every(entry => entry.state === undefined) &&
+        entries.some(entry => {
+          const { phase } = get(backendHarnessSnapshotAtom(entry.launchTarget));
+          return phase === 'connecting' || phase === 'initialized';
+        }));
+    if (pending) return { incompleteLaunchTargets, state: 'loading' };
+    return { incompleteLaunchTargets, state: incompleteLaunchTargets.length > 0 ? 'incomplete' : 'complete' };
+  }).pipe(Atom.keepAlive),
+);
+
+/** Runs a Host-service Effect off the caller's fiber (the pin sweep needs `HostServices`; `SessionListRun` stays service-free). */
+export type RunFork = (effect: Effect.Effect<void, never, HostServices>) => void;
+
+/**
+ * Begins one (launch target, cwd) list run: marks it loading and returns the fold for its pages and outcome.
+ * Lifecycle: begin → pages → complete | fail. A newer run for the same key supersedes this one, and Stop tracking
+ * cancels it; a superseded or cancelled run's page/complete/fail are no-ops.
+ */
+export const beginSessionList = (
+  registry: AtomRegistry.AtomRegistry,
+  launchTarget: AgentLaunchTarget,
+  cwd: string,
+  runFork: RunFork,
+): SessionListRun => {
+  const key = listKey(launchTarget, cwd);
+  const token = Symbol(key);
+  registry.update(runTokensAtom, current => new Map(current).set(key, token));
+  setListState(registry, launchTarget, cwd, 'loading');
+  const idsAtStart = new Set(
+    registry
+      .get(backendHarnessSnapshotAtom(launchTarget))
+      .sessionHistory.filter(entry => entry.cwd === cwd)
+      .map(entry => entry.sessionId),
+  );
+  // Read before the request so pins made while it is in flight (session/new races) are never swept.
+  const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
+  const listedIds = new Set<string>();
+  const stale = () => registry.get(runTokensAtom).get(key) !== token;
+  return {
+    complete: () =>
+      Effect.sync(() => {
+        if (stale()) return;
+        updateHarnessSnapshot(registry, launchTarget, current => dropUnlistedRows(current, cwd, listedIds, idsAtStart));
+        runFork(
+          Effect.suspend(() =>
+            stale()
+              ? Effect.void
+              : removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBefore, listedIds, cwd)),
+          ),
+        );
+        setListState(registry, launchTarget, cwd, 'complete');
+      }),
+    fail: () => {
+      if (stale()) return;
+      setListState(registry, launchTarget, cwd, 'incomplete');
+    },
+    page: page => {
+      if (stale()) return;
+      const rows = normalizeSessionHistory(page);
+      for (const { sessionId } of rows) listedIds.add(sessionId);
+      const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
+      updateHarnessSnapshot(registry, launchTarget, current => applySessionListPage(current, rows, boundSessionId));
+    },
+  };
+};
+
+/**
+ * Lists the given cwds on every usable launch target (bounded concurrency; a list's failure stays in that list).
+ * `onlyIncomplete` re-lists only the lists currently incomplete (Retry).
+ */
+export const listCwdsOnUsableTargets = (
+  registry: AtomRegistry.AtomRegistry,
+  cwds: readonly string[],
+  runFork: RunFork,
+  options: { readonly onlyIncomplete?: boolean } = {},
+) =>
+  Effect.forEach(
+    MOUNTED_AGENT_LAUNCH_TARGETS,
+    launchTarget => {
+      if (!isUsablePhase(registry.get(backendHarnessSnapshotAtom(launchTarget)).phase)) return Effect.void;
+      const states = registry.get(sessionListStatesAtom);
+      const wanted = cwds.filter(
+        cwd => options.onlyIncomplete !== true || states.get(listKey(launchTarget, cwd)) === 'incomplete',
+      );
+      return runSessionLists(
+        wanted.map(cwd => ({ cwd, run: beginSessionList(registry, launchTarget, cwd, runFork) })),
+        (cwd, onPage) => listSessions(launchTarget, listSessionsPayload(launchTarget, cwd), onPage),
+      );
+    },
+    { concurrency: 'unbounded', discard: true },
+  );

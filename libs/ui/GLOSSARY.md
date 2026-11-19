@@ -86,7 +86,7 @@ The one consumer of what a Backend harness reports for its launch target (sessio
 _Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then lists sessions after `usable`, and retries on failure. Each attempt holds at most one ACP Connection and ends it with Connection lost. One per mounted target; runs in parallel with siblings. Does not own the session transcript or the Backend harness snapshot: it reports to the Harness event fold.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then reports `ready` without waiting for any session list (per-Project lists run progressively after `usable`, off the ready path), and retries on failure. Each attempt holds at most one ACP Connection and ends it with Connection lost. One per mounted target; runs in parallel with siblings. Does not own the session transcript or the Backend harness snapshot: it reports to the Harness event fold.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Connection lost**:
@@ -102,7 +102,7 @@ What the Harness may ask of a launch target's ACP Agent on the current Backend c
 _Avoid_: initialize result (the raw response), ACP `agentCapabilities` (the wire field: only part of what is read, and not narrowed), capability helpers, advertised capabilities (when a Provider narrows them)
 
 **Bootstrap phase**:
-Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: session list has also published; the retry counter resets here. Client-side setup only — not an ACP Session or Turn.
+Harness-reported lifecycle while bringing a backend harness online: connecting → initialized → (signing-in for Antigravity Sign in) → usable → ready, or error. `usable`: initialize (and Sign in) done, and a Config option index exists (cached, or seeded by Config probe), so session RPCs (Bind, Materialize, resume) work and the launch target is selectable. `ready`: the backend is fully online; it does NOT wait for per-Project session lists (those run after `usable`, see Project list completeness). The retry counter resets here. Client-side setup only — not an ACP Session or Turn.
 _Avoid_: Status, connection state, phase atoms
 
 **Sign in**:
@@ -168,8 +168,16 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
+
+**Listed cwds**:
+The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
+_Avoid_: scope cwds, visible cwds
+
+**Session cache**:
+The on-disk copy of a launch target's Session History rows for the Listed cwds (plus pins), hydrated at startup and when a Project is added, and removed when a Project stops being tracked. A rebuildable cache, unlike Projects and pins. hoa-home calls the document it lives in the Application session index.
+_Avoid_: session store, history file
 
 **Unavailable model**:
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
@@ -275,6 +283,10 @@ _Avoid_: VS Code theme preference, sync theme, follow VS Code
 **Chat width**:
 The User setting (`chatWidth`, Comfortable when unset) that caps the Chat transcript and Composer column at the `md` breakpoint (Comfortable), the `lg` breakpoint (Wide), or the full pane (Full). The transcript scrollbar stays at the pane edge.
 _Avoid_: layout width, content width
+
+**Project list completeness**:
+State of one (launch target, Project) `session/list`: `loading` while paging, `complete` after the last page (the cwd-scoped replace and pin sweep run only then), `incomplete` after a failed page (rows already merged are kept; Retry re-lists only incomplete lists). A Project's aggregate is `loading` while any launch target loads, else `incomplete` if any is. Independent of Bootstrap phase `ready`.
+_Avoid_: list status, sync state
 
 **Session History search**:
 A search by Session title within the host’s Session History scope that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.

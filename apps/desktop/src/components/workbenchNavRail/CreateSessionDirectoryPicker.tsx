@@ -64,9 +64,11 @@ const Keycap: FC<{ readonly label: string }> = ({ label }) => (
 
 /** Directory picker only — caller owns what happens with the chosen cwd (Virtual session cwd, etc.). */
 export const CreateSessionDirectoryPicker: FC<{
+  /** Label of the confirm button ("Select" in the Composer, "Add Project" in the rail). */
+  readonly confirmLabel: string;
   readonly onClose: () => void;
   readonly onSelectDirectory: (cwd: string) => void;
-}> = ({ onClose, onSelectDirectory }) => {
+}> = ({ confirmLabel, onClose, onSelectDirectory }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const alwaysHiddenGlobs = useAtomValue(alwaysHiddenGlobsAtom);
   const [homePath, setHomePath] = useState<string | undefined>(undefined);
@@ -314,7 +316,7 @@ export const CreateSessionDirectoryPicker: FC<{
           sx={{ flexShrink: 0, textTransform: 'none' }}
           variant="outlined"
         >
-          Select
+          {confirmLabel}
         </Button>
       </Stack>
 

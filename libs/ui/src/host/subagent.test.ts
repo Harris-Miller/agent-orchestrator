@@ -14,6 +14,7 @@ import {
   reduceSubagentTranscriptUpdate,
   resetSubagentLiveState,
   rootAncestorId,
+  sessionHasLiveWork,
   subagentLatestActivity,
   subagentNeedsInput,
 } from './subagent.ts';
@@ -158,6 +159,19 @@ describe('resetSubagentLiveState', () => {
       state: 'completed',
     });
     assert.isUndefined(revived.stateUnconfirmed);
+  });
+});
+
+describe('sessionHasLiveWork', () => {
+  const running = { state: { state: 'running' } } as const;
+
+  it('is true for a Prompt turn in flight or Background follow-up, false when idle', () => {
+    const turn = { ...session('a'), pendingClientRequest: 'prompt' } as const;
+    assert.isTrue(sessionHasLiveWork(harness([turn]), turn));
+    const background = harness([session('a')], [subagent('c', 'a', running)]);
+    assert.isTrue(sessionHasLiveWork(background, background.sessions.a));
+    const idle = harness([session('a')]);
+    assert.isFalse(sessionHasLiveWork(idle, idle.sessions.a));
   });
 });
 

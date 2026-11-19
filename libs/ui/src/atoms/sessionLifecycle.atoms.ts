@@ -14,7 +14,7 @@ import {
 } from '../host/acpSessionBootstrap.ts';
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
-import { hasBackgroundActivity } from '../host/subagent.ts';
+import { sessionHasLiveWork } from '../host/subagent.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
@@ -405,10 +405,8 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           }
 
           // Prompt turn cancel first; a failed cancel must not block the close.
-          if (
-            snapshot.sessions[arg.sessionId]?.pendingClientRequest === 'prompt' ||
-            hasBackgroundActivity(snapshot, arg.sessionId)
-          ) {
+          const closing = snapshot.sessions[arg.sessionId];
+          if (closing !== undefined && sessionHasLiveWork(snapshot, closing)) {
             yield* runAtomFn(get.registry, cancelPromptAtomFn, arg).pipe(Effect.ignore);
           }
 

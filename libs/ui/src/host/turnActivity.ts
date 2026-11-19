@@ -1,7 +1,7 @@
 /** Turn activity: whether any Prompt turn (or Background follow-up) is working, i.e. whether the Keep-awake hold is wanted. */
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
 import { hasPendingInteraction } from './pendingInteractions.ts';
-import { hasBackgroundActivity, rootAncestorId } from './subagent.ts';
+import { rootAncestorId, sessionHasLiveWork } from './subagent.ts';
 
 /** Sessions whose turn is blocked on the user: a Pending interaction on the Session or any of its Subagent sessions. */
 const blockedSessionIds = (snapshot: BackendHarnessSnapshot): ReadonlySet<string> => {
@@ -20,9 +20,7 @@ const blockedSessionIds = (snapshot: BackendHarnessSnapshot): ReadonlySet<string
 };
 
 const harnessWorking = (snapshot: BackendHarnessSnapshot): boolean => {
-  const prompting = Object.values(snapshot.sessions).filter(
-    session => session.pendingClientRequest === 'prompt' || hasBackgroundActivity(snapshot, session.sessionId),
-  );
+  const prompting = Object.values(snapshot.sessions).filter(session => sessionHasLiveWork(snapshot, session));
   if (prompting.length === 0) {
     return false;
   }

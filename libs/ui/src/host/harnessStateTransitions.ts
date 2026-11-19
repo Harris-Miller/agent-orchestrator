@@ -208,16 +208,18 @@ export const upsertIntoSnapshot = (
 export const sessionTurnAction = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  input: TurnActionInput,
+  input: Omit<TurnActionInput, 'backgroundActive'>,
 ): ComposerAction =>
   isUsablePhase(snapshot.phase)
-    ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, input)
+    ? turnAction(sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined, {
+        ...input,
+        backgroundActive: hasBackgroundActivity(snapshot, sessionId),
+      })
     : { _tag: 'Unavailable', reason: 'NotReady' };
 
 /** A request that starts work (Send or Config change) never steers: a prompt in flight is `CancelTurn`. */
 const startAction = (snapshot: BackendHarnessSnapshot, sessionId: string, hasContent: boolean): ComposerAction =>
   sessionTurnAction(snapshot, sessionId, {
-    backgroundActive: hasBackgroundActivity(snapshot, sessionId),
     hasContent,
     steeringSupported: false,
   });

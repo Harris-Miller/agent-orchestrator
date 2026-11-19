@@ -193,6 +193,12 @@ export const hasBackgroundActivity = (
   );
 };
 
+/** A Prompt turn is in flight on `session`, or it has Background follow-up. */
+export const sessionHasLiveWork = (
+  snapshot: { readonly sessions: Readonly<Record<string, SessionSnapshot>>; readonly subagents: SubagentRecord },
+  session: SessionSnapshot,
+): boolean => session.pendingClientRequest === 'prompt' || hasBackgroundActivity(snapshot, session.sessionId);
+
 export const directChildren = (subagents: SubagentRecord, parentSessionId: string): readonly SubagentSnapshot[] =>
   Object.values(subagents).filter(child => child.parentSessionId === parentSessionId);
 

@@ -59,7 +59,7 @@ import {
 import { sessionFailureOf } from '../host/airMeta.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { acpErrorOfCause } from '../host/requestError.ts';
-import { hasBackgroundActivity } from '../host/subagent.ts';
+import { sessionHasLiveWork } from '../host/subagent.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
 import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
@@ -253,7 +253,6 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   const snapshot = snapshotOf(registry, launchTarget);
   const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
   const action = sessionTurnAction(snapshot, sessionId, {
-    backgroundActive: hasBackgroundActivity(snapshot, sessionId),
     hasContent: text.length > 0 || attachments.length > 0,
     steeringSupported: snapshot.agentCapabilities.steeringSupported,
   });
@@ -301,7 +300,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
   const session = sessionIn(registry, launchTarget, sessionId);
   const inTurn = session?.pendingClientRequest === 'prompt';
-  if (session === undefined || !(inTurn || hasBackgroundActivity(snapshotOf(registry, launchTarget), sessionId))) {
+  if (session === undefined || !sessionHasLiveWork(snapshotOf(registry, launchTarget), session)) {
     return;
   }
 

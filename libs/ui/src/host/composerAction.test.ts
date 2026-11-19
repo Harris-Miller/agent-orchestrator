@@ -121,9 +121,15 @@ describe('turnAction', () => {
       send,
     ],
     [
-      'empty, Background follow-up, Pending interaction → PendingInteraction',
+      'empty, Background follow-up, Pending interaction → Prompt turn cancel',
       session({ pendingPermission }),
       { backgroundActive: true, hasContent: false, steeringSupported: true },
+      cancelTurn,
+    ],
+    [
+      'content, Background follow-up, Pending interaction → PendingInteraction',
+      session({ pendingPermission }),
+      { backgroundActive: true, hasContent: true, steeringSupported: true },
       unavailable('PendingInteraction'),
     ],
   ];

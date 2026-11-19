@@ -57,7 +57,8 @@ export const turnAction = (
     return unavailable('NotActive');
   }
   if (hasPendingInteraction(session)) {
-    return unavailable('PendingInteraction');
+    // Like in-turn, Stop stays offered with an empty draft: Prompt turn cancel resolves the Pending interaction.
+    return backgroundActive && !hasContent ? { _tag: 'CancelTurn' } : unavailable('PendingInteraction');
   }
   if (hasContent) {
     return { _tag: 'Send' };

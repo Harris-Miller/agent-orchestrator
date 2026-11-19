@@ -17,7 +17,7 @@ import { describeError } from '../../../host/requestError.ts';
 import { useChatWidthSx } from '../chatWidth.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
-import { hasBackgroundActivity } from '../../../host/subagent.ts';
+import { sessionHasLiveWork } from '../../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { groupChatItems, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
 import { WorkRegionView } from './workRegion/WorkRegionView.tsx';
@@ -37,8 +37,9 @@ export const ChatTranscript: FC<{
 
   const turnOrBackgroundWorking =
     selectedSession !== undefined &&
-    (selectedSession.pendingClientRequest === 'prompt' ||
-      (backendSnapshot !== undefined && hasBackgroundActivity(backendSnapshot, selectedSession.sessionId)));
+    (backendSnapshot === undefined
+      ? selectedSession.pendingClientRequest === 'prompt'
+      : sessionHasLiveWork(backendSnapshot, selectedSession));
 
   const chatWidthSx = useChatWidthSx();
   const chatScrollRef = useRef<HTMLDivElement>(null);

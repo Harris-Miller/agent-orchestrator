@@ -57,21 +57,16 @@ import {
   withParentChatItem,
 } from './subagentRouting.ts';
 import { withoutUndefined } from '../optionalFields.ts';
-import type { SessionListScope } from './sessionListScope.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
 
+/** Merge listed rows by `sessionId`: a listed row replaces its cached one (clearing `unavailable`); others stay. */
 export const mergeListedHistory = (
   current: readonly HistoryEntry[],
   listed: readonly NormalizedSessionInfo[],
-  scope: SessionListScope,
 ): readonly HistoryEntry[] => {
-  if (scope._tag === 'Unscoped') return listed;
-  if (scope._tag === 'Skip') return current;
-  const ids = new Set(listed.map(entry => entry.sessionId));
-  const kept = current.filter(entry => entry.cwd !== scope.cwd && !ids.has(entry.sessionId));
-  const byId = new Map(kept.map(entry => [entry.sessionId, entry]));
+  const byId = new Map(current.map(entry => [entry.sessionId, entry as HistoryEntry]));
   for (const entry of listed) byId.set(entry.sessionId, entry);
   return [...byId.values()];
 };
@@ -82,19 +77,6 @@ export const excludeBoundVirtualFromHistory = (
   boundSessionId: string | undefined,
 ): readonly NormalizedSessionInfo[] =>
   boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
-
-/** Next history after a successful `session/list`: normalize, hide Bound Virtual, merge by scope. */
-export const historyAfterList = (
-  current: readonly HistoryEntry[],
-  listResult: unknown,
-  scope: SessionListScope,
-  boundSessionId: string | undefined,
-): readonly HistoryEntry[] =>
-  mergeListedHistory(
-    current,
-    excludeBoundVirtualFromHistory(normalizeSessionHistory(listResult), boundSessionId),
-    scope,
-  );
 
 /** Clear pending client request / elicitation / permission on the listed sessions. */
 export const stripSessionPendings = (
@@ -477,14 +459,36 @@ export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: str
   antigravityAuthUrl: url,
 });
 
-/** Next Session History after a successful `session/list` (see {@link historyAfterList}). */
-export const applySessionList = (
+/** Fold one `session/list` page into Session History: merge by `sessionId`, hiding the Bound Virtual id. */
+export const applySessionListPage = (
   snapshot: BackendHarnessSnapshot,
-  listResult: unknown,
-  scope: SessionListScope,
+  page: unknown,
   boundSessionId: string | undefined,
 ): BackendHarnessSnapshot =>
-  replaceSessionHistory(snapshot, historyAfterList(snapshot.sessionHistory, listResult, scope, boundSessionId));
+  replaceSessionHistory(
+    snapshot,
+    mergeListedHistory(
+      snapshot.sessionHistory,
+      excludeBoundVirtualFromHistory(normalizeSessionHistory(page), boundSessionId),
+    ),
+  );
+
+/**
+ * After a COMPLETE list of `cwd` (ADR 0016, cwd-scoped replace): drops that cwd's rows that were cached when the list
+ * began (`idsAtStart`) and were not listed. Rows that appeared after the list began (a session created meanwhile) stay.
+ */
+export const dropUnlistedRows = (
+  snapshot: BackendHarnessSnapshot,
+  cwd: string,
+  listedIds: ReadonlySet<string>,
+  idsAtStart: ReadonlySet<string>,
+): BackendHarnessSnapshot =>
+  replaceSessionHistory(
+    snapshot,
+    snapshot.sessionHistory.filter(
+      entry => entry.cwd !== cwd || listedIds.has(entry.sessionId) || !idsAtStart.has(entry.sessionId),
+    ),
+  );
 
 /**
  * Activation begins: cwd stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`

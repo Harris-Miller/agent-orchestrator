@@ -10,6 +10,6 @@ We filter in the app for three reasons:
 
 ## Consequences
 
-- The agent always returns archived rows, so lists are larger. With paging (#279), there are more pages to fetch.
+- The agent always returns archived rows, so lists are larger. With paging (#279), there are more pages to fetch; since #386 each Project is listed and paged separately (ADR 0012), and the archived list meta is sent only to launch targets declaring `sessionIndex`.
 - Changing the filter shape (for example adding "archived only") is a change to the app's predicate, not to the wire.
 - Agents that ignore the AIR filter, or never mark rows archived (Gemini, Cursor, Antigravity), behave the same whether Show archived is on or off.

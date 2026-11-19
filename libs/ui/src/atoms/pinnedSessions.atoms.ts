@@ -1,4 +1,4 @@
-/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by HarnessCacheGate, swept after successful lists. */
+/** Pinned sessions: per-launch-target pins (hoa-home), hydrated by HarnessCacheGate, swept after each complete Project list. */
 import { pinSession, unpinSessions } from '@lib/hoa-home';
 import type { PinnedSession } from '@lib/hoa-home';
 import { Effect } from 'effect';
@@ -10,8 +10,6 @@ import { compareHistoryEntries } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
-import type { SessionListScope } from '../host/sessionListScope.ts';
 
 import { visibleSessionHistoryAtom } from './backendState.atoms.ts';
 
@@ -48,18 +46,6 @@ export const removePins = Effect.fn('removePins')(
   },
   Effect.catchCause(cause => Effect.logWarning('unpin sessions failed', cause)),
 );
-
-/**
- * Shared "after successful list" step for every list path. `pinsBeforeRequest` must be read before the request is
- * sent so pins made while it was in flight (session/new races) are never swept.
- */
-export const reconcilePinsAfterList = (
-  registry: AtomRegistry.AtomRegistry,
-  launchTarget: AgentLaunchTarget,
-  pinsBeforeRequest: readonly PinnedSession[],
-  listResult: unknown,
-  scope: SessionListScope,
-) => removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBeforeRequest, listResult, scope));
 
 export type PinTarget = {
   readonly launchTarget: AgentLaunchTarget;

@@ -25,7 +25,6 @@ import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import {
   applyBootstrapPhase,
   applyInitializeResult,
-  applySessionList,
   applySessionUpdatePatch,
   raiseElicitation,
   raisePermission,
@@ -43,14 +42,13 @@ import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendStat
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { linkOf } from './subagentLinkRegistry.ts';
-import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
+import { beginSessionList } from './sessionLists.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   bindVirtualOnUsable,
   resetVirtualUnsupportedConfig,
   unbindVirtualOnConnectionLost,
-  virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
 export type HarnessEventFold = BackendHarnessCallbacks;
@@ -132,7 +130,6 @@ export const makeHarnessEventFold = ({
   };
 
   // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
-  let pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
 
   return {
     hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
@@ -192,14 +189,7 @@ export const makeHarnessEventFold = ({
         receivedAt: Date.now(),
       });
     },
-    onSessionHistoryRequest: () => {
-      pinsBeforeStartupList = registry.get(pinnedSessionsAtom(launchTarget));
-    },
-    onSessionHistoryResult: (listResult, scope) => {
-      const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-      update(current => applySessionList(current, listResult, scope, boundSessionId));
-      runFork(reconcilePinsAfterList(registry, launchTarget, pinsBeforeStartupList, listResult, scope));
-    },
+    onSessionListBegin: cwd => beginSessionList(registry, launchTarget, cwd, runFork),
     onSessionUpdate: (sessionId, sessionUpdate) => {
       const linked = modifyHarnessSnapshot(registry, launchTarget, current =>
         routeAndApplySessionUpdate(current, sessionId, sessionUpdate),

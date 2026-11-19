@@ -15,13 +15,11 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import {
   applyLoadedConfiguration,
-  applySessionList,
   beginActivation,
   dropSession,
   failActivation,
@@ -33,8 +31,7 @@ import {
   setSessionArchived,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
-import { listSessionsPayload } from '../host/sessionListScope.ts';
-import type { SessionListScope } from '../host/sessionListScope.ts';
+import { listCwdsForScope } from '../host/sessionListScope.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
@@ -42,7 +39,6 @@ import {
   archiveSession,
   deleteSession,
   forkSession,
-  listSessions,
   loadSession,
   renameSession,
   resumeSession,
@@ -63,9 +59,12 @@ import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { pinnedSessionsAtom, reconcilePinsAfterList, removePins } from './pinnedSessions.atoms.ts';
+import { removePins } from './pinnedSessions.atoms.ts';
+import { projectsAtom } from './projects.atoms.ts';
+import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
+import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { clearSelectedIfMissing, select, virtualSessionAtom } from './virtualSession.atoms.ts';
+import { clearSelectedIfMissing, select } from './virtualSession.atoms.ts';
 
 type CancelPromptAtomFn = ReturnType<typeof createChatAtoms>['cancelPromptAtomFn'];
 
@@ -100,22 +99,6 @@ const usableHarnessOrSkip = Effect.fnUntraced(function* (
     yield* Effect.logWarning(`${action} skipped; backend not usable`, launchTarget);
   }
   return snapshot;
-});
-
-/** Fetch one launch target's session list and fold it into the harness history (minus the Bound id). */
-const refreshHistoryFor = Effect.fnUntraced(function* (
-  get: Atom.FnContext,
-  launchTarget: AgentLaunchTarget,
-  listPayload: NonNullable<ReturnType<typeof listSessionsPayload>>,
-  scope: SessionListScope,
-) {
-  const pinsBefore = get(pinnedSessionsAtom(launchTarget));
-  const listResult = yield* listSessions(launchTarget, listPayload);
-  const boundSessionId = get(virtualSessionAtom)?.sessionId;
-  updateHarnessSnapshot(get.registry, launchTarget, current =>
-    applySessionList(current, listResult, scope, boundSessionId),
-  );
-  return { listResult, pinsBefore };
 });
 
 const updateAndClearSelection = Effect.fnUntraced(function* (
@@ -184,41 +167,37 @@ const forEachTargetContinuing = <E, R>(
   });
 
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
-  const { atomRuntime } = runtime;
+  const { atomRuntime, hostRunFork } = runtime;
+  const forkEffect: RunFork = effect => {
+    hostRunFork(effect);
+  };
 
   const clearSelectedAtomFn = atomRuntime
     .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))
     .pipe(Atom.keepAlive);
 
+  /**
+   * Re-lists Session History: one `session/list` per (usable launch target, cwd), where the cwds are every Project (or the
+   * VS Code Workspace cwd), or just `arg.cwd` when given. A list's failure is scoped to it (marks it incomplete).
+   */
   const refreshAllSessionHistoriesAtomFn = atomRuntime
     .fn(
-      Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        const scope = get(sessionListScopeAtom);
-        const listPayload = listSessionsPayload(scope);
-        // One provider failing must not interrupt the others.
-        const exits = yield* Effect.forEach(
-          MOUNTED_AGENT_LAUNCH_TARGETS,
-          launchTarget =>
-            Effect.exit(
-              Effect.gen(function* () {
-                const snapshot = usableHarness(get, launchTarget);
-                if (snapshot === undefined) {
-                  return;
-                }
-                if (listPayload === undefined) {
-                  return;
-                }
-                const { listResult, pinsBefore } = yield* refreshHistoryFor(get, launchTarget, listPayload, scope);
-                yield* reconcilePinsAfterList(get.registry, launchTarget, pinsBefore, listResult, scope);
-              }),
-            ),
-          { concurrency: 'unbounded' },
-        );
+      Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (
+        arg: { readonly cwd: string } | undefined,
+        get: Atom.FnContext,
+      ) {
+        const cwds = arg === undefined ? listCwdsForScope(get(sessionListScopeAtom), get(projectsAtom)) : [arg.cwd];
+        yield* listCwdsOnUsableTargets(get.registry, cwds, forkEffect);
         clearSelectedIfMissing(get.registry);
-        const failed = exits.find(Exit.isFailure);
-        if (failed !== undefined) {
-          return yield* failed;
-        }
+      }),
+    )
+    .pipe(Atom.keepAlive);
+
+  /** Retry: re-lists only the (launch target, Project) lists that are incomplete. */
+  const retryProjectListsAtomFn = atomRuntime
+    .fn(
+      Effect.fn('retryProjectListsAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
+        yield* listCwdsOnUsableTargets(get.registry, [cwd], forkEffect, { onlyIncomplete: true });
       }),
     )
     .pipe(Atom.keepAlive);
@@ -587,6 +566,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
+    retryProjectListsAtomFn,
     renameSessionAtomFn,
     unarchiveSessionAtomFn,
     unarchiveSessionsAtomFn,

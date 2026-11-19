@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { listSessionsPayload, sessionListScopeFromPaths, unscopedSessionListScope } from './sessionListScope.ts';
+import { listCwdsForScope, listSessionsPayload, sessionListScopeFromPaths } from './sessionListScope.ts';
 
 describe('sessionListScope', () => {
   it('sessionListScopeFromPaths maps empty to Skip and first path to Cwd', () => {
@@ -8,12 +8,19 @@ describe('sessionListScope', () => {
     assert.deepStrictEqual(sessionListScopeFromPaths(['/a', '/b']), { _tag: 'Cwd', cwd: '/a' });
   });
 
-  it('listSessionsPayload covers Unscoped / Cwd / Skip', () => {
-    const activeSessions = {
+  it('listCwdsForScope lists every Project, the one Workspace cwd, or nothing', () => {
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Projects' }, ['/a', '/b']), ['/a', '/b']);
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Cwd', cwd: '/ws' }, ['/a']), ['/ws']);
+    assert.deepStrictEqual(listCwdsForScope({ _tag: 'Skip' }, ['/a']), []);
+  });
+
+  it('listSessionsPayload sends the AIR meta only to sessionIndex launch targets', () => {
+    const air = {
       _meta: { jetbrains: { air: { list: { archived: 'all' as const, limit: 100 }, version: 1 as const } } },
     };
-    assert.deepStrictEqual(listSessionsPayload(unscopedSessionListScope), activeSessions);
-    assert.deepStrictEqual(listSessionsPayload({ _tag: 'Cwd', cwd: '/ws' }), { ...activeSessions, cwd: '/ws' });
-    assert.strictEqual(listSessionsPayload({ _tag: 'Skip' }), undefined);
+    assert.deepStrictEqual(listSessionsPayload('claude-agent-acp', '/ws'), { ...air, cwd: '/ws' });
+    assert.deepStrictEqual(listSessionsPayload('codex-acp', '/ws'), { ...air, cwd: '/ws' });
+    assert.deepStrictEqual(listSessionsPayload('cursor-acp', '/ws'), { cwd: '/ws' });
+    assert.deepStrictEqual(listSessionsPayload('antigravity-acp', '/ws'), { cwd: '/ws' });
   });
 });

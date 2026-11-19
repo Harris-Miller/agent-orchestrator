@@ -1,12 +1,27 @@
 import type { ListSessionsRequest } from '@libs/effect-acp';
 
-/** How bootstrap/refresh call `session/list`. Desktop stays Unscoped; vscode sets Cwd/Skip. */
+import { declaresSessionIndex } from './agentCapabilities.ts';
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+
+/** Which cwds Session History lists. Desktop lists every Project; vscode sets Cwd/Skip from the Workspace. */
 export type SessionListScope =
   | { readonly _tag: 'Cwd'; readonly cwd: string }
-  | { readonly _tag: 'Skip' }
-  | { readonly _tag: 'Unscoped' };
+  | { readonly _tag: 'Projects' }
+  | { readonly _tag: 'Skip' };
 
-export const unscopedSessionListScope: SessionListScope = { _tag: 'Unscoped' };
+export const projectsSessionListScope: SessionListScope = { _tag: 'Projects' };
+
+/** The cwds one launch target lists under `scope`: one `session/list` per cwd. */
+export const listCwdsForScope = (scope: SessionListScope, projects: readonly string[]): readonly string[] => {
+  switch (scope._tag) {
+    case 'Cwd':
+      return [scope.cwd];
+    case 'Projects':
+      return projects;
+    case 'Skip':
+      return [];
+  }
+};
 
 /** Page size asked of `session/list`: the smaller of Claude's (200) and Codex's (100) clamps; other providers ignore it. */
 export const SESSION_LIST_PAGE_LIMIT = 100;
@@ -31,18 +46,8 @@ export const sessionListScopeFromPaths = (paths: readonly string[]): SessionList
   return { _tag: 'Cwd', cwd };
 };
 
-/** Payload for `session/list` given current scope, or undefined when Skip (no RPC). */
-export const listSessionsPayload = (
-  scope: SessionListScope,
-): { readonly _meta: (typeof sessionListArchivedAll)['_meta']; readonly cwd?: string } | undefined => {
-  switch (scope._tag) {
-    case 'Cwd':
-      return { ...sessionListArchivedAll, cwd: scope.cwd };
-    case 'Skip':
-      return undefined;
-    case 'Unscoped':
-      return sessionListArchivedAll;
-  }
-};
+/** `session/list` payload for one cwd: the AIR meta only for launch targets declaring `sessionIndex`; plain ACP otherwise. */
+export const listSessionsPayload = (launchTarget: AgentLaunchTarget, cwd: string) =>
+  declaresSessionIndex(launchTarget) ? { ...sessionListArchivedAll, cwd } : { cwd };
 
-export type ListSessionsPayload = NonNullable<ReturnType<typeof listSessionsPayload>>;
+export type ListSessionsPayload = ReturnType<typeof listSessionsPayload>;

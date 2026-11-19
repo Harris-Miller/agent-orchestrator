@@ -7,6 +7,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
+import { listCwdsForScope } from '../host/sessionListScope.ts';
 import { requestAntigravitySignIn, runBackendHarness } from '../host/backendHarness.ts';
 
 import { backendDesiredStateAtom } from './backendState.atoms.ts';
@@ -14,6 +15,7 @@ import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearRpcWireLog } from './rpcWireLog.ts';
+import { projectsAtom } from './projects.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
@@ -47,7 +49,9 @@ export const createHarnessAtoms = (
       });
       lifecycle.start(
         launchTarget,
-        runBackendHarness(launchTarget, fold, () => registry.get(sessionListScopeAtom)),
+        runBackendHarness(launchTarget, fold, () =>
+          listCwdsForScope(registry.get(sessionListScopeAtom), registry.get(projectsAtom)),
+        ),
       );
     }).pipe(Atom.withLabel(`backendHarness:${launchTarget}`), Atom.keepAlive),
   );

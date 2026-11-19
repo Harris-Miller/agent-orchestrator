@@ -18,7 +18,7 @@ import {
   applyConfigResult,
   applyInitializeResult,
   applyLoadedConfiguration,
-  applySessionList,
+  applySessionListPage,
   applySessionUpdatePatch,
   beginActivation,
   beginConfigChange,
@@ -26,6 +26,7 @@ import {
   bindSession,
   dropSession,
   dropSessionIfPresent,
+  dropUnlistedRows,
   endClientRequest,
   endConfigChange,
   endPromptTurn,
@@ -53,18 +54,22 @@ describe('mergeListedHistory', () => {
     { cwd: '/a', sessionId: 'a' },
     { cwd: '/b', sessionId: 'b' },
   ];
-  it('replaces unscoped results, including empty results', () => {
-    assert.deepStrictEqual(mergeListedHistory(current, [{ cwd: '/c', sessionId: 'c' }], { _tag: 'Unscoped' }), [
-      { cwd: '/c', sessionId: 'c' },
-    ]);
-    assert.deepStrictEqual(mergeListedHistory(current, [], { _tag: 'Unscoped' }), []);
-  });
-  it('replaces only matching cwd and preserves Skip', () => {
-    assert.deepStrictEqual(mergeListedHistory(current, [{ cwd: '/a', sessionId: 'c' }], { _tag: 'Cwd', cwd: '/a' }), [
+  it('merges listed rows by sessionId, replacing a cached row (clearing unavailable) and keeping the rest', () => {
+    const cached = [
+      { cwd: '/a', sessionId: 'a', unavailable: true as const },
       { cwd: '/b', sessionId: 'b' },
-      { cwd: '/a', sessionId: 'c' },
-    ]);
-    assert.deepStrictEqual(mergeListedHistory(current, [], { _tag: 'Skip' }), current);
+    ];
+    assert.deepStrictEqual(
+      mergeListedHistory(cached, [
+        { cwd: '/a', sessionId: 'a', title: 'fresh' },
+        { cwd: '/a', sessionId: 'c' },
+      ]),
+      [
+        { cwd: '/a', sessionId: 'a', title: 'fresh' },
+        { cwd: '/b', sessionId: 'b' },
+        { cwd: '/a', sessionId: 'c' },
+      ],
+    );
   });
   it('marks hydrated entries unavailable', () => {
     assert.deepStrictEqual(
@@ -516,9 +521,9 @@ describe('bootstrap and wire folds', () => {
     assert.strictEqual(failed.failure, failure);
   });
 
-  it('applySessionList merges by scope and hides the Bound id', () => {
+  it('applySessionListPage merges by id and hides the Bound id', () => {
     const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/a', sessionId: 'old' }]);
-    const next = applySessionList(
+    const next = applySessionListPage(
       snapshot,
       {
         sessions: [
@@ -526,12 +531,25 @@ describe('bootstrap and wire folds', () => {
           { cwd: '/a', sessionId: 'bound' },
         ],
       },
-      { _tag: 'Unscoped' },
       'bound',
     );
     assert.deepStrictEqual(
       next.sessionHistory.map(entry => entry.sessionId),
-      ['new'],
+      ['old', 'new'],
+    );
+  });
+
+  it('dropUnlistedRows drops only that cwd rows cached at start and absent from the list', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [
+      { cwd: '/a', sessionId: 'gone' },
+      { cwd: '/a', sessionId: 'kept' },
+      { cwd: '/a', sessionId: 'created-meanwhile' },
+      { cwd: '/b', sessionId: 'other-cwd' },
+    ]);
+    const next = dropUnlistedRows(snapshot, '/a', new Set(['kept']), new Set(['gone', 'kept']));
+    assert.deepStrictEqual(
+      next.sessionHistory.map(entry => entry.sessionId),
+      ['kept', 'created-meanwhile', 'other-cwd'],
     );
   });
 });

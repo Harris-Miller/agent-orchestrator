@@ -12,6 +12,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { advertise, CODEX, connectFakeAgent, freshRegistry, gated, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
+import { projectsAtom } from './projects.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
@@ -190,6 +191,7 @@ describe('Archive', () => {
         runAtomFn(registry, atoms.archiveSessionAtomFn, { launchTarget: CODEX, sessionId: 's1' }),
       );
       yield* gate.started;
+      registry.set(projectsAtom, ['/proj']);
       yield* runAtomFn(registry, atoms.refreshAllSessionHistoriesAtomFn, undefined);
       yield* gate.release;
       yield* Fiber.join(archiving);

@@ -2,6 +2,7 @@ export * from './atoms/backendState.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export * from './atoms/projects.atoms.ts';
+export * from './atoms/sessionLists.atoms.ts';
 export { hostThemeAtom } from './atoms/theme.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';

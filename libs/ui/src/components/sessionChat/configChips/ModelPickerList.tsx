@@ -55,6 +55,7 @@ export const ModelPickerList: FC<{
         onPick(model);
       }}
       opacity={model.hidden ? 0.75 : 1}
+      recommended={model.recommended}
       selected={model.id === currentId}
       unavailable={model.disabled}
     />

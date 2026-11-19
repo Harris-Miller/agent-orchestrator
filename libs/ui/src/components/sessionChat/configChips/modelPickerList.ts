@@ -20,6 +20,8 @@ export type ModelRow = {
   readonly id: string;
   readonly label: string;
   readonly launchTarget: AgentLaunchTarget | undefined;
+  /** The agent recommends this model (AIR `recommendedValue`); never affects order or hiding. */
+  readonly recommended: boolean;
 };
 
 /**
@@ -31,6 +33,7 @@ export const modelRowsFor = (
   options: ModelPickerPrefs & {
     readonly currentId: string | undefined;
     readonly launchTarget: AgentLaunchTarget | undefined;
+    readonly recommendedId?: string | undefined;
     readonly unavailableIds: readonly string[];
   },
 ): readonly ModelRow[] => {
@@ -45,6 +48,7 @@ export const modelRowsFor = (
       id: choice.id,
       label: modelSelectChoiceLabel(choice.name, unavailable),
       launchTarget: options.launchTarget,
+      recommended: choice.id === options.recommendedId,
     };
   });
 };
@@ -124,6 +128,7 @@ export const pickerViewModel = (
       ...prefs,
       currentId: model.currentValue,
       launchTarget,
+      recommendedId: model.recommendedValue,
       unavailableIds: unavailableModelIds,
     }),
     suffix: chipSuffixParts(launchTarget, options, effort),

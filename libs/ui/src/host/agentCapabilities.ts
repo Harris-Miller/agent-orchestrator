@@ -64,12 +64,17 @@ type ProviderQuirks = {
 const PROVIDER_QUIRKS: Readonly<Record<AgentLaunchTarget, ProviderQuirks>> = {
   'antigravity-acp': { airClientCapabilities: [], claudeCodeOptions: false, neverResume: false },
   'claude-agent-acp': {
-    airClientCapabilities: [airCapability.sessionIndex, airCapability.sessionFailure, airCapability.loadReplayEnd],
+    airClientCapabilities: [
+      airCapability.sessionIndex,
+      airCapability.sessionFailure,
+      airCapability.loadReplayEnd,
+      airCapability.recommendedValue,
+    ],
     claudeCodeOptions: true,
     neverResume: false,
   },
   'codex-acp': {
-    airClientCapabilities: [airCapability.sessionIndex, airCapability.sessionFailure],
+    airClientCapabilities: [airCapability.sessionIndex, airCapability.sessionFailure, airCapability.recommendedValue],
     claudeCodeOptions: false,
     neverResume: false,
   },
@@ -128,9 +133,9 @@ export const mcpToolPreapprovalMeta = (
 
 /**
  * `clientCapabilities` for this launch target's initialize request (AIR offer: `sessionIndex` + `sessionFailure` for
- * Claude / Codex, plus `loadReplayEnd` for Claude). `sessionFailure` is client-side only: declaring it makes the
- * adapters send typed failure rows instead of plain-text chunks (e.g. Codex `Warning:` text), so the client filters
- * nothing.
+ * Claude / Codex, plus `loadReplayEnd` for Claude, plus `recommendedValue` for both). `sessionFailure` is client-side
+ * only: declaring it makes the adapters send typed failure rows instead of plain-text chunks (e.g. Codex `Warning:`
+ * text), so the client filters nothing.
  */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
   ...(PROVIDER_QUIRKS[launchTarget].airClientCapabilities.length > 0

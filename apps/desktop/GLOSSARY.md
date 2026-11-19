@@ -172,6 +172,10 @@ The history of a loading Session has fully arrived, before the load itself finis
 An agent-reported session setting — a select (named choices such as model or mode) or a boolean on/off toggle. Populated from session activation responses and update notifications.
 _Avoid_: Setting, preference, parameter
 
+**Recommended value**:
+The choice an agent marks as suggested on its model or effort Config option (AIR `recommendedValue`), independent of the option's current value. The Composer's model picker shows it as a "Recommended" marker. Never reorders, hides, or selects anything.
+_Avoid_: Default (the agent's own default model is a different thing)
+
 **Session configuration**:
 The Config options of one Session as the agent last reported them: first from its `session/new`, `session/load`, or `session/resume` response, then from each `session/set_config_option` response and config option update, plus a user Config change the agent has not answered yet. Held on the session snapshot; the selected model and mode are its `model` and `mode` options, not separate values. Config option updates change only this configuration (the Composer's choices); they never appear in the Session transcript.
 _Avoid_: Session state, session/new result, live Config, selected model id (as a separate value)

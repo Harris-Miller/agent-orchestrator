@@ -25,6 +25,7 @@ export const ReasoningList: FC<{
           onSelect={() => {
             onChange({ configId: effort.id, type: 'select', value: choice.id });
           }}
+          recommended={choice.id === effort.recommendedValue}
           selected={effort.currentValue === choice.id}
         />
       ))}

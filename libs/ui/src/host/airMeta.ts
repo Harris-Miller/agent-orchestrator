@@ -5,6 +5,7 @@ import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {
   loadReplayEnd: 'loadReplayEnd',
+  recommendedValue: 'recommendedValue',
   sessionArchive: 'sessionArchive',
   sessionFailure: 'sessionFailure',
   sessionIndex: 'sessionIndex',
@@ -67,4 +68,10 @@ export const sessionFailureOf = (meta: unknown): Option.Option<SessionFailure> =
 /** True when a `session_info_update` carries `_meta.jetbrains.air.loadReplayEnd === true` (end of a `session/load` replay). */
 export const isLoadReplayEnd = (update: Readonly<Record<string, unknown>>): boolean => {
   return airOf(update)?.loadReplayEnd === true;
+};
+
+/** The AIR `_meta.jetbrains.air.recommendedValue` of a select config option: the choice the agent suggests, or undefined. */
+export const recommendedValueOf = (entry: Readonly<Record<string, unknown>>): string | undefined => {
+  const value = airOf(entry)?.recommendedValue;
+  return typeof value === 'string' ? value : undefined;
 };

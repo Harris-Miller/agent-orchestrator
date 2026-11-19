@@ -2,7 +2,14 @@ import { assert, describe, it } from '@effect/vitest';
 
 import { Option } from 'effect';
 
-import { airCapability, isArchivedEntry, isLoadReplayEnd, isSkillCommand, sessionFailureOf } from './airMeta.ts';
+import {
+  airCapability,
+  isArchivedEntry,
+  isLoadReplayEnd,
+  isSkillCommand,
+  recommendedValueOf,
+  sessionFailureOf,
+} from './airMeta.ts';
 
 describe('isLoadReplayEnd', () => {
   it('is true only for _meta.jetbrains.air.loadReplayEnd === true', () => {
@@ -59,5 +66,21 @@ describe('sessionFailureOf', () => {
 
   it('is a named AIR capability', () => {
     assert.strictEqual(airCapability.sessionFailure, 'sessionFailure');
+  });
+});
+
+describe('recommendedValueOf', () => {
+  it('reads a string _meta.jetbrains.air.recommendedValue', () => {
+    assert.strictEqual(recommendedValueOf({ _meta: { jetbrains: { air: { recommendedValue: 'opus' } } } }), 'opus');
+  });
+
+  it('is undefined when absent or not a string', () => {
+    assert.isUndefined(recommendedValueOf({ _meta: { jetbrains: { air: {} } } }));
+    assert.isUndefined(recommendedValueOf({ _meta: { jetbrains: { air: { recommendedValue: 3 } } } }));
+    assert.isUndefined(recommendedValueOf({ id: 'model' }));
+  });
+
+  it('is a named AIR capability', () => {
+    assert.strictEqual(airCapability.recommendedValue, 'recommendedValue');
   });
 });

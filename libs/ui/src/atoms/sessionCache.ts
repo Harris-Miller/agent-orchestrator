@@ -63,6 +63,13 @@ const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetCache) => 
   return next;
 };
 
+/** Test/shutdown helper: resolves once every launch target's write queue has drained (including writes queued meanwhile). */
+export const settleSessionCacheWrites = async (): Promise<void> => {
+  const pending = [...caches.values()].map(cache => cache.writes);
+  await Promise.all(pending);
+  if ([...caches.values()].some((cache, i) => cache.writes !== pending[i])) await settleSessionCacheWrites();
+};
+
 /**
  * Merges the cached rows of `cwds` into the launch target's snapshot as unavailable rows. Rows already in the snapshot
  * win; cached rows are only added. Returns whether the file was read (an IO failure is logged, not thrown).

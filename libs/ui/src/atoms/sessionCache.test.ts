@@ -18,6 +18,7 @@ import {
   hydrateSessionCache,
   indexRowsByCwd,
   removeSessionCacheCwd,
+  settleSessionCacheWrites,
   startSessionCachePersistence,
 } from './sessionCache.ts';
 import { listedCwdsAtom } from './listedCwds.atoms.ts';
@@ -44,12 +45,7 @@ const setup = Effect.fnUntraced(function* () {
       Object.fromEntries(Object.entries(cwds).map(([cwd, ids]) => [cwd, ids.map(sessionId => ({ cwd, sessionId }))])),
       new Set(),
     ).pipe(Effect.provide(layer));
-  const settle = Effect.promise(
-    () =>
-      new Promise<void>(resolve => {
-        setTimeout(resolve, 20);
-      }),
-  );
+  const settle = Effect.promise(settleSessionCacheWrites);
   return { history, indexed, layer, registry, seed, settle, setHistory, store };
 });
 

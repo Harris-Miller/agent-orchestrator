@@ -175,6 +175,10 @@ _Avoid_: Roster, Session roster, session snapshot
 The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
 _Avoid_: scope cwds, visible cwds
 
+**Session cache**:
+The on-disk copy of a launch target's Session History rows for the Listed cwds (plus pins), hydrated at startup and when a Project is added, and removed when a Project stops being tracked. A rebuildable cache, unlike Projects and pins. hoa-home calls the document it lives in the Application session index.
+_Avoid_: session store, history file
+
 **Unavailable model**:
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)

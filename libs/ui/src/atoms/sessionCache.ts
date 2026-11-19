@@ -48,10 +48,17 @@ const cacheOf = (launchTarget: AgentLaunchTarget): TargetCache => {
   return cache;
 };
 
-/** Queues `work` behind every earlier write of the launch target; resolves when it has run (never rejects). */
+/**
+ * Queues `work` behind every earlier write of the launch target; resolves when it has run. Never rejects: a work item that
+ * throws is logged as a warning and the queue carries on.
+ */
 const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetCache) => Promise<void>): Promise<void> => {
   const cache = cacheOf(launchTarget);
-  const next = cache.writes.then(() => work(cache));
+  const next = cache.writes
+    .then(() => work(cache))
+    .catch((cause: unknown) => {
+      Effect.runFork(Effect.logWarning('session cache write failed', launchTarget, cause));
+    });
   cache.writes = next;
   return next;
 };
@@ -117,7 +124,7 @@ export const startSessionCachePersistence = Effect.fn('startSessionCachePersiste
           Effect.catchCause(cause => Effect.logWarning('session index persist failed', launchTarget, cause)),
         ),
       );
-    }).catch(() => undefined);
+    });
   });
 });
 

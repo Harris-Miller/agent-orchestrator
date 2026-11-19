@@ -2,7 +2,8 @@ import { assert, describe, it } from '@effect/vitest';
 import { readSessionIndex, sessionIndexPath, sessionIndexRows, updateSessionIndex } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
-import { Effect, Layer } from 'effect';
+import { Deferred, Effect, Layer } from 'effect';
+import { FileSystem } from 'effect/FileSystem';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
@@ -125,21 +126,83 @@ describe('Session cache', () => {
 
   it.effect('remove while a persist is in flight does not resurrect the cwd', () =>
     Effect.gen(function* () {
-      const s = yield* setup();
-      s.registry.set(projectsAtom, ['/a', '/b']);
-      s.registry.set(projectsLoadedAtom, true);
-      const stop = yield* startSessionCachePersistence(s.registry, CODEX, () => s.registry.get(listedCwdsAtom)).pipe(
-        Effect.provide(s.layer),
+      const store = new Map<string, MapFsEntry>();
+      const base = mapFsTestServices(store);
+      const entered = yield* Deferred.make<undefined>();
+      const release = yield* Deferred.make<undefined>();
+      let gated = false;
+      // Hold the first index write after its rows were computed (with /a), until released.
+      const gate = Layer.effect(
+        FileSystem,
+        Effect.gen(function* () {
+          const inner = yield* FileSystem;
+          return FileSystem.of({
+            ...inner,
+            writeFileString: (path, data, options) =>
+              Effect.gen(function* () {
+                if (!gated) {
+                  gated = true;
+                  yield* Deferred.succeed(entered, undefined);
+                  yield* Deferred.await(release);
+                }
+                return yield* inner.writeFileString(path, data, options);
+              }),
+          });
+        }),
+      ).pipe(Layer.provideMerge(base));
+      const layer = Layer.mergeAll(mockHostLayer, gate);
+      const registry = yield* freshRegistry;
+      registry.set(projectsAtom, ['/a', '/b']);
+      registry.set(projectsLoadedAtom, true);
+      const stop = yield* startSessionCachePersistence(registry, CODEX, () => registry.get(listedCwdsAtom)).pipe(
+        Effect.provide(layer),
       );
-      s.setHistory([
-        { cwd: '/a', sessionId: 'a1' },
-        { cwd: '/b', sessionId: 'b1' },
-      ]);
-      s.registry.set(projectsAtom, ['/b']);
-      s.setHistory([{ cwd: '/b', sessionId: 'b1' }]);
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [
+          { cwd: '/a', sessionId: 'a1' },
+          { cwd: '/b', sessionId: 'b1' },
+        ],
+      }));
+      yield* Deferred.await(entered);
+      registry.set(projectsAtom, ['/b']);
+      const removal = Effect.runPromise(removeSessionCacheCwd('/a').pipe(Effect.provide(layer)));
+      // One macrotask: lets a removal that bypassed the shared queue run to completion while the persist is still held.
+      yield* Effect.promise(
+        () =>
+          new Promise<void>(resolve => {
+            setTimeout(resolve, 0);
+          }),
+      );
+      yield* Deferred.succeed(release, undefined);
+      yield* Effect.promise(() => removal);
+      const document = yield* readSessionIndex(target).pipe(Effect.provide(layer));
+      assert.deepStrictEqual(
+        sessionIndexRows(document).map(row => row.sessionId),
+        ['b1'],
+      );
+      stop();
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a throwing work item does not stop later persists or removals', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      s.registry.set(projectsAtom, ['/a']);
+      let calls = 0;
+      const stop = yield* startSessionCachePersistence(s.registry, CODEX, () => {
+        calls += 1;
+        if (calls === 1) throw new Error('boom');
+        return s.registry.get(listedCwdsAtom);
+      }).pipe(Effect.provide(s.layer));
+      s.setHistory([{ cwd: '/a', sessionId: 'a1' }]);
+      // Removal of an unrelated cwd is a barrier: it runs after every write queued before it.
+      yield* removeSessionCacheCwd('/barrier').pipe(Effect.provide(s.layer));
+      s.setHistory([{ cwd: '/a', sessionId: 'a2' }]);
+      yield* removeSessionCacheCwd('/barrier').pipe(Effect.provide(s.layer));
+      assert.deepStrictEqual(yield* s.indexed(), ['a2']);
       yield* removeSessionCacheCwd('/a').pipe(Effect.provide(s.layer));
-      yield* s.settle;
-      assert.deepStrictEqual(yield* s.indexed(), ['b1']);
+      assert.deepStrictEqual(yield* s.indexed(), []);
       stop();
     }).pipe(Effect.scoped),
   );

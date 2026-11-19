@@ -18,7 +18,7 @@ import { pinnedSessionsAtom } from './pinnedSessions.atoms.ts';
 import { projectActiveSessionsAtom, projectsAtom, projectsLoadedAtom } from './projects.atoms.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
-import { virtualSessionAtom } from './virtualSession.atoms.ts';
+import { ensureVirtual, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 const target = toLaunchTarget(CODEX);
 
@@ -154,6 +154,29 @@ describe('Stop tracking a Project', () => {
       s.registry.set(selectedAtom, { _tag: 'Session', sessionId: 'kept' });
       yield* s.stop;
       assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Session', sessionId: 'kept' });
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('keeps an unrelated Virtual draft and re-selects it when Selected belonged to the Project', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({});
+      yield* ensureVirtual(s.registry, { cwd: '/keep' });
+      const draft = s.registry.get(virtualSessionAtom);
+      s.registry.set(selectedAtom, { _tag: 'Session', sessionId: 'idle' });
+      yield* s.stop;
+      assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Virtual' });
+      assert.strictEqual(s.registry.get(virtualSessionAtom)?.id, draft?.id);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('leaves a Virtual draft with no Bound session untouched, even on the stopped Project cwd', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({});
+      yield* ensureVirtual(s.registry, { cwd: '/proj' });
+      const draft = s.registry.get(virtualSessionAtom);
+      yield* s.stop;
+      assert.strictEqual(s.registry.get(virtualSessionAtom)?.id, draft?.id);
+      assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Virtual' });
     }).pipe(Effect.scoped),
   );
 });

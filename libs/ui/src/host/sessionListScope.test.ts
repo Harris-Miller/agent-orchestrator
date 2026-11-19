@@ -1,8 +1,19 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { listCwdsForScope, listSessionsPayload, sessionListScopeFromPaths } from './sessionListScope.ts';
+import {
+  listCwdsForScope,
+  listSessionsPayload,
+  scopeReadsProjects,
+  sessionListScopeFromPaths,
+} from './sessionListScope.ts';
 
 describe('sessionListScope', () => {
+  it('only the Projects scope reads projects.json; vscode scopes never do', () => {
+    assert.isTrue(scopeReadsProjects({ _tag: 'Projects' }));
+    assert.isFalse(scopeReadsProjects({ _tag: 'Cwd', cwd: '/a' }));
+    assert.isFalse(scopeReadsProjects({ _tag: 'Skip' }));
+  });
+
   it('sessionListScopeFromPaths maps empty to Skip and first path to Cwd', () => {
     assert.deepStrictEqual(sessionListScopeFromPaths([]), { _tag: 'Skip' });
     assert.deepStrictEqual(sessionListScopeFromPaths(['/a', '/b']), { _tag: 'Cwd', cwd: '/a' });

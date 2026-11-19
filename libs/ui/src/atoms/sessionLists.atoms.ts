@@ -7,7 +7,7 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
-import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
+import { isUsablePhase, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { applySessionListPage, dropUnlistedRows } from '../host/harnessStateTransitions.ts';
@@ -16,7 +16,6 @@ import { runSessionLists } from '../host/sessionListRun.ts';
 import type { SessionListRun } from '../host/sessionListRun.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
 import { listSessions } from '../host/sessionRpc.ts';
-import { isRecord } from '../isRecord.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -78,13 +77,6 @@ export const projectListStatusAtom = Atom.family((cwd: string) =>
   }).pipe(Atom.keepAlive),
 );
 
-const rawListedIds = (page: unknown): readonly string[] =>
-  isRecord(page) && Array.isArray(page.sessions)
-    ? page.sessions.flatMap((row: unknown) =>
-        isRecord(row) && typeof row.sessionId === 'string' ? [row.sessionId] : [],
-      )
-    : [];
-
 /** Runs a Host-service Effect off the caller's fiber (the pin sweep needs `HostServices`; `SessionListRun` stays service-free). */
 export type RunFork = (effect: Effect.Effect<void, never, HostServices>) => void;
 
@@ -116,7 +108,7 @@ export const beginSessionList = (
       setListState(registry, launchTarget, cwd, 'incomplete');
     },
     page: page => {
-      for (const id of rawListedIds(page)) listedIds.add(id);
+      for (const { sessionId } of normalizeSessionHistory(page)) listedIds.add(sessionId);
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
       updateHarnessSnapshot(registry, launchTarget, current => applySessionListPage(current, page, boundSessionId));
     },

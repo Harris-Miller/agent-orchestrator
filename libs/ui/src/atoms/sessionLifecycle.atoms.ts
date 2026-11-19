@@ -15,6 +15,7 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
+import { sessionCwdInSnapshot } from '../host/projectSessions.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
@@ -431,26 +432,27 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         const selected = get(selectedAtom);
         const selectedInProject =
           selected?._tag === 'Session' &&
-          MOUNTED_AGENT_LAUNCH_TARGETS.some(launchTarget => {
-            const snapshot = get(backendHarnessSnapshotAtom(launchTarget));
-            const { sessionId } = selected;
-            return (
-              (sessionId in snapshot.sessions ? snapshot.sessions[sessionId].cwd : undefined) === cwd ||
-              snapshot.sessionHistory.some(entry => entry.sessionId === sessionId && entry.cwd === cwd)
-            );
-          });
-        // The Virtual blob's Bound session is closed and deleted by discarding the blob.
-        const virtualInProject = virtual?.cwd === cwd;
+          MOUNTED_AGENT_LAUNCH_TARGETS.some(
+            launchTarget =>
+              sessionCwdInSnapshot(get(backendHarnessSnapshotAtom(launchTarget)), selected.sessionId) === cwd,
+          );
+        // Only a Virtual blob whose Bound session lives in the Project is discarded (closing that session). A draft
+        // with no Bound session is untouched, whatever its cwd.
+        const virtualBoundInProject = virtual?.sessionId !== undefined && virtual.cwd === cwd;
         const toClose = get(projectActiveSessionsAtom(cwd)).filter(
-          target => !(virtualInProject && target.sessionId === virtual.sessionId),
+          target => !(virtualBoundInProject && target.sessionId === virtual.sessionId),
         );
         const exits = yield* Effect.forEach(
           toClose,
           target => Effect.exit(runAtomFn(get.registry, deactivateSessionAtomFn, target)),
           { concurrency: 'unbounded' },
         );
-        if (selectedInProject || virtualInProject) {
+        if (virtualBoundInProject) {
           yield* discardVirtual(get.registry);
+        }
+        // Selected belonged to the Project (or was just cleared by the discard): fall back to a Virtual draft, keeping
+        // an existing unrelated one.
+        if (selectedInProject || virtualBoundInProject) {
           yield* ensureVirtual(get.registry, {});
         }
         yield* removeProjectEverywhere(get.registry, cwd);

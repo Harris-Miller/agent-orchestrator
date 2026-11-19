@@ -11,6 +11,9 @@ export type SessionListScope =
 
 export const projectsSessionListScope: SessionListScope = { _tag: 'Projects' };
 
+/** Only the desktop Projects scope reads `projects.json`; VS Code (Cwd/Skip) neither reads nor writes it. */
+export const scopeReadsProjects = (scope: SessionListScope): boolean => scope._tag === 'Projects';
+
 /** The cwds one launch target lists under `scope`: one `session/list` per cwd. */
 export const listCwdsForScope = (scope: SessionListScope, projects: readonly string[]): readonly string[] => {
   switch (scope._tag) {

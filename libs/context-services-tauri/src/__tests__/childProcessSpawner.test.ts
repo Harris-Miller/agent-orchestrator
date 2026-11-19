@@ -1,7 +1,7 @@
 import { assert, describe, layer } from '@effect/vitest';
 import { OS } from '@lib/context-services';
 import { invoke } from '@tauri-apps/api/core';
-import { Effect, Layer, Option, Stream } from 'effect';
+import { Effect, Layer, Option, Redacted, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { beforeEach, vi } from 'vitest';
 
@@ -9,6 +9,7 @@ import { ChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';
 
 const writes: number[][] = [];
 const kills: number[] = [];
+const commands: { args: string[]; env: Record<string, string> | undefined }[] = [];
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(() => Promise.resolve()),
@@ -19,6 +20,7 @@ const mockedInvoke = vi.mocked(invoke);
 beforeEach(() => {
   writes.length = 0;
   kills.length = 0;
+  commands.length = 0;
   mockedInvoke.mockClear();
   mockedInvoke.mockResolvedValue(undefined);
 });
@@ -65,7 +67,8 @@ vi.mock('@tauri-apps/plugin-shell', () => {
     readonly stderr = new MockEmitter();
     readonly stdout = new MockEmitter();
 
-    static create(_program: string, _args: string[] = []): MockCommand {
+    static create(_program: string, args: string[] = [], options?: { env?: Record<string, string> }): MockCommand {
+      commands.push({ args, env: options?.env });
       return new MockCommand();
     }
 
@@ -96,7 +99,10 @@ describe('ChildProcessSpawnerLive', () => {
     it.effect('spawns, reads one stdout chunk, and observes exit code', () =>
       Effect.gen(function* () {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-        const handle = yield* spawner.spawn(ChildProcess.make('agent', ['acp'], { cwd: '/tmp' }));
+        const handle = yield* spawner.spawn(
+          ChildProcess.make('agent', [Redacted.make('acp')], { cwd: '/tmp', env: { TOKEN: Redacted.make('secret') } }),
+        );
+        assert.deepStrictEqual(commands[0], { args: ['acp'], env: { TOKEN: 'secret' } });
         assert.strictEqual(handle.pid, 99);
         const first = yield* Stream.runHead(handle.stdout);
         assert.isTrue(Option.isSome(first));

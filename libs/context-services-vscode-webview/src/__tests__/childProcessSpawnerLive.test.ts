@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Stream } from 'effect';
+import { Effect, Redacted, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 import { makeChildProcessSpawnerLive } from '../ChildProcessSpawnerLive.ts';
@@ -18,6 +18,8 @@ describe('makeChildProcessSpawnerLive', () => {
         if (message._tag !== 'Spawn') {
           return;
         }
+        assert.deepStrictEqual(message.args, ['-0', 'secret']);
+        assert.deepStrictEqual(message.options?.env, { TOKEN: 'secret' });
         const handleId = 'h1';
         extension.postMessage(
           encodeIpcMessage({
@@ -42,7 +44,12 @@ describe('makeChildProcessSpawnerLive', () => {
 
       const listed = yield* Effect.scoped(
         Effect.gen(function* () {
-          const handle = yield* spawner.spawn(ChildProcess.make('fd', ['-0'], { cwd: '/tmp' }));
+          const handle = yield* spawner.spawn(
+            ChildProcess.make('fd', ['-0', Redacted.make('secret')], {
+              cwd: '/tmp',
+              env: { TOKEN: Redacted.make('secret') },
+            }),
+          );
           const [chunks, exitCode] = yield* Effect.all(
             [handle.stdout.pipe(Stream.decodeText(), Stream.runCollect), handle.exitCode],
             { concurrency: 2 },

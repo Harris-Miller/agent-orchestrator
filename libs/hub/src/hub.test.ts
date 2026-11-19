@@ -207,8 +207,10 @@ describe('hub', () => {
           { sessionId },
         ),
       );
-      // The server stops reading and drops the connection rather than answering.
-      assert.isTrue(Exit.isFailure(huge) || huge.value.response.status >= 400);
+      if (Exit.isSuccess(huge) && huge.value.response.status < 400) {
+        const reply = JSON.parse(huge.value.text) as { error?: { code: number } };
+        assert.strictEqual(reply.error?.code, -32700);
+      }
     }).pipe(Effect.scoped),
   );
 

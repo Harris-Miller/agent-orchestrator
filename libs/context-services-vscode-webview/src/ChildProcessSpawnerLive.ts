@@ -2,7 +2,7 @@
  * Webview ChildProcessSpawner over extension↔webview IPC.
  */
 import { mapSpawnError, openQueuedChildProcessStdio } from '@lib/context-services';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Redacted } from 'effect';
 import * as PlatformError from 'effect/PlatformError';
 import { ChildProcessSpawner } from 'effect/process';
 import type { Command as EffectCommand } from 'effect/process/ChildProcess';
@@ -26,14 +26,19 @@ const spawnStandard = Effect.fnUntraced(function* (
     stderrMode: stderrMode === 'inherit' ? 'inherit' : 'pipe',
   });
 
+  const env = Object.fromEntries(
+    Object.entries(command.options.env ?? {}).flatMap(([key, value]) =>
+      value === undefined ? [] : [[key, Redacted.isRedacted(value) ? Redacted.value(value) : value]],
+    ),
+  );
   const response = yield* client
     .request({
       _tag: 'Spawn',
-      args: [...command.args],
+      args: command.args.map(arg => (Redacted.isRedacted(arg) ? Redacted.value(arg) : arg)),
       command: command.command,
       options: {
         cwd: command.options.cwd,
-        env: command.options.env as Record<string, string> | undefined,
+        env,
         extendEnv: command.options.extendEnv,
         stderr: toStdioMode(command.options.stderr),
         stdin: toStdioMode(command.options.stdin),

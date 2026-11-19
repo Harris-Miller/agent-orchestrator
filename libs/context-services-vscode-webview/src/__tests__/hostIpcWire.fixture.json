@@ -540,15 +540,11 @@
       "atime": {
         "anyOf": [
           {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
-              }
-            ]
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
           },
           {
             "type": "null"
@@ -558,15 +554,11 @@
       "birthtime": {
         "anyOf": [
           {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
-              }
-            ]
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
           },
           {
             "type": "null"
@@ -579,15 +571,11 @@
       "mtime": {
         "anyOf": [
           {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
-              }
-            ]
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": ["Infinity", "-Infinity", "NaN"]
           },
           {
             "type": "null"
@@ -799,15 +787,11 @@
       "line": {
         "anyOf": [
           {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "enum": ["Infinity", "-Infinity", "NaN"],
-                "type": "string"
-              }
-            ]
+            "type": "number"
+          },
+          {
+            "enum": ["Infinity", "-Infinity", "NaN"],
+            "type": "string"
           },
           {
             "type": "null"

@@ -52,6 +52,7 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       }),
       glob: () => unsupported('glob'),
       link: () => unsupported('link'),
+      lstat: () => unsupported('lstat'),
       makeDirectory: Effect.fn('FileSystem.makeDirectory')(function* (
         path: string,
         options?: { readonly recursive?: boolean },
@@ -94,6 +95,7 @@ export const makeFileSystemLive = (client: IpcClient): Layer.Layer<FileSystem.Fi
       makeTempFileScoped: () => unsupported('makeTempFileScoped'),
       open: () => unsupported('open'),
       readDirectory: () => unsupported('readDirectory'),
+      readDirectoryEntries: () => unsupported('readDirectoryEntries'),
       readFile: Effect.fn('FileSystem.readFile')(function* (path: string) {
         const { bytes } = yield* fsIpc({ client, method: 'readFile', path, request: { _tag: 'FsReadFile', path } });
         if (bytes instanceof Uint8Array) {

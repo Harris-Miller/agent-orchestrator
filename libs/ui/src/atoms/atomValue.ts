@@ -20,7 +20,7 @@ export type ClassifiedValue =
   | { readonly kind: 'map'; readonly value: ReadonlyMap<unknown, unknown> }
   | { readonly kind: 'null'; readonly value: null }
   | { readonly kind: 'number'; readonly value: number }
-  | { readonly kind: 'object'; readonly value: object }
+  | { readonly kind: 'object'; readonly value: Record<string, unknown> }
   | { readonly kind: 'option'; readonly value: Option.Option<unknown> }
   | { readonly kind: 'set'; readonly value: ReadonlySet<unknown> }
   | { readonly kind: 'string'; readonly value: string }
@@ -77,7 +77,7 @@ export const classifyValue = (value: unknown): ClassifiedValue => {
   if (value instanceof Error) {
     return { kind: 'error', value };
   }
-  return { kind: 'object', value };
+  return { kind: 'object', value: value as Record<string, unknown> };
 };
 
 /** How many of `total` items {@link MAX_ITEMS} leaves out. */

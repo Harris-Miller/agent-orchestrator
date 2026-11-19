@@ -182,11 +182,9 @@ export const startHub = Effect.fnUntraced(function* (
     name: 'HOA Hub',
     path: '/mcp',
     protocols: MCP_PROTOCOLS,
+    registrations: McpServer.toolkit(HubToolkit).pipe(Layer.provide(ToolHandlers)),
     version: '0.1.0',
-  }).pipe(
-    Layer.provide(McpServer.toolkit(HubToolkit).pipe(Layer.provide(ToolHandlers))),
-    Layer.provide(BearerAuth.layer),
-  );
+  }).pipe(Layer.provide(BearerAuth.layer));
 
   const app = Layer.mergeAll(mcpLayer, clientsRoute, healthRoute);
   const serverLayer = NodeHttpServer.layer(createServer, {

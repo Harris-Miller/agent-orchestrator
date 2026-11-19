@@ -5,12 +5,13 @@
  * makeDirectory, makeTempDirectory (via `$TEMP`), remove, rename, copyFile, readDirectory, stat, truncate.
  *
  * Unsupported for now (return PlatformError): open+seek handles, watch, chmod/chown, link/symlink,
- * glob, other temp helpers, realPath, readLink, utimes, copy (recursive directory).
+ * other temp helpers, realPath, readLink, utimes, copy (recursive directory).
  */
 import { join as tauriJoin, tempDir as tauriTempDir } from '@tauri-apps/api/path';
 import {
   copyFile as tauriCopyFile,
   exists as tauriExists,
+  lstat as tauriLstat,
   mkdir as tauriMkdir,
   readDir as tauriReadDir,
   readFile as tauriReadFile,
@@ -91,8 +92,8 @@ const makeTauriFileSystem = (): FileSystem.FileSystem =>
     chown: _path => Effect.fail(notSupported('chown')),
     copy: _path => Effect.fail(notSupported('copy')),
     copyFile: (fromPath, toPath) => tryFs('copyFile', fromPath, () => tauriCopyFile(fromPath, toPath)),
-    glob: _path => Effect.fail(notSupported('glob')),
     link: _path => Effect.fail(notSupported('link')),
+    lstat: path => tryFs('lstat', path, async () => toFileInfo(await tauriLstat(path))),
     makeDirectory: (path, options) =>
       tryFs('makeDirectory', path, () => tauriMkdir(path, { recursive: options?.recursive })),
     makeTempDirectory: options =>
@@ -114,6 +115,13 @@ const makeTauriFileSystem = (): FileSystem.FileSystem =>
         const entries = await tauriReadDir(path);
         return entries.map(entry => entry.name);
       }),
+    readDirectoryEntries: path =>
+      tryFs('readDirectoryEntries', path, async () =>
+        (await tauriReadDir(path)).map(entry => ({
+          name: entry.name,
+          type: entry.isDirectory ? 'Directory' : entry.isFile ? 'File' : entry.isSymlink ? 'SymbolicLink' : 'Unknown',
+        })),
+      ),
     readFile: path => tryFs('readFile', path, () => tauriReadFile(path)),
     readLink: _path => Effect.fail(notSupported('readLink')),
     realPath: _path => Effect.fail(notSupported('realPath')),

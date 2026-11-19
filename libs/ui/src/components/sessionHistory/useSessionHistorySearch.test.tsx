@@ -112,7 +112,7 @@ describe('Session History search controls', () => {
           <Harness />
         </RegistryContext.Provider>,
       );
-      const input = screen.getByRole('textbox', { name: 'Search sessions' }) as HTMLInputElement;
+      const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Search sessions' });
       fireEvent.change(input, { target: { value: 'Al' } });
       fireEvent.keyDown(input, { key: 'Enter' });
       assert.strictEqual(input.value, '');

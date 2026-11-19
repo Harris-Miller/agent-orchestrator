@@ -74,7 +74,7 @@ const spawnAntigravityProvider = Effect.fnUntraced(function* (
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(command.options.env ?? {})) {
     if (value !== undefined) {
-      env[key] = value;
+      env[key] = Redacted.isRedacted(value) ? Redacted.value(value) : value;
     }
   }
   const stdio = yield* openQueuedChildProcessStdio();
@@ -119,13 +119,14 @@ const spawnStandard = Effect.fnUntraced(
     command: Extract<EffectCommand, { readonly _tag: 'StandardCommand' }>,
     hostEnv: Readonly<Record<string, string>>,
   ) {
-    yield* Effect.logInfo('Spawning child process', Redacted.make([command.command, ...command.args].join(' ')));
+    const displayArgs = command.args.map(arg => (Redacted.isRedacted(arg) ? '<redacted>' : arg)).join(' ');
+    yield* Effect.logInfo('Spawning child process', Redacted.make(`${command.command} ${displayArgs}`));
 
     const envEntries = command.options.env ?? {};
     const env: Record<string, string> = {};
     for (const [key, value] of Object.entries(envEntries)) {
       if (value !== undefined) {
-        env[key] = value;
+        env[key] = Redacted.isRedacted(value) ? Redacted.value(value) : value;
       }
     }
     if (command.options.extendEnv === true) {
@@ -136,17 +137,19 @@ const spawnStandard = Effect.fnUntraced(
       }
     }
 
+    const args = command.args.map(arg => (Redacted.isRedacted(arg) ? Redacted.value(arg) : arg));
+
     // `npm` is spawned only as one of the three provider operations, each with its own pinned scope.
-    const scopeName = command.command === 'npm' ? npmScopeNameFor(command.args) : command.command;
+    const scopeName = command.command === 'npm' ? npmScopeNameFor(args) : command.command;
     if (scopeName === undefined) {
       return yield* PlatformError.badArgument({
-        description: `Refusing to spawn npm with arguments outside the provider operations: ${command.args.join(' ')}`,
+        description: `Refusing to spawn npm with arguments outside the provider operations: ${displayArgs}`,
         method: 'spawn',
         module: 'ChildProcess',
       });
     }
 
-    const tauriCommand = Command.create(scopeName, [...command.args], {
+    const tauriCommand = Command.create(scopeName, args, {
       cwd: command.options.cwd,
       encoding: 'raw',
       ...(Object.keys(env).length > 0 ? { env } : {}),

@@ -7,6 +7,7 @@ import {
   reorderModels,
   setAllModelsHidden,
   setModelHidden,
+  withNewModelsFirst,
 } from './modelPickerPrefs.ts';
 
 const choices = ['a', 'b', 'c', 'd'].map(id => ({ id, name: id.toUpperCase() }));
@@ -84,5 +85,19 @@ describe('prefs updates', () => {
   it('sets all hidden / none hidden', () => {
     assert.deepStrictEqual(setAllModelsHidden(all, ['gone'], true), ['gone', ...all]);
     assert.deepStrictEqual(setAllModelsHidden(all, ['gone', 'a'], false), ['gone']);
+  });
+});
+
+describe('withNewModelsFirst', () => {
+  it('puts new ids first in order and un-hides them', () => {
+    assert.deepStrictEqual(withNewModelsFirst({ hidden: ['n1', 'x'], order: ['a', 'n2'] }, ['n1', 'n2']), {
+      hidden: ['x'],
+      order: ['n1', 'n2', 'a'],
+    });
+  });
+
+  it('is a no-op for no new ids', () => {
+    const prefs = { hidden: ['x'], order: ['a'] };
+    assert.strictEqual(withNewModelsFirst(prefs, []), prefs);
   });
 });

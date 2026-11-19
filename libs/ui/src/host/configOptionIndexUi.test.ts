@@ -3,6 +3,7 @@ import { assert, describe, it } from '@effect/vitest';
 import {
   hardResetForAgent,
   needsLazyHydrate,
+  newlyAdvertisedModelIds,
   resetUnsupportedConfigValues,
   rowForModel,
   sanitizeConfigValuesForIndex,
@@ -263,5 +264,18 @@ describe('Hidden models and the Starting model', () => {
       resetUnsupportedConfigValues(four(['haiku']), { model: 'haiku' }, prefs(['sonnet'])).model,
       'opus',
     );
+  });
+});
+
+describe('newlyAdvertisedModelIds', () => {
+  const index = (ids: readonly string[]) =>
+    configOptionIndexFromProbeResponses('a', { a: { configOptions: [modelSelectOption('a', ids)] } });
+
+  it('lists ids advertised now but not before, in next order', () => {
+    assert.deepStrictEqual(newlyAdvertisedModelIds(index(['a', 'b']), index(['n1', 'a', 'b', 'n2'])), ['n1', 'n2']);
+  });
+
+  it('is empty on the first probe', () => {
+    assert.deepStrictEqual(newlyAdvertisedModelIds(undefined, index(['a', 'b'])), []);
   });
 });

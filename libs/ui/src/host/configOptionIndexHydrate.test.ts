@@ -87,4 +87,51 @@ describe('mergeConfigOptionIndex', () => {
     assert.deepStrictEqual(rowIds(next, 'opus'), ['model', 'effort']);
     assert.strictEqual(next?.byModel.opus?.[0]?.currentValue, 'sonnet');
   });
+
+  const seededWith = (ids: readonly string[], unavailable: readonly string[] = []) => {
+    const seeded = mergeConfigOptionIndex(undefined, {
+      _tag: 'SessionNew',
+      response: { configOptions: [modelSelectOption('sonnet', ids)] },
+    });
+    return seeded === undefined ? undefined : { ...seeded, unavailableModelIds: unavailable };
+  };
+
+  it('ModelPicked prunes rows and Unavailable marks of models no longer advertised', () => {
+    const prev = seededWith(['sonnet', 'opus', 'old'], ['old']);
+    const next = mergeConfigOptionIndex(prev && { ...prev, byModel: { ...prev.byModel, old: [] } }, {
+      _tag: 'ModelPicked',
+      modelId: 'opus',
+      response: { configOptions: [modelSelectOption('opus', ['sonnet', 'opus', 'new']), effortOption('high')] },
+    });
+    assert.deepStrictEqual(Object.keys(next?.byModel ?? {}).sort(), ['opus', 'sonnet']);
+    assert.deepStrictEqual(next?.unavailableModelIds, []);
+    assert.strictEqual(next?.defaultModelId, 'sonnet');
+    const choices = next?.byModel.sonnet?.[0];
+    assert.deepStrictEqual(choices?.type === 'select' ? choices.choices.map(choice => choice.id) : [], [
+      'sonnet',
+      'opus',
+      'new',
+    ]);
+  });
+
+  it('ModelPicked moves the default to the picked model when the default is no longer advertised', () => {
+    const next = mergeConfigOptionIndex(seededWith(['default', 'opus']), {
+      _tag: 'ModelPicked',
+      modelId: 'opus',
+      response: { configOptions: [modelSelectOption('opus', ['opus', 'haiku']), effortOption('high')] },
+    });
+    assert.strictEqual(next?.defaultModelId, 'opus');
+    assert.deepStrictEqual(Object.keys(next?.byModel ?? {}), ['opus']);
+    assert.deepStrictEqual(rowIds(next, 'opus'), ['model', 'effort']);
+  });
+
+  it('ModelPicked without a model select leaves the advertised list alone', () => {
+    const next = mergeConfigOptionIndex(seededWith(['sonnet', 'opus']), {
+      _tag: 'ModelPicked',
+      modelId: 'opus',
+      response: { configOptions: [effortOption('high')] },
+    });
+    assert.deepStrictEqual(Object.keys(next?.byModel ?? {}).sort(), ['opus', 'sonnet']);
+    assert.strictEqual(next?.defaultModelId, 'sonnet');
+  });
 });

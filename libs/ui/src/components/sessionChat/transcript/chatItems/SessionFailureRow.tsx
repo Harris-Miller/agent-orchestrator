@@ -1,4 +1,5 @@
 import { useAtomSet } from '@effect/atom-react';
+import { Option } from 'effect';
 import type { FC } from 'react';
 
 import {
@@ -7,6 +8,7 @@ import {
   signInAntigravityAtomFn,
 } from '../../../../atoms/boundHarnessAtoms.ts';
 import { PROVIDER_META } from '../../../../host/providerView.ts';
+import { retryableUserMessage } from '../../../../host/sessionFailureRetry.ts';
 import { useSessionChatSurface } from '../../useSessionChatSurface.tsx';
 
 import type { ChatItemOf } from './chatItemOf.ts';
@@ -29,13 +31,7 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
     return <SessionFailureView item={item} />;
   }
 
-  const lastUserMessage = chatItems.findLast(entry => entry.kind === 'user_message');
-  // Images are slim refs in the transcript and would be dropped on a re-send.
-  const canRetry =
-    selectedSession.status === 'active' &&
-    selectedSession.pendingClientRequest === undefined &&
-    lastUserMessage?.kind === 'user_message' &&
-    (lastUserMessage.images ?? []).length === 0;
+  const retryMessage = retryableUserMessage(selectedSession, chatItems, item.id);
 
   const handlers: SessionFailureHandlers = {
     login: {
@@ -53,13 +49,13 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
         .then(() => setVirtualLaunchTarget(selectedLaunchTarget))
         .catch(onClientError);
     },
-    ...(canRetry
+    ...(Option.isSome(retryMessage)
       ? {
           onRetry: () => {
             resend({
               launchTarget: selectedLaunchTarget,
               sessionId: selectedSession.sessionId,
-              text: lastUserMessage.text,
+              text: retryMessage.value.text,
             }).catch(onClientError);
           },
         }

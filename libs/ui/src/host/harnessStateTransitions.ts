@@ -376,7 +376,6 @@ export const endPromptTurn = (
       };
 };
 
-/** The Agent answered a Client→Agent request for `sessionId` with an error: it joins that Session's transcript. A dropped Session stays dropped. */
 /** Add or revise the Session failure row in `sessionId`'s chat (see `upsertSessionFailure`); unknown session: unchanged. */
 export const applySessionFailure = (
   snapshot: BackendHarnessSnapshot,
@@ -393,6 +392,7 @@ export const applySessionFailure = (
       }
     : snapshot;
 
+/** The Agent answered a Client→Agent request for `sessionId` with an error: it joins that Session's transcript. A dropped Session stays dropped. */
 export const appendRequestError = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,

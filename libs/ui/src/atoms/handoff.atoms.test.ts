@@ -81,11 +81,13 @@ describe('handoffSessionAtomFn', () => {
         }),
       });
       sourceFold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: CODEX,
         registry,
         runFork: () => undefined,
       });
       const targetFold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: CLAUDE,
         registry,
         runFork: () => undefined,

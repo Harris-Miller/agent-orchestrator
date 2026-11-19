@@ -83,6 +83,29 @@ describe('normalizeConfigOptions', () => {
   });
 });
 
+describe('normalizeConfigOptions recommendedValue', () => {
+  it('carries the AIR recommendedValue of select options only when present', () => {
+    const options = normalizeConfigOptions({
+      configOptions: [
+        {
+          _meta: { jetbrains: { air: { recommendedValue: 'b' } } },
+          currentValue: 'a',
+          id: 'model',
+          name: 'Model',
+          options: [
+            { name: 'A', value: 'a' },
+            { name: 'B', value: 'b' },
+          ],
+          type: 'select',
+        },
+        { currentValue: 'a', id: 'plain', name: 'Plain', options: [{ name: 'A', value: 'a' }], type: 'select' },
+      ],
+    });
+    assert.strictEqual('recommendedValue' in options[0] ? options[0].recommendedValue : undefined, 'b');
+    assert.notProperty(options[1], 'recommendedValue');
+  });
+});
+
 describe('resolveSessionCwd', () => {
   it('prefers non-empty snapshot cwd over history', () => {
     assert.strictEqual(resolveSessionCwd('/snap', '/history'), '/snap');

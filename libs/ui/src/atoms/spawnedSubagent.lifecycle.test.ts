@@ -93,6 +93,7 @@ describe('ending a parent ends its children', () => {
     Effect.gen(function* () {
       const h = yield* twoChildren();
       const parentFold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: CODEX,
         registry: h.registry,
         runFork: effect => {

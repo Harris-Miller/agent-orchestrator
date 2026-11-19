@@ -6,7 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
-import { isArchivedEntry } from './airMeta.ts';
+import { isArchivedEntry, recommendedValueOf } from './airMeta.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -194,6 +194,8 @@ type NormalizedConfigOptionBase = {
 export type NormalizedSelectConfigOption = {
   readonly choices: readonly NormalizedConfigChoice[];
   readonly currentValue?: string;
+  /** AIR `recommendedValue`: the choice the agent suggests, independent of `currentValue`. */
+  readonly recommendedValue?: string;
   readonly type: 'select';
 } & NormalizedConfigOptionBase;
 
@@ -541,11 +543,13 @@ export const normalizeConfigOptions = (sessionNew: unknown): readonly Normalized
     }
 
     if (entry.type === 'select') {
+      const recommendedValue = recommendedValueOf(entry);
       return [
         {
           ...base,
           choices: parseConfigChoices(entry.options),
           currentValue: typeof entry.currentValue === 'string' ? entry.currentValue : undefined,
+          ...(recommendedValue === undefined ? {} : { recommendedValue }),
           type: 'select',
         },
       ];

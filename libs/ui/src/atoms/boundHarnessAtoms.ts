@@ -85,7 +85,7 @@ export const {
 
 export const { refreshSessionFsListingAtomFn } = createSessionFsListingAtoms(hostBag, alwaysHiddenGlobsAtom);
 
-const harnessAtoms = createHarnessAtoms(hostBag);
+const harnessAtoms = createHarnessAtoms(hostBag, { setModelPickerPrefsAtom });
 
 export const {
   backendHarnessAtom,

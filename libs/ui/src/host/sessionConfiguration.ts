@@ -1,6 +1,7 @@
 /** Session configuration (glossary): pure folds of agent Config option reports and local value writes. */
 import { isRecord } from '../isRecord.ts';
 
+import { airMeta } from './airMeta.ts';
 import { normalizeConfigOptions } from './acpSessionBootstrap.ts';
 import type { NormalizedConfigOption, SessionConfiguration } from './acpSessionBootstrap.ts';
 import type { ConfigOptionValues } from './configProbe.ts';
@@ -15,8 +16,12 @@ const reportEntryOf = (option: NormalizedConfigOption): Record<string, unknown> 
   if (option.type === 'boolean') {
     return option;
   }
-  const { choices, ...rest } = option;
-  return { ...rest, options: choices.map(({ id, ...choice }) => ({ ...choice, value: id })) };
+  const { choices, recommendedValue, ...rest } = option;
+  return {
+    ...rest,
+    ...(recommendedValue === undefined ? {} : { _meta: airMeta({ recommendedValue }) }),
+    options: choices.map(({ id, ...choice }) => ({ ...choice, value: id })),
+  };
 };
 
 /**

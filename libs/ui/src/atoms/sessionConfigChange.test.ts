@@ -67,6 +67,7 @@ const setup = Effect.fnUntraced(function* (
     },
   }));
   const fold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
     launchTarget: CODEX,
     registry,
     runFork: () => undefined,

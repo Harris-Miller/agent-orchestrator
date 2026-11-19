@@ -47,6 +47,7 @@ const setup = Effect.fnUntraced(function* () {
   const notified: { readonly body: string; readonly title: string }[] = [];
   const forked: Effect.Effect<unknown, never, HostServices>[] = [];
   const fold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
     launchTarget: LT,
     registry,
     runFork: effect => {
@@ -354,6 +355,7 @@ describe('Harness event fold: Connection lost', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       const other = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: 'claude-agent-acp',
         registry: h.registry,
         runFork: () => undefined,
@@ -564,6 +566,40 @@ describe('Harness event fold: Config option index', () => {
       assert.deepStrictEqual(merged?.unavailableModelIds, []);
       const cached = yield* readConfigOptionIndexCache(toLaunchTarget(LT)).pipe(Effect.provide(h.layer));
       assert.deepStrictEqual(Object.keys(Option.getOrUndefined(cached)?.byModel ?? {}).sort(), ['gpt', 'o1']);
+    }),
+  );
+
+  it.effect('newly advertised models are written to the top of Model order', () =>
+    Effect.gen(function* () {
+      const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
+        Effect.sync(() => {
+          r.dispose();
+        }),
+      );
+      const written: unknown[] = [];
+      const fold = makeHarnessEventFold({
+        launchTarget: LT,
+        registry,
+        runFork: () => undefined,
+        setModelPickerPrefs: prefs => {
+          written.push(prefs);
+        },
+      });
+      const select = (ids: readonly string[]) => ({
+        configOptions: [
+          {
+            currentValue: 'gpt',
+            id: 'model',
+            name: 'Model',
+            options: ids.map(id => ({ name: id, value: id })),
+            type: 'select',
+          },
+        ],
+      });
+      fold.onConfigIndexEvent({ _tag: 'SessionNew', response: select(['gpt']) });
+      assert.deepStrictEqual(written, []);
+      fold.onConfigIndexEvent({ _tag: 'ModelPicked', modelId: 'gpt', response: select(['gpt', 'fresh']) });
+      assert.deepStrictEqual(written, [{ hidden: [], order: ['fresh'] }]);
     }),
   );
 });

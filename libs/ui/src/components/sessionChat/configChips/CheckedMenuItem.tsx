@@ -16,10 +16,12 @@ export const CheckedMenuItem: FC<
     readonly label: string;
     readonly onSelect: () => void;
     readonly opacity?: number;
+    /** The agent suggests this choice (AIR `recommendedValue`). */
+    readonly recommended?: boolean;
     readonly selected: boolean;
     readonly unavailable?: boolean;
   }
-> = ({ label, onSelect, opacity = 1, selected, unavailable = false, ...handlers }) => (
+> = ({ label, onSelect, opacity = 1, recommended = false, selected, unavailable = false, ...handlers }) => (
   <MenuItem
     {...handlers}
     aria-disabled={unavailable || undefined}
@@ -32,6 +34,11 @@ export const CheckedMenuItem: FC<
     sx={{ borderRadius: 1, gap: 1, opacity: unavailable ? 0.38 : opacity }}
   >
     <Typography sx={{ flex: 1, fontSize: 14 }}>{label}</Typography>
+    {recommended ? (
+      <Typography color="text.secondary" variant="caption">
+        Recommended
+      </Typography>
+    ) : null}
     {selected ? <LucideMuiIcon icon={Check} sx={{ fontSize: 16 }} /> : null}
   </MenuItem>
 );

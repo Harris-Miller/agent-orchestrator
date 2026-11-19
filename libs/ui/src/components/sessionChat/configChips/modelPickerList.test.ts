@@ -12,6 +12,39 @@ const rows = (
   unavailableIds: string[] = [],
 ) => modelRowsFor(choices, { currentId, hidden, launchTarget: 'codex-acp', order, unavailableIds });
 
+describe('modelRowsFor recommended', () => {
+  const withRecommended = (recommendedId: string | undefined, hidden: readonly string[] = []) =>
+    modelRowsFor(choices, {
+      currentId: 'm1',
+      hidden,
+      launchTarget: 'codex-acp',
+      order: [],
+      recommendedId,
+      unavailableIds: [],
+    });
+
+  it('flags only the recommended model', () => {
+    assert.deepStrictEqual(
+      withRecommended('m3').map(row => [row.id, row.recommended]),
+      [
+        ['m1', false],
+        ['m2', false],
+        ['m3', true],
+      ],
+    );
+  });
+
+  it('flags nothing without a recommendation', () => {
+    assert.isFalse(withRecommended(undefined).some(row => row.recommended));
+  });
+
+  it('keeps a recommended Hidden model flagged and hidden', () => {
+    const row = withRecommended('m2', ['m2']).find(r => r.id === 'm2');
+    assert.isTrue(row?.recommended);
+    assert.isTrue(row?.hidden);
+  });
+});
+
 describe('modelRowsFor', () => {
   it('flags Hidden models and keeps Model order', () => {
     const result = rows(['m2'], 'm1', ['m3']);

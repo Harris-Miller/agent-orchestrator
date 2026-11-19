@@ -28,6 +28,7 @@ const setup = Effect.fnUntraced(function* () {
   registry.mount(respondElicitationAtomFn);
   registry.mount(respondPermissionAtomFn);
   const fold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
     launchTarget: LT,
     registry,
     runFork: () => undefined,

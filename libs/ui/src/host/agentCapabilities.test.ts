@@ -114,17 +114,23 @@ describe('clientCapabilitiesFor', () => {
     subagents: {},
   };
 
-  it('offers AIR sessionIndex, sessionFailure and loadReplayEnd to Claude', () => {
+  it('offers AIR sessionIndex, sessionFailure, loadReplayEnd and recommendedValue to Claude', () => {
     assert.deepStrictEqual(clientCapabilitiesFor('claude-agent-acp'), {
       ...base,
-      _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure', 'loadReplayEnd'], version: 1 } } },
+      _meta: {
+        jetbrains: {
+          air: { capabilities: ['sessionIndex', 'sessionFailure', 'loadReplayEnd', 'recommendedValue'], version: 1 },
+        },
+      },
     });
   });
 
-  it('offers AIR sessionIndex and sessionFailure to Codex', () => {
+  it('offers AIR sessionIndex, sessionFailure and recommendedValue to Codex', () => {
     assert.deepStrictEqual(clientCapabilitiesFor('codex-acp'), {
       ...base,
-      _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure'], version: 1 } } },
+      _meta: {
+        jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure', 'recommendedValue'], version: 1 } },
+      },
     });
     assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp')), 'loadReplayEnd');
   });

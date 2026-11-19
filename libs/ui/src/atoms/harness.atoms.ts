@@ -10,13 +10,19 @@ import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, runBackendHarness } from '../host/backendHarness.ts';
 
 import { backendDesiredStateAtom } from './backendState.atoms.ts';
+import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearRpcWireLog } from './rpcWireLog.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
-export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
+export const createHarnessAtoms = (
+  runtime: HostRuntimeBag,
+  {
+    setModelPickerPrefsAtom,
+  }: { readonly setModelPickerPrefsAtom: ReturnType<typeof createUserSettingsAtoms>['setModelPickerPrefsAtom'] },
+) => {
   const { atomRuntime, hostRunFork } = runtime;
 
   /** Single owner of provider process lifetime: atoms never own it, so remount cannot duplicate a backend. */
@@ -34,6 +40,9 @@ export const createHarnessAtoms = (runtime: HostRuntimeBag) => {
         registry,
         runFork: effect => {
           hostRunFork(effect);
+        },
+        setModelPickerPrefs: prefs => {
+          registry.set(setModelPickerPrefsAtom, { launchTarget, prefs });
         },
       });
       lifecycle.start(

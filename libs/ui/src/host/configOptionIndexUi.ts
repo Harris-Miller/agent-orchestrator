@@ -35,6 +35,19 @@ export const advertisedModelChoices = (index: ConfigOptionIndex | undefined) => 
   return modelOption?.type === 'select' ? modelOption.choices : [];
 };
 
+/** Model ids advertised in `next` but not in `previous`, in `next`'s order. Empty when `previous` advertised none (first probe). */
+export const newlyAdvertisedModelIds = (
+  previous: ConfigOptionIndex | undefined,
+  next: ConfigOptionIndex,
+): readonly string[] => {
+  const before = new Set(advertisedModelChoices(previous).map(choice => choice.id));
+  return before.size === 0
+    ? []
+    : advertisedModelChoices(next)
+        .map(choice => choice.id)
+        .filter(id => !before.has(id));
+};
+
 /** The default row's `model` select when `modelId` is one of its choices (an advertised model). */
 const advertisedModelSelect = (index: ConfigOptionIndex, modelId: string) => {
   const modelOption = defaultModelOption(index);

@@ -189,7 +189,7 @@ The model a new Virtual draft or Handoff target begins on when nothing the user 
 _Avoid_: Default model (that is the agent's own, in the Config option index), fallback model
 
 **Model order**:
-The user's ordering of one launch target's advertised models, set in Settings > Providers and used by every model select. Models it does not list follow it in the agent's own order. Hidden models keep their place in it.
+The user's ordering of one launch target's advertised models, set in Settings > Providers and used by every model select. Models it does not list follow it in the agent's own order. Hidden models keep their place in it. A model that newly appears in an advertised list (not in the previous one) is added to the top and shown, not Hidden; the first probe reorders nothing.
 _Avoid_: Model ranking, model priority, favorites
 
 **Developer panel**:

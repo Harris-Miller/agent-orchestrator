@@ -253,7 +253,12 @@ describe('#278 F5: no-resume session/load replays into a clean transcript', () =
         const calls: string[] = [];
         const registry = yield* freshRegistry;
         enableProviders(registry, [CLAUDE, CODEX, CURSOR]);
-        const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+        const fold = makeHarnessEventFold({
+          setModelPickerPrefs: () => undefined,
+          launchTarget: CODEX,
+          registry,
+          runFork: () => undefined,
+        });
         const [user] = replayed(ids[0]);
         const [, agent] = replayed(ids[1]);
         yield* installFakeAgent(

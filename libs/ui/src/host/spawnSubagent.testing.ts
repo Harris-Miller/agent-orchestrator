@@ -64,7 +64,12 @@ export const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {},
     sessionHistory: [{ cwd: '/w', sessionId: PARENT, title: 'Parent' }],
     sessions: { [PARENT]: { ...initialSessionSnapshot(PARENT, 'active'), cwd: '/w' } },
   }));
-  const childFold = makeHarnessEventFold({ launchTarget: CLAUDE, registry, runFork: () => undefined });
+  const childFold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
+    launchTarget: CLAUDE,
+    registry,
+    runFork: () => undefined,
+  });
   const childCalls: string[] = [];
   yield* installFakeAgent(childCalls, { reports: childFold, ...childOpts }, CLAUDE);
   yield* Effect.addFinalizer(() =>

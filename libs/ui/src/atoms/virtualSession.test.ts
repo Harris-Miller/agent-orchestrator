@@ -676,6 +676,7 @@ describe('Send', () => {
       const calls: string[] = [];
       const registry = yield* freshRegistry;
       const fold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: CODEX,
         registry,
         runFork: () => undefined,
@@ -1520,7 +1521,12 @@ describe('#278 regressions', () => {
       const calls: string[] = [];
       const gate = yield* gated;
       const registry = yield* freshRegistry;
-      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+      const fold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
+        launchTarget: CODEX,
+        registry,
+        runFork: () => undefined,
+      });
       yield* installFakeAgent(calls, { duringNew: gate.during, reports: fold });
       yield* seedUnbound(registry, { draft: 'hello' });
       const recorder = recordingPrompt(calls);
@@ -1643,7 +1649,12 @@ describe('#278 regressions', () => {
       const calls: string[] = [];
       const gate = yield* gated;
       const h = yield* atomFnHarness;
-      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry: h.registry, runFork: () => undefined });
+      const fold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
+        launchTarget: CODEX,
+        registry: h.registry,
+        runFork: () => undefined,
+      });
       yield* installFakeAgent(calls, {
         reports: fold,
         setConfig: () => Effect.andThen(gate.during, Effect.fail('connection lost')),

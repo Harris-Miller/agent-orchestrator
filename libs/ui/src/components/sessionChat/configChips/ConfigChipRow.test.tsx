@@ -148,6 +148,36 @@ describe('ConfigChipRow', () => {
     });
   });
 
+  describe('recommended marker', () => {
+    const recommendedSelect = (id: string, current: string, choices: readonly string[], recommendedValue?: string) =>
+      ({
+        ...select(id, current, choices),
+        ...(recommendedValue === undefined ? {} : { recommendedValue }),
+      }) as NormalizedConfigOption;
+    const markedRows = () =>
+      screen
+        .getAllByRole('menuitem')
+        .filter(item => item.textContent.includes('Recommended'))
+        .map(item => item.textContent.replace('Recommended', ''));
+
+    it('marks the recommended model and effort rows', () => {
+      mount({
+        configOptions: [
+          recommendedSelect('model', 'sonnet', ['sonnet', 'opus'], 'opus'),
+          recommendedSelect('effort', 'low', ['low', 'high'], 'high'),
+        ],
+      });
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(markedRows(), ['opus', 'high']);
+    });
+
+    it('shows no marker without a recommendation', () => {
+      mount();
+      fireEvent.click(chip(1));
+      assert.deepStrictEqual(markedRows(), []);
+    });
+  });
+
   describe('model picker popover', () => {
     const models = ['m1', 'm2', 'm3'];
     const modelOptions = (current: string): readonly NormalizedConfigOption[] => [select('model', current, models)];

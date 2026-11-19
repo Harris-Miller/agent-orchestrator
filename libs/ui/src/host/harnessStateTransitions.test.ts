@@ -525,12 +525,10 @@ describe('bootstrap and wire folds', () => {
     const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/a', sessionId: 'old' }]);
     const next = applySessionListPage(
       snapshot,
-      {
-        sessions: [
-          { cwd: '/a', sessionId: 'new' },
-          { cwd: '/a', sessionId: 'bound' },
-        ],
-      },
+      [
+        { cwd: '/a', sessionId: 'new' },
+        { cwd: '/a', sessionId: 'bound' },
+      ],
       'bound',
     );
     assert.deepStrictEqual(

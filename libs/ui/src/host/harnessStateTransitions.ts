@@ -16,7 +16,6 @@ import {
   initialBackendHarnessSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
-  normalizeSessionHistory,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
@@ -462,15 +461,12 @@ export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: str
 /** Fold one `session/list` page into Session History: merge by `sessionId`, hiding the Bound Virtual id. */
 export const applySessionListPage = (
   snapshot: BackendHarnessSnapshot,
-  page: unknown,
+  rows: readonly NormalizedSessionInfo[],
   boundSessionId: string | undefined,
 ): BackendHarnessSnapshot =>
   replaceSessionHistory(
     snapshot,
-    mergeListedHistory(
-      snapshot.sessionHistory,
-      excludeBoundVirtualFromHistory(normalizeSessionHistory(page), boundSessionId),
-    ),
+    mergeListedHistory(snapshot.sessionHistory, excludeBoundVirtualFromHistory(rows, boundSessionId)),
   );
 
 /**

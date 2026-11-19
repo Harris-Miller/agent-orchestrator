@@ -32,6 +32,12 @@ export const sessionListStatesAtom = Atom.make<ReadonlyMap<string, SessionListSt
   Atom.keepAlive,
 );
 
+/** The current run per list key; a run is live only while its token is the one recorded here. */
+const runTokensAtom = Atom.make<ReadonlyMap<string, symbol>>(new Map()).pipe(
+  Atom.withLabel('sessionListRunTokens'),
+  Atom.keepAlive,
+);
+
 const setListState = (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
@@ -43,6 +49,11 @@ const setListState = (
 
 /** Drops every list state of a Project (Stop tracking). */
 export const clearListStatesOfCwd = (registry: AtomRegistry.AtomRegistry, cwd: string): void => {
+  registry.update(runTokensAtom, current => {
+    const next = new Map(current);
+    for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) next.delete(listKey(launchTarget, cwd));
+    return next;
+  });
   registry.update(sessionListStatesAtom, current => {
     const next = new Map(current);
     for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) next.delete(listKey(launchTarget, cwd));
@@ -85,13 +96,20 @@ export const projectListStatusAtom = Atom.family((cwd: string) =>
 /** Runs a Host-service Effect off the caller's fiber (the pin sweep needs `HostServices`; `SessionListRun` stays service-free). */
 export type RunFork = (effect: Effect.Effect<void, never, HostServices>) => void;
 
-/** Begins one (launch target, cwd) list: marks it loading and returns the fold for its pages and outcome. */
+/**
+ * Begins one (launch target, cwd) list run: marks it loading and returns the fold for its pages and outcome.
+ * Lifecycle: begin → pages → complete | fail. A newer run for the same key supersedes this one, and Stop tracking
+ * cancels it; a superseded or cancelled run's page/complete/fail are no-ops.
+ */
 export const beginSessionList = (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
   cwd: string,
   runFork: RunFork,
 ): SessionListRun => {
+  const key = listKey(launchTarget, cwd);
+  const token = Symbol(key);
+  registry.update(runTokensAtom, current => new Map(current).set(key, token));
   setListState(registry, launchTarget, cwd, 'loading');
   const idsAtStart = new Set(
     registry
@@ -102,8 +120,7 @@ export const beginSessionList = (
   // Read before the request so pins made while it is in flight (session/new races) are never swept.
   const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
   const listedIds = new Set<string>();
-  // Stop tracking clears the list state; a run that outlives it must not re-merge rows or recreate the state.
-  const cancelled = () => registry.get(sessionListStatesAtom).get(listKey(launchTarget, cwd)) === undefined;
+  const cancelled = () => registry.get(runTokensAtom).get(key) !== token;
   return {
     complete: () =>
       Effect.sync(() => {
@@ -118,9 +135,10 @@ export const beginSessionList = (
     },
     page: page => {
       if (cancelled()) return;
-      for (const { sessionId } of normalizeSessionHistory(page)) listedIds.add(sessionId);
+      const rows = normalizeSessionHistory(page);
+      for (const { sessionId } of rows) listedIds.add(sessionId);
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
-      updateHarnessSnapshot(registry, launchTarget, current => applySessionListPage(current, page, boundSessionId));
+      updateHarnessSnapshot(registry, launchTarget, current => applySessionListPage(current, rows, boundSessionId));
     },
   };
 };

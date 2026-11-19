@@ -18,6 +18,7 @@ import {
   beginSessionList,
   clearListStatesOfCwd,
   listCwdsOnUsableTargets,
+  listKey,
   projectListStatusAtom,
   sessionListStatesAtom,
 } from './sessionLists.atoms.ts';
@@ -245,6 +246,70 @@ describe('Per-Project Session History lists', () => {
       yield* drain;
       assert.deepStrictEqual(history(CODEX), []);
       assert.strictEqual(registry.get(sessionListStatesAtom).size, 0);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('overlapping runs for one list: the superseded run cannot complete, merge or fail it', () =>
+    Effect.gen(function* () {
+      const { drain, history, layer, registry } = yield* setup();
+      const pinned = yield* pinSession(toLaunchTarget(CODEX), { cwd: '/a', sessionId: 'pinned-a' }).pipe(
+        Effect.provide(layer),
+      );
+      registry.set(pinnedSessionsAtom(CODEX), pinned.pinned);
+      registry.set(pinsLoadedAtom(CODEX), true);
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/a', sessionId: 'cached', unavailable: true }],
+      }));
+      const state = () => registry.get(sessionListStatesAtom).get(listKey(CODEX, '/a'));
+      const forkedEffects: Effect.Effect<void, never, HostServices>[] = [];
+      const runA = beginSessionList(registry, CODEX, '/a', effect => forkedEffects.push(effect));
+      const runB = beginSessionList(registry, CODEX, '/a', effect => forkedEffects.push(effect));
+      runA.page({ sessions: [row('/a', 'stale')] });
+      yield* runA.complete();
+      runA.fail();
+      assert.strictEqual(state(), 'loading');
+      assert.deepStrictEqual(history(CODEX), ['cached']);
+      assert.strictEqual(forkedEffects.length, 0);
+      runB.page({ sessions: [row('/a', 'fresh')] });
+      yield* runB.complete();
+      assert.strictEqual(state(), 'complete');
+      assert.deepStrictEqual(history(CODEX), ['fresh']);
+      assert.strictEqual(forkedEffects.length, 1);
+      yield* drain;
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Stop tracking then re-add: the old run is a no-op and the new run works', () =>
+    Effect.gen(function* () {
+      const { history, registry } = yield* setup();
+      const state = () => registry.get(sessionListStatesAtom).get(listKey(CODEX, '/a'));
+      const old = beginSessionList(registry, CODEX, '/a', () => undefined);
+      clearListStatesOfCwd(registry, '/a');
+      const fresh = beginSessionList(registry, CODEX, '/a', () => undefined);
+      old.page({ sessions: [row('/a', 'stale')] });
+      yield* old.complete();
+      old.fail();
+      assert.strictEqual(state(), 'loading');
+      assert.deepStrictEqual(history(CODEX), []);
+      fresh.page({ sessions: [row('/a', 'fresh')] });
+      yield* fresh.complete();
+      assert.strictEqual(state(), 'complete');
+      assert.deepStrictEqual(history(CODEX), ['fresh']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a page is normalized once: a malformed row is neither merged nor counted as listed', () =>
+    Effect.gen(function* () {
+      const { history, registry } = yield* setup();
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/a', sessionId: 'cached', unavailable: true }],
+      }));
+      const run = beginSessionList(registry, CODEX, '/a', () => undefined);
+      run.page({ sessions: [row('/a', 'ok'), { cwd: '/a' }, { sessionId: 'no-cwd' }] });
+      yield* run.complete();
+      assert.deepStrictEqual(history(CODEX), ['ok']);
     }).pipe(Effect.scoped),
   );
 

@@ -16,14 +16,26 @@ The architectural review is rendered as a single self-contained HTML file in the
       mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
     </script>
     <style>
+      :root {
+        --stroke: #dc2626;
+        --gradient-from: #0f172a;
+        --gradient-to: #1e293b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --stroke: #f87171;
+          --gradient-from: #020617;
+          --gradient-to: #0f172a;
+        }
+      }
       /* small custom layer for things Tailwind doesn't cover cleanly:
          dashed seam lines, hand-drawn-feeling arrow heads, etc. */
       .seam { stroke-dasharray: 4 4; }
-      .leak { stroke: #dc2626; }
-      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .leak { stroke: var(--stroke); }
+      .deep { background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to)); }
     </style>
   </head>
-  <body class="bg-stone-50 text-slate-900 font-sans">
+  <body class="bg-stone-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans">
     <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
       <header>...</header>
       <section id="candidates" class="space-y-10">...</section>
@@ -63,13 +75,13 @@ Pick the pattern that fits the candidate. Mix them. Don't make every diagram loo
 Use a Mermaid `flowchart` or `graph` when the point is "X calls Y calls Z, and look at the mess." Wrap it in a Tailwind-styled card so it doesn't feel parachuted in. Style with classDef to colour leakage edges red and the deep module dark. Sequence diagrams work well for "before: 6 round-trips; after: 1."
 
 ```html
-<div class="rounded-lg border border-slate-200 bg-white p-4">
+<div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
   <pre class="mermaid">
     flowchart LR
       A[OrderHandler] --> B[OrderValidator]
       B --> C[OrderRepo]
       C -.leak.-> D[PricingClient]
-      classDef leak stroke:#dc2626,stroke-width:2px;
+      classDef leak stroke:var(--stroke),stroke-width:2px;
       class C,D leak
   </pre>
 </div>
@@ -95,6 +107,7 @@ Before: a tree of function calls rendered as nested boxes. After: the same tree 
 
 - Lean editorial, not corporate-dashboard. Generous whitespace. Serif optional for headings (`font-serif` works well with stone/slate).
 - Colour sparingly: one accent (emerald or indigo) plus red for leakage and amber for warnings.
+- Add `dark:` variants for background, text, and border colours so cards, badges, and diagrams remain legible in either colour scheme. Define hardcoded colours as CSS variables with dark overrides.
 - Keep diagrams ~320px tall so before/after sits comfortably side by side without scrolling.
 - Use `text-xs uppercase tracking-wider` for module labels inside diagrams, so they read as schematic, not as UI.
 - The only scripts are the Tailwind CDN and the Mermaid ESM import. The report is otherwise static: no app code, no interactivity beyond Mermaid's own rendering.

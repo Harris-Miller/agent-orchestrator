@@ -201,7 +201,7 @@ Connection-setup work that runs only when no cached Config option index exists, 
 _Avoid_: Session create, materialize, activate
 
 **Lazy hydrate**:
-Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models; if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row, and the Bound session's Session configuration then shows that pick. Rows keep the values the agent returned.
+Updating the Config option index from a live agent response instead of probing. Creating a session replaces the default model's row and the advertised model list (rows for models no longer advertised are dropped). Picking a model replaces that model's row and clears it from Unavailable models, and its response also replaces the advertised list (models no longer advertised lose their rows and Unavailable marks; the default moves to the picked model if it was dropped); if the agent refuses the pick the model becomes Unavailable (a transport failure does not). A Virtual draft with a Bound session picks an uncached model on that session to learn its row, and the Bound session's Session configuration then shows that pick. Rows keep the values the agent returned.
 _Avoid_: refresh, re-probe
 
 **Usage**:

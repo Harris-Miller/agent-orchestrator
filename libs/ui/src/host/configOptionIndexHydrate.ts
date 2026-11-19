@@ -1,12 +1,50 @@
 /** Lazy hydrate: fold live ACP responses into the Config option index. */
 import { normalizeConfigOptions, normalizeModels } from './acpSessionBootstrap.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
+import { isModelOption } from './configOptionIndexUi.ts';
 
 /** Live ACP response that updates the Config option index (Lazy hydrate). */
 export type ConfigIndexEvent =
   | { readonly _tag: 'SessionNew'; readonly response: unknown }
   | { readonly _tag: 'ModelPicked'; readonly modelId: string; readonly response: unknown }
   | { readonly _tag: 'ModelPickFailed'; readonly modelId: string };
+
+/**
+ * A successful pick's response carries the full advertised model list: replace the default row's choices, drop rows
+ * and Unavailable marks of models no longer advertised, and move the default to the picked model if it was dropped.
+ */
+const mergeModelPicked = (
+  previous: ConfigOptionIndex,
+  modelId: string,
+  response: unknown,
+  otherRows: ConfigOptionIndex['byModel'],
+  otherUnavailable: readonly string[],
+): ConfigOptionIndex => {
+  const row = normalizeConfigOptions(response);
+  const pickedModel = row.find(isModelOption);
+  if (pickedModel?.type !== 'select') {
+    return { ...previous, byModel: { ...otherRows, [modelId]: row }, unavailableModelIds: otherUnavailable };
+  }
+  const advertised = new Set(pickedModel.choices.map(choice => choice.id));
+  const defaultModelId = advertised.has(previous.defaultModelId) ? previous.defaultModelId : modelId;
+  const kept = Object.entries(otherRows).flatMap(([id, options]) => {
+    if (!advertised.has(id) && id !== defaultModelId) {
+      return [];
+    }
+    const patched =
+      id === previous.defaultModelId
+        ? options.map(option =>
+            isModelOption(option) && option.type === 'select' ? { ...option, choices: pickedModel.choices } : option,
+          )
+        : options;
+    return [[id, patched] as const];
+  });
+  return {
+    byModel: { ...Object.fromEntries(kept), [modelId]: row },
+    defaultModelId,
+    unavailableModelIds: otherUnavailable.filter(id => advertised.has(id)),
+  };
+};
 
 /**
  * Lazy hydrate: fold one live response into the index. `SessionNew` replaces the default row and model list
@@ -36,11 +74,7 @@ export const mergeConfigOptionIndex = (
   const { [event.modelId]: _dropped, ...otherRows } = previous.byModel;
   const otherUnavailable = previous.unavailableModelIds.filter(modelId => modelId !== event.modelId);
   if (event._tag === 'ModelPicked') {
-    return {
-      ...previous,
-      byModel: { ...otherRows, [event.modelId]: normalizeConfigOptions(event.response) },
-      unavailableModelIds: otherUnavailable,
-    };
+    return mergeModelPicked(previous, event.modelId, event.response, otherRows, otherUnavailable);
   }
   return { ...previous, byModel: otherRows, unavailableModelIds: [...otherUnavailable, event.modelId] };
 };

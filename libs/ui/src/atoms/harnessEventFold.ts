@@ -18,6 +18,9 @@ import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
+import { newlyAdvertisedModelIds } from '../host/configOptionIndexUi.ts';
+import { withNewModelsFirst } from '../host/modelPickerPrefs.ts';
+import type { ModelPickerPrefs } from '../host/modelPickerPrefs.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import {
   applyBootstrapPhase,
@@ -42,7 +45,7 @@ import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { linkOf } from './subagentLinkRegistry.ts';
 import { pinnedSessionsAtom, reconcilePinsAfterList } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
-import { currentUserSettings } from './userSettings/userSettingsDocument.atoms.ts';
+import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   bindVirtualOnUsable,
   resetVirtualUnsupportedConfig,
@@ -81,8 +84,11 @@ export const makeHarnessEventFold = ({
   launchTarget,
   registry,
   runFork,
+  setModelPickerPrefs,
 }: {
   readonly launchTarget: AgentLaunchTarget;
+  /** Writes this launch target's Hidden models + Model order (new models go on top, shown). */
+  readonly setModelPickerPrefs?: (prefs: ModelPickerPrefs) => void;
   readonly registry: AtomRegistry.AtomRegistry;
   readonly runFork: (effect: Effect.Effect<unknown, never, HostServices>) => void;
 }): HarnessEventFold => {
@@ -138,6 +144,12 @@ export const makeHarnessEventFold = ({
       const next = mergeConfigOptionIndex(previous, event);
       if (next !== undefined && next !== previous) {
         publishConfigOptionIndex(next);
+        const added = newlyAdvertisedModelIds(previous, next);
+        if (added.length > 0) {
+          setModelPickerPrefs?.(
+            withNewModelsFirst(modelPickerPrefsOf(currentUserSettings(registry), launchTarget), added),
+          );
+        }
       }
     },
     onConfigOptionIndexPublish: publishConfigOptionIndex,

@@ -83,3 +83,15 @@ export const reorderModels = (
   const advertised = new Set(ids);
   return [...ids, ...order.filter(id => !advertised.has(id))];
 };
+
+/** New models go to the top of Model order and are shown (not Hidden). Same object when there are none. */
+export const withNewModelsFirst = (prefs: ModelPickerPrefs, newIds: readonly string[]): ModelPickerPrefs => {
+  if (newIds.length === 0) {
+    return prefs;
+  }
+  const added = new Set(newIds);
+  return {
+    hidden: prefs.hidden.filter(id => !added.has(id)),
+    order: [...newIds, ...prefs.order.filter(id => !added.has(id))],
+  };
+};

@@ -88,7 +88,7 @@ export const makeHarnessEventFold = ({
 }: {
   readonly launchTarget: AgentLaunchTarget;
   /** Writes this launch target's Hidden models + Model order (new models go on top, shown). */
-  readonly setModelPickerPrefs?: (prefs: ModelPickerPrefs) => void;
+  readonly setModelPickerPrefs: (prefs: ModelPickerPrefs) => void;
   readonly registry: AtomRegistry.AtomRegistry;
   readonly runFork: (effect: Effect.Effect<unknown, never, HostServices>) => void;
 }): HarnessEventFold => {
@@ -146,7 +146,7 @@ export const makeHarnessEventFold = ({
         publishConfigOptionIndex(next);
         const added = newlyAdvertisedModelIds(previous, next);
         if (added.length > 0) {
-          setModelPickerPrefs?.(
+          setModelPickerPrefs(
             withNewModelsFirst(modelPickerPrefsOf(currentUserSettings(registry), launchTarget), added),
           );
         }

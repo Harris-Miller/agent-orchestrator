@@ -47,6 +47,7 @@ const setup = Effect.fnUntraced(function* () {
   const notified: { readonly body: string; readonly title: string }[] = [];
   const forked: Effect.Effect<unknown, never, HostServices>[] = [];
   const fold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
     launchTarget: LT,
     registry,
     runFork: effect => {
@@ -354,6 +355,7 @@ describe('Harness event fold: Connection lost', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       const other = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
         launchTarget: 'claude-agent-acp',
         registry: h.registry,
         runFork: () => undefined,

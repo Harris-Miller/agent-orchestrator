@@ -66,7 +66,12 @@ describe('AIR loadReplayEnd on a failing session/load', () => {
       const { cancelPromptAtomFn } = createChatAtoms(runtime);
       const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
       const registry = yield* freshRegistry;
-      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+      const fold = makeHarnessEventFold({
+        setModelPickerPrefs: () => undefined,
+        launchTarget: CODEX,
+        registry,
+        runFork: () => undefined,
+      });
       yield* installFakeAgent(
         [],
         {

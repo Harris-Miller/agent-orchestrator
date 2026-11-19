@@ -10,6 +10,7 @@ const SelectOption = Schema.Struct({
   description: OptionalString,
   choices: Schema.Array(Choice),
   currentValue: Schema.optionalKey(Schema.UndefinedOr(Schema.String)),
+  recommendedValue: Schema.optionalKey(Schema.UndefinedOr(Schema.String)),
 });
 const BooleanOption = Schema.Struct({
   type: Schema.Literal('boolean'),

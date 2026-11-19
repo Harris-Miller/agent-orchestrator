@@ -86,7 +86,12 @@ const setup = Effect.fnUntraced(function* (childOpts: FakeAgentOpts = {}) {
   const runFork = (effect: Effect.Effect<unknown, never, HostServices>) => {
     Effect.runFork(Effect.provide(effect, hostLayer));
   };
-  const childFold = makeHarnessEventFold({ launchTarget: CLAUDE, registry, runFork });
+  const childFold = makeHarnessEventFold({
+    setModelPickerPrefs: () => undefined,
+    launchTarget: CLAUDE,
+    registry,
+    runFork,
+  });
   const childCalls: string[] = [];
   const prompts: string[] = [];
   yield* installFakeAgent(childCalls, { promptTexts: prompts, reports: childFold, ...childOpts }, CLAUDE);

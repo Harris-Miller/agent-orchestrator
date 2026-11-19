@@ -212,4 +212,23 @@ describe('Stop tracking a Project', () => {
       assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Virtual' });
     }).pipe(Effect.scoped),
   );
+
+  it.effect('keeps an unrelated Selected session when a Bound Virtual of the Project is discarded', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({});
+      yield* ensureVirtual(s.registry, { cwd: '/keep' });
+      yield* setVirtualLaunchTarget(s.registry, CODEX);
+      yield* bindVirtualOnUsable(s.registry, CODEX);
+      const boundId = s.registry.get(virtualSessionAtom)?.sessionId;
+      assert.isDefined(boundId);
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessions: { ...current.sessions, [boundId]: { ...current.sessions[boundId], cwd: '/proj' } },
+      }));
+      s.registry.set(selectedAtom, { _tag: 'Session', sessionId: 'kept' });
+      yield* s.stop;
+      assert.isUndefined(s.registry.get(virtualSessionAtom)?.sessionId);
+      assert.deepStrictEqual(s.registry.get(selectedAtom), { _tag: 'Session', sessionId: 'kept' });
+    }).pipe(Effect.scoped),
+  );
 });

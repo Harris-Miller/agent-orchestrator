@@ -129,8 +129,6 @@ export const makeHarnessEventFold = ({
     );
   };
 
-  // Snapshotted just before the startup list request so a pin made while it is in flight is never swept.
-
   return {
     hasConfigOptionIndex: () => configOptionIndexIsNonempty(registry.get(configOptionIndexAtom(launchTarget))),
     onAntigravityAuthUrl: url => {

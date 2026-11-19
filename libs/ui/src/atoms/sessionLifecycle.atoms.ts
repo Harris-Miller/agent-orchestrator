@@ -432,12 +432,15 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           target => Effect.exit(runAtomFn(get.registry, deactivateSessionAtomFn, target)),
           { concurrency: 'unbounded' },
         );
+        const selectedBefore = get(selectedAtom);
         if (virtualBoundInProject) {
           yield* discardVirtual(get.registry);
+          // The discard clears Selected unconditionally; an unrelated Selected session must survive it.
+          if (!selectedInProject && selectedBefore !== undefined) get.registry.set(selectedAtom, selectedBefore);
         }
         // Selected belonged to the Project (or was just cleared by the discard): fall back to a Virtual draft, keeping
         // an existing unrelated one.
-        if (selectedInProject || virtualBoundInProject) {
+        if (selectedInProject || (virtualBoundInProject && get(selectedAtom) === undefined)) {
           yield* ensureVirtual(get.registry, {});
         }
         yield* removeProjectEverywhere(get.registry, cwd);

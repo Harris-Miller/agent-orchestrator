@@ -130,4 +130,4 @@ export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtual
 
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
 
-export const { addProjectAtomFn, removeProjectAtomFn } = createProjectsAtoms(hostBag);
+export const { addProjectAtomFn } = createProjectsAtoms(hostBag);

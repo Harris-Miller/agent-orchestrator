@@ -50,5 +50,7 @@ describe('projects', () => {
   it('normalizes trailing separators but keeps a root', () => {
     assert.strictEqual(normalizeProjectPath('/a/b//'), '/a/b');
     assert.strictEqual(normalizeProjectPath('/'), '/');
+    assert.strictEqual(normalizeProjectPath('C:\\'), 'C:\\');
+    assert.strictEqual(normalizeProjectPath('C:\\a\\'), 'C:\\a');
   });
 });

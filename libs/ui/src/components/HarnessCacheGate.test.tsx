@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { RegistryContext } from '@effect/atom-react';
+import { it } from '@effect/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { Effect } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, vi } from 'vitest';
 
 import { HarnessCacheGate } from './HarnessCacheGate.tsx';
 
@@ -40,26 +41,34 @@ const renderGate = () =>
   );
 
 describe('HarnessCacheGate', () => {
-  it('renders children once hydration resolves', async () => {
-    hydrate.mockReturnValue(Effect.succeed(vi.fn()));
-    renderGate();
-    expect(screen.queryByText('child')).toBeNull();
-    await waitFor(() => {
-      expect(screen.getByText('child')).toBeTruthy();
-    });
-  });
+  it.effect('renders children once hydration resolves', () =>
+    Effect.gen(function* () {
+      hydrate.mockReturnValue(Effect.succeed(vi.fn()));
+      renderGate();
+      expect(screen.queryByText('child')).toBeNull();
+      yield* Effect.promise(() =>
+        waitFor(() => {
+          expect(screen.getByText('child')).toBeTruthy();
+        }),
+      );
+    }),
+  );
 
-  it('unsubscribes when unmounted before hydration resolves, without a setState warning', async () => {
-    const gate = deferred();
-    const stop = vi.fn();
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    hydrate.mockReturnValue(Effect.promise(() => gate.promise));
-    const view = renderGate();
-    view.unmount();
-    gate.resolve(stop);
-    await waitFor(() => {
-      expect(stop).toHaveBeenCalledTimes(1);
-    });
-    expect(error).not.toHaveBeenCalled();
-  });
+  it.effect('unsubscribes when unmounted before hydration resolves, without a setState warning', () =>
+    Effect.gen(function* () {
+      const gate = deferred();
+      const stop = vi.fn();
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      hydrate.mockReturnValue(Effect.promise(() => gate.promise));
+      const view = renderGate();
+      view.unmount();
+      gate.resolve(stop);
+      yield* Effect.promise(() =>
+        waitFor(() => {
+          expect(stop).toHaveBeenCalledTimes(1);
+        }),
+      );
+      expect(error).not.toHaveBeenCalled();
+    }),
+  );
 });

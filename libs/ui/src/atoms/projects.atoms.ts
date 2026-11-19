@@ -1,5 +1,5 @@
 /** Projects: one hoa-home list for all launch targets, hydrated by `hydrateHarnessCaches`. Never grown from rows or probe cwds. */
-import { addProject, removeProject } from '@lib/hoa-home';
+import { addProject, ProjectsMalformed, removeProject } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -80,9 +80,9 @@ export const createProjectsAtoms = ({
     .fn(
       Effect.fn('addProjectAtomFn')(function* (cwd: string, get: Atom.FnContext) {
         if (!get(projectsLoadedAtom)) {
-          return yield* Effect.fail(
-            new Error('Projects file could not be read; fix or remove projects.json to add Projects.'),
-          );
+          return yield* new ProjectsMalformed({
+            message: 'Projects file could not be read; fix or remove projects.json to add Projects.',
+          });
         }
         const known = get(projectsAtom);
         const document = yield* addProject(cwd);
@@ -102,14 +102,5 @@ export const createProjectsAtoms = ({
     )
     .pipe(Atom.keepAlive);
 
-  /** Removes a Project without touching its active sessions; the rail's Stop tracking closes them first. */
-  const removeProjectAtomFn = atomRuntime
-    .fn(
-      Effect.fn('removeProjectAtomFn')(function* (cwd: string, get: Atom.FnContext) {
-        yield* removeProjectEverywhere(get.registry, cwd);
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
-  return { addProjectAtomFn, removeProjectAtomFn };
+  return { addProjectAtomFn };
 };

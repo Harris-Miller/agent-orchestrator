@@ -20,7 +20,9 @@ export const projectsPath = Effect.fn('projectsPath')(function* () {
 /** Paths compare exact after trailing-separator normalization; a bare root keeps its separator. */
 export const normalizeProjectPath = (cwd: string): string => {
   const trimmed = cwd.replace(/[\\/]+$/u, '');
-  return trimmed.length === 0 ? cwd.slice(0, 1) || cwd : trimmed;
+  if (trimmed.length === 0) return cwd.slice(0, 1) || cwd;
+  // A Windows drive root ("C:\\") keeps its separator; "C:" alone means the drive's current directory.
+  return /^[A-Za-z]:$/u.test(trimmed) ? `${trimmed}${cwd.charAt(trimmed.length)}` : trimmed;
 };
 
 /** Missing file → no Projects; undecodable content fails with {@link ProjectsMalformed}. */

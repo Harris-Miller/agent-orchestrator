@@ -1,5 +1,5 @@
 /** Projects: one hoa-home list for all launch targets, hydrated by HarnessCacheGate. Never grown from rows or probe cwds. */
-import { addProject, removeProject, removeSessionIndexCwds } from '@lib/hoa-home';
+import { addProject, readSessionIndex, removeProject, removeSessionIndexCwds, sessionIndexRows } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -7,7 +7,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
+import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { activeSessionsInCwd } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -73,6 +73,29 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
   );
 });
 
+/** Hydrates cached `session-index.json` rows of newly added Projects as unavailable rows (like startup hydration). */
+export const hydrateCachedRows = (registry: AtomRegistry.AtomRegistry, cwds: readonly string[]) =>
+  Effect.forEach(
+    MOUNTED_AGENT_LAUNCH_TARGETS,
+    launchTarget =>
+      readSessionIndex(toLaunchTarget(launchTarget)).pipe(
+        Effect.flatMap(document =>
+          Effect.sync(() => {
+            const cached = markHistoryUnavailable(sessionIndexRows(document, new Set(cwds)));
+            updateHarnessSnapshot(registry, launchTarget, current => {
+              const present = new Set(current.sessionHistory.map(entry => entry.sessionId));
+              return replaceSessionHistory(current, [
+                ...current.sessionHistory,
+                ...cached.filter(entry => !present.has(entry.sessionId)),
+              ]);
+            });
+          }),
+        ),
+        Effect.catchCause(cause => Effect.logWarning('session index hydrate failed', launchTarget, cause)),
+      ),
+    { discard: true },
+  );
+
 export const createProjectsAtoms = ({
   atomRuntime,
   hostRunFork,
@@ -82,13 +105,16 @@ export const createProjectsAtoms = ({
     .fn(
       Effect.fn('addProjectAtomFn')(function* (cwd: string, get: Atom.FnContext) {
         if (!get(projectsLoadedAtom)) {
-          return;
+          return yield* Effect.fail(
+            new Error('Projects file could not be read; fix or remove projects.json to add Projects.'),
+          );
         }
         const known = get(projectsAtom);
         const document = yield* addProject(cwd);
         get.set(projectsAtom, document.projects);
         const added = document.projects.filter(project => !known.includes(project));
         if (added.length > 0) {
+          yield* hydrateCachedRows(get.registry, added);
           yield* listCwdsOnUsableTargets(get.registry, added, effect => {
             hostRunFork(effect);
           });

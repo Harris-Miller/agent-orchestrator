@@ -162,7 +162,10 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody aboveComposer={<SessionCwdStrip />} onClientError={onClientError} />
+                <SessionChatBody
+                  aboveComposer={<SessionCwdStrip onClientError={onClientError} />}
+                  onClientError={onClientError}
+                />
               </Box>
             </Allotment.Pane>
 

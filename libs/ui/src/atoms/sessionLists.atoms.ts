@@ -25,7 +25,7 @@ import { virtualSessionAtom } from './virtualSession.atoms.ts';
 /** Completeness of one (launch target, Project) list. */
 export type SessionListState = 'complete' | 'incomplete' | 'loading';
 
-const listKey = (launchTarget: AgentLaunchTarget, cwd: string): string => `${launchTarget}\n${cwd}`;
+export const listKey = (launchTarget: AgentLaunchTarget, cwd: string): string => `${launchTarget}\n${cwd}`;
 
 export const sessionListStatesAtom = Atom.make<ReadonlyMap<string, SessionListState>>(new Map()).pipe(
   Atom.withLabel('sessionListStates'),
@@ -56,24 +56,26 @@ export type ProjectListStatus = {
   readonly incompleteLaunchTargets: readonly AgentLaunchTarget[];
 };
 
-/** A Project's aggregate completeness across launch targets: loading while any list loads, else incomplete if any is. */
+/**
+ * A Project's aggregate completeness: loading while any list loads or a launch target has none yet, else incomplete if
+ * any is. `incompleteLaunchTargets` is reported even while other lists load.
+ */
 export const projectListStatusAtom = Atom.family((cwd: string) =>
   Atom.make((get): ProjectListStatus => {
     const states = get(sessionListStatesAtom);
-    const entries = MOUNTED_AGENT_LAUNCH_TARGETS.flatMap(launchTarget => {
-      const state = states.get(listKey(launchTarget, cwd));
-      return state === undefined ? [] : [{ launchTarget, state }];
-    });
+    const entries = MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+      launchTarget,
+      state: states.get(listKey(launchTarget, cwd)),
+    }));
     const incompleteLaunchTargets = entries.filter(entry => entry.state === 'incomplete').map(e => e.launchTarget);
-    if (entries.some(entry => entry.state === 'loading')) return { incompleteLaunchTargets, state: 'loading' };
-    if (incompleteLaunchTargets.length > 0) return { incompleteLaunchTargets, state: 'incomplete' };
-    // No list yet: loading until providers come up, unless every provider has already failed to start.
-    const pending =
-      entries.length === 0 &&
-      MOUNTED_AGENT_LAUNCH_TARGETS.some(
-        launchTarget => get(backendHarnessSnapshotAtom(launchTarget)).phase !== 'error',
-      );
-    return { incompleteLaunchTargets, state: pending ? 'loading' : 'complete' };
+    // A target with no list yet is still pending (loading) unless it already failed to start.
+    const pending = entries.some(
+      entry =>
+        entry.state === 'loading' ||
+        (entry.state === undefined && get(backendHarnessSnapshotAtom(entry.launchTarget)).phase !== 'error'),
+    );
+    if (pending) return { incompleteLaunchTargets, state: 'loading' };
+    return { incompleteLaunchTargets, state: incompleteLaunchTargets.length > 0 ? 'incomplete' : 'complete' };
   }).pipe(Atom.keepAlive),
 );
 
@@ -97,17 +99,22 @@ export const beginSessionList = (
   // Read before the request so pins made while it is in flight (session/new races) are never swept.
   const pinsBefore = registry.get(pinnedSessionsAtom(launchTarget));
   const listedIds = new Set<string>();
+  // Stop tracking clears the list state; a run that outlives it must not re-merge rows or recreate the state.
+  const cancelled = () => registry.get(sessionListStatesAtom).get(listKey(launchTarget, cwd)) === undefined;
   return {
     complete: () =>
       Effect.sync(() => {
+        if (cancelled()) return;
         updateHarnessSnapshot(registry, launchTarget, current => dropUnlistedRows(current, cwd, listedIds, idsAtStart));
         runFork(removePins(registry, launchTarget, pinsToUnpinAfterList(pinsBefore, listedIds, cwd)));
         setListState(registry, launchTarget, cwd, 'complete');
       }),
     fail: () => {
+      if (cancelled()) return;
       setListState(registry, launchTarget, cwd, 'incomplete');
     },
     page: page => {
+      if (cancelled()) return;
       for (const { sessionId } of normalizeSessionHistory(page)) listedIds.add(sessionId);
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
       updateHarnessSnapshot(registry, launchTarget, current => applySessionListPage(current, page, boundSessionId));

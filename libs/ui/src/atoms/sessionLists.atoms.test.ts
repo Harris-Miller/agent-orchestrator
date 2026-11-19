@@ -1,19 +1,26 @@
 import { assert, describe, it } from '@effect/vitest';
-import { pinSession } from '@lib/hoa-home';
+import { pinSession, updateSessionIndex } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
 import type { HostServices } from '@lib/context-services';
 import { Effect, Layer } from 'effect';
 
-import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { advertise, CLAUDE, CODEX, connectFakeAgent, freshRegistry } from './fakeAgent.testing.ts';
+import { advertise, CLAUDE, CODEX, connectFakeAgent, freshRegistry, setPhase } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
-import { listCwdsOnUsableTargets, projectListStatusAtom } from './sessionLists.atoms.ts';
+import { hydrateCachedRows } from './projects.atoms.ts';
+import {
+  beginSessionList,
+  clearListStatesOfCwd,
+  listCwdsOnUsableTargets,
+  projectListStatusAtom,
+  sessionListStatesAtom,
+} from './sessionLists.atoms.ts';
 
 type Page = { readonly sessions: readonly { sessionId: string; cwd: string }[]; readonly nextCursor?: string };
 const row = (cwd: string, sessionId: string) => ({ cwd, sessionId });
@@ -39,6 +46,10 @@ const setup = Effect.fnUntraced(function* (launchTargets: readonly AgentLaunchTa
     forked.push(effect);
   };
   for (const launchTarget of launchTargets) advertise(registry, launchTarget, {});
+  // Mounted targets this test does not use have failed to start, so they never hold a Project in loading.
+  for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
+    if (!launchTargets.includes(launchTarget)) setPhase(registry, launchTarget, 'error');
+  }
   const drain = Effect.suspend(() => Effect.forEach(forked.splice(0), effect => effect, { discard: true })).pipe(
     Effect.provide(layer),
   );
@@ -194,6 +205,74 @@ describe('Per-Project Session History lists', () => {
       yield* connectFakeAgent(CODEX, listingAgent(requests, { '/a': { '': { sessions: [] } } }));
       yield* list(['/a']);
       assert.deepStrictEqual(requests, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Project stays loading while a launch target has no list yet, even if another completed', () =>
+    Effect.gen(function* () {
+      const { list, registry } = yield* setup([CODEX]);
+      // Claude is still bootstrapping: it has no list entry for the Project yet.
+      setPhase(registry, CLAUDE, 'connecting');
+      yield* connectFakeAgent(CODEX, listingAgent([], { '/a': { '': { sessions: [] } } }));
+      yield* list(['/a']);
+      assert.strictEqual(registry.get(sessionListStatesAtom).size, 1);
+      assert.strictEqual(registry.get(projectListStatusAtom('/a')).state, 'loading');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('reports failed providers while another list is still loading', () =>
+    Effect.gen(function* () {
+      const { list, registry } = yield* setup([CODEX, CLAUDE]);
+      yield* connectFakeAgent(CODEX, listingAgent([], { '/a': { '': 'fail' } }));
+      yield* connectFakeAgent(CLAUDE, listingAgent([], { '/a': { '': { sessions: [] } } }));
+      yield* list(['/a']);
+      beginSessionList(registry, CLAUDE, '/a', () => undefined);
+      assert.deepStrictEqual(registry.get(projectListStatusAtom('/a')), {
+        incompleteLaunchTargets: [CODEX],
+        state: 'loading',
+      });
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Stop tracking while a list is in flight ignores its later pages and completion', () =>
+    Effect.gen(function* () {
+      const { drain, history, registry } = yield* setup();
+      const run = beginSessionList(registry, CODEX, '/a', () => undefined);
+      clearListStatesOfCwd(registry, '/a');
+      run.page({ sessions: [row('/a', 'late')] });
+      yield* run.complete();
+      run.fail();
+      yield* drain;
+      assert.deepStrictEqual(history(CODEX), []);
+      assert.strictEqual(registry.get(sessionListStatesAtom).size, 0);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('hydrates a newly added Project cached rows as unavailable without duplicating live rows', () =>
+    Effect.gen(function* () {
+      const { layer, registry } = yield* setup();
+      yield* updateSessionIndex(
+        toLaunchTarget(CODEX),
+        {
+          '/new': [
+            { cwd: '/new', sessionId: 'cached' },
+            { cwd: '/new', sessionId: 'live' },
+          ],
+        },
+        new Set(),
+      ).pipe(Effect.provide(layer));
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/new', sessionId: 'live' }],
+      }));
+      yield* hydrateCachedRows(registry, ['/new']).pipe(Effect.provide(layer));
+      assert.deepStrictEqual(
+        registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.map(e => [e.sessionId, e.unavailable]),
+        [
+          ['live', undefined],
+          ['cached', true],
+        ],
+      );
     }).pipe(Effect.scoped),
   );
 });

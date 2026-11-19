@@ -121,7 +121,7 @@ export const ProjectGroup: FC<{
           {status.state === 'loading' ? (
             <CircularProgress aria-label={`Loading sessions in ${label}`} size={14} sx={{ flexShrink: 0 }} />
           ) : null}
-          {status.state === 'incomplete' ? (
+          {status.incompleteLaunchTargets.length > 0 ? (
             <Tooltip title="Some sessions didn't finish loading">
               <LucideMuiIcon icon={TriangleAlert} sx={{ color: 'warning.main', flexShrink: 0, fontSize: '1rem' }} />
             </Tooltip>
@@ -156,7 +156,7 @@ export const ProjectGroup: FC<{
         </AccordionSummary>
         <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
           {status.state === 'loading' ? <LinearProgress sx={{ height: 2, mr: 2 }} /> : null}
-          {status.state === 'incomplete' ? (
+          {status.incompleteLaunchTargets.length > 0 ? (
             <Box
               sx={{
                 alignItems: 'center',

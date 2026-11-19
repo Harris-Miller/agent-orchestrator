@@ -9,6 +9,7 @@ import { hostRuntime } from '../hostRuntime.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { pinnedSessionsAtom } from './pinnedSessions.atoms.ts';
+import { listKey, sessionListStatesAtom } from './sessionLists.atoms.ts';
 
 /**
  * Persists a launch target's Session History rows (for `listedCwds()` only) and pins to the session index whenever its
@@ -26,7 +27,13 @@ export const startSessionIndexPersistence = (
   return registry.subscribe(backendHarnessSnapshotAtom(launchTarget), () => {
     writes = writes.then(() => {
       const current = registry.get(backendHarnessSnapshotAtom(launchTarget));
-      const rowsByCwd = indexRowsByCwd(current.sessionHistory, listedCwds());
+      // A listed cwd with no rows and no complete list yet keeps its cached entry (it may hold rows not hydrated yet).
+      const states = registry.get(sessionListStatesAtom);
+      const writable = listedCwds().filter(
+        cwd =>
+          states.get(listKey(launchTarget, cwd)) === 'complete' || current.sessionHistory.some(row => row.cwd === cwd),
+      );
+      const rowsByCwd = indexRowsByCwd(current.sessionHistory, writable);
       const pinnedIds = new Set(registry.get(pinnedSessionsAtom(launchTarget)).map(pin => pin.sessionId));
       const nextJson = JSON.stringify([rowsByCwd, [...pinnedIds]]);
       if (nextJson === lastWritten) return;

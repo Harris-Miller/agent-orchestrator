@@ -126,6 +126,7 @@ describe('clientCapabilitiesFor', () => {
       ...base,
       _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure'], version: 1 } } },
     });
+    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp')), 'loadReplayEnd');
   });
 
   it('offers no AIR _meta to Antigravity and Cursor', () => {

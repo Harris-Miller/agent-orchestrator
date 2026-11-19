@@ -480,7 +480,7 @@ export const applySessionList = (
   replaceSessionHistory(snapshot, historyAfterList(snapshot.sessionHistory, listResult, scope, boundSessionId));
 
 /**
- * Activation begins: cwd stamped, defects and usage cleared, status `activating`, descendant Subagents reset. A `load`
+ * Activation begins: cwd stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`
  * replays the whole history, so it starts from an empty transcript; a `resume` keeps the local one.
  */
 export const beginActivation = (
@@ -497,7 +497,8 @@ export const beginActivation = (
         cwd,
         defects: undefined,
         status: 'activating',
-        ...(mode === 'load' ? { replayComplete: undefined, transcript: emptySessionTranscript() } : {}),
+        replayComplete: undefined,
+        ...(mode === 'load' ? { transcript: emptySessionTranscript() } : {}),
         usage: undefined,
       })),
     },

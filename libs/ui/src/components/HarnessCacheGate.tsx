@@ -13,11 +13,12 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 
 import { configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
+import { listedCwdsAtom } from '../atoms/listedCwds.atoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from '../atoms/projects.atoms.ts';
 import { startSessionIndexPersistence } from '../atoms/sessionIndexPersistence.ts';
 import { sessionListScopeAtom } from '../atoms/sessionListScope.atoms.ts';
-import { listCwdsForScope, scopeReadsProjects } from '../host/sessionListScope.ts';
+import { scopeReadsProjects } from '../host/sessionListScope.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
@@ -42,7 +43,7 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
               yield* Effect.logWarning('projects hydrate failed', projectsRead.cause);
             }
           }
-          const listedCwds = () => listCwdsForScope(registry.get(sessionListScopeAtom), registry.get(projectsAtom));
+          const listedCwds = () => registry.get(listedCwdsAtom);
           yield* Effect.forEach(
             MOUNTED_AGENT_LAUNCH_TARGETS,
             launchTarget =>

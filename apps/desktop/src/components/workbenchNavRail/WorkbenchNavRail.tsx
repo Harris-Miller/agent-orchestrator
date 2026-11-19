@@ -9,6 +9,7 @@ import {
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
+  listedSessionHistoryAtom,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
@@ -19,11 +20,10 @@ import {
   sessionEntryKey,
   SessionHistoryRow,
   ShowArchivedToggle,
-  unifiedSessionHistoryAtom,
   useBulkSessionSelection,
   useSessionDeleteRequest,
   useSessionHistorySearch,
-  visibleSessionHistoryAtom,
+  visibleListedSessionHistoryAtom,
   withoutPinned,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
@@ -37,7 +37,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderPlus, PanelLeftClose, Pin, RotateCw, Settings, SquarePen } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
@@ -65,8 +65,8 @@ export const WorkbenchNavRail: FC<{
   readonly onClientError: (error: unknown) => void;
   readonly onClose: () => void;
 }> = ({ onClientError, onClose }) => {
-  const history = useAtomValue(visibleSessionHistoryAtom);
-  const unifiedHistory = useAtomValue(unifiedSessionHistoryAtom);
+  const history = useAtomValue(visibleListedSessionHistoryAtom);
+  const listedHistory = useAtomValue(listedSessionHistoryAtom);
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const projects = useAtomValue(projectsAtom);
@@ -76,13 +76,9 @@ export const WorkbenchNavRail: FC<{
   const [addingProject, setAddingProject] = useState(false);
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
-  const projectHistory = useMemo(
-    () => unifiedHistory.filter(entry => projects.includes(entry.cwd)),
-    [projects, unifiedHistory],
-  );
   const search = useSessionHistorySearch({
     // Search covers every loaded Project's sessions (archived or not), nothing else.
-    entries: projectHistory,
+    entries: listedHistory,
     scope: 'desktop',
     onClientError,
     selectedSessionId,

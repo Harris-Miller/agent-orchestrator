@@ -1,4 +1,5 @@
 export * from './atoms/backendState.atoms.ts';
+export * from './atoms/listedCwds.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export * from './atoms/projects.atoms.ts';

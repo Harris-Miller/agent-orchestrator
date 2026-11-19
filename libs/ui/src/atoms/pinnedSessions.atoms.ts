@@ -9,12 +9,9 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { compareHistoryEntries } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { listCwdsForScope } from '../host/sessionListScope.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
-import { visibleSessionHistoryAtom } from './backendState.atoms.ts';
-import { projectsAtom } from './projects.atoms.ts';
-import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { visibleListedSessionHistoryAtom } from './listedCwds.atoms.ts';
 
 export const pinnedSessionsAtom = Atom.family((launchTarget: AgentLaunchTarget) =>
   Atom.make<readonly PinnedSession[]>([]).pipe(Atom.withLabel(`pinnedSessions:${launchTarget}`), Atom.keepAlive),
@@ -36,12 +33,8 @@ export const pinnedEntriesAtom = Atom.make(get => {
       new Set(get(pinnedSessionsAtom(launchTarget)).map(pin => pin.sessionId)),
     ]),
   );
-  const listedCwds = new Set(listCwdsForScope(get(sessionListScopeAtom), get(projectsAtom)));
-  return get(visibleSessionHistoryAtom)
-    .filter(
-      (entry: UnifiedHistoryEntry) =>
-        listedCwds.has(entry.cwd) && pinnedIds.get(entry.launchTarget)?.has(entry.sessionId) === true,
-    )
+  return get(visibleListedSessionHistoryAtom)
+    .filter((entry: UnifiedHistoryEntry) => pinnedIds.get(entry.launchTarget)?.has(entry.sessionId) === true)
     .sort(compareHistoryEntries);
 }).pipe(Atom.keepAlive);
 

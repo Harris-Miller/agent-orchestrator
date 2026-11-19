@@ -171,6 +171,10 @@ _Avoid_: refresh, re-probe
 Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
 
+**Listed cwds**:
+The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code. Rows outside them stay stored but are not shown.
+_Avoid_: scope cwds, visible cwds
+
 **Unavailable model**:
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
 _Avoid_: Missing model, failed model, disabled model (when you mean this outcome)

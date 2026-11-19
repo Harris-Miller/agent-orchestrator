@@ -33,7 +33,6 @@ import {
   setSessionArchived,
   upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
-import { listCwdsForScope } from '../host/sessionListScope.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
@@ -60,9 +59,9 @@ import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
-import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
-import { projectActiveSessionsAtom, projectsAtom, removeProjectEverywhere } from './projects.atoms.ts';
+import { projectActiveSessionsAtom, removeProjectEverywhere } from './projects.atoms.ts';
 import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -194,7 +193,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         arg: { readonly cwd: string } | undefined,
         get: Atom.FnContext,
       ) {
-        const cwds = arg === undefined ? listCwdsForScope(get(sessionListScopeAtom), get(projectsAtom)) : [arg.cwd];
+        const cwds = arg === undefined ? get(listedCwdsAtom) : [arg.cwd];
         yield* listCwdsOnUsableTargets(get.registry, cwds, forkEffect);
         clearSelectedIfMissing(get.registry);
       }),

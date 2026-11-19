@@ -15,8 +15,6 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
-import { sessionCwdInSnapshot } from '../host/projectSessions.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -61,7 +59,7 @@ import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
-import { projectActiveSessionsAtom, removeProjectEverywhere } from './projects.atoms.ts';
+import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
 import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -427,19 +425,12 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
   const stopTrackingProjectAtomFn = atomRuntime
     .fn(
       Effect.fn('stopTrackingProjectAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
+        const { activeSessions, selectedInProject, virtualBoundInProject } = get(projectMembershipAtom(cwd));
         const virtual = get(virtualSessionAtom);
-        const selected = get(selectedAtom);
-        const selectedInProject =
-          selected?._tag === 'Session' &&
-          MOUNTED_AGENT_LAUNCH_TARGETS.some(
-            launchTarget =>
-              sessionCwdInSnapshot(get(backendHarnessSnapshotAtom(launchTarget)), selected.sessionId) === cwd,
-          );
         // Only a Virtual blob whose Bound session lives in the Project is discarded (closing that session). A draft
         // with no Bound session is untouched, whatever its cwd.
-        const virtualBoundInProject = virtual?.sessionId !== undefined && virtual.cwd === cwd;
-        const toClose = get(projectActiveSessionsAtom(cwd)).filter(
-          target => !(virtualBoundInProject && target.sessionId === virtual.sessionId),
+        const toClose = activeSessions.filter(
+          target => !(virtualBoundInProject && target.sessionId === virtual?.sessionId),
         );
         const exits = yield* Effect.forEach(
           toClose,

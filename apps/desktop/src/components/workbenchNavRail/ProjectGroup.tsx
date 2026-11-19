@@ -5,8 +5,8 @@ import {
   directoryBasename,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
-  projectActiveSessionsAtom,
   projectListStatusAtom,
+  projectMembershipAtom,
   projectParentCaption,
   refreshAllSessionHistoriesAtomFn,
   retryProjectListsAtomFn,
@@ -73,7 +73,7 @@ export const ProjectGroup: FC<{
   const label = directoryBasename(cwd);
   const parentCaption = projectParentCaption(cwd, allProjects);
   const status = useAtomValue(projectListStatusAtom(cwd));
-  const activeSessions = useAtomValue(projectActiveSessionsAtom(cwd));
+  const { activeSessions } = useAtomValue(projectMembershipAtom(cwd));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const reload = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const retry = useAtomSet(retryProjectListsAtomFn, { mode: 'promise' });

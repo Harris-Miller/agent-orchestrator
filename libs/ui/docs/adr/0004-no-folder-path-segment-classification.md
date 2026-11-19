@@ -1,5 +1,7 @@
 # No Folder classification uses path-segment conventions
 
+_Superseded: the desktop No Folder group was dropped when Session History moved to explicit Projects (#386). The classifier and its setting were removed; revival is tracked in #400. Kept for the reasoning if it returns._
+
 No Folder Session History grouping matches vendor projectless/scratch **path segments** (Claude `scratch-workspaces` + `scratch-YYYY-MM-DD-<6hex>` leaf; Codex consecutive `Documents`/`Codex`), not absolute `~/Library/…/scratch-workspaces/` or `~/Documents/Codex/` prefixes after homedir expand. That keeps classification portable (no OS/homedir/`env` dependency) and lets future Agent providers register their own projectless segment shapes the same way.
 
 We accepted the edge cases that follow: rare **false positives** when an unrelated tree reuses those segment shapes (e.g. `/tmp/scratch-workspaces/scratch-…`), and rare **false negatives** under a vendor root that does not match the registered leaf/segment rule (e.g. Claude `scratch-workspaces` without a scratch leaf). Prefer extending the segment registry for a new provider over switching to absolute-prefix matching.

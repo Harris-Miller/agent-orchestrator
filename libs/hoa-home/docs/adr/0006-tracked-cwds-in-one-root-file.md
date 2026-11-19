@@ -1,5 +1,7 @@
 # Tracked cwds live in one file at the HOA home root
 
+_Superseded by [ADR 0007](./0007-projects-replace-tracked-cwds.md): Projects replace Tracked cwds._
+
 Tracked cwds are stored in `~/.hoa/tracked-cwds.json` as `{ cwds: string[] }`, not per launch target like pins (ADR 0004) and not in `settings.json`.
 
 - **Not per launch target.** Desktop Session History groups rows by cwd across launch targets, so a cwd is one project folder whichever agent used it. Per-target files would need a union on read and a multi-file rewrite on Untrack. ADR 0005's `providers/<launchTarget>/` holds per-target data; this is not.

@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
+  addProjectAtomFn,
   directoryBasename,
   LucideMuiIcon,
   patchVirtualSessionAtomFn,
@@ -22,6 +23,7 @@ export const SessionCwdStrip: FC = () => {
   const virtual = useAtomValue(virtualSessionAtom);
   const inFlight = useAtomValue(virtualMaterializingAtom);
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
+  const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (selected === undefined) {
@@ -67,10 +69,12 @@ export const SessionCwdStrip: FC = () => {
       </Box>
       {pickerOpen && isVirtual ? (
         <CreateSessionDirectoryPicker
+          confirmLabel="Select"
           onClose={() => {
             setPickerOpen(false);
           }}
           onSelectDirectory={nextCwd => {
+            addProject(nextCwd).catch(() => undefined);
             patchVirtual({ cwd: nextCwd }).catch(() => undefined);
           }}
         />

@@ -1,7 +1,7 @@
 export * from './atoms/backendState.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
-export * from './atoms/trackedCwds.atoms.ts';
+export * from './atoms/projects.atoms.ts';
 export { hostThemeAtom } from './atoms/theme.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
@@ -21,8 +21,6 @@ export {
   createUserSettingsAtoms,
   developerModeEnabled,
   matchVscodeThemeEnabled,
-  showEmptyCwdGroupsEnabled,
-  showNoFolderGroupEnabled,
   unwrapUserSettings,
   userSettingsEditsDisabled,
 } from './atoms/userSettings/userSettings.atoms.ts';
@@ -82,7 +80,6 @@ export * from './host/applySessionUpdate.ts';
 export * from './host/sessionEntryKey.ts';
 export * from './host/backendHarness.ts';
 export * from './host/clientHandlers.ts';
-export * from './host/cwdsToTrack.ts';
 export * from './host/configOptionIndexUi.ts';
 export * from './host/configProbe.ts';
 export * from './host/directoryBasename.ts';
@@ -93,7 +90,6 @@ export * from './host/findExecutableOnPath.ts';
 export * from './host/groupAndSortSessionsForNav.ts';
 export * from './host/handoffDocument.ts';
 export * from './host/harnessStateTransitions.ts';
-export * from './host/noFolderSessionCwd.ts';
 export * from './host/pendingInteractions.ts';
 export * from './host/resolveFdBinary.ts';
 export * from './host/runFdInstallCommand.ts';

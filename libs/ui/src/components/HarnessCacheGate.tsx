@@ -2,8 +2,8 @@ import { RegistryContext } from '@effect/atom-react';
 import {
   readConfigOptionIndexCache,
   readPinnedSessions,
+  readProjects,
   readSessionIndex,
-  readTrackedCwds,
   writeSessionIndex,
 } from '@lib/hoa-home';
 import { Effect, Exit, Option } from 'effect';
@@ -11,14 +11,10 @@ import { useContext, useEffect, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import { CircularProgress, Stack, Typography } from '@mui/material';
 
-import {
-  backendHarnessSnapshotAtom,
-  configOptionIndexAtom,
-  visibleSessionHistoryAtom,
-} from '../atoms/backendState.atoms.ts';
+import { backendHarnessSnapshotAtom, configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../atoms/pinnedSessions.atoms.ts';
-import { reconcileTrackedCwds, trackedCwdsAtom, trackedCwdsLoadedAtom } from '../atoms/trackedCwds.atoms.ts';
+import { projectsAtom, projectsLoadedAtom } from '../atoms/projects.atoms.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { hostRuntime } from '../hostRuntime.ts';
@@ -90,29 +86,14 @@ export const HarnessCacheGate: FC<{ readonly children: ReactNode }> = ({ childre
         ).pipe(
           Effect.andThen(
             Effect.gen(function* () {
-              const trackedRead = yield* Effect.exit(readTrackedCwds());
-              if (Exit.isFailure(trackedRead)) {
-                yield* Effect.logWarning('tracked cwds hydrate failed', trackedRead.cause);
+              const projectsRead = yield* Effect.exit(readProjects());
+              if (Exit.isFailure(projectsRead)) {
+                yield* Effect.logWarning('projects hydrate failed', projectsRead.cause);
                 return;
               }
-              // Unmounted while reading: a late subscription would never be unsubscribed.
               if (cancelled) return;
-              registry.set(trackedCwdsAtom, trackedRead.value.cwds);
-              registry.set(trackedCwdsLoadedAtom, true);
-              // One reconcile at a time: each reads the file and writes the whole list, so overlapping ones drop cwds.
-              let reconciles = Promise.resolve();
-              // Hydrated rows are visible already, so this also tracks cwds that predate the feature.
-              unsubscribers.push(
-                registry.subscribe(
-                  visibleSessionHistoryAtom,
-                  () => {
-                    reconciles = reconciles.then(() =>
-                      hostRuntime.runPromise(reconcileTrackedCwds(registry)).catch(() => undefined),
-                    );
-                  },
-                  { immediate: true },
-                ),
-              );
+              registry.set(projectsAtom, projectsRead.value.projects);
+              registry.set(projectsLoadedAtom, true);
             }),
           ),
         ),

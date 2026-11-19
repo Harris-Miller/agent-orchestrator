@@ -8,7 +8,7 @@ Open the Developer panel (Developer mode on), go to the **Atoms** tab and click 
 
 ```js
 window.__HOA__.atoms.list(); // [{ label, kind, computed, internal, keepAlive }, ...]
-window.__HOA__.atoms.get('trackedCwds'); // JSON-safe value (Map/Set/Option/AsyncResult are tagged: { $type: 'Map', ... })
+window.__HOA__.atoms.get('projects'); // JSON-safe value (Map/Set/Option/AsyncResult are tagged: { $type: 'Map', ... })
 window.__HOA__.atoms.values(); // { label: value } for every computed Atom
 ```
 

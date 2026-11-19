@@ -1,4 +1,12 @@
-export { readSessionIndex, sessionIndexPath, writeSessionIndex } from './sessionIndex.ts';
+export {
+  capSessionIndexRows,
+  readSessionIndex,
+  removeSessionIndexCwds,
+  SESSION_INDEX_ROWS_PER_CWD,
+  sessionIndexPath,
+  sessionIndexRows,
+  updateSessionIndex,
+} from './sessionIndex.ts';
 export {
   emptySessionIndex,
   SessionIndexDocumentJsonString,

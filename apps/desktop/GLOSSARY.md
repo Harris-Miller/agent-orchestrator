@@ -119,7 +119,7 @@ The top row of the chat surface, the same in desktop main chat and VS Code Chat:
 _Avoid_: chat header, title bar
 
 **Pin**:
-A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A session missing from a successful, non-paginated list (or deleted in the UI) is unpinned automatically.
+A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A pin is unpinned automatically only when its session is missing from a complete list of its own Project (a partial, incomplete or other-Project list never unpins), or when the session is deleted in the UI. A pin whose cwd is not a loaded Project is hidden on desktop but kept (it may belong to a VS Code workspace).
 _Avoid_: favorite, star, bookmark
 
 **Pinned section**:

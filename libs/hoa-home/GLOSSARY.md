@@ -17,7 +17,7 @@ A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Har
 _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
 
 **Application session index**:
-Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`. Hydrated as unavailable rows before agent startup.
+Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`, grouped by session cwd: at most 10 rows per cwd (newest `updatedAt`) plus that cwd's pinned sessions. A host rewrites only the cwd entries it lists (merge-on-write) and leaves the others in place; Stop tracking removes a Project's entries. Desktop hydrates only loaded Projects' entries (as unavailable rows) before agent startup. See desktop ADR 0016.
 _Avoid_: live session list
 
 **Pinned sessions document**:

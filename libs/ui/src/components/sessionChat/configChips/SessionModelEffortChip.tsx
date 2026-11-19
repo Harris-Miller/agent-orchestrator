@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
-import Stack from '@mui/material/Stack';
+import MenuList from '@mui/material/MenuList';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { FC } from 'react';
@@ -99,7 +99,7 @@ export const SessionModelEffortChip: FC<{
               <Typography color="text.secondary" sx={{ display: 'block', px: 2, pt: 1.25 }} variant="caption">
                 Options
               </Typography>
-              <Stack spacing={1} sx={{ px: 2, py: 1 }}>
+              <MenuList dense sx={{ p: 1 }}>
                 {ultracode === undefined ? null : (
                   <UltracodeOptionRow disabled={disabled} onToggle={toggleUltracode} row={ultracode} />
                 )}
@@ -116,7 +116,7 @@ export const SessionModelEffortChip: FC<{
                     />
                   ),
                 )}
-              </Stack>
+              </MenuList>
             </Box>
           </Box>
           <Divider />

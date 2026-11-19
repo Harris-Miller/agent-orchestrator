@@ -27,7 +27,7 @@ const Row: FC<{ readonly children: ReactNode; readonly label: string; readonly t
   label,
   title,
 }) => (
-  <Box sx={{ alignItems: 'center', display: 'flex', gap: 2, justifyContent: 'space-between' }} title={title}>
+  <Box sx={{ alignItems: 'center', display: 'flex', gap: 2, justifyContent: 'space-between', px: 2 }} title={title}>
     <Typography sx={labelSx}>{label}</Typography>
     {children}
   </Box>
@@ -40,7 +40,16 @@ const SwitchRow: FC<{
   readonly onChange: (on: boolean) => void;
   readonly title?: string;
 }> = ({ checked, disabled, label, onChange, title }) => (
-  <Row label={label} title={title}>
+  <MenuItem
+    disabled={disabled}
+    onClick={() => {
+      onChange(!checked);
+    }}
+    role="presentation"
+    sx={{ borderRadius: 1, gap: 2, justifyContent: 'space-between' }}
+    title={title}
+  >
+    <Typography sx={labelSx}>{label}</Typography>
     <Switch
       checked={checked}
       disabled={disabled}
@@ -48,9 +57,12 @@ const SwitchRow: FC<{
       onChange={event => {
         onChange(event.target.checked);
       }}
+      onClick={event => {
+        event.stopPropagation();
+      }}
       size="small"
     />
-  </Row>
+  </MenuItem>
 );
 
 /** Claude Ultracode: always the first row, disabled with the reason as a tooltip. */

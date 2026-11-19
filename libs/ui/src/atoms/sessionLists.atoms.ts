@@ -57,7 +57,7 @@ export type ProjectListStatus = {
 };
 
 /**
- * A Project's aggregate completeness: loading while any list loads or a launch target has none yet, else incomplete if
+ * A Project's aggregate completeness: loading while any list loads (or none has started yet), else incomplete if
  * any is. `incompleteLaunchTargets` is reported even while other lists load.
  */
 export const projectListStatusAtom = Atom.family((cwd: string) =>
@@ -68,14 +68,15 @@ export const projectListStatusAtom = Atom.family((cwd: string) =>
       state: states.get(listKey(launchTarget, cwd)),
     }));
     const incompleteLaunchTargets = entries.filter(entry => entry.state === 'incomplete').map(e => e.launchTarget);
-    // A target with no list yet is pending only while it is still on its way to `usable`; error and signing-in targets
-    // may never list, so they must not hold the Project in loading forever.
-    const pending = entries.some(entry => {
-      if (entry.state === 'loading') return true;
-      if (entry.state !== undefined) return false;
-      const { phase } = get(backendHarnessSnapshotAtom(entry.launchTarget));
-      return phase === 'connecting' || phase === 'initialized';
-    });
+    // No list at all yet: loading until a provider comes up. A mounted target that never starts (not installed, beta
+    // target without a CLI) stays in `connecting`, so once any list exists the others must not hold the Project in loading.
+    const pending =
+      entries.some(entry => entry.state === 'loading') ||
+      (entries.every(entry => entry.state === undefined) &&
+        entries.some(entry => {
+          const { phase } = get(backendHarnessSnapshotAtom(entry.launchTarget));
+          return phase === 'connecting' || phase === 'initialized';
+        }));
     if (pending) return { incompleteLaunchTargets, state: 'loading' };
     return { incompleteLaunchTargets, state: incompleteLaunchTargets.length > 0 ? 'incomplete' : 'complete' };
   }).pipe(Atom.keepAlive),

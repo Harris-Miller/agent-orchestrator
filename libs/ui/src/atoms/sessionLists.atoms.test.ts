@@ -208,15 +208,15 @@ describe('Per-Project Session History lists', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('a Project stays loading while a launch target has no list yet, even if another completed', () =>
+  it.effect('a launch target that never starts does not hold a Project in loading once another list completed', () =>
     Effect.gen(function* () {
       const { list, registry } = yield* setup([CODEX]);
-      // Claude is still bootstrapping: it has no list entry for the Project yet.
+      // Claude is mounted but never starts (e.g. a beta target without its CLI): it stays `connecting` with no list.
       setPhase(registry, CLAUDE, 'connecting');
       yield* connectFakeAgent(CODEX, listingAgent([], { '/a': { '': { sessions: [] } } }));
       yield* list(['/a']);
       assert.strictEqual(registry.get(sessionListStatesAtom).size, 1);
-      assert.strictEqual(registry.get(projectListStatusAtom('/a')).state, 'loading');
+      assert.strictEqual(registry.get(projectListStatusAtom('/a')).state, 'complete');
     }).pipe(Effect.scoped),
   );
 

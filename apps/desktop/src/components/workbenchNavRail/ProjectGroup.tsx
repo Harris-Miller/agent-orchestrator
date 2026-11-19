@@ -99,7 +99,8 @@ export const ProjectGroup: FC<{
             '& .MuiAccordionSummary-content': { alignItems: 'center', gap: 0.75, m: 0, width: '100%' },
             fontWeight: 600,
             minHeight: 0,
-            px: 2,
+            pl: 2,
+            pr: 0.875,
             py: 1,
           }}
         >

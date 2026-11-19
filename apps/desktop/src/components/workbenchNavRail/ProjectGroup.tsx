@@ -100,7 +100,7 @@ export const ProjectGroup: FC<{
             fontWeight: 600,
             minHeight: 0,
             pl: 2,
-            pr: 0.875,
+            pr: 1.375,
             py: 1,
           }}
         >

@@ -131,7 +131,7 @@ export const SessionHistoryRow: FC<{
         }}
         tabIndex={0}
       >
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1, py: 0.5 }}>
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, pl: 1, pr: 1.5, py: 0.5 }}>
           {selection === undefined ? null : (
             <Checkbox
               checked={selection.checked}

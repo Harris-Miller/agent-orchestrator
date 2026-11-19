@@ -147,6 +147,7 @@ const attempt = Effect.fnUntraced(function* (
   if (session.pendingClientRequest === 'prompt') {
     // Mid-turn. Steering when the agent takes it and the turn is not waiting on the user; else wait for the turn end.
     const action = sessionTurnAction(snapshot, link.parentSessionId, {
+      backgroundActive: false,
       hasContent: true,
       steeringSupported: snapshot.agentCapabilities.steeringSupported,
     });

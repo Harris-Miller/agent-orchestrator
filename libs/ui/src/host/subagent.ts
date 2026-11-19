@@ -8,6 +8,7 @@ import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withoutUndefined } from '../optionalFields.ts';
 
 import { rootAncestor } from './ancestry.ts';
+import type { SessionSnapshot } from './acpSessionBootstrap.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
 import { emptySessionTranscript, latestTranscriptActivity, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
@@ -46,6 +47,9 @@ export type SubagentSnapshot =
   | (SubagentSnapshotBase & { readonly kind: 'spawned'; readonly launchTarget: AgentLaunchTarget });
 
 export type SubagentRecord = Readonly<Record<string, SubagentSnapshot>>;
+
+const getSession = (sessions: Readonly<Record<string, SessionSnapshot>>, sessionId: string) =>
+  sessionId in sessions ? sessions[sessionId] : undefined;
 
 /** Typed lookup (Record indexing is not `| undefined`). */
 export const getSubagent = (subagents: SubagentRecord, sessionId: string): SubagentSnapshot | undefined =>
@@ -167,6 +171,27 @@ export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapsho
 /** Root ancestor of a child (walks parentSessionId through `subagents`); cycle-safe. */
 export const rootAncestorId = (subagents: SubagentRecord, sessionId: string): string =>
   rootAncestor(id => getSubagent(subagents, id)?.parentSessionId, sessionId);
+
+/**
+ * Background follow-up (glossary): an active Session with no Pending client request and a native Subagent descendant
+ * that is `running` or `requires_action`. The Agent works on its own after its Prompt turn ended (AIR `backgroundSubagents`).
+ */
+export const hasBackgroundActivity = (
+  snapshot: { readonly sessions: Readonly<Record<string, SessionSnapshot>>; readonly subagents: SubagentRecord },
+  sessionId: string,
+): boolean => {
+  const session = getSession(snapshot.sessions, sessionId);
+  return (
+    session?.status === 'active' &&
+    session.pendingClientRequest === undefined &&
+    Object.values(snapshot.subagents).some(
+      child =>
+        child.kind === 'native' &&
+        rootAncestorId(snapshot.subagents, child.sessionId) === sessionId &&
+        (child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction),
+    )
+  );
+};
 
 export const directChildren = (subagents: SubagentRecord, parentSessionId: string): readonly SubagentSnapshot[] =>
   Object.values(subagents).filter(child => child.parentSessionId === parentSessionId);

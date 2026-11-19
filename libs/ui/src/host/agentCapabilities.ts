@@ -69,6 +69,7 @@ const PROVIDER_QUIRKS: Readonly<Record<AgentLaunchTarget, ProviderQuirks>> = {
       airCapability.sessionFailure,
       airCapability.loadReplayEnd,
       airCapability.recommendedValue,
+      airCapability.backgroundSubagents,
     ],
     claudeCodeOptions: true,
     neverResume: false,
@@ -133,9 +134,9 @@ export const mcpToolPreapprovalMeta = (
 
 /**
  * `clientCapabilities` for this launch target's initialize request (AIR offer: `sessionIndex` + `sessionFailure` for
- * Claude / Codex, plus `loadReplayEnd` for Claude, plus `recommendedValue` for both). `sessionFailure` is client-side
- * only: declaring it makes the adapters send typed failure rows instead of plain-text chunks (e.g. Codex `Warning:`
- * text), so the client filters nothing.
+ * Claude / Codex, plus `loadReplayEnd` and `backgroundSubagents` for Claude, plus `recommendedValue` for both).
+ * `sessionFailure` is client-side only: declaring it makes the adapters send typed failure rows instead of plain-text
+ * chunks (e.g. Codex `Warning:` text), so the client filters nothing.
  */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
   ...(PROVIDER_QUIRKS[launchTarget].airClientCapabilities.length > 0

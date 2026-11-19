@@ -4,6 +4,7 @@ import { SessionFailure } from '@libs/effect-acp';
 import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {
+  backgroundSubagents: 'backgroundSubagents',
   loadReplayEnd: 'loadReplayEnd',
   recommendedValue: 'recommendedValue',
   sessionArchive: 'sessionArchive',

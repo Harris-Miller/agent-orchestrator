@@ -63,4 +63,30 @@ describe('anyPromptTurnWorking', () => {
       ]),
     );
   });
+
+  it('is working during a Background follow-up: no turn, a Subagent still running', () => {
+    assert.isTrue(
+      anyPromptTurnWorking([harness([session('a')], [subagent('child', 'a', { state: { state: 'running' } })])]),
+    );
+  });
+
+  it('is idle once the Subagents finished', () => {
+    assert.isFalse(
+      anyPromptTurnWorking([harness([session('a')], [subagent('child', 'a', { state: { state: 'completed' } })])]),
+    );
+  });
+
+  it('is not working while a Background follow-up waits on a Pending interaction', () => {
+    const running = { state: { state: 'running' } } as const;
+    assert.isFalse(
+      anyPromptTurnWorking([
+        harness([session('a', { pendingPermission: permission('a') })], [subagent('child', 'a', running)]),
+      ]),
+    );
+    assert.isFalse(
+      anyPromptTurnWorking([
+        harness([session('a')], [subagent('child', 'a', { ...running, pendingPermission: permission('child') })]),
+      ]),
+    );
+  });
 });

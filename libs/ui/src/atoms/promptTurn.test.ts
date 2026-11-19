@@ -13,6 +13,7 @@ import { TestClock } from 'effect/testing';
 import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
+import { subagent } from '../host/harnessSnapshot.testing.ts';
 import { dropSession, markSessionInactive } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -511,6 +512,30 @@ layer(hostLayer)('Prompt turn cancel', layeredIt => {
       yield* cancelPromptTurn(h.registry, { launchTarget: CODEX, sessionId: 's1' });
       assert.strictEqual(snapshotOf(h.registry), before);
       assert.deepStrictEqual(h.calls, []);
+    }).pipe(Effect.scoped),
+  );
+
+  layeredIt.effect('cancels a Background follow-up with no turn: Pending interaction and agent, no soft-cancel', () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      const outcomes: unknown[] = [];
+      const permission = {
+        request: {},
+        resolve: (outcome: unknown) => {
+          outcomes.push(outcome);
+        },
+      } as unknown as SessionSnapshot['pendingPermission'];
+      patch(h.registry, 's1', { pendingPermission: permission });
+      updateHarnessSnapshot(h.registry, CODEX, current => ({
+        ...current,
+        subagents: { c1: subagent('c1', 's1', { state: { state: 'running' } }) },
+      }));
+
+      yield* cancelPromptTurn(h.registry, { launchTarget: CODEX, sessionId: 's1' });
+      assert.deepStrictEqual(outcomes, [{ outcome: { outcome: 'cancelled' } }]);
+      assert.isUndefined(sessionOf(h.registry).pendingPermission);
+      assert.isUndefined(sessionOf(h.registry).promptCancelRequested);
+      assert.deepStrictEqual(h.calls, ['cancel:s1']);
     }).pipe(Effect.scoped),
   );
 

@@ -39,6 +39,13 @@ describe('routeSubagentUpdate', () => {
     assert.deepStrictEqual(finished.subagents[CHILD].state, { state: 'completed' });
   });
 
+  it('routes child output that arrives with no Prompt turn in flight into the child transcript', () => {
+    const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
+    assert.isUndefined(spawned.sessions.p1.pendingClientRequest);
+    const next = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
+    assert.strictEqual(next.subagents[CHILD].transcript.items.length, 1);
+  });
+
   it('migrates a stray root snapshot and never reparents', () => {
     const base = {
       ...withRoot(),

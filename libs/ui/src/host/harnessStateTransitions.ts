@@ -44,6 +44,7 @@ import {
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
 import {
   getSubagent,
+  hasBackgroundActivity,
   initialSpawnedSubagentSnapshot,
   resetSubagentLiveState,
   withSubagentWorkState,
@@ -215,7 +216,11 @@ export const sessionTurnAction = (
 
 /** A request that starts work (Send or Config change) never steers: a prompt in flight is `CancelTurn`. */
 const startAction = (snapshot: BackendHarnessSnapshot, sessionId: string, hasContent: boolean): ComposerAction =>
-  sessionTurnAction(snapshot, sessionId, { hasContent, steeringSupported: false });
+  sessionTurnAction(snapshot, sessionId, {
+    backgroundActive: hasBackgroundActivity(snapshot, sessionId),
+    hasContent,
+    steeringSupported: false,
+  });
 
 /**
  * Clear pendingClientRequest and promptCancelRequested after a client request completes. A Session no longer in the
@@ -637,6 +642,27 @@ export const requestPromptCancel = (
           pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
           promptCancelRequested: true,
           transcript: markNonFinishedToolCallsCancelled(session.transcript),
+        })),
+      }
+    : snapshot;
+
+/**
+ * Cancel with no Prompt turn (Background follow-up): like {@link requestPromptCancel} but no `promptCancelRequested`
+ * (there is no turn to soft-cancel) and the transcript is untouched.
+ */
+export const clearCancelledInteractions = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+): BackendHarnessSnapshot =>
+  sessionId in snapshot.sessions
+    ? {
+        ...snapshot,
+        sessions: patchSession(snapshot.sessions, sessionId, session => ({
+          ...session,
+          pendingElicitation:
+            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
+          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
         })),
       }
     : snapshot;

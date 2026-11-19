@@ -73,3 +73,7 @@ allowBuilds:
   esbuild: true # vite, tsdown, tanstack/router-plugin, and others
   keytar: false # optional; vsce credential helper
   msgpackr-extract: true # effect-ts dependency
+
+permissions:
+  '@tanstack/router-plugin':
+    skills: false

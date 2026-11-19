@@ -9,7 +9,7 @@ catalog:
   '@effect/atom-react': '^4.0.5'
   '@cursor/sdk': '^1.0.23'
   '@dnd-kit/react': '^0.5.3'
-  '@effect/tsgo': ^0.63.0
+  '@effect/tsgo': ^0.70.0
   '@effect/opentelemetry': '^4.0.5'
   '@effect/platform-node': ^4.1.4
   '@effect/vitest': ^4.1.4
@@ -17,7 +17,7 @@ catalog:
   '@vitest/coverage-v8': ^5.0.5
   effect: ^4.1.4
   oxlint: ^1.94.0
-  oxfmt: ^0.74.0
+  oxfmt: ^0.79.0
   oxlint-tsgolint: ^7.0.2007
   oxlint-config-harris: ^0.2.0
   rimraf: ^6.1.4
@@ -63,7 +63,7 @@ catalog:
   '@tauri-apps/api': ^2.12.4
   '@tauri-apps/plugin-window-state': ~2.5.0
   dotenv: ^18.0.8
-  '@agentclientprotocol/claude-agent-acp': ^0.100.0
+  '@agentclientprotocol/claude-agent-acp': ^0.108.1
   '@agentclientprotocol/codex-acp': ^2.7.0
   '@testing-library/react': ^16.3.3
   happy-dom: ^21.0.4

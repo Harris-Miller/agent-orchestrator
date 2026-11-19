@@ -120,7 +120,13 @@ describe('clientCapabilitiesFor', () => {
       _meta: {
         jetbrains: {
           air: {
-            capabilities: ['sessionIndex', 'sessionFailure', 'loadReplayEnd', 'recommendedValue', 'backgroundSubagents'],
+            capabilities: [
+              'sessionIndex',
+              'sessionFailure',
+              'loadReplayEnd',
+              'recommendedValue',
+              'backgroundSubagents',
+            ],
             version: 1,
           },
         },

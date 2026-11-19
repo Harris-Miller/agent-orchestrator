@@ -13,17 +13,17 @@ export const listedCwdsAtom = Atom.make(get => listCwdsForScope(get(sessionListS
   Atom.keepAlive,
 );
 
-const inListedCwds = (listedCwds: readonly string[], rows: readonly UnifiedHistoryEntry[]) => {
+const rowsInListedCwds = (listedCwds: readonly string[], rows: readonly UnifiedHistoryEntry[]) => {
   const listed = new Set(listedCwds);
   return rows.filter(entry => listed.has(entry.cwd));
 };
 
 /** Session History rows (archived included) whose cwd this host lists. */
 export const listedSessionHistoryAtom = Atom.make(get =>
-  inListedCwds(get(listedCwdsAtom), get(unifiedSessionHistoryAtom)),
+  rowsInListedCwds(get(listedCwdsAtom), get(unifiedSessionHistoryAtom)),
 ).pipe(Atom.keepAlive);
 
 /** Like `listedSessionHistoryAtom`, with archived rows hidden unless Show archived is on. */
 export const visibleListedSessionHistoryAtom = Atom.make(get =>
-  inListedCwds(get(listedCwdsAtom), get(visibleSessionHistoryAtom)),
+  rowsInListedCwds(get(listedCwdsAtom), get(visibleSessionHistoryAtom)),
 ).pipe(Atom.keepAlive);

@@ -46,4 +46,57 @@ describe('listed cwds', () => {
       assert.sameMembers(all(), ['in', 'in-archived', 'out']);
     }).pipe(Effect.scoped),
   );
+
+  it.effect('lists no Session History rows when the scope is Skip', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/a', sessionId: 'in' }],
+      }));
+      registry.set(projectsAtom, ['/a']);
+      registry.set(sessionListScopeAtom, { _tag: 'Skip' });
+      assert.deepStrictEqual(registry.get(listedSessionHistoryAtom), []);
+      assert.deepStrictEqual(registry.get(visibleListedSessionHistoryAtom), []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('restricts Session History rows to the Cwd scope cwd', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [
+          { cwd: '/w', sessionId: 'in' },
+          { cwd: '/a', sessionId: 'out' },
+        ],
+      }));
+      registry.set(projectsAtom, ['/a']);
+      registry.set(sessionListScopeAtom, { _tag: 'Cwd', cwd: '/w' });
+      assert.deepStrictEqual(
+        registry.get(listedSessionHistoryAtom).map(entry => entry.sessionId),
+        ['in'],
+      );
+      assert.deepStrictEqual(
+        registry.get(visibleListedSessionHistoryAtom).map(entry => entry.sessionId),
+        ['in'],
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('updates visible rows when Projects are added and removed', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/a', sessionId: 'in' }],
+      }));
+      const visible = () => registry.get(visibleListedSessionHistoryAtom).map(entry => entry.sessionId);
+      assert.deepStrictEqual(visible(), []);
+      registry.set(projectsAtom, ['/a']);
+      assert.deepStrictEqual(visible(), ['in']);
+      registry.set(projectsAtom, []);
+      assert.deepStrictEqual(visible(), []);
+    }).pipe(Effect.scoped),
+  );
 });

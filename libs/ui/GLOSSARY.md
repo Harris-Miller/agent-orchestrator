@@ -172,7 +172,7 @@ Per-launch-target Harness view of `session/list`, listed per Project (desktop) o
 _Avoid_: Roster, Session roster, session snapshot
 
 **Listed cwds**:
-The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code. Rows outside them stay stored but are not shown.
+The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
 _Avoid_: scope cwds, visible cwds
 
 **Unavailable model**:

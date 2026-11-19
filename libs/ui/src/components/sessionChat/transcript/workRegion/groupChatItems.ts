@@ -13,10 +13,14 @@ export type WorkRegion = {
 /** The region a running prompt is still adding to: last region of the last turn. */
 export const isLiveRegion = (region: WorkRegion): boolean => region.isLastTurn && region.isLastInTurn;
 
-type WorkItem = Extract<ChatItem, { kind: 'agent_thought' | 'plan' | 'subagent' | 'tool_call' }>;
+type WorkItem = Extract<ChatItem, { kind: 'agent_thought' | 'plan' | 'session_failure' | 'subagent' | 'tool_call' }>;
 
 const isWork = (item: ChatItem): item is WorkItem =>
-  item.kind === 'tool_call' || item.kind === 'plan' || item.kind === 'agent_thought' || item.kind === 'subagent';
+  item.kind === 'tool_call' ||
+  item.kind === 'plan' ||
+  item.kind === 'agent_thought' ||
+  item.kind === 'subagent' ||
+  item.kind === 'session_failure';
 
 type SegmentItem = Exclude<WorkItem, { kind: 'subagent' }>;
 
@@ -45,6 +49,7 @@ const SEGMENT_KIND_NOUNS: readonly (readonly [SegmentItem['kind'], string])[] = 
   ['tool_call', 'tool call'],
   ['agent_thought', 'thought'],
   ['plan', 'plan'],
+  ['session_failure', 'failure'],
 ];
 
 /** Per-kind Work item counts, e.g. `3 tool calls, 1 thought`; zero counts left out. */

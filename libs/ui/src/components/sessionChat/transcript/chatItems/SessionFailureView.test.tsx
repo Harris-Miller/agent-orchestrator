@@ -32,40 +32,69 @@ const renderView = (failure: ChatItemOf<'session_failure'>, handlers: SessionFai
     </ThemeProvider>,
   );
 
+const noop = (): void => undefined;
+
+const expand = () => {
+  fireEvent.click(screen.getByRole('button', { name: /Reconnecting/ }));
+};
+
 describe('SessionFailureView', () => {
-  it('renders title, reason, details and severity', () => {
+  it('shows the title and severity icon collapsed; reason and details hidden', () => {
     renderView(item());
     assert.isNotNull(screen.queryByText('Reconnecting'));
-    assert.isNotNull(screen.queryByText(/attempt 1 of 3/));
-    assert.isNotNull(screen.queryByText('ECONNRESET'));
-    assert.isNotNull(screen.queryByRole('alert'));
+    assert.isNotNull(screen.queryByLabelText('warning'));
+    assert.isNull(screen.queryByText(/attempt 1 of 3/));
+    assert.isNull(screen.queryByText('ECONNRESET'));
+    assert.isNull(screen.queryByText('Retry'));
   });
 
-  it('shows only offered, handled actions and calls their handlers', () => {
+  it('error severity icon', () => {
+    renderView(item({ severity: 'error' }));
+    assert.isNotNull(screen.queryByLabelText('error'));
+  });
+
+  it('expanding reveals reason and details', () => {
+    renderView(item());
+    expand();
+    assert.isNotNull(screen.queryByText(/attempt 1 of 3/));
+    assert.isNotNull(screen.queryByText('ECONNRESET'));
+  });
+
+  it('shows only offered, handled actions after expanding and calls their handlers', () => {
     const calls: string[] = [];
     renderView(item({ actions: ['retry', 'new_session'] }), {
       login: { hint: 'ignored', onSignIn: () => calls.push('login') },
       onNewSession: () => calls.push('new'),
       onRetry: () => calls.push('retry'),
     });
+    expand();
     assert.isNull(screen.queryByText('Sign in'));
     fireEvent.click(screen.getByText('Retry'));
     fireEvent.click(screen.getByText('New session'));
     assert.deepStrictEqual(calls, ['retry', 'new']);
   });
 
-  it('hides retry without a handler and shows no buttons for no actions', () => {
+  it('hides retry without a handler', () => {
     renderView(item({ actions: ['retry'] }));
+    expand();
     assert.isNull(screen.queryByText('Retry'));
   });
 
   it('login without an in-app sign-in shows the hint as text; with one, a button', () => {
     renderView(item({ actions: ['login'] }), { login: { hint: 'Run codex login in a terminal.' } });
+    expand();
     assert.isNotNull(screen.queryByText('Run codex login in a terminal.'));
     cleanup();
     const calls: string[] = [];
     renderView(item({ actions: ['login'] }), { login: { hint: 'h', onSignIn: () => calls.push('in') } });
+    expand();
     fireEvent.click(screen.getByText('Sign in'));
     assert.deepStrictEqual(calls, ['in']);
+  });
+
+  it('unknown actions never render buttons', () => {
+    renderView(item({ actions: ['bogus' as never] }), { onNewSession: noop, onRetry: noop });
+    expand();
+    assert.isNull(screen.queryByRole('button', { name: /Retry|New session|Sign in/ }));
   });
 });

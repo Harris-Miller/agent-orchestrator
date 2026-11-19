@@ -26,6 +26,44 @@ const modelAndMode: SessionConfiguration = [
   },
 ];
 
+describe('foldConfigOptions recommendedValue', () => {
+  const previous: SessionConfiguration = [
+    {
+      choices: [
+        { id: 'low', name: 'Low' },
+        { id: 'medium', name: 'Medium' },
+        { id: 'high', name: 'High' },
+      ],
+      currentValue: 'low',
+      id: 'effort',
+      name: 'Effort',
+      recommendedValue: 'medium',
+      type: 'select',
+    },
+  ];
+  const fold = (prev: SessionConfiguration, entry: Record<string, unknown>) =>
+    foldConfigOptions(prev, { configOptions: [{ id: 'effort', type: 'select', currentValue: 'high', ...entry }] })?.[0];
+
+  it('keeps the previous recommendedValue when the entry omits _meta', () => {
+    const option = fold(previous, {});
+    assert.strictEqual(option?.type === 'select' ? option.recommendedValue : undefined, 'medium');
+  });
+
+  it('lets the entry _meta override the inherited recommendedValue', () => {
+    const option = fold(previous, { _meta: { jetbrains: { air: { recommendedValue: 'high', version: 1 } } } });
+    assert.strictEqual(option?.type === 'select' ? option.recommendedValue : undefined, 'high');
+  });
+
+  it('has no recommendedValue key when the previous option had none', () => {
+    const { recommendedValue: _omit, ...bare } = previous[0] as Extract<
+      SessionConfiguration[number],
+      { type: 'select' }
+    >;
+    const option = fold([bare], {});
+    assert.isFalse(option !== undefined && 'recommendedValue' in option);
+  });
+});
+
 describe('foldConfigOptions', () => {
   it('takes the report as the full id set: absent ids drop, new ids appear with their value', () => {
     const folded = foldConfigOptions(modelAndMode, {

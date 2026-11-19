@@ -173,7 +173,7 @@ An agent-reported session setting — a select (named choices such as model or m
 _Avoid_: Setting, preference, parameter
 
 **Recommended value**:
-The choice an agent marks as suggested on its model or effort Config option (AIR `recommendedValue`), independent of the option's current value. The Composer's model picker shows it as a "Recommended" marker. Never reorders, hides, or selects anything.
+The choice an agent marks as suggested on its model or effort Config option (AIR `recommendedValue`), independent of the option's current value. The Composer's model picker marks the recommended model and the recommended reasoning effort with a "Recommended" marker. Never reorders, hides, or selects anything.
 _Avoid_: Default (the agent's own default model is a different thing)
 
 **Session configuration**:

@@ -267,7 +267,11 @@ const RpcWireLogBody: FC<{
           </Typography>
         ) : (
           filtered.map(({ entry, launchTarget, meta }) => (
-            <Accordion key={entry.id} sx={{ bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Accordion
+              key={entry.id}
+              slotProps={{ transition: { unmountOnExit: true } }}
+              sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
+            >
               <AccordionSummary>
                 <Typography component="span" sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }} variant="body2">
                   [{agentLaunchTargetLabel(launchTarget)}] {meta.title}

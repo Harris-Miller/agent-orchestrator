@@ -73,7 +73,11 @@ export const HubTab: FC = () => {
           </Typography>
         ) : (
           wire.toReversed().map(entry => (
-            <Accordion key={entry.id} sx={{ bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Accordion
+              key={entry.id}
+              slotProps={{ transition: { unmountOnExit: true } }}
+              sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
+            >
               <AccordionSummary>
                 <Typography component="span" sx={monoSx} variant="body2">
                   {entryTitle(entry)}

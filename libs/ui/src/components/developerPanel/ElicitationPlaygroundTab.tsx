@@ -197,7 +197,11 @@ const MULTI_QUESTION: readonly Scenario[] = [
 ];
 
 const JsonBlock: FC<{ readonly label: string; readonly value: unknown }> = ({ label, value }) => (
-  <Accordion disableGutters sx={{ bgcolor: 'action.hover', borderRadius: 1 }}>
+  <Accordion
+    disableGutters
+    slotProps={{ transition: { unmountOnExit: true } }}
+    sx={{ bgcolor: 'action.hover', borderRadius: 1 }}
+  >
     <AccordionSummary>
       <Typography sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }} variant="body2">
         {label}

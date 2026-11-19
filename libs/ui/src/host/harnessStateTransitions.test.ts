@@ -660,6 +660,40 @@ describe('prompt turn and interaction folds', () => {
     assert.strictEqual(raisePermission(snapshot, permission).sessions.s1.pendingPermission, permission);
   });
 
+  it('an ExitPlanMode-shaped permission (no clear-context option) raised with no Prompt turn is answerable', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    const permission = {
+      ...pendingPermission('s1'),
+      request: {
+        options: [
+          { kind: 'allow_once', name: 'Yes, and keep planning', optionId: 'default' },
+          { kind: 'reject_once', name: 'No, keep planning', optionId: 'plan' },
+        ],
+        sessionId: 's1',
+        toolCall: { kind: 'switch_mode', title: 'Ready to code?', toolCallId: 't1' },
+      } as never,
+    };
+    const raised = raisePermission(snapshot, permission);
+    assert.strictEqual(raised.sessions.s1.pendingPermission, permission);
+    assert.strictEqual(answerPermission(raised, 's1', permission).sessions.s1.pendingPermission, undefined);
+  });
+
+  it('a permission or elicitation raised with no Prompt turn is shown and answerable', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    assert.isUndefined(snapshot.sessions.s1.pendingClientRequest);
+    const permission = pendingPermission('s1');
+    const raised = raisePermission(snapshot, permission);
+    assert.strictEqual(raised.sessions.s1.pendingPermission, permission);
+    assert.strictEqual(answerPermission(raised, 's1', permission).sessions.s1.pendingPermission, undefined);
+    const elicitation = pendingElicitation('e1', 's1');
+    const asked = raiseElicitation(snapshot, elicitation);
+    assert.strictEqual(asked.sessions.s1.pendingElicitation, elicitation);
+    assert.strictEqual(
+      answerElicitation(asked, 's1', elicitation, undefined).sessions.s1.pendingElicitation,
+      undefined,
+    );
+  });
+
   it('answerElicitation / answerPermission clear only the answered request', () => {
     const answered = pendingElicitation('e1', 's1');
     const newer = pendingElicitation('e2', 's1');

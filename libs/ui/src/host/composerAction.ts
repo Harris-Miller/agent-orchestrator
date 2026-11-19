@@ -3,6 +3,7 @@
  *
  * - {@link turnAction}: the rule for one Session. The Prompt turn and every client-request begin consult it, so the
  *   Harness refuses whatever the Composer would not offer.
+ *   Background follow-up (a native Subagent still running after the turn ended) with an empty draft offers `CancelTurn`.
  * - {@link composerGates}: the Composer's view over the Selected target. For a Session it is {@link turnAction} plus
  *   the Handoff lock; the Virtual arm adds readiness, the Lifecycle lock and Send pending. It can only be stricter
  *   than {@link turnAction}, never laxer.
@@ -27,6 +28,8 @@ export type ComposerAction =
   | { readonly _tag: 'Unavailable'; readonly reason: ComposerUnavailableReason };
 
 export type TurnActionInput = {
+  /** Background follow-up on this Session ({@link hasBackgroundActivity}): offers Prompt turn cancel with no turn. */
+  readonly backgroundActive: boolean;
   readonly hasContent: boolean;
   readonly steeringSupported: boolean;
 };
@@ -36,7 +39,7 @@ const unavailable = (reason: ComposerUnavailableReason): ComposerAction => ({ _t
 /** What submitting a draft into `session` does right now. */
 export const turnAction = (
   session: SessionSnapshot | undefined,
-  { hasContent, steeringSupported }: TurnActionInput,
+  { backgroundActive, hasContent, steeringSupported }: TurnActionInput,
 ): ComposerAction => {
   if (session?.pendingClientRequest === 'prompt') {
     const steeringAvailable =
@@ -54,15 +57,20 @@ export const turnAction = (
     return unavailable('NotActive');
   }
   if (hasPendingInteraction(session)) {
-    return unavailable('PendingInteraction');
+    // Like in-turn, Stop stays offered with an empty draft: Prompt turn cancel resolves the Pending interaction.
+    return backgroundActive && !hasContent ? { _tag: 'CancelTurn' } : unavailable('PendingInteraction');
   }
-  return hasContent ? { _tag: 'Send' } : unavailable('Empty');
+  if (hasContent) {
+    return { _tag: 'Send' };
+  }
+  return backgroundActive ? { _tag: 'CancelTurn' } : unavailable('Empty');
 };
 
 /** The Selected target as the Composer sees it. Nothing Selected is the Session arm with no session. */
 export type ComposerSubject =
   | {
       readonly _tag: 'Session';
+      readonly backgroundActive: boolean;
       readonly handoffInProgress: boolean;
       readonly hasContent: boolean;
       readonly session: SessionSnapshot | undefined;
@@ -106,13 +114,14 @@ export const composerGates = (subject: ComposerSubject): ComposerGates => {
             : unavailable('Empty');
     return { action, canEdit: !locked && !subject.sendPending, controlsEnabled: !locked, locked };
   }
-  const { handoffInProgress: locked, session, steeringSupported } = subject;
+  const { backgroundActive, handoffInProgress: locked, session, steeringSupported } = subject;
   const action = turnAction(session, subject);
   return {
     // Steering and Prompt turn cancel stay available during a Handoff; only a new Send is locked out.
     action: action._tag === 'Send' && locked ? unavailable('Locked') : action,
     canEdit: session?.status === 'active' && !locked,
-    controlsEnabled: !locked && turnAction(session, { hasContent: true, steeringSupported })._tag === 'Send',
+    controlsEnabled:
+      !locked && turnAction(session, { backgroundActive, hasContent: true, steeringSupported })._tag === 'Send',
     locked,
   };
 };

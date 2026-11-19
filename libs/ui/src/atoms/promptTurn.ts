@@ -6,7 +6,7 @@
  * - {@link sendPromptTurn}: start a Prompt turn and run it to its stop reason.
  * - {@link steerPromptTurn}: Steering into the in-flight turn; on `promptRequired`, a Send once the ended turn is done.
  * - {@link awaitTurnEnd}: wait for the in-flight turn to be over (the Queued message waits on it).
- * - {@link cancelPromptTurn}: Prompt turn cancel. No-op unless a prompt is in flight on that Session.
+ * - {@link cancelPromptTurn}: Prompt turn cancel. No-op unless a prompt is in flight or a Background follow-up runs.
  *
  * Invariants:
  * 1. Atomic start. A Send begins only if the Composer action rule decides Send (and Bootstrap is usable), in the same
@@ -51,6 +51,7 @@ import {
   appendSteeredMessage,
   applySessionFailure,
   beginPromptTurn,
+  clearCancelledInteractions,
   endPromptTurn,
   requestPromptCancel,
   sessionTurnAction,
@@ -58,6 +59,7 @@ import {
 import { sessionFailureOf } from '../host/airMeta.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
 import { acpErrorOfCause } from '../host/requestError.ts';
+import { sessionHasLiveWork } from '../host/subagent.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
 import type { UserMessageImageRef } from '../host/sessionUpdateReducer.ts';
 
@@ -287,14 +289,18 @@ export const steerPromptTurn = Effect.fn('steerPromptTurn')(function* (registry:
   );
 });
 
-/** Prompt turn cancel. No-op unless a prompt is in flight on that Session. */
+/**
+ * Prompt turn cancel. No-op unless a prompt is in flight or a Background follow-up runs on that Session; with no turn
+ * there is nothing to soft-cancel, so only the Pending interactions and the agent are cancelled.
+ */
 export const cancelPromptTurn = Effect.fnUntraced(function* (
   registry: Registry,
   { launchTarget, sessionId }: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string },
 ) {
   yield* Effect.annotateCurrentSpan({ 'acp.agent': launchTarget, 'acp.sessionId': sessionId });
   const session = sessionIn(registry, launchTarget, sessionId);
-  if (session?.pendingClientRequest !== 'prompt') {
+  const inTurn = session?.pendingClientRequest === 'prompt';
+  if (session === undefined || !sessionHasLiveWork(snapshotOf(registry, launchTarget), session)) {
     return;
   }
 
@@ -304,7 +310,12 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
 
   // Clear only the interactions just cancelled: one the agent raised during `resolve` stays answerable.
   updateHarnessSnapshot(registry, launchTarget, current =>
-    requestPromptCancel(current, sessionId, { elicitation: pendingElicitation, permission: pendingPermission }),
+    inTurn
+      ? requestPromptCancel(current, sessionId, { elicitation: pendingElicitation, permission: pendingPermission })
+      : clearCancelledInteractions(current, sessionId, {
+          elicitation: pendingElicitation,
+          permission: pendingPermission,
+        }),
   );
 
   yield* cancelSession(launchTarget, sessionId);

@@ -66,6 +66,7 @@ describe('sessionFailureOf', () => {
 
   it('is a named AIR capability', () => {
     assert.strictEqual(airCapability.sessionFailure, 'sessionFailure');
+    assert.strictEqual(airCapability.backgroundSubagents, 'backgroundSubagents');
   });
 });
 

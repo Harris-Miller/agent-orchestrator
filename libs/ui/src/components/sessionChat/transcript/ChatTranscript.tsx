@@ -17,6 +17,7 @@ import { describeError } from '../../../host/requestError.ts';
 import { useChatWidthSx } from '../chatWidth.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
+import { sessionHasLiveWork } from '../../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
 import { groupChatItems, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
 import { WorkRegionView } from './workRegion/WorkRegionView.tsx';
@@ -33,6 +34,12 @@ export const ChatTranscript: FC<{
   const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
   const activateSession = useAtomSet(activateSessionAtomFn, { mode: 'promise' });
   const respondPermission = useAtomSet(respondPermissionAtomFn, { mode: 'promise' });
+
+  const turnOrBackgroundWorking =
+    selectedSession !== undefined &&
+    (backendSnapshot === undefined
+      ? selectedSession.pendingClientRequest === 'prompt'
+      : sessionHasLiveWork(backendSnapshot, selectedSession));
 
   const chatWidthSx = useChatWidthSx();
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -136,7 +143,7 @@ export const ChatTranscript: FC<{
             item.kind === 'work_region' ? (
               <WorkRegionView
                 availableCommands={availableCommands}
-                inFlight={isLiveRegion(item) && selectedSession?.pendingClientRequest === 'prompt'}
+                inFlight={isLiveRegion(item) && turnOrBackgroundWorking}
                 key={`work-${item.id}`}
                 region={item}
               />

@@ -19,7 +19,7 @@ The draft editor for the Selected target: text and Composer Image Attachments, k
 _Avoid_: chat input, prompt box, input bar
 
 **Composer action**:
-What submitting the Composer does right now: Send, Steering (or Queue, by the `midTurnSend` User setting), Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it; Enter performs only Send, Steering or Queue, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
+What submitting the Composer does right now: Send, Steering (or Queue, by the `midTurnSend` User setting), Prompt turn cancel, or nothing, with the reason (empty draft, Pending client request, Send pending, Pending interaction, Session not active, Handoff running or Lifecycle lock held, Virtual session not ready). A running Handoff locks out only Send; Steering and Prompt turn cancel stay available. Decided once from the Selected target's state and the draft. The primary button shows it. With an empty draft, no Prompt turn and a Background follow-up running, Prompt turn cancel is offered (the button shows Stop), even with a Pending interaction (the cancel resolves it); with content it is still Send, or unavailable while an interaction is pending. Enter performs only Send, Steering or Queue, never Prompt turn cancel. The Harness refuses any Send or Steering the Composer action would not offer for that Session.
 _Avoid_: primary button state, canSend, canSteer
 
 **Draft during turn**:
@@ -37,6 +37,9 @@ _Avoid_: Send options menu, toolbar
 **Queued message**:
 In the Composer: shown as one row above the editor with an Edit action that moves it back into the draft (defined in the desktop glossary; desktop ADR-0020).
 _Avoid_: Queued prompt, outbox, Send pending
+
+**Background follow-up**:
+A Session's autonomous Work after its Prompt turn ended while a native Subagent still runs (Claude, AIR `backgroundSubagents`): the Session is active with no Pending client request and a native Subagent descendant is `running` or `requires_action`. The Agent may raise Pending interactions during it. Counts as working for the Work region and the Keep-awake hold; Prompt turn cancel with no turn cancels the Pending interactions and the agent.
 
 **Prompt turn**:
 The Harness side of one ACP Turn the user starts on a Session, by Send or by Handoff: the user message with its turn timing, the Pending client request while the Turn runs, Steering into it, Prompt turn cancel of it, and an Attention event when it ends. Starts only when the Composer action's rule would offer Send for that Session (a running Handoff's own lock aside) and Bootstrap is `usable` (or `ready`); a refused start leaves the transcript as it was. It ends with the Agent's stop reason, or with a Request error when the Agent answers the prompt with an error response; either way the user message stays.
@@ -252,7 +255,7 @@ A moment the user should notice in any session (not only the Selected one): a Pr
 _Avoid_: alert, ping, completion event
 
 **Keep-awake hold**:
-The Harness's OS idle-sleep hold, kept while any Prompt turn on any launch target is working (in flight with no Pending interaction on its Session or its Subagent sessions) and released a short grace period after none is, or at once when the Keep awake User setting is off. Never prevents display sleep or an explicit or lid-close sleep, and ends with the Harness process.
+The Harness's OS idle-sleep hold, kept while any Prompt turn or Background follow-up on any launch target is working (in flight, or running on its own, with no Pending interaction on its Session or its Subagent sessions) and released a short grace period after none is, or at once when the Keep awake User setting is off. Never prevents display sleep or an explicit or lid-close sleep, and ends with the Harness process.
 _Avoid_: sleep inhibitor, caffeinate, wake lock, keep-alive
 
 **Copy message**:

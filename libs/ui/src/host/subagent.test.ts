@@ -1,17 +1,20 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Option } from 'effect';
 
+import { harness, session, subagent } from './harnessSnapshot.testing.ts';
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 
 import {
   applySubagentPatch,
   canCancelSubagent,
   decodeSubagentUpdate,
+  hasBackgroundActivity,
   initialSubagentSnapshot,
   isSubagentFinished,
   reduceSubagentTranscriptUpdate,
   resetSubagentLiveState,
   rootAncestorId,
+  sessionHasLiveWork,
   subagentLatestActivity,
   subagentNeedsInput,
 } from './subagent.ts';
@@ -156,5 +159,68 @@ describe('resetSubagentLiveState', () => {
       state: 'completed',
     });
     assert.isUndefined(revived.stateUnconfirmed);
+  });
+});
+
+describe('sessionHasLiveWork', () => {
+  const running = { state: { state: 'running' } } as const;
+
+  it('is true for a Prompt turn in flight or Background follow-up, false when idle', () => {
+    const turn = { ...session('a'), pendingClientRequest: 'prompt' } as const;
+    assert.isTrue(sessionHasLiveWork(harness([turn]), turn));
+    const background = harness([session('a')], [subagent('c', 'a', running)]);
+    assert.isTrue(sessionHasLiveWork(background, background.sessions.a));
+    const idle = harness([session('a')]);
+    assert.isFalse(sessionHasLiveWork(idle, idle.sessions.a));
+  });
+});
+
+describe('hasBackgroundActivity', () => {
+  const running = { state: { state: 'running' } } as const;
+
+  it('is true for an idle active Session with a running native Subagent', () => {
+    assert.isTrue(hasBackgroundActivity(harness([session('a')], [subagent('c', 'a', running)]), 'a'));
+  });
+
+  it('counts a requires_action or nested running descendant', () => {
+    assert.isTrue(
+      hasBackgroundActivity(
+        harness([session('a')], [subagent('c', 'a', { state: { state: 'requires_action' } })]),
+        'a',
+      ),
+    );
+    assert.isTrue(
+      hasBackgroundActivity(
+        harness([session('a')], [subagent('c', 'a', { state: { state: 'completed' } }), subagent('g', 'c', running)]),
+        'a',
+      ),
+    );
+  });
+
+  it('is false with no Subagents, finished, unconfirmed or spawned Subagents', () => {
+    assert.isFalse(hasBackgroundActivity(harness([session('a')]), 'a'));
+    assert.isFalse(
+      hasBackgroundActivity(harness([session('a')], [subagent('c', 'a', { state: { state: 'idle' } })]), 'a'),
+    );
+    assert.isFalse(
+      hasBackgroundActivity(harness([session('a')], [subagent('c', 'a', { stateUnconfirmed: true })]), 'a'),
+    );
+    assert.isFalse(
+      hasBackgroundActivity(
+        harness([session('a')], [{ ...subagent('c', 'a', running), kind: 'spawned', launchTarget: 'codex-acp' }]),
+        'a',
+      ),
+    );
+  });
+
+  it('is false while a Prompt turn is in flight, or for an inactive or unknown Session', () => {
+    const children = [subagent('c', 'a', running)];
+    assert.isFalse(hasBackgroundActivity(harness([session('a', { pendingClientRequest: 'prompt' })], children), 'a'));
+    assert.isFalse(hasBackgroundActivity(harness([session('a', { status: 'inactive' })], children), 'a'));
+    assert.isFalse(hasBackgroundActivity(harness([], children), 'a'));
+  });
+
+  it('is false for a Subagent of another Session', () => {
+    assert.isFalse(hasBackgroundActivity(harness([session('a'), session('b')], [subagent('c', 'b', running)]), 'a'));
   });
 });

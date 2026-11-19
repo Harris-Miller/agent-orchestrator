@@ -29,65 +29,108 @@ describe('turnAction', () => {
   const rows: readonly (readonly [
     string,
     SessionSnapshot | undefined,
-    { readonly hasContent: boolean; readonly steeringSupported: boolean },
+    {
+      readonly backgroundActive: boolean;
+      readonly hasContent: boolean;
+      readonly steeringSupported: boolean;
+    },
     ComposerAction,
   ])[] = [
-    ['idle with content → Send', session(), { hasContent: true, steeringSupported: false }, send],
-    ['idle and empty → Empty', session(), { hasContent: false, steeringSupported: true }, unavailable('Empty')],
+    [
+      'idle with content → Send',
+      session(),
+      { backgroundActive: false, hasContent: true, steeringSupported: false },
+      send,
+    ],
+    [
+      'idle and empty → Empty',
+      session(),
+      { backgroundActive: false, hasContent: false, steeringSupported: true },
+      unavailable('Empty'),
+    ],
     [
       'config pending → Pending client request',
       session({ pendingClientRequest: 'config' }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       unavailable('PendingClientRequest'),
     ],
     [
       'inactive → NotActive',
       session({ status: 'inactive' }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       unavailable('NotActive'),
     ],
-    ['missing session → NotActive', undefined, { hasContent: true, steeringSupported: true }, unavailable('NotActive')],
+    [
+      'missing session → NotActive',
+      undefined,
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
+      unavailable('NotActive'),
+    ],
     [
       'Pending permission → PendingInteraction',
       session({ pendingPermission }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       unavailable('PendingInteraction'),
     ],
     [
       'Pending elicitation → PendingInteraction',
       session({ pendingElicitation }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       unavailable('PendingInteraction'),
     ],
     [
       'prompt in flight, content, Steering supported → Steer',
       inFlight(),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       steer,
     ],
     [
       'prompt in flight, empty → Prompt turn cancel',
       inFlight(),
-      { hasContent: false, steeringSupported: true },
+      { backgroundActive: false, hasContent: false, steeringSupported: true },
       cancelTurn,
     ],
     [
       'prompt in flight, Steering unsupported → Prompt turn cancel',
       inFlight(),
-      { hasContent: true, steeringSupported: false },
+      { backgroundActive: false, hasContent: true, steeringSupported: false },
       cancelTurn,
     ],
     [
       'prompt in flight, cancel requested → Prompt turn cancel',
       inFlight({ promptCancelRequested: true }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       cancelTurn,
     ],
     [
       'prompt in flight, Pending interaction → Prompt turn cancel',
       inFlight({ pendingPermission }),
-      { hasContent: true, steeringSupported: true },
+      { backgroundActive: false, hasContent: true, steeringSupported: true },
       cancelTurn,
+    ],
+    [
+      'idle, empty, Background follow-up → Prompt turn cancel',
+      session(),
+      { backgroundActive: true, hasContent: false, steeringSupported: true },
+      cancelTurn,
+    ],
+    [
+      'idle, content, Background follow-up → Send',
+      session(),
+      { backgroundActive: true, hasContent: true, steeringSupported: true },
+      send,
+    ],
+    [
+      'empty, Background follow-up, Pending interaction → Prompt turn cancel',
+      session({ pendingPermission }),
+      { backgroundActive: true, hasContent: false, steeringSupported: true },
+      cancelTurn,
+    ],
+    [
+      'content, Background follow-up, Pending interaction → PendingInteraction',
+      session({ pendingPermission }),
+      { backgroundActive: true, hasContent: true, steeringSupported: true },
+      unavailable('PendingInteraction'),
     ],
   ];
   it.each(rows)('%s', (_name, snapshot, input, expected) => {
@@ -112,6 +155,7 @@ describe('composerGates', () => {
     patch: Partial<Extract<ComposerSubject, { _tag: 'Session' }>> = {},
   ): ComposerSubject => ({
     _tag: 'Session',
+    backgroundActive: false,
     handoffInProgress: false,
     hasContent: true,
     session: snapshot,
@@ -187,6 +231,11 @@ describe('composerGates', () => {
       'Session inactive → not editable',
       onSession(session({ status: 'inactive' })),
       { action: unavailable('NotActive'), canEdit: false, controlsEnabled: false },
+    ],
+    [
+      'Session empty with Background follow-up → Prompt turn cancel, controls open',
+      onSession(session(), { backgroundActive: true, hasContent: false }),
+      { action: cancelTurn, canEdit: true, controlsEnabled: true },
     ],
     [
       'nothing Selected → NotActive',

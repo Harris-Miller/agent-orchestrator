@@ -3,6 +3,7 @@ import { isRecord } from '../isRecord.ts';
 
 import { applySessionInfoTitle, initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
+import { isLoadReplayEnd } from './airMeta.ts';
 import { foldConfigOptions } from './sessionConfiguration.ts';
 import { parseAvailableCommands, parseUsageUpdate, reduceSessionUpdate } from './sessionUpdateReducer.ts';
 
@@ -48,7 +49,12 @@ export const applySessionUpdate = (
         break;
       }
       case 'session_info_update': {
-        if (typeof update.title === 'string') {
+        if (isLoadReplayEnd(update)) {
+          if (base.status === 'activating') {
+            next = { ...next, replayComplete: true };
+            sessionChanged = true;
+          }
+        } else if (typeof update.title === 'string') {
           sessionHistory = applySessionInfoTitle(history, sessionId, update.title);
           // History patch alone is enough for a non-noop result when transcript unchanged.
         }

@@ -43,6 +43,8 @@ export type SessionSnapshot = {
   readonly promptCancelRequested?: boolean;
   /** Session configuration (glossary): the agent's last-reported Config options. Absent until reported. */
   readonly configuration?: SessionConfiguration;
+  /** Set while a `session/load` is activating once the agent's AIR `loadReplayEnd` marker arrived: the replayed history is complete. */
+  readonly replayComplete?: boolean;
   readonly sessionId: string;
   readonly status: SessionStatus;
   readonly transcript: SessionTranscript;

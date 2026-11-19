@@ -4,6 +4,7 @@ import { SessionFailure } from '@libs/effect-acp';
 import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {
+  loadReplayEnd: 'loadReplayEnd',
   sessionArchive: 'sessionArchive',
   sessionFailure: 'sessionFailure',
   sessionIndex: 'sessionIndex',
@@ -59,4 +60,13 @@ export const sessionFailureOf = (meta: unknown): Option.Option<SessionFailure> =
     return Option.none();
   }
   return decodeSessionFailure(meta.jetbrains.air.sessionFailure);
+};
+
+/** True when a `session_info_update` carries `_meta.jetbrains.air.loadReplayEnd === true` (end of a `session/load` replay). */
+export const isLoadReplayEnd = (update: Readonly<Record<string, unknown>>): boolean => {
+  const { _meta: meta } = update;
+  if (!Predicate.isObject(meta) || !Predicate.isObject(meta.jetbrains) || !Predicate.isObject(meta.jetbrains.air)) {
+    return false;
+  }
+  return meta.jetbrains.air.loadReplayEnd === true;
 };

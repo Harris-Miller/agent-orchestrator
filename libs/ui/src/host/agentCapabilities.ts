@@ -11,6 +11,7 @@ import { Effect, Option, Predicate, Schema } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { agentLaunchTargetLabel } from './agentLaunchTarget.ts';
+import type { AirCapability } from './airMeta.ts';
 import { airCapability, airMeta } from './airMeta.ts';
 
 const AGENT_CAPABILITY_KEYS = [
@@ -46,8 +47,11 @@ export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
 };
 
 type ProviderQuirks = {
-  /** Offer AIR `sessionIndex` in initialize (Archive / Rename are only answered when offered). */
-  readonly airClient: boolean;
+  /**
+   * AIR capabilities offered in initialize: `sessionIndex` (Archive / Rename are only answered when offered),
+   * `loadReplayEnd` (the agent marks the end of a `session/load` replay).
+   */
+  readonly airClientCapabilities: readonly AirCapability[];
   /**
    * The adapter takes Claude Agent SDK options in `_meta.claudeCode.options`, whose `allowedTools` run without a
    * permission prompt: how injected MCP tools are pre-approved.
@@ -58,10 +62,18 @@ type ProviderQuirks = {
 };
 
 const PROVIDER_QUIRKS: Readonly<Record<AgentLaunchTarget, ProviderQuirks>> = {
-  'antigravity-acp': { airClient: false, claudeCodeOptions: false, neverResume: false },
-  'claude-agent-acp': { airClient: true, claudeCodeOptions: true, neverResume: false },
-  'codex-acp': { airClient: true, claudeCodeOptions: false, neverResume: false },
-  'cursor-acp': { airClient: false, claudeCodeOptions: false, neverResume: true },
+  'antigravity-acp': { airClientCapabilities: [], claudeCodeOptions: false, neverResume: false },
+  'claude-agent-acp': {
+    airClientCapabilities: [airCapability.sessionIndex, airCapability.sessionFailure, airCapability.loadReplayEnd],
+    claudeCodeOptions: true,
+    neverResume: false,
+  },
+  'codex-acp': {
+    airClientCapabilities: [airCapability.sessionIndex, airCapability.sessionFailure],
+    claudeCodeOptions: false,
+    neverResume: false,
+  },
+  'cursor-acp': { airClientCapabilities: [], claudeCodeOptions: false, neverResume: true },
 };
 
 /** Value at `path`, or undefined when any step is not an object. */
@@ -115,13 +127,14 @@ export const mcpToolPreapprovalMeta = (
     : undefined;
 
 /**
- * `clientCapabilities` for this launch target's initialize request (AIR `sessionIndex` + `sessionFailure` offer for
- * Claude / Codex). `sessionFailure` is client-side only: declaring it makes the adapters send typed failure rows
- * instead of plain-text chunks (e.g. Codex `Warning:` text), so the client filters nothing.
+ * `clientCapabilities` for this launch target's initialize request (AIR offer: `sessionIndex` + `sessionFailure` for
+ * Claude / Codex, plus `loadReplayEnd` for Claude). `sessionFailure` is client-side only: declaring it makes the
+ * adapters send typed failure rows instead of plain-text chunks (e.g. Codex `Warning:` text), so the client filters
+ * nothing.
  */
 export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): InitializeRequest['clientCapabilities'] => ({
-  ...(PROVIDER_QUIRKS[launchTarget].airClient
-    ? { _meta: airMeta({ capabilities: [airCapability.sessionIndex, airCapability.sessionFailure] }) }
+  ...(PROVIDER_QUIRKS[launchTarget].airClientCapabilities.length > 0
+    ? { _meta: airMeta({ capabilities: PROVIDER_QUIRKS[launchTarget].airClientCapabilities }) }
     : {}),
   elicitation: { form: {} },
   session: { configOptions: { boolean: {} } },

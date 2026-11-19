@@ -2,7 +2,16 @@ import { assert, describe, it } from '@effect/vitest';
 
 import { Option } from 'effect';
 
-import { airCapability, isArchivedEntry, isSkillCommand, sessionFailureOf } from './airMeta.ts';
+import { airCapability, isArchivedEntry, isLoadReplayEnd, isSkillCommand, sessionFailureOf } from './airMeta.ts';
+
+describe('isLoadReplayEnd', () => {
+  it('is true only for _meta.jetbrains.air.loadReplayEnd === true', () => {
+    assert.isTrue(isLoadReplayEnd({ _meta: { jetbrains: { air: { loadReplayEnd: true, version: 1 } } } }));
+    assert.isFalse(isLoadReplayEnd({ _meta: { jetbrains: { air: { loadReplayEnd: false } } } }));
+    assert.isFalse(isLoadReplayEnd({ _meta: { jetbrains: { air: {} } } }));
+    assert.isFalse(isLoadReplayEnd({ title: 'x' }));
+  });
+});
 
 describe('isArchivedEntry', () => {
   it('reads _meta.jetbrains.air.archived', () => {

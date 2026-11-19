@@ -8,7 +8,36 @@ import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 const emptyHistory: readonly NormalizedSessionInfo[] = [];
 
+const replayEnd = {
+  _meta: { jetbrains: { air: { loadReplayEnd: true, version: 1 } } },
+  sessionUpdate: 'session_info_update',
+};
+
 describe('applySessionUpdate', () => {
+  it('loadReplayEnd marks an activating session replayComplete', () => {
+    const result = applySessionUpdate(initialSessionSnapshot('s1', 'activating'), 's1', emptyHistory, replayEnd);
+    assert.strictEqual(result.kind, 'patch');
+    if (result.kind === 'patch') {
+      assert.strictEqual(result.session.replayComplete, true);
+      assert.strictEqual(result.sessionHistory, undefined);
+    }
+  });
+
+  it('loadReplayEnd is a noop on active and inactive sessions', () => {
+    for (const status of ['active', 'inactive'] as const) {
+      const result = applySessionUpdate(initialSessionSnapshot('s1', status), 's1', emptyHistory, replayEnd);
+      assert.strictEqual(result.kind, 'noop');
+    }
+  });
+
+  it('a titled session_info_update does not set replayComplete', () => {
+    const result = applySessionUpdate(initialSessionSnapshot('s1', 'activating'), 's1', emptyHistory, {
+      sessionUpdate: 'session_info_update',
+      title: 'x',
+    });
+    assert.notStrictEqual(result.kind === 'patch' ? result.session.replayComplete : undefined, true);
+  });
+
   it('returns noop for unrecognized updates with no side effects', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, { sessionUpdate: 'unknown_kind' });

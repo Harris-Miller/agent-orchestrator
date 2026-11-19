@@ -497,7 +497,7 @@ export const beginActivation = (
         cwd,
         defects: undefined,
         status: 'activating',
-        ...(mode === 'load' ? { transcript: emptySessionTranscript() } : {}),
+        ...(mode === 'load' ? { replayComplete: undefined, transcript: emptySessionTranscript() } : {}),
         usage: undefined,
       })),
     },
@@ -506,7 +506,8 @@ export const beginActivation = (
 
 /**
  * `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`, and the
- * transcript it had before activation began restored (a failed load must not lose the prior view).
+ * transcript it had before activation began restored (a failed load must not lose the prior view), unless the replay
+ * already completed (AIR `loadReplayEnd`): then the fully replayed transcript is kept.
  */
 export const failActivation = (
   snapshot: BackendHarnessSnapshot,
@@ -519,7 +520,7 @@ export const failActivation = (
     ...session,
     defects,
     status: 'inactive',
-    ...(previousTranscript === undefined ? {} : { transcript: previousTranscript }),
+    ...(previousTranscript === undefined || session.replayComplete === true ? {} : { transcript: previousTranscript }),
   })),
 });
 

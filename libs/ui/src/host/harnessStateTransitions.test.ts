@@ -560,6 +560,18 @@ describe('activation folds', () => {
     assert.strictEqual(failActivation(loading, 's1', defects, transcript).sessions.s1.transcript, transcript);
   });
 
+  it('failActivation keeps the replayed transcript once replay completed; beginActivation load clears the flag', () => {
+    const previous = appendUserChatMessage(initialSessionSnapshot('s1').transcript, 'old');
+    const replayed = appendUserChatMessage(initialSessionSnapshot('s1').transcript, 'replayed');
+    const snapshot = readySnapshot({
+      s1: { ...initialSessionSnapshot('s1', 'activating'), replayComplete: true, transcript: replayed },
+    });
+    const failed = failActivation(snapshot, 's1', defects, previous);
+    assert.strictEqual(failed.sessions.s1.transcript, replayed);
+    assert.strictEqual(failed.sessions.s1.status, 'inactive');
+    assert.strictEqual(beginActivation(failed, 's1', '/proj', 'load').sessions.s1.replayComplete, undefined);
+  });
+
   it('failActivation records defects and goes inactive; failUnarchive records defects only', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
     const failed = failActivation(snapshot, 's1', defects, snapshot.sessions.s1.transcript);

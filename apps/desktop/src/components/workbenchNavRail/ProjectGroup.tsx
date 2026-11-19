@@ -31,7 +31,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { Ellipsis, Folder, FolderOpen, Plus, TriangleAlert } from 'lucide-react';
+import { Ellipsis, Folder, FolderOpen, SquarePen, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -151,7 +151,7 @@ export const ProjectGroup: FC<{
             size="small"
             sx={{ flexShrink: 0 }}
           >
-            <LucideMuiIcon fontSize="small" icon={Plus} />
+            <LucideMuiIcon fontSize="small" icon={SquarePen} />
           </IconButton>
         </AccordionSummary>
         <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>

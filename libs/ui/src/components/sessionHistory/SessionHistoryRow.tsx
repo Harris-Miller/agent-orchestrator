@@ -25,18 +25,18 @@ import { SessionActionsMenu } from './SessionActionsMenu.tsx';
 import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 import { useSessionTitleRename } from './useSessionTitleRename.ts';
 
-const sessionCardSx = (selected: boolean, archived: boolean) =>
+const sessionCardSx = (selected: boolean) =>
   ({
-    border: 1,
-    borderStyle: archived ? 'dashed' : 'solid',
-    borderColor: selected ? 'primary.main' : 'divider',
-    borderRadius: 1,
+    borderLeft: 2,
+    borderLeftStyle: 'solid',
+    borderLeftColor: selected ? 'primary.main' : 'transparent',
+    borderRadius: 0,
     cursor: 'pointer',
     overflow: 'hidden',
     width: '100%',
-    ...(selected ? { bgcolor: 'action.selected' } : { bgcolor: 'background.paper' }),
+    bgcolor: selected ? 'action.selected' : 'transparent',
     '&:hover': {
-      bgcolor: 'action.hover',
+      bgcolor: selected ? 'action.selected' : 'action.hover',
     },
   }) as const;
 
@@ -108,7 +108,6 @@ export const SessionHistoryRow: FC<{
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
       disablePadding
-      sx={{ px: 1, py: 0.75 }}
     >
       <Paper
         elevation={0}
@@ -124,7 +123,7 @@ export const SessionHistoryRow: FC<{
         }}
         role="button"
         sx={{
-          ...sessionCardSx(selected, archived),
+          ...sessionCardSx(selected),
           ...(highlighted === true
             ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' }
             : {}),
@@ -132,7 +131,7 @@ export const SessionHistoryRow: FC<{
         }}
         tabIndex={0}
       >
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1.5, py: 1.25 }}>
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, px: 1, py: 0.5 }}>
           {selection === undefined ? null : (
             <Checkbox
               checked={selection.checked}

@@ -72,7 +72,10 @@ export const ProviderPhaseStatus: FC<{ readonly entry: ProviderPhaseEntry }> = (
         />
       ) : null}
       {errorText !== undefined ? (
-        <Accordion sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}>
+        <Accordion
+          slotProps={{ transition: { unmountOnExit: true } }}
+          sx={{ bgcolor: 'action.hover', borderRadius: 1, mt: 0.75 }}
+        >
           <AccordionSummary>
             <Typography component="span" sx={{ fontFamily: FONT_FAMILY_MONO, fontSize: '0.75rem' }} variant="body2">
               Expand to view error message

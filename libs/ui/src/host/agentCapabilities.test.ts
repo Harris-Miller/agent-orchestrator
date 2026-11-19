@@ -114,13 +114,19 @@ describe('clientCapabilitiesFor', () => {
     subagents: {},
   };
 
-  it('offers AIR sessionIndex to Claude and Codex', () => {
-    for (const launchTarget of ['claude-agent-acp', 'codex-acp'] as const) {
-      assert.deepStrictEqual(clientCapabilitiesFor(launchTarget), {
-        ...base,
-        _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure'], version: 1 } } },
-      });
-    }
+  it('offers AIR sessionIndex, sessionFailure and loadReplayEnd to Claude', () => {
+    assert.deepStrictEqual(clientCapabilitiesFor('claude-agent-acp'), {
+      ...base,
+      _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure', 'loadReplayEnd'], version: 1 } } },
+    });
+  });
+
+  it('offers AIR sessionIndex and sessionFailure to Codex', () => {
+    assert.deepStrictEqual(clientCapabilitiesFor('codex-acp'), {
+      ...base,
+      _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionFailure'], version: 1 } } },
+    });
+    assert.notInclude(JSON.stringify(clientCapabilitiesFor('codex-acp')), 'loadReplayEnd');
   });
 
   it('offers no AIR _meta to Antigravity and Cursor', () => {

@@ -2,6 +2,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
+import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 
@@ -55,5 +56,59 @@ describe('activation failure defects', () => {
       assert.strictEqual(session.status, 'inactive');
       assert.deepStrictEqual(session.defects, []);
     }).pipe(Effect.scoped),
+  );
+});
+
+describe('AIR loadReplayEnd on a failing session/load', () => {
+  const run = (withMarker: boolean) =>
+    Effect.gen(function* () {
+      const runtime = createHostRuntime(mockHostLayer);
+      const { cancelPromptAtomFn } = createChatAtoms(runtime);
+      const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+      const registry = yield* freshRegistry;
+      const fold = makeHarnessEventFold({ launchTarget: CODEX, registry, runFork: () => undefined });
+      yield* installFakeAgent(
+        [],
+        {
+          duringLoad: Effect.sync(() => {
+            fold.onSessionUpdate('s1', {
+              content: { text: 'replayed', type: 'text' },
+              sessionUpdate: 'agent_message_chunk',
+            });
+            if (withMarker) {
+              fold.onSessionUpdate('s1', {
+                _meta: { jetbrains: { air: { loadReplayEnd: true, version: 1 } } },
+                sessionUpdate: 'session_info_update',
+              });
+            }
+          }),
+          failLoad: true,
+        },
+        CODEX,
+      );
+      updateHarnessSnapshot(registry, CODEX, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/proj', sessionId: 's1' }],
+        sessions: { s1: { ...initialSessionSnapshot('s1', 'inactive'), cwd: '/proj' } },
+      }));
+      advertise(registry, CODEX, {});
+      yield* runAtomFn(registry, atoms.activateSessionAtomFn, { launchTarget: CODEX, sessionId: 's1' });
+      return registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.s1;
+    }).pipe(Effect.scoped);
+
+  it.effect('keeps the replayed transcript when the marker arrived before the failure', () =>
+    Effect.gen(function* () {
+      const session = yield* run(true);
+      assert.strictEqual(session.status, 'inactive');
+      assert.strictEqual(session.transcript.items.length, 1);
+    }),
+  );
+
+  it.effect('restores the previous transcript when the failure came before the marker', () =>
+    Effect.gen(function* () {
+      const session = yield* run(false);
+      assert.strictEqual(session.status, 'inactive');
+      assert.strictEqual(session.transcript.items.length, 0);
+    }),
   );
 });

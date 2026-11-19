@@ -480,7 +480,7 @@ export const applySessionList = (
   replaceSessionHistory(snapshot, historyAfterList(snapshot.sessionHistory, listResult, scope, boundSessionId));
 
 /**
- * Activation begins: cwd stamped, defects and usage cleared, status `activating`, descendant Subagents reset. A `load`
+ * Activation begins: cwd stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`
  * replays the whole history, so it starts from an empty transcript; a `resume` keeps the local one.
  */
 export const beginActivation = (
@@ -497,6 +497,7 @@ export const beginActivation = (
         cwd,
         defects: undefined,
         status: 'activating',
+        replayComplete: undefined,
         ...(mode === 'load' ? { transcript: emptySessionTranscript() } : {}),
         usage: undefined,
       })),
@@ -506,7 +507,8 @@ export const beginActivation = (
 
 /**
  * `session/load` or `session/resume` failed: the failure's defects recorded, the Session `inactive`, and the
- * transcript it had before activation began restored (a failed load must not lose the prior view).
+ * transcript it had before activation began restored (a failed load must not lose the prior view), unless the replay
+ * already completed (AIR `loadReplayEnd`): then the fully replayed transcript is kept.
  */
 export const failActivation = (
   snapshot: BackendHarnessSnapshot,
@@ -519,7 +521,7 @@ export const failActivation = (
     ...session,
     defects,
     status: 'inactive',
-    ...(previousTranscript === undefined ? {} : { transcript: previousTranscript }),
+    ...(previousTranscript === undefined || session.replayComplete === true ? {} : { transcript: previousTranscript }),
   })),
 });
 

@@ -157,7 +157,7 @@ export const installFakeAgent = (
           calls.push(`load:${sessionId}`);
           opts.mcp?.received.push({ meta: _meta, rpc: 'load', servers: mcpServers });
           return opts.failLoad === true
-            ? Effect.fail('load-fail')
+            ? Effect.andThen(opts.duringLoad ?? Effect.void, Effect.fail('load-fail'))
             : Effect.as(opts.duringLoad ?? Effect.void, selectableConfig);
         },
         'session/new': ({ _meta, mcpServers }: { _meta?: unknown; mcpServers: readonly unknown[] }) => {

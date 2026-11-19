@@ -4,6 +4,7 @@ import { SessionFailure } from '@libs/effect-acp';
 import { Option, Predicate, Schema } from 'effect';
 
 export const airCapability = {
+  loadReplayEnd: 'loadReplayEnd',
   sessionArchive: 'sessionArchive',
   sessionFailure: 'sessionFailure',
   sessionIndex: 'sessionIndex',
@@ -21,13 +22,18 @@ export const airMeta = <Body extends object>(body: Body) => ({
   },
 });
 
-/** True when a `session/list` row carries `_meta.jetbrains.air.archived === true`. */
-export const isArchivedEntry = (entry: Readonly<Record<string, unknown>>): boolean => {
+/** The `_meta.jetbrains.air` record of `entry`, or undefined when absent. */
+const airOf = (entry: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> | undefined => {
   const { _meta: meta } = entry;
   if (!Predicate.isObject(meta) || !Predicate.isObject(meta.jetbrains) || !Predicate.isObject(meta.jetbrains.air)) {
-    return false;
+    return undefined;
   }
-  return meta.jetbrains.air.archived === true;
+  return meta.jetbrains.air;
+};
+
+/** True when a `session/list` row carries `_meta.jetbrains.air.archived === true`. */
+export const isArchivedEntry = (entry: Readonly<Record<string, unknown>>): boolean => {
+  return airOf(entry)?.archived === true;
 };
 
 /** `entry` with `_meta.jetbrains.air.archived` set to `archived`; the rest of `_meta` is kept. */
@@ -40,15 +46,12 @@ export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry:
 
 /** True when an ACP available command is a skill: AIR `kind: 'skill'`, an AIR `skillPath`, or a Codex `$name`. */
 export const isSkillCommand = (entry: Readonly<Record<string, unknown>>): boolean => {
-  const { _meta: meta, name } = entry;
+  const { name } = entry;
   if (typeof name === 'string' && name.startsWith('$')) {
     return true;
   }
-  if (!Predicate.isObject(meta) || !Predicate.isObject(meta.jetbrains) || !Predicate.isObject(meta.jetbrains.air)) {
-    return false;
-  }
-  const { air } = meta.jetbrains;
-  return air.kind === 'skill' || typeof air.skillPath === 'string';
+  const air = airOf(entry);
+  return air?.kind === 'skill' || typeof air?.skillPath === 'string';
 };
 
 const decodeSessionFailure = Schema.decodeUnknownOption(SessionFailure);
@@ -59,4 +62,9 @@ export const sessionFailureOf = (meta: unknown): Option.Option<SessionFailure> =
     return Option.none();
   }
   return decodeSessionFailure(meta.jetbrains.air.sessionFailure);
+};
+
+/** True when a `session_info_update` carries `_meta.jetbrains.air.loadReplayEnd === true` (end of a `session/load` replay). */
+export const isLoadReplayEnd = (update: Readonly<Record<string, unknown>>): boolean => {
+  return airOf(update)?.loadReplayEnd === true;
 };

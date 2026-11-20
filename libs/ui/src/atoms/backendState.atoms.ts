@@ -12,7 +12,7 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
+import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/subagent.ts';
@@ -315,4 +315,8 @@ export const harnessAvailabilityAtom = Atom.make(get => {
     }
   }
   return { reasons, usable };
-}).pipe(Atom.keepAlive);
+}).pipe(
+  // Recomputes on any launch target snapshot write; keep the value reference while its contents are unchanged.
+  Atom.withEquality(harnessAvailabilityEqual),
+  Atom.keepAlive,
+);

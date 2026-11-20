@@ -186,6 +186,41 @@ describe('session list subscriptions', () => {
     }),
   );
 
+  it.effect('a failed unsubscribe keeps the entry, counts against the cap and is retried by the next sync', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      let failUnsubscribe = true;
+      const scope = yield* Scope.make();
+      yield* registerBackendConnection(
+        LT,
+        {
+          agent: {},
+          sessionListSubscribe: ({ cwd }: { cwd: string }) => Effect.succeed({ subscriptionId: `id-${cwd}` }),
+          sessionListUnsubscribe: ({ subscriptionId }: { subscriptionId: string }) => {
+            calls.push(`unsub ${subscriptionId}`);
+            return failUnsubscribe ? Effect.fail(new Error('boom')) : Effect.succeed({});
+          },
+        } as unknown as Parameters<typeof registerBackendConnection>[1],
+        recordingReports([]),
+      ).pipe(Scope.provide(scope));
+      setBackendSessionListSubscribe(LT, true);
+      const many = Array.from({ length: 128 }, (_, index) => `/p${index}`);
+      yield* syncSessionListSubscriptions(LT, many);
+
+      yield* syncSessionListSubscriptions(LT, ['/new', ...many.slice(1)]);
+      assert.deepStrictEqual(calls, ['unsub id-/p0']);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/p0'), '/p0');
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/new'), undefined);
+
+      failUnsubscribe = false;
+      yield* syncSessionListSubscriptions(LT, ['/new', ...many.slice(1)]);
+      assert.deepStrictEqual(calls, ['unsub id-/p0', 'unsub id-/p0']);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/p0'), undefined);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/new'), '/new');
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
   it.effect('logs a failed subscribe instead of raising it and keeps the other cwds', () =>
     Effect.gen(function* () {
       const calls: string[] = [];

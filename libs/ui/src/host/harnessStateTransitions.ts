@@ -14,6 +14,7 @@ import type {
 } from './acpSessionBootstrap.ts';
 import {
   initialBackendHarnessSnapshot,
+  isSessionActiveOrActivating,
   isUsablePhase,
   normalizeConfigOptions,
   normalizeSessionInfo,
@@ -495,7 +496,8 @@ export type SessionListChangesResult = {
 /**
  * Fold one `_session/list/changes` notification of the subscription on `cwd`. Changed rows apply only when their cwd is
  * `cwd` (a subscription also covers linked worktrees), merge by `sessionId` with a monotonic `updatedAt`, and hide the
- * Bound Virtual id. `removed` ids drop the session and its row only while the row is in `cwd`; `dropped` lists them.
+ * Bound Virtual id. `removed` ids drop their row only while the row is in `cwd`, and their Session too unless it is
+ * active or activating (a best-effort notification must not wipe a live Session); `dropped` lists the fully dropped ids.
  */
 export const applySessionListChanges = (
   snapshot: BackendHarnessSnapshot,
@@ -515,11 +517,24 @@ export const applySessionListChanges = (
     snapshot.sessionHistory,
     rows.map(row => withMonotonicUpdatedAt(row, byId.get(row.sessionId))),
   );
-  const dropped = changes.removed.filter(sessionId => byId.get(sessionId)?.cwd === cwd);
+  const removed = changes.removed.filter(sessionId => byId.get(sessionId)?.cwd === cwd);
+  const live = (sessionId: string) => {
+    const session = snapshot.sessions[sessionId];
+    return session !== undefined && isSessionActiveOrActivating(session.status);
+  };
+  const dropped = removed.filter(sessionId => !live(sessionId));
   const withRows = rows.length === 0 ? snapshot : replaceSessionHistory(snapshot, merged);
+  const withoutRows = removed.filter(live);
+  const keptLive =
+    withoutRows.length === 0
+      ? withRows
+      : replaceSessionHistory(
+          withRows,
+          withRows.sessionHistory.filter(entry => !withoutRows.includes(entry.sessionId)),
+        );
   return {
     dropped,
-    snapshot: dropped.reduce(dropSession, withRows),
+    snapshot: dropped.reduce(dropSession, keptLive),
   };
 };
 

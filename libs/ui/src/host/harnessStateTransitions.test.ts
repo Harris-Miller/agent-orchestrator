@@ -661,7 +661,7 @@ describe('applySessionListChanges', () => {
 
   it('removed drops the row and Session only in the subscribed cwd', () => {
     const snapshot = replaceSessionHistory(
-      readySnapshot({ gone: activeSession('gone'), foreign: activeSession('foreign') }),
+      readySnapshot({ gone: activeSession('gone', { status: 'inactive' }), foreign: activeSession('foreign') }),
       [row('gone'), { cwd: '/b', sessionId: 'foreign' }],
     );
     const { snapshot: next, dropped } = applySessionListChanges(
@@ -673,6 +673,26 @@ describe('applySessionListChanges', () => {
     assert.deepStrictEqual(dropped, ['gone']);
     assert.deepStrictEqual(Object.keys(historyOf(next)), ['foreign']);
     assert.deepStrictEqual(Object.keys(next.sessions), ['foreign']);
+  });
+
+  it('removed keeps the Session of an active or activating id, drops only its row, and does not report it', () => {
+    const snapshot = replaceSessionHistory(
+      readySnapshot({
+        live: activeSession('live'),
+        pending: { ...initialSessionSnapshot('pending', 'activating') },
+        idle: { ...initialSessionSnapshot('idle', 'inactive') },
+      }),
+      [row('live'), row('pending'), row('idle')],
+    );
+    const { snapshot: next, dropped } = applySessionListChanges(
+      snapshot,
+      '/a',
+      { removed: ['live', 'pending', 'idle'], sessions: [] },
+      undefined,
+    );
+    assert.deepStrictEqual(dropped, ['idle']);
+    assert.deepStrictEqual(Object.keys(historyOf(next)), []);
+    assert.deepStrictEqual(Object.keys(next.sessions).sort(), ['live', 'pending']);
   });
 
   it('is a no-op for unknown removed ids and empty changes', () => {

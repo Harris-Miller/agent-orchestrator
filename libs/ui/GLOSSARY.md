@@ -98,7 +98,7 @@ A Backend harness's live ACP Connection together with what lives exactly as long
 _Avoid_: connected agent, Connection (unqualified)
 
 **Agent capabilities**:
-What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, and Session close, fork, resume, archive and rename. Read once from the initialize result and narrowed per Provider where the advertisement is not yet trusted; none until initialize, and gone with Connection lost. What the Harness refuses or does best-effort without them is recorded in desktop ADR 0013.
+What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, Session close, fork, resume, archive and rename, and Session list subscription. Read once from the initialize result and narrowed per Provider where the advertisement is not yet trusted; none until initialize, and gone with Connection lost. What the Harness refuses or does best-effort without them is recorded in desktop ADR 0013.
 _Avoid_: initialize result (the raw response), ACP `agentCapabilities` (the wire field: only part of what is read, and not narrowed), capability helpers, advertised capabilities (when a Provider narrows them)
 
 **Bootstrap phase**:
@@ -176,7 +176,7 @@ The cwds Session History lists on this host: every Project on desktop, the Works
 _Avoid_: scope cwds, visible cwds
 
 **Session list subscription**:
-The per-launch-target, per-Listed-cwd live feed of Session History row changes (new, renamed, archived, removed sessions) from the agent, so those rows update without a re-list. Best effort, so a full re-list remains the fallback: a cwd without a subscription (agent offers none, a failed subscribe, or past the 128 per connection) keeps today's re-list behaviour. Only for agents that advertise `sessionListSubscribe`.
+The live, per-launch-target feed of Session History row changes (new, renamed, archived, removed sessions, including those changed by other processes) for each Listed cwd, so those rows update without a re-list. Best effort, so a full re-list remains the fallback for any cwd the feed does not cover. Only for agents that offer it.
 _Avoid_: history watcher, live list
 
 **Session cache**:

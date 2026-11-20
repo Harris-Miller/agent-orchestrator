@@ -15,7 +15,7 @@ import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { beginMcp, revokeLaunchTargetMcp, revokeSessionMcp } from './hubSessions.ts';
 import { listSessionPages } from './listSessionPages.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
-import { planSessionListSubscriptions } from './sessionListSubscriptions.ts';
+import { MAX_SESSION_LIST_SUBSCRIPTIONS, planSessionListSubscriptions } from './sessionListSubscriptions.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
 export type BackendConnectionReports = {
@@ -170,7 +170,8 @@ export const listSessions = Effect.fn('listSessions')(
 /**
  * Make `launchTarget`'s session list subscriptions cover exactly `cwds` (at most 128; the rest are not subscribed and
  * keep re-listing). Unsubscribes dropped cwds, then subscribes added ones. A no-op without a live connection or the
- * `sessionListSubscribe` capability. A failed call is logged, never raised: that cwd just stays unsubscribed.
+ * `sessionListSubscribe` capability. A failed call is logged, never raised: a failed subscribe leaves that cwd
+ * unsubscribed; a failed unsubscribe keeps the entry (still counted against the cap) for the next sync to retry.
  */
 export const syncSessionListSubscriptions = Effect.fn('syncSessionListSubscriptions')(function* (
   launchTarget: AgentLaunchTarget,
@@ -192,24 +193,28 @@ export const syncSessionListSubscriptions = Effect.fn('syncSessionListSubscripti
             if (subscriptionId === undefined) {
               return;
             }
+            yield* sessionListUnsubscribe({ subscriptionId });
             subscriptionByCwd.delete(cwd);
             cwdBySubscription.delete(subscriptionId);
-            yield* sessionListUnsubscribe({ subscriptionId });
           }).pipe(Effect.catchCause(cause => Effect.logWarning('_session/list/unsubscribe failed', cause))),
         { discard: true },
       );
+      // Entries whose unsubscribe failed still count against the cap.
+      const room = Math.max(0, MAX_SESSION_LIST_SUBSCRIPTIONS - subscriptionByCwd.size);
       yield* Effect.forEach(
-        plan.subscribe,
+        plan.subscribe.slice(0, room),
         cwd =>
-          sessionListSubscribe({ cwd }).pipe(
-            Effect.tap(({ subscriptionId }) =>
-              Effect.sync(() => {
-                subscriptionByCwd.set(cwd, subscriptionId);
-                cwdBySubscription.set(subscriptionId, cwd);
-              }),
+          // Uninterruptible from the response to the map write, so an interrupt never leaves an untracked live subscription.
+          Effect.uninterruptibleMask(restore =>
+            restore(sessionListSubscribe({ cwd })).pipe(
+              Effect.tap(({ subscriptionId }) =>
+                Effect.sync(() => {
+                  subscriptionByCwd.set(cwd, subscriptionId);
+                  cwdBySubscription.set(subscriptionId, cwd);
+                }),
+              ),
             ),
-            Effect.catchCause(cause => Effect.logWarning('_session/list/subscribe failed', cause)),
-          ),
+          ).pipe(Effect.catchCause(cause => Effect.logWarning('_session/list/subscribe failed', cause))),
         { discard: true },
       );
     }),

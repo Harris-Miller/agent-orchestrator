@@ -40,6 +40,7 @@ import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
+import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { linkOf } from './subagentLinkRegistry.ts';
@@ -194,7 +195,8 @@ export const makeHarnessEventFold = ({
     onSessionListBegin: cwd => beginSessionList(registry, launchTarget, cwd, runFork),
     onSessionListChanges: (subscriptionId, changes) => {
       const cwd = cwdOfSubscription(launchTarget, subscriptionId);
-      if (cwd === undefined) {
+      // A cwd still tracked while its unsubscribe is pending or retried is no longer Listed: ignore its changes.
+      if (cwd === undefined || !registry.get(listedCwdsAtom).includes(cwd)) {
         return;
       }
       const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;

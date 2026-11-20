@@ -26,6 +26,7 @@ import { configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
 import { connectFakeAgent, enableProviders, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import {
   editVirtual,
@@ -523,6 +524,9 @@ describe('Harness event fold: session list changes', () => {
     setBackendSessionListSubscribe(LT, true);
     yield* syncSessionListSubscriptions(LT, ['/a']);
   });
+  const listOnlyA = (h: Effect.Success<ReturnType<typeof setup>>) => {
+    h.registry.set(sessionListScopeAtom, { _tag: 'Cwd', cwd: '/a' });
+  };
   const ids = (h: Effect.Success<ReturnType<typeof setup>>) =>
     h.snapshot().sessionHistory.map(entry => entry.sessionId);
 
@@ -530,6 +534,7 @@ describe('Harness event fold: session list changes', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       yield* subscribeToA;
+      listOnlyA(h);
       h.fold.onSessionListChanges('id-/a', {
         removed: [],
         sessions: [
@@ -541,10 +546,21 @@ describe('Harness event fold: session list changes', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('changes for a cwd that is no longer Listed are ignored while its unsubscribe is pending', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* subscribeToA;
+      h.registry.set(sessionListScopeAtom, { _tag: 'Skip' });
+      h.fold.onSessionListChanges('id-/a', { removed: [], sessions: [{ cwd: '/a', sessionId: 'x' }] });
+      assert.deepStrictEqual(ids(h), []);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('an unknown subscription id is ignored', () =>
     Effect.gen(function* () {
       const h = yield* setup();
       yield* subscribeToA;
+      listOnlyA(h);
       h.fold.onSessionListChanges('other', { removed: [], sessions: [{ cwd: '/a', sessionId: 'x' }] });
       assert.deepStrictEqual(ids(h), []);
     }).pipe(Effect.scoped),
@@ -554,6 +570,7 @@ describe('Harness event fold: session list changes', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       yield* subscribeToA;
+      listOnlyA(h);
       updateHarnessSnapshot(h.registry, LT, current => ({
         ...current,
         sessionHistory: [

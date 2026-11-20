@@ -15,7 +15,7 @@ import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent } from '../host/subagent.ts';
+import { getSubagent, rootAncestorId } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -167,14 +167,6 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   );
 }).pipe(Atom.keepAlive);
 
-/** Subagent map of the selected session's provider; undefined when no session is selected. */
-export const selectedSubagentsAtom = Atom.make(get => {
-  const launchTarget = get(selectedSessionLaunchTargetAtom);
-  return launchTarget === undefined
-    ? undefined
-    : { launchTarget, subagents: get(backendHarnessSnapshotAtom(launchTarget)).subagents };
-});
-
 export const selectedSessionAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);
   const launchTarget = get(selectedSessionLaunchTargetAtom);
@@ -191,6 +183,45 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   }
   return get(backendHarnessSnapshotAtom(launchTarget));
 }).pipe(Atom.keepAlive);
+
+/** Narrow views of the selected snapshot: primitives / reference-stable values, so subscribers skip unrelated updates. */
+export const selectedHarnessPhaseAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.phase).pipe(
+  Atom.keepAlive,
+);
+
+export const selectedHarnessFailureAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.failure).pipe(
+  Atom.keepAlive,
+);
+
+export const selectedHarnessAntigravityAuthUrlAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.antigravityAuthUrl,
+).pipe(Atom.keepAlive);
+
+/** Whether the selected session's agent can fork sessions. */
+export const selectedAgentCanForkAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.sessionFork === true,
+).pipe(Atom.keepAlive);
+
+/** One Subagent child of the selected session's provider; a row re-renders only when its own child changes. */
+export const selectedSubagentAtom = Atom.family((childId: string) =>
+  Atom.make(get => {
+    const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+    return subagents === undefined ? undefined : getSubagent(subagents, childId);
+  }),
+);
+
+/** Display name of a child of the selected session's provider (undefined when absent or unnamed). */
+export const selectedSubagentNameAtom = Atom.family((childId: string) =>
+  Atom.make(get => get(selectedSubagentAtom(childId))?.name),
+);
+
+/** Root ancestor session id of a child of the selected session's provider. */
+export const selectedSubagentRootIdAtom = Atom.family((childId: string) =>
+  Atom.make(get => {
+    const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+    return subagents === undefined ? undefined : rootAncestorId(subagents, childId);
+  }),
+);
 
 /**
  * The Subagent view on screen, if any: the viewed child belongs to the Selected session and still exists in its

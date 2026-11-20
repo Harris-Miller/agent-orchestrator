@@ -8,8 +8,8 @@ import type { FC, ReactNode } from 'react';
 
 import {
   configOptionIndexByLaunchTargetAtom,
+  selectedAgentCanForkAtom,
   selectedAtom,
-  selectedBackendHarnessSnapshotAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
 } from '../../atoms/backendState.atoms.ts';
@@ -43,7 +43,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   const virtualSession = useAtomValue(virtualSessionAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const agentCanFork = useAtomValue(selectedAgentCanForkAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const {
     reasons: unavailableReasons,
@@ -115,13 +115,13 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
     selectedLaunchTarget !== undefined &&
     selectedSessionId !== undefined &&
     sessionCwd !== undefined &&
-    backendSnapshot?.agentCapabilities.sessionFork === true;
+    agentCanFork;
   const busyReason = composer.controlsEnabled ? undefined : 'Unavailable while a turn or handoff is running';
   const forkUnavailableReason = canForkBase
     ? undefined
     : selectedSessionId === undefined || selectedLaunchTarget === undefined
       ? 'No active session'
-      : backendSnapshot?.agentCapabilities.sessionFork !== true
+      : !agentCanFork
         ? 'Agent cannot fork sessions'
         : (busyReason ?? 'Session has no working directory');
   const handoffUnavailableReason = canHandoffBase

@@ -4,28 +4,29 @@ import ListItem from '@mui/material/ListItem';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
-import { selectedSubagentsAtom, viewedSubagentAtom } from '../../../../atoms/backendState.atoms.ts';
-import { getSubagent, rootAncestorId, subagentLatestActivity } from '../../../../host/subagent.ts';
+import {
+  selectedSessionLaunchTargetAtom,
+  selectedSubagentAtom,
+  selectedSubagentRootIdAtom,
+  viewedSubagentAtom,
+} from '../../../../atoms/backendState.atoms.ts';
+import { subagentLatestActivity } from '../../../../host/subagent.ts';
 import type { ChatItemOf } from './chatItemOf.ts';
 import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 
 /** A subagent Chat item in the parent transcript; click opens the Subagent view. */
 export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = ({ item }) => {
-  const selected = useAtomValue(selectedSubagentsAtom);
+  const child = useAtomValue(selectedSubagentAtom(item.subagentSessionId));
+  const launchTarget = useAtomValue(selectedSessionLaunchTargetAtom);
+  const rootSessionId = useAtomValue(selectedSubagentRootIdAtom(item.subagentSessionId));
   const setViewed = useAtomSet(viewedSubagentAtom);
-  const child = selected === undefined ? undefined : getSubagent(selected.subagents, item.subagentSessionId);
-  if (selected === undefined || child === undefined) return null;
-  const { launchTarget, subagents } = selected;
+  if (launchTarget === undefined || rootSessionId === undefined || child === undefined) return null;
   const activity = subagentLatestActivity(child);
   return (
     <ListItem sx={{ display: 'block', py: 0.25 }}>
       <Box
         onClick={() => {
-          setViewed({
-            childId: child.sessionId,
-            launchTarget,
-            rootSessionId: rootAncestorId(subagents, child.sessionId),
-          });
+          setViewed({ childId: child.sessionId, launchTarget, rootSessionId });
         }}
         role="button"
         sx={{

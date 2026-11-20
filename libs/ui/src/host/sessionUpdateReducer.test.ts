@@ -601,6 +601,35 @@ describe('Hub subagent tool calls (Subagent results)', () => {
     }
   });
 
+  it('reads serde-tagged, JSON-stringified and plain rawOutput', () => {
+    const block = { content: [{ text: wrapper('c1'), type: 'text' }] };
+    for (const rawOutput of [
+      { Ok: block },
+      { Ok: { Ok: block } },
+      JSON.stringify({ Ok: block }),
+      JSON.stringify(wrapper('c1')),
+      wrapper('c1'),
+    ]) {
+      const done = reduceSessionUpdate(call('mcp__hoa_hub__wait_subagent'), {
+        rawOutput,
+        sessionUpdate: 'tool_call_update',
+        status: 'completed',
+        toolCallId: 'h1',
+      });
+      assert.strictEqual(resultsOf(done)?.[0].id, 'c1');
+    }
+  });
+
+  it('keeps no results for an unknown launch target (the generic row stays)', () => {
+    const done = reduceSessionUpdate(call('mcp__hoa_hub__wait_subagent'), {
+      rawOutput: wrapper('c1').replace('codex-acp', 'nope'),
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId: 'h1',
+    });
+    assert.isUndefined(resultsOf(done));
+  });
+
   it('keeps results across a later update without output', () => {
     const done = reduceSessionUpdate(
       reduceSessionUpdate(call('mcp__hoa-hub__spawn_subagent'), {

@@ -17,6 +17,7 @@ import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-a
 
 import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
+import { knownLaunchTarget } from './agentLaunchTarget.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
 import { isHubSubagentToolTitle, parseSubagentResults } from './subagentResult.ts';
 import type { SubagentResult } from './subagentResult.ts';
@@ -358,10 +359,11 @@ const extractPlanFilePath = (rawInput: unknown): string | undefined => {
   return path.startsWith('/') || WINDOWS_DRIVE.test(path) ? path : undefined;
 };
 
-/** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
+/** Spreads `{ subagentResults }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
 const withSubagentResults = (results: readonly SubagentResult[] | undefined) =>
   results === undefined ? {} : { subagentResults: results };
 
+/** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
 const withPlanFilePath = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
 
 /** Path of the first location only; tool_call titles link a single file. */
@@ -464,12 +466,22 @@ const upsertInterSessionMessage = (
   return { ...transcript, items, messageIndices: new Map(transcript.messageIndices).set(messageId, items.length - 1) };
 };
 
-/** Text found in an ACP `rawOutput`: a string, `{ text }`, `{ content }`, or an array of those (searched two levels deep). */
+/**
+ * Text found in an ACP `rawOutput`: a string (JSON-stringified payloads are parsed), `{ text }`, `{ content }`, an
+ * array of those, or a serde-style externally-tagged object (`{ "Ok": { content: [...] } }`), a few levels deep.
+ */
 const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
   if (typeof raw === 'string') {
+    if (depth <= 5 && /^\s*["{[]/.test(raw)) {
+      try {
+        return textFromRawOutput(JSON.parse(raw), depth + 1) ?? raw;
+      } catch {
+        return raw;
+      }
+    }
     return raw;
   }
-  if (depth > 2) {
+  if (depth > 5) {
     return undefined;
   }
   if (Array.isArray(raw)) {
@@ -477,7 +489,14 @@ const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
     return parts.length > 0 ? parts.join('\n') : undefined;
   }
   if (isRecord(raw)) {
-    return typeof raw.text === 'string' ? raw.text : textFromRawOutput(raw.content, depth + 1);
+    if (typeof raw.text === 'string') {
+      return raw.text;
+    }
+    if ('content' in raw) {
+      return textFromRawOutput(raw.content, depth + 1);
+    }
+    const values = Object.values(raw);
+    return values.length === 1 ? textFromRawOutput(values[0], depth + 1) : undefined;
   }
   return undefined;
 };
@@ -491,7 +510,10 @@ const subagentResultsOf = (title: string, update: Record<string, unknown>): read
     return undefined;
   }
   const text = extractTextFromContent(update.content) ?? textFromRawOutput(update.rawOutput);
-  const results = text === undefined ? [] : parseSubagentResults(text);
+  // Only results the restore can act on: a skipped one keeps its generic row.
+  const results = (text === undefined ? [] : parseSubagentResults(text)).filter(
+    result => knownLaunchTarget(result.launchTarget) !== undefined,
+  );
   return results.length > 0 ? results : undefined;
 };
 

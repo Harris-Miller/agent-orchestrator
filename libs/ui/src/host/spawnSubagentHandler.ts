@@ -16,10 +16,12 @@ import { childrenOf } from '../atoms/subagentLinkRegistry.ts';
 import type { SubagentOutcome } from '../atoms/subagentLinkRegistry.ts';
 import {
   awaitOutcomeEntry,
+  childRef,
   startReporter,
   subagentResultText,
   takeOutcomeAsToolResult,
 } from '../atoms/subagentOutcome.ts';
+import type { ChildMeta } from '../atoms/subagentOutcome.ts';
 import { usableSubagentTarget } from '../atoms/subagentTargets.atoms.ts';
 
 import { supportsMcpHttp } from './agentCapabilities.ts';
@@ -98,16 +100,16 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
     if (started instanceof SpawnSubagentError) {
       return toolError(started.message);
     }
-    const child = { launchTarget, sessionId: started.childSessionId };
-    const meta = {
+    const spawned: ChildMeta = {
       childLaunchTarget: launchTarget,
       childSessionId: started.childSessionId,
       description: args.description,
       task: args.task.trim(),
     };
+    const child = childRef(spawned);
     const running = (note: string): HubToolResult => ({
       isError: false,
-      text: subagentResultText(registry, meta, 'running', note),
+      text: subagentResultText(registry, spawned, 'running', note),
     });
     if (args.runInBackground === true) {
       yield* startReporter(registry, child);
@@ -127,7 +129,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
     );
     switch (waited._tag) {
       case 'Outcome': {
-        return takeOutcomeAsToolResult(registry, meta, waited.outcome);
+        return takeOutcomeAsToolResult(registry, spawned, waited.outcome);
       }
       case 'CallerGone': {
         yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);

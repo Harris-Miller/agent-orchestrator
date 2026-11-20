@@ -777,7 +777,7 @@ const isFinishedResult = (status: SubagentResult['status']): status is 'cancelle
 
 /**
  * Fold a Subagent result found in the parent's transcript (live or replayed) into a Restored subagent: read-only, with
- * its row in the parent's transcript (once per child), holding only what the result recorded (glossary). A live mirror
+ * its row in the parent's transcript (ensured on every fold, once per child), holding only what the result recorded (glossary). A live mirror
  * is never touched; a restored one only moves from unknown to a finished state, never back.
  */
 export const restoreSubagentFromResult = (
@@ -797,7 +797,8 @@ export const restoreSubagentFromResult = (
       isFinishedResult(result.status) &&
       !isSubagentTerminal(existing.state);
     if (!upgradable) {
-      return snapshot;
+      // Still ensure the row: a re-load empties the parent's transcript but keeps the child.
+      return withParentChatItem(snapshot, parentId, result.id);
     }
   }
   const base = existing ?? {

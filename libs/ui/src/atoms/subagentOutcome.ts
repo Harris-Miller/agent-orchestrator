@@ -35,9 +35,10 @@ const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
 const asAgentOutcome = (outcome: SubagentOutcome): SubagentOutcome =>
   hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
 
-const childRef = (link: SpawnedLink): SessionRef => ({
-  launchTarget: link.childLaunchTarget,
-  sessionId: link.childSessionId,
+/** The child's session ref, from anything that names it (a `SpawnedLink` or `ChildMeta`). */
+export const childRef = (named: Pick<ChildMeta, 'childLaunchTarget' | 'childSessionId'>): SessionRef => ({
+  launchTarget: named.childLaunchTarget,
+  sessionId: named.childSessionId,
 });
 
 const MAX_REPORTED_TASK_CHARS = 1000;
@@ -46,7 +47,7 @@ const truncateTask = (task: string): string =>
   task.length <= MAX_REPORTED_TASK_CHARS ? task : `${task.slice(0, MAX_REPORTED_TASK_CHARS)}…`;
 
 /** What a Subagent result names about a child: every `SpawnedLink` has it. */
-type ChildMeta = Pick<SpawnedLink, 'childLaunchTarget' | 'childSessionId' | 'description' | 'task'>;
+export type ChildMeta = Pick<SpawnedLink, 'childLaunchTarget' | 'childSessionId' | 'description' | 'task'>;
 
 /** A Subagent result for the child, with its applied Config option values read from its root entry now. */
 export const subagentResultText = (
@@ -88,7 +89,7 @@ export const takeOutcomeAsToolResult = (
   child: ChildMeta,
   outcome: SubagentOutcome,
 ): HubToolResult => {
-  claimHandle(registry, { launchTarget: child.childLaunchTarget, sessionId: child.childSessionId }, 'waited');
+  claimHandle(registry, childRef(child), 'waited');
   const { status, text } = asAgentOutcome(outcome);
   return {
     isError: status !== 'completed',

@@ -14,7 +14,7 @@ import type { FC } from 'react';
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { airRowMetaOf, isArchivedEntry } from '../../host/airMeta.ts';
+import { isArchivedEntry } from '../../host/airMeta.ts';
 import { hasBackgroundActivity } from '../../host/subagent.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -22,8 +22,7 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 
 import { noopClientError } from './noopClientError.ts';
 import { SessionActionsMenu } from './SessionActionsMenu.tsx';
-import { SessionActivityBadge } from './SessionActivityBadge.tsx';
-import { activityBadgeOf, DEFAULT_SESSION_TITLE, forkSourceTitleOf, rowMetaLine } from './sessionRowMeta.ts';
+import { DEFAULT_SESSION_TITLE } from './sessionRowMeta.ts';
 import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 import { useSessionTitleRename } from './useSessionTitleRename.ts';
 
@@ -91,11 +90,6 @@ export const SessionHistoryRow: FC<{
   const displayTitle = entry.title ?? DEFAULT_SESSION_TITLE;
   const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
   const archived = isArchivedEntry(entry);
-  const airMeta = airRowMetaOf(entry);
-  const activityBadge = activityBadgeOf(airMeta, { available: !unavailable, pendingClientRequest });
-  const forkSourceTitle =
-    airMeta.forkSource === undefined ? undefined : forkSourceTitleOf(snapshot.sessionHistory, airMeta.forkSource);
-  const metaLine = rowMetaLine(airMeta, forkSourceTitle);
 
   const activateHistoryEntry = () => {
     if (unavailable) return;
@@ -184,20 +178,13 @@ export const SessionHistoryRow: FC<{
                 {caption}
               </Typography>
             )}
-            {metaLine === undefined ? null : (
-              <Typography color="text.secondary" noWrap title={metaLine} variant="caption">
-                {metaLine}
-              </Typography>
-            )}
           </Stack>
           {archived ? (
             <LucideMuiIcon icon={Archive} titleAccess="Archived" sx={{ color: 'text.disabled', fontSize: '0.9rem' }} />
           ) : null}
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
-          ) : activityBadge === undefined ? null : (
-            <SessionActivityBadge state={activityBadge} />
-          )}
+          ) : null}
           {selection === undefined ? (
             <SessionActionsMenu
               className="row-actions"

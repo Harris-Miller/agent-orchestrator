@@ -95,11 +95,11 @@ When the user last prompted a session, as the Agent's `session/list` row reports
 _Avoid_: last activity, last updated, recency
 
 **Activity state**:
-What the Agent's `session/list` row says a session is doing: running, requires action (awaiting the user's input), or error. Shown as a badge on the Session History row. An idle row, an unknown value, a row without one (Codex knows it only for threads it has loaded), and a cached row not yet confirmed by a list show none; a Pending client request spinner on the row replaces it. A snapshot read at list time, not live: it changes only when the row is next listed, except that a live Prompt turn end clears a running or requires-action state on that session's row.
+What the Agent's `session/list` row says a session is doing: running, requires action (awaiting the user's input), or error. Not shown on the Session History row; visible in the Developer panel's Session State tab. An idle row, an unknown value, a row without one (Codex knows it only for threads it has loaded) have none. A snapshot read at list time, not live: it changes only when the row is next listed, except that a live Prompt turn end clears a running or requires-action state on that session's row.
 _Avoid_: status, session status
 
 **Fork source**:
-The session an Agent's `session/list` row says a forked session was forked from. A Session History row shows it as "Forked from" followed by that session's title when it is a listed row of the same launch target, else its shortened id.
+The session an Agent's `session/list` row says a forked session was forked from. Not shown on the Session History row; visible in the Developer panel's Session State tab.
 _Avoid_: parent session, origin (a Subagent session has a parent; a fork has none)
 
 **Show archived**:

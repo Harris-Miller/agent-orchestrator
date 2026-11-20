@@ -168,7 +168,7 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Each row also carries the Agent's row metadata when it sends it: Last prompt time (order key), Activity state, model, cost, Fork source (desktop glossary). Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Each row also carries the Agent's row metadata when it sends it (Last prompt time as the order key; Activity state, model, cost and Fork source are only in the Developer panel's Session State tab; desktop glossary). Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
 
 **Listed cwds**:

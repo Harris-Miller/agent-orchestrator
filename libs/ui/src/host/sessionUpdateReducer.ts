@@ -495,6 +495,9 @@ const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
     if ('content' in raw) {
       return textFromRawOutput(raw.content, depth + 1);
     }
+    if (raw.result !== undefined && raw.result !== null) {
+      return textFromRawOutput(raw.result, depth + 1);
+    }
     const values = Object.values(raw);
     return values.length === 1 ? textFromRawOutput(values[0], depth + 1) : undefined;
   }

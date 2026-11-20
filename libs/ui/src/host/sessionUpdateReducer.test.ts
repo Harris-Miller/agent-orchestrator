@@ -620,6 +620,32 @@ describe('Hub subagent tool calls (Subagent results)', () => {
     }
   });
 
+  describe('live Codex wire rawOutput ({ result: { content }, error })', () => {
+    const wire = (text: string) => ({
+      error: null,
+      result: { _meta: null, content: [{ text, type: 'text' }], structuredContent: null },
+    });
+    const run = (title: string, text: string) =>
+      reduceSessionUpdate(call(title), {
+        rawOutput: wire(text),
+        sessionUpdate: 'tool_call_update',
+        status: 'completed',
+        toolCallId: 'h1',
+      });
+
+    it('reads a spawn_subagent result', () => {
+      assert.strictEqual(resultsOf(run('mcp.hoa-hub.spawn_subagent', wrapper('c1', 'running')))?.[0].id, 'c1');
+    });
+
+    it('reads a wait_subagent result', () => {
+      assert.strictEqual(resultsOf(run('mcp.hoa-hub.wait_subagent', wrapper('c1')))?.[0].status, 'completed');
+    });
+
+    it('keeps the row for list_subagent_targets (plain JSON, no wrapper)', () => {
+      assert.isUndefined(resultsOf(run('mcp.hoa-hub.list_subagent_targets', '[{"id":"codex-acp"}]')));
+    });
+  });
+
   it('keeps no results for an unknown launch target (the generic row stays)', () => {
     const done = reduceSessionUpdate(call('mcp__hoa_hub__wait_subagent'), {
       rawOutput: wrapper('c1').replace('codex-acp', 'nope'),

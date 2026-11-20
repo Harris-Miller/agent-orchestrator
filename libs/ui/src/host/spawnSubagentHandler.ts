@@ -14,14 +14,18 @@ import { cancelPromptTurn, sessionById } from '../atoms/promptTurn.ts';
 import { SpawnSubagentError, startSpawnedSubagent } from '../atoms/spawnedSubagent.ts';
 import { childrenOf } from '../atoms/subagentLinkRegistry.ts';
 import type { SubagentOutcome } from '../atoms/subagentLinkRegistry.ts';
-import { awaitOutcomeEntry, startReporter, takeOutcomeAsToolResult } from '../atoms/subagentOutcome.ts';
+import {
+  awaitOutcomeEntry,
+  startReporter,
+  subagentResultText,
+  takeOutcomeAsToolResult,
+} from '../atoms/subagentOutcome.ts';
 import { usableSubagentTarget } from '../atoms/subagentTargets.atoms.ts';
 
 import { supportsMcpHttp } from './agentCapabilities.ts';
-import { agentLaunchTargetLabel, ALL_AGENT_LAUNCH_TARGETS, MOUNTED_AGENT_LAUNCH_TARGETS } from './agentLaunchTarget.ts';
-import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import { agentLaunchTargetLabel, knownLaunchTarget, MOUNTED_AGENT_LAUNCH_TARGETS } from './agentLaunchTarget.ts';
 import { hubToolHandler, toolError } from './hubToolHandler.ts';
-import type { HubToolCaller } from './hubToolHandler.ts';
+import type { HubToolCaller, HubToolResult } from './hubToolHandler.ts';
 import { getPromptSpan } from './sessionRpc.ts';
 import type { SubagentTargetInput } from './subagentTargets.ts';
 import { describeSubagentTargets } from './subagentTargets.ts';
@@ -47,9 +51,6 @@ export const listSubagentTargetsHandler = hubToolHandler(ListSubagentTargetsArgs
 
 /** The foreground / wait bound when the context injects none. */
 const DEFAULT_BOUND = Duration.millis(MAX_SUBAGENT_WAIT_MS);
-
-const knownLaunchTarget = (value: string): AgentLaunchTarget | undefined =>
-  ALL_AGENT_LAUNCH_TARGETS.find(candidate => candidate === value);
 
 /** Whether the caller's turn is over: cancelled, closed, or (for a turn the Harness started) ended. */
 const callerGone = (registry: AtomRegistry.AtomRegistry, caller: HubToolCaller, harnessStartedTurn: boolean) =>
@@ -98,16 +99,21 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
       return toolError(started.message);
     }
     const child = { launchTarget, sessionId: started.childSessionId };
+    const meta = {
+      childLaunchTarget: launchTarget,
+      childSessionId: started.childSessionId,
+      description: args.description,
+      task: args.task.trim(),
+    };
+    const running = (note: string): HubToolResult => ({
+      isError: false,
+      text: subagentResultText(registry, meta, 'running', note),
+    });
     if (args.runInBackground === true) {
       yield* startReporter(registry, child);
-      return {
-        isError: false,
-        text: JSON.stringify({
-          note: 'The subagent runs in the background. Its result arrives later as a <subagent-report> message; or call wait_subagent with this id.',
-          status: 'running',
-          subagentId: started.childSessionId,
-        }),
-      };
+      return running(
+        'The subagent runs in the background. Its result arrives later as a <subagent-report> message; or call wait_subagent with this id.',
+      );
     }
     // The child runs in a detached fiber (the spawn core), so this wait may be interrupted (hub connection lost) without
     // stopping it; the call then ends, and the link keeps the outcome for `wait_subagent`.
@@ -121,7 +127,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
     );
     switch (waited._tag) {
       case 'Outcome': {
-        return takeOutcomeAsToolResult(registry, child, waited.outcome);
+        return takeOutcomeAsToolResult(registry, meta, waited.outcome);
       }
       case 'CallerGone': {
         yield* cancelPromptTurn(registry, child).pipe(Effect.ignore);
@@ -132,14 +138,7 @@ export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, cal
         // Promote to a background child: if the agent never calls `wait_subagent`, the result arrives as a Subagent
         // report (a `wait_subagent` that collects it first suppresses the report).
         yield* startReporter(registry, child);
-        return {
-          isError: false,
-          text: JSON.stringify({
-            note: `The subagent is still running. Call wait_subagent with this id to get its result.`,
-            status: 'running',
-            subagentId: started.childSessionId,
-          }),
-        };
+        return running('The subagent is still running. Call wait_subagent with this id to get its result.');
       }
     }
   }).pipe(Effect.withSpan('spawnSubagent', { root: true })),

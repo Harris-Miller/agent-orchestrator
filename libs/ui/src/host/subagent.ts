@@ -5,6 +5,7 @@ import { Schema } from 'effect';
 
 import { isRecord } from '../isRecord.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
+import type { ConfigOptionValues } from './configProbe.ts';
 import { withoutUndefined } from '../optionalFields.ts';
 
 import { rootAncestor } from './ancestry.ts';
@@ -44,7 +45,12 @@ export type NativeSubagentSnapshot = SubagentSnapshotBase & { readonly kind: 'na
 
 export type SubagentSnapshot =
   | NativeSubagentSnapshot
-  | (SubagentSnapshotBase & { readonly kind: 'spawned'; readonly launchTarget: AgentLaunchTarget });
+  | (SubagentSnapshotBase & {
+      readonly kind: 'spawned';
+      readonly launchTarget: AgentLaunchTarget;
+      /** A Restored subagent (glossary): rebuilt read-only from a Subagent result on replay, no link behind it. */
+      readonly restored?: { readonly config: ConfigOptionValues };
+    });
 
 export type SubagentRecord = Readonly<Record<string, SubagentSnapshot>>;
 

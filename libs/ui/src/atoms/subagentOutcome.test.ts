@@ -6,6 +6,8 @@ import { AtomRegistry } from 'effect/reactivity';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { attach, claimHandle, linkOf, reserveSlot } from './subagentLinkRegistry.ts';
 import type { SpawnedHandleState, SubagentOutcome } from './subagentLinkRegistry.ts';
+import type { SubagentResultStatus } from '../host/subagentResult.ts';
+import { parseSubagentResults } from '../host/subagentResult.ts';
 import { awaitOutcomeEntry, buildSubagentReport, startReporter, takeOutcomeAsToolResult } from './subagentOutcome.ts';
 
 const child = { launchTarget: 'claude-agent-acp', sessionId: 'c1' } as const;
@@ -59,48 +61,60 @@ describe('buildSubagentReport', () => {
   });
 });
 
+const meta = { childLaunchTarget: 'claude-agent-acp', childSessionId: 'c1', description: 'd', task: 't' } as const;
+
+/** The one Subagent result in a tool result's text. */
+const resultOf = (text: string) => {
+  const [result] = parseSubagentResults(text);
+  return result;
+};
+
 describe('takeOutcomeAsToolResult', () => {
-  it('renders each outcome and takes the hand-over', () => {
-    const cases: [SubagentOutcome, unknown][] = [
-      [
-        { status: 'completed', text: 'done' },
-        { isError: false, text: 'done' },
-      ],
-      [
-        { status: 'cancelled', text: 'x' },
-        { isError: true, text: 'The subagent was cancelled.' },
-      ],
-      [
-        { status: 'failed', text: 'boom' },
-        { isError: true, text: 'The subagent failed: boom' },
-      ],
-      [
-        { status: 'completed', text: '  ' },
-        { isError: true, text: 'The subagent finished without producing a final message.' },
-      ],
+  it('renders each outcome as a Subagent result and takes the hand-over', () => {
+    const cases: [SubagentOutcome, boolean, SubagentResultStatus, string][] = [
+      [{ status: 'completed', text: 'done' }, false, 'completed', 'done'],
+      [{ status: 'cancelled', text: 'x' }, true, 'cancelled', 'x'],
+      [{ status: 'failed', text: 'boom' }, true, 'failed', 'boom'],
+      [{ status: 'completed', text: '  ' }, true, 'failed', 'The subagent finished without producing a final message.'],
     ];
-    for (const [outcome, expected] of cases) {
+    for (const [outcome, isError, status, body] of cases) {
       const { registry, state } = setup();
-      assert.deepStrictEqual(takeOutcomeAsToolResult(registry, child, outcome), expected);
+      const result = takeOutcomeAsToolResult(registry, meta, outcome);
+      assert.strictEqual(result.isError, isError);
+      assert.deepStrictEqual(resultOf(result.text), {
+        body,
+        config: {},
+        description: 'd',
+        id: 'c1',
+        launchTarget: 'claude-agent-acp',
+        status,
+        task: 't',
+      });
       assert.strictEqual(state(), 'waited');
     }
   });
 
   it('still answers after a report went out, leaving it reported', () => {
     const { registry, state } = setup('reported');
-    assert.deepStrictEqual(takeOutcomeAsToolResult(registry, child, { status: 'completed', text: 'ok' }), {
-      isError: false,
-      text: 'ok',
-    });
+    const result = takeOutcomeAsToolResult(registry, meta, { status: 'completed', text: 'ok' });
+    assert.strictEqual(resultOf(result.text).body, 'ok');
     assert.strictEqual(state(), 'reported');
   });
 
   it('renders when the link is gone', () => {
     const registry = AtomRegistry.make();
-    assert.deepStrictEqual(takeOutcomeAsToolResult(registry, child, { status: 'completed', text: 'ok' }), {
-      isError: false,
-      text: 'ok',
-    });
+    const result = takeOutcomeAsToolResult(registry, meta, { status: 'completed', text: 'ok' });
+    assert.strictEqual(resultOf(result.text).body, 'ok');
+  });
+
+  it('cuts a very long task', () => {
+    const result = takeOutcomeAsToolResult(
+      AtomRegistry.make(),
+      { ...meta, task: 'x'.repeat(5000) },
+      { status: 'completed', text: 'ok' },
+    );
+    assert.isBelow(result.text.length, 1400);
+    assert.include(resultOf(result.text).task, '…');
   });
 });
 
@@ -110,7 +124,9 @@ describe('awaitOutcomeEntry', () => {
       const { link, registry, state } = setup();
       const fiber = yield* Effect.forkChild(awaitOutcomeEntry(registry, link, Duration.seconds(5)));
       yield* TestClock.adjust(Duration.seconds(5));
-      assert.strictEqual(yield* Fiber.join(fiber), '<subagent id="c1" status="running" />');
+      const text = yield* Fiber.join(fiber);
+      assert.isTrue(text.endsWith(' />'));
+      assert.deepStrictEqual([resultOf(text).id, resultOf(text).status, resultOf(text).body], ['c1', 'running', '']);
       assert.strictEqual(state(), 'open');
     }),
   );
@@ -119,10 +135,8 @@ describe('awaitOutcomeEntry', () => {
     Effect.gen(function* () {
       const { link, registry, state } = setup();
       yield* Deferred.succeed(link.outcome, { status: 'completed', text: 'hi' } as const);
-      assert.strictEqual(
-        yield* awaitOutcomeEntry(registry, link, Duration.seconds(5)),
-        '<subagent id="c1" status="completed">\nhi\n</subagent>',
-      );
+      const result = resultOf(yield* awaitOutcomeEntry(registry, link, Duration.seconds(5)));
+      assert.deepStrictEqual([result.status, result.body], ['completed', 'hi']);
       assert.strictEqual(state(), 'waited');
     }),
   );

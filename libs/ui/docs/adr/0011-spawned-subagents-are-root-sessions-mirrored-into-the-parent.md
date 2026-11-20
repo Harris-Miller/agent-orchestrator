@@ -10,7 +10,7 @@ Issue #358 lets an agent start a child on any launch target through the Hub's `s
 ## Consequences
 
 - The child exists in two places for the link's life: a root entry on its own target (drives the turn, receives its RPC responses) and a mirror in the parent's target. The root entry is the source of truth for the turn; the mirror is a view.
-- A link is memory only. After a restart the child is an ordinary session of its own launch target in Session History, attributed to nothing.
+- A link is memory only. After a restart the child is an ordinary session of its own launch target in Session History, attributed to nothing. The parent's replay still shows the child as a Restored subagent, rebuilt from the Subagent result in its transcript (ADR 0013); the History row is not hidden again.
 - While linked to a live parent the child is hidden from Session History; the hide key is the child's `(launchTarget, sessionId)` in the link registry, not a field on the History row, so the row reverts to normal when the link ends.
 - Two connection losses matter: the child's target (fails the child) and the parent's target (cancels and closes the children).
 - A Spawned subagent session never targets its parent's own launch target (the root entry and the mirror would collide in one snapshot).

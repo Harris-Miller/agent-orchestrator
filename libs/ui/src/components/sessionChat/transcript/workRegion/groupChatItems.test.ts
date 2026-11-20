@@ -4,6 +4,7 @@ import type { ChatItem } from '../../../../host/sessionUpdateReducer.ts';
 
 import {
   groupChatItems,
+  isFoldedSubagentToolCall,
   isWaitToolCall,
   splitWorkSegments,
   workItemPreviewText,
@@ -40,6 +41,32 @@ const shape = (items: readonly ChatItem[]) =>
   groupChatItems(items.filter(item => !isWaitToolCall(item))).map(i =>
     i.kind === 'work_region' ? `R[${i.items.map(x => x.id).join(',')}]` : i.id,
   );
+
+describe('isFoldedSubagentToolCall', () => {
+  it('is true only for a tool call carrying Subagent results', () => {
+    const result = {
+      body: '',
+      config: {},
+      description: 'd',
+      id: 'c',
+      launchTarget: 'codex-acp',
+      status: 'running',
+      task: 't',
+    } as const;
+    assert.isTrue(
+      isFoldedSubagentToolCall({
+        id: 'x',
+        kind: 'tool_call',
+        status: 'completed',
+        subagentResults: [result],
+        title: 'x',
+        toolCallId: 'x',
+      }),
+    );
+    assert.isFalse(isFoldedSubagentToolCall(t('x')));
+    assert.isFalse(isFoldedSubagentToolCall(a('x')));
+  });
+});
 
 describe('groupChatItems', () => {
   it('hides wait tool calls (kind other, title wait)', () => {

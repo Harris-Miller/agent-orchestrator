@@ -19,7 +19,7 @@ import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionC
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 import { sessionHasLiveWork } from '../../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
-import { groupChatItems, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
+import { groupChatItems, isFoldedSubagentToolCall, isLiveRegion, isWaitToolCall } from './workRegion/groupChatItems.ts';
 import { WorkRegionView } from './workRegion/WorkRegionView.tsx';
 
 const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -91,7 +91,10 @@ export const ChatTranscript: FC<{
     return <Alert severity="info">{agentLaunchTargetLabel(selectedLaunchTarget)} is connected — send a prompt</Alert>;
   })();
 
-  const groupedItems = useMemo(() => groupChatItems(chatItems.filter(item => !isWaitToolCall(item))), [chatItems]);
+  const groupedItems = useMemo(
+    () => groupChatItems(chatItems.filter(item => !isWaitToolCall(item) && !isFoldedSubagentToolCall(item))),
+    [chatItems],
+  );
   const isChatEmpty =
     chatItems.length === 0 && (selectedSession === undefined || !hasPendingInteraction(selectedSession));
   const showVirtualEmptyState = isVirtual && virtualEmptyState !== undefined && isChatEmpty;

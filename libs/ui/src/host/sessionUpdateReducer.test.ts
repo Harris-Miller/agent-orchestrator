@@ -556,3 +556,75 @@ describe('lastAgentMessage', () => {
     assert.isUndefined(lastAgentMessage(after(appendUserChatMessage(emptySessionTranscript(), 'x'), chunk('  '))));
   });
 });
+
+describe('Hub subagent tool calls (Subagent results)', () => {
+  const wrapper = (id: string, status = 'completed') =>
+    `<subagent id="${id}" status="${status}" launchTarget="codex-acp" description="d" config="{}" task="t">\nfinal\n</subagent>`;
+  const call = (title: string) =>
+    reduceSessionUpdate(emptySessionTranscript(), {
+      sessionUpdate: 'tool_call',
+      status: 'in_progress',
+      title,
+      toolCallId: 'h1',
+    });
+  const resultsOf = (transcript: ReturnType<typeof call>) => {
+    const [item] = transcript.items;
+    return item.kind === 'tool_call' ? item.subagentResults : undefined;
+  };
+
+  it('parses the result text from content, with the title taken from the call', () => {
+    const done = reduceSessionUpdate(call('Tool: hoa-hub/spawn_subagent'), {
+      content: [{ content: { text: wrapper('c1'), type: 'text' }, type: 'content' }],
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId: 'h1',
+    });
+    assert.deepStrictEqual(
+      resultsOf(done)?.map(result => [result.id, result.status, result.body]),
+      [['c1', 'completed', 'final']],
+    );
+  });
+
+  it('reads a Codex replay that carries the result only as rawOutput (string or content blocks)', () => {
+    for (const rawOutput of [
+      wrapper('c1'),
+      [{ text: wrapper('c1'), type: 'input_text' }],
+      { content: wrapper('c1') },
+    ]) {
+      const done = reduceSessionUpdate(call('mcp__hoa_hub__wait_subagent'), {
+        rawOutput,
+        sessionUpdate: 'tool_call_update',
+        status: 'completed',
+        toolCallId: 'h1',
+      });
+      assert.strictEqual(resultsOf(done)?.[0].id, 'c1');
+    }
+  });
+
+  it('keeps results across a later update without output', () => {
+    const done = reduceSessionUpdate(
+      reduceSessionUpdate(call('mcp__hoa-hub__spawn_subagent'), {
+        rawOutput: wrapper('c1'),
+        sessionUpdate: 'tool_call_update',
+        toolCallId: 'h1',
+      }),
+      { sessionUpdate: 'tool_call_update', status: 'completed', toolCallId: 'h1' },
+    );
+    assert.strictEqual(resultsOf(done)?.[0].id, 'c1');
+  });
+
+  it('ignores other tools, and Hub calls whose result has no Subagent result', () => {
+    const other = reduceSessionUpdate(call('Run tests'), {
+      rawOutput: wrapper('c1'),
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'h1',
+    });
+    assert.isUndefined(resultsOf(other));
+    const refused = reduceSessionUpdate(call('mcp__hoa-hub__spawn_subagent'), {
+      content: [{ content: { text: 'Unknown launch target "x".', type: 'text' }, type: 'content' }],
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'h1',
+    });
+    assert.isUndefined(resultsOf(refused));
+  });
+});

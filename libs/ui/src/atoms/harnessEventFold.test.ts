@@ -14,6 +14,9 @@ import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
 import { getPromptSpan, sendPrompt } from '../host/sessionRpc.ts';
+import { buildSubagentResult } from '../host/subagentResult.ts';
+import type { SubagentResult } from '../host/subagentResult.ts';
+import { mirrorChildIntoParent } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
@@ -168,6 +171,102 @@ describe('Harness event fold: subagent link', () => {
       assert.isDefined(spans.root);
       assert.strictEqual(spans.child, spans.root);
       assert.isUndefined(getPromptSpan(LT, CHILD));
+    }),
+  );
+});
+
+describe('Harness event fold: Restored subagent', () => {
+  const result = (overrides: Partial<SubagentResult> = {}): SubagentResult => ({
+    body: 'Hello, World!',
+    config: { effort: 'low', model: 'haiku' },
+    description: 'Delayed greeting',
+    id: 'c1',
+    launchTarget: 'claude-agent-acp',
+    status: 'completed',
+    task: 'Say hello',
+    ...overrides,
+  });
+  /** A Hub tool call replayed the Codex way: the result only as `rawOutput`. */
+  const replay = (h: Effect.Success<ReturnType<typeof setup>>, toolCallId: string, tool: string, text: string) => {
+    h.fold.onSessionUpdate('p1', {
+      sessionUpdate: 'tool_call',
+      status: 'completed',
+      title: `mcp__hoa_hub__${tool}`,
+      toolCallId,
+    });
+    h.fold.onSessionUpdate('p1', {
+      rawOutput: [{ text, type: 'input_text' }],
+      sessionUpdate: 'tool_call_update',
+      status: 'completed',
+      toolCallId,
+    });
+  };
+  const rows = (h: Effect.Success<ReturnType<typeof setup>>) =>
+    h.snapshot().sessions.p1.transcript.items.filter(item => item.kind === 'subagent');
+
+  it.effect('rebuilds a read-only spawned subagent from a replayed result', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      replay(h, 't1', 'spawn_subagent', buildSubagentResult(result()));
+      const child = h.snapshot().subagents.c1;
+      assert.deepInclude(child, {
+        kind: 'spawned',
+        launchTarget: 'claude-agent-acp',
+        name: 'Delayed greeting',
+        task: 'Say hello',
+      });
+      assert.deepStrictEqual(child.state, { state: 'completed' });
+      assert.deepStrictEqual(child.kind === 'spawned' ? child.restored : undefined, {
+        config: { effort: 'low', model: 'haiku' },
+      });
+      assert.isUndefined(child.capabilities);
+      assert.deepInclude(child.transcript.items[0], { kind: 'agent_message', text: 'Hello, World!' });
+      assert.strictEqual(rows(h).length, 1);
+    }),
+  );
+
+  it.effect('a running result is unknown; a later wait result finishes it without a second row', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      replay(h, 't1', 'spawn_subagent', buildSubagentResult(result({ body: 'note', status: 'running' })));
+      assert.deepStrictEqual(h.snapshot().subagents.c1.state, { state: 'unknown' });
+      assert.strictEqual(h.snapshot().subagents.c1.transcript.items.length, 0);
+      replay(h, 't2', 'wait_subagent', buildSubagentResult(result()));
+      assert.deepStrictEqual(h.snapshot().subagents.c1.state, { state: 'completed' });
+      assert.strictEqual(rows(h).length, 1);
+      // Never downgraded.
+      replay(h, 't3', 'wait_subagent', buildSubagentResult(result({ body: '', status: 'running' })));
+      assert.deepStrictEqual(h.snapshot().subagents.c1.state, { state: 'completed' });
+    }),
+  );
+
+  it.effect('records failed and cancelled children', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      replay(h, 't1', 'spawn_subagent', buildSubagentResult(result({ body: 'boom', status: 'failed' })));
+      replay(h, 't2', 'spawn_subagent', buildSubagentResult(result({ id: 'c2', status: 'cancelled' })));
+      assert.deepStrictEqual(h.snapshot().subagents.c1.state, { error: 'boom', state: 'failed' });
+      assert.deepStrictEqual(h.snapshot().subagents.c2.state, { state: 'cancelled' });
+    }),
+  );
+
+  it.effect('never overrides a live mirror, and skips an unknown launch target', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      updateHarnessSnapshot(h.registry, LT, current =>
+        mirrorChildIntoParent(current, {
+          childId: 'c1',
+          launchTarget: 'claude-agent-acp',
+          name: 'live',
+          parentId: 'p1',
+          task: 'Say hello',
+        }),
+      );
+      replay(h, 't1', 'spawn_subagent', buildSubagentResult(result()));
+      replay(h, 't2', 'spawn_subagent', buildSubagentResult(result({ id: 'c2', launchTarget: 'nope' })));
+      assert.strictEqual(h.snapshot().subagents.c1.name, 'live');
+      assert.deepStrictEqual(h.snapshot().subagents.c1.state, { state: 'running' });
+      assert.notProperty(h.snapshot().subagents, 'c2');
     }),
   );
 });

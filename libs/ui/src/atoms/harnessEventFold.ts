@@ -29,13 +29,15 @@ import {
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
+  restoreSubagentFromResult,
   setAntigravityAuthUrl,
 } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
+import { isRecord } from '../isRecord.ts';
 import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
-import { routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { routeSubagentUpdate, sessionOrSubagentOf } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
@@ -53,6 +55,23 @@ import {
 
 export type HarnessEventFold = BackendHarnessCallbacks;
 
+/** A Hub subagent tool call that now carries Subagent results restores each child they name (ADR 0013). */
+const restoreSubagentsOfToolCall = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): BackendHarnessSnapshot => {
+  if (!isRecord(update) || typeof update.toolCallId !== 'string') {
+    return snapshot;
+  }
+  const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
+  const index = transcript?.toolCallIndices.get(update.toolCallId);
+  const item = index === undefined ? undefined : transcript?.items[index];
+  return item?.kind !== 'tool_call' || item.subagentResults === undefined
+    ? snapshot
+    : item.subagentResults.reduce((next, result) => restoreSubagentFromResult(next, sessionId, result), snapshot);
+};
+
 /** Applies one session/update; returns the Subagent link it established, if any. */
 const routeAndApplySessionUpdate = (
   current: BackendHarnessSnapshot,
@@ -67,7 +86,7 @@ const routeAndApplySessionUpdate = (
   if (result.kind === 'noop') {
     return [undefined, current];
   }
-  return [undefined, applySessionUpdatePatch(current, result)];
+  return [undefined, restoreSubagentsOfToolCall(applySessionUpdatePatch(current, result), sessionId, update)];
 };
 
 /** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */

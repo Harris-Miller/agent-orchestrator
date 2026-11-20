@@ -14,11 +14,12 @@ import { agentLaunchTargetLabel } from '../../../../host/agentLaunchTarget.ts';
 import type { NormalizedConfigOption } from '../../../../host/acpSessionBootstrap.ts';
 import { harness, session, subagent } from '../../../../host/harnessSnapshot.testing.ts';
 import type { SubagentSnapshot } from '../../../../host/subagent.ts';
+import { emptySessionTranscript, reduceSessionUpdate } from '../../../../host/sessionUpdateReducer.ts';
 import { bindHostRuntime } from '../../../../hostRuntime.ts';
 import { theme } from '../../../../theme/themes.ts';
 
 bindHostRuntime(createHostRuntime(mockHostLayer));
-const { selectedAtom } = await import('../../../../atoms/backendState.atoms.ts');
+const { configOptionIndexAtom, selectedAtom } = await import('../../../../atoms/backendState.atoms.ts');
 const { SubagentItemView } = await import('./SubagentItemView.tsx');
 
 afterEach(cleanup);
@@ -72,5 +73,43 @@ describe('SubagentItemView provider and model', () => {
     );
     assert.isNotNull(iconFor(container, agentLaunchTargetLabel(CLAUDE)));
     assert.isNull(screen.queryByText(/Opus/));
+  });
+});
+
+describe('SubagentItemView restored child', () => {
+  const index = {
+    byModel: { haiku: [...configuration.map(option => ({ ...option, currentValue: undefined }))] },
+    defaultModelId: 'haiku',
+    unavailableModelIds: [],
+  };
+  const restored: SubagentSnapshot = {
+    ...subagent('c1', 's1', {
+      name: 'Restored',
+      state: { state: 'completed' },
+      transcript: reduceSessionUpdate(emptySessionTranscript(), {
+        content: { text: 'Hello, World!', type: 'text' },
+        sessionUpdate: 'agent_message_chunk',
+      }),
+    }),
+    kind: 'spawned',
+    launchTarget: CLAUDE,
+    restored: { config: { effort: 'high', model: 'haiku' } },
+  };
+
+  it('shows name, provider, Model/Effort from the index and the final message, with no child session', () => {
+    const registry = AtomRegistry.make();
+    updateHarnessSnapshot(registry, CODEX, () => harness([session('s1')], [restored]));
+    registry.set(configOptionIndexAtom(CLAUDE), index);
+    registry.set(selectedAtom, { _tag: 'Session', sessionId: 's1' });
+    const { container } = render(
+      <RegistryContext.Provider value={registry}>
+        <ThemeProvider theme={theme}>
+          <SubagentItemView item={{ id: 'subagent:c1', kind: 'subagent', subagentSessionId: 'c1' }} />
+        </ThemeProvider>
+      </RegistryContext.Provider>,
+    );
+    assert.isNotNull(screen.getByText('Restored'));
+    assert.isNotNull(iconFor(container, agentLaunchTargetLabel(CLAUDE)));
+    assert.isNotNull(screen.getByText('Hello, World!'));
   });
 });

@@ -18,6 +18,8 @@ import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-a
 import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
+import { isHubSubagentToolTitle, parseSubagentResults } from './subagentResult.ts';
+import type { SubagentResult } from './subagentResult.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -68,6 +70,8 @@ export type ChatItem =
       readonly planFilePath?: string;
       readonly resultText?: string;
       readonly status: string;
+      /** Subagent results of a Hub `spawn_subagent` / `wait_subagent` call (ADR 0013); non-empty folds the row into the Subagent row. */
+      readonly subagentResults?: readonly SubagentResult[];
       readonly title: string;
       readonly toolCallId: string;
       readonly toolKind?: ToolKind;
@@ -355,6 +359,9 @@ const extractPlanFilePath = (rawInput: unknown): string | undefined => {
 };
 
 /** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
+const withSubagentResults = (results: readonly SubagentResult[] | undefined) =>
+  results === undefined ? {} : { subagentResults: results };
+
 const withPlanFilePath = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
 
 /** Path of the first location only; tool_call titles link a single file. */
@@ -455,6 +462,37 @@ const upsertInterSessionMessage = (
     }),
   ];
   return { ...transcript, items, messageIndices: new Map(transcript.messageIndices).set(messageId, items.length - 1) };
+};
+
+/** Text found in an ACP `rawOutput`: a string, `{ text }`, `{ content }`, or an array of those (searched two levels deep). */
+const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  if (depth > 2) {
+    return undefined;
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.map(part => textFromRawOutput(part, depth + 1)).filter(part => part !== undefined);
+    return parts.length > 0 ? parts.join('\n') : undefined;
+  }
+  if (isRecord(raw)) {
+    return typeof raw.text === 'string' ? raw.text : textFromRawOutput(raw.content, depth + 1);
+  }
+  return undefined;
+};
+
+/**
+ * The Subagent results a Hub `spawn_subagent` / `wait_subagent` update carries (none for any other tool call). Codex
+ * replays an MCP result only as `rawOutput`, so that is read when `content` has no text.
+ */
+const subagentResultsOf = (title: string, update: Record<string, unknown>): readonly SubagentResult[] | undefined => {
+  if (!isHubSubagentToolTitle(title)) {
+    return undefined;
+  }
+  const text = extractTextFromContent(update.content) ?? textFromRawOutput(update.rawOutput);
+  const results = text === undefined ? [] : parseSubagentResults(text);
+  return results.length > 0 ? results : undefined;
 };
 
 /** Insert the `subagent` row once per child id (replayed spawns never duplicate). */
@@ -694,6 +732,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           ...withPlanFilePath(extractPlanFilePath(update.rawInput)),
           resultText: extractTextFromContent(update.content),
           status,
+          ...withSubagentResults(subagentResultsOf(update.title, update)),
           title: update.title,
           toolCallId: update.toolCallId,
           toolKind: isToolKind(update.kind) ? update.kind : undefined,
@@ -729,6 +768,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
             ...withPlanFilePath(planFilePath ?? existing.planFilePath),
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
+            ...withSubagentResults(subagentResultsOf(title ?? existing.title, update) ?? existing.subagentResults),
             title: title ?? existing.title,
             toolKind: toolKind ?? existing.toolKind,
           };
@@ -746,6 +786,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           ...withPlanFilePath(planFilePath),
           resultText,
           status: status ?? 'unknown',
+          ...withSubagentResults(subagentResultsOf(title ?? update.toolCallId, update)),
           title: title ?? update.toolCallId,
           toolCallId: update.toolCallId,
           toolKind,

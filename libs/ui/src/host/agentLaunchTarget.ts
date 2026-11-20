@@ -21,6 +21,9 @@ export const ALL_AGENT_LAUNCH_TARGETS = [
   'cursor-acp',
 ] as const satisfies readonly AgentLaunchTarget[];
 
+export const knownLaunchTarget = (value: string): AgentLaunchTarget | undefined =>
+  ALL_AGENT_LAUNCH_TARGETS.find(candidate => candidate === value);
+
 /**
  * True when launch target is not beta-gated, or its compile-time `AO_*_BETA` is `'true'`.
  * Uses static `process.env.NAME` so Vite `define` can bake the values.

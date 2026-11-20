@@ -6,6 +6,7 @@ import { TestClock } from 'effect/testing';
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { answer, CHILD, PARENT, setup, until } from '../host/spawnSubagent.testing.ts';
 import { getSubagent } from '../host/subagent.ts';
+import { parseSubagentResults } from '../host/subagentResult.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
@@ -138,7 +139,9 @@ describe('a finished child', () => {
           h.childFold.onSessionUpdate(CHILD, answer('done'));
         }),
       });
-      assert.deepStrictEqual(yield* h.spawn(), { isError: false, text: 'done' });
+      const done = yield* h.spawn();
+      assert.isFalse(done.isError);
+      assert.strictEqual(parseSubagentResults(done.text)[0].body, 'done');
       const runtime = createHostRuntime(mockHostLayer);
       const chat = createChatAtoms(runtime);
       const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn);

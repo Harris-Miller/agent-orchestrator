@@ -16,6 +16,7 @@ import {
   selectedBackendHarnessFailureAtom,
   selectedBackendHarnessPhaseAtom,
   selectedSubagentAtom,
+  selectedSubagentConfigurationAtom,
   selectedSubagentNameAtom,
   selectedSubagentRootIdAtom,
 } from './backendState.atoms.ts';
@@ -96,6 +97,33 @@ describe('narrow selected-snapshot atoms', () => {
     for (const counter of [phase, failure, authUrl, canFork, childA, childB, rootB, nameA]) {
       counter.stop();
     }
+  });
+});
+
+describe('selectedSubagentConfigurationAtom', () => {
+  it('returns the spawned child target session configuration; undefined for a native child', () => {
+    const registry = setup();
+    const configuration = [
+      { choices: [{ id: 'opus', name: 'Opus' }], currentValue: 'opus', id: 'model', name: 'Model', type: 'select' },
+    ] as const;
+    updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
+      ...current,
+      sessions: { c: { ...initialSessionSnapshot('c', 'active'), configuration } },
+    }));
+    updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
+      ...current,
+      subagents: {
+        ...current.subagents,
+        c: { ...initialSubagentSnapshot('c', 's1'), kind: 'spawned', launchTarget: 'codex-acp' },
+      },
+    }));
+    updateHarnessSnapshot(registry, 'codex-acp', current => ({
+      ...current,
+      sessions: { c: { ...initialSessionSnapshot('c', 'active'), configuration } },
+    }));
+    assert.strictEqual(registry.get(selectedSubagentConfigurationAtom('c')), configuration);
+    assert.isUndefined(registry.get(selectedSubagentConfigurationAtom('a')));
+    assert.isUndefined(registry.get(selectedSubagentConfigurationAtom('missing')));
   });
 });
 

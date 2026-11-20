@@ -5,10 +5,10 @@ import type { UserConfig } from 'tsdown';
  * Self-contained Node bundles: the hub ships as a bundled resource of the desktop app (which lists `hub.mjs` and
  * `hub-launcher.mjs` only) and inside the VSIX (packaged `--no-dependencies`), so nothing may be resolved from
  * `node_modules` or from a sibling chunk at runtime. One build per entry, because entries built together share code
- * through extra chunks (`home.mjs`) that the desktop app would not ship. The `build` script empties `dist` first.
+ * through extra chunks (`home.mjs`) that the desktop app would not ship. tsdown cleans `dist` before both builds.
  */
 const base: UserConfig = {
-  clean: false,
+  clean: true,
   deps: {
     alwaysBundle: [/.*/],
   },

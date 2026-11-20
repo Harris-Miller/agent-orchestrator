@@ -152,7 +152,11 @@ export const createProvidersAtoms = (
       selectable: get(enabledLaunchTargetsAtom),
       usable,
     };
-  }).pipe(Atom.withEquality(launchTargetAvailabilityEqual), Atom.keepAlive);
+  }).pipe(
+    // Recomputes on any harness or provider write; keep the value reference while its contents are unchanged.
+    Atom.withEquality(launchTargetAvailabilityEqual),
+    Atom.keepAlive,
+  );
 
   const showProvidersOnStartupAtom = Atom.writable(
     get => unwrapUserSettings(get(userSettingsAtom)).showProvidersOnStartup !== false,

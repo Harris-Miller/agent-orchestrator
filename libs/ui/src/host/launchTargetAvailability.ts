@@ -53,21 +53,19 @@ const sameReasons = (a: UnavailableReasons, b: UnavailableReasons): boolean => {
   return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
 };
 
-/** Structural equality so the availability atoms keep their reference across unrelated harness snapshot writes. */
-export const harnessAvailabilityEqual = (
-  a: { readonly reasons: UnavailableReasons; readonly usable: readonly AgentLaunchTarget[] },
-  b: { readonly reasons: UnavailableReasons; readonly usable: readonly AgentLaunchTarget[] },
-): boolean => sameElements(a.usable, b.usable) && sameReasons(a.reasons, b.reasons);
+export interface HarnessAvailability {
+  readonly reasons: UnavailableReasons;
+  readonly usable: readonly AgentLaunchTarget[];
+}
 
-export const launchTargetAvailabilityEqual = (
-  a: {
-    readonly reasons: UnavailableReasons;
-    readonly selectable: readonly AgentLaunchTarget[];
-    readonly usable: readonly AgentLaunchTarget[];
-  },
-  b: {
-    readonly reasons: UnavailableReasons;
-    readonly selectable: readonly AgentLaunchTarget[];
-    readonly usable: readonly AgentLaunchTarget[];
-  },
-): boolean => harnessAvailabilityEqual(a, b) && sameElements(a.selectable, b.selectable);
+export interface LaunchTargetAvailability extends HarnessAvailability {
+  readonly selectable: readonly AgentLaunchTarget[];
+}
+
+/** Structural equality so the availability atoms keep their reference across unrelated harness snapshot writes. */
+export const harnessAvailabilityEqual = (a: HarnessAvailability, b: HarnessAvailability): boolean =>
+  sameElements(a.usable, b.usable) && sameReasons(a.reasons, b.reasons);
+
+/** `harnessAvailabilityEqual` plus the `selectable` list. */
+export const launchTargetAvailabilityEqual = (a: LaunchTargetAvailability, b: LaunchTargetAvailability): boolean =>
+  harnessAvailabilityEqual(a, b) && sameElements(a.selectable, b.selectable);

@@ -28,6 +28,7 @@ const cachedIndex = configOptionIndexFromProbeResponses('sonnet', {
 
 const setup = () => {
   const runtime = createHostRuntime(mockHostLayer);
+  // Availability reads neither the harness runtime (beyond the mock host) nor user settings, so stubs are safe.
   const { launchTargetAvailabilityAtom } = createProvidersAtoms(runtime, {} as never, {
     userSettingsAtom: Atom.make(undefined) as never,
   });
@@ -48,8 +49,13 @@ const countChanges = (registry: AtomRegistry.AtomRegistry, atom: Atom.Atom<unkno
 
 describe('launch target availability atoms', () => {
   it.effect('keep their reference when a child transcript changes; change on phase or failure', () =>
-    Effect.sync(() => {
+    Effect.gen(function* () {
       const { launchTargetAvailabilityAtom, registry } = setup();
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          registry.dispose();
+        }),
+      );
       const harness = countChanges(registry, harnessAvailabilityAtom);
       const availability = countChanges(registry, launchTargetAvailabilityAtom);
       const before = registry.get(launchTargetAvailabilityAtom);
@@ -69,6 +75,7 @@ describe('launch target availability atoms', () => {
       updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({ ...current, phase: 'initialized' }));
       assert.strictEqual(harness.count, 1);
       assert.strictEqual(availability.count, 1);
+      const before2 = registry.get(launchTargetAvailabilityAtom);
       assert.strictEqual(registry.get(harnessAvailabilityAtom).reasons['claude-agent-acp'], 'Starting…');
 
       updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
@@ -78,6 +85,13 @@ describe('launch target availability atoms', () => {
       }));
       assert.strictEqual(harness.count, 2);
       assert.strictEqual(registry.get(harnessAvailabilityAtom).reasons['claude-agent-acp'], 'boom');
-    }),
+      // The Provider's own reason (no `claude` CLI on PATH in tests) outranks the harness reason, so the merged atom does not change.
+      assert.strictEqual(availability.count, 1);
+      assert.strictEqual(
+        registry.get(launchTargetAvailabilityAtom).reasons['claude-agent-acp'],
+        'claude not found on PATH',
+      );
+      assert.strictEqual(registry.get(launchTargetAvailabilityAtom), before2);
+    }).pipe(Effect.scoped),
   );
 });

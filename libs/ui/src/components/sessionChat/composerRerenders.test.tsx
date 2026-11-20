@@ -62,6 +62,11 @@ it.effect('subagent child chunks do not re-render the Composer; each row renders
         },
       },
     );
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        registry.dispose();
+      }),
+    );
     updateHarnessSnapshot(registry, CODEX, current => ({
       ...current,
       subagents: harness(
@@ -93,8 +98,7 @@ it.effect('subagent child chunks do not re-render the Composer; each row renders
       });
     }
 
-    assert.isAtMost(commits.get('Composer') ?? 0, 1);
+    assert.strictEqual(commits.get('Composer') ?? 0, 0);
     assert.strictEqual(commits.get('SubagentRow'), CHUNKS);
-    registry.dispose();
-  }),
+  }).pipe(Effect.scoped),
 );

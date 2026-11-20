@@ -13,6 +13,7 @@ import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
+import type { HarnessAvailability } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
 import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/subagent.ts';
@@ -298,7 +299,7 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
  * What the backend harness says about each enabled launch target: usable (usable phase and a nonempty, possibly cached,
  * Config option index) or the reason it is not. Provider reasons are merged in by `launchTargetAvailabilityAtom`.
  */
-export const harnessAvailabilityAtom = Atom.make(get => {
+export const harnessAvailabilityAtom = Atom.make((get): HarnessAvailability => {
   const usable: AgentLaunchTarget[] = [];
   const reasons: Partial<Record<AgentLaunchTarget, string>> = {};
   for (const launchTarget of get(enabledLaunchTargetsAtom)) {

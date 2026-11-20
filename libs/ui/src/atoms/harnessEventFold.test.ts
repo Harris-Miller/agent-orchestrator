@@ -13,11 +13,16 @@ import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { BackendConnectionReports } from '../host/sessionRpc.ts';
-import { getPromptSpan, sendPrompt } from '../host/sessionRpc.ts';
+import {
+  getPromptSpan,
+  sendPrompt,
+  setBackendSessionListSubscribe,
+  syncSessionListSubscriptions,
+} from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
-import { configOptionIndexAtom } from './backendState.atoms.ts';
+import { configOptionIndexAtom, selectedAtom } from './backendState.atoms.ts';
 import { connectFakeAgent, enableProviders, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
@@ -505,6 +510,72 @@ const modelOption = (currentValue: string) => ({
   id: 'model',
   name: 'Model',
   type: 'select' as const,
+});
+
+describe('Harness event fold: session list changes', () => {
+  /** A connection that subscribed `/a` as `id-/a`. */
+  const subscribeToA = Effect.gen(function* () {
+    yield* connectFakeAgent(LT, {
+      agent: {},
+      sessionListSubscribe: ({ cwd }: { cwd: string }) => Effect.succeed({ subscriptionId: `id-${cwd}` }),
+      sessionListUnsubscribe: () => Effect.succeed({}),
+    });
+    setBackendSessionListSubscribe(LT, true);
+    yield* syncSessionListSubscriptions(LT, ['/a']);
+  });
+  const ids = (h: Effect.Success<ReturnType<typeof setup>>) =>
+    h.snapshot().sessionHistory.map(entry => entry.sessionId);
+
+  it.effect('a changes notification updates Session History of the subscribed cwd only', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* subscribeToA;
+      h.fold.onSessionListChanges('id-/a', {
+        removed: [],
+        sessions: [
+          { cwd: '/a', sessionId: 'mine', title: 't' },
+          { cwd: '/a/.claude/worktrees/w', sessionId: 'worktree' },
+        ],
+      });
+      assert.deepStrictEqual(ids(h), ['mine']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('an unknown subscription id is ignored', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* subscribeToA;
+      h.fold.onSessionListChanges('other', { removed: [], sessions: [{ cwd: '/a', sessionId: 'x' }] });
+      assert.deepStrictEqual(ids(h), []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a removed Selected session clears the selection and its pins', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      yield* subscribeToA;
+      updateHarnessSnapshot(h.registry, LT, current => ({
+        ...current,
+        sessionHistory: [
+          { cwd: '/a', sessionId: 'gone' },
+          { cwd: '/a', sessionId: 'kept' },
+        ],
+      }));
+      const pinned = yield* pinSession(toLaunchTarget(LT), { cwd: '/a', sessionId: 'gone' }).pipe(
+        Effect.provide(h.layer),
+      );
+      h.registry.set(pinnedSessionsAtom(LT), pinned.pinned);
+      h.registry.set(pinsLoadedAtom(LT), true);
+      h.registry.set(selectedAtom, { _tag: 'Session', sessionId: 'gone' });
+
+      h.fold.onSessionListChanges('id-/a', { removed: ['gone'], sessions: [] });
+      yield* h.drain;
+
+      assert.deepStrictEqual(ids(h), ['kept']);
+      assert.isUndefined(h.registry.get(selectedAtom));
+      assert.deepStrictEqual(h.registry.get(pinnedSessionsAtom(LT)), []);
+    }).pipe(Effect.scoped),
+  );
 });
 
 describe('Harness event fold: Config option index', () => {

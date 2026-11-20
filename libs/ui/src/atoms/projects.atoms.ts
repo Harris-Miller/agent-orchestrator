@@ -10,12 +10,18 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectParentCaption } from '../host/projectParentCaption.ts';
 import { projectMembership } from '../host/projectSessions.ts';
+import { listCwdsForScope } from '../host/sessionListScope.ts';
 import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { hydrateSessionCache, removeSessionCacheCwd } from './sessionCache.ts';
-import { clearListStatesOfCwd, listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import {
+  clearListStatesOfCwd,
+  listCwdsOnUsableTargets,
+  syncListSubscriptionsOnUsableTargets,
+} from './sessionLists.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
@@ -68,6 +74,10 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
     );
   }
   clearListStatesOfCwd(registry, cwd);
+  yield* syncListSubscriptionsOnUsableTargets(
+    registry,
+    listCwdsForScope(registry.get(sessionListScopeAtom), document.projects),
+  );
   yield* removeSessionCacheCwd(cwd);
 });
 
@@ -93,6 +103,11 @@ export const createProjectsAtoms = ({
             MOUNTED_AGENT_LAUNCH_TARGETS,
             launchTarget => hydrateSessionCache(get.registry, launchTarget, added),
             { discard: true },
+          );
+          // Subscribe before listing so a change between the two is not lost.
+          yield* syncListSubscriptionsOnUsableTargets(
+            get.registry,
+            listCwdsForScope(get(sessionListScopeAtom), document.projects),
           );
           yield* listCwdsOnUsableTargets(get.registry, added, effect => {
             hostRunFork(effect);

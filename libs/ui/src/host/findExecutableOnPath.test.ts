@@ -435,6 +435,7 @@ describe('auth messages through bootstrap publication', () => {
           },
           onRpcMessage: noop,
           onSessionListBegin: () => ({ complete: () => Effect.void, fail: noop, page: noop }),
+          onSessionListChanges: noop,
           onSessionUpdate: noop,
         },
         () => [],

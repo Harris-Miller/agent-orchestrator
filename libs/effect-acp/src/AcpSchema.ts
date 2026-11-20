@@ -17,6 +17,8 @@ import {
   SessionDelete,
   SessionFork,
   SessionList,
+  SessionListSubscribe,
+  SessionListUnsubscribe,
   SessionLoad,
   SessionNew,
   SessionPrompt,
@@ -33,6 +35,7 @@ import {
   ElicitationCreate,
   FsReadTextFile,
   FsWriteTextFile,
+  SessionListChangesNotification,
   SessionRequestPermission,
   SessionUpdateNotification,
   TerminalCreate,
@@ -169,6 +172,15 @@ export class UnstableSessionArchiveRpcs extends RpcGroup.make(SessionArchive, Se
 
 /** AIR `_session/rename`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionRenameRpcs extends RpcGroup.make(SessionRename) {}
+
+/** AIR `_session/list/subscribe` and `_session/list/unsubscribe`; not part of stable AgentRpcs allowlist. */
+export class UnstableSessionListSubscribeRpcs extends RpcGroup.make(SessionListSubscribe, SessionListUnsubscribe) {}
+
+/** AIR `_session/list/changes` (Agent→Client); not part of stable ClientRpcs allowlist. */
+export class UnstableClientNotificationRpcs extends RpcGroup.make(SessionListChangesNotification) {}
+
+/** Everything the Client serves: the stable `ClientRpcs` plus the unstable Agent→Client notifications. */
+export class ServedClientRpcs extends ClientRpcs.merge(UnstableClientNotificationRpcs) {}
 
 /** Claude/Codex `_session/steering`; not part of stable AgentRpcs allowlist. */
 export class UnstableSessionSteeringRpcs extends RpcGroup.make(SessionSteering) {}

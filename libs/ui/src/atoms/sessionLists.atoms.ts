@@ -15,7 +15,7 @@ import { pinsToUnpinAfterList } from '../host/pinnedSessions.ts';
 import { runSessionLists } from '../host/sessionListRun.ts';
 import type { SessionListRun } from '../host/sessionListRun.ts';
 import { listSessionsPayload } from '../host/sessionListScope.ts';
-import { listSessions } from '../host/sessionRpc.ts';
+import { listSessions, syncSessionListSubscriptions } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -170,5 +170,16 @@ export const listCwdsOnUsableTargets = (
         (cwd, onPage) => listSessions(launchTarget, listSessionsPayload(launchTarget, cwd), onPage),
       );
     },
+    { concurrency: 'unbounded', discard: true },
+  );
+
+/** Keeps the session list subscriptions of every usable launch target on exactly the given (Listed) cwds. */
+export const syncListSubscriptionsOnUsableTargets = (registry: AtomRegistry.AtomRegistry, cwds: readonly string[]) =>
+  Effect.forEach(
+    MOUNTED_AGENT_LAUNCH_TARGETS,
+    launchTarget =>
+      isUsablePhase(registry.get(backendHarnessSnapshotAtom(launchTarget)).phase)
+        ? syncSessionListSubscriptions(launchTarget, cwds)
+        : Effect.void,
     { concurrency: 'unbounded', discard: true },
   );

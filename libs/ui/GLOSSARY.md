@@ -168,12 +168,16 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Rows also stay current through a Session list subscription where the agent offers one. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
 
 **Listed cwds**:
 The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
 _Avoid_: scope cwds, visible cwds
+
+**Session list subscription**:
+The per-launch-target, per-Listed-cwd live feed of Session History row changes (new, renamed, archived, removed sessions) from the agent, so those rows update without a re-list. Best effort, so a full re-list remains the fallback: a cwd without a subscription (agent offers none, a failed subscribe, or past the 128 per connection) keeps today's re-list behaviour. Only for agents that advertise `sessionListSubscribe`.
+_Avoid_: history watcher, live list
 
 **Session cache**:
 The on-disk copy of a launch target's Session History rows for the Listed cwds (plus pins), hydrated at startup and when a Project is added, and removed when a Project stops being tracked. A rebuildable cache, unlike Projects and pins. hoa-home calls the document it lives in the Application session index.

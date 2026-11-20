@@ -10,14 +10,18 @@ import type { FromClientEncoded, FromServerEncoded, RequestEncoded } from 'effec
 import {
   AgentRpcs,
   ClientRpcs,
+  ServedClientRpcs,
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
+  SESSION_LIST_SUBSCRIBE_METHOD,
+  SESSION_LIST_UNSUBSCRIBE_METHOD,
   SESSION_RENAME_METHOD,
   SESSION_SET_MODEL_METHOD,
   SESSION_STEERING_METHOD,
   SESSION_UNARCHIVE_METHOD,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
+  UnstableSessionListSubscribeRpcs,
   UnstableSessionRenameRpcs,
   UnstableSessionSetModelRpcs,
   UnstableSessionSteeringRpcs,
@@ -206,6 +210,16 @@ export type AcpAgentConnection = {
   >[typeof SESSION_ARCHIVE_METHOD];
   /** Unstable `session/fork`. Not part of stable AgentRpcs. */
   readonly sessionFork: RpcClient.FromGroup<typeof UnstableSessionForkRpcs, RpcClientError>[typeof SESSION_FORK_METHOD];
+  /** AIR `_session/list/subscribe`. Not part of stable AgentRpcs. */
+  readonly sessionListSubscribe: RpcClient.FromGroup<
+    typeof UnstableSessionListSubscribeRpcs,
+    RpcClientError
+  >[typeof SESSION_LIST_SUBSCRIBE_METHOD];
+  /** AIR `_session/list/unsubscribe`. Not part of stable AgentRpcs. */
+  readonly sessionListUnsubscribe: RpcClient.FromGroup<
+    typeof UnstableSessionListSubscribeRpcs,
+    RpcClientError
+  >[typeof SESSION_LIST_UNSUBSCRIBE_METHOD];
   /** AIR `_session/rename`. Not part of stable AgentRpcs. */
   readonly sessionRename: RpcClient.FromGroup<
     typeof UnstableSessionRenameRpcs,
@@ -252,7 +266,7 @@ const withoutParentSpan = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effe
 export const connectAcpAgent = Effect.fnUntraced(
   function* (
     command: ChildProcess.Command,
-    clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ClientRpcs>>>,
+    clientHandlers: Layer.Layer<Rpc.ToHandler<RpcGroup.Rpcs<typeof ServedClientRpcs>>>,
     options?: {
       readonly wireTap?: AcpWireTap;
     },
@@ -328,7 +342,7 @@ export const connectAcpAgent = Effect.fnUntraced(
     // Strip ParentSpan so demux/handler fibers do not inherit connect (live or ended).
     yield* Effect.forkScoped(
       withoutParentSpan(
-        RpcServer.make(ClientRpcs, { disableTracing: true }).pipe(
+        RpcServer.make(ServedClientRpcs, { disableTracing: true }).pipe(
           Effect.provideService(RpcServer.Protocol, serverProtocol),
           Effect.provide(clientHandlers),
         ),
@@ -340,6 +354,9 @@ export const connectAcpAgent = Effect.fnUntraced(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
     const forkClient = yield* RpcClient.make(UnstableSessionForkRpcs).pipe(
+      Effect.provideService(RpcClient.Protocol, clientProtocol),
+    );
+    const listSubscribeClient = yield* RpcClient.make(UnstableSessionListSubscribeRpcs).pipe(
       Effect.provideService(RpcClient.Protocol, clientProtocol),
     );
     const renameClient = yield* RpcClient.make(UnstableSessionRenameRpcs).pipe(
@@ -361,6 +378,8 @@ export const connectAcpAgent = Effect.fnUntraced(
       notify: transport.notify,
       sessionArchive: archiveClient[SESSION_ARCHIVE_METHOD],
       sessionFork: forkClient[SESSION_FORK_METHOD],
+      sessionListSubscribe: listSubscribeClient[SESSION_LIST_SUBSCRIBE_METHOD],
+      sessionListUnsubscribe: listSubscribeClient[SESSION_LIST_UNSUBSCRIBE_METHOD],
       sessionRename: renameClient[SESSION_RENAME_METHOD],
       sessionSetModel: setModelClient[SESSION_SET_MODEL_METHOD],
       sessionSteering: steeringClient[SESSION_STEERING_METHOD],

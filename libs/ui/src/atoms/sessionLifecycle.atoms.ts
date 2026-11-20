@@ -61,7 +61,7 @@ import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
-import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
+import { listCwdsOnUsableTargets, syncListSubscriptionsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import {
@@ -188,6 +188,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         get: Atom.FnContext,
       ) {
         const cwds = arg === undefined ? get(listedCwdsAtom) : [arg.cwd];
+        if (arg === undefined) {
+          // A Workspace cwd change lands here too; subscribe before listing so a change between the two is not lost.
+          yield* syncListSubscriptionsOnUsableTargets(get.registry, cwds);
+        }
         yield* listCwdsOnUsableTargets(get.registry, cwds, forkEffect);
         clearSelectedIfMissing(get.registry);
       }),

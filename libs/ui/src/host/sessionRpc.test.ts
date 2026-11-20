@@ -3,7 +3,14 @@ import { Effect, Exit, Scope } from 'effect';
 
 import type { BackendConnectionReports } from './sessionRpc.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { BackendNotConnected, listSessions, registerBackendConnection } from './sessionRpc.ts';
+import {
+  BackendNotConnected,
+  cwdOfSubscription,
+  listSessions,
+  registerBackendConnection,
+  setBackendSessionListSubscribe,
+  syncSessionListSubscriptions,
+} from './sessionRpc.ts';
 
 const LT = 'codex-acp' as const;
 const listPayload = listSessionsPayload(LT, '/w');
@@ -105,6 +112,102 @@ describe('registerBackendConnection', () => {
       const exit = yield* Effect.exit(listSessions(LT, listPayload, () => undefined));
       assert.isTrue(Exit.isFailure(exit));
       yield* Scope.close(scope, Exit.void);
+    }),
+  );
+});
+
+describe('session list subscriptions', () => {
+  /** Connection whose subscribe / unsubscribe record `calls`; a cwd in `failing` fails to subscribe. */
+  const subscribingConnection = (calls: string[], failing: readonly string[] = []) =>
+    ({
+      agent: {},
+      sessionListSubscribe: ({ cwd }: { cwd: string }) => {
+        calls.push(`sub ${cwd}`);
+        return failing.includes(cwd) ? Effect.fail(new Error('boom')) : Effect.succeed({ subscriptionId: `id-${cwd}` });
+      },
+      sessionListUnsubscribe: ({ subscriptionId }: { subscriptionId: string }) => {
+        calls.push(`unsub ${subscriptionId}`);
+        return Effect.succeed({});
+      },
+    }) as unknown as Parameters<typeof registerBackendConnection>[1];
+
+  const register = (calls: string[], supported: boolean, failing: readonly string[] = []) =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make();
+      yield* registerBackendConnection(LT, subscribingConnection(calls, failing), recordingReports([])).pipe(
+        Scope.provide(scope),
+      );
+      setBackendSessionListSubscribe(LT, supported);
+      return scope;
+    });
+
+  it.effect('subscribes added cwds, unsubscribes removed ones and resolves subscription ids to cwds', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const scope = yield* register(calls, true);
+      yield* syncSessionListSubscriptions(LT, ['/a', '/b']);
+      assert.deepStrictEqual(calls, ['sub /a', 'sub /b']);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/b'), '/b');
+
+      calls.length = 0;
+      yield* syncSessionListSubscriptions(LT, ['/b', '/c']);
+      assert.deepStrictEqual(calls, ['unsub id-/a', 'sub /c']);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
+      assert.strictEqual(cwdOfSubscription(LT, 'nope'), undefined);
+
+      calls.length = 0;
+      yield* syncSessionListSubscriptions(LT, ['/b', '/c']);
+      assert.deepStrictEqual(calls, []);
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('subscribes at most 128 cwds', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const scope = yield* register(calls, true);
+      yield* syncSessionListSubscriptions(
+        LT,
+        Array.from({ length: 130 }, (_, index) => `/p${index}`),
+      );
+      assert.strictEqual(calls.length, 128);
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('makes no calls without the capability or without a connection', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      yield* syncSessionListSubscriptions(LT, ['/a']);
+      const scope = yield* register(calls, false);
+      yield* syncSessionListSubscriptions(LT, ['/a']);
+      assert.deepStrictEqual(calls, []);
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('logs a failed subscribe instead of raising it and keeps the other cwds', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const scope = yield* register(calls, true, ['/a']);
+      yield* syncSessionListSubscriptions(LT, ['/a', '/b']);
+      assert.deepStrictEqual(calls, ['sub /a', 'sub /b']);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/b'), '/b');
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('subscriptions are gone once the connection scope closes', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const scope = yield* register(calls, true);
+      yield* syncSessionListSubscriptions(LT, ['/a']);
+      yield* Scope.close(scope, Exit.void);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
+      calls.length = 0;
+      yield* syncSessionListSubscriptions(LT, ['/a']);
+      assert.deepStrictEqual(calls, []);
     }),
   );
 });

@@ -9,6 +9,8 @@ import { listSessionsPayload } from './sessionListScope.ts';
 import { BackendNotConnected, listSessions } from './sessionRpc.ts';
 
 const control = vi.hoisted(() => ({
+  calls: [] as string[],
+  initializeResult: {} as unknown,
   listGate: undefined as unknown,
   probe: undefined as unknown,
   probeCalls: 0,
@@ -19,12 +21,20 @@ vi.mock('@libs/effect-acp', async importOriginal => ({
   connectAcpAgent: () =>
     Effect.succeed({
       agent: {
-        initialize: () => Effect.succeed({}),
-        'session/list': () => control.listGate,
+        initialize: () => Effect.succeed(control.initializeResult),
+        'session/list': () => {
+          control.calls.push('list');
+          return control.listGate;
+        },
       },
       notify: () => Effect.void,
       sessionArchive: () => Effect.void,
       sessionFork: () => Effect.void,
+      sessionListSubscribe: ({ cwd }: { cwd: string }) => {
+        control.calls.push(`subscribe ${cwd}`);
+        return Effect.succeed({ subscriptionId: 'sub' });
+      },
+      sessionListUnsubscribe: () => Effect.succeed({}),
       sessionRename: () => Effect.void,
       sessionSteering: () => Effect.void,
       sessionUnarchive: () => Effect.void,
@@ -70,6 +80,7 @@ const makeHandlers = (events: string[], cached: boolean): BackendHarnessCallback
       events.push('page');
     },
   }),
+  onSessionListChanges: () => undefined,
   onSessionUpdate: () => undefined,
 });
 
@@ -119,6 +130,37 @@ describe('runBackendHarness', () => {
       assert.deepStrictEqual(pages, [['a'], ['b']]);
       assert.strictEqual(lists, 2);
       assert.include(events, 'history');
+      yield* Fiber.interrupt(fiber);
+    }),
+  );
+
+  it.effect('subscribes to every Project cwd before listing when the agent advertises sessionListSubscribe', () =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      control.calls = [];
+      control.initializeResult = { _meta: { jetbrains: { air: { capabilities: ['sessionListSubscribe'] } } } };
+      control.listGate = Effect.succeed({ sessions: [] });
+
+      const fiber = yield* run(events, true);
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(control.calls, ['subscribe /w', 'list']);
+      yield* Fiber.interrupt(fiber);
+      control.initializeResult = {};
+    }),
+  );
+
+  it.effect('makes no subscribe call without the capability', () =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      control.calls = [];
+      control.initializeResult = {};
+      control.listGate = Effect.succeed({ sessions: [] });
+
+      const fiber = yield* run(events, true);
+      yield* Effect.yieldNow;
+      yield* Effect.yieldNow;
+      assert.deepStrictEqual(control.calls, ['list']);
       yield* Fiber.interrupt(fiber);
     }),
   );

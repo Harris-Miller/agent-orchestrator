@@ -37,6 +37,11 @@ const escapeAttribute = (value: string): string =>
 const unescapeAttribute = (value: string): string =>
   [...ESCAPES].reverse().reduce((text, [raw, escaped]) => text.replaceAll(escaped, raw), value);
 
+// Body closing tags are escaped as `<\/subagent` (an existing `<\/subagent` gains another backslash) so the body
+// cannot end the element early; the parser reverses it.
+const escapeBody = (body: string): string => body.replaceAll(/<(\\*)\/subagent/g, '<$1\\/subagent');
+const unescapeBody = (body: string): string => body.replaceAll(/<\\(\\*)\/subagent/g, '<$1/subagent');
+
 export const buildSubagentResult = (result: SubagentResult): string => {
   const attributes = Object.entries({
     id: result.id,
@@ -50,7 +55,7 @@ export const buildSubagentResult = (result: SubagentResult): string => {
     .join(' ');
   return result.body === '' && result.status === 'running'
     ? `<subagent ${attributes} />`
-    : `<subagent ${attributes}>\n${result.body}\n</subagent>`;
+    : `<subagent ${attributes}>\n${escapeBody(result.body)}\n</subagent>`;
 };
 
 const ELEMENT = /<subagent((?:\s+[A-Za-z]+="[^"]*")+)\s*(?:\/>|>\n?([\s\S]*?)\n?<\/subagent>)/g;
@@ -85,7 +90,7 @@ export const parseSubagentResults = (text: string): readonly SubagentResult[] =>
     const launchTarget = attributes.get('launchTarget');
     if (id !== undefined && launchTarget !== undefined && status !== undefined && STATUSES.includes(status)) {
       results.push({
-        body: body ?? '',
+        body: unescapeBody(body ?? ''),
         config: parseConfig(attributes.get('config')),
         description: attributes.get('description') ?? '',
         id,

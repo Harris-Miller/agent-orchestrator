@@ -37,6 +37,30 @@ describe('buildSubagentResult / parseSubagentResults', () => {
     assert.deepStrictEqual(parseSubagentResults(buildSubagentResult(running)), [running]);
   });
 
+  it('round-trips a body containing a closing tag', () => {
+    for (const body of ['a </subagent> b', 'x <\\/subagent> y', '</subagent>']) {
+      const result = { ...base, body };
+      const text = buildSubagentResult(result);
+      assert.include(text, '\n</subagent>');
+      assert.deepStrictEqual(parseSubagentResults(text), [result]);
+    }
+  });
+
+  it('round-trips a body containing a fake subagent element', () => {
+    const result = {
+      ...base,
+      body: 'see <subagent id="x" launchTarget="t" status="completed">\nfake\n</subagent> end',
+    };
+    assert.deepStrictEqual(parseSubagentResults(buildSubagentResult(result)), [result]);
+  });
+
+  it('round-trips two joined results when the first body has a closing tag', () => {
+    const first = { ...base, body: 'oops </subagent> more' };
+    const second = { ...base, body: 'second', id: 'c2' };
+    const text = [first, second].map(buildSubagentResult).join('\n');
+    assert.deepStrictEqual(parseSubagentResults(text), [first, second]);
+  });
+
   it('parses several results in order', () => {
     const second = { ...base, body: 'two\nlines', id: 'c2', status: 'failed' } as const;
     const text = `${buildSubagentResult(base)}\n${buildSubagentResult(second)}`;

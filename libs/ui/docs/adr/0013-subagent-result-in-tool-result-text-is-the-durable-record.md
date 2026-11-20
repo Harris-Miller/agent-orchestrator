@@ -14,3 +14,4 @@ A Spawned subagent session exists only as in-memory Harness state (ADR 0011), so
 - Codex replays an MCP tool result only as `rawOutput` (no `content`), so the result text is read from `content` first, then from the text found in `rawOutput`. Recognition is by tool-call title (the Hub server name plus tool), because the replayed title is the bare function name while a live one is `Tool: server/tool`.
 - A Restored subagent shows only the child's final message, not its full transcript. Opening the child's own session on demand is left to a later change; the child is a normal History entry after a restart, and stays one (not hidden again).
 - A child whose result never recorded an outcome (a background spawn whose Subagent report arrived but was never collected by `wait_subagent`) shows an unknown Work state.
+- Body closing tags are escaped as `<\/subagent` (and the parser reverses it), so a child's final text cannot end the element early or inject phantom results.

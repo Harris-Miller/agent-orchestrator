@@ -43,6 +43,7 @@ import {
   reconcileConnectionLost,
   replaceSessionHistory,
   requestPromptCancel,
+  restoreSubagentFromResult,
   setAntigravityAuthUrl,
   stripSessionPendings,
   upsertIntoSnapshot,
@@ -865,5 +866,31 @@ describe('applySessionUpdatePatch', () => {
       sessionHistory: retitled,
     });
     assert.strictEqual(next.sessionHistory, retitled);
+  });
+});
+
+describe('restoreSubagentFromResult', () => {
+  const result = {
+    body: 'final',
+    config: {},
+    description: 'd',
+    id: 'c1',
+    launchTarget: 'codex-acp',
+    status: 'completed',
+    task: 't',
+  } as const;
+
+  it('keeps one row and the child state when replayed twice after a transcript reset', () => {
+    const snapshot = readySnapshot({ s1: initialSessionSnapshot('s1') });
+    const first = restoreSubagentFromResult(snapshot, 's1', result);
+    const reloaded = beginActivation(first, 's1', '/proj', 'load');
+    assert.strictEqual(reloaded.sessions.s1.transcript.items.length, 0);
+    const again = restoreSubagentFromResult(reloaded, 's1', result);
+    const rows = again.sessions.s1.transcript.items.filter(item => item.kind === 'subagent');
+    assert.strictEqual(rows.length, 1);
+    assert.deepStrictEqual(again.subagents.c1.state, { state: 'completed' });
+    const thrice = restoreSubagentFromResult(again, 's1', { ...result, status: 'running' });
+    assert.strictEqual(thrice.sessions.s1.transcript.items.filter(item => item.kind === 'subagent').length, 1);
+    assert.deepStrictEqual(thrice.subagents.c1.state, { state: 'completed' });
   });
 });

@@ -106,6 +106,10 @@ const groupTurn = (
 export const isWaitToolCall = (item: ChatItem): boolean =>
   item.kind === 'tool_call' && item.toolKind === 'other' && item.title === 'wait';
 
+/** A Hub `spawn_subagent` / `wait_subagent` call whose result became a Subagent row (ADR 0013): the call itself is noise. */
+export const isFoldedSubagentToolCall = (item: ChatItem): boolean =>
+  item.kind === 'tool_call' && item.subagentResults !== undefined;
+
 /** Wrap each turn's items up to its last work item in a WorkRegion; the rest stays flat. */
 export const groupChatItems = (items: readonly ChatItem[]): readonly (ChatItem | WorkRegion)[] => {
   const out: (ChatItem | WorkRegion)[] = [];

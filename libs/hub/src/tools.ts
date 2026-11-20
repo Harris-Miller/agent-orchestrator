@@ -35,7 +35,7 @@ export const ListSubagentTargets = Tool.make('list_subagent_targets', {
 export const SpawnSubagent = Tool.make('spawn_subagent', {
   ...forwarded,
   description:
-    'Start a subagent on a different agent launch target (provider) and wait for it. Use your own subagent tool for work on your own provider; use this only to run a task on a different launch target (see list_subagent_targets). The subagent starts in your working directory with only the task you give it, and its final message is the result. If it is still running after a few minutes this returns its id with status running: then call wait_subagent.',
+    'Start a subagent on a different agent launch target (provider) and wait for it. Use your own subagent tool for work on your own provider; use this only to run a task on a different launch target (see list_subagent_targets). The subagent starts in your working directory with only the task you give it, and its final message is the result. If it is still running after a few minutes this returns a <subagent> element with its id and status running: then call wait_subagent.',
   parameters: SpawnSubagentArgs,
 });
 

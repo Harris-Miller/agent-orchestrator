@@ -397,12 +397,20 @@ A Subagent session the Harness started on a parent's behalf when the parent's ag
 _Avoid_: Delegated session, child session
 
 **Spawned subagent link**:
-The Harness's memory-only record that a session on one launch target is a Spawned subagent session of a parent session, kept from spawn until the child or its parent ends and gone after a restart. While it exists the child is hidden from Session History, is never swept by a workspace folder change, and has its Attention events named under its parent. Until its Prompt turn ends the child is a **live child** of the parent, and a parent may have only a fixed number of live children at once; a child cannot itself spawn.
+The Harness's memory-only record that a session on one launch target is a Spawned subagent session of a parent session, kept from spawn until the child or its parent ends and gone after a restart (replaying the parent then yields a Restored subagent, not a link). While it exists the child is hidden from Session History, is never swept by a workspace folder change, and has its Attention events named under its parent. Until its Prompt turn ends the child is a **live child** of the parent, and a parent may have only a fixed number of live children at once; a child cannot itself spawn.
 _Avoid_: parent link (the parent recorded on a native Subagent session for turn tracing), subagent registration
 
 **Subagent outcome**:
 How a Spawned subagent session's Prompt turn ended: completed with its final agent message, failed with a cause, or cancelled. A turn that completes without any message counts as failed, so the parent's agent always gets something to act on. It reaches the parent's agent by one of two routes: as the result of the agent's own call (the foreground `spawn_subagent`, or `wait_subagent`), or as a Subagent report. A call that collects it before the Subagent report is sent suppresses the report; a Subagent report is never sent twice.
-_Avoid_: Handoff (a different term), subagent result, response
+_Avoid_: Handoff (a different term), response
+
+**Subagent result**:
+The one text shape the Hub's `spawn_subagent` and `wait_subagent` tools hand back for a Spawned subagent session: a `<subagent …>` element naming the child (its id, Work state, launch target, name, applied Config option values and Subagent task) around its final agent message. A foreground `spawn_subagent` that finishes returns it too, so the agent always learns the child's id. It is the only durable trace of a Spawned subagent session in the parent's own transcript, so replay rebuilds the Restored subagent from it. A refusal (unknown target, empty task) is a plain error, not a Subagent result.
+_Avoid_: Subagent outcome (how the turn ended, before it is worded for the agent), Subagent report (the message that arrives unasked)
+
+**Restored subagent**:
+A Spawned subagent session rebuilt read-only from a Subagent result when its parent's transcript is replayed (`session/load`) after the Spawned subagent link is gone. It shows as the same transcript row and opens the same Subagent view, but holds only what the result recorded: name, Provider, Model and Effort, Subagent task and final message; no live Pending interactions, no cancel. Its Work state is the one the result recorded; a child no result ever recorded as finished is shown with an unknown state. The Hub's generic `spawn_subagent` / `wait_subagent` tool-call rows fold into it and disappear; a session recorded before Subagent results carried this data keeps those generic rows. The child is also an ordinary Session History entry after a restart.
+_Avoid_: historical subagent, ghost subagent
 
 **Subagent report**:
 The message the Harness sends a parent when a background Spawned subagent session's Prompt turn ends: names the child and its Subagent task, and carries the child's final agent message (or its failure). Delivered as Steering when the parent is mid-turn and Steering is supported, otherwise as a new Prompt turn once the parent is idle; dropped when the parent is gone.

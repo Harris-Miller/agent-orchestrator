@@ -8,7 +8,11 @@ import { CODEX, enableProviders } from '../atoms/fakeAgent.testing.ts';
 import { allLinks } from '../atoms/subagentLinkRegistry.ts';
 
 import { getSubagent } from './subagent.ts';
+import { parseSubagentResults } from './subagentResult.ts';
 import { answer, CHILD, setup, until } from './spawnSubagent.testing.ts';
+
+/** The one Subagent result in a tool result's text. */
+const resultOf = (text: string) => parseSubagentResults(text)[0];
 
 describe('spawn_subagent (foreground)', () => {
   it.effect('returns exactly the final agent message of the child', () =>
@@ -25,7 +29,10 @@ describe('spawn_subagent (foreground)', () => {
           h.childFold.onSessionUpdate(CHILD, answer('The diff is fine.'));
         }),
       });
-      assert.deepStrictEqual(yield* h.spawn(), { isError: false, text: 'The diff is fine.' });
+      const result = yield* h.spawn();
+      assert.isFalse(result.isError);
+      const parsed = resultOf(result.text);
+      assert.deepStrictEqual([parsed.id, parsed.status, parsed.body], [CHILD, 'completed', 'The diff is fine.']);
     }).pipe(Effect.scoped),
   );
 
@@ -33,14 +40,19 @@ describe('spawn_subagent (foreground)', () => {
     Effect.gen(function* () {
       const failed = yield* (yield* setup({ prompt: 'fail' })).spawn();
       assert.isTrue(failed.isError);
-      assert.include(failed.text, 'failed');
+      assert.strictEqual(resultOf(failed.text).status, 'failed');
       const cancelled = yield* (yield* setup({ prompt: 'cancelled' })).spawn();
-      assert.deepStrictEqual(cancelled, { isError: true, text: 'The subagent was cancelled.' });
+      assert.isTrue(cancelled.isError);
+      assert.deepStrictEqual(
+        [resultOf(cancelled.text).status, resultOf(cancelled.text).body],
+        ['cancelled', 'The subagent was cancelled.'],
+      );
       const silent = yield* (yield* setup()).spawn();
-      assert.deepStrictEqual(silent, {
-        isError: true,
-        text: 'The subagent finished without producing a final message.',
-      });
+      assert.isTrue(silent.isError);
+      assert.deepStrictEqual(
+        [resultOf(silent.text).status, resultOf(silent.text).body],
+        ['failed', 'The subagent finished without producing a final message.'],
+      );
     }).pipe(Effect.scoped),
   );
 
@@ -48,7 +60,7 @@ describe('spawn_subagent (foreground)', () => {
     Effect.gen(function* () {
       const h = yield* setup();
       const started = yield* h.spawn({ runInBackground: true });
-      const { subagentId } = JSON.parse(started.text) as { subagentId: string };
+      const subagentId = resultOf(started.text).id;
       const waited = yield* h.call('wait_subagent', { ids: [subagentId] });
       assert.include(waited.text, 'status="failed"');
       assert.include(waited.text, 'The subagent finished without producing a final message.');
@@ -112,7 +124,9 @@ describe('spawn_subagent (foreground)', () => {
       }
       assert.notInclude(h.childCalls, `cancel:${CHILD}`);
       yield* Deferred.succeed(release, null);
-      assert.deepStrictEqual(yield* Fiber.join(call), { isError: false, text: 'done' });
+      const done = yield* Fiber.join(call);
+      assert.isFalse(done.isError);
+      assert.strictEqual(resultOf(done.text).body, 'done');
     }).pipe(Effect.scoped),
   );
 
@@ -132,26 +146,23 @@ describe('spawn_subagent (foreground)', () => {
       yield* TestClock.adjust('240 seconds');
       const running = yield* Fiber.join(call);
       assert.isFalse(running.isError);
-      assert.deepStrictEqual(JSON.parse(running.text), {
-        note: 'The subagent is still running. Call wait_subagent with this id to get its result.',
-        status: 'running',
-        subagentId: CHILD,
-      });
+      assert.deepStrictEqual(
+        [resultOf(running.text).id, resultOf(running.text).status, resultOf(running.text).body],
+        [CHILD, 'running', 'The subagent is still running. Call wait_subagent with this id to get its result.'],
+      );
 
       const stillWaiting = yield* Effect.forkChild(h.call('wait_subagent', { ids: [CHILD], timeoutMs: 1000 }));
       yield* until(() => true);
       yield* TestClock.adjust('1 second');
-      assert.deepStrictEqual(yield* Fiber.join(stillWaiting), {
-        isError: false,
-        text: `<subagent id="${CHILD}" status="running" />`,
-      });
+      const stillRunning = yield* Fiber.join(stillWaiting);
+      assert.isFalse(stillRunning.isError);
+      assert.isTrue(stillRunning.text.endsWith(' />'));
+      assert.deepStrictEqual([resultOf(stillRunning.text).id, resultOf(stillRunning.text).status], [CHILD, 'running']);
 
       yield* Deferred.succeed(release, null);
       const done = yield* h.call('wait_subagent', { ids: [CHILD] });
-      assert.deepStrictEqual(done, {
-        isError: false,
-        text: `<subagent id="${CHILD}" status="completed">\nlate result\n</subagent>`,
-      });
+      assert.isFalse(done.isError);
+      assert.deepStrictEqual([resultOf(done.text).status, resultOf(done.text).body], ['completed', 'late result']);
       // Retained: a second wait still returns it.
       assert.strictEqual((yield* h.call('wait_subagent', { ids: [CHILD] })).text, done.text);
     }).pipe(Effect.scoped),
@@ -175,7 +186,7 @@ describe('spawn_subagent (foreground)', () => {
       const call = yield* Effect.forkChild(h.spawn());
       yield* until(() => h.childCalls.includes(`prompt:${CHILD}`));
       yield* TestClock.adjust('240 seconds');
-      assert.strictEqual((JSON.parse((yield* Fiber.join(call)).text) as { status: string }).status, 'running');
+      assert.strictEqual(resultOf((yield* Fiber.join(call)).text).status, 'running');
 
       yield* Deferred.succeed(release, null);
       yield* until(() => parentPrompts.length > 0);
@@ -237,10 +248,8 @@ describe('spawn_subagent (foreground)', () => {
       yield* Deferred.succeed(release, null);
       yield* until(() => parentPrompts.length > 0);
       const waited = yield* h.call('wait_subagent', { ids: [CHILD] });
-      assert.deepStrictEqual(waited, {
-        isError: false,
-        text: `<subagent id="${CHILD}" status="completed">\nlate result\n</subagent>`,
-      });
+      assert.isFalse(waited.isError);
+      assert.deepStrictEqual([resultOf(waited.text).status, resultOf(waited.text).body], ['completed', 'late result']);
       for (let i = 0; i < 30; i += 1) {
         yield* Effect.yieldNow;
       }

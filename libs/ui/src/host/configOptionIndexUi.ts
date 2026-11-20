@@ -76,6 +76,18 @@ export const rowForModel = (
   return modelOption === undefined ? [] : [{ ...modelOption, currentValue: modelId }];
 };
 
+/** A Session configuration rebuilt from recorded option values: the model's row with each recorded value as current (a Restored subagent has no session to read it from). */
+export const configurationFromValues = (
+  index: ConfigOptionIndex | undefined,
+  values: ConfigOptionValues,
+): readonly NormalizedConfigOption[] | undefined => {
+  if (index === undefined) {
+    return undefined;
+  }
+  const { model } = values;
+  return optionsWithValues(rowForModel(index, typeof model === 'string' ? model : index.defaultModelId), values);
+};
+
 /** A Virtual model pick needs a live `set_config_option` when a Bound session exists and the model's row is not hydrated yet. */
 export const needsLazyHydrate = (
   index: ConfigOptionIndex | undefined,

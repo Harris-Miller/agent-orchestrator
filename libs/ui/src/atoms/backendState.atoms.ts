@@ -10,6 +10,7 @@ import {
 } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
+import { configurationFromValues } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
@@ -248,7 +249,14 @@ export const selectedSubagentConfigurationAtom = Atom.family((childId: string) =
   Atom.make((get): SessionConfiguration | undefined => {
     const child = get(selectedSubagentAtom(childId));
     if (child?.kind !== 'spawned') return undefined;
-    return get(backendHarnessSnapshotAtom(child.launchTarget)).sessions[child.sessionId]?.configuration;
+    const live = get(backendHarnessSnapshotAtom(child.launchTarget)).sessions[child.sessionId]?.configuration;
+    // A Restored subagent has no session: its recorded values over the launch target's Config option index.
+    return (
+      live ??
+      (child.restored === undefined
+        ? undefined
+        : configurationFromValues(get(configOptionIndexAtom(child.launchTarget)), child.restored.config))
+    );
   }),
 );
 

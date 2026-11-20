@@ -129,4 +129,11 @@ describe('prepareChatMarkdownText', () => {
 
     assert.strictEqual(prepareChatMarkdownText(input), 'Please fix the bug');
   });
+
+  it('hides a subagent-report block entirely', () => {
+    const input =
+      '<subagent-report id="64908851" status="completed">\nsubagent: Timed hello reply\ntask: Wait\n\nHello, World!\n</subagent-report>';
+
+    assert.strictEqual(prepareChatMarkdownText(input), '');
+  });
 });

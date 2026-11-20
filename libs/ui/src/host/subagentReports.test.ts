@@ -13,6 +13,7 @@ import { select } from '../atoms/virtualSession.atoms.ts';
 import { allLinks } from '../atoms/subagentLinkRegistry.ts';
 
 import { answer, CHILD, PARENT, setup, until } from './spawnSubagent.testing.ts';
+import { parseSubagentResults } from './subagentResult.ts';
 
 const STEERING = { _meta: { steering: { supported: true } } };
 
@@ -54,7 +55,7 @@ describe('spawn_subagent (background)', () => {
 
       const started = yield* h.spawn({ runInBackground: true });
       assert.isFalse(started.isError);
-      assert.strictEqual((JSON.parse(started.text) as { subagentId: string }).subagentId, CHILD);
+      assert.strictEqual(parseSubagentResults(started.text)[0].id, CHILD);
       assert.deepStrictEqual(parentPrompts, []);
 
       yield* Deferred.succeed(release, null);

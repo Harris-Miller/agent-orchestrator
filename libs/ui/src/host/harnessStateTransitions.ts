@@ -40,6 +40,7 @@ import {
   appendUserChatMessage,
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
+  reduceSessionUpdate,
   stampUserMessageTiming,
   upsertSessionFailure,
 } from './sessionUpdateReducer.ts';
@@ -48,6 +49,7 @@ import {
   getSubagent,
   hasBackgroundActivity,
   initialSpawnedSubagentSnapshot,
+  isSubagentTerminal,
   resetSubagentLiveState,
   withSubagentWorkState,
 } from './subagent.ts';
@@ -59,6 +61,7 @@ import {
   withParentChatItem,
 } from './subagentRouting.ts';
 import { withoutUndefined } from '../optionalFields.ts';
+import type { KnownSubagentResult } from './subagentResult.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
@@ -767,6 +770,57 @@ export const mirrorChildIntoParent = (
     mirror.parentId,
     mirror.childId,
   );
+
+const isFinishedResult = (status: KnownSubagentResult['status']): status is 'cancelled' | 'completed' | 'failed' =>
+  status !== 'running';
+
+/**
+ * Fold a Subagent result found in the parent's transcript (live or replayed) into a Restored subagent: read-only, with
+ * its row in the parent's transcript (ensured on every fold, once per child), holding only what the result recorded (glossary). A live mirror
+ * is never touched; a restored one only moves from unknown to a finished state, never back.
+ */
+export const restoreSubagentFromResult = (
+  snapshot: BackendHarnessSnapshot,
+  parentId: string,
+  result: KnownSubagentResult,
+): BackendHarnessSnapshot => {
+  const { launchTarget } = result;
+  const existing = getSubagent(snapshot.subagents, result.id);
+  if (existing !== undefined) {
+    const upgradable =
+      existing.kind === 'spawned' &&
+      existing.restored !== undefined &&
+      isFinishedResult(result.status) &&
+      !isSubagentTerminal(existing.state);
+    if (!upgradable) {
+      // Still ensure the row: a re-load empties the parent's transcript but keeps the child.
+      return withParentChatItem(snapshot, parentId, result.id);
+    }
+  }
+  const base = existing ?? {
+    ...initialSpawnedSubagentSnapshot(result.id, parentId, launchTarget),
+    name: result.description,
+    restored: { config: result.config },
+    task: result.task,
+  };
+  const restored = isFinishedResult(result.status)
+    ? withSubagentWorkState(
+        {
+          ...base,
+          transcript: reduceSessionUpdate(emptySessionTranscript(), {
+            content: { text: result.body, type: 'text' },
+            sessionUpdate: 'agent_message_chunk',
+          }),
+        },
+        result.status === 'failed' ? { error: result.body, state: 'failed' } : { state: result.status },
+      )
+    : withSubagentWorkState(base, { state: 'unknown' });
+  return withParentChatItem(
+    { ...snapshot, subagents: { ...snapshot.subagents, [result.id]: restored } },
+    parentId,
+    result.id,
+  );
+};
 
 /**
  * Project the child's root entry onto its mirror: transcript and Pending interactions (the same objects, so answering on

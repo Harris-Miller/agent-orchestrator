@@ -11,9 +11,11 @@ import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effe
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
 import type { SessionRef } from '../host/agentLaunchTarget.ts';
+import { configValuesFromOptions } from '../host/configProbe.ts';
 import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
-import { toolError } from '../host/hubToolHandler.ts';
 import type { HubToolResult } from '../host/hubToolHandler.ts';
+import { buildSubagentResult } from '../host/subagentResult.ts';
+import type { SubagentResultStatus } from '../host/subagentResult.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { awaitQueuedMessageTaken, hasQueuedMessage } from './composer.atoms.ts';
@@ -33,12 +35,38 @@ const hasNoFinalMessage = (outcome: SubagentOutcome): boolean =>
 const asAgentOutcome = (outcome: SubagentOutcome): SubagentOutcome =>
   hasNoFinalMessage(outcome) ? { status: 'failed', text: NO_FINAL_MESSAGE } : outcome;
 
-const childRef = (link: SpawnedLink): SessionRef => ({
-  launchTarget: link.childLaunchTarget,
-  sessionId: link.childSessionId,
+/** The child's session ref, from anything that names it (a `SpawnedLink` or `ChildMeta`). */
+export const childRef = (named: Pick<ChildMeta, 'childLaunchTarget' | 'childSessionId'>): SessionRef => ({
+  launchTarget: named.childLaunchTarget,
+  sessionId: named.childSessionId,
 });
 
 const MAX_REPORTED_TASK_CHARS = 1000;
+
+const truncateTask = (task: string): string =>
+  task.length <= MAX_REPORTED_TASK_CHARS ? task : `${task.slice(0, MAX_REPORTED_TASK_CHARS)}…`;
+
+/** What a Subagent result names about a child: every `SpawnedLink` has it. */
+export type ChildMeta = Pick<SpawnedLink, 'childLaunchTarget' | 'childSessionId' | 'description' | 'task'>;
+
+/** A Subagent result for the child, with its applied Config option values read from its root entry now. */
+export const subagentResultText = (
+  registry: Registry,
+  child: ChildMeta,
+  status: SubagentResultStatus,
+  body: string,
+): string =>
+  buildSubagentResult({
+    body,
+    config: configValuesFromOptions(
+      sessionIn(registry, child.childLaunchTarget, child.childSessionId)?.configuration ?? [],
+    ),
+    description: child.description,
+    id: child.childSessionId,
+    launchTarget: child.childLaunchTarget,
+    status,
+    task: truncateTask(child.task),
+  });
 
 /** The Subagent report text: one neutral shape for every provider. The task is echoed (cut when long). */
 export const buildSubagentReport = (report: {
@@ -48,45 +76,41 @@ export const buildSubagentReport = (report: {
   readonly task: string;
 }): string => {
   const { status, text: body } = asAgentOutcome(report.outcome);
-  const task =
-    report.task.length <= MAX_REPORTED_TASK_CHARS ? report.task : `${report.task.slice(0, MAX_REPORTED_TASK_CHARS)}…`;
+  const task = truncateTask(report.task);
   return `<subagent-report id="${report.id}" status="${status}">\nsubagent: ${report.description}\ntask: ${task}\n\n${body}\n</subagent-report>`;
 };
 
 /**
  * The agent's own foreground call collects `outcome`: the hand-over is taken (suppressing a report not yet sent) and
- * the call's tool result returned. It always answers, even when a report already went out.
+ * the call's tool result (a Subagent result) returned. It always answers, even when a report already went out.
  */
 export const takeOutcomeAsToolResult = (
   registry: Registry,
-  child: SessionRef,
+  child: ChildMeta,
   outcome: SubagentOutcome,
 ): HubToolResult => {
-  claimHandle(registry, child, 'waited');
-  if (hasNoFinalMessage(outcome)) {
-    return toolError(NO_FINAL_MESSAGE);
-  }
+  claimHandle(registry, childRef(child), 'waited');
   const { status, text } = asAgentOutcome(outcome);
-  if (status === 'completed') {
-    return { isError: false, text };
-  }
-  return toolError(status === 'cancelled' ? 'The subagent was cancelled.' : `The subagent failed: ${text}`);
+  return {
+    isError: status !== 'completed',
+    text: subagentResultText(registry, child, status, text),
+  };
 };
 
 /**
- * One `wait_subagent` entry: waits up to `bound` for the link's outcome, then `<subagent id status="running" />`, or
- * the collected outcome (taking the hand-over like `takeOutcomeAsToolResult`).
+ * One `wait_subagent` entry: waits up to `bound` for the link's outcome, then a running Subagent result, or the
+ * collected outcome (taking the hand-over like `takeOutcomeAsToolResult`).
  */
 export const awaitOutcomeEntry = (registry: Registry, link: SpawnedLink, bound: Duration.Duration) =>
   Deferred.await(link.outcome).pipe(
     Effect.timeoutOption(bound),
     Effect.map(outcome => {
       if (outcome._tag === 'None') {
-        return `<subagent id="${link.childSessionId}" status="running" />`;
+        return subagentResultText(registry, link, 'running', '');
       }
       claimHandle(registry, childRef(link), 'waited');
       const { status, text } = asAgentOutcome(outcome.value);
-      return `<subagent id="${link.childSessionId}" status="${status}">\n${text}\n</subagent>`;
+      return subagentResultText(registry, link, status, text);
     }),
   );
 

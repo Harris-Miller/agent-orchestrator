@@ -17,7 +17,10 @@ import { isSessionFailureAction, isSessionFailureSeverity } from '@libs/effect-a
 
 import { isSkillCommand, sessionFailureOf } from './airMeta.ts';
 import { findMarkdownLinks } from './draftToContentBlocks.ts';
+import { knownLaunchTarget } from './agentLaunchTarget.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
+import { isHubSubagentToolTitle, parseSubagentResults } from './subagentResult.ts';
+import type { KnownSubagentResult } from './subagentResult.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -68,6 +71,8 @@ export type ChatItem =
       readonly planFilePath?: string;
       readonly resultText?: string;
       readonly status: string;
+      /** Subagent results of a Hub `spawn_subagent` / `wait_subagent` call (ADR 0013); non-empty folds the row into the Subagent row. */
+      readonly subagentResults?: readonly KnownSubagentResult[];
       readonly title: string;
       readonly toolCallId: string;
       readonly toolKind?: ToolKind;
@@ -354,6 +359,10 @@ const extractPlanFilePath = (rawInput: unknown): string | undefined => {
   return path.startsWith('/') || WINDOWS_DRIVE.test(path) ? path : undefined;
 };
 
+/** Spreads `{ subagentResults }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
+const withSubagentResults = (results: readonly KnownSubagentResult[] | undefined) =>
+  results === undefined ? {} : { subagentResults: results };
+
 /** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
 const withPlanFilePath = (planFilePath: string | undefined) => (planFilePath === undefined ? {} : { planFilePath });
 
@@ -455,6 +464,64 @@ const upsertInterSessionMessage = (
     }),
   ];
   return { ...transcript, items, messageIndices: new Map(transcript.messageIndices).set(messageId, items.length - 1) };
+};
+
+/**
+ * Text found in an ACP `rawOutput`: a string (JSON-stringified payloads are parsed), `{ text }`, `{ content }`, an
+ * array of those, or a serde-style externally-tagged object (`{ "Ok": { content: [...] } }`), a few levels deep.
+ */
+const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
+  if (typeof raw === 'string') {
+    if (depth <= 5 && /^\s*["{[]/.test(raw)) {
+      try {
+        return textFromRawOutput(JSON.parse(raw), depth + 1) ?? raw;
+      } catch {
+        return raw;
+      }
+    }
+    return raw;
+  }
+  if (depth > 5) {
+    return undefined;
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.map(part => textFromRawOutput(part, depth + 1)).filter(part => part !== undefined);
+    return parts.length > 0 ? parts.join('\n') : undefined;
+  }
+  if (isRecord(raw)) {
+    if (typeof raw.text === 'string') {
+      return raw.text;
+    }
+    if ('content' in raw) {
+      return textFromRawOutput(raw.content, depth + 1);
+    }
+    if (raw.result !== undefined && raw.result !== null) {
+      return textFromRawOutput(raw.result, depth + 1);
+    }
+    const values = Object.values(raw);
+    return values.length === 1 ? textFromRawOutput(values[0], depth + 1) : undefined;
+  }
+  return undefined;
+};
+
+/**
+ * The Subagent results a Hub `spawn_subagent` / `wait_subagent` update carries (none for any other tool call). Codex
+ * replays an MCP result only as `rawOutput`, so that is read when `content` has no text.
+ */
+const subagentResultsOf = (
+  title: string,
+  update: Record<string, unknown>,
+): readonly KnownSubagentResult[] | undefined => {
+  if (!isHubSubagentToolTitle(title)) {
+    return undefined;
+  }
+  const text = extractTextFromContent(update.content) ?? textFromRawOutput(update.rawOutput);
+  // Only results the restore can act on: a skipped one keeps its generic row.
+  const results = (text === undefined ? [] : parseSubagentResults(text)).flatMap(result => {
+    const launchTarget = knownLaunchTarget(result.launchTarget);
+    return launchTarget === undefined ? [] : [{ ...result, launchTarget }];
+  });
+  return results.length > 0 ? results : undefined;
 };
 
 /** Insert the `subagent` row once per child id (replayed spawns never duplicate). */
@@ -694,6 +761,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           ...withPlanFilePath(extractPlanFilePath(update.rawInput)),
           resultText: extractTextFromContent(update.content),
           status,
+          ...withSubagentResults(subagentResultsOf(update.title, update)),
           title: update.title,
           toolCallId: update.toolCallId,
           toolKind: isToolKind(update.kind) ? update.kind : undefined,
@@ -729,6 +797,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
             ...withPlanFilePath(planFilePath ?? existing.planFilePath),
             resultText: resultText ?? existing.resultText,
             status: status ?? existing.status,
+            ...withSubagentResults(subagentResultsOf(title ?? existing.title, update) ?? existing.subagentResults),
             title: title ?? existing.title,
             toolKind: toolKind ?? existing.toolKind,
           };
@@ -746,6 +815,7 @@ export const reduceSessionUpdate = (transcript: SessionTranscript, update: unkno
           ...withPlanFilePath(planFilePath),
           resultText,
           status: status ?? 'unknown',
+          ...withSubagentResults(subagentResultsOf(title ?? update.toolCallId, update)),
           title: title ?? update.toolCallId,
           toolCallId: update.toolCallId,
           toolKind,

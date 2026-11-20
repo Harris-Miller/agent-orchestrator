@@ -6,7 +6,13 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
-import { airRowMetaOf, isArchivedEntry, recommendedValueOf, withLastPromptAt } from './airMeta.ts';
+import {
+  airRowMetaOf,
+  isArchivedEntry,
+  recommendedValueOf,
+  withLastPromptAt,
+  withoutLiveActivityState,
+} from './airMeta.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -301,6 +307,12 @@ export const touchHistoryLastPromptAt = <T extends NormalizedSessionInfo>(
   at: string,
 ): readonly T[] => history.map(entry => (entry.sessionId === sessionId ? withLastPromptAt(entry, at) : entry));
 
+/** Drop the matching history row's stale running / requires-action **Activity state** (its turn has ended). Unknown row: unchanged. */
+export const clearHistoryActivityState = <T extends NormalizedSessionInfo>(
+  history: readonly T[],
+  sessionId: string,
+): readonly T[] => history.map(entry => (entry.sessionId === sessionId ? withoutLiveActivityState(entry) : entry));
+
 export const normalizeSessionHistory = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];
@@ -312,9 +324,10 @@ export const normalizeSessionHistory = (listResult: unknown): readonly Normalize
   });
 };
 
-/** The time a row sorts by: its **Last prompt time** (`_meta.jetbrains.air.lastPromptAt`), else `updatedAt`. Missing or invalid reads as negative infinity. */
+/** The time a row sorts by: its **Last prompt time** (`_meta.jetbrains.air.lastPromptAt`), else `updatedAt` (also when the Last prompt time is unparseable). Neither usable reads as negative infinity. */
 const sortTimeMs = (entry: NormalizedSessionInfo): number => {
-  const time = Date.parse(airRowMetaOf(entry).lastPromptTime ?? entry.updatedAt ?? '');
+  const prompted = Date.parse(airRowMetaOf(entry).lastPromptTime ?? '');
+  const time = Number.isFinite(prompted) ? prompted : Date.parse(entry.updatedAt ?? '');
   return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
 };
 

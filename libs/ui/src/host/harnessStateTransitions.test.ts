@@ -349,6 +349,28 @@ describe('endPromptTurn', () => {
     assert.isUndefined(noMeta.sessionHistory[0]._meta);
   });
 
+  it('drops a running / requires_action Activity state on turn end, keeping error and the rest of _meta', () => {
+    const rowWith = (state?: string) => ({
+      _meta: { jetbrains: { air: { model: 'm', ...(state === undefined ? {} : { state }) } }, other: 1 },
+      cwd: '/proj',
+      sessionId: 's1',
+    });
+    const afterEnd = (state?: string) => {
+      const snapshot: BackendHarnessSnapshot = {
+        ...readySnapshot({ s1: activeSession('s1') }),
+        sessionHistory: [rowWith(state)],
+      };
+      const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });
+      assert.strictEqual(begun._tag, 'Begun');
+      if (begun._tag !== 'Begun') return undefined;
+      return endPromptTurn(begun.snapshot, 's1', begun.turnId, 9).sessionHistory[0]._meta;
+    };
+    assert.deepStrictEqual(afterEnd('running'), rowWith()._meta);
+    assert.deepStrictEqual(afterEnd('requires_action'), rowWith()._meta);
+    assert.deepStrictEqual(afterEnd('error'), rowWith('error')._meta);
+    assert.deepStrictEqual(afterEnd(), rowWith()._meta);
+  });
+
   it('leaves the History unchanged when the Session has no History row', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
     const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });

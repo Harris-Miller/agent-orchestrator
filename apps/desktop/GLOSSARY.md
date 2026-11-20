@@ -91,11 +91,11 @@ Cached `session/list` results across mounted backend harnesses, and the list UI 
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Last prompt time**:
-When the user last prompted a session, as the Agent's `session/list` row reports it; a row without one has its `updatedAt` in its place. The Session History order key: agent activity that is not a user prompt (a long turn finishing, a background update) does not move a row. A live Prompt turn end advances it optimistically, never backwards.
+When the user last prompted a session, as the Agent's `session/list` row reports it; a row without one has its `updatedAt` in its place. The Session History order key: agent activity that is not a user prompt (a long turn finishing, a background update) does not move a row. A live Prompt turn end advances it optimistically, never backwards, and only on a row that already carries one (a row without one keeps falling back to `updatedAt`).
 _Avoid_: last activity, last updated, recency
 
 **Activity state**:
-What the Agent's `session/list` row says a session is doing: running, requires action (awaiting the user's input), or error. Shown as a badge on the Session History row. An idle row, an unknown value, a row without one (Codex knows it only for threads it has loaded), and a cached row not yet confirmed by a list show none; a Pending client request spinner on the row replaces it. A snapshot read at list time, not live: it changes only when the row is next listed.
+What the Agent's `session/list` row says a session is doing: running, requires action (awaiting the user's input), or error. Shown as a badge on the Session History row. An idle row, an unknown value, a row without one (Codex knows it only for threads it has loaded), and a cached row not yet confirmed by a list show none; a Pending client request spinner on the row replaces it. A snapshot read at list time, not live: it changes only when the row is next listed, except that a live Prompt turn end clears a running or requires-action state on that session's row.
 _Avoid_: status, session status
 
 **Fork source**:

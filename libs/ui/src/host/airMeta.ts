@@ -62,6 +62,17 @@ export const withLastPromptAt = <T extends Readonly<Record<string, unknown>>>(en
   return withAirField(entry, 'lastPromptAt', at);
 };
 
+/** `entry` without a `running` / `requires_action` `_meta.jetbrains.air.state` (stale once its turn ends); `error`, unknown or absent state: unchanged. The rest of `_meta` is kept. */
+export const withoutLiveActivityState = <T extends Readonly<Record<string, unknown>>>(entry: T): T => {
+  const air = airOf(entry);
+  if (air === undefined || (air.state !== 'running' && air.state !== 'requires_action')) {
+    return entry;
+  }
+  const { state: _state, ...rest } = air;
+  const meta = entry._meta as { jetbrains: Record<string, unknown> };
+  return { ...entry, _meta: { ...meta, jetbrains: { ...meta.jetbrains, air: rest } } };
+};
+
 /** Activity state of a `session/list` row that earns a badge; `idle` and unknown states read as absent. */
 export type AirActivityState = 'error' | 'requires_action' | 'running';
 

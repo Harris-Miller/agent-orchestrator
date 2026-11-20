@@ -44,6 +44,23 @@ describe('groupAndSortSessionsForNav', () => {
     );
   });
 
+  it('falls back to updatedAt when the Last prompt time is unparseable', () => {
+    const groups = groupAndSortSessionsForNav(
+      [
+        row('/p', 'older', '2024-01-01T00:00:00.000Z'),
+        {
+          ...row('/p', 'garbled', '2024-06-01T00:00:00.000Z'),
+          _meta: { jetbrains: { air: { lastPromptAt: 'garbage' } } },
+        },
+      ],
+      ['/p'],
+    );
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['garbled', 'older'],
+    );
+  });
+
   it('keeps a Project with no rows as an empty group', () => {
     assert.deepStrictEqual(groupAndSortSessionsForNav([], ['/p']), [{ cwd: '/p', sessions: [] }]);
   });

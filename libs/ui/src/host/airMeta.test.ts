@@ -11,6 +11,7 @@ import {
   recommendedValueOf,
   sessionFailureOf,
   withLastPromptAt,
+  withoutLiveActivityState,
 } from './airMeta.ts';
 
 describe('isLoadReplayEnd', () => {
@@ -152,5 +153,24 @@ describe('withLastPromptAt', () => {
     assert.strictEqual(withLastPromptAt(existing, 'nope'), existing);
     const none = row();
     assert.strictEqual(withLastPromptAt(none, '2026-03-01T00:00:00.000Z'), none);
+  });
+});
+
+describe('withoutLiveActivityState', () => {
+  const row = (state?: string) => ({
+    _meta: { jetbrains: { air: { model: 'm', ...(state === undefined ? {} : { state }) } }, other: 1 },
+    sessionId: 's',
+  });
+
+  it('drops running and requires_action, keeping the rest of _meta', () => {
+    for (const state of ['running', 'requires_action']) {
+      assert.deepStrictEqual(withoutLiveActivityState(row(state)), row());
+    }
+  });
+
+  it('leaves error, unknown, absent state and rows without _meta unchanged', () => {
+    for (const entry of [row('error'), row('weird'), row(), { sessionId: 's' }]) {
+      assert.strictEqual(withoutLiveActivityState(entry), entry);
+    }
   });
 });

@@ -13,9 +13,11 @@ import type {
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import {
+  clearHistoryActivityState,
   initialBackendHarnessSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
+  touchHistoryLastPromptAt,
   touchHistoryUpdatedAt,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
@@ -354,17 +356,24 @@ export const endPromptTurn = (
   endedAt: number,
 ): BackendHarnessSnapshot => {
   const ended = endClientRequest(snapshot, sessionId);
-  return ended === snapshot
-    ? snapshot
-    : {
-        ...ended,
-        // Idle age for the Idle session sweep: the turn end is the Session's last activity.
-        sessionHistory: touchHistoryUpdatedAt(ended.sessionHistory, sessionId, new Date(endedAt).toISOString()),
-        sessions: patchSession(ended.sessions, sessionId, session => ({
-          ...session,
-          transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),
-        })),
-      };
+  if (ended === snapshot) {
+    return snapshot;
+  }
+  const endedIso = new Date(endedAt).toISOString();
+  return {
+    ...ended,
+    // Idle age for the Idle session sweep: the turn end is the Session's last activity.
+    // A prompt turn is a user prompt: it also advances a row's Last prompt time (which orders the History).
+    // The turn has ended, so a listed running / requires-action badge would be stale.
+    sessionHistory: clearHistoryActivityState(
+      touchHistoryLastPromptAt(touchHistoryUpdatedAt(ended.sessionHistory, sessionId, endedIso), sessionId, endedIso),
+      sessionId,
+    ),
+    sessions: patchSession(ended.sessions, sessionId, session => ({
+      ...session,
+      transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),
+    })),
+  };
 };
 
 /** Add or revise the Session failure row in `sessionId`'s chat (see `upsertSessionFailure`); unknown session: unchanged. */

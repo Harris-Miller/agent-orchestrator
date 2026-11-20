@@ -1,3 +1,4 @@
+import { useAtomValue } from '@effect/atom-react';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
@@ -9,6 +10,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
+import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
+import { airRowMetaOf, isArchivedEntry } from '../../host/airMeta.ts';
 import type {
   NormalizedConfigChoice,
   NormalizedConfigOption,
@@ -250,13 +253,66 @@ export const SessionStateContent: FC<{
   );
 };
 
+const ROW_FIELD_LABELS = [
+  ['Activity state', 'activityState'],
+  ['Last prompt time', 'lastPromptTime'],
+  ['Model', 'model'],
+  ['Cost', 'cost'],
+  ['Fork source', 'forkSource'],
+] as const;
+
+/** What the Session History row of the selected session carries (the Agent's `session/list` row metadata). */
+const HistoryRowState: FC<{ readonly sessionId: string }> = ({ sessionId }) => {
+  const snapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const entry = snapshot?.sessionHistory.find(item => item.sessionId === sessionId);
+  if (entry === undefined) {
+    return (
+      <Typography color="text.secondary" variant="body2">
+        Not in Session History
+      </Typography>
+    );
+  }
+  const meta = airRowMetaOf(entry);
+  const rows: readonly (readonly [string, string])[] = [
+    ...ROW_FIELD_LABELS.map(([label, key]) => {
+      const value = meta[key];
+      return [label, value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : value] as const;
+    }),
+    ['Updated at', entry.updatedAt ?? '—'],
+    ['Archived', String(isArchivedEntry(entry))],
+    ['Unavailable', String('unavailable' in entry && entry.unavailable === true)],
+  ];
+  return (
+    <Stack spacing={0.5}>
+      {rows.map(([label, value]) => (
+        <Typography key={label} variant="body2">
+          <Typography color="text.secondary" component="span" variant="body2">
+            {label}:{' '}
+          </Typography>
+          <span style={{ fontFamily: FONT_FAMILY_MONO }}>{value}</span>
+        </Typography>
+      ))}
+    </Stack>
+  );
+};
+
 /** Session State body for the Developer panel tab. */
 export const SessionStateView: FC<{
   readonly session?: SessionSnapshot;
 }> = ({ session }) => (
-  <SessionStateContent
-    availableCommands={session?.availableCommands}
-    session={session}
-    showSessionDetails={session?.status === 'active'}
-  />
+  <Stack spacing={2}>
+    <SessionStateContent
+      availableCommands={session?.availableCommands}
+      session={session}
+      showSessionDetails={session?.status === 'active'}
+    />
+    {session === undefined ? null : (
+      <>
+        <Divider />
+        <Section title="History row">
+          <HistoryRowState sessionId={session.sessionId} />
+        </Section>
+      </>
+    )}
+  </Stack>
 );

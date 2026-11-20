@@ -87,8 +87,20 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and listed per Project on desktop (one `session/list` per launch target and Project `cwd`, paged to exhaustion in the background after the Harness is usable; pages merge by `sessionId` as they arrive; see **Project list completeness**) and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest `updatedAt` first). Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
+Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and listed per Project on desktop (one `session/list` per launch target and Project `cwd`, paged to exhaustion in the background after the Harness is usable; pages merge by `sessionId` as they arrive; see **Project list completeness**) and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first). Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
+
+**Last prompt time**:
+When the user last prompted a session, as the Agent's `session/list` row reports it; a row without one has its `updatedAt` in its place. The Session History order key: agent activity that is not a user prompt (a long turn finishing, a background update) does not move a row. A live Prompt turn end advances it optimistically, never backwards, and only on a row that already carries one (a row without one keeps falling back to `updatedAt`).
+_Avoid_: last activity, last updated, recency
+
+**Activity state**:
+What the Agent's `session/list` row says a session is doing: running, requires action (awaiting the user's input), or error. Not shown on the Session History row; visible in the Developer panel's Session State tab. An idle row, an unknown value, a row without one (Codex knows it only for threads it has loaded) have none. A snapshot read at list time, not live: it changes only when the row is next listed, except that a live Prompt turn end clears a running or requires-action state on that session's row.
+_Avoid_: status, session status
+
+**Fork source**:
+The session an Agent's `session/list` row says a forked session was forked from. Not shown on the Session History row; visible in the Developer panel's Session State tab.
+_Avoid_: parent session, origin (a Subagent session has a parent; a fork has none)
 
 **Show archived**:
 User settings toggle, set from the Session History header, that includes archived History entries when browsing Session History, marked as archived. Session History search includes archived entries regardless of this toggle. Off when unset. Filters the cached rows only; never changes what `session/list` asks the agent for (`@lib/ui` ADR-0008). Activating an archived History entry unarchives it first.
@@ -123,7 +135,7 @@ A user mark on a History entry (per launch target, persisted in hoa-home). A pin
 _Avoid_: favorite, star, bookmark
 
 **Pinned section**:
-The top Session History region listing visible pinned entries, unarchived before archived, each newest `updatedAt` first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
+The top Session History region listing visible pinned entries, unarchived before archived, each newest Last prompt time first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
 
 **Session actions**:
 The per-session actions (a menu on a History entry row, icon buttons without Pin/Unpin in the Session header): Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown; optimistic: the confirm dialog closes, Selected clears and the History entry leaves Session History at once, `session/delete` runs in the background and a failure is shown as an error toast, the Pin is removed only after it succeeds, and the entry returns on the next list refresh). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry they are Unarchive (which also opens it), Pin/Unpin, and Delete. Both presentations share the same actions and availability rules. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).

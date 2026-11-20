@@ -8,7 +8,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { SessionRef } from '../host/agentLaunchTarget.ts';
-import { IDLE_SWEEP_INTERVAL_MS, IDLE_THRESHOLD_MS, selectIdleSessions, sessionIsBusy } from '../host/idleSessions.ts';
+import { canCloseNow, IDLE_SWEEP_INTERVAL_MS, IDLE_THRESHOLD_MS, selectIdleSessions } from '../host/idleSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
@@ -22,23 +22,19 @@ const selectedSessionId = (registry: Registry): string | undefined => {
   return selected?._tag === 'Session' ? selected.sessionId : undefined;
 };
 
+type CloseSession = (target: SessionRef) => Effect.Effect<unknown, unknown>;
+
 /** Selection and live work are re-read right before the close: the user may have just selected the chat. */
-const stillIdle = (registry: Registry, { launchTarget, sessionId }: SessionRef): boolean => {
-  const snapshot = registry.get(backendHarnessSnapshotAtom(launchTarget));
-  const session = sessionId in snapshot.sessions ? snapshot.sessions[sessionId] : undefined;
-  return (
-    session?.status === 'active' &&
-    selectedSessionId(registry) !== sessionId &&
-    !registry.get(handoffInProgressAtom) &&
-    !sessionIsBusy(snapshot, session)
-  );
-};
+const canCloseTargetNow = (registry: Registry, { launchTarget, sessionId }: SessionRef): boolean =>
+  canCloseNow({
+    handoffInProgress: registry.get(handoffInProgressAtom),
+    selectedSessionId: selectedSessionId(registry),
+    sessionId,
+    snapshot: registry.get(backendHarnessSnapshotAtom(launchTarget)),
+  });
 
 /** One tick: close every idle Session, one at a time. A failed close is logged and retried on the next tick. */
-export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (
-  registry: Registry,
-  close: (target: SessionRef) => Effect.Effect<unknown, unknown>,
-) {
+export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (registry: Registry, close: CloseSession) {
   const now = yield* Clock.currentTimeMillis;
   for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
     const idle = selectIdleSessions({
@@ -50,7 +46,7 @@ export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (
     });
     for (const sessionId of idle) {
       const target = { launchTarget, sessionId };
-      if (stillIdle(registry, target)) {
+      if (canCloseTargetNow(registry, target)) {
         yield* Effect.logInfo('Idle session sweep closing', launchTarget, sessionId);
         yield* close(target).pipe(
           Effect.catchCause(cause =>
@@ -62,7 +58,7 @@ export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (
   }
 });
 
-export const runIdleSweep = (registry: Registry, close: (target: SessionRef) => Effect.Effect<unknown, unknown>) =>
+export const runIdleSweep = (registry: Registry, close: CloseSession) =>
   Effect.repeat(sweepIdleSessions(registry, close), Schedule.spaced(Duration.millis(IDLE_SWEEP_INTERVAL_MS)));
 
 export const createIdleSweepAtoms = (

@@ -2,7 +2,7 @@
 import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 
-import type { BackendHarnessSnapshot, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
+import type { BackendHarnessSnapshot, SessionConfiguration, UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import {
   agentLaunchTargetLabel,
   ALL_AGENT_LAUNCH_TARGETS,
@@ -237,6 +237,19 @@ export const selectedSubagentAtom = Atom.family((childId: string) =>
  */
 export const selectedSubagentNameAtom = Atom.family((childId: string | undefined) =>
   Atom.make(get => (childId === undefined ? undefined : get(selectedSubagentAtom(childId))?.name)),
+);
+
+/**
+ * Narrows to a Spawned subagent's Config options, read from its own launch target snapshot (ADR 0011); undefined for
+ * a Native child or an absent one. Returns the reference-stable `configuration` array, so a row re-renders only when
+ * that child's Config changes. Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
+export const selectedSubagentConfigurationAtom = Atom.family((childId: string) =>
+  Atom.make((get): SessionConfiguration | undefined => {
+    const child = get(selectedSubagentAtom(childId));
+    if (child?.kind !== 'spawned') return undefined;
+    return get(backendHarnessSnapshotAtom(child.launchTarget)).sessions[child.sessionId]?.configuration;
+  }),
 );
 
 /**

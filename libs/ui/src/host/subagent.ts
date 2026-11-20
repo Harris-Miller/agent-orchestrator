@@ -51,6 +51,12 @@ export type SubagentRecord = Readonly<Record<string, SubagentSnapshot>>;
 const getSession = (sessions: Readonly<Record<string, SessionSnapshot>>, sessionId: string) =>
   sessionId in sessions ? sessions[sessionId] : undefined;
 
+/** The launch target a child lives on: its own when spawned, else the parent's. */
+export const subagentLaunchTarget = (
+  child: SubagentSnapshot,
+  parentLaunchTarget: AgentLaunchTarget,
+): AgentLaunchTarget => (child.kind === 'spawned' ? child.launchTarget : parentLaunchTarget);
+
 /** Typed lookup (Record indexing is not `| undefined`). */
 export const getSubagent = (subagents: SubagentRecord, sessionId: string): SubagentSnapshot | undefined =>
   sessionId in subagents ? subagents[sessionId] : undefined;

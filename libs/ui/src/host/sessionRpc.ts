@@ -168,14 +168,15 @@ export const listSessions = Effect.fn('listSessions')(
 );
 
 /**
- * Make `launchTarget`'s session list subscriptions cover exactly `cwds` (at most 128; the rest are not subscribed and
+ * Make `launchTarget`'s session list subscriptions cover exactly `resolveCwds()` (at most 128; the rest are not subscribed and
  * keep re-listing). Unsubscribes dropped cwds, then subscribes added ones. A no-op without a live connection or the
  * `sessionListSubscribe` capability. A failed call is logged, never raised: a failed subscribe leaves that cwd
  * unsubscribed; a failed unsubscribe keeps the entry (still counted against the cap) for the next sync to retry.
+ * `resolveCwds` runs once the serialization permit is held, so a queued sync never applies a stale snapshot.
  */
 export const syncSessionListSubscriptions = Effect.fn('syncSessionListSubscriptions')(function* (
   launchTarget: AgentLaunchTarget,
-  cwds: readonly string[],
+  resolveCwds: () => readonly string[],
 ) {
   const connection = backendConnections.get(launchTarget);
   if (connection === undefined || !connection.sessionListSubscribeSupported) {
@@ -184,7 +185,7 @@ export const syncSessionListSubscriptions = Effect.fn('syncSessionListSubscripti
   const { cwdBySubscription, sessionListSubscribe, sessionListUnsubscribe, subscriptionByCwd } = connection;
   yield* connection.subscriptionSync.withPermits(1)(
     Effect.gen(function* () {
-      const plan = planSessionListSubscriptions(cwds, subscriptionByCwd.keys());
+      const plan = planSessionListSubscriptions(resolveCwds(), subscriptionByCwd.keys());
       yield* Effect.forEach(
         plan.unsubscribe,
         cwd =>

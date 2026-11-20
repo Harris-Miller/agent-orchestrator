@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect, Exit, Scope } from 'effect';
+import { Deferred, Effect, Exit, Fiber, Scope } from 'effect';
 
 import type { BackendConnectionReports } from './sessionRpc.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
@@ -145,18 +145,18 @@ describe('session list subscriptions', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const scope = yield* register(calls, true);
-      yield* syncSessionListSubscriptions(LT, ['/a', '/b']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a', '/b']);
       assert.deepStrictEqual(calls, ['sub /a', 'sub /b']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/b'), '/b');
 
       calls.length = 0;
-      yield* syncSessionListSubscriptions(LT, ['/b', '/c']);
+      yield* syncSessionListSubscriptions(LT, () => ['/b', '/c']);
       assert.deepStrictEqual(calls, ['unsub id-/a', 'sub /c']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
       assert.strictEqual(cwdOfSubscription(LT, 'nope'), undefined);
 
       calls.length = 0;
-      yield* syncSessionListSubscriptions(LT, ['/b', '/c']);
+      yield* syncSessionListSubscriptions(LT, () => ['/b', '/c']);
       assert.deepStrictEqual(calls, []);
       yield* Scope.close(scope, Exit.void);
     }),
@@ -166,10 +166,7 @@ describe('session list subscriptions', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const scope = yield* register(calls, true);
-      yield* syncSessionListSubscriptions(
-        LT,
-        Array.from({ length: 130 }, (_, index) => `/p${index}`),
-      );
+      yield* syncSessionListSubscriptions(LT, () => Array.from({ length: 130 }, (_, index) => `/p${index}`));
       assert.strictEqual(calls.length, 128);
       yield* Scope.close(scope, Exit.void);
     }),
@@ -178,9 +175,9 @@ describe('session list subscriptions', () => {
   it.effect('makes no calls without the capability or without a connection', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
-      yield* syncSessionListSubscriptions(LT, ['/a']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a']);
       const scope = yield* register(calls, false);
-      yield* syncSessionListSubscriptions(LT, ['/a']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a']);
       assert.deepStrictEqual(calls, []);
       yield* Scope.close(scope, Exit.void);
     }),
@@ -205,15 +202,15 @@ describe('session list subscriptions', () => {
       ).pipe(Scope.provide(scope));
       setBackendSessionListSubscribe(LT, true);
       const many = Array.from({ length: 128 }, (_, index) => `/p${index}`);
-      yield* syncSessionListSubscriptions(LT, many);
+      yield* syncSessionListSubscriptions(LT, () => many);
 
-      yield* syncSessionListSubscriptions(LT, ['/new', ...many.slice(1)]);
+      yield* syncSessionListSubscriptions(LT, () => ['/new', ...many.slice(1)]);
       assert.deepStrictEqual(calls, ['unsub id-/p0']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/p0'), '/p0');
       assert.strictEqual(cwdOfSubscription(LT, 'id-/new'), undefined);
 
       failUnsubscribe = false;
-      yield* syncSessionListSubscriptions(LT, ['/new', ...many.slice(1)]);
+      yield* syncSessionListSubscriptions(LT, () => ['/new', ...many.slice(1)]);
       assert.deepStrictEqual(calls, ['unsub id-/p0', 'unsub id-/p0']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/p0'), undefined);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/new'), '/new');
@@ -221,13 +218,50 @@ describe('session list subscriptions', () => {
     }),
   );
 
-  it.effect('logs a failed subscribe instead of raising it and keeps the other cwds', () =>
+  it.effect('does not raise a failed subscribe; the cwd stays unsubscribed and the others are kept', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       const scope = yield* register(calls, true, ['/a']);
-      yield* syncSessionListSubscriptions(LT, ['/a', '/b']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a', '/b']);
       assert.deepStrictEqual(calls, ['sub /a', 'sub /b']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
+      assert.strictEqual(cwdOfSubscription(LT, 'id-/b'), '/b');
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+
+  it.effect('reads the desired cwds once the permit is held, so a queued stale sync cannot win', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* Deferred.make<undefined>();
+      const scope = yield* Scope.make();
+      yield* registerBackendConnection(
+        LT,
+        {
+          agent: {},
+          sessionListSubscribe: ({ cwd }: { cwd: string }) => {
+            calls.push(`sub ${cwd}`);
+            return Deferred.await(gate).pipe(Effect.as({ subscriptionId: `id-${cwd}` }));
+          },
+          sessionListUnsubscribe: ({ subscriptionId }: { subscriptionId: string }) => {
+            calls.push(`unsub ${subscriptionId}`);
+            return Effect.succeed({});
+          },
+        } as unknown as Parameters<typeof registerBackendConnection>[1],
+        recordingReports([]),
+      ).pipe(Scope.provide(scope));
+      setBackendSessionListSubscribe(LT, true);
+
+      let desired = ['/a'];
+      const first = yield* Effect.forkChild(syncSessionListSubscriptions(LT, () => desired));
+      yield* Effect.yieldNow;
+      // Queued behind the first, which still holds the permit; `desired` changes before it runs.
+      const second = yield* Effect.forkChild(syncSessionListSubscriptions(LT, () => desired));
+      desired = ['/a', '/b'];
+      yield* Deferred.succeed(gate, undefined);
+      yield* Fiber.join(first);
+      yield* Fiber.join(second);
+      assert.deepStrictEqual(calls, ['sub /a', 'sub /b']);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/b'), '/b');
       yield* Scope.close(scope, Exit.void);
     }),
@@ -237,11 +271,11 @@ describe('session list subscriptions', () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const scope = yield* register(calls, true);
-      yield* syncSessionListSubscriptions(LT, ['/a']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a']);
       yield* Scope.close(scope, Exit.void);
       assert.strictEqual(cwdOfSubscription(LT, 'id-/a'), undefined);
       calls.length = 0;
-      yield* syncSessionListSubscriptions(LT, ['/a']);
+      yield* syncSessionListSubscriptions(LT, () => ['/a']);
       assert.deepStrictEqual(calls, []);
     }),
   );

@@ -190,7 +190,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
         const cwds = arg === undefined ? get(listedCwdsAtom) : [arg.cwd];
         if (arg === undefined) {
           // A Workspace cwd change lands here too; subscribe before listing so a change between the two is not lost.
-          yield* syncListSubscriptionsOnUsableTargets(get.registry, cwds);
+          yield* syncListSubscriptionsOnUsableTargets(get.registry, () => get.registry.get(listedCwdsAtom));
         }
         yield* listCwdsOnUsableTargets(get.registry, cwds, forkEffect);
         clearSelectedIfMissing(get.registry);

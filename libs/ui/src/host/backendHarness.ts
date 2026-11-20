@@ -174,12 +174,11 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     yield* Effect.logInfo('ACP harness usable', launchTarget);
 
     // Subscribe before listing so a change between the two is never lost; a subscribe failure only leaves that cwd on re-list.
-    const listCwds = resolveListCwds();
-    yield* syncSessionListSubscriptions(launchTarget, listCwds);
+    yield* syncSessionListSubscriptions(launchTarget, resolveListCwds);
 
     // One `session/list` per Project cwd runs in the background of `usable`: `ready` never waits for them and a
     // list failure never fails the harness (it marks that list incomplete).
-    const lists = listCwds.map(cwd => ({ cwd, run: handlers.onSessionListBegin(cwd) }));
+    const lists = resolveListCwds().map(cwd => ({ cwd, run: handlers.onSessionListBegin(cwd) }));
     if (lists.length > 0) {
       yield* Effect.forkScoped(
         runSessionLists(lists, (cwd, onPage) =>

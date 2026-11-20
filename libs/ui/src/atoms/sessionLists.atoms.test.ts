@@ -7,6 +7,7 @@ import { Effect, Layer } from 'effect';
 
 import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { setBackendSessionListSubscribe } from '../host/sessionRpc.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { advertise, CLAUDE, CODEX, connectFakeAgent, freshRegistry, setPhase } from './fakeAgent.testing.ts';
@@ -20,6 +21,7 @@ import {
   listKey,
   projectListStatusAtom,
   sessionListStatesAtom,
+  syncListSubscriptionsOnUsableTargets,
 } from './sessionLists.atoms.ts';
 
 type Page = { readonly sessions: readonly { sessionId: string; cwd: string }[]; readonly nextCursor?: string };
@@ -328,6 +330,59 @@ describe('Per-Project Session History lists', () => {
       run.page({ sessions: [row('/a', 'ok'), { cwd: '/a' }, { sessionId: 'no-cwd' }] });
       yield* run.complete();
       assert.deepStrictEqual(history(CODEX), ['ok']);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('syncListSubscriptionsOnUsableTargets', () => {
+  /** Connection that records `sub <cwd>` / `unsub <cwd>` under `label` in `calls`. */
+  const subscribing = (calls: string[], label: string) => ({
+    agent: {},
+    sessionListSubscribe: ({ cwd }: { cwd: string }) => {
+      calls.push(`${label} sub ${cwd}`);
+      return Effect.succeed({ subscriptionId: `${label}-${cwd}` });
+    },
+    sessionListUnsubscribe: ({ subscriptionId }: { subscriptionId: string }) => {
+      calls.push(`${label} unsub ${subscriptionId}`);
+      return Effect.succeed({});
+    },
+  });
+
+  it.effect('subscribes the current cwds on usable targets only', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* setup([CODEX]);
+      const calls: string[] = [];
+      for (const launchTarget of MOUNTED_AGENT_LAUNCH_TARGETS) {
+        yield* connectFakeAgent(launchTarget, subscribing(calls, launchTarget));
+        setBackendSessionListSubscribe(launchTarget, true);
+      }
+      yield* syncListSubscriptionsOnUsableTargets(registry, () => ['/a', '/b']);
+      assert.deepStrictEqual(calls, [`${CODEX} sub /a`, `${CODEX} sub /b`]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('reads the cwds when it runs, so later calls follow the current Listed cwds', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* setup([CODEX]);
+      const calls: string[] = [];
+      yield* connectFakeAgent(CODEX, subscribing(calls, 'c'));
+      setBackendSessionListSubscribe(CODEX, true);
+      let cwds = ['/a'];
+      yield* syncListSubscriptionsOnUsableTargets(registry, () => cwds);
+      cwds = ['/b'];
+      yield* syncListSubscriptionsOnUsableTargets(registry, () => cwds);
+      assert.deepStrictEqual(calls, ['c sub /a', 'c unsub c-/a', 'c sub /b']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('skips targets that are not usable', () =>
+    Effect.gen(function* () {
+      const { registry } = yield* setup([]);
+      const calls: string[] = [];
+      yield* connectFakeAgent(CODEX, subscribing(calls, 'c'));
+      setBackendSessionListSubscribe(CODEX, true);
+      yield* syncListSubscriptionsOnUsableTargets(registry, () => ['/a']);
+      assert.deepStrictEqual(calls, []);
     }).pipe(Effect.scoped),
   );
 });

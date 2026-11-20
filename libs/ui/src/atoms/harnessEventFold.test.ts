@@ -522,7 +522,7 @@ describe('Harness event fold: session list changes', () => {
       sessionListUnsubscribe: () => Effect.succeed({}),
     });
     setBackendSessionListSubscribe(LT, true);
-    yield* syncSessionListSubscriptions(LT, ['/a']);
+    yield* syncSessionListSubscriptions(LT, () => ['/a']);
   });
   const listOnlyA = (h: Effect.Success<ReturnType<typeof setup>>) => {
     h.registry.set(sessionListScopeAtom, { _tag: 'Cwd', cwd: '/a' });

@@ -173,13 +173,16 @@ export const listCwdsOnUsableTargets = (
     { concurrency: 'unbounded', discard: true },
   );
 
-/** Keeps the session list subscriptions of every usable launch target on exactly the given (Listed) cwds. */
-export const syncListSubscriptionsOnUsableTargets = (registry: AtomRegistry.AtomRegistry, cwds: readonly string[]) =>
+/** Keeps the session list subscriptions of every usable launch target on exactly `resolveCwds()` (the Listed cwds), read when each sync runs. */
+export const syncListSubscriptionsOnUsableTargets = (
+  registry: AtomRegistry.AtomRegistry,
+  resolveCwds: () => readonly string[],
+) =>
   Effect.forEach(
     MOUNTED_AGENT_LAUNCH_TARGETS,
     launchTarget =>
       isUsablePhase(registry.get(backendHarnessSnapshotAtom(launchTarget)).phase)
-        ? syncSessionListSubscriptions(launchTarget, cwds)
+        ? syncSessionListSubscriptions(launchTarget, resolveCwds)
         : Effect.void,
     { concurrency: 'unbounded', discard: true },
   );

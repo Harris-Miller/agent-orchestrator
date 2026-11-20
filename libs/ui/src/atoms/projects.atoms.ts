@@ -52,6 +52,10 @@ export const projectMembershipAtom = Atom.family((cwd: string) =>
   ).pipe(Atom.keepAlive),
 );
 
+/** Current Listed cwds; `projectsAtom` is already updated when the sync calls this. */
+const listedCwdsNow = (registry: AtomRegistry.AtomRegistry) =>
+  listCwdsForScope(registry.get(sessionListScopeAtom), registry.get(projectsAtom));
+
 /**
  * Stop tracking, the data half: removes the Project and drops its rows from in-app Session History, its list states
  * and its persisted index entries. Never touches sessions on the agent or pins. No-op until the Projects file was read.
@@ -74,10 +78,7 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
     );
   }
   clearListStatesOfCwd(registry, cwd);
-  yield* syncListSubscriptionsOnUsableTargets(
-    registry,
-    listCwdsForScope(registry.get(sessionListScopeAtom), document.projects),
-  );
+  yield* syncListSubscriptionsOnUsableTargets(registry, () => listedCwdsNow(registry));
   yield* removeSessionCacheCwd(cwd);
 });
 
@@ -105,10 +106,7 @@ export const createProjectsAtoms = ({
             { discard: true },
           );
           // Subscribe before listing so a change between the two is not lost.
-          yield* syncListSubscriptionsOnUsableTargets(
-            get.registry,
-            listCwdsForScope(get(sessionListScopeAtom), document.projects),
-          );
+          yield* syncListSubscriptionsOnUsableTargets(get.registry, () => listedCwdsNow(get.registry));
           yield* listCwdsOnUsableTargets(get.registry, added, effect => {
             hostRunFork(effect);
           });

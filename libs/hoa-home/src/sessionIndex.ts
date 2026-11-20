@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect';
+import { Effect, Option, Predicate } from 'effect';
 
 import { emptySessionIndex, SessionIndexDocumentJsonString } from './SessionIndexDocument.ts';
 import type { SessionIndexDocument, SessionIndexEntry } from './SessionIndexDocument.ts';
@@ -6,7 +6,7 @@ import { readJsonFile, writeJsonFile } from './harnessFiles.ts';
 import type { LaunchTarget } from './LaunchTarget.ts';
 import { providerFilePath } from './providers.ts';
 
-/** Rows kept per cwd (newest `updatedAt`); pinned sessions of that cwd are kept on top of these. */
+/** Rows kept per cwd (newest Last prompt time, else `updatedAt`); pinned sessions of that cwd are kept on top of these. */
 export const SESSION_INDEX_ROWS_PER_CWD = 10;
 
 export const sessionIndexPath = Effect.fn('sessionIndexPath')(function* (launchTarget: LaunchTarget) {
@@ -26,9 +26,21 @@ export const sessionIndexRows = (
 ): readonly SessionIndexEntry[] =>
   Object.entries(document.cwds).flatMap(([cwd, rows]) => (cwds === undefined || cwds.has(cwd) ? rows : []));
 
+/** Sort time of a row: `_meta.jetbrains.air.lastPromptAt` (Last prompt time) when it parses, else `updatedAt`; unparseable reads as oldest. */
+const sortTime = (entry: SessionIndexEntry): number => {
+  const meta = entry._meta;
+  const last =
+    Predicate.isObject(meta) && Predicate.isObject(meta.jetbrains) && Predicate.isObject(meta.jetbrains.air)
+      ? meta.jetbrains.air.lastPromptAt
+      : undefined;
+  const lastTime = typeof last === 'string' ? Date.parse(last) : Number.NaN;
+  const time = Number.isFinite(lastTime) ? lastTime : Date.parse(entry.updatedAt ?? '');
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+};
+
 const newestFirst = (left: SessionIndexEntry, right: SessionIndexEntry): number => {
-  const l = left.updatedAt ?? '';
-  const r = right.updatedAt ?? '';
+  const l = sortTime(left);
+  const r = sortTime(right);
   if (l !== r) return l < r ? 1 : -1;
   return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
 };

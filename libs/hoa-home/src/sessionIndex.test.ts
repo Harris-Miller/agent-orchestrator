@@ -72,6 +72,36 @@ describe('session index', () => {
       }),
     );
 
+    testIt.effect('caps by Last prompt time (_meta.jetbrains.air.lastPromptAt), else updatedAt', () =>
+      Effect.sync(() => {
+        const filler = Array.from({ length: SESSION_INDEX_ROWS_PER_CWD - 1 }, (_, index) => ({
+          cwd: '/work',
+          sessionId: `f${String(index)}`,
+          updatedAt: '2026-03-01T00:00:00.000Z',
+        }));
+        const prompted = (lastPromptAt: string) => ({ _meta: { jetbrains: { air: { lastPromptAt } } } });
+        const rows = [
+          ...filler,
+          {
+            ...prompted('2026-06-01T00:00:00.000Z'),
+            cwd: '/work',
+            sessionId: 'newPrompt',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            ...prompted('2026-01-01T00:00:00.000Z'),
+            cwd: '/work',
+            sessionId: 'oldPrompt',
+            updatedAt: '2026-12-01T00:00:00.000Z',
+          },
+        ];
+        const ids = capSessionIndexRows(rows, new Set()).map(row => row.sessionId);
+        assert.include(ids, 'newPrompt');
+        assert.notInclude(ids, 'oldPrompt');
+        assert.strictEqual(ids[0], 'newPrompt');
+      }),
+    );
+
     testIt.effect('rewrites only the listed cwds and preserves the others (merge-on-write)', () =>
       Effect.gen(function* () {
         const a = { cwd: '/a', sessionId: 'a1' };

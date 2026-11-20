@@ -23,7 +23,7 @@ import { LucideMuiIcon } from '../LucideMuiIcon.tsx';
 import { noopClientError } from './noopClientError.ts';
 import { SessionActionsMenu } from './SessionActionsMenu.tsx';
 import { SessionActivityBadge } from './SessionActivityBadge.tsx';
-import { activityBadgeOf, rowMetaLine } from './sessionRowMeta.ts';
+import { activityBadgeOf, DEFAULT_SESSION_TITLE, forkSourceTitleOf, rowMetaLine } from './sessionRowMeta.ts';
 import { SessionTitleInlineRename } from './SessionTitleInlineRename.tsx';
 import { useSessionTitleRename } from './useSessionTitleRename.ts';
 
@@ -88,13 +88,13 @@ export const SessionHistoryRow: FC<{
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const pendingClientRequest =
     session?.pendingClientRequest !== undefined || hasBackgroundActivity(snapshot, entry.sessionId);
-  const displayTitle = entry.title ?? 'New Session';
+  const displayTitle = entry.title ?? DEFAULT_SESSION_TITLE;
   const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
   const archived = isArchivedEntry(entry);
   const airMeta = airRowMetaOf(entry);
   const activityBadge = activityBadgeOf(airMeta, { available: !unavailable, pendingClientRequest });
-  const forkSourceRow = snapshot.sessionHistory.find(item => item.sessionId === airMeta.forkSource);
-  const forkSourceTitle = forkSourceRow === undefined ? undefined : (forkSourceRow.title ?? 'New Session');
+  const forkSourceTitle =
+    airMeta.forkSource === undefined ? undefined : forkSourceTitleOf(snapshot.sessionHistory, airMeta.forkSource);
   const metaLine = rowMetaLine(airMeta, forkSourceTitle);
 
   const activateHistoryEntry = () => {

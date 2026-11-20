@@ -30,3 +30,16 @@ export const rowMetaLine = (meta: AirRowMeta, forkSourceTitle: string | undefine
   const parts = rowMetaParts(meta, forkSourceTitle);
   return parts.length === 0 ? undefined : parts.join(' · ');
 };
+
+/** Title shown for a Session without one. */
+export const DEFAULT_SESSION_TITLE = 'New Session';
+
+/** Title of the History row `forkSource` points at; undefined when there is no Fork source or it is not in History. */
+export const forkSourceTitleOf = (
+  history: readonly { readonly sessionId: string; readonly title?: string | undefined }[],
+  forkSource: string | undefined,
+): string | undefined => {
+  if (forkSource === undefined) return undefined;
+  const row = history.find(item => item.sessionId === forkSource);
+  return row === undefined ? undefined : (row.title ?? DEFAULT_SESSION_TITLE);
+};

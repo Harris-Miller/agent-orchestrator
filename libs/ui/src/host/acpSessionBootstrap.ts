@@ -314,7 +314,7 @@ export const normalizeSessionHistory = (listResult: unknown): readonly Normalize
 
 /** The time a row sorts by: its **Last prompt time** (`_meta.jetbrains.air.lastPromptAt`), else `updatedAt`. Missing or invalid reads as negative infinity. */
 const sortTimeMs = (entry: NormalizedSessionInfo): number => {
-  const time = Date.parse(airRowMetaOf(entry).lastPromptAt ?? entry.updatedAt ?? '');
+  const time = Date.parse(airRowMetaOf(entry).lastPromptTime ?? entry.updatedAt ?? '');
   return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
 };
 

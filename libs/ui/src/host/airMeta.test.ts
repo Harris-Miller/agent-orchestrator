@@ -106,7 +106,7 @@ describe('airRowMetaOf', () => {
         activityState: 'requires_action',
         cost: { amount: 1.5, currency: 'USD' },
         forkSource: 'parent',
-        lastPromptAt: '2026-01-01T00:00:00.000Z',
+        lastPromptTime: '2026-01-01T00:00:00.000Z',
         model: 'opus',
       },
     );

@@ -38,12 +38,17 @@ export const isArchivedEntry = (entry: Readonly<Record<string, unknown>>): boole
   return airOf(entry)?.archived === true;
 };
 
-/** `entry` with `_meta.jetbrains.air.archived` set to `archived`; the rest of `_meta` is kept. */
-export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry: T, archived: boolean): T => {
+/** `entry` with `_meta.jetbrains.air[key]` set to `value`; the rest of `_meta` is kept. */
+const withAirField = <T extends Readonly<Record<string, unknown>>>(entry: T, key: string, value: unknown): T => {
   const meta = Predicate.isObject(entry._meta) ? entry._meta : {};
   const jetbrains = Predicate.isObject(meta.jetbrains) ? meta.jetbrains : {};
   const air = Predicate.isObject(jetbrains.air) ? jetbrains.air : {};
-  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, archived } } } };
+  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, [key]: value } } } };
+};
+
+/** `entry` with `_meta.jetbrains.air.archived` set to `archived`; the rest of `_meta` is kept. */
+export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry: T, archived: boolean): T => {
+  return withAirField(entry, 'archived', archived);
 };
 
 /** `entry` with `_meta.jetbrains.air.lastPromptAt` advanced to `at`: only when the row already carries one, never backwards; the rest of `_meta` is kept. */
@@ -54,10 +59,7 @@ export const withLastPromptAt = <T extends Readonly<Record<string, unknown>>>(en
   if (Number.isNaN(incoming) || Number.isNaN(existing) || incoming <= existing) {
     return entry;
   }
-  const meta = Predicate.isObject(entry._meta) ? entry._meta : {};
-  const jetbrains = Predicate.isObject(meta.jetbrains) ? meta.jetbrains : {};
-  const air = Predicate.isObject(jetbrains.air) ? jetbrains.air : {};
-  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, lastPromptAt: at } } } };
+  return withAirField(entry, 'lastPromptAt', at);
 };
 
 /** Activity state of a `session/list` row that earns a badge; `idle` and unknown states read as absent. */
@@ -70,7 +72,7 @@ export type AirRowMeta = {
   /** Session id this Session was forked from (the **Fork source**). */
   readonly forkSource?: string;
   /** **Last prompt time**, ISO string. */
-  readonly lastPromptAt?: string;
+  readonly lastPromptTime?: string;
   readonly model?: string;
 };
 
@@ -92,14 +94,14 @@ export const airRowMetaOf = (entry: Readonly<Record<string, unknown>>): AirRowMe
     Predicate.isObject(cost) && typeof cost.amount === 'number' && Number.isFinite(cost.amount)
       ? cost.amount
       : undefined;
-  const lastPromptAt = nonEmptyString(air.lastPromptAt);
+  const lastPromptTime = nonEmptyString(air.lastPromptAt);
   const model = nonEmptyString(air.model);
   const forkSource = nonEmptyString(air.forkedFrom);
   return {
     ...(isActivityState(air.state) ? { activityState: air.state } : {}),
     ...(amount !== undefined && currency !== undefined ? { cost: { amount, currency } } : {}),
     ...(forkSource === undefined ? {} : { forkSource }),
-    ...(lastPromptAt === undefined ? {} : { lastPromptAt }),
+    ...(lastPromptTime === undefined ? {} : { lastPromptTime }),
     ...(model === undefined ? {} : { model }),
   };
 };

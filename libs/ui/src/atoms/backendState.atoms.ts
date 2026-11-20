@@ -15,7 +15,7 @@ import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent, rootAncestorId } from '../host/subagent.ts';
+import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -202,10 +202,24 @@ export const selectedAgentCanForkAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.sessionFork === true,
 ).pipe(Atom.keepAlive);
 
+/** Whether the selected session's agent supports steering a running turn. */
+export const selectedSteeringSupportedAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
+).pipe(Atom.keepAlive);
+
+/** Whether the selected session has Subagent work running in the background (see `hasBackgroundActivity`). */
+export const selectedBackgroundActiveAtom = Atom.make(get => {
+  const snapshot = get(selectedBackendHarnessSnapshotAtom);
+  const sessionId = get(selectedSessionIdAtom);
+  return snapshot !== undefined && sessionId !== undefined && hasBackgroundActivity(snapshot, sessionId);
+}).pipe(Atom.keepAlive);
+
+const selectedSubagentsRecordAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.subagents);
+
 /** One Subagent child of the selected session's provider; a row re-renders only when its own child changes. */
 export const selectedSubagentAtom = Atom.family((childId: string) =>
   Atom.make(get => {
-    const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+    const subagents = get(selectedSubagentsRecordAtom);
     return subagents === undefined ? undefined : getSubagent(subagents, childId);
   }),
 );
@@ -218,7 +232,7 @@ export const selectedSubagentNameAtom = Atom.family((childId: string) =>
 /** Root ancestor session id of a child of the selected session's provider. */
 export const selectedSubagentRootIdAtom = Atom.family((childId: string) =>
   Atom.make(get => {
-    const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+    const subagents = get(selectedSubagentsRecordAtom);
     return subagents === undefined ? undefined : rootAncestorId(subagents, childId);
   }),
 );
@@ -232,7 +246,7 @@ export const subagentViewAtom = Atom.make(get => {
   if (viewed === undefined || viewed.rootSessionId !== get(selectedSessionIdAtom)) {
     return undefined;
   }
-  const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+  const subagents = get(selectedSubagentsRecordAtom);
   return subagents === undefined || getSubagent(subagents, viewed.childId) === undefined ? undefined : viewed;
 });
 

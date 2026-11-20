@@ -1,8 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
+import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
+
+import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSubagentSnapshot } from '../host/subagent.ts';
+import { routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { composerAtom } from './composer.atoms.ts';
+import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import {
   selectedAgentCanForkAtom,
   selectedAtom,
@@ -90,5 +95,66 @@ describe('narrow selected-snapshot atoms', () => {
       [0, 0, 0, 0, 0, 0, 0],
     );
     assert.strictEqual(childB.count, 1);
+  });
+});
+
+describe('Composer atoms vs Subagent child chunks (real routing)', () => {
+  const [spawn, childMessage] = fixture;
+  const CHILD = 'p1:replay-subagent:toolu_A';
+
+  const setupRouted = () => {
+    const registry = AtomRegistry.make();
+    updateHarnessSnapshot(registry, 'claude-agent-acp', () => {
+      const base = {
+        ...initialBackendHarnessSnapshot(),
+        phase: 'usable' as const,
+        sessionHistory: [{ cwd: '/work', sessionId: 'p1', title: 'T' }],
+        sessions: { p1: initialSessionSnapshot('p1', 'active') },
+      };
+      return routeSubagentUpdate(base, 'p1', spawn.update)!.snapshot;
+    });
+    registry.set(selectedAtom, { _tag: 'Session', sessionId: 'p1' });
+    return registry;
+  };
+
+  it('a child transcript chunk leaves composerAtom and selectedActiveSessionAtom untouched', () => {
+    const registry = setupRouted();
+    const composer = countChanges(registry, composerAtom);
+    const active = countChanges(registry, selectedActiveSessionAtom);
+    const before = [registry.get(composerAtom), registry.get(selectedActiveSessionAtom)];
+
+    updateHarnessSnapshot(
+      registry,
+      'claude-agent-acp',
+      current => routeSubagentUpdate(current, CHILD, childMessage.update)!.snapshot,
+    );
+
+    assert.deepStrictEqual([composer.count, active.count], [0, 0]);
+    assert.strictEqual(registry.get(composerAtom), before[0]);
+    assert.strictEqual(registry.get(selectedActiveSessionAtom), before[1]);
+  });
+
+  it('the selected session own data changing does change composerAtom', () => {
+    const registry = setupRouted();
+    const composer = countChanges(registry, composerAtom);
+    updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
+      ...current,
+      sessions: {
+        ...current.sessions,
+        p1: { ...current.sessions.p1, availableCommands: [{ description: 'd', isSkill: false, name: 'x' }] },
+      },
+    }));
+    assert.strictEqual(composer.count, 1);
+  });
+
+  it('selectedActiveSessionAtom changes when its cwd changes', () => {
+    const registry = setupRouted();
+    const active = countChanges(registry, selectedActiveSessionAtom);
+    updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
+      ...current,
+      sessions: { ...current.sessions, p1: { ...current.sessions.p1, cwd: '/other' } },
+    }));
+    assert.strictEqual(active.count, 1);
+    assert.strictEqual(registry.get(selectedActiveSessionAtom)?.cwd, '/other');
   });
 });

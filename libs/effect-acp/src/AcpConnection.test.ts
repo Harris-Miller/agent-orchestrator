@@ -1,7 +1,11 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { Deferred, Effect, Queue, Ref } from 'effect';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
+import type { FromClientEncoded } from 'effect/rpc/RpcMessage';
 
 import { makeStdioDemuxRoute, routeDecodedMessage } from './AcpConnection.ts';
+import { UnstableClientNotificationRpcs } from './AcpSchema.ts';
+import { SESSION_LIST_CHANGES_METHOD } from './schema/client.ts';
 
 const noop = (): void => undefined;
 
@@ -334,5 +338,68 @@ describe('makeStdioDemuxRoute', () => {
       assert.deepStrictEqual(delivered, [0]);
       assert.isFalse(writes.clientIdByRequest.has('1'));
     }),
+  );
+});
+
+describe('_session/list/changes notification decoding', () => {
+  const notification = (payload: unknown): FromClientEncoded => ({
+    _tag: 'Request',
+    id: '',
+    tag: SESSION_LIST_CHANGES_METHOD,
+    payload,
+    headers: [],
+    isNotification: true,
+  });
+
+  it.effect('drops an undecodable notification and still handles later valid ones', () =>
+    Effect.gen(function* () {
+      const handled = yield* Ref.make<readonly string[]>([]);
+      const sent: unknown[] = [];
+      const done = yield* Deferred.make<undefined>();
+      const writes = yield* Queue.make<FromClientEncoded>();
+      const protocol = yield* RpcServer.Protocol.make(writeRequest =>
+        Effect.gen(function* () {
+          yield* Effect.forkScoped(
+            Effect.forever(Queue.take(writes).pipe(Effect.flatMap(message => writeRequest(0, message)))),
+          );
+          return {
+            clientIds: Effect.succeed(new Set([0])),
+            codecFor: RpcSerialization.ndJsonRpc().codecFor,
+            disconnects: yield* Queue.make<number>(),
+            end: () => Effect.void,
+            initialMessage: Effect.succeedNone,
+            send: (_clientId: number, response: unknown) =>
+              Effect.sync(() => {
+                sent.push(response);
+              }),
+            supportsAck: false,
+            supportsNotifications: true,
+            supportsSpanPropagation: false,
+            supportsTransferables: false,
+          };
+        }),
+      );
+      const handlers = UnstableClientNotificationRpcs.toLayer({
+        [SESSION_LIST_CHANGES_METHOD]: payload =>
+          Ref.update(handled, ids => [...ids, payload.subscriptionId]).pipe(
+            Effect.andThen(Deferred.succeed(done, undefined)),
+            Effect.asVoid,
+          ),
+      });
+      yield* Effect.forkScoped(
+        RpcServer.make(UnstableClientNotificationRpcs, { disableTracing: true }).pipe(
+          Effect.provideService(RpcServer.Protocol, protocol),
+          Effect.provide(handlers),
+        ),
+      );
+
+      yield* Queue.offer(writes, notification({ removed: [], sessions: [] }));
+      yield* Queue.offer(writes, notification({ subscriptionId: 'bad', removed: [], sessions: 'nope' }));
+      yield* Queue.offer(writes, notification({ subscriptionId: 'good', removed: [], sessions: [] }));
+      yield* Deferred.await(done);
+
+      assert.deepStrictEqual(yield* Ref.get(handled), ['good']);
+      assert.deepStrictEqual(sent, []);
+    }).pipe(Effect.scoped),
   );
 });

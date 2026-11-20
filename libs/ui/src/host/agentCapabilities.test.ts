@@ -10,6 +10,7 @@ const ALL: AgentCapabilities = {
   sessionArchive: true,
   sessionClose: true,
   sessionFork: true,
+  sessionListSubscribe: true,
   sessionRename: true,
   sessionResume: true,
   steeringSupported: true,
@@ -17,7 +18,9 @@ const ALL: AgentCapabilities = {
 
 const claudeWithAir = {
   _meta: {
-    jetbrains: { air: { capabilities: ['sessionIndex', 'sessionArchive', 'sessionRename'], version: 1 } },
+    jetbrains: {
+      air: { capabilities: ['sessionIndex', 'sessionArchive', 'sessionListSubscribe', 'sessionRename'], version: 1 },
+    },
     steering: { supported: true },
   },
   agentCapabilities: {
@@ -44,7 +47,7 @@ describe('agentCapabilitiesFrom', () => {
       'Codex without AIR _meta has no archive, rename or steering',
       'codex-acp',
       codexWithoutAir,
-      { ...ALL, sessionArchive: false, sessionRename: false, steeringSupported: false },
+      { ...ALL, sessionArchive: false, sessionListSubscribe: false, sessionRename: false, steeringSupported: false },
     ],
     [
       'Antigravity-like list + resume only',
@@ -66,6 +69,12 @@ describe('agentCapabilitiesFrom', () => {
 
   it.each(table)('%s', (_name, launchTarget, initializeResult, expected) => {
     assert.deepStrictEqual(agentCapabilitiesFrom(launchTarget, initializeResult), expected);
+  });
+
+  it('reads sessionListSubscribe only when listed in the AIR capabilities', () => {
+    const withAir = (capabilities: readonly string[]) => ({ _meta: { jetbrains: { air: { capabilities } } } });
+    assert.isTrue(agentCapabilitiesFrom('codex-acp', withAir(['sessionListSubscribe'])).sessionListSubscribe);
+    assert.isFalse(agentCapabilitiesFrom('codex-acp', withAir(['sessionIndex'])).sessionListSubscribe);
   });
 
   it('reads a session capability given as true or any object as supported', () => {

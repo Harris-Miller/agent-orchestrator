@@ -10,6 +10,7 @@ export const airCapability = {
   sessionArchive: 'sessionArchive',
   sessionFailure: 'sessionFailure',
   sessionIndex: 'sessionIndex',
+  sessionListSubscribe: 'sessionListSubscribe',
   sessionRename: 'sessionRename',
 } as const;
 

@@ -18,6 +18,9 @@ import {
 } from './common.ts';
 import { CreateElicitationRequestBody, CreateElicitationResponseBody } from './elicitation.ts';
 
+/** AIR `_session/list/changes` (Agent→Client notification). Not in stable ClientRpcs. */
+export const SESSION_LIST_CHANGES_METHOD = '_session/list/changes' as const;
+
 const CLIENT_METHODS = {
   elicitation_complete: 'elicitation/complete',
   elicitation_create: 'elicitation/create',
@@ -182,6 +185,16 @@ export class SessionNotification extends Schema.Opaque<SessionNotification>()(
   }),
 ) {}
 
+/** Rows share `session/list`'s flat shape; kept opaque here, normalized by the Harness. */
+export class SessionListChangesNotificationPayload extends Schema.Opaque<SessionListChangesNotificationPayload>()(
+  Schema.Struct({
+    _meta: MetaField,
+    removed: Schema.Array(Schema.String),
+    sessions: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+    subscriptionId: Schema.String,
+  }),
+) {}
+
 export class CompleteElicitationNotification extends Schema.Opaque<CompleteElicitationNotification>()(
   Schema.Struct({
     _meta: MetaField,
@@ -253,4 +266,9 @@ export class SessionUpdateNotification extends Rpc.make(CLIENT_METHODS.session_u
 
 export class ElicitationComplete extends Rpc.make(CLIENT_METHODS.elicitation_complete, {
   payload: CompleteElicitationNotification,
+}) {}
+
+/** AIR `_session/list/changes`. Keep out of ClientNotificationRpcs; served via UnstableClientNotificationRpcs. */
+export class SessionListChangesNotification extends Rpc.make(SESSION_LIST_CHANGES_METHOD, {
+  payload: SessionListChangesNotificationPayload,
 }) {}

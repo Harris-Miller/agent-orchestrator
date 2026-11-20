@@ -15,7 +15,7 @@ import { Cause, Effect, Exit, Ref } from 'effect';
 import { makeAcpLaunchCommand } from './acpLaunchCommand.ts';
 import type { AcpBootstrapPhase } from './acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { clientCapabilitiesFor, supportsMcpHttp } from './agentCapabilities.ts';
+import { agentCapabilitiesFrom, clientCapabilitiesFor, supportsMcpHttp } from './agentCapabilities.ts';
 import {
   ANTIGRAVITY_OAUTH_PERSONAL,
   ANTIGRAVITY_SIGN_IN_TIMEOUT,
@@ -24,6 +24,7 @@ import {
   consumeAntigravityAuthStderr,
 } from './antigravityAuth.ts';
 import { makeClientHandlers } from './clientHandlers.ts';
+import type { ClientHandlerCallbacks } from './clientHandlers.ts';
 import type { ConfigOptionIndex } from './configProbe.ts';
 import { runConfigProbe } from './configProbe.ts';
 import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
@@ -34,7 +35,12 @@ import { listSessionsPayload } from './sessionListScope.ts';
 import { runSessionLists } from './sessionListRun.ts';
 import type { SessionListRun } from './sessionListRun.ts';
 import type { BackendConnectionReports } from './sessionRpc.ts';
-import { registerBackendConnection, setBackendMcpHttp } from './sessionRpc.ts';
+import {
+  registerBackendConnection,
+  setBackendMcpHttp,
+  setBackendSessionListSubscribe,
+  syncSessionListSubscriptions,
+} from './sessionRpc.ts';
 
 export { AntigravitySignInTimedOut };
 
@@ -64,6 +70,7 @@ export type BackendHarnessCallbacks = BackendConnectionReports & {
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
   /** One `session/list` for `cwd` is about to run; the returned run folds its pages (state: loading). */
   readonly onSessionListBegin: (cwd: string) => SessionListRun;
+  readonly onSessionListChanges: ClientHandlerCallbacks['onSessionListChanges'];
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
 };
 
@@ -109,6 +116,7 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       makeClientHandlers(
         launchTarget,
         handlers.onSessionUpdate,
+        handlers.onSessionListChanges,
         handlers.onElicitationCreate,
         handlers.onPermissionRequest,
       ),
@@ -129,6 +137,10 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
       protocolVersion: 1,
     });
     setBackendMcpHttp(launchTarget, supportsMcpHttp(initializeResult));
+    setBackendSessionListSubscribe(
+      launchTarget,
+      agentCapabilitiesFrom(launchTarget, initializeResult).sessionListSubscribe,
+    );
     handlers.onInitializeResult(initializeResult);
     handlers.onPhase('initialized');
     yield* Effect.logInfo('ACP harness initialized', launchTarget);
@@ -160,6 +172,9 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
 
     handlers.onPhase('usable');
     yield* Effect.logInfo('ACP harness usable', launchTarget);
+
+    // Subscribe before listing so a change between the two is never lost; a subscribe failure only leaves that cwd on re-list.
+    yield* syncSessionListSubscriptions(launchTarget, resolveListCwds);
 
     // One `session/list` per Project cwd runs in the background of `usable`: `ready` never waits for them and a
     // list failure never fails the harness (it marks that list incomplete).

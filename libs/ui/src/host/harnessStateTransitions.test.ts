@@ -18,6 +18,7 @@ import {
   applyConfigResult,
   applyInitializeResult,
   applyLoadedConfiguration,
+  applySessionListChanges,
   applySessionListPage,
   applySessionUpdatePatch,
   beginActivation,
@@ -579,6 +580,126 @@ describe('bootstrap and wire folds', () => {
       next.sessionHistory.map(entry => entry.sessionId),
       ['kept', 'created-meanwhile', 'other-cwd'],
     );
+  });
+});
+
+describe('applySessionListChanges', () => {
+  const row = (sessionId: string, extra: Record<string, unknown> = {}) => ({ cwd: '/a', sessionId, ...extra });
+  const historyOf = (snapshot: BackendHarnessSnapshot) =>
+    Object.fromEntries(snapshot.sessionHistory.map(entry => [entry.sessionId, entry]));
+
+  it('adds a new row and replaces a cached one, clearing unavailable', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [
+      { cwd: '/a', sessionId: 'old', title: 'before', unavailable: true },
+    ]);
+    const { snapshot: next, dropped } = applySessionListChanges(
+      snapshot,
+      '/a',
+      { removed: [], sessions: [row('old', { title: 'after' }), row('new')] },
+      undefined,
+    );
+    assert.deepStrictEqual(dropped, []);
+    assert.strictEqual(historyOf(next).old.title, 'after');
+    assert.strictEqual(historyOf(next).old.unavailable, undefined);
+    assert.isDefined(historyOf(next).new);
+  });
+
+  it('ignores rows of another cwd (linked worktrees) and Config probe cwds', () => {
+    const { snapshot } = applySessionListChanges(
+      readySnapshot(),
+      '/a',
+      {
+        removed: [],
+        sessions: [
+          { cwd: '/a/.claude/worktrees/w', sessionId: 'wt' },
+          { cwd: '/tmp/hoa-config-probe-1', sessionId: 'probe' },
+          row('mine'),
+        ],
+      },
+      undefined,
+    );
+    assert.deepStrictEqual(Object.keys(historyOf(snapshot)), ['mine']);
+  });
+
+  it('keeps updatedAt monotonic: older or missing never regress it, newer wins', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [row('s', { updatedAt: '2026-01-02T00:00:00.000Z' })]);
+    const apply = (updatedAt: string | undefined) =>
+      historyOf(
+        applySessionListChanges(
+          snapshot,
+          '/a',
+          { removed: [], sessions: [row('s', { title: 't', updatedAt })] },
+          undefined,
+        ).snapshot,
+      ).s;
+    assert.strictEqual(apply('2026-01-01T00:00:00.000Z').updatedAt, '2026-01-02T00:00:00.000Z');
+    assert.strictEqual(apply(undefined).updatedAt, '2026-01-02T00:00:00.000Z');
+    assert.strictEqual(apply('2026-01-03T00:00:00.000Z').updatedAt, '2026-01-03T00:00:00.000Z');
+    assert.strictEqual(apply('2026-01-01T00:00:00.000Z').title, 't');
+  });
+
+  it('applies an archived row', () => {
+    const archived = row('s', { _meta: { jetbrains: { air: { archived: true } } } });
+    const { snapshot } = applySessionListChanges(
+      replaceSessionHistory(readySnapshot(), [row('s')]),
+      '/a',
+      { removed: [], sessions: [archived] },
+      undefined,
+    );
+    assert.deepStrictEqual(historyOf(snapshot).s._meta, { jetbrains: { air: { archived: true } } });
+  });
+
+  it('hides the Bound Virtual id', () => {
+    const { snapshot } = applySessionListChanges(
+      readySnapshot(),
+      '/a',
+      { removed: [], sessions: [row('bound'), row('other')] },
+      'bound',
+    );
+    assert.deepStrictEqual(Object.keys(historyOf(snapshot)), ['other']);
+  });
+
+  it('removed drops the row and Session only in the subscribed cwd', () => {
+    const snapshot = replaceSessionHistory(
+      readySnapshot({ gone: activeSession('gone', { status: 'inactive' }), foreign: activeSession('foreign') }),
+      [row('gone'), { cwd: '/b', sessionId: 'foreign' }],
+    );
+    const { snapshot: next, dropped } = applySessionListChanges(
+      snapshot,
+      '/a',
+      { removed: ['gone', 'foreign', 'unknown'], sessions: [] },
+      undefined,
+    );
+    assert.deepStrictEqual(dropped, ['gone']);
+    assert.deepStrictEqual(Object.keys(historyOf(next)), ['foreign']);
+    assert.deepStrictEqual(Object.keys(next.sessions), ['foreign']);
+  });
+
+  it('removed keeps the Session of an active or activating id, drops only its row, and does not report it', () => {
+    const snapshot = replaceSessionHistory(
+      readySnapshot({
+        live: activeSession('live'),
+        pending: { ...initialSessionSnapshot('pending', 'activating') },
+        idle: { ...initialSessionSnapshot('idle', 'inactive') },
+      }),
+      [row('live'), row('pending'), row('idle')],
+    );
+    const { snapshot: next, dropped } = applySessionListChanges(
+      snapshot,
+      '/a',
+      { removed: ['live', 'pending', 'idle'], sessions: [] },
+      undefined,
+    );
+    assert.deepStrictEqual(dropped, ['idle']);
+    assert.deepStrictEqual(Object.keys(historyOf(next)), []);
+    assert.deepStrictEqual(Object.keys(next.sessions).sort(), ['live', 'pending']);
+  });
+
+  it('is a no-op for unknown removed ids and empty changes', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [row('s')]);
+    const result = applySessionListChanges(snapshot, '/a', { removed: ['nope'], sessions: [] }, undefined);
+    assert.strictEqual(result.snapshot, snapshot);
+    assert.deepStrictEqual(result.dropped, []);
   });
 });
 

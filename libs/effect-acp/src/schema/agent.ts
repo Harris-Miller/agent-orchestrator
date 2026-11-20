@@ -72,6 +72,12 @@ export const SESSION_UNARCHIVE_METHOD = '_session/unarchive' as const;
 /** AIR `_session/rename`. Not in stable AgentRpcs. */
 export const SESSION_RENAME_METHOD = '_session/rename' as const;
 
+/** AIR `_session/list/subscribe`. Not in stable AgentRpcs. */
+export const SESSION_LIST_SUBSCRIBE_METHOD = '_session/list/subscribe' as const;
+
+/** AIR `_session/list/unsubscribe`. Not in stable AgentRpcs. */
+export const SESSION_LIST_UNSUBSCRIBE_METHOD = '_session/list/unsubscribe' as const;
+
 /** Claude/Codex `_session/steering`. Not in stable AgentRpcs. */
 export const SESSION_STEERING_METHOD = '_session/steering' as const;
 
@@ -237,6 +243,30 @@ export class SessionUnarchiveRequest extends Schema.Opaque<SessionUnarchiveReque
 
 export const SessionUnarchiveResponse = EmptyResult;
 export type SessionUnarchiveResponse = EmptyResult;
+
+export class SessionListSubscribeRequest extends Schema.Opaque<SessionListSubscribeRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    cwd: Schema.String,
+  }),
+) {}
+
+export class SessionListSubscribeResponse extends Schema.Opaque<SessionListSubscribeResponse>()(
+  Schema.Struct({
+    _meta: MetaField,
+    subscriptionId: Schema.String,
+  }),
+) {}
+
+export class SessionListUnsubscribeRequest extends Schema.Opaque<SessionListUnsubscribeRequest>()(
+  Schema.Struct({
+    _meta: MetaField,
+    subscriptionId: Schema.String,
+  }),
+) {}
+
+export const SessionListUnsubscribeResponse = EmptyResult;
+export type SessionListUnsubscribeResponse = EmptyResult;
 
 export class SessionRenameRequest extends Schema.Opaque<SessionRenameRequest>()(
   Schema.Struct({
@@ -416,6 +446,20 @@ export class SessionRename extends Rpc.make(SESSION_RENAME_METHOD, {
   error: AcpError,
   payload: SessionRenameRequest,
   success: SessionRenameResponse,
+}) {}
+
+/** AIR `_session/list/subscribe`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionListSubscribe. */
+export class SessionListSubscribe extends Rpc.make(SESSION_LIST_SUBSCRIBE_METHOD, {
+  error: AcpError,
+  payload: SessionListSubscribeRequest,
+  success: SessionListSubscribeResponse,
+}) {}
+
+/** AIR `_session/list/unsubscribe`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionListUnsubscribe. */
+export class SessionListUnsubscribe extends Rpc.make(SESSION_LIST_UNSUBSCRIBE_METHOD, {
+  error: AcpError,
+  payload: SessionListUnsubscribeRequest,
+  success: SessionListUnsubscribeResponse,
 }) {}
 
 /** Claude/Codex `_session/steering`. Keep out of AgentRequestRpcs; Client via connectAcpAgent.sessionSteering. */

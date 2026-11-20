@@ -14,8 +14,10 @@ import type {
 } from './acpSessionBootstrap.ts';
 import {
   initialBackendHarnessSnapshot,
+  isSessionActiveOrActivating,
   isUsablePhase,
   normalizeConfigOptions,
+  normalizeSessionInfo,
   touchHistoryUpdatedAt,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
@@ -471,6 +473,70 @@ export const applySessionListPage = (
     snapshot,
     mergeListedHistory(snapshot.sessionHistory, excludeBoundVirtualFromHistory(rows, boundSessionId)),
   );
+
+/** `row` keeping `existing`'s `updatedAt` unless the row's is newer: never moves it backwards (as `touchHistoryUpdatedAt`). */
+const withMonotonicUpdatedAt = (
+  row: NormalizedSessionInfo,
+  existing: HistoryEntry | undefined,
+): NormalizedSessionInfo => {
+  if (existing?.updatedAt === undefined) {
+    return row;
+  }
+  const kept = Date.parse(existing.updatedAt);
+  const incoming = row.updatedAt === undefined ? Number.NaN : Date.parse(row.updatedAt);
+  return Number.isNaN(kept) || incoming > kept ? row : { ...row, updatedAt: existing.updatedAt };
+};
+
+/** Result of folding one `_session/list/changes` notification: the next snapshot and the ids it dropped. */
+export type SessionListChangesResult = {
+  readonly dropped: readonly string[];
+  readonly snapshot: BackendHarnessSnapshot;
+};
+
+/**
+ * Fold one `_session/list/changes` notification of the subscription on `cwd`. Changed rows apply only when their cwd is
+ * `cwd` (a subscription also covers linked worktrees), merge by `sessionId` with a monotonic `updatedAt`, and hide the
+ * Bound Virtual id. `removed` ids drop their row only while the row is in `cwd`, and their Session too unless it is
+ * active or activating (a best-effort notification must not wipe a live Session); `dropped` lists the fully dropped ids.
+ */
+export const applySessionListChanges = (
+  snapshot: BackendHarnessSnapshot,
+  cwd: string,
+  changes: { readonly removed: readonly string[]; readonly sessions: readonly unknown[] },
+  boundSessionId: string | undefined,
+): SessionListChangesResult => {
+  const rows = excludeBoundVirtualFromHistory(
+    changes.sessions.flatMap(entry => {
+      const normalized = normalizeSessionInfo(entry);
+      return normalized?.cwd === cwd ? [normalized] : [];
+    }),
+    boundSessionId,
+  );
+  const byId = new Map(snapshot.sessionHistory.map(entry => [entry.sessionId, entry]));
+  const merged = mergeListedHistory(
+    snapshot.sessionHistory,
+    rows.map(row => withMonotonicUpdatedAt(row, byId.get(row.sessionId))),
+  );
+  const removed = changes.removed.filter(sessionId => byId.get(sessionId)?.cwd === cwd);
+  const live = (sessionId: string) => {
+    const session = snapshot.sessions[sessionId];
+    return session !== undefined && isSessionActiveOrActivating(session.status);
+  };
+  const dropped = removed.filter(sessionId => !live(sessionId));
+  const withRows = rows.length === 0 ? snapshot : replaceSessionHistory(snapshot, merged);
+  const withoutRows = removed.filter(live);
+  const keptLive =
+    withoutRows.length === 0
+      ? withRows
+      : replaceSessionHistory(
+          withRows,
+          withRows.sessionHistory.filter(entry => !withoutRows.includes(entry.sessionId)),
+        );
+  return {
+    dropped,
+    snapshot: dropped.reduce(dropSession, keptLive),
+  };
+};
 
 /**
  * After a COMPLETE list of `cwd` (ADR 0016, cwd-scoped replace): drops that cwd's rows that were cached when the list

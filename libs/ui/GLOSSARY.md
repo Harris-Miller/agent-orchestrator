@@ -98,7 +98,7 @@ A Backend harness's live ACP Connection together with what lives exactly as long
 _Avoid_: connected agent, Connection (unqualified)
 
 **Agent capabilities**:
-What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, and Session close, fork, resume, archive and rename. Read once from the initialize result and narrowed per Provider where the advertisement is not yet trusted; none until initialize, and gone with Connection lost. What the Harness refuses or does best-effort without them is recorded in desktop ADR 0013.
+What the Harness may ask of a launch target's ACP Agent on the current Backend connection: Steering, image and embedded-context prompts, Session close, fork, resume, archive and rename, and Session list subscription. Read once from the initialize result and narrowed per Provider where the advertisement is not yet trusted; none until initialize, and gone with Connection lost. What the Harness refuses or does best-effort without them is recorded in desktop ADR 0013.
 _Avoid_: initialize result (the raw response), ACP `agentCapabilities` (the wire field: only part of what is read, and not narrowed), capability helpers, advertised capabilities (when a Provider narrows them)
 
 **Bootstrap phase**:
@@ -168,12 +168,16 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Rows also stay current through a Session list subscription where the agent offers one. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
 
 **Listed cwds**:
 The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
 _Avoid_: scope cwds, visible cwds
+
+**Session list subscription**:
+The live, per-launch-target feed of Session History row changes (new, renamed, archived, removed sessions, including those changed by other processes) for each Listed cwd, so those rows update without a re-list. Best effort, so a full re-list remains the fallback for any cwd the feed does not cover. Only for agents that offer it.
+_Avoid_: history watcher, live list
 
 **Session cache**:
 The on-disk copy of a launch target's Session History rows for the Listed cwds (plus pins), hydrated at startup and when a Project is added, and removed when a Project stops being tracked. A rebuildable cache, unlike Projects and pins. hoa-home calls the document it lives in the Application session index.

@@ -9,18 +9,24 @@ import {
   ContentBlock,
   isAuthRequiredError,
   ProtocolNotificationRpcs,
+  UnstableClientNotificationRpcs,
   UnstableSessionArchiveRpcs,
   UnstableSessionForkRpcs,
+  UnstableSessionListSubscribeRpcs,
   UnstableSessionRenameRpcs,
   UnstableSessionSteeringRpcs,
 } from './AcpSchema.ts';
+import { SESSION_LIST_CHANGES_METHOD, SessionListChangesNotificationPayload } from './schema/client.ts';
 import {
   ListSessionsRequest,
   SESSION_ARCHIVE_METHOD,
   SESSION_FORK_METHOD,
+  SESSION_LIST_SUBSCRIBE_METHOD,
+  SESSION_LIST_UNSUBSCRIBE_METHOD,
   SESSION_RENAME_METHOD,
   SESSION_STEERING_METHOD,
   SESSION_UNARCHIVE_METHOD,
+  SessionListSubscribeResponse,
   SessionRenameRequest,
   SessionSteeringRequest,
   SessionSteeringResponse,
@@ -213,5 +219,47 @@ describe('isAuthRequiredError', () => {
   it('accepts the auth_required code only', () => {
     assert.isTrue(isAuthRequiredError({ code: -32000, message: 'x' }));
     assert.isFalse(isAuthRequiredError({ code: -32603, message: 'Please sign in' }));
+  });
+});
+
+describe('_session/list/subscribe', () => {
+  it('stays off the stable AgentRequestRpcs allowlist', () => {
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_LIST_SUBSCRIBE_METHOD), false);
+    assert.strictEqual(tagsOf(AgentRequestRpcs).has(SESSION_LIST_UNSUBSCRIBE_METHOD), false);
+    assertExactTags(UnstableSessionListSubscribeRpcs, [SESSION_LIST_SUBSCRIBE_METHOD, SESSION_LIST_UNSUBSCRIBE_METHOD]);
+    assert.strictEqual(SESSION_LIST_SUBSCRIBE_METHOD, '_session/list/subscribe');
+    assert.strictEqual(SESSION_LIST_UNSUBSCRIBE_METHOD, '_session/list/unsubscribe');
+  });
+
+  it('decodes the subscription id', () => {
+    const response = Schema.decodeUnknownSync(SessionListSubscribeResponse)({ subscriptionId: 'sub-1' });
+    assert.strictEqual(response.subscriptionId, 'sub-1');
+  });
+});
+
+describe('_session/list/changes', () => {
+  it('is an Agent→Client notification kept off the stable ClientNotificationRpcs allowlist', () => {
+    assert.strictEqual(tagsOf(ClientNotificationRpcs).has(SESSION_LIST_CHANGES_METHOD), false);
+    assertExactTags(UnstableClientNotificationRpcs, [SESSION_LIST_CHANGES_METHOD]);
+    assert.strictEqual(SESSION_LIST_CHANGES_METHOD, '_session/list/changes');
+  });
+
+  it('decodes rows with and without _meta, tolerating extra fields', () => {
+    const payload = Schema.decodeUnknownSync(SessionListChangesNotificationPayload)({
+      extra: 1,
+      removed: ['gone'],
+      sessions: [
+        { _meta: { jetbrains: { air: { archived: true } } }, cwd: '/w', sessionId: 's1' },
+        { sessionId: 's2' },
+      ],
+      subscriptionId: 'sub-1',
+    });
+    assert.strictEqual(payload.subscriptionId, 'sub-1');
+    assert.deepStrictEqual(payload.removed, ['gone']);
+    assert.strictEqual(payload.sessions.length, 2);
+  });
+
+  it('rejects a payload without a subscription id', () => {
+    assert.throws(() => Schema.decodeUnknownSync(SessionListChangesNotificationPayload)({ removed: [], sessions: [] }));
   });
 });

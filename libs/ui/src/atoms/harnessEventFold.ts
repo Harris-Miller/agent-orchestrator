@@ -25,6 +25,7 @@ import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import {
   applyBootstrapPhase,
   applyInitializeResult,
+  applySessionListChanges,
   applySessionUpdatePatch,
   raiseElicitation,
   raisePermission,
@@ -34,21 +35,25 @@ import {
 import type { AttentionEvent } from '../host/notifyAttention.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
 import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
-import { setSubagentParent } from '../host/sessionRpc.ts';
+import { cwdOfSubscription, setSubagentParent } from '../host/sessionRpc.ts';
 import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
+import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { linkOf } from './subagentLinkRegistry.ts';
 import { beginSessionList } from './sessionLists.atoms.ts';
+import { removePins } from './pinnedSessions.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   bindVirtualOnUsable,
+  clearSelectedIfMissing,
   resetVirtualUnsupportedConfig,
   unbindVirtualOnConnectionLost,
+  virtualSessionAtom,
 } from './virtualSession.atoms.ts';
 
 export type HarnessEventFold = BackendHarnessCallbacks;
@@ -188,6 +193,22 @@ export const makeHarnessEventFold = ({
       });
     },
     onSessionListBegin: cwd => beginSessionList(registry, launchTarget, cwd, runFork),
+    onSessionListChanges: (subscriptionId, changes) => {
+      const cwd = cwdOfSubscription(launchTarget, subscriptionId);
+      // A cwd still tracked while its unsubscribe is pending or retried is no longer Listed: ignore its changes.
+      if (cwd === undefined || !registry.get(listedCwdsAtom).includes(cwd)) {
+        return;
+      }
+      const boundSessionId = registry.get(virtualSessionAtom)?.sessionId;
+      const dropped = modifyHarnessSnapshot(registry, launchTarget, current => {
+        const result = applySessionListChanges(current, cwd, changes, boundSessionId);
+        return [result.dropped, result.snapshot];
+      });
+      if (dropped.length > 0) {
+        clearSelectedIfMissing(registry);
+        runFork(removePins(registry, launchTarget, dropped));
+      }
+    },
     onSessionUpdate: (sessionId, sessionUpdate) => {
       const linked = modifyHarnessSnapshot(registry, launchTarget, current =>
         routeAndApplySessionUpdate(current, sessionId, sessionUpdate),

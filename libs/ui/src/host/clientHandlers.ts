@@ -2,7 +2,7 @@
  * ACP Client RPC adapter for a backend harness: turn-correlated session/update,
  * elicitation, permission; stub fs/terminal handlers.
  */
-import { ClientRpcs } from '@libs/effect-acp';
+import { ServedClientRpcs } from '@libs/effect-acp';
 import type {
   CreateElicitationRequestBody,
   CreateElicitationResponseBody,
@@ -17,6 +17,11 @@ import { sessionIdFromElicitationRequest } from './pendingInteractions.ts';
 import { getPromptSpan } from './sessionRpc.ts';
 
 export type ClientHandlerCallbacks = {
+  /** AIR `_session/list/changes`: changed rows and removed ids of one session list subscription. */
+  readonly onSessionListChanges: (
+    subscriptionId: string,
+    changes: { readonly removed: readonly string[]; readonly sessions: readonly unknown[] },
+  ) => void;
   readonly onElicitationCreate: (
     sessionId: string,
     request: CreateElicitationRequestBody,
@@ -43,10 +48,11 @@ const withTurnCorrelatedSpan = <A, E, R>(
 export const makeClientHandlers = (
   launchTarget: AgentLaunchTarget,
   onSessionUpdate: (sessionId: string, update: unknown) => void,
+  onSessionListChanges: ClientHandlerCallbacks['onSessionListChanges'],
   onElicitationCreate: ClientHandlerCallbacks['onElicitationCreate'],
   onPermissionRequest: ClientHandlerCallbacks['onPermissionRequest'],
 ) =>
-  ClientRpcs.toLayer(
+  ServedClientRpcs.toLayer(
     Effect.succeed({
       'elicitation/complete': () => Effect.void,
       'elicitation/create': (request: CreateElicitationRequestBody) => {
@@ -72,6 +78,10 @@ export const makeClientHandlers = (
       },
       'fs/read_text_file': () => Effect.succeed({ content: '' }),
       'fs/write_text_file': () => Effect.succeed({}),
+      '_session/list/changes': payload =>
+        Effect.sync(() => {
+          onSessionListChanges(payload.subscriptionId, payload);
+        }),
       'session/request_permission': (request: RequestPermissionRequest) =>
         withTurnCorrelatedSpan(
           'session/request_permission',

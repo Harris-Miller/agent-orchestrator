@@ -10,12 +10,18 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { projectParentCaption } from '../host/projectParentCaption.ts';
 import { projectMembership } from '../host/projectSessions.ts';
+import { listCwdsForScope } from '../host/sessionListScope.ts';
 import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { hydrateSessionCache, removeSessionCacheCwd } from './sessionCache.ts';
-import { clearListStatesOfCwd, listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
+import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import {
+  clearListStatesOfCwd,
+  listCwdsOnUsableTargets,
+  syncListSubscriptionsOnUsableTargets,
+} from './sessionLists.atoms.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
@@ -46,6 +52,10 @@ export const projectMembershipAtom = Atom.family((cwd: string) =>
   ).pipe(Atom.keepAlive),
 );
 
+/** Current Listed cwds; `projectsAtom` is already updated when the sync calls this. */
+const listedCwdsNow = (registry: AtomRegistry.AtomRegistry) =>
+  listCwdsForScope(registry.get(sessionListScopeAtom), registry.get(projectsAtom));
+
 /**
  * Stop tracking, the data half: removes the Project and drops its rows from in-app Session History, its list states
  * and its persisted index entries. Never touches sessions on the agent or pins. No-op until the Projects file was read.
@@ -68,6 +78,7 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
     );
   }
   clearListStatesOfCwd(registry, cwd);
+  yield* syncListSubscriptionsOnUsableTargets(registry, () => listedCwdsNow(registry));
   yield* removeSessionCacheCwd(cwd);
 });
 
@@ -94,6 +105,8 @@ export const createProjectsAtoms = ({
             launchTarget => hydrateSessionCache(get.registry, launchTarget, added),
             { discard: true },
           );
+          // Subscribe before listing so a change between the two is not lost.
+          yield* syncListSubscriptionsOnUsableTargets(get.registry, () => listedCwdsNow(get.registry));
           yield* listCwdsOnUsableTargets(get.registry, added, effect => {
             hostRunFork(effect);
           });

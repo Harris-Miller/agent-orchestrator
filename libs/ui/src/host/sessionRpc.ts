@@ -6,7 +6,7 @@
  * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
-import { Effect, Predicate, Redacted, Schema } from 'effect';
+import { Effect, Predicate, Redacted, Schema, Semaphore } from 'effect';
 import type { Scope, Tracer } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -15,6 +15,7 @@ import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { beginMcp, revokeLaunchTargetMcp, revokeSessionMcp } from './hubSessions.ts';
 import { listSessionPages } from './listSessionPages.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
+import { MAX_SESSION_LIST_SUBSCRIPTIONS, planSessionListSubscriptions } from './sessionListSubscriptions.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
 export type BackendConnectionReports = {
@@ -26,7 +27,15 @@ export type BackendConnectionReports = {
 
 type ConnectionHandles = Pick<
   AcpAgentConnection,
-  'agent' | 'notify' | 'sessionArchive' | 'sessionFork' | 'sessionRename' | 'sessionSteering' | 'sessionUnarchive'
+  | 'agent'
+  | 'notify'
+  | 'sessionArchive'
+  | 'sessionFork'
+  | 'sessionListSubscribe'
+  | 'sessionListUnsubscribe'
+  | 'sessionRename'
+  | 'sessionSteering'
+  | 'sessionUnarchive'
 >;
 
 type BackendConnection = ConnectionHandles & {
@@ -35,6 +44,13 @@ type BackendConnection = ConnectionHandles & {
   readonly onConfigIndexEvent: BackendConnectionReports['onConfigIndexEvent'];
   /** Active `sendPrompt` spans by session id, for turn-correlated Agent→Client work. */
   readonly promptSpans: Map<string, Tracer.AnySpan>;
+  /** Session list subscription per cwd, and the cwd per subscription id: connection-scoped, gone with it. */
+  readonly subscriptionByCwd: Map<string, string>;
+  readonly cwdBySubscription: Map<string, string>;
+  /** Serializes `syncSessionListSubscriptions` so concurrent syncs never subscribe a cwd twice. */
+  readonly subscriptionSync: Semaphore.Semaphore;
+  /** The Agent advertised `sessionListSubscribe`. */
+  sessionListSubscribeSupported: boolean;
   /** child session id → announcing parent, so child work parents under the root ancestor's prompt span. */
   readonly subagentParents: Map<string, string>;
 };
@@ -47,8 +63,8 @@ const backendConnections = new Map<AgentLaunchTarget, BackendConnection>();
 
 /**
  * Make `launchTarget`'s session RPCs reach `connection` for the lifetime of the current Scope. On scope close, if this
- * is still the current registration: session RPCs for `launchTarget` fail `BackendNotConnected`, its prompt spans and
- * subagent links are gone, then `reports.onConnectionLost()` runs exactly once. A registration superseded by a later
+ * is still the current registration: session RPCs for `launchTarget` fail `BackendNotConnected`, its prompt spans,
+ * subagent links and session list subscriptions are gone, then `reports.onConnectionLost()` runs exactly once. A registration superseded by a later
  * one is released silently. At most one live registration per launch target is expected (`BackendLifecycle`).
  */
 export const registerBackendConnection = (
@@ -60,16 +76,22 @@ export const registerBackendConnection = (
     Effect.sync(() => {
       const record: BackendConnection = {
         agent: connection.agent,
+        cwdBySubscription: new Map(),
         mcpHttp: false,
         notify: connection.notify,
         onConfigIndexEvent: reports.onConfigIndexEvent,
         promptSpans: new Map(),
         sessionArchive: connection.sessionArchive,
         sessionFork: connection.sessionFork,
+        sessionListSubscribe: connection.sessionListSubscribe,
+        sessionListSubscribeSupported: false,
+        sessionListUnsubscribe: connection.sessionListUnsubscribe,
         sessionRename: connection.sessionRename,
         sessionSteering: connection.sessionSteering,
         sessionUnarchive: connection.sessionUnarchive,
         subagentParents: new Map(),
+        subscriptionByCwd: new Map(),
+        subscriptionSync: Semaphore.makeUnsafe(1),
       };
       backendConnections.set(launchTarget, record);
       return record;
@@ -93,6 +115,18 @@ export const setBackendMcpHttp = (launchTarget: AgentLaunchTarget, supported: bo
     connection.mcpHttp = supported;
   }
 };
+
+/** Record whether `launchTarget`'s Agent advertised `sessionListSubscribe` (from its initialize result); no-op when not connected. */
+export const setBackendSessionListSubscribe = (launchTarget: AgentLaunchTarget, supported: boolean): void => {
+  const connection = backendConnections.get(launchTarget);
+  if (connection !== undefined) {
+    connection.sessionListSubscribeSupported = supported;
+  }
+};
+
+/** The cwd a live session list subscription of `launchTarget` covers; undefined for an unknown id or no connection. */
+export const cwdOfSubscription = (launchTarget: AgentLaunchTarget, subscriptionId: string): string | undefined =>
+  backendConnections.get(launchTarget)?.cwdBySubscription.get(subscriptionId);
 
 /** Child ids resolve to the root ancestor's in-flight prompt span; a closed root turn yields undefined (short root). */
 export const getPromptSpan = (launchTarget: AgentLaunchTarget, sessionId: string): Tracer.AnySpan | undefined => {
@@ -132,6 +166,61 @@ export const listSessions = Effect.fn('listSessions')(
   Effect.tap(() => Effect.logDebug('session/list ok')),
   Effect.tapError(error => Effect.logError('session/list failed', error)),
 );
+
+/**
+ * Make `launchTarget`'s session list subscriptions cover exactly `resolveCwds()` (at most 128; the rest are not subscribed and
+ * keep re-listing). Unsubscribes dropped cwds, then subscribes added ones. A no-op without a live connection or the
+ * `sessionListSubscribe` capability. A failed call is logged, never raised: a failed subscribe leaves that cwd
+ * unsubscribed; a failed unsubscribe keeps the entry (still counted against the cap) for the next sync to retry.
+ * `resolveCwds` runs once the serialization permit is held, so a queued sync never applies a stale snapshot.
+ */
+export const syncSessionListSubscriptions = Effect.fn('syncSessionListSubscriptions')(function* (
+  launchTarget: AgentLaunchTarget,
+  resolveCwds: () => readonly string[],
+) {
+  const connection = backendConnections.get(launchTarget);
+  if (connection === undefined || !connection.sessionListSubscribeSupported) {
+    return;
+  }
+  const { cwdBySubscription, sessionListSubscribe, sessionListUnsubscribe, subscriptionByCwd } = connection;
+  yield* connection.subscriptionSync.withPermits(1)(
+    Effect.gen(function* () {
+      const plan = planSessionListSubscriptions(resolveCwds(), subscriptionByCwd.keys());
+      yield* Effect.forEach(
+        plan.unsubscribe,
+        cwd =>
+          Effect.gen(function* () {
+            const subscriptionId = subscriptionByCwd.get(cwd);
+            if (subscriptionId === undefined) {
+              return;
+            }
+            yield* sessionListUnsubscribe({ subscriptionId });
+            subscriptionByCwd.delete(cwd);
+            cwdBySubscription.delete(subscriptionId);
+          }).pipe(Effect.catchCause(cause => Effect.logWarning('_session/list/unsubscribe failed', cause))),
+        { discard: true },
+      );
+      // Entries whose unsubscribe failed still count against the cap.
+      const room = Math.max(0, MAX_SESSION_LIST_SUBSCRIPTIONS - subscriptionByCwd.size);
+      yield* Effect.forEach(
+        plan.subscribe.slice(0, room),
+        cwd =>
+          // Uninterruptible from the response to the map write, so an interrupt never leaves an untracked live subscription.
+          Effect.uninterruptibleMask(restore =>
+            restore(sessionListSubscribe({ cwd })).pipe(
+              Effect.tap(({ subscriptionId }) =>
+                Effect.sync(() => {
+                  subscriptionByCwd.set(cwd, subscriptionId);
+                  cwdBySubscription.set(subscriptionId, cwd);
+                }),
+              ),
+            ),
+          ).pipe(Effect.catchCause(cause => Effect.logWarning('_session/list/subscribe failed', cause))),
+        { discard: true },
+      );
+    }),
+  );
+});
 
 export const createSession = Effect.fn('createSession')(
   function* (launchTarget: AgentLaunchTarget, cwd: string) {

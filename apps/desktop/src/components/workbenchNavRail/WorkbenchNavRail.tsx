@@ -36,7 +36,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { FolderPlus, PanelLeftClose, Pin, RotateCw, Settings, SquarePen } from 'lucide-react';
+import { FlaskConical, FolderPlus, PanelLeftClose, Pin, RotateCw, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -271,7 +271,7 @@ export const WorkbenchNavRail: FC<{
           )}
         </Box>
         <Divider />
-        <Box sx={{ flexShrink: 0, p: 1 }}>
+        <Box sx={{ display: 'flex', flexShrink: 0, p: 1 }}>
           <IconTooltipButton
             icon={Settings}
             label="Settings"
@@ -279,6 +279,16 @@ export const WorkbenchNavRail: FC<{
               navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
             }}
           />
+          {/* PROTOTYPE entry (#185 + #28): the Tauri window has no URL bar. */}
+          {import.meta.env.DEV ? (
+            <IconTooltipButton
+              icon={FlaskConical}
+              label="Features + Missions prototype"
+              onClick={() => {
+                navigate({ search: { variant: 'A' }, to: '/prototype/features' }).catch(() => undefined);
+              }}
+            />
+          ) : null}
         </Box>
       </Box>
 

@@ -8,8 +8,8 @@ import type { FC, ReactNode } from 'react';
 
 import {
   configOptionIndexByLaunchTargetAtom,
-  selectedAgentCanForkAtom,
   selectedAtom,
+  selectedBackendHarnessCanForkAtom,
   selectedSessionAtom,
   selectedSessionIdAtom,
 } from '../../atoms/backendState.atoms.ts';
@@ -43,7 +43,7 @@ const useSessionChatSurfaceValue = (onClientError: (error: unknown) => void) => 
   const virtualSession = useAtomValue(virtualSessionAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const selectedSession = useAtomValue(selectedSessionAtom);
-  const agentCanFork = useAtomValue(selectedAgentCanForkAtom);
+  const agentCanFork = useAtomValue(selectedBackendHarnessCanForkAtom);
   const { sessionCwd } = useSelectedSessionFsListing();
   const {
     reasons: unavailableReasons,

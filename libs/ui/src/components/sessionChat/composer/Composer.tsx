@@ -9,9 +9,9 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
 import {
-  selectedHarnessAntigravityAuthUrlAtom,
-  selectedHarnessFailureAtom,
-  selectedHarnessPhaseAtom,
+  selectedBackendHarnessAntigravityAuthUrlAtom,
+  selectedBackendHarnessFailureAtom,
+  selectedBackendHarnessPhaseAtom,
 } from '../../../atoms/backendState.atoms.ts';
 import {
   handoffSessionAtomFn,
@@ -81,9 +81,9 @@ export const Composer: FC<{
     [edit],
   );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
-  const harnessPhase = useAtomValue(selectedHarnessPhaseAtom);
-  const harnessFailure = useAtomValue(selectedHarnessFailureAtom);
-  const antigravityAuthUrl = useAtomValue(selectedHarnessAntigravityAuthUrlAtom);
+  const harnessPhase = useAtomValue(selectedBackendHarnessPhaseAtom);
+  const harnessFailure = useAtomValue(selectedBackendHarnessFailureAtom);
+  const antigravityAuthUrl = useAtomValue(selectedBackendHarnessAntigravityAuthUrlAtom);
   const { fsListing, selectedSessionId: activeSessionId, sessionCwd } = useSelectedSessionFsListing();
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });

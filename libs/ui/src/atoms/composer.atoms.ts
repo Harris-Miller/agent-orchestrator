@@ -61,10 +61,10 @@ import type { AvailableCommand } from '../host/sessionUpdateReducer.ts';
 import {
   backendHarnessSnapshotAtom,
   selectedAtom,
-  selectedBackgroundActiveAtom,
+  selectedBackendHarnessBackgroundActiveAtom,
+  selectedBackendHarnessSteeringSupportedAtom,
   selectedSessionAtom,
   selectedSessionLaunchTargetAtom,
-  selectedSteeringSupportedAtom,
 } from './backendState.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { awaitTurnEnd, sendPromptTurn, SteerFallbackTurnFailed, steerPromptTurn } from './promptTurn.ts';
@@ -190,11 +190,11 @@ export const composerAtom = Atom.make((get): Composer => {
     ...draft,
     ...composerGates({
       _tag: 'Session',
-      backgroundActive: get(selectedBackgroundActiveAtom),
+      backgroundActive: get(selectedBackendHarnessBackgroundActiveAtom),
       handoffInProgress,
       hasContent: hasContent(draft),
       session,
-      steeringSupported: get(selectedSteeringSupportedAtom),
+      steeringSupported: get(selectedBackendHarnessSteeringSupportedAtom),
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
     midTurnSend: get(midTurnSendModeAtom),

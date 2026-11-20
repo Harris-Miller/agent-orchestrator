@@ -8,8 +8,8 @@ import { selectedSubagentNameAtom } from '../../../../atoms/backendState.atoms.t
 import type { ChatItemOf } from './chatItemOf.ts';
 
 export const InterSessionMessageView: FC<{ readonly item: ChatItemOf<'inter_session_message'> }> = ({ item }) => {
-  const recipientName = useAtomValue(selectedSubagentNameAtom(item.recipientSessionId ?? ''));
-  const senderName = useAtomValue(selectedSubagentNameAtom(item.senderSessionId ?? ''));
+  const recipientName = useAtomValue(selectedSubagentNameAtom(item.recipientSessionId));
+  const senderName = useAtomValue(selectedSubagentNameAtom(item.senderSessionId));
   const nameOf = (id: string | undefined, name: string | undefined) =>
     id === undefined ? undefined : (name ?? 'another session');
   const to = nameOf(item.recipientSessionId, recipientName);

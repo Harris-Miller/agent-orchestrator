@@ -1,4 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
+import type { Atom } from 'effect/reactivity';
 import { AtomRegistry } from 'effect/reactivity';
 
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
@@ -9,11 +10,11 @@ import { routeSubagentUpdate } from '../host/subagentRouting.ts';
 import { composerAtom } from './composer.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import {
-  selectedAgentCanForkAtom,
   selectedAtom,
-  selectedHarnessAntigravityAuthUrlAtom,
-  selectedHarnessFailureAtom,
-  selectedHarnessPhaseAtom,
+  selectedBackendHarnessAntigravityAuthUrlAtom,
+  selectedBackendHarnessCanForkAtom,
+  selectedBackendHarnessFailureAtom,
+  selectedBackendHarnessPhaseAtom,
   selectedSubagentAtom,
   selectedSubagentNameAtom,
   selectedSubagentRootIdAtom,
@@ -37,25 +38,22 @@ const setup = () => {
   return registry;
 };
 
-/** Keeps `atom` mounted and counts notifications after the initial value. */
-const countChanges = (
-  registry: AtomRegistry.AtomRegistry,
-  atom: Parameters<AtomRegistry.AtomRegistry['subscribe']>[0],
-) => {
+/** Keeps `atom` mounted and counts notifications after the initial value; call `stop` to unsubscribe. */
+const countChanges = (registry: AtomRegistry.AtomRegistry, atom: Atom.Atom<unknown>) => {
   const counter = { count: 0 };
-  registry.subscribe(atom, () => {
+  const stop = registry.subscribe(atom, () => {
     counter.count += 1;
   });
-  return counter;
+  return Object.assign(counter, { stop });
 };
 
 describe('narrow selected-snapshot atoms', () => {
   it('derive phase, failure, auth url, fork capability and child values', () => {
     const registry = setup();
-    assert.strictEqual(registry.get(selectedHarnessPhaseAtom), 'usable');
-    assert.isUndefined(registry.get(selectedHarnessFailureAtom));
-    assert.strictEqual(registry.get(selectedHarnessAntigravityAuthUrlAtom), 'https://auth.example');
-    assert.isTrue(registry.get(selectedAgentCanForkAtom));
+    assert.strictEqual(registry.get(selectedBackendHarnessPhaseAtom), 'usable');
+    assert.isUndefined(registry.get(selectedBackendHarnessFailureAtom));
+    assert.strictEqual(registry.get(selectedBackendHarnessAntigravityAuthUrlAtom), 'https://auth.example');
+    assert.isTrue(registry.get(selectedBackendHarnessCanForkAtom));
     assert.strictEqual(registry.get(selectedSubagentNameAtom('a')), 'Alpha');
     assert.strictEqual(registry.get(selectedSubagentAtom('b'))?.sessionId, 'b');
     assert.isUndefined(registry.get(selectedSubagentAtom('missing')));
@@ -65,18 +63,18 @@ describe('narrow selected-snapshot atoms', () => {
   it('with nothing selected → undefined / false', () => {
     const registry = setup();
     registry.set(selectedAtom, undefined);
-    assert.isUndefined(registry.get(selectedHarnessPhaseAtom));
-    assert.isFalse(registry.get(selectedAgentCanForkAtom));
+    assert.isUndefined(registry.get(selectedBackendHarnessPhaseAtom));
+    assert.isFalse(registry.get(selectedBackendHarnessCanForkAtom));
     assert.isUndefined(registry.get(selectedSubagentAtom('a')));
     assert.isUndefined(registry.get(selectedSubagentRootIdAtom('a')));
   });
 
   it('a child update notifies only that child; Composer atoms and sibling rows stay quiet', () => {
     const registry = setup();
-    const phase = countChanges(registry, selectedHarnessPhaseAtom);
-    const failure = countChanges(registry, selectedHarnessFailureAtom);
-    const authUrl = countChanges(registry, selectedHarnessAntigravityAuthUrlAtom);
-    const canFork = countChanges(registry, selectedAgentCanForkAtom);
+    const phase = countChanges(registry, selectedBackendHarnessPhaseAtom);
+    const failure = countChanges(registry, selectedBackendHarnessFailureAtom);
+    const authUrl = countChanges(registry, selectedBackendHarnessAntigravityAuthUrlAtom);
+    const canFork = countChanges(registry, selectedBackendHarnessCanForkAtom);
     const childA = countChanges(registry, selectedSubagentAtom('a'));
     const childB = countChanges(registry, selectedSubagentAtom('b'));
     const rootB = countChanges(registry, selectedSubagentRootIdAtom('b'));
@@ -95,6 +93,9 @@ describe('narrow selected-snapshot atoms', () => {
       [0, 0, 0, 0, 0, 0, 0],
     );
     assert.strictEqual(childB.count, 1);
+    for (const counter of [phase, failure, authUrl, canFork, childA, childB, rootB, nameA]) {
+      counter.stop();
+    }
   });
 });
 
@@ -132,6 +133,8 @@ describe('Composer atoms vs Subagent child chunks (real routing)', () => {
     assert.deepStrictEqual([composer.count, active.count], [0, 0]);
     assert.strictEqual(registry.get(composerAtom), before[0]);
     assert.strictEqual(registry.get(selectedActiveSessionAtom), before[1]);
+    composer.stop();
+    active.stop();
   });
 
   it('the selected session own data changing does change composerAtom', () => {
@@ -145,6 +148,7 @@ describe('Composer atoms vs Subagent child chunks (real routing)', () => {
       },
     }));
     assert.strictEqual(composer.count, 1);
+    composer.stop();
   });
 
   it('selectedActiveSessionAtom changes when its cwd changes', () => {
@@ -156,5 +160,6 @@ describe('Composer atoms vs Subagent child chunks (real routing)', () => {
     }));
     assert.strictEqual(active.count, 1);
     assert.strictEqual(registry.get(selectedActiveSessionAtom)?.cwd, '/other');
+    active.stop();
   });
 });

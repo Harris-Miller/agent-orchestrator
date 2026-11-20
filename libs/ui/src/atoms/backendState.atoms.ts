@@ -184,39 +184,45 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   return get(backendHarnessSnapshotAtom(launchTarget));
 }).pipe(Atom.keepAlive);
 
-/** Narrow views of the selected snapshot: primitives / reference-stable values, so subscribers skip unrelated updates. */
-export const selectedHarnessPhaseAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.phase).pipe(
+/** Narrows the selected Backend harness snapshot to its phase (primitive, so subscribers skip unrelated updates). */
+export const selectedBackendHarnessPhaseAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.phase).pipe(
   Atom.keepAlive,
 );
 
-export const selectedHarnessFailureAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.failure).pipe(
-  Atom.keepAlive,
-);
+/** Narrows the selected Backend harness snapshot to its failure (reference-stable until it changes). */
+export const selectedBackendHarnessFailureAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.failure,
+).pipe(Atom.keepAlive);
 
-export const selectedHarnessAntigravityAuthUrlAtom = Atom.make(
+/** Narrows the selected Backend harness snapshot to its Antigravity auth URL. */
+export const selectedBackendHarnessAntigravityAuthUrlAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.antigravityAuthUrl,
 ).pipe(Atom.keepAlive);
 
-/** Whether the selected session's agent can fork sessions. */
-export const selectedAgentCanForkAtom = Atom.make(
+/** Narrows the selected Backend harness snapshot to whether its agent can fork sessions. */
+export const selectedBackendHarnessCanForkAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.sessionFork === true,
 ).pipe(Atom.keepAlive);
 
-/** Whether the selected session's agent supports steering a running turn. */
-export const selectedSteeringSupportedAtom = Atom.make(
+/** Narrows the selected Backend harness snapshot to whether its agent supports steering a running turn. */
+export const selectedBackendHarnessSteeringSupportedAtom = Atom.make(
   get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
 ).pipe(Atom.keepAlive);
 
-/** Whether the selected session has Subagent work running in the background (see `hasBackgroundActivity`). */
-export const selectedBackgroundActiveAtom = Atom.make(get => {
+/** Narrows the selected Backend harness snapshot to whether the selected session has background Subagent work (see `hasBackgroundActivity`). */
+export const selectedBackendHarnessBackgroundActiveAtom = Atom.make(get => {
   const snapshot = get(selectedBackendHarnessSnapshotAtom);
   const sessionId = get(selectedSessionIdAtom);
   return snapshot !== undefined && sessionId !== undefined && hasBackgroundActivity(snapshot, sessionId);
 }).pipe(Atom.keepAlive);
 
+/** Narrows the selected Backend harness snapshot to its Subagent record. */
 const selectedSubagentsRecordAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.subagents);
 
-/** One Subagent child of the selected session's provider; a row re-renders only when its own child changes. */
+/**
+ * Narrows the selected Backend harness snapshot to one Subagent child; a row re-renders only when its own child changes.
+ * Not `keepAlive`: entries are keyed by child id and are collected once no row subscribes.
+ */
 export const selectedSubagentAtom = Atom.family((childId: string) =>
   Atom.make(get => {
     const subagents = get(selectedSubagentsRecordAtom);
@@ -224,12 +230,18 @@ export const selectedSubagentAtom = Atom.family((childId: string) =>
   }),
 );
 
-/** Display name of a child of the selected session's provider (undefined when absent or unnamed). */
-export const selectedSubagentNameAtom = Atom.family((childId: string) =>
-  Atom.make(get => get(selectedSubagentAtom(childId))?.name),
+/**
+ * Narrows to a child's display name (undefined when the id is undefined, the child is absent, or it is unnamed).
+ * Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
+export const selectedSubagentNameAtom = Atom.family((childId: string | undefined) =>
+  Atom.make(get => (childId === undefined ? undefined : get(selectedSubagentAtom(childId))?.name)),
 );
 
-/** Root ancestor session id of a child of the selected session's provider. */
+/**
+ * Narrows to the root ancestor session id of a child in the selected Backend harness snapshot.
+ * Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
 export const selectedSubagentRootIdAtom = Atom.family((childId: string) =>
   Atom.make(get => {
     const subagents = get(selectedSubagentsRecordAtom);

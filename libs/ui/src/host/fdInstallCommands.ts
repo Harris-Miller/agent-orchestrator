@@ -11,9 +11,21 @@ export const macFdInstallCommands = (): readonly FdInstallCommand[] => [
 ];
 
 export const windowsFdInstallCommands = (): readonly FdInstallCommand[] => [
-  { args: ['install', 'fd'], command: 'scoop', label: 'scoop install fd' },
-  { args: ['install', 'fd'], command: 'choco', label: 'choco install fd' },
-  { args: ['install', 'sharkdp.fd'], command: 'winget', label: 'winget install sharkdp.fd' },
+  { args: ['install', 'fd', '-y'], command: 'choco', label: 'choco install fd' },
+  {
+    args: [
+      'install',
+      '--id',
+      'sharkdp.fd',
+      '--exact',
+      '--silent',
+      '--accept-package-agreements',
+      '--accept-source-agreements',
+      '--disable-interactivity',
+    ],
+    command: 'winget',
+    label: 'winget install sharkdp.fd',
+  },
 ];
 
 export const linuxFdInstallHintLines = (): readonly string[] => [

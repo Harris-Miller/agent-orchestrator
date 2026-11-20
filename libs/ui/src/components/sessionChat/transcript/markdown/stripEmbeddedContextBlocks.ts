@@ -2,6 +2,7 @@
 
 const EMBEDDED_CONTEXT_BLOCK_RE = /\n*<context\b[^>]*>[\s\S]*?<\/context>\n*/gi;
 const SYSTEM_REMINDER_BLOCK_RE = /\n*<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\n*/gi;
+const SUBAGENT_REPORT_BLOCK_RE = /\n*<subagent-report\b[^>]*>[\s\S]*?<\/subagent-report>\n*/gi;
 const IDE_SELECTION_BLOCK_RE = /\n*<ide_selection\b[^>]*>[\s\S]*?<\/ide_selection>\n*/gi;
 
 const collapseInnerSpaces = (text: string): string => text.replace(/ {2,}/g, ' ');
@@ -27,6 +28,13 @@ export const stripSystemReminderBlocks = (text: string): string =>
 export const stripIdeSelectionBlocks = (text: string): string =>
   collapseInnerSpaces(text.replace(IDE_SELECTION_BLOCK_RE, ' ')).trim();
 
-/** Strip embedded context / system-reminder / ide_selection bodies for ChatMarkdown (FS mention labels keep `@`). */
+/**
+ * Hide Harness-sent `<subagent-report>` blocks (a Spawned subagent's result delivered to its parent as a message; the
+ * Subagent chat-line already shows it) from the chat UI.
+ */
+export const stripSubagentReportBlocks = (text: string): string =>
+  collapseInnerSpaces(text.replace(SUBAGENT_REPORT_BLOCK_RE, ' ')).trim();
+
+/** Strip embedded context / system-reminder / ide_selection / subagent-report bodies for ChatMarkdown (FS mention labels keep `@`). */
 export const prepareChatMarkdownText = (text: string): string =>
-  stripIdeSelectionBlocks(stripSystemReminderBlocks(stripEmbeddedContextBlocks(text)));
+  stripSubagentReportBlocks(stripIdeSelectionBlocks(stripSystemReminderBlocks(stripEmbeddedContextBlocks(text))));

@@ -199,7 +199,9 @@ export const UserMessageView: FC<{
   const markdown = chipSegmentsMarkdown(segments);
   const hasText = markdown.trim().length > 0;
   const hasImages = images !== undefined && images.length > 0;
-  if (!hasText && !hasImages && !steering) {
+  // A message that was only hidden blocks (e.g. a Subagent report) is hidden whole, steering or not.
+  const onlyHiddenBlocks = text.trim().length > 0 && !hasText;
+  if (!hasText && !hasImages && (!steering || onlyHiddenBlocks)) {
     return null;
   }
   return (

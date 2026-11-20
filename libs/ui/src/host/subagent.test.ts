@@ -16,6 +16,7 @@ import {
   rootAncestorId,
   sessionHasLiveWork,
   subagentLatestActivity,
+  subagentLaunchTarget,
   subagentNeedsInput,
 } from './subagent.ts';
 import type { SubagentSnapshot } from './subagent.ts';
@@ -222,5 +223,16 @@ describe('hasBackgroundActivity', () => {
 
   it('is false for a Subagent of another Session', () => {
     assert.isFalse(hasBackgroundActivity(harness([session('a'), session('b')], [subagent('c', 'b', running)]), 'a'));
+  });
+});
+
+describe('subagentLaunchTarget', () => {
+  it('uses the spawned child own target, else the parent target', () => {
+    const native = initialSubagentSnapshot('c1', 'p1');
+    assert.strictEqual(subagentLaunchTarget(native, 'codex-acp'), 'codex-acp');
+    assert.strictEqual(
+      subagentLaunchTarget({ ...native, kind: 'spawned', launchTarget: 'claude-agent-acp' }, 'codex-acp'),
+      'claude-agent-acp',
+    );
   });
 });

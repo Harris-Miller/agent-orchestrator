@@ -20,7 +20,7 @@ import {
 } from '../../atoms/boundHarnessAtoms.ts';
 import type { SessionConfiguration } from '../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../host/agentLaunchTarget.ts';
-import { canCancelSubagent, getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
+import { canCancelSubagent, getSubagent, subagentLaunchTarget, subagentTranscriptItems } from '../../host/subagent.ts';
 
 import { useChatWidthSx } from './chatWidth.ts';
 import { SubagentDock } from './SubagentDock.tsx';
@@ -52,7 +52,8 @@ const SubagentViewBody: FC<{
   const respondElicitation = useAtomSet(respondElicitationAtomFn, { mode: 'promise' });
   const child = getSubagent(snapshot.subagents, viewed.childId);
   // A Spawned subagent session's Pending interactions live on its own launch target; answering there clears the mirror.
-  const childLaunchTarget = child?.kind === 'spawned' ? child.launchTarget : viewed.launchTarget;
+  const childLaunchTarget =
+    child === undefined ? viewed.launchTarget : subagentLaunchTarget(child, viewed.launchTarget);
   // Hook must run before the `child === undefined` early return (rules of hooks).
   const childSnapshot = useAtomValue(backendHarnessSnapshotAtom(childLaunchTarget));
   if (child === undefined) return null;

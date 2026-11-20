@@ -11,8 +11,8 @@ import {
   selectedSubagentRootIdAtom,
   viewedSubagentAtom,
 } from '../../../../atoms/backendState.atoms.ts';
+import { subagentLatestActivity, subagentLaunchTarget } from '../../../../host/subagent.ts';
 import { AgentLaunchTargetIcon } from '../../../AgentLaunchTargetIcon.tsx';
-import { subagentLatestActivity } from '../../../../host/subagent.ts';
 import type { ChatItemOf } from './chatItemOf.ts';
 import { SubagentStatusIndicator } from './SubagentStatusIndicator.tsx';
 import { subagentModelEffortLabel } from './subagentModelEffort.ts';
@@ -26,7 +26,7 @@ export const SubagentItemView: FC<{ readonly item: ChatItemOf<'subagent'> }> = (
   const setViewed = useAtomSet(viewedSubagentAtom);
   if (launchTarget === undefined || rootSessionId === undefined || child === undefined) return null;
   const activity = subagentLatestActivity(child);
-  const childLaunchTarget = child.kind === 'spawned' ? child.launchTarget : launchTarget;
+  const childLaunchTarget = subagentLaunchTarget(child, launchTarget);
   const modelEffort =
     configuration === undefined ? undefined : subagentModelEffortLabel(childLaunchTarget, configuration);
   return (

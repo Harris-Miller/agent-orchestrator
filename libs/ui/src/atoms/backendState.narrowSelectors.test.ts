@@ -106,6 +106,7 @@ describe('selectedSubagentConfigurationAtom', () => {
     const configuration = [
       { choices: [{ id: 'opus', name: 'Opus' }], currentValue: 'opus', id: 'model', name: 'Model', type: 'select' },
     ] as const;
+    // Decoy: a `c` session on the parent target proves the atom reads the child's own (codex) target, not the parent's.
     updateHarnessSnapshot(registry, 'claude-agent-acp', current => ({
       ...current,
       sessions: { c: { ...initialSessionSnapshot('c', 'active'), configuration } },

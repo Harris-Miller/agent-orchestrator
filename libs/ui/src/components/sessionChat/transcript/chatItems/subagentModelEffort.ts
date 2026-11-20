@@ -1,7 +1,7 @@
 import type { SessionConfiguration } from '../../../../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../../../../host/agentLaunchTarget.ts';
-import { partitionComposerConfigOptions } from '../../configChips/partitionComposerConfigOptions.ts';
 import { chipSuffixParts } from '../../configChips/modelPickerList.ts';
+import { partitionComposerConfigOptions } from '../../configChips/partitionComposerConfigOptions.ts';
 import { configOptionChoiceLabel } from '../../configChips/sessionConfigOptionSelectViews.ts';
 
 /** The composer chip's text for a child's Config ("Model · Effort"); undefined when it has no model option. */

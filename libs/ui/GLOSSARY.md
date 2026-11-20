@@ -266,6 +266,14 @@ _Avoid_: alert, ping, completion event
 The Harness's OS idle-sleep hold, kept while any Prompt turn or Background follow-up on any launch target is working (in flight, or running on its own, with no Pending interaction on its Session or its Subagent sessions) and released a short grace period after none is, or at once when the Keep awake User setting is off. Never prevents display sleep or an explicit or lid-close sleep, and ends with the Harness process.
 _Avoid_: sleep inhibitor, caffeinate, wake lock, keep-alive
 
+**Idle session sweep**:
+The Harness's periodic pass that closes every active Session on a launch target that advertises Session close, has no Prompt turn or Background follow-up (a Spawned subagent's included), is not Selected, and has been idle longer than the Idle threshold; skipped while a Handoff runs. A closed Session is re-activated by Selecting it, as after a manual close.
+_Avoid_: auto-archive, timeout, expire, reaper
+
+**Idle threshold**:
+How long a Session must have been without activity before the Idle session sweep may close it.
+_Avoid_: archive timeout, expiry, TTL
+
 **Copy message**:
 The control under a transcript user or agent message that writes that message's Markdown source to the Host clipboard. For user messages, Command Chips copy as the raw invocation and Markdown Link Chips as `[label](href)`; injected context blocks and images are omitted. Does not apply to thoughts or tool output, and is distinct from the selection copy inside a user bubble.
 _Avoid_: copy button (when you mean the behavior), copy rendered text

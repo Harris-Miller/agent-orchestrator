@@ -294,6 +294,36 @@ describe('endPromptTurn', () => {
     );
   });
 
+  it('advances the History updatedAt to the turn end, also for a cancelled turn', () => {
+    const snapshot: BackendHarnessSnapshot = {
+      ...readySnapshot({ s1: activeSession('s1') }),
+      sessionHistory: [
+        { cwd: '/proj', sessionId: 's1', updatedAt: '2020-01-01T00:00:00.000Z' },
+        { cwd: '/proj', sessionId: 's2', updatedAt: '2020-01-01T00:00:00.000Z' },
+      ],
+    };
+    const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });
+    assert.strictEqual(begun._tag, 'Begun');
+    if (begun._tag !== 'Begun') return;
+    const cancelling: BackendHarnessSnapshot = {
+      ...begun.snapshot,
+      sessions: { s1: { ...begun.snapshot.sessions.s1, promptCancelRequested: true } },
+    };
+    const ended = endPromptTurn(cancelling, 's1', begun.turnId, 1_700_000_000_000);
+    assert.deepStrictEqual(
+      ended.sessionHistory.map(entry => entry.updatedAt),
+      ['2023-11-14T22:13:20.000Z', '2020-01-01T00:00:00.000Z'],
+    );
+  });
+
+  it('leaves the History unchanged when the Session has no History row', () => {
+    const snapshot = readySnapshot({ s1: activeSession('s1') });
+    const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });
+    assert.strictEqual(begun._tag, 'Begun');
+    if (begun._tag !== 'Begun') return;
+    assert.deepStrictEqual(endPromptTurn(begun.snapshot, 's1', begun.turnId, 9).sessionHistory, []);
+  });
+
   it('leaves a Session that is no longer in the map dropped', () => {
     const snapshot = readySnapshot();
     assert.strictEqual(endPromptTurn(snapshot, 's1', 'turn', 9), snapshot);

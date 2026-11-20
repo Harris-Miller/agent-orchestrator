@@ -1,7 +1,7 @@
 /** Session update apply: one inbound session/update → next snapshot (+ history title). */
 import { isRecord } from '../isRecord.ts';
 
-import { applySessionInfoTitle, initialSessionSnapshot } from './acpSessionBootstrap.ts';
+import { applySessionInfoTitle, initialSessionSnapshot, touchHistoryUpdatedAt } from './acpSessionBootstrap.ts';
 import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
 import { isLoadReplayEnd } from './airMeta.ts';
 import { foldConfigOptions } from './sessionConfiguration.ts';
@@ -54,9 +54,14 @@ export const applySessionUpdate = (
             next = { ...next, replayComplete: true };
             sessionChanged = true;
           }
-        } else if (typeof update.title === 'string') {
-          sessionHistory = applySessionInfoTitle(history, sessionId, update.title);
+        } else {
           // History patch alone is enough for a non-noop result when transcript unchanged.
+          if (typeof update.title === 'string') {
+            sessionHistory = applySessionInfoTitle(history, sessionId, update.title);
+          }
+          if (typeof update.updatedAt === 'string') {
+            sessionHistory = touchHistoryUpdatedAt(sessionHistory ?? history, sessionId, update.updatedAt);
+          }
         }
         break;
       }

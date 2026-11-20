@@ -10,6 +10,7 @@ import { AcpBackendsMount } from './AcpBackendsMount.tsx';
 import { FdPrerequisiteGate } from './FdPrerequisiteGate.tsx';
 import { HarnessCacheGate } from './HarnessCacheGate.tsx';
 import { HubMount } from './HubMount.tsx';
+import { IdleSweepMount } from './IdleSweepMount.tsx';
 import { KeepAwakeMount } from './KeepAwakeMount.tsx';
 import { NodePrerequisiteGate } from './NodePrerequisiteGate.tsx';
 import { PersistUserSettingsToast } from './PersistUserSettingsToast.tsx';
@@ -41,6 +42,7 @@ export const HarnessMounts: FC<{ readonly children?: ReactNode }> = ({ children 
     <HubMount />
     <AcpBackendsMount />
     <KeepAwakeMount />
+    <IdleSweepMount />
     <ProvidersStartupMount />
     {children}
   </HarnessCacheGate>

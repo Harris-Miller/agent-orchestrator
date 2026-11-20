@@ -172,6 +172,19 @@ export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapsho
 export const rootAncestorId = (subagents: SubagentRecord, sessionId: string): string =>
   rootAncestor(id => getSubagent(subagents, id)?.parentSessionId, sessionId);
 
+/** A Subagent of `kind` rooted at `sessionId` is `running` or `requires_action`. */
+export const hasWorkingSubagent = (
+  subagents: SubagentRecord,
+  sessionId: string,
+  kind: SubagentSnapshot['kind'],
+): boolean =>
+  Object.values(subagents).some(
+    child =>
+      child.kind === kind &&
+      rootAncestorId(subagents, child.sessionId) === sessionId &&
+      (child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction),
+  );
+
 /**
  * Background follow-up (glossary): an active Session with no Pending client request and a native Subagent descendant
  * that is `running` or `requires_action`. The Agent works on its own after its Prompt turn ended (AIR `backgroundSubagents`).
@@ -184,12 +197,7 @@ export const hasBackgroundActivity = (
   return (
     session?.status === 'active' &&
     session.pendingClientRequest === undefined &&
-    Object.values(snapshot.subagents).some(
-      child =>
-        child.kind === 'native' &&
-        rootAncestorId(snapshot.subagents, child.sessionId) === sessionId &&
-        (child.state?.state === WORK_STATE.running || child.state?.state === WORK_STATE.requiresAction),
-    )
+    hasWorkingSubagent(snapshot.subagents, sessionId, 'native')
   );
 };
 

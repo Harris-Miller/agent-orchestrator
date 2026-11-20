@@ -6,7 +6,7 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
-import { isArchivedEntry, recommendedValueOf } from './airMeta.ts';
+import { airRowMetaOf, isArchivedEntry, recommendedValueOf, withLastPromptAt } from './airMeta.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -294,6 +294,13 @@ export const touchHistoryUpdatedAt = <T extends NormalizedSessionInfo>(
   });
 };
 
+/** Optimistically advance the matching history row's **Last prompt time**, only when it already has one; never backwards. Unknown row: unchanged. */
+export const touchHistoryLastPromptAt = <T extends NormalizedSessionInfo>(
+  history: readonly T[],
+  sessionId: string,
+  at: string,
+): readonly T[] => history.map(entry => (entry.sessionId === sessionId ? withLastPromptAt(entry, at) : entry));
+
 export const normalizeSessionHistory = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];
@@ -305,24 +312,28 @@ export const normalizeSessionHistory = (listResult: unknown): readonly Normalize
   });
 };
 
-/** Missing `updatedAt` sorts last (oldest). Equal timestamps tie-break by `sessionId`. */
-export const compareHistoryEntriesByUpdatedAtDesc = (
-  left: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
-  right: Pick<NormalizedSessionInfo, 'sessionId' | 'updatedAt'>,
+/** The time a row sorts by: its **Last prompt time** (`_meta.jetbrains.air.lastPromptAt`), else `updatedAt`. Missing or invalid reads as negative infinity. */
+const sortTimeMs = (entry: NormalizedSessionInfo): number => {
+  const time = Date.parse(airRowMetaOf(entry).lastPromptAt ?? entry.updatedAt ?? '');
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+};
+
+/** Newest **Last prompt time** first (falls back to `updatedAt`); a missing time sorts last. Equal times tie-break by `sessionId`. */
+export const compareHistoryEntriesByLastPromptDesc = (
+  left: NormalizedSessionInfo,
+  right: NormalizedSessionInfo,
 ): number => {
-  const leftTime = left.updatedAt === undefined ? Number.NEGATIVE_INFINITY : Date.parse(left.updatedAt);
-  const rightTime = right.updatedAt === undefined ? Number.NEGATIVE_INFINITY : Date.parse(right.updatedAt);
-  const leftMs = Number.isFinite(leftTime) ? leftTime : Number.NEGATIVE_INFINITY;
-  const rightMs = Number.isFinite(rightTime) ? rightTime : Number.NEGATIVE_INFINITY;
+  const leftMs = sortTimeMs(left);
+  const rightMs = sortTimeMs(right);
   if (leftMs !== rightMs) {
     return rightMs - leftMs;
   }
   return left.sessionId < right.sessionId ? -1 : left.sessionId > right.sessionId ? 1 : 0;
 };
 
-/** Session History order: unarchived rows before archived ones, each newest `updatedAt` first. */
+/** Session History order: unarchived rows before archived ones, each newest **Last prompt time** first. */
 export const compareHistoryEntries = (left: NormalizedSessionInfo, right: NormalizedSessionInfo): number =>
-  Number(isArchivedEntry(left)) - Number(isArchivedEntry(right)) || compareHistoryEntriesByUpdatedAtDesc(left, right);
+  Number(isArchivedEntry(left)) - Number(isArchivedEntry(right)) || compareHistoryEntriesByLastPromptDesc(left, right);
 
 /** History entries for `cwd` in Session History order (empty when `cwd` is undefined). */
 export const sessionsForCwd = <T extends NormalizedSessionInfo>(

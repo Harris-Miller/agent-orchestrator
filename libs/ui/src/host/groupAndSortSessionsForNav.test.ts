@@ -25,6 +25,25 @@ describe('groupAndSortSessionsForNav', () => {
     );
   });
 
+  it('orders by Last prompt time, falling back to updatedAt', () => {
+    const withPrompt = (entry: UnifiedHistoryEntry, lastPromptAt: string): UnifiedHistoryEntry => ({
+      ...entry,
+      _meta: { jetbrains: { air: { lastPromptAt } } },
+    });
+    const groups = groupAndSortSessionsForNav(
+      [
+        withPrompt(row('/p', 'touched-later', '2024-09-01T00:00:00.000Z'), '2024-01-01T00:00:00.000Z'),
+        withPrompt(row('/p', 'prompted-later', '2024-02-01T00:00:00.000Z'), '2024-05-01T00:00:00.000Z'),
+        row('/p', 'no-prompt', '2024-03-01T00:00:00.000Z'),
+      ],
+      ['/p'],
+    );
+    assert.deepStrictEqual(
+      groups[0].sessions.map(entry => entry.sessionId),
+      ['prompted-later', 'no-prompt', 'touched-later'],
+    );
+  });
+
   it('keeps a Project with no rows as an empty group', () => {
     assert.deepStrictEqual(groupAndSortSessionsForNav([], ['/p']), [{ cwd: '/p', sessions: [] }]);
   });

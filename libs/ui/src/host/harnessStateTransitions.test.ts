@@ -316,6 +316,39 @@ describe('endPromptTurn', () => {
     );
   });
 
+  it('advances an existing Last prompt time to the turn end, never backwards, and never adds one', () => {
+    const air = (lastPromptAt: string) => ({ _meta: { jetbrains: { air: { lastPromptAt, model: 'm' } } } });
+    const snapshot: BackendHarnessSnapshot = {
+      ...readySnapshot({ s1: activeSession('s1') }),
+      sessionHistory: [
+        { cwd: '/proj', sessionId: 's1', updatedAt: '2020-01-01T00:00:00.000Z', ...air('2020-01-01T00:00:00.000Z') },
+        { cwd: '/proj', sessionId: 's2', updatedAt: '2020-01-01T00:00:00.000Z' },
+      ],
+    };
+    const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });
+    assert.strictEqual(begun._tag, 'Begun');
+    if (begun._tag !== 'Begun') return;
+    const ended = endPromptTurn(begun.snapshot, 's1', begun.turnId, 1_700_000_000_000);
+    assert.deepStrictEqual(ended.sessionHistory[0]._meta, {
+      jetbrains: { air: { lastPromptAt: '2023-11-14T22:13:20.000Z', model: 'm' } },
+    });
+    const future: BackendHarnessSnapshot = {
+      ...begun.snapshot,
+      sessionHistory: [{ cwd: '/proj', sessionId: 's1', ...air('2099-01-01T00:00:00.000Z') }],
+    };
+    assert.deepStrictEqual(
+      endPromptTurn(future, 's1', begun.turnId, 1_700_000_000_000).sessionHistory[0]._meta,
+      air('2099-01-01T00:00:00.000Z')._meta,
+    );
+    const noMeta = endPromptTurn(
+      { ...begun.snapshot, sessionHistory: [{ cwd: '/proj', sessionId: 's1' }] },
+      's1',
+      begun.turnId,
+      1_700_000_000_000,
+    );
+    assert.isUndefined(noMeta.sessionHistory[0]._meta);
+  });
+
   it('leaves the History unchanged when the Session has no History row', () => {
     const snapshot = readySnapshot({ s1: activeSession('s1') });
     const begun = beginPromptTurn(snapshot, 's1', { startedAt: 1, text: 'one' });

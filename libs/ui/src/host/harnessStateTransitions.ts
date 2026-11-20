@@ -16,6 +16,7 @@ import {
   initialBackendHarnessSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
+  touchHistoryLastPromptAt,
   touchHistoryUpdatedAt,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
@@ -359,7 +360,12 @@ export const endPromptTurn = (
     : {
         ...ended,
         // Idle age for the Idle session sweep: the turn end is the Session's last activity.
-        sessionHistory: touchHistoryUpdatedAt(ended.sessionHistory, sessionId, new Date(endedAt).toISOString()),
+        // A prompt turn is a user prompt: it also advances a row's Last prompt time (which orders the History).
+        sessionHistory: touchHistoryLastPromptAt(
+          touchHistoryUpdatedAt(ended.sessionHistory, sessionId, new Date(endedAt).toISOString()),
+          sessionId,
+          new Date(endedAt).toISOString(),
+        ),
         sessions: patchSession(ended.sessions, sessionId, session => ({
           ...session,
           transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),

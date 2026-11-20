@@ -46,6 +46,64 @@ export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry:
   return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, archived } } } };
 };
 
+/** `entry` with `_meta.jetbrains.air.lastPromptAt` advanced to `at`: only when the row already carries one, never backwards; the rest of `_meta` is kept. */
+export const withLastPromptAt = <T extends Readonly<Record<string, unknown>>>(entry: T, at: string): T => {
+  const current = airOf(entry)?.lastPromptAt;
+  const incoming = Date.parse(at);
+  const existing = typeof current === 'string' ? Date.parse(current) : Number.NaN;
+  if (Number.isNaN(incoming) || Number.isNaN(existing) || incoming <= existing) {
+    return entry;
+  }
+  const meta = Predicate.isObject(entry._meta) ? entry._meta : {};
+  const jetbrains = Predicate.isObject(meta.jetbrains) ? meta.jetbrains : {};
+  const air = Predicate.isObject(jetbrains.air) ? jetbrains.air : {};
+  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, lastPromptAt: at } } } };
+};
+
+/** Activity state of a `session/list` row that earns a badge; `idle` and unknown states read as absent. */
+export type AirActivityState = 'error' | 'requires_action' | 'running';
+
+/** The AIR row metadata Session History shows. Each field is decoded on its own: a malformed one drops only itself. */
+export type AirRowMeta = {
+  readonly activityState?: AirActivityState;
+  readonly cost?: { readonly amount: number; readonly currency: string };
+  /** Session id this Session was forked from (the **Fork source**). */
+  readonly forkSource?: string;
+  /** **Last prompt time**, ISO string. */
+  readonly lastPromptAt?: string;
+  readonly model?: string;
+};
+
+const isActivityState = (value: unknown): value is AirActivityState =>
+  value === 'running' || value === 'requires_action' || value === 'error';
+
+const nonEmptyString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value !== '' ? value : undefined;
+
+/** The AIR row metadata of a `session/list` row (`_meta.jetbrains.air`); rows without it read as `{}`. */
+export const airRowMetaOf = (entry: Readonly<Record<string, unknown>>): AirRowMeta => {
+  const air = airOf(entry);
+  if (air === undefined) {
+    return {};
+  }
+  const { cost } = air;
+  const currency = Predicate.isObject(cost) ? nonEmptyString(cost.currency) : undefined;
+  const amount =
+    Predicate.isObject(cost) && typeof cost.amount === 'number' && Number.isFinite(cost.amount)
+      ? cost.amount
+      : undefined;
+  const lastPromptAt = nonEmptyString(air.lastPromptAt);
+  const model = nonEmptyString(air.model);
+  const forkSource = nonEmptyString(air.forkedFrom);
+  return {
+    ...(isActivityState(air.state) ? { activityState: air.state } : {}),
+    ...(amount !== undefined && currency !== undefined ? { cost: { amount, currency } } : {}),
+    ...(forkSource === undefined ? {} : { forkSource }),
+    ...(lastPromptAt === undefined ? {} : { lastPromptAt }),
+    ...(model === undefined ? {} : { model }),
+  };
+};
+
 /** True when an ACP available command is a skill: AIR `kind: 'skill'`, an AIR `skillPath`, or a Codex `$name`. */
 export const isSkillCommand = (entry: Readonly<Record<string, unknown>>): boolean => {
   const { name } = entry;

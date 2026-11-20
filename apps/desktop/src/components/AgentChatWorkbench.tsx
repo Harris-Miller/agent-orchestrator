@@ -22,7 +22,7 @@ import Box from '@mui/material/Box';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import { Allotment } from 'allotment';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_ENABLED, RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
@@ -66,6 +66,8 @@ export const AgentChatWorkbench: FC<{
   const selected = useAtomValue(selectedAtom);
   const virtualMaterializing = useAtomValue(virtualMaterializingAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
+  // Stable element so `memo(Composer)` holds when this component re-renders on the selected session's own chunks.
+  const cwdStrip = useMemo(() => <SessionCwdStrip onClientError={onClientError} />, [onClientError]);
 
   // Desktop keeps Virtual or a Session Selected: fall back to Virtual whenever Selected is cleared (boot, Archive,
   // Delete, Deactivate). Re-runs when Materialize ends, since ensureVirtual is inert under the Lifecycle lock.
@@ -162,10 +164,7 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody
-                  aboveComposer={<SessionCwdStrip onClientError={onClientError} />}
-                  onClientError={onClientError}
-                />
+                <SessionChatBody aboveComposer={cwdStrip} onClientError={onClientError} />
               </Box>
             </Allotment.Pane>
 

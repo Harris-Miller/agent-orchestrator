@@ -11,7 +11,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { findExecutableOnPath } from '../host/findExecutableOnPath.ts';
-import { withProviderReasons } from '../host/launchTargetAvailability.ts';
+import { launchTargetAvailabilityEqual, withProviderReasons } from '../host/launchTargetAvailability.ts';
 import {
   activateDownloadedRuntime,
   deactivateRuntime,
@@ -152,7 +152,11 @@ export const createProvidersAtoms = (
       selectable: get(enabledLaunchTargetsAtom),
       usable,
     };
-  }).pipe(Atom.keepAlive);
+  }).pipe(
+    // Recomputes on any harness or provider write; keep the value reference while its contents are unchanged.
+    Atom.withEquality(launchTargetAvailabilityEqual),
+    Atom.keepAlive,
+  );
 
   const showProvidersOnStartupAtom = Atom.writable(
     get => unwrapUserSettings(get(userSettingsAtom)).showProvidersOnStartup !== false,

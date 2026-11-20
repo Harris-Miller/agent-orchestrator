@@ -44,3 +44,28 @@ export const withProviderReasons = (
   }
   return reasons;
 };
+
+const sameElements = (a: readonly AgentLaunchTarget[], b: readonly AgentLaunchTarget[]): boolean =>
+  a.length === b.length && a.every((target, i) => target === b[i]);
+
+const sameReasons = (a: UnavailableReasons, b: UnavailableReasons): boolean => {
+  const keys = Object.keys(a) as AgentLaunchTarget[];
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+};
+
+export interface HarnessAvailability {
+  readonly reasons: UnavailableReasons;
+  readonly usable: readonly AgentLaunchTarget[];
+}
+
+export interface LaunchTargetAvailability extends HarnessAvailability {
+  readonly selectable: readonly AgentLaunchTarget[];
+}
+
+/** Structural equality so the availability atoms keep their reference across unrelated harness snapshot writes. */
+export const harnessAvailabilityEqual = (a: HarnessAvailability, b: HarnessAvailability): boolean =>
+  sameElements(a.usable, b.usable) && sameReasons(a.reasons, b.reasons);
+
+/** `harnessAvailabilityEqual` plus the `selectable` list. */
+export const launchTargetAvailabilityEqual = (a: LaunchTargetAvailability, b: LaunchTargetAvailability): boolean =>
+  harnessAvailabilityEqual(a, b) && sameElements(a.selectable, b.selectable);

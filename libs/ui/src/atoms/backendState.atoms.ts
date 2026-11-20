@@ -12,10 +12,11 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
-import { harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
+import { harnessAvailabilityEqual, harnessUnavailableReason } from '../host/launchTargetAvailability.ts';
+import type { HarnessAvailability } from '../host/launchTargetAvailability.ts';
 import { isSwitchingJob } from '../host/providerView.ts';
 import type { RuntimeJob } from '../host/providerView.ts';
-import { getSubagent } from '../host/subagent.ts';
+import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/subagent.ts';
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -167,14 +168,6 @@ export const selectedSessionLaunchTargetAtom = Atom.make(get => {
   );
 }).pipe(Atom.keepAlive);
 
-/** Subagent map of the selected session's provider; undefined when no session is selected. */
-export const selectedSubagentsAtom = Atom.make(get => {
-  const launchTarget = get(selectedSessionLaunchTargetAtom);
-  return launchTarget === undefined
-    ? undefined
-    : { launchTarget, subagents: get(backendHarnessSnapshotAtom(launchTarget)).subagents };
-});
-
 export const selectedSessionAtom = Atom.make(get => {
   const sessionId = get(selectedSessionIdAtom);
   const launchTarget = get(selectedSessionLaunchTargetAtom);
@@ -192,6 +185,71 @@ export const selectedBackendHarnessSnapshotAtom = Atom.make(get => {
   return get(backendHarnessSnapshotAtom(launchTarget));
 }).pipe(Atom.keepAlive);
 
+/** Narrows the selected Backend harness snapshot to its phase (primitive, so subscribers skip unrelated updates). */
+export const selectedBackendHarnessPhaseAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.phase).pipe(
+  Atom.keepAlive,
+);
+
+/** Narrows the selected Backend harness snapshot to its failure (reference-stable until it changes). */
+export const selectedBackendHarnessFailureAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.failure,
+).pipe(Atom.keepAlive);
+
+/** Narrows the selected Backend harness snapshot to its Antigravity auth URL. */
+export const selectedBackendHarnessAntigravityAuthUrlAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.antigravityAuthUrl,
+).pipe(Atom.keepAlive);
+
+/** Narrows the selected Backend harness snapshot to whether its agent can fork sessions. */
+export const selectedBackendHarnessCanForkAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.sessionFork === true,
+).pipe(Atom.keepAlive);
+
+/** Narrows the selected Backend harness snapshot to whether its agent supports steering a running turn. */
+export const selectedBackendHarnessSteeringSupportedAtom = Atom.make(
+  get => get(selectedBackendHarnessSnapshotAtom)?.agentCapabilities.steeringSupported ?? false,
+).pipe(Atom.keepAlive);
+
+/** Narrows the selected Backend harness snapshot to whether the selected session has background Subagent work (see `hasBackgroundActivity`). */
+export const selectedBackendHarnessBackgroundActiveAtom = Atom.make(get => {
+  const snapshot = get(selectedBackendHarnessSnapshotAtom);
+  const sessionId = get(selectedSessionIdAtom);
+  return snapshot !== undefined && sessionId !== undefined && hasBackgroundActivity(snapshot, sessionId);
+}).pipe(Atom.keepAlive);
+
+/** Narrows the selected Backend harness snapshot to its Subagent record. */
+const selectedSubagentsRecordAtom = Atom.make(get => get(selectedBackendHarnessSnapshotAtom)?.subagents);
+
+/**
+ * Narrows the selected Backend harness snapshot to one Subagent child; a row re-renders only when its own child changes.
+ * Not `keepAlive`: entries are keyed by child id and are collected once no row subscribes.
+ */
+export const selectedSubagentAtom = Atom.family((childId: string) =>
+  Atom.make(get => {
+    const subagents = get(selectedSubagentsRecordAtom);
+    return subagents === undefined ? undefined : getSubagent(subagents, childId);
+  }),
+);
+
+/**
+ * Narrows to a child's display name (undefined when the id is undefined, the child is absent, or it is unnamed).
+ * Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
+export const selectedSubagentNameAtom = Atom.family((childId: string | undefined) =>
+  Atom.make(get => (childId === undefined ? undefined : get(selectedSubagentAtom(childId))?.name)),
+);
+
+/**
+ * Narrows to the root ancestor session id of a child in the selected Backend harness snapshot.
+ * Not `keepAlive`: entries are keyed by child id and are collected once nothing subscribes.
+ */
+export const selectedSubagentRootIdAtom = Atom.family((childId: string) =>
+  Atom.make(get => {
+    const subagents = get(selectedSubagentsRecordAtom);
+    return subagents === undefined ? undefined : rootAncestorId(subagents, childId);
+  }),
+);
+
 /**
  * The Subagent view on screen, if any: the viewed child belongs to the Selected session and still exists in its
  * snapshot. Otherwise the Selected session's own transcript shows (glossary: Subagent view).
@@ -201,7 +259,7 @@ export const subagentViewAtom = Atom.make(get => {
   if (viewed === undefined || viewed.rootSessionId !== get(selectedSessionIdAtom)) {
     return undefined;
   }
-  const subagents = get(selectedBackendHarnessSnapshotAtom)?.subagents;
+  const subagents = get(selectedSubagentsRecordAtom);
   return subagents === undefined || getSubagent(subagents, viewed.childId) === undefined ? undefined : viewed;
 });
 
@@ -241,7 +299,7 @@ export const enabledLaunchTargetPhasesAtom = Atom.make(get => {
  * What the backend harness says about each enabled launch target: usable (usable phase and a nonempty, possibly cached,
  * Config option index) or the reason it is not. Provider reasons are merged in by `launchTargetAvailabilityAtom`.
  */
-export const harnessAvailabilityAtom = Atom.make(get => {
+export const harnessAvailabilityAtom = Atom.make((get): HarnessAvailability => {
   const usable: AgentLaunchTarget[] = [];
   const reasons: Partial<Record<AgentLaunchTarget, string>> = {};
   for (const launchTarget of get(enabledLaunchTargetsAtom)) {
@@ -258,4 +316,8 @@ export const harnessAvailabilityAtom = Atom.make(get => {
     }
   }
   return { reasons, usable };
-}).pipe(Atom.keepAlive);
+}).pipe(
+  // Recomputes on any launch target snapshot write; keep the value reference while its contents are unchanged.
+  Atom.withEquality(harnessAvailabilityEqual),
+  Atom.keepAlive,
+);

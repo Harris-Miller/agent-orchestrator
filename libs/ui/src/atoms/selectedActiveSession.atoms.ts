@@ -24,7 +24,7 @@ export type SelectedActiveSession = {
  * Active session for Selected Session arm or Bound Virtual.
  * Does not widen `selectedSessionIdAtom` (Session-arm-only); use this for Triggers / FS and Session-arm Config changes.
  */
-export const selectedActiveSessionAtom = Atom.make(get => {
+export const selectedActiveSessionAtom = Atom.make((get): SelectedActiveSession | undefined => {
   const selected = get(selectedAtom);
   if (selected?._tag === 'Virtual') {
     const virtual = get(virtualSessionAtom);
@@ -58,4 +58,10 @@ export const selectedActiveSessionAtom = Atom.make(get => {
     launchTarget,
     sessionId,
   } satisfies SelectedActiveSession;
-}).pipe(Atom.keepAlive);
+}).pipe(
+  // Recomputes on any launch target snapshot write; keep the value reference while its fields are unchanged.
+  Atom.withEquality<SelectedActiveSession | undefined>(
+    (a, b) => a?.sessionId === b?.sessionId && a?.launchTarget === b?.launchTarget && a?.cwd === b?.cwd,
+  ),
+  Atom.keepAlive,
+);

@@ -5,10 +5,14 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { Paperclip } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { FC, ReactNode, SubmitEvent } from 'react';
 
-import { selectedBackendHarnessSnapshotAtom } from '../../../atoms/backendState.atoms.ts';
+import {
+  selectedBackendHarnessAntigravityAuthUrlAtom,
+  selectedBackendHarnessFailureAtom,
+  selectedBackendHarnessPhaseAtom,
+} from '../../../atoms/backendState.atoms.ts';
 import {
   handoffSessionAtomFn,
   refreshSessionFsListingAtomFn,
@@ -39,7 +43,7 @@ import { SessionActionsStrip } from './SessionActionsStrip.tsx';
 
 export const Composer: FC<{
   readonly aboveComposer?: ReactNode;
-}> = ({ aboveComposer }) => {
+}> = memo(({ aboveComposer }) => {
   const {
     attachImages,
     cancelPromptTurn,
@@ -77,7 +81,9 @@ export const Composer: FC<{
     [edit],
   );
   const planFilePath = useMemo(() => latestPlanFilePath(chatItems), [chatItems]);
-  const backendSnapshot = useAtomValue(selectedBackendHarnessSnapshotAtom);
+  const harnessPhase = useAtomValue(selectedBackendHarnessPhaseAtom);
+  const harnessFailure = useAtomValue(selectedBackendHarnessFailureAtom);
+  const antigravityAuthUrl = useAtomValue(selectedBackendHarnessAntigravityAuthUrlAtom);
   const { fsListing, selectedSessionId: activeSessionId, sessionCwd } = useSelectedSessionFsListing();
   const setConfigOption = useAtomSet(setConfigOptionAtomFn, { mode: 'promise' });
   const handoffSession = useAtomSet(handoffSessionAtomFn, { mode: 'promise' });
@@ -176,17 +182,17 @@ export const Composer: FC<{
 
   return (
     <Box sx={{ flexShrink: 0, position: 'relative' }}>
-      {backendSnapshot?.failure !== undefined ? (
+      {harnessFailure !== undefined ? (
         <Typography color="error" sx={{ mb: 1 }} variant="body2">
-          {backendSnapshot.failure.message}
+          {harnessFailure.message}
         </Typography>
       ) : null}
-      {selectedLaunchTarget === 'antigravity-acp' && backendSnapshot !== undefined ? (
+      {selectedLaunchTarget === 'antigravity-acp' && harnessPhase !== undefined ? (
         <Box sx={{ mb: 1 }}>
           <AntigravitySignInControls
-            antigravityAuthUrl={backendSnapshot.antigravityAuthUrl}
-            notSignedIn={isNotSignedIn(backendSnapshot.failure)}
-            phase={backendSnapshot.phase}
+            antigravityAuthUrl={antigravityAuthUrl}
+            notSignedIn={isNotSignedIn(harnessFailure)}
+            phase={harnessPhase}
           />
         </Box>
       ) : null}
@@ -314,4 +320,4 @@ export const Composer: FC<{
       ) : null}
     </Box>
   );
-};
+});

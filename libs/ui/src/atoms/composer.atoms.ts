@@ -57,12 +57,12 @@ import {
 } from '../host/composerImageAttachment.ts';
 import type { ComposerImageAttachment } from '../host/composerImageAttachment.ts';
 import type { AvailableCommand } from '../host/sessionUpdateReducer.ts';
-import { hasBackgroundActivity } from '../host/subagent.ts';
 
 import {
   backendHarnessSnapshotAtom,
   selectedAtom,
-  selectedBackendHarnessSnapshotAtom,
+  selectedBackendHarnessBackgroundActiveAtom,
+  selectedBackendHarnessSteeringSupportedAtom,
   selectedSessionAtom,
   selectedSessionLaunchTargetAtom,
 } from './backendState.atoms.ts';
@@ -186,17 +186,15 @@ export const composerAtom = Atom.make((get): Composer => {
       ? { attachments: [], draft: '' }
       : { attachments: get(sessionAttachmentsAtom(sessionId)), draft: get(sessionDraftAtom(sessionId)) };
   const session = get(selectedSessionAtom);
-  const harnessSnapshot = get(selectedBackendHarnessSnapshotAtom);
   return {
     ...draft,
     ...composerGates({
       _tag: 'Session',
-      backgroundActive:
-        sessionId !== undefined && harnessSnapshot !== undefined && hasBackgroundActivity(harnessSnapshot, sessionId),
+      backgroundActive: get(selectedBackendHarnessBackgroundActiveAtom),
       handoffInProgress,
       hasContent: hasContent(draft),
       session,
-      steeringSupported: harnessSnapshot?.agentCapabilities.steeringSupported ?? false,
+      steeringSupported: get(selectedBackendHarnessSteeringSupportedAtom),
     }),
     availableCommands: session?.availableCommands ?? NO_COMMANDS,
     midTurnSend: get(midTurnSendModeAtom),

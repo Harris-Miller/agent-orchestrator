@@ -20,7 +20,7 @@ import { findMarkdownLinks } from './draftToContentBlocks.ts';
 import { knownLaunchTarget } from './agentLaunchTarget.ts';
 import { WINDOWS_DRIVE } from './openChatLink.ts';
 import { isHubSubagentToolTitle, parseSubagentResults } from './subagentResult.ts';
-import type { SubagentResult } from './subagentResult.ts';
+import type { KnownSubagentResult } from './subagentResult.ts';
 
 export type PlanEntry = {
   readonly content: string;
@@ -72,7 +72,7 @@ export type ChatItem =
       readonly resultText?: string;
       readonly status: string;
       /** Subagent results of a Hub `spawn_subagent` / `wait_subagent` call (ADR 0013); non-empty folds the row into the Subagent row. */
-      readonly subagentResults?: readonly SubagentResult[];
+      readonly subagentResults?: readonly KnownSubagentResult[];
       readonly title: string;
       readonly toolCallId: string;
       readonly toolKind?: ToolKind;
@@ -360,7 +360,7 @@ const extractPlanFilePath = (rawInput: unknown): string | undefined => {
 };
 
 /** Spreads `{ subagentResults }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
-const withSubagentResults = (results: readonly SubagentResult[] | undefined) =>
+const withSubagentResults = (results: readonly KnownSubagentResult[] | undefined) =>
   results === undefined ? {} : { subagentResults: results };
 
 /** Spreads `{ planFilePath }`, or nothing when absent (exactOptionalPropertyTypes forbids an explicit `undefined`). */
@@ -505,15 +505,19 @@ const textFromRawOutput = (raw: unknown, depth = 0): string | undefined => {
  * The Subagent results a Hub `spawn_subagent` / `wait_subagent` update carries (none for any other tool call). Codex
  * replays an MCP result only as `rawOutput`, so that is read when `content` has no text.
  */
-const subagentResultsOf = (title: string, update: Record<string, unknown>): readonly SubagentResult[] | undefined => {
+const subagentResultsOf = (
+  title: string,
+  update: Record<string, unknown>,
+): readonly KnownSubagentResult[] | undefined => {
   if (!isHubSubagentToolTitle(title)) {
     return undefined;
   }
   const text = extractTextFromContent(update.content) ?? textFromRawOutput(update.rawOutput);
   // Only results the restore can act on: a skipped one keeps its generic row.
-  const results = (text === undefined ? [] : parseSubagentResults(text)).filter(
-    result => knownLaunchTarget(result.launchTarget) !== undefined,
-  );
+  const results = (text === undefined ? [] : parseSubagentResults(text)).flatMap(result => {
+    const launchTarget = knownLaunchTarget(result.launchTarget);
+    return launchTarget === undefined ? [] : [{ ...result, launchTarget }];
+  });
   return results.length > 0 ? results : undefined;
 };
 

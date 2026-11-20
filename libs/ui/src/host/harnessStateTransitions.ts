@@ -22,7 +22,6 @@ import {
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
-import { knownLaunchTarget } from './agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { withArchived } from './airMeta.ts';
 import type { ApplySessionUpdateResult } from './applySessionUpdate.ts';
@@ -62,7 +61,7 @@ import {
   withParentChatItem,
 } from './subagentRouting.ts';
 import { withoutUndefined } from '../optionalFields.ts';
-import type { SubagentResult } from './subagentResult.ts';
+import type { KnownSubagentResult } from './subagentResult.ts';
 
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
@@ -772,7 +771,7 @@ export const mirrorChildIntoParent = (
     mirror.childId,
   );
 
-const isFinishedResult = (status: SubagentResult['status']): status is 'cancelled' | 'completed' | 'failed' =>
+const isFinishedResult = (status: KnownSubagentResult['status']): status is 'cancelled' | 'completed' | 'failed' =>
   status !== 'running';
 
 /**
@@ -783,13 +782,10 @@ const isFinishedResult = (status: SubagentResult['status']): status is 'cancelle
 export const restoreSubagentFromResult = (
   snapshot: BackendHarnessSnapshot,
   parentId: string,
-  result: SubagentResult,
+  result: KnownSubagentResult,
 ): BackendHarnessSnapshot => {
-  const launchTarget = knownLaunchTarget(result.launchTarget);
+  const { launchTarget } = result;
   const existing = getSubagent(snapshot.subagents, result.id);
-  if (launchTarget === undefined) {
-    return snapshot;
-  }
   if (existing !== undefined) {
     const upgradable =
       existing.kind === 'spawned' &&

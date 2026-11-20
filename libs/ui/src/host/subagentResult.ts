@@ -5,6 +5,7 @@
  */
 import { MCP_SERVER_NAME } from '@lib/hub/protocol';
 
+import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { ConfigOptionValues } from './configProbe.ts';
 
 export type SubagentResultStatus = 'cancelled' | 'completed' | 'failed' | 'running';
@@ -20,6 +21,9 @@ export type SubagentResult = {
   readonly status: SubagentResultStatus;
   readonly task: string;
 };
+
+/** A Subagent result whose launch target is a known one (validated once, where the reducer stores results). */
+export type KnownSubagentResult = Omit<SubagentResult, 'launchTarget'> & { readonly launchTarget: AgentLaunchTarget };
 
 const STATUSES: readonly string[] = ['cancelled', 'completed', 'failed', 'running'] satisfies SubagentResultStatus[];
 

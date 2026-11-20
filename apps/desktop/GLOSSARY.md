@@ -402,7 +402,7 @@ _Avoid_: parent link (the parent recorded on a native Subagent session for turn 
 
 **Subagent outcome**:
 How a Spawned subagent session's Prompt turn ended: completed with its final agent message, failed with a cause, or cancelled. A turn that completes without any message counts as failed, so the parent's agent always gets something to act on. It reaches the parent's agent by one of two routes: as the result of the agent's own call (the foreground `spawn_subagent`, or `wait_subagent`), or as a Subagent report. A call that collects it before the Subagent report is sent suppresses the report; a Subagent report is never sent twice.
-_Avoid_: Handoff (a different term), subagent result, response
+_Avoid_: Handoff (a different term), response
 
 **Subagent result**:
 The one text shape the Hub's `spawn_subagent` and `wait_subagent` tools hand back for a Spawned subagent session: a `<subagent …>` element naming the child (its id, Work state, launch target, name, applied Config option values and Subagent task) around its final agent message. A foreground `spawn_subagent` that finishes returns it too, so the agent always learns the child's id. It is the only durable trace of a Spawned subagent session in the parent's own transcript, so replay rebuilds the Restored subagent from it. A refusal (unknown target, empty task) is a plain error, not a Subagent result.

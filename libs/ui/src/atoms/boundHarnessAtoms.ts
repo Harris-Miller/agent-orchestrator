@@ -9,6 +9,7 @@ import { createComposerAtoms } from './composer.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
 import { createHubAtoms } from './hub.atoms.ts';
+import { createIdleSweepAtoms } from './idleSweep.atoms.ts';
 import { createKeepAwakeAtoms } from './keepAwake.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
 import { createPinnedSessionsAtoms } from './pinnedSessions.atoms.ts';
@@ -122,6 +123,8 @@ export const {
   unarchiveSessionAtomFn,
   unarchiveSessionsAtomFn,
 } = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
+
+export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime, deactivateSessionAtomFn);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 

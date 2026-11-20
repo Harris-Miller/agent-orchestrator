@@ -275,6 +275,16 @@ export const applySessionInfoTitle = (
 ): readonly NormalizedSessionInfo[] =>
   history.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
 
+/** Optimistically set the matching history row's `updatedAt` (what a later `session/list` returns); unknown row: unchanged. */
+export const touchHistoryUpdatedAt = <T extends NormalizedSessionInfo>(
+  history: readonly T[],
+  sessionId: string,
+  updatedAt: string,
+): readonly T[] =>
+  history.some(entry => entry.sessionId === sessionId)
+    ? history.map(entry => (entry.sessionId === sessionId ? { ...entry, updatedAt } : entry))
+    : history;
+
 export const normalizeSessionHistory = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {
     return [];

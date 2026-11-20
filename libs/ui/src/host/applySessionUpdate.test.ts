@@ -149,6 +149,44 @@ describe('applySessionUpdate', () => {
     }
   });
 
+  it('patches history updatedAt for session_info_update', () => {
+    const session = initialSessionSnapshot('s1', 'active');
+    const history: readonly NormalizedSessionInfo[] = [{ cwd: '/proj', sessionId: 's1', title: 'Old' }];
+    const result = applySessionUpdate(session, 's1', history, {
+      sessionUpdate: 'session_info_update',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    assert.strictEqual(result.kind, 'patch');
+    if (result.kind === 'patch') {
+      assert.deepStrictEqual(result.sessionHistory, [
+        { cwd: '/proj', sessionId: 's1', title: 'Old', updatedAt: '2026-01-01T00:00:00.000Z' },
+      ]);
+    }
+  });
+
+  it('patches both title and updatedAt when session_info_update carries both', () => {
+    const session = initialSessionSnapshot('s1', 'active');
+    const history: readonly NormalizedSessionInfo[] = [{ cwd: '/proj', sessionId: 's1', title: 'Old' }];
+    const result = applySessionUpdate(session, 's1', history, {
+      sessionUpdate: 'session_info_update',
+      title: 'New',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    assert.strictEqual(result.kind, 'patch');
+    if (result.kind === 'patch') {
+      assert.deepStrictEqual(result.sessionHistory, [
+        { cwd: '/proj', sessionId: 's1', title: 'New', updatedAt: '2026-01-01T00:00:00.000Z' },
+      ]);
+    }
+  });
+
+  it('session_info_update with neither title nor updatedAt is a noop', () => {
+    const result = applySessionUpdate(initialSessionSnapshot('s1', 'active'), 's1', emptyHistory, {
+      sessionUpdate: 'session_info_update',
+    });
+    assert.strictEqual(result.kind, 'noop');
+  });
+
   it('patches the transcript with a session failure row', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const result = applySessionUpdate(session, 's1', emptyHistory, {

@@ -16,6 +16,7 @@ import {
   initialBackendHarnessSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
+  touchHistoryUpdatedAt,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
@@ -357,6 +358,8 @@ export const endPromptTurn = (
     ? snapshot
     : {
         ...ended,
+        // Idle age for the Idle session sweep: the turn end is the Session's last activity.
+        sessionHistory: touchHistoryUpdatedAt(ended.sessionHistory, sessionId, new Date(endedAt).toISOString()),
         sessions: patchSession(ended.sessions, sessionId, session => ({
           ...session,
           transcript: stampUserMessageTiming(session.transcript, turnId, { endedAt }),

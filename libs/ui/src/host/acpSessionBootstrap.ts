@@ -275,15 +275,24 @@ export const applySessionInfoTitle = (
 ): readonly NormalizedSessionInfo[] =>
   history.map(entry => (entry.sessionId === sessionId ? { ...entry, title } : entry));
 
-/** Optimistically set the matching history row's `updatedAt` (what a later `session/list` returns); unknown row: unchanged. */
+/** Optimistically advance the matching history row's `updatedAt` (what a later `session/list` returns); never moves it backwards. Unknown row: unchanged. */
 export const touchHistoryUpdatedAt = <T extends NormalizedSessionInfo>(
   history: readonly T[],
   sessionId: string,
   updatedAt: string,
-): readonly T[] =>
-  history.some(entry => entry.sessionId === sessionId)
-    ? history.map(entry => (entry.sessionId === sessionId ? { ...entry, updatedAt } : entry))
-    : history;
+): readonly T[] => {
+  const incoming = Date.parse(updatedAt);
+  if (Number.isNaN(incoming)) {
+    return history;
+  }
+  return history.map(entry => {
+    if (entry.sessionId !== sessionId) {
+      return entry;
+    }
+    const existing = entry.updatedAt === undefined ? Number.NaN : Date.parse(entry.updatedAt);
+    return Number.isNaN(existing) || incoming > existing ? { ...entry, updatedAt } : entry;
+  });
+};
 
 export const normalizeSessionHistory = (listResult: unknown): readonly NormalizedSessionInfo[] => {
   if (!isRecord(listResult) || !Array.isArray(listResult.sessions)) {

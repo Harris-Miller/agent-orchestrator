@@ -20,6 +20,7 @@ import {
   recentSessionsForCwd,
   resolveSessionCwd,
   sessionsForCwd,
+  touchHistoryUpdatedAt,
 } from './acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';
 import type { RpcWireEntry } from './backendHarness.ts';
@@ -327,5 +328,36 @@ describe('defectsFromWireCause', () => {
       ]),
       [{ message: 'Internal error' }],
     );
+  });
+});
+
+describe('touchHistoryUpdatedAt', () => {
+  const row = (updatedAt?: string) => [
+    { cwd: '/p', sessionId: 's1', ...(updatedAt === undefined ? {} : { updatedAt }) },
+  ];
+
+  it('ignores an older incoming value', () => {
+    const history = row('2026-01-02T00:00:00.000Z');
+    assert.deepStrictEqual(touchHistoryUpdatedAt(history, 's1', '2026-01-01T00:00:00.000Z'), history);
+  });
+
+  it('advances to a newer incoming value', () => {
+    assert.deepStrictEqual(
+      touchHistoryUpdatedAt(row('2026-01-01T00:00:00.000Z'), 's1', '2026-01-02T00:00:00.000Z'),
+      row('2026-01-02T00:00:00.000Z'),
+    );
+  });
+
+  it('takes the incoming value when the row has no updatedAt', () => {
+    assert.deepStrictEqual(
+      touchHistoryUpdatedAt(row(), 's1', '2026-01-02T00:00:00.000Z'),
+      row('2026-01-02T00:00:00.000Z'),
+    );
+  });
+
+  it('ignores an unparsable incoming value and an unknown row', () => {
+    const history = row('2026-01-01T00:00:00.000Z');
+    assert.deepStrictEqual(touchHistoryUpdatedAt(history, 's1', 'nope'), history);
+    assert.deepStrictEqual(touchHistoryUpdatedAt(history, 'other', '2027-01-01T00:00:00.000Z'), history);
   });
 });

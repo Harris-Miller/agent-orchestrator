@@ -164,6 +164,28 @@ describe('applySessionUpdate', () => {
     }
   });
 
+  it('session_info_update only advances history updatedAt', () => {
+    const session = initialSessionSnapshot('s1', 'active');
+    const history: readonly NormalizedSessionInfo[] = [
+      { cwd: '/proj', sessionId: 's1', updatedAt: '2026-01-02T00:00:00.000Z' },
+    ];
+    const older = applySessionUpdate(session, 's1', history, {
+      sessionUpdate: 'session_info_update',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    if (older.kind === 'patch') {
+      assert.deepStrictEqual(older.sessionHistory ?? history, history);
+    }
+    const newer = applySessionUpdate(session, 's1', history, {
+      sessionUpdate: 'session_info_update',
+      updatedAt: '2026-01-03T00:00:00.000Z',
+    });
+    assert.strictEqual(newer.kind, 'patch');
+    if (newer.kind === 'patch') {
+      assert.strictEqual(newer.sessionHistory?.[0].updatedAt, '2026-01-03T00:00:00.000Z');
+    }
+  });
+
   it('patches both title and updatedAt when session_info_update carries both', () => {
     const session = initialSessionSnapshot('s1', 'active');
     const history: readonly NormalizedSessionInfo[] = [{ cwd: '/proj', sessionId: 's1', title: 'Old' }];

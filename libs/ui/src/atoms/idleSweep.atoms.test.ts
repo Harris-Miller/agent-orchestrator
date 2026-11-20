@@ -12,7 +12,8 @@ import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
-import { advertise, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
+import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
+import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runIdleSweep, sweepIdleSessions } from './idleSweep.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -26,7 +27,9 @@ const activeSession = (sessionId: string): SessionSnapshot => {
   return { ...base, cwd: '/proj', transcript: appendUserChatMessage(base.transcript, 'hello') };
 };
 
-const setup = Effect.fnUntraced(function* (options: { readonly failClose?: boolean } = {}) {
+const setup = Effect.fnUntraced(function* (
+  options: { readonly failClose?: boolean; readonly sessionClose?: boolean } = {},
+) {
   const calls: string[] = [];
   const registry = yield* freshRegistry;
   enableProviders(registry, [CODEX]);
@@ -41,7 +44,11 @@ const setup = Effect.fnUntraced(function* (options: { readonly failClose?: boole
     ],
     sessions: { s1: activeSession('s1'), s2: activeSession('s2') },
   }));
-  advertise(registry, CODEX, { agentCapabilities: { sessionCapabilities: { close: {}, resume: {} } } });
+  advertise(registry, CODEX, {
+    agentCapabilities: {
+      sessionCapabilities: { ...(options.sessionClose === false ? {} : { close: {} }), resume: {} },
+    },
+  });
   const snapshot = () => registry.get(backendHarnessSnapshotAtom(CODEX));
   const close = (target: SessionRef) => runAtomFn(registry, atoms.deactivateSessionAtomFn, target);
   return { atoms, calls, close, registry, snapshot };
@@ -110,6 +117,48 @@ describe('idle session sweep', () => {
       yield* TestClock.adjust(Duration.millis(IDLE_SWEEP_INTERVAL_MS));
       assert.deepStrictEqual(s.calls, ['close:s1', 'close:s2', 'close:s1', 'close:s2']);
       yield* Fiber.interrupt(fiber);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('closes nothing during a handoff, then closes on a later tick', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* pastThreshold;
+      s.registry.set(handoffInProgressAtom, true);
+      yield* sweepIdleSessions(s.registry, s.close);
+      assert.deepStrictEqual(s.calls, []);
+      s.registry.set(handoffInProgressAtom, false);
+      yield* sweepIdleSessions(s.registry, s.close);
+      assert.deepStrictEqual(s.calls, ['close:s1', 'close:s2']);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('closes nothing on a launch target that does not advertise Session close', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({ sessionClose: false });
+      yield* pastThreshold;
+      yield* sweepIdleSessions(s.registry, s.close);
+      assert.deepStrictEqual(s.calls, []);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('closes an idle session on each mounted launch target', () =>
+    Effect.gen(function* () {
+      const registry = yield* freshRegistry;
+      for (const launchTarget of [CODEX, CLAUDE]) {
+        updateHarnessSnapshot(registry, launchTarget, current => ({
+          ...current,
+          sessionHistory: [{ cwd: '/proj', sessionId: `${launchTarget}-s`, updatedAt: EPOCH }],
+          sessions: { [`${launchTarget}-s`]: activeSession(`${launchTarget}-s`) },
+        }));
+        advertise(registry, launchTarget, { agentCapabilities: { sessionCapabilities: { close: {} } } });
+      }
+      const closed: string[] = [];
+      yield* pastThreshold;
+      yield* sweepIdleSessions(registry, ({ launchTarget, sessionId }) =>
+        Effect.sync(() => closed.push(`${launchTarget}:${sessionId}`)),
+      );
+      assert.sameMembers(closed, [`${CODEX}:${CODEX}-s`, `${CLAUDE}:${CLAUDE}-s`]);
     }).pipe(Effect.scoped),
   );
 });

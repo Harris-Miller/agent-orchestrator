@@ -395,10 +395,15 @@ const codexBumpMission: Feature = {
   ],
 };
 
+// Never seed an archived row: activating it sends `_session/unarchive`, a real change to the user's session.
+const isArchived = (entry: UnifiedHistoryEntry): boolean =>
+  JSON.stringify(entry._meta ?? {}).includes('"archived":true');
+
 /** Two real History entries (distinct cwds when possible) seed the manual Feature; the rest stay ungrouped. */
 export const buildFeatures = (
-  realEntries: readonly UnifiedHistoryEntry[],
+  visibleEntries: readonly UnifiedHistoryEntry[],
 ): { readonly features: readonly Feature[]; readonly ungrouped: readonly UnifiedHistoryEntry[] } => {
+  const realEntries = visibleEntries.filter(entry => !isArchived(entry));
   const [first] = realEntries;
   const second = realEntries.find(entry => entry !== first && entry.cwd !== first?.cwd) ?? realEntries[1];
   const seeded = [first, second].filter(entry => entry !== undefined);

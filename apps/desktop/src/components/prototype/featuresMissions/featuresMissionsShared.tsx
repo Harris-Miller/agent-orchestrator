@@ -4,10 +4,10 @@ import {
   activateSessionAtomFn,
   AgentLaunchTargetIcon,
   directoryBasename,
-  listedSessionHistoryAtom,
   PANEL_HEADER_HEIGHT,
   SessionChatBody,
   SessionHeader,
+  visibleListedSessionHistoryAtom,
 } from '@lib/ui';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -43,7 +43,7 @@ export type PrototypeContext = {
 };
 
 export const usePrototypeContext = (onClientError: (error: unknown) => void): PrototypeContext => {
-  const realEntries = useAtomValue(listedSessionHistoryAtom);
+  const realEntries = useAtomValue(visibleListedSessionHistoryAtom);
   const { features, ungrouped } = useMemo(() => buildFeatures(realEntries), [realEntries]);
   const [featureId, setFeatureId] = useState(features[0]?.id ?? '');
   const [focusedKey, setFocusedKey] = useState<string | undefined>(undefined);
@@ -160,7 +160,7 @@ export const ProtoSessionRow: FC<{
       </Typography>
       <Typography color="text.secondary" noWrap variant="caption">
         {caption ?? cwdCaption(session.cwd)}
-        {session.real === undefined ? null : ' · live session'}
+        {session.real === undefined ? null : ' · from your History'}
       </Typography>
     </Stack>
     <RoleChip role={session.role} />
@@ -251,7 +251,7 @@ export const RealChatPane: FC<{ readonly onClientError: (error: unknown) => void
   </Box>
 );
 
-/** Real chat for a live History entry; a stub transcript for fixtures. */
+/** Real chat for a real History entry; a stub transcript for fixtures. */
 export const SessionPane: FC<{
   readonly empty?: ReactNode;
   readonly onClientError: (error: unknown) => void;

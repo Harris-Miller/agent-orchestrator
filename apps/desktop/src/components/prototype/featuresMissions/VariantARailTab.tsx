@@ -184,7 +184,7 @@ const FeaturesRail: FC<{ readonly ctx: PrototypeContext; readonly onShowSessions
         sx={{ borderColor: 'divider', borderTop: 1, cursor: 'pointer', flexShrink: 0, px: 2, py: 1 }}
       >
         <Typography color="text.secondary" variant="caption">
-          {ctx.ungroupedCount} live sessions are in no Feature. Open the Sessions tab ›
+          {ctx.ungroupedCount} History sessions are in no Feature. Open the Sessions tab ›
         </Typography>
       </Box>
     </Box>

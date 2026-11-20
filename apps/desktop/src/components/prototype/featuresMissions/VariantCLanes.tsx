@@ -263,7 +263,7 @@ const Lanes: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
               <StateDot state={session.state} />
               <Typography color="text.secondary" sx={{ flex: 1 }} variant="caption">
                 {STATE_LABEL[session.state]}
-                {session.real === undefined ? '' : ' · live'}
+                {session.real === undefined ? '' : ' · from History'}
               </Typography>
               <RoleChip role={session.role} />
             </Stack>
@@ -323,7 +323,7 @@ const FeatureList: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => (
       </Button>
     </Box>
     <Typography color="text.secondary" sx={{ borderColor: 'divider', borderTop: 1, p: 2 }} variant="caption">
-      {ctx.ungroupedCount} live sessions are in no Feature.
+      {ctx.ungroupedCount} History sessions are in no Feature.
     </Typography>
   </Box>
 );

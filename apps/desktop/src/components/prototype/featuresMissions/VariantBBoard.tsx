@@ -316,7 +316,7 @@ export const VariantBBoard: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) =
                 </Box>
                 {feature.mission === undefined ? (
                   <Typography color="text.secondary" variant="caption">
-                    {ctx.ungroupedCount} other live sessions hidden
+                    {ctx.ungroupedCount} other History sessions hidden
                   </Typography>
                 ) : (
                   <>

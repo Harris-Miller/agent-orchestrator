@@ -7,4 +7,4 @@ export { cancelSubagent, spawnSubagent, waitSubagents } from './tools.ts';
 export type { SpawnSubagentRequest } from './tools.ts';
 export { endSpawnedChildren, onLaunchTargetConnectionLost, spawnedParentOf } from './lifecycle.ts';
 export { isChild, isChildIn, subagentLinksAtom } from './links.ts';
-export type { SubagentLinks, SubagentOutcome } from './links.ts';
+export type { SubagentOutcome } from './links.ts';

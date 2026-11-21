@@ -10,6 +10,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { advertise, CODEX } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { select } from '../atoms/virtualSession.atoms.ts';
+import { endSpawnedChildren } from '../atoms/spawnedSubagent/index.ts';
 import { allLinks } from '../atoms/spawnedSubagent/links.ts';
 
 import { answer, CHILD, PARENT, setup, until } from './spawnSubagent.testing.ts';
@@ -207,6 +208,28 @@ describe('spawn_subagent (background)', () => {
       );
       yield* h.spawn({ runInBackground: true });
       h.setParent({ status: 'inactive' });
+      yield* Deferred.succeed(release, null);
+      for (let i = 0; i < 30; i += 1) {
+        yield* Effect.yieldNow;
+      }
+      assert.deepStrictEqual([parentPrompts, h.parentCalls.includes(`steer:${PARENT}`)], [[], false]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('ending the parent children ends their reporting: no report reaches the still-active parent', () =>
+    Effect.gen(function* () {
+      const release = Deferred.makeUnsafe<null>();
+      const parentPrompts: string[] = [];
+      const h = yield* setup(
+        child(release, 'Done.', () => (id, update) => {
+          h.childFold.onSessionUpdate(id, update);
+        }),
+        {
+          promptTexts: parentPrompts,
+        },
+      );
+      yield* h.spawn({ runInBackground: true });
+      yield* endSpawnedChildren(h.registry, { launchTarget: CODEX, sessionId: PARENT });
       yield* Deferred.succeed(release, null);
       for (let i = 0; i < 30; i += 1) {
         yield* Effect.yieldNow;

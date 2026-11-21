@@ -32,27 +32,25 @@ export const listSubagentTargetsHandler = hubToolHandler(ListSubagentTargetsArgs
 
 export const spawnSubagentHandler = hubToolHandler(SpawnSubagentArgs, (args, caller, { registry }) => {
   const launchTarget = knownLaunchTarget(args.launchTarget);
-  if (launchTarget === undefined) {
-    return Effect.succeed(
-      toolError(
-        `Unknown launch target ${JSON.stringify(args.launchTarget)}. Call list_subagent_targets for the valid ones.`,
-      ),
-    );
-  }
-  return spawnSubagent(registry, caller, {
-    configOptions: args.configOptions ?? {},
-    description: args.description,
-    launchTarget,
-    runInBackground: args.runInBackground === true,
-    task: args.task,
-  }).pipe(Effect.withSpan('spawnSubagent', { root: true }));
+  const result =
+    launchTarget === undefined
+      ? Effect.succeed(
+          toolError(
+            `Unknown launch target ${JSON.stringify(args.launchTarget)}. Call list_subagent_targets for the valid ones.`,
+          ),
+        )
+      : spawnSubagent(registry, caller, {
+          configOptions: args.configOptions ?? {},
+          description: args.description,
+          launchTarget,
+          runInBackground: args.runInBackground === true,
+          task: args.task,
+        });
+  return result.pipe(Effect.withSpan('spawnSubagent', { root: true }));
 });
 
 export const waitSubagentHandler = hubToolHandler(WaitSubagentArgs, (args, caller, { registry }) =>
-  waitSubagents(registry, caller, {
-    ids: args.ids,
-    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
-  }),
+  waitSubagents(registry, caller, { ids: args.ids, timeoutMs: args.timeoutMs }),
 );
 
 export const cancelSubagentHandler = hubToolHandler(CancelSubagentArgs, (args, caller, { registry }) =>

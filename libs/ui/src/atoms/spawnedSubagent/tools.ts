@@ -133,7 +133,7 @@ export const spawnSubagent = Effect.fnUntraced(function* (
 export const waitSubagents = Effect.fnUntraced(function* (
   registry: Registry,
   caller: SessionRef,
-  request: { readonly ids: readonly string[]; readonly timeoutMs?: number },
+  request: { readonly ids: readonly string[]; readonly timeoutMs: number | undefined },
 ) {
   const links = childrenOf(registry, caller);
   const children = request.ids.map(id => links.find(link => link.childSessionId === id));

@@ -6,7 +6,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "oxlint . --type-aware --deny-warnings --report-unused-disable-directives",
+    "lint": "pnpm run lint:check --fix",
+    "lint:check": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

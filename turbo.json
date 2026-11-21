@@ -8,7 +8,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "lint": {},
+    "lint": {
+      "cache": false
+    },
+    "lint:check": {},
     "package": {
       "cache": false,
       "outputs": ["hoa-vscode.vsix"]

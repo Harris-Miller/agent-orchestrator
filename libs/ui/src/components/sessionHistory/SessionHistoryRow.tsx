@@ -14,7 +14,6 @@ import type { FC } from 'react';
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { activateSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 import { hasBackgroundActivity } from '../../host/subagent.ts';
 import { HighlightFzfChars } from '../HighlightFzfChars.tsx';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -89,7 +88,7 @@ export const SessionHistoryRow: FC<{
     session?.pendingClientRequest !== undefined || hasBackgroundActivity(snapshot, entry.sessionId);
   const displayTitle = entry.title ?? DEFAULT_SESSION_TITLE;
   const unavailable = !isSessionHistoryEntryAvailable(entry, snapshot.phase);
-  const archived = isArchivedEntry(entry);
+  const archived = entry.archived === true;
 
   const activateHistoryEntry = () => {
     if (unavailable) return;

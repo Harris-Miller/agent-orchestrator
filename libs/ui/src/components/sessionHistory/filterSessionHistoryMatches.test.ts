@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 
 import { sessionsForCwd } from '../../host/acpSessionBootstrap.ts';
-import { withArchived } from '../../host/airMeta.ts';
+import { withArchived } from '../../host/historyEntry.ts';
 import { filterSessionHistoryMatches } from './filterSessionHistoryMatches.ts';
 
 const entry = (sessionId: string, title?: string) => ({

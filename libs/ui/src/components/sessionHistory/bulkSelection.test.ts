@@ -8,7 +8,7 @@ const entry = (sessionId: string, archived = false): UnifiedHistoryEntry => ({
   cwd: '/proj',
   launchTarget: 'codex-acp',
   sessionId,
-  ...(archived ? { _meta: { jetbrains: { air: { archived: true, version: 1 } } } } : {}),
+  ...(archived ? { archived: true as const } : {}),
 });
 
 describe('bulkSelection', () => {

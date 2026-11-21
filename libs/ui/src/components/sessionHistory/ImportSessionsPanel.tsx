@@ -26,7 +26,6 @@ import {
 import { importRowsAtom, importStateAtom } from '../../atoms/importSessions.atoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { agentLaunchTargetLabel, MOUNTED_AGENT_LAUNCH_TARGETS } from '../../host/agentLaunchTarget.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 import { importRowTime } from '../../host/importRowTime.ts';
 import { sessionEntryKey } from '../../host/sessionEntryKey.ts';
 import { AgentLaunchTargetIcon } from '../AgentLaunchTargetIcon.tsx';
@@ -76,7 +75,7 @@ export const ImportSessionsPanel: FC<{
   const matches: readonly Match[] = useMemo(() => {
     if (trimmed === '') {
       return rows
-        .filter(entry => showArchived || !isArchivedEntry(entry))
+        .filter(entry => showArchived || entry.archived !== true)
         .map(entry => ({ entry, positions: undefined }));
     }
     // A typed query includes archived rows whatever Show archived says.
@@ -186,7 +185,7 @@ export const ImportSessionsPanel: FC<{
           {matches.map(({ entry, positions }) => {
             const key = sessionEntryKey(entry);
             const selected = selectedKey === key;
-            const archived = isArchivedEntry(entry);
+            const archived = entry.archived === true;
             const title = entry.title ?? DEFAULT_SESSION_TITLE;
             const time = importRowTime(entry);
             return (

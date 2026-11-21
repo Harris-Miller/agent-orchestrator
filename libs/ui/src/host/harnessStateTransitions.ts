@@ -20,13 +20,14 @@ import {
   initialSessionSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
-  touchHistoryLastPromptAt,
+  touchHistoryLastPromptTime,
   touchHistoryUpdatedAt,
   upsertHistoryEntry,
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { isLoadReplayEnd, withArchived } from './airMeta.ts';
+import { isLoadReplayEnd } from './airMeta.ts';
+import { withArchived } from './historyEntry.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -352,7 +353,7 @@ export const endPromptTurn = (
     // A prompt turn is a user prompt: it also advances a row's Last prompt time (which orders the History).
     // The turn has ended, so a listed running / requires-action badge would be stale.
     sessionHistory: clearHistoryActivityState(
-      touchHistoryLastPromptAt(touchHistoryUpdatedAt(ended.sessionHistory, sessionId, endedIso), sessionId, endedIso),
+      touchHistoryLastPromptTime(touchHistoryUpdatedAt(ended.sessionHistory, sessionId, endedIso), sessionId, endedIso),
       sessionId,
     ),
     sessions: patchSession(ended.sessions, sessionId, session => ({

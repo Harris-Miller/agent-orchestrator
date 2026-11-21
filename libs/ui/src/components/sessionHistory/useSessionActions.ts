@@ -11,7 +11,6 @@ import {
 import { pinnedSessionsAtom, pinsLoadedAtom } from '../../atoms/pinnedSessions.atoms.ts';
 import { isUsablePhase } from '../../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 
 import { isSessionHistoryEntryAvailable } from './isSessionHistoryEntryAvailable.ts';
 import { noopClientError } from './noopClientError.ts';
@@ -44,7 +43,7 @@ export const useSessionActions = ({
   const session = entry.sessionId in snapshot.sessions ? snapshot.sessions[entry.sessionId] : undefined;
   const target = { launchTarget: entry.launchTarget, sessionId: entry.sessionId };
   const availability = sessionActionAvailability({
-    archived: isArchivedEntry(entry),
+    archived: entry.archived === true,
     canRename,
     capabilities: snapshot.agentCapabilities,
     entryUnavailable: entry.unavailable === true,

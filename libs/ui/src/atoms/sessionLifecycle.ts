@@ -19,7 +19,6 @@ import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { isArchivedEntry } from '../host/airMeta.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
 import { resetUnsupportedConfigValues } from '../host/configOptionIndexUi.ts';
@@ -168,7 +167,7 @@ export const activateSession = Effect.fn('activateSession')(function* (
   const existingSession = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
   const historyEntry = snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId);
   const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
-  if (historyEntry !== undefined && isArchivedEntry(historyEntry)) {
+  if (historyEntry?.archived === true) {
     // Unarchive first; the agent-side call is best-effort, so a failure never blocks opening the session.
     updateHarnessSnapshot(registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
     if (snapshot.agentCapabilities.sessionArchive) {

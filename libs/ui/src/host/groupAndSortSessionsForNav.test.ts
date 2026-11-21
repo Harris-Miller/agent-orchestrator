@@ -26,9 +26,9 @@ describe('groupAndSortSessionsForNav', () => {
   });
 
   it('orders by Last prompt time, falling back to updatedAt', () => {
-    const withPrompt = (entry: UnifiedHistoryEntry, lastPromptAt: string): UnifiedHistoryEntry => ({
+    const withPrompt = (entry: UnifiedHistoryEntry, lastPromptTime: string): UnifiedHistoryEntry => ({
       ...entry,
-      _meta: { jetbrains: { air: { lastPromptAt } } },
+      lastPromptTime,
     });
     const groups = groupAndSortSessionsForNav(
       [
@@ -50,7 +50,7 @@ describe('groupAndSortSessionsForNav', () => {
         row('/p', 'older', '2024-01-01T00:00:00.000Z'),
         {
           ...row('/p', 'garbled', '2024-06-01T00:00:00.000Z'),
-          _meta: { jetbrains: { air: { lastPromptAt: 'garbage' } } },
+          lastPromptTime: 'garbage',
         },
       ],
       ['/p'],

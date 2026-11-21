@@ -16,6 +16,7 @@ import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HistoryEntry } from '../host/acpSessionBootstrap.ts';
+import { decodeHistoryEntry, encodeHistoryEntry } from '../host/historyEntry.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
@@ -23,8 +24,9 @@ import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
-/** A Session History row as stored: the live-only `unavailable` marker is not part of the record. */
-export const trackedRecordOf = ({ unavailable: _unavailable, ...record }: HistoryEntry): TrackedSessionRecord => record;
+/** A Session History row as stored: encoded (`historyEntry.ts`), without the live-only `unavailable` marker. */
+export const trackedRecordOf = ({ unavailable: _unavailable, ...row }: HistoryEntry): TrackedSessionRecord =>
+  encodeHistoryEntry(row);
 
 type TargetTracked = { writes: Promise<void>; lastWritten: Map<string, string> };
 
@@ -77,14 +79,15 @@ export const hydrateTrackedSessions = (
 ): Effect.Effect<boolean, never, HostServices> =>
   readTrackedSessions(toLaunchTarget(launchTarget)).pipe(
     Effect.map(document => {
-      const stored = trackedSessionRows(document, new Set(cwds));
+      const stored = trackedSessionRows(document, new Set(cwds)).map(decodeHistoryEntry);
       const { lastWritten } = cacheOf(launchTarget);
-      for (const record of stored) lastWritten.set(record.sessionId, JSON.stringify(record));
+      // Compared against what the persister would write for the row, so a row unchanged since hydrate is not rewritten.
+      for (const row of stored) lastWritten.set(row.sessionId, JSON.stringify(trackedRecordOf(row)));
       updateHarnessSnapshot(registry, launchTarget, current => {
         const present = new Set(current.sessionHistory.map(entry => entry.sessionId));
         return replaceSessionHistory(current, [
           ...current.sessionHistory,
-          ...stored.filter(record => !present.has(record.sessionId)),
+          ...stored.filter(row => !present.has(row.sessionId)),
         ]);
       });
       return true;

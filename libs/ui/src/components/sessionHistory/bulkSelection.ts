@@ -1,5 +1,4 @@
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 import { sessionEntryKey } from '../../host/sessionEntryKey.ts';
 
 /** The selected keys that still name a visible entry (deleted or hidden entries drop out). */
@@ -33,6 +32,6 @@ export const partitionForBulk = (
   readonly unarchivable: readonly UnifiedHistoryEntry[];
 } => ({
   all: selectedEntries,
-  archivable: selectedEntries.filter(entry => canArchive(entry) && !isArchivedEntry(entry)),
-  unarchivable: selectedEntries.filter(entry => canArchive(entry) && isArchivedEntry(entry)),
+  archivable: selectedEntries.filter(entry => canArchive(entry) && entry.archived !== true),
+  unarchivable: selectedEntries.filter(entry => canArchive(entry) && entry.archived === true),
 });

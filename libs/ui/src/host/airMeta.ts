@@ -33,35 +33,6 @@ const airOf = (entry: Readonly<Record<string, unknown>>): Readonly<Record<string
   return meta.jetbrains.air;
 };
 
-/** True when a `session/list` row carries `_meta.jetbrains.air.archived === true`. */
-export const isArchivedEntry = (entry: Readonly<Record<string, unknown>>): boolean => {
-  return airOf(entry)?.archived === true;
-};
-
-/** `entry` with `_meta.jetbrains.air[key]` set to `value`; the rest of `_meta` is kept. */
-const withAirField = <T extends Readonly<Record<string, unknown>>>(entry: T, key: string, value: unknown): T => {
-  const meta = Predicate.isObject(entry._meta) ? entry._meta : {};
-  const jetbrains = Predicate.isObject(meta.jetbrains) ? meta.jetbrains : {};
-  const air = Predicate.isObject(jetbrains.air) ? jetbrains.air : {};
-  return { ...entry, _meta: { ...meta, jetbrains: { ...jetbrains, air: { ...air, [key]: value } } } };
-};
-
-/** `entry` with `_meta.jetbrains.air.archived` set to `archived`; the rest of `_meta` is kept. */
-export const withArchived = <T extends Readonly<Record<string, unknown>>>(entry: T, archived: boolean): T => {
-  return withAirField(entry, 'archived', archived);
-};
-
-/** `entry` with `_meta.jetbrains.air.lastPromptAt` advanced to `at`: only when the row already carries one, never backwards; the rest of `_meta` is kept. */
-export const withLastPromptAt = <T extends Readonly<Record<string, unknown>>>(entry: T, at: string): T => {
-  const current = airOf(entry)?.lastPromptAt;
-  const incoming = Date.parse(at);
-  const existing = typeof current === 'string' ? Date.parse(current) : Number.NaN;
-  if (Number.isNaN(incoming) || Number.isNaN(existing) || incoming <= existing) {
-    return entry;
-  }
-  return withAirField(entry, 'lastPromptAt', at);
-};
-
 /** `entry` without a `running` / `requires_action` `_meta.jetbrains.air.state` (stale once its turn ends); `error`, unknown or absent state: unchanged. The rest of `_meta` is kept. */
 export const withoutLiveActivityState = <T extends Readonly<Record<string, unknown>>>(entry: T): T => {
   const air = airOf(entry);
@@ -76,14 +47,12 @@ export const withoutLiveActivityState = <T extends Readonly<Record<string, unkno
 /** Activity state of a `session/list` row that earns a badge; `idle` and unknown states read as absent. */
 export type AirActivityState = 'error' | 'requires_action' | 'running';
 
-/** The AIR row metadata Session History shows. Each field is decoded on its own: a malformed one drops only itself. */
+/** The AIR row metadata Session History shows (archived and Last prompt time are typed row fields, `historyEntry.ts`). Each field is decoded on its own: a malformed one drops only itself. */
 export type AirRowMeta = {
   readonly activityState?: AirActivityState;
   readonly cost?: { readonly amount: number; readonly currency: string };
   /** Session id this Session was forked from (the **Fork source**). */
   readonly forkSource?: string;
-  /** **Last prompt time**, ISO string. */
-  readonly lastPromptTime?: string;
   readonly model?: string;
 };
 
@@ -105,14 +74,12 @@ export const airRowMetaOf = (entry: Readonly<Record<string, unknown>>): AirRowMe
     Predicate.isObject(cost) && typeof cost.amount === 'number' && Number.isFinite(cost.amount)
       ? cost.amount
       : undefined;
-  const lastPromptTime = nonEmptyString(air.lastPromptAt);
   const model = nonEmptyString(air.model);
   const forkSource = nonEmptyString(air.forkedFrom);
   return {
     ...(isActivityState(air.state) ? { activityState: air.state } : {}),
     ...(amount !== undefined && currency !== undefined ? { cost: { amount, currency } } : {}),
     ...(forkSource === undefined ? {} : { forkSource }),
-    ...(lastPromptTime === undefined ? {} : { lastPromptTime }),
     ...(model === undefined ? {} : { model }),
   };
 };

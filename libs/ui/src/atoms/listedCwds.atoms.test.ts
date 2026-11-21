@@ -9,8 +9,6 @@ import { projectsAtom } from './projects.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
-const archivedMeta = { jetbrains: { air: { archived: true } } };
-
 describe('listed cwds', () => {
   it.effect('follows the session list scope', () =>
     Effect.gen(function* () {
@@ -31,7 +29,7 @@ describe('listed cwds', () => {
         ...current,
         sessionHistory: [
           { cwd: '/a', sessionId: 'in' },
-          { _meta: archivedMeta, cwd: '/a', sessionId: 'in-archived' },
+          { archived: true, cwd: '/a', sessionId: 'in-archived' },
           { cwd: '/other', sessionId: 'out' },
         ],
       }));

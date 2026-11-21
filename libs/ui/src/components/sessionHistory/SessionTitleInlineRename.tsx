@@ -7,7 +7,6 @@ import type { FC, ReactNode, SyntheticEvent } from 'react';
 import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { renameSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../../host/airMeta.ts';
 
 import { noopClientError } from './noopClientError.ts';
 
@@ -41,7 +40,9 @@ export const SessionTitleInlineRename: FC<{
       <Box
         onDoubleClick={event => {
           // Codex rejects renaming archived sessions.
-          if (entry.unavailable === true || isArchivedEntry(entry) || !snapshot.agentCapabilities.sessionRename) return;
+          if (entry.unavailable === true || entry.archived === true || !snapshot.agentCapabilities.sessionRename) {
+            return;
+          }
           event.stopPropagation();
           onEditingChange(true);
         }}

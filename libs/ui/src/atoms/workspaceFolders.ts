@@ -9,9 +9,8 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { deactivateSessionAtomFn, ensureVirtualSessionAtomFn } from './boundHarnessAtoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { deactivateSession } from './sessionLifecycle.ts';
 import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { clearSelectedIfMissing, discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
@@ -64,8 +63,8 @@ export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* 
   applyWorkspaceFolderPaths(registry, paths);
   const cwd = firstFolderPath(paths);
   if (cwd !== undefined) {
-    // AtomFn path rebinds when Ready already fired; sync ensure alone can miss Bind.
-    yield* runAtomFn(registry, ensureVirtualSessionAtomFn, { cwd }).pipe(Effect.ignore);
+    // The ensure verb rebinds when Ready already fired; a sync blob seed alone can miss Bind.
+    yield* ensureVirtual(registry, { cwd }).pipe(Effect.ignore);
   }
 });
 
@@ -102,10 +101,9 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
     isChild(registry, { launchTarget, sessionId }),
   );
   for (const match of matches) {
-    yield* runAtomFn(registry, deactivateSessionAtomFn, {
-      launchTarget: match.launchTarget,
-      sessionId: match.sessionId,
-    }).pipe(Effect.ignore);
+    yield* deactivateSession(registry, { launchTarget: match.launchTarget, sessionId: match.sessionId }).pipe(
+      Effect.ignore,
+    );
   }
 
   stripPendingOnMatched(registry, matches);

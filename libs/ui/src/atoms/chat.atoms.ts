@@ -2,9 +2,10 @@
 import type { CreateElicitationResponseBody } from '@libs/effect-acp';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
 import { answerElicitation, answerPermission } from '../host/harnessStateTransitions.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { sessionOrSubagentOf } from '../host/subagentRouting.ts';
@@ -25,16 +26,24 @@ export type ElicitationReply =
   | { response: Extract<CreateElicitationResponseBody, { action: 'accept' }>; summary: ElicitationSummary }
   | { response: Extract<CreateElicitationResponseBody, { action: 'decline' | 'cancel' }> };
 
+/**
+ * Prompt turn cancel (see the Prompt turn module), un-queuing the Session's Queued message first: a Queued message must
+ * not auto-send once the turn is cancelled, so it goes back into the draft.
+ */
+export const cancelPrompt = (registry: AtomRegistry.AtomRegistry, arg: SessionRef) =>
+  Effect.suspend(() => {
+    unqueueSessionDraft(registry, arg.sessionId);
+    return cancelPromptTurn(registry, arg);
+  });
+
 export const createChatAtoms = (runtime: HostRuntimeBag) => {
   const { atomRuntime } = runtime;
 
-  /** Prompt turn cancel (see the Prompt turn module), un-queuing the Session's Queued message first; traced under the turn's prompt span. */
+  /** {@link cancelPrompt}, traced under the turn's prompt span. */
   const cancelPromptAtomFn = atomRuntime
     .fn((arg: { launchTarget: AgentLaunchTarget; sessionId: string }, get: Atom.FnContext) => {
       const parent = getPromptSpan(arg.launchTarget, arg.sessionId);
-      // A Queued message must not auto-send once the turn is cancelled: it goes back into the draft first.
-      unqueueSessionDraft(get.registry, arg.sessionId);
-      return cancelPromptTurn(get.registry, arg).pipe(
+      return cancelPrompt(get.registry, arg).pipe(
         Effect.withSpan('cancelPromptAtomFn', parent !== undefined ? { parent } : { root: true }),
       );
     })

@@ -11,13 +11,12 @@ import { IDLE_SWEEP_INTERVAL_MS, IDLE_THRESHOLD_MS } from '../host/idleSessions.
 import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runIdleSweep, sweepIdleSessions } from './idleSweep.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const EPOCH = '1970-01-01T00:00:00.000Z';
@@ -35,7 +34,7 @@ const setup = Effect.fnUntraced(function* (
   enableProviders(registry, [CODEX]);
   yield* installFakeAgent(calls, options, CODEX);
   const runtime = createHostRuntime(mockHostLayer);
-  const atoms = createSessionLifecycleAtoms(runtime, createChatAtoms(runtime).cancelPromptAtomFn, () => Effect.void);
+  const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [

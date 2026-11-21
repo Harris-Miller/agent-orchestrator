@@ -5,13 +5,11 @@ import { Effect } from 'effect';
 import { createHostRuntime } from '../createHostRuntime.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { advertise, CLAUDE, CODEX, connectFakeAgent, enableProviders, freshRegistry } from './fakeAgent.testing.ts';
 import { createImportSessionsAtoms, importRowsAtom, importStateAtom } from './importSessions.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
-import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 
 type Page = { readonly nextCursor?: string; readonly sessions: readonly Record<string, unknown>[] } | 'fail';
 
@@ -40,9 +38,7 @@ const setup = Effect.fnUntraced(function* () {
   const registry = yield* freshRegistry;
   enableProviders(registry, [CLAUDE, CODEX]);
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
-  const atoms = createImportSessionsAtoms(runtime, lifecycle.activateSessionAtomFn);
+  const atoms = createImportSessionsAtoms(runtime);
   const ids = () => registry.get(importRowsAtom).map(entry => `${entry.launchTarget}:${entry.sessionId}`);
   return { atoms, ids, registry };
 });

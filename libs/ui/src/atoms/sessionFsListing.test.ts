@@ -6,7 +6,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { createSessionFsListingAtoms, sessionFsListingAtom, sessionFsListingKey } from './sessionFsListing.atoms.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 
 const setup = Effect.fnUntraced(function* () {
   const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>

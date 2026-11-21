@@ -1,6 +1,6 @@
 /**
  * Idle session sweep (glossary): one app-wide periodic pass that closes idle Sessions. Lives in `@lib/ui` so desktop and
- * VS Code behave identically. Closing reuses `deactivateSessionAtomFn`; re-selecting a closed Session re-activates it.
+ * VS Code behave identically. Closing is the Deactivate verb; re-selecting a closed Session re-activates it.
  */
 import { Cause, Clock, Duration, Effect, Schedule } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -12,8 +12,7 @@ import { canCloseNow, IDLE_SWEEP_INTERVAL_MS, IDLE_THRESHOLD_MS, selectIdleSessi
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { handoffInProgressAtom } from './handoff.atoms.ts';
-import { runAtomFn } from './runAtomFn.ts';
-import type { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { deactivateSession } from './sessionLifecycle.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -61,12 +60,7 @@ export const sweepIdleSessions = Effect.fn('sweepIdleSessions')(function* (regis
 export const runIdleSweep = (registry: Registry, close: CloseSession) =>
   Effect.repeat(sweepIdleSessions(registry, close), Schedule.spaced(Duration.millis(IDLE_SWEEP_INTERVAL_MS)));
 
-export const createIdleSweepAtoms = (
-  runtime: HostRuntimeBag['atomRuntime'],
-  deactivateSessionFn: ReturnType<typeof createSessionLifecycleAtoms>['deactivateSessionAtomFn'],
-) => ({
+export const createIdleSweepAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
   /** Mount for the app's lifetime (`IdleSweepMount`). */
-  idleSweepAtom: runtime.atom(get =>
-    runIdleSweep(get.registry, target => runAtomFn(get.registry, deactivateSessionFn, target)),
-  ),
+  idleSweepAtom: runtime.atom(get => runIdleSweep(get.registry, target => deactivateSession(get.registry, target))),
 });

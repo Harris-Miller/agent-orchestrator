@@ -5,7 +5,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { composerAtom, createComposerAtoms } from '../atoms/composer.atoms.ts';
-import { runAtomFn } from '../atoms/runAtomFn.ts';
+import { runAtomFn } from '../atoms/runAtomFn.testing.ts';
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { advertise, CODEX } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';

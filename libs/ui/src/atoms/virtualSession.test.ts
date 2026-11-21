@@ -27,7 +27,7 @@ import {
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import type { MaterializedVirtual } from './virtualSession.atoms.ts';
 import {

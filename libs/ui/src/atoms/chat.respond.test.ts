@@ -11,7 +11,7 @@ import { createChatAtoms } from './chat.atoms.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 
 const LT = 'codex-acp' as const;
 

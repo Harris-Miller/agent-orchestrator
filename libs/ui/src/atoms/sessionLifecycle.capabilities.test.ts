@@ -11,13 +11,12 @@ import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { appendUserChatMessage, reduceSessionUpdate } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { advertise, CLAUDE, CODEX, enableProviders, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const CURSOR = 'cursor-acp' as const;
@@ -55,8 +54,7 @@ const setup = Effect.fnUntraced(function* (
   enableProviders(registry, [CLAUDE, CODEX, CURSOR]);
   yield* installFakeAgent(calls, options.fake, launchTarget);
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
   updateHarnessSnapshot(registry, launchTarget, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
@@ -303,8 +301,7 @@ describe('#278 F5: no-resume session/load replays into a clean transcript', () =
           CODEX,
         );
         const runtime = createHostRuntime(mockHostLayer);
-        const { cancelPromptAtomFn } = createChatAtoms(runtime);
-        const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+        const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
         // Local transcript already holds the same exchange (user + agent), as after a completed turn.
         const base = session('inactive');
         let { transcript } = base;

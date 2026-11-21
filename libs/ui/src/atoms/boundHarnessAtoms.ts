@@ -120,7 +120,7 @@ export const {
   stopTrackingProjectAtomFn,
   unarchiveSessionAtomFn,
   unarchiveSessionsAtomFn,
-} = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn, harnessAtoms.restartBackendAwaitingUsable);
+} = createSessionLifecycleAtoms(hostBag, harnessAtoms.restartBackendAwaitingUsable);
 
 export const { hubAtom } = createHubAtoms(atomRuntime, reactivateActiveSessionsAtomFn);
 
@@ -130,9 +130,9 @@ export const {
   importRetryTargetAtomFn,
   importSessionAtomFn,
   openImportAtomFn,
-} = createImportSessionsAtoms(hostBag, activateSessionAtomFn);
+} = createImportSessionsAtoms(hostBag);
 
-export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime, deactivateSessionAtomFn);
+export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime);
 
 export const { handoffSessionAtomFn } = createHandoffAtoms(hostBag);
 

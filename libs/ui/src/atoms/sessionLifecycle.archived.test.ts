@@ -7,12 +7,11 @@ import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom, selectedSessionLaunchTargetAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { advertise, CODEX, connectFakeAgent, freshRegistry, gated, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const advertisesArchive = {
@@ -23,8 +22,7 @@ const archivedMeta = { jetbrains: { air: { archived: true, version: 1 } } };
 
 const makeAtoms = () => {
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  return createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  return createSessionLifecycleAtoms(runtime, () => Effect.void);
 };
 
 const setup = Effect.fnUntraced(function* (

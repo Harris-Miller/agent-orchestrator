@@ -30,7 +30,7 @@ import { createHandoffAtoms, handoffSourcePrompt, SOURCE_TURN_TIMEOUT } from './
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 
 const submitHandoff = (received: McpReceived[], document: string): Effect.Effect<HubToolResult> =>
   handleHubToolCall(

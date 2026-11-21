@@ -9,6 +9,7 @@ import { createComposerAtoms } from './composer.atoms.ts';
 import { createHandoffAtoms } from './handoff.atoms.ts';
 import { createHarnessAtoms } from './harness.atoms.ts';
 import { createHubAtoms } from './hub.atoms.ts';
+import { createImportSessionsAtoms } from './importSessions.atoms.ts';
 import { createIdleSweepAtoms } from './idleSweep.atoms.ts';
 import { createKeepAwakeAtoms } from './keepAwake.atoms.ts';
 import { createOpenFileAtoms } from './openFile.atoms.ts';
@@ -114,16 +115,22 @@ export const {
   deactivateSessionAtomFn,
   deleteSessionAtomFn,
   forkSessionAtomFn,
-  refreshAllSessionHistoriesAtomFn,
   reactivateActiveSessionsAtomFn,
   renameSessionAtomFn,
-  retryProjectListsAtomFn,
   stopTrackingProjectAtomFn,
   unarchiveSessionAtomFn,
   unarchiveSessionsAtomFn,
 } = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn, harnessAtoms.restartBackendAwaitingUsable);
 
 export const { hubAtom } = createHubAtoms(atomRuntime, reactivateActiveSessionsAtomFn);
+
+export const {
+  closeImportAtomFn,
+  importLoadMoreAtomFn,
+  importRetryTargetAtomFn,
+  importSessionAtomFn,
+  openImportAtomFn,
+} = createImportSessionsAtoms(hostBag, activateSessionAtomFn);
 
 export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime, deactivateSessionAtomFn);
 

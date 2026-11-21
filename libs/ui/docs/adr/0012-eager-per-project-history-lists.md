@@ -1,5 +1,7 @@
 # Older history pages load eagerly, per Project
 
+_Superseded by [ADR 0014](./0014-session-list-only-from-import.md): `session/list` runs only from Import._
+
 Desktop Session History is listed per **Project**: one `session/list` per (launch target, Project `cwd`), each paged to exhaustion, in the background of the launch target's `usable` phase. The Backend harness reaches `ready` without waiting for them. Session History search covers every session of every loaded Project, archived or not.
 
 - **Why eager, not on demand.** `session/list` gives no way to ask for "just the recent ones" (`updatedAt` is unknown until listed, and providers return different amounts), so the only bound is which cwds are listed, and the Project list is that bound. Paging each Project to exhaustion keeps search and the pin sweep correct (both need the whole list) and Show archived free (ADR 0008). On-demand paging stays out of scope.

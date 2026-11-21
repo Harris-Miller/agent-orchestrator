@@ -16,16 +16,16 @@ _Avoid_: Settings document, config, configuration, session configuration, config
 A User settings `fd` exclude pattern (`alwaysHiddenGlobs`) always applied on Harness `fd` listings (New Session shallow picker and composer `@` recursive listing), in addition to the hardcoded `.git` exclude. Beats Show hidden — matching paths stay excluded when Show hidden is on. Not removable via Settings for `.git` itself.
 _Avoid_: ignore glob, hide pattern, gitignore entry (when you mean this User settings field)
 
-**Application session index**:
-Harness-owned durable view of listed sessions under `providers/<launchTarget>/session-index.json`, grouped by session cwd: at most 10 rows per cwd (newest Last prompt time, else `updatedAt`) plus that cwd's pinned sessions. A host rewrites only the cwd entries it lists (merge-on-write) and leaves the others in place; Stop tracking removes a Project's entries. Desktop hydrates only loaded Projects' entries (as unavailable rows) before agent startup. See desktop ADR 0016.
-_Avoid_: live session list
+**Tracked sessions document**:
+The app's own durable record of which sessions it tracks per launch target, grouped by session cwd. Each record holds the session's row snapshot plus the app-owned `archived` flag. Shared by desktop and VS Code. Records of a Project that stopped being tracked are kept until the Project is added again. See ADR 0008.
+_Avoid_: session index, session cache, live session list
 
 **Pinned sessions document**:
 Per-launch-target `providers/<launchTarget>/pinned-sessions.json` listing pinned `{ sessionId, cwd }`. Each change re-reads the file and applies only that change; an undecodable file is never overwritten (see ADR 0004).
 _Avoid_: Pin list, favorites
 
 **Projects document**:
-`projects.json` at the HOA home root listing the Projects (desktop glossary) as `{ projects: string[] }` (provisional shape). One file for all launch targets, since cwd groups are unified across them (see ADR 0007). Paths are normalized for trailing separators. Each change re-reads the file and applies only that change; an undecodable file is never overwritten. Only the desktop app reads and writes it.
+`projects.json` at the HOA home root listing the Projects (desktop glossary) as `{ projects: string[] }` (provisional shape). One file for all launch targets, since cwd groups are unified across them (see ADR 0007). Paths are normalized for trailing separators. Each change re-reads the file and applies only that change; an undecodable file is never overwritten. Desktop reads and writes it; VS Code only adds its Workspace cwd (see ADR 0009).
 _Avoid_: tracked cwds, cwd history
 
 **Config option index cache**:

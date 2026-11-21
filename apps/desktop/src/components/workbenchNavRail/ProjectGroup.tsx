@@ -1,14 +1,10 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { UnifiedHistoryEntry } from '@lib/ui';
 import {
-  agentLaunchTargetLabel,
   ensureVirtualSessionAtomFn,
   LucideMuiIcon,
   projectDisplayAtom,
-  projectListStatusAtom,
   projectMembershipAtom,
-  refreshAllSessionHistoriesAtomFn,
-  retryProjectListsAtomFn,
   sessionEntryKey,
   SessionHistoryRow,
   stopTrackingProjectAtomFn,
@@ -18,20 +14,18 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
-import LinearProgress from '@mui/material/LinearProgress';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { Ellipsis, EyeOff, Folder, FolderOpen, RotateCw, SquarePen, TriangleAlert } from 'lucide-react';
+import { Download, Ellipsis, EyeOff, Folder, FolderOpen, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -40,16 +34,15 @@ const CWD_GROUP_ROW_LIMIT = 10;
 
 export type ProjectGroupData = {
   readonly cwd: string;
-  /** The Project had no rows at all, before the pinned ones were taken out. */
-  readonly empty: boolean;
   readonly sessions: readonly UnifiedHistoryEntry[];
 };
 
-/** A Project's Session History accordion: status glyph, `⋯` menu (Reload sessions, Stop tracking), "+", banner and rows. */
+/** A Project's Session History accordion: `⋯` menu (Import, Stop tracking), "+" and its Tracked sessions. */
 export const ProjectGroup: FC<{
   readonly expansion: { readonly expanded: boolean; readonly onChange: (event: unknown, expanded: boolean) => void };
   readonly group: ProjectGroupData;
   readonly onClientError: (error: unknown) => void;
+  readonly onImport: (cwd: string) => void;
   readonly onDeleteRequest: (entry: UnifiedHistoryEntry) => void;
   readonly onToggleShowMore: () => void;
   readonly rowSelection: (
@@ -62,6 +55,7 @@ export const ProjectGroup: FC<{
   group,
   onClientError,
   onDeleteRequest,
+  onImport,
   onToggleShowMore,
   rowSelection,
   selectedSessionId,
@@ -69,16 +63,12 @@ export const ProjectGroup: FC<{
 }) => {
   const { cwd } = group;
   const { label, parentCaption } = useAtomValue(projectDisplayAtom(cwd));
-  const status = useAtomValue(projectListStatusAtom(cwd));
   const { activeSessions } = useAtomValue(projectMembershipAtom(cwd));
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
-  const reload = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
-  const retry = useAtomSet(retryProjectListsAtomFn, { mode: 'promise' });
   const stopTracking = useAtomSet(stopTrackingProjectAtomFn, { mode: 'promise' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const overflowCount = group.sessions.length - CWD_GROUP_ROW_LIMIT;
-  const failedProviders = status.incompleteLaunchTargets.map(agentLaunchTargetLabel).join(', ');
 
   const runStopTracking = () => {
     stopTracking(cwd).catch(onClientError);
@@ -115,14 +105,6 @@ export const ProjectGroup: FC<{
               )}
             </Box>
           </Tooltip>
-          {status.state === 'loading' ? (
-            <CircularProgress aria-label={`Loading sessions in ${label}`} size={14} sx={{ flexShrink: 0 }} />
-          ) : null}
-          {status.incompleteLaunchTargets.length > 0 ? (
-            <Tooltip title="Some sessions didn't finish loading">
-              <LucideMuiIcon icon={TriangleAlert} sx={{ color: 'warning.main', flexShrink: 0, fontSize: '1rem' }} />
-            </Tooltip>
-          ) : null}
           <IconButton
             aria-label={`Project actions for ${label}`}
             className="header-action"
@@ -152,40 +134,6 @@ export const ProjectGroup: FC<{
           </IconButton>
         </AccordionSummary>
         <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-          {status.state === 'loading' ? <LinearProgress sx={{ height: 2, mr: 2 }} /> : null}
-          {status.incompleteLaunchTargets.length > 0 ? (
-            <Box
-              sx={{
-                alignItems: 'center',
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                display: 'flex',
-                gap: 1,
-                mb: 0.5,
-                mr: 2,
-                px: 1.5,
-                py: 0.5,
-              }}
-            >
-              <Typography color="warning.main" sx={{ flex: 1 }} variant="caption">
-                {failedProviders} didn’t finish loading. Older sessions may be missing.
-              </Typography>
-              <Button
-                onClick={() => {
-                  retry(cwd).catch(onClientError);
-                }}
-                size="small"
-                sx={{ textTransform: 'none' }}
-              >
-                Retry
-              </Button>
-            </Box>
-          ) : null}
-          {group.empty && status.state === 'complete' ? (
-            <Typography color="text.secondary" sx={{ px: 2, py: 1 }} variant="body2">
-              No sessions
-            </Typography>
-          ) : null}
           {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
             <SessionHistoryRow
               entry={entry}
@@ -213,16 +161,15 @@ export const ProjectGroup: FC<{
         open={menuAnchor !== null}
       >
         <MenuItem
-          disabled={status.state === 'loading'}
           onClick={() => {
             setMenuAnchor(null);
-            reload({ cwd }).catch(onClientError);
+            onImport(cwd);
           }}
         >
           <ListItemIcon sx={{ color: 'inherit', minWidth: 32 }}>
-            <LucideMuiIcon fontSize="small" icon={RotateCw} />
+            <LucideMuiIcon fontSize="small" icon={Download} />
           </ListItemIcon>
-          Reload sessions
+          Import
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -252,7 +199,7 @@ export const ProjectGroup: FC<{
           <DialogContentText>
             This will stop and close {activeSessions.length} active{' '}
             {activeSessions.length === 1 ? 'session' : 'sessions'}. Sessions are not deleted, and adding the Project
-            again brings them back.
+            again brings its tracked sessions back.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

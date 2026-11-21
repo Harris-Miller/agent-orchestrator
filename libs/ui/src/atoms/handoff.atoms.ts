@@ -22,6 +22,7 @@ import {
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { cancelPromptTurn, sendPromptTurn } from './promptTurn.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
+import { ensureWorkspaceProject } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';
 
 export const handoffInProgressAtom = Atom.make(false).pipe(Atom.keepAlive);
@@ -147,6 +148,7 @@ export const createHandoffAtoms = (runtime: HostRuntimeBag) => {
           updateHarnessSnapshot(get.registry, arg.targetLaunchTarget, current =>
             addCreatedSession(current, { cwd, result }),
           );
+          yield* ensureWorkspaceProject(get.registry, cwd);
           yield* select(get.registry, { _tag: 'Session', sessionId: targetSessionId });
 
           const configured = yield* applySessionConfigValues(

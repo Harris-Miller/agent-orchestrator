@@ -87,7 +87,7 @@ The absolute directory that is a session's primary filesystem context (ACP `cwd`
 _Avoid_: Host cwd, working folder, project root (when you mean the ACP session parameter)
 
 **Session History**:
-Cached `session/list` results across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and listed per Project on desktop (one `session/list` per launch target and Project `cwd`, paged to exhaustion in the background after the Harness is usable; pages merge by `sessionId` as they arrive; see **Project list completeness**) and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first). Hydrated rows remain unavailable until a successful list refresh; each row carries its agent launch target. Lists every row including archived ones (`archived: 'all'`); when browsing, the UI hides archived rows (`_meta.jetbrains.air.archived`) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
+The Tracked sessions across mounted backend harnesses, and the list UI that presents them (desktop nav rail panel; VS Code sidebar view). Hydrated from hoa-home before startup and grouped by Project cwd (groups ordered alphabetically by directory name, case-insensitive; sessions within a group unarchived before archived, each newest Last prompt time first); each row carries its agent launch target. Only sessions the user created in-app or chose to **Import** appear; `session/list` is never run in the background. When browsing, the UI hides archived rows (an app-owned flag once tracked) unless Show archived is on; while it is off, archived rows count as missing for selection. Lists sessions — not a session's transcript or ACP conversation replay. Desktop cwd groups cap their rows (see **Show more box**).
 _Avoid_: Roster, Session roster, session list, session catalog, session drawer
 
 **Last prompt time**:
@@ -103,7 +103,7 @@ The session an Agent's `session/list` row says a forked session was forked from.
 _Avoid_: parent session, origin (a Subagent session has a parent; a fork has none)
 
 **Show archived**:
-User settings toggle, set from the Session History header, that includes archived History entries when browsing Session History, marked as archived. Session History search includes archived entries regardless of this toggle. Off when unset. Filters the cached rows only; never changes what `session/list` asks the agent for (`@lib/ui` ADR-0008). Activating an archived History entry unarchives it first.
+User settings toggle, set from the Session History header, that includes archived History entries when browsing Session History, marked as archived. Session History search includes archived entries regardless of this toggle. Off when unset. Filters the Tracked sessions only, and Import's list the same way (`@lib/ui` ADR-0008). Archive flips the app-owned flag and also calls the agent's archive where it declares one; activating an archived History entry unarchives it first.
 _Avoid_: archive filter, list filter (when you mean this toggle)
 
 **Show more box**:
@@ -111,19 +111,23 @@ Desktop-only control under a long Session History cwd group that toggles the gro
 _Avoid_: pagination, load more (when you mean this local toggle; no fetch happens)
 
 **Project**:
-An absolute directory the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History lists sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent) and removed only by **Stop tracking**. Never added from Session History rows, Config probe cwds, or a cwd loaded through VS Code. Paths compare exact after trailing-separator normalization.
+An absolute directory the user chose to bring into the app, persisted in hoa-home (one list shared across launch targets and host apps). Desktop Session History shows Tracked sessions only for Projects. Added through the Project Selection Modal (the "Add Project" row or the Composer's "Choose Project", idempotent) and removed only by **Stop tracking**. Never added from Config probe cwds; VS Code adds its Workspace cwd the first time a session is tracked there. Paths compare exact after trailing-separator normalization.
 _Avoid_: tracked cwd, remembered folder, saved cwd, workspace
 
 **Project cwd group**:
-A desktop Session History accordion group for one Project, always shown (spinner while its lists load, "No sessions" when empty), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: completeness glyph, "+" (create a session there), and a `⋯` menu (Reload sessions, Stop tracking). Shows a thin progress bar while loading and an incomplete banner with Retry when a list failed.
+A desktop Session History accordion group for one Project, always shown (blank when it has no sessions), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: "+" (create a session there) and a `⋯` menu (Import, Stop tracking).
 _Avoid_: empty cwd group, ghost group
 
-**Project list completeness**:
-Per (launch target, Project) state of that `session/list`: `loading` (paging in progress), `complete` (paged to exhaustion), or `incomplete` (a page failed, a cursor repeated, or the page cap hit; rows already merged are kept and nothing is dropped). Retry re-lists only the incomplete lists.
-_Avoid_: sync status, load error
+**Tracked session**:
+A session the app owns a record of: created in-app (when its Virtual session materializes, or a fork or handoff creates it) or chosen through **Import**. Persisted per launch target and cwd (hoa-home Tracked sessions document). The only source for Session History, Recent sessions and Session History search. Delete is the only way to fully remove one; Archive never un-imports it. Title and Last prompt time change only from live signals for loaded sessions; a never-loaded one keeps its import-time snapshot.
+_Avoid_: listed session, cached row, imported session (when you mean any Tracked session)
+
+**Import**:
+Choosing existing agent sessions of a Project cwd to track: a panel mode of Session History fed by `session/list` (see the `@lib/ui` glossary). Confirming a row tracks and Selects it only if it loads. An archived row imports as archived.
+_Avoid_: sync, reload sessions
 
 **Stop tracking**:
-The user action, on any Project, that removes it: its rows leave in-app Session History and its persisted index entries are removed. Never deletes sessions on the agent and never deletes pins; re-adding the Project restores everything. With Active sessions in the Project, asks for confirmation, then cancels in-flight prompts and Deactivates each (an agent without `sessionCapabilities.close` is marked inactive locally; a close failure is reported and does not block). If the Selected session belonged to the Project, Selected resets to a fresh Virtual draft.
+The user action, on any Project, that removes it: its rows leave in-app Session History, while its Tracked sessions stay dormant (hidden, still in hoa-home) and come back when the Project is added again. Never deletes sessions on the agent and never deletes pins. With Active sessions in the Project, asks for confirmation, then cancels in-flight prompts and Deactivates each (an agent without `sessionCapabilities.close` is marked inactive locally; a close failure is reported and does not block). If the Selected session belonged to the Project, Selected resets to a fresh Virtual draft. VS Code still shows the Workspace cwd's Tracked sessions.
 _Avoid_: untrack, forget project, delete folder (nothing on disk changes)
 
 **Session header**:
@@ -131,14 +135,14 @@ The top row of the chat surface, the same in desktop main chat and VS Code Chat:
 _Avoid_: chat header, title bar
 
 **Pin**:
-A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. A pin is unpinned automatically only when its session is missing from a complete list of its own Project (a partial, incomplete or other-Project list never unpins), or when the session is deleted in the UI. A pin whose cwd is not a loaded Project is hidden on desktop but kept (it may belong to a VS Code workspace).
+A user mark on a History entry (per launch target, persisted in hoa-home). A pinned session renders once, in the Pinned section, not in its cwd group. Pinned+archived sessions stay pinned; they are hidden unless Show archived is on. Only Tracked sessions can render pinned; a pin whose session is not tracked (or whose cwd is not a loaded Project) is hidden but kept, and a pin is removed when its session is deleted in the UI.
 _Avoid_: favorite, star, bookmark
 
 **Pinned section**:
 The top Session History region listing visible pinned entries, unarchived before archived, each newest Last prompt time first. Desktop: a default-expanded accordion above the cwd groups with no "+", hidden when empty, each row captioned with its cwd basename. VS Code: the same region above the rest, no caption, filtered to the Workspace cwd.
 
 **Session actions**:
-The per-session actions (a menu on a History entry row, icon buttons without Pin/Unpin in the Session header): Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive, and Rename, each shown only when the agent supports it, plus Delete (always shown; optimistic: the confirm dialog closes, Selected clears and the History entry leaves Session History at once, `session/delete` runs in the background and a failure is shown as an error toast, the Pin is removed only after it succeeds, and the entry returns on the next list refresh). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry they are Unarchive (which also opens it), Pin/Unpin, and Delete. Both presentations share the same actions and availability rules. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).
+The per-session actions (a menu on a History entry row, icon buttons without Pin/Unpin in the Session header): Pin/Unpin (always shown; local only, works for unavailable rows), Deactivate (UI label "Close"), Archive and Rename (Deactivate and Rename only when the agent supports them; Archive always, flipping the app-owned flag locally and calling the agent's archive best-effort where it declares one), plus Delete (always shown; optimistic: the confirm dialog closes, Selected clears and the entry, its Tracked session record and its Pin go at once; the agent's delete runs in the background only where the provider supports it, a failure is shown as an error toast and the session stays untracked; where unsupported the dialog says the transcript stays on the agent). Archive keeps the History entry, marked archived, and drops only the session snapshot. On an archived History entry they are Unarchive (which also opens it), Pin/Unpin, and Delete. Both presentations share the same actions and availability rules. Available on a History entry row and in the Session header (hidden while Virtual is Selected and while a Subagent view is shown, since they act on the Selected session, not the Subagent session).
 _Avoid_: dotdotdot menu, kebab menu, session options
 
 **Bulk select**:
@@ -150,7 +154,7 @@ The display name of a History entry: the agent-reported `title`, which the user 
 _Avoid_: Thread name, session name, label
 
 **History entry**:
-One row in Session History: agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
+One row in Session History (a Tracked session's row): agent-reported identity and metadata (`sessionId`, session cwd, optional `title`) plus which agent launch target owns it. May exist without a session snapshot until the user creates or activates it.
 _Avoid_: Roster entry, Session (when you mean the full working copy)
 
 **Session snapshot**:
@@ -373,7 +377,7 @@ User and workspace content that never reaches telemetry as plain text: prompt an
 _Avoid_: PII, sensitive data, secrets
 
 **Action root**:
-A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap, Session History refresh). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
+A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.
 _Avoid_: Request, span (when you mean the product unit), operation
 
 **User action**:
@@ -381,7 +385,7 @@ An action root triggered from the Harness UI.
 _Avoid_: Background job, job, task
 
 **System action**:
-An action root that keeps a backend harness or Session History coherent without a direct UI gesture for that work (bootstrap, Session History refresh).
+An action root that keeps a backend harness or Session History coherent without a direct UI gesture for that work (bootstrap).
 _Avoid_: Background job, job, task
 
 **Turn-correlated work**:
@@ -389,7 +393,7 @@ Agent→Client traffic that belongs to an open ACP **Turn** (see `@libs/effect-a
 _Avoid_: RPC child, notification, demux event, action root (for respond-while-turn-open)
 
 **Connection setup**:
-The short setup slice of bringing a backend harness online (spawn, connect, initialize, first Session History list). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
+The short setup slice of bringing a backend harness online (spawn, connect, initialize). An action root of its own — not a parent for later turns or lifetime Agent→Client traffic.
 _Avoid_: Connection span, live connection, session (when you mean setup)
 
 **Subagent session**:

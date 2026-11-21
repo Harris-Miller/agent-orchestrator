@@ -14,8 +14,7 @@ import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { hydrateSessionCache, removeSessionCacheCwd } from './sessionCache.ts';
-import { clearListStatesOfCwd, listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
+import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
@@ -47,8 +46,9 @@ export const projectMembershipAtom = Atom.family((cwd: string) =>
 );
 
 /**
- * Stop tracking, the data half: removes the Project and drops its rows from in-app Session History, its list states
- * and its persisted index entries. Never touches sessions on the agent or pins. No-op until the Projects file was read.
+ * Stop tracking, the data half: removes the Project and drops its rows from in-app Session History. Its Tracked sessions
+ * stay dormant in the file until the Project is added again. Never touches sessions on the agent or pins. No-op until the
+ * Projects file was read.
  */
 export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(function* (
   registry: AtomRegistry.AtomRegistry,
@@ -67,15 +67,10 @@ export const removeProjectEverywhere = Effect.fn('removeProjectEverywhere')(func
       ),
     );
   }
-  clearListStatesOfCwd(registry, cwd);
-  yield* removeSessionCacheCwd(cwd);
 });
 
-export const createProjectsAtoms = ({
-  atomRuntime,
-  hostRunFork,
-}: Pick<HostRuntimeBag, 'atomRuntime' | 'hostRunFork'>) => {
-  /** Adds a Project (idempotent) and lists it on every usable launch target right away. No-op until the file was read. */
+export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
+  /** Adds a Project (idempotent) and hydrates its Tracked sessions. Fails until the file was read. */
   const addProjectAtomFn = atomRuntime
     .fn(
       Effect.fn('addProjectAtomFn')(function* (cwd: string, get: Atom.FnContext) {
@@ -91,12 +86,9 @@ export const createProjectsAtoms = ({
         if (added.length > 0) {
           yield* Effect.forEach(
             MOUNTED_AGENT_LAUNCH_TARGETS,
-            launchTarget => hydrateSessionCache(get.registry, launchTarget, added),
+            launchTarget => hydrateTrackedSessions(get.registry, launchTarget, added),
             { discard: true },
           );
-          yield* listCwdsOnUsableTargets(get.registry, added, effect => {
-            hostRunFork(effect);
-          });
         }
       }),
     )

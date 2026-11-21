@@ -1,13 +1,13 @@
-import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import { useAtomValue } from '@effect/atom-react';
 import {
   BulkActionBar,
   BulkSelectToggle,
   enabledLaunchTargetPhasesAtom,
   IconTooltipButton,
+  ImportSessionsPanel,
   isUsablePhase,
   PANEL_HEADER_HEIGHT,
   pinnedEntriesAtom,
-  refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionCwdAtom,
   sessionListScopeAtom,
@@ -24,9 +24,9 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { RotateCw } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import type { FC } from 'react';
 
 import { CreateVirtualSessionButton } from './CreateVirtualSessionButton.tsx';
@@ -42,7 +42,7 @@ export const SessionHistory: FC = () => {
   const backendPhases = useAtomValue(enabledLaunchTargetPhasesAtom);
   const sessionCwd = useAtomValue(sessionCwdAtom);
   const listScope = useAtomValue(sessionListScopeAtom);
-  const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
+  const [importing, setImporting] = useState(false);
   const navigate = useNavigate();
   const onClientError = useContext(OnClientErrorContext);
 
@@ -61,6 +61,20 @@ export const SessionHistory: FC = () => {
   const sessions = withoutPinned(workspaceSessions, pinnedSessions);
   const bulk = useBulkSessionSelection(workspaceSessions, search.active);
 
+  if (importing && sessionCwd !== undefined) {
+    return (
+      <Box sx={{ height: '100%', minHeight: 0 }}>
+        <ImportSessionsPanel
+          cwd={sessionCwd}
+          onClientError={onClientError}
+          onDone={() => {
+            setImporting(false);
+          }}
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', minHeight: 0, px: 1, pb: 1 }}>
       <Stack
@@ -73,14 +87,15 @@ export const SessionHistory: FC = () => {
         <Box sx={{ flex: 1 }} />
         <BulkSelectToggle active={bulk.active} disabled={search.active} onToggle={bulk.toggleMode} />
         <ShowArchivedToggle />
-        <IconTooltipButton
-          icon={RotateCw}
-          label="Reload sessions"
-          disabled={noFolder || !anyUsable}
-          onClick={() => {
-            refreshAllSessionHistories(undefined).catch(onClientError);
-          }}
-        />
+        {noFolder ? null : (
+          <IconTooltipButton
+            icon={Download}
+            label="Import"
+            onClick={() => {
+              setImporting(true);
+            }}
+          />
+        )}
         <ToggleDeveloperPanelButton />
         <CreateVirtualSessionButton disabled={noFolder} />
         <SettingsButton />
@@ -98,7 +113,7 @@ export const SessionHistory: FC = () => {
         <Stack spacing={1} sx={{ p: 1 }}>
           <Typography color="text.secondary" variant="body2">
             {anyUsable
-              ? 'No sessions yet. Create one to get started.'
+              ? 'No sessions yet. Create one to get started, or Import existing ones.'
               : 'No sessions yet. Configure a provider before creating a session.'}
           </Typography>
           {!anyUsable ? (

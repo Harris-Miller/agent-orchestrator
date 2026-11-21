@@ -4,7 +4,6 @@ import {
   initialBackendHarnessSnapshot,
   initialSessionSnapshot,
   normalizeConfigOptions,
-  normalizeSessionHistory,
 } from './acpSessionBootstrap.ts';
 import type { BackendHarnessSnapshot, SessionSnapshot } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom, NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
@@ -18,7 +17,6 @@ import {
   applyConfigResult,
   applyInitializeResult,
   applyLoadedConfiguration,
-  applySessionListPage,
   applySessionUpdatePatch,
   beginActivation,
   beginConfigChange,
@@ -26,18 +24,15 @@ import {
   bindSession,
   dropSession,
   dropSessionIfPresent,
-  dropUnlistedRows,
   endClientRequest,
   endConfigChange,
   endPromptTurn,
-  excludeBoundVirtualFromHistory,
   failActivation,
   failUnarchive,
   finishActivation,
   markActivationCwdMissing,
   markHistoryUnavailable,
   markSessionInactive,
-  mergeListedHistory,
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
@@ -50,28 +45,11 @@ import {
 } from './harnessStateTransitions.ts';
 import { appendUserChatMessage } from './sessionUpdateReducer.ts';
 
-describe('mergeListedHistory', () => {
+describe('markHistoryUnavailable', () => {
   const current = [
     { cwd: '/a', sessionId: 'a' },
     { cwd: '/b', sessionId: 'b' },
   ];
-  it('merges listed rows by sessionId, replacing a cached row (clearing unavailable) and keeping the rest', () => {
-    const cached = [
-      { cwd: '/a', sessionId: 'a', unavailable: true as const },
-      { cwd: '/b', sessionId: 'b' },
-    ];
-    assert.deepStrictEqual(
-      mergeListedHistory(cached, [
-        { cwd: '/a', sessionId: 'a', title: 'fresh' },
-        { cwd: '/a', sessionId: 'c' },
-      ]),
-      [
-        { cwd: '/a', sessionId: 'a', title: 'fresh' },
-        { cwd: '/b', sessionId: 'b' },
-        { cwd: '/a', sessionId: 'c' },
-      ],
-    );
-  });
   it('marks hydrated entries unavailable', () => {
     assert.deepStrictEqual(
       markHistoryUnavailable(current),
@@ -563,22 +541,6 @@ describe('applyInitializeResult', () => {
   });
 });
 
-describe('excludeBoundVirtualFromHistory', () => {
-  it('filters the Bound id; normalizeSessionHistory still returns it', () => {
-    const normalized = normalizeSessionHistory({
-      sessions: [
-        { cwd: '/proj', sessionId: 'bound-1' },
-        { cwd: '/other', sessionId: 'real-1' },
-      ],
-    });
-    assert.strictEqual(normalized.length, 2);
-    assert.deepStrictEqual(
-      excludeBoundVirtualFromHistory(normalized, 'bound-1').map(entry => entry.sessionId),
-      ['real-1'],
-    );
-  });
-});
-
 const pendingPermission = (sessionId: string) => ({
   request: {} as never,
   resolve: () => undefined,
@@ -605,36 +567,6 @@ describe('bootstrap and wire folds', () => {
     const failed = applyBootstrapPhase(readySnapshot(), 'error', failure);
     assert.strictEqual(failed.phase, 'error');
     assert.strictEqual(failed.failure, failure);
-  });
-
-  it('applySessionListPage merges by id and hides the Bound id', () => {
-    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/a', sessionId: 'old' }]);
-    const next = applySessionListPage(
-      snapshot,
-      [
-        { cwd: '/a', sessionId: 'new' },
-        { cwd: '/a', sessionId: 'bound' },
-      ],
-      'bound',
-    );
-    assert.deepStrictEqual(
-      next.sessionHistory.map(entry => entry.sessionId),
-      ['old', 'new'],
-    );
-  });
-
-  it('dropUnlistedRows drops only that cwd rows cached at start and absent from the list', () => {
-    const snapshot = replaceSessionHistory(readySnapshot(), [
-      { cwd: '/a', sessionId: 'gone' },
-      { cwd: '/a', sessionId: 'kept' },
-      { cwd: '/a', sessionId: 'created-meanwhile' },
-      { cwd: '/b', sessionId: 'other-cwd' },
-    ]);
-    const next = dropUnlistedRows(snapshot, '/a', new Set(['kept']), new Set(['gone', 'kept']));
-    assert.deepStrictEqual(
-      next.sessionHistory.map(entry => entry.sessionId),
-      ['kept', 'created-meanwhile', 'other-cwd'],
-    );
   });
 });
 
@@ -712,9 +644,8 @@ describe('created sessions', () => {
     );
   });
 
-  it('bindSession adds the Session only and drops a row a parallel list added', () => {
-    const raced = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 'new' }]);
-    const next = bindSession(raced, created);
+  it('bindSession adds the Session only, not a History row', () => {
+    const next = bindSession(readySnapshot(), created);
     assert.strictEqual(next.sessions.new.status, 'active');
     assert.deepStrictEqual(next.sessionHistory, []);
   });

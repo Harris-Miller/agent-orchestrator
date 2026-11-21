@@ -6,6 +6,7 @@ import {
   handleWorkspaceFoldersChanged,
   HarnessMounts,
   HarnessPrerequisites,
+  hostRunFork,
   hostThemeAtom,
   readVscodeTheme,
   useClientErrorSnackbar,
@@ -46,7 +47,7 @@ const WorkspaceFoldersGate: FC = () => {
             }
             setFoldersReady(true);
             disposeChanged = onWorkspaceFoldersChanged(hostIpcClient, nextPaths => {
-              Effect.runFork(
+              hostRunFork(
                 handleWorkspaceFoldersChanged(registry, nextPaths).pipe(
                   Effect.catchCause(cause => Effect.logWarning('workspace folders churn failed', cause)),
                 ),

@@ -1,5 +1,7 @@
 # Cache Harness Session History and Config option index
 
+_The Session History half is superseded by [hoa-home ADR 0008](../../../../libs/hoa-home/docs/adr/0008-tracked-sessions-store-replaces-session-index.md): the index is now the authoritative Tracked sessions store. The Config option index half stands._
+
 Persist the Harness application session index and Config option index under `~/.hoa/providers/<launchTarget>/`. The application index records the Harness view of sessions. Cached session rows hydrate before Backend Harnesses mount and stay unavailable until a successful `session/list` confirms them.
 
 Session History refreshes reconcile by scope. Unscoped lists replace the view; cwd-scoped lists replace only rows in that cwd while preserving rows from other workspaces; Skip leaves state untouched. A corrupt or undecodable cache file hydrates as empty and is overwritten by the next write; the cache is rebuildable from `session/list`, so it is not worth preserving. A cwd-scoped host (VS Code) may therefore lose other cwds' cached rows until those cwds are listed again. IO read failures (not corruption) still prevent a target's Session History persister from starting, since the file may be intact but temporarily unreadable.

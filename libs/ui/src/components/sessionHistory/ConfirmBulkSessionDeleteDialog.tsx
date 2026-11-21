@@ -20,7 +20,8 @@ export const ConfirmBulkSessionDeleteDialog: FC<{
       </DialogTitle>
       <DialogContent>
         <DialogContentText>
-          This will permanently delete {count} {noun}. This action cannot be undone.
+          This will permanently delete {count} {noun}. This action cannot be undone. Where the agent cannot delete
+          sessions, the transcript stays on the agent and the session is only removed from this app.
         </DialogContentText>
       </DialogContent>
       <DialogActions>

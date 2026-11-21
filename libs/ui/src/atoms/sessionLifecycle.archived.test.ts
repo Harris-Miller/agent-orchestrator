@@ -1,10 +1,9 @@
-/** Archived History entries: activating one unarchives it first; Archive marks the row in place. */
+/** Archived History entries: activating one unarchives it first; Archive flips the app-owned flag locally, agent-side calls are best-effort. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Exit, Fiber } from 'effect';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import { AgentCapabilityMissing } from '../host/agentCapabilities.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom, selectedSessionLaunchTargetAtom } from './backendState.atoms.ts';
@@ -12,7 +11,6 @@ import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { advertise, CODEX, connectFakeAgent, freshRegistry, gated, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { projectsAtom } from './projects.atoms.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
@@ -85,38 +83,22 @@ describe('Activating an archived History entry', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('is refused without sessionArchive: no RPC, row still archived', () =>
+  it.effect('without sessionArchive the flag flips locally, no RPC, and the session loads', () =>
     Effect.gen(function* () {
       const s = yield* setup({}, { archived: true });
-      const error = yield* Effect.flip(runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target));
-      assert.instanceOf(error, AgentCapabilityMissing);
-      assert.strictEqual(error.capability, 'sessionArchive');
-      assert.deepStrictEqual(s.calls, []);
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['load:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
     }).pipe(Effect.scoped),
   );
 
-  it.effect('sends no load when the unarchive fails; the session is inactive with a defect', () =>
+  it.effect('a failing agent unarchive is best-effort: the row is unarchived and the session still loads', () =>
     Effect.gen(function* () {
       const s = yield* setup(advertisesArchive, { archived: true, fake: { failUnarchive: true } });
-      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target));
-      assert.isTrue(Exit.isFailure(exit));
-      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
-      assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
-      assert.isNotEmpty(s.snapshot().sessions.s1.defects ?? []);
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect('reports unarchive failure for a history-only entry without loading or selecting it', () =>
-    Effect.gen(function* () {
-      const s = yield* setup(advertisesArchive, { archived: true, fake: { failUnarchive: true } });
-      updateHarnessSnapshot(s.registry, CODEX, current => ({ ...current, sessions: {} }));
-      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target));
-      assert.isTrue(Exit.isFailure(exit));
-      assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isUndefined(s.registry.get(selectedAtom));
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
+      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
 
@@ -163,48 +145,21 @@ describe('Archive', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('a list finishing during _session/archive does not bring back a stale snapshot', () =>
+  it.effect('without sessionArchive the flag still flips locally and no RPC is sent', () =>
     Effect.gen(function* () {
-      const registry = yield* freshRegistry;
-      const gate = yield* gated;
-      yield* connectFakeAgent(CODEX, {
-        agent: {
-          'session/list': () =>
-            Effect.succeed({
-              sessions: [
-                { cwd: '/proj', sessionId: 's1', title: 'Old' },
-                { cwd: '/proj', sessionId: 's2', title: 'Listed meanwhile' },
-              ],
-            }),
-        },
-        sessionArchive: () => gate.during,
-      });
-      const atoms = makeAtoms();
-      updateHarnessSnapshot(registry, CODEX, current => ({
-        ...current,
-        sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
-        sessions: { s1: { ...initialSessionSnapshot('s1', 'active'), cwd: '/proj' } },
-      }));
-      advertise(registry, CODEX, advertisesArchive);
+      const s = yield* setup({}, { archived: false });
+      yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, []);
+      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+    }).pipe(Effect.scoped),
+  );
 
-      const archiving = yield* Effect.forkChild(
-        runAtomFn(registry, atoms.archiveSessionAtomFn, { launchTarget: CODEX, sessionId: 's1' }),
-      );
-      yield* gate.started;
-      registry.set(projectsAtom, ['/proj']);
-      yield* runAtomFn(registry, atoms.refreshAllSessionHistoriesAtomFn, undefined);
-      yield* gate.release;
-      yield* Fiber.join(archiving);
-
-      const snapshot = registry.get(backendHarnessSnapshotAtom(CODEX));
-      assert.deepStrictEqual(
-        snapshot.sessionHistory.map(entry => [entry.sessionId, isArchivedEntry(entry)]),
-        [
-          ['s1', true],
-          ['s2', false],
-        ],
-      );
-      assert.notProperty(snapshot.sessions, 's1');
+  it.effect('a failing _session/archive is raised but the flag stays flipped', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(advertisesArchive, { archived: false, fake: { failArchive: true } });
+      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target));
+      assert.isTrue(Exit.isFailure(exit));
+      assert.isTrue(isArchivedEntry(s.row() ?? {}));
     }).pipe(Effect.scoped),
   );
 });
@@ -260,7 +215,8 @@ describe('Bulk archive / unarchive', () => {
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.archiveSessionsAtomFn, targets));
       assert.isTrue(Exit.isFailure(exit));
       assert.deepStrictEqual(s.archiveCalls, ['s1', 's2', 's3']);
-      assert.deepStrictEqual(s.archivedIds(), ['s1', 's3']);
+      // The flag flips even for the entry whose agent-side call failed.
+      assert.deepStrictEqual(s.archivedIds(), ['s1', 's2', 's3']);
     }).pipe(Effect.scoped),
   );
 

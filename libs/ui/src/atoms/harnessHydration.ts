@@ -1,4 +1,4 @@
-/** Startup hydration: Projects, then per launch target the session cache, pins and config option index. */
+/** Startup hydration: Projects, then per launch target the tracked sessions, pins and config option index. */
 import type { HostServices } from '@lib/context-services';
 import { readConfigOptionIndexCache, readPinnedSessions, readProjects } from '@lib/hoa-home';
 import { Effect, Option } from 'effect';
@@ -11,7 +11,11 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from './projects.atoms.ts';
-import { hydrateSessionCache, startSessionCachePersistence } from './sessionCache.ts';
+import {
+  hydrateTrackedSessions,
+  resetTrackedSessionWrites,
+  startTrackedSessionsPersistence,
+} from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 
 /** Runs a read; on success applies it, on failure logs a warning with `message` and carries on. */
@@ -27,8 +31,8 @@ const hydrateOrWarn = <A, E, R>(message: string, read: Effect.Effect<A, E, R>, a
   );
 
 /**
- * Hydrates Projects, then (concurrently per mounted launch target) the session cache, pins and config option index,
- * and starts session cache persistence for targets whose index was read. Never fails: a read failure is logged and that
+ * Hydrates Projects, then (concurrently per mounted launch target) the tracked sessions, pins and config option index,
+ * and starts tracked sessions persistence for targets whose index was read. Never fails: a read failure is logged and that
  * piece stays unhydrated (Projects/pins stay "not loaded", so writes against them stay disabled). Returns one
  * unsubscribe that stops every persistence subscription started.
  */
@@ -37,7 +41,7 @@ export const hydrateHarnessCaches = (
 ): Effect.Effect<() => void, never, HostServices> =>
   Effect.gen(function* () {
     const unsubscribers: (() => void)[] = [];
-    // Projects first: the cwds Session History lists decide which cached rows hydrate and which the index rewrites.
+    // Projects first: the cwds Session History lists decide which Tracked sessions hydrate.
     // The Projects file is desktop-only: VS Code (Cwd/Skip scope, set before this mounts) never reads it.
     if (scopeReadsProjects(registry.get(sessionListScopeAtom))) {
       yield* hydrateOrWarn('projects hydrate failed', readProjects(), ({ projects }) => {
@@ -51,9 +55,10 @@ export const hydrateHarnessCaches = (
       launchTarget =>
         Effect.gen(function* () {
           const target = toLaunchTarget(launchTarget);
-          // Only the cwds this host lists hydrate; other cwds' entries stay in the file untouched.
-          if (yield* hydrateSessionCache(registry, launchTarget, listedCwds())) {
-            unsubscribers.push(yield* startSessionCachePersistence(registry, launchTarget, listedCwds));
+          resetTrackedSessionWrites(launchTarget);
+          // Only the cwds this host lists hydrate; other cwds' records stay in the file untouched.
+          if (yield* hydrateTrackedSessions(registry, launchTarget, listedCwds())) {
+            unsubscribers.push(yield* startTrackedSessionsPersistence(registry, launchTarget));
           }
           yield* hydrateOrWarn(
             `pinned sessions hydrate failed for ${launchTarget}`,

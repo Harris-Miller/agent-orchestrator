@@ -1,5 +1,7 @@
 # Per-cwd session index with merge-on-write
 
+_Superseded by [hoa-home ADR 0008](../../../../libs/hoa-home/docs/adr/0008-tracked-sessions-store-replaces-session-index.md): the Tracked sessions store keeps per-cwd merge-on-write, but is uncapped, per-record and authoritative._
+
 Amends [ADR 0016](./0016-cache-harness-history-and-config-option-index.md), which described the application session index as one flat list of rows, whole file rewritten from in-memory state, and reconciled by list scope.
 
 The application index (`session-index.json`, one per launch target) is grouped by cwd (`{ cwds: { <cwd>: rows[] } }`) and capped at the 10 newest rows (`updatedAt`) per cwd **plus** the pinned sessions of that cwd, so startup reads a handful of rows per Project instead of every row ever listed.

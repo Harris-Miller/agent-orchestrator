@@ -420,25 +420,20 @@ describe('auth messages through bootstrap publication', () => {
     Effect.gen(function* () {
       const phases: { readonly failure: HarnessFailure | undefined; readonly phase: string }[] = [];
       const noop = () => undefined;
-      yield* runBackendHarness(
-        'claude-agent-acp',
-        {
-          hasConfigOptionIndex: () => true,
-          onConfigIndexEvent: noop,
-          onConfigOptionIndexPublish: noop,
-          onConnectionLost: noop,
-          onElicitationCreate: noop,
-          onInitializeResult: noop,
-          onPermissionRequest: noop,
-          onPhase: (phase, failure) => {
-            phases.push({ failure, phase });
-          },
-          onRpcMessage: noop,
-          onSessionListBegin: () => ({ complete: () => Effect.void, fail: noop, page: noop }),
-          onSessionUpdate: noop,
+      yield* runBackendHarness('claude-agent-acp', {
+        hasConfigOptionIndex: () => true,
+        onConfigIndexEvent: noop,
+        onConfigOptionIndexPublish: noop,
+        onConnectionLost: noop,
+        onElicitationCreate: noop,
+        onInitializeResult: noop,
+        onPermissionRequest: noop,
+        onPhase: (phase, failure) => {
+          phases.push({ failure, phase });
         },
-        () => [],
-      );
+        onRpcMessage: noop,
+        onSessionUpdate: noop,
+      });
       assert.deepStrictEqual(phases.at(-1), {
         failure: { _tag: 'NotSignedIn', message: '`claude` is not authenticated — run `claude` and log in' },
         phase: 'error',

@@ -74,23 +74,23 @@ Every ACP message sent or received for one launch target, in order, for the Deve
 _Avoid_: rpcCalls, wire trace, message log
 
 **Backend harness snapshot**:
-The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, Session History (every `session/list` page, merged), Session snapshots, and Subagent sessions. Excludes the RPC wire log. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
+The Harness application state for one launch target: Bootstrap phase and failure, initialize result and the Agent capabilities read from it, Session History (its Tracked sessions), Session snapshots, and Subagent sessions. Excludes the RPC wire log. Changes only by a Harness state transition or the Harness event fold applied to its latest value, never by writing back a copy read before a wait.
 _Avoid_: backend state, harness state (unqualified), store
 
 **Harness state transition**:
-Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot, and the only place that next value is computed: pending strip, inactive/drop, Session History replace and `session/list` merge, Materialize and Bind upsert, activation (begin, load/resume or unarchive failure, finish), Config change and Prompt turn begin/end/cancel, Steering injected, a pending permission or elicitation answered, Bootstrap phase, a `session/set_config_option` response applied to a Session configuration, and Connection lost. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot and hold no snapshot spreads of their own, except that a live `session/update` addressed to a Subagent is routed by `routeSubagentUpdate`; does not speak ACP or own Atom writes.
+Pure fold that turns one Backend harness snapshot (and transition args) into the next legal snapshot, and the only place that next value is computed: pending strip, inactive/drop, Session History replace, Materialize and Bind upsert, activation (begin, load/resume or unarchive failure, finish), Config change and Prompt turn begin/end/cancel, Steering injected, a pending permission or elicitation answered, Bootstrap phase, a `session/set_config_option` response applied to a Session configuration, and Connection lost. Callers (State Atoms, host churn, the Harness event fold) apply it to the latest snapshot and hold no snapshot spreads of their own, except that a live `session/update` addressed to a Subagent is routed by `routeSubagentUpdate`; does not speak ACP or own Atom writes.
 _Avoid_: reducer (when you mean this module), patchSession (map helper only), session update apply
 
 **Harness event fold**:
-The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Session History lists, Config option index publishes, Connection lost): folds each into the Backend harness snapshot (every ACP message also goes to the RPC wire log) and carries out its consequences — a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
+The one consumer of what a Backend harness reports for its launch target (session updates, permission requests, elicitations, Bootstrap phases, Config option index publishes, Connection lost): folds each into the Backend harness snapshot (every ACP message also goes to the RPC wire log) and carries out its consequences — a Subagent session's parent recorded for turn-correlated tracing, Attention events for new Pending interactions, the `usable` Bind, the Connection lost unbind.
 _Avoid_: harness callbacks, onSessionUpdate glue, event handler, reducer
 
 **Backend harness**:
-A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then reports `ready` without waiting for any session list (per-Project lists run progressively after `usable`, off the ready path), and retries on failure. Each attempt holds at most one ACP Connection and ends it with Connection lost. One per mounted target; runs in parallel with siblings. Does not own the session transcript or the Backend harness snapshot: it reports to the Harness event fold.
+A long-running Harness worker for one agent launch target: spawns the ACP Agent subprocess, runs initialize, seeds the Config option index (Config probe, cold cache only), then reports `ready` (it never lists sessions: `session/list` runs only from Import), and retries on failure. Each attempt holds at most one ACP Connection and ends it with Connection lost. One per mounted target; runs in parallel with siblings. Does not own the session transcript or the Backend harness snapshot: it reports to the Harness event fold.
 _Avoid_: Connection, provider instance, worker, ACP client runtime (when you mean this host-owned program)
 
 **Connection lost**:
-The end of a Backend connection, by the user stopping the Provider (Stop) or by a failed bootstrap attempt. Every Session goes `inactive` with its pending interactions cancelled, Session History stays but is unavailable until the next list, and the Virtual session loses its Bound session while keeping its draft, launch target, and Config. Stop additionally drops the Virtual session's launch target and Config.
+The end of a Backend connection, by the user stopping the Provider (Stop) or by a failed bootstrap attempt. Every Session goes `inactive` with its pending interactions cancelled, Session History stays but is unavailable until the next connection, and the Virtual session loses its Bound session while keeping its draft, launch target, and Config. Stop additionally drops the Virtual session's launch target and Config.
 _Avoid_: disconnect, provider stopped, harness reset
 
 **Backend connection**:
@@ -168,16 +168,16 @@ Keeping the Config option index current from live agent responses instead of pro
 _Avoid_: refresh, re-probe
 
 **Session History**:
-Per-launch-target Harness view of `session/list`, listed per Project (desktop) or for the Workspace cwd (VS Code), with every page loaded eagerly and merged by `sessionId`; hydrated from hoa-home before Backend Harnesses mount. Cached rows are unavailable until confirmed by a successful list; cwd-scoped refreshes preserve rows from other workspaces. Archived rows are cached. Each row also carries the Agent's row metadata when it sends it (Last prompt time as the order key; Activity state, model, cost and Fork source are only in the Developer panel's Session State tab; desktop glossary). Browsing hides them unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
+Per-launch-target Harness view of the Tracked sessions (desktop glossary) for the Listed cwds, hydrated from hoa-home before Backend Harnesses mount. A row enters it when its session is created in-app or an Import is confirmed, and leaves it only by Delete or Stop tracking (which keeps its record dormant). Archived rows are kept. Each row also carries the Agent's row metadata as it was when tracked (Last prompt time as the order key; Activity state, model, cost and Fork source are only in the Developer panel's Session State tab; desktop glossary); title and Last prompt time then update only from live signals for loaded sessions. Browsing hides archived rows unless Show archived is on (ADR-0008); Session History search includes them regardless of that toggle. Canonical definition in the desktop glossary.
 _Avoid_: Roster, Session roster, session snapshot
 
 **Listed cwds**:
-The cwds Session History lists on this host: every Project on desktop, the Workspace cwd in VS Code.
+The cwds whose Tracked sessions this host shows: every Project on desktop, the Workspace cwd in VS Code.
 _Avoid_: scope cwds, visible cwds
 
-**Session cache**:
-The on-disk copy of a launch target's Session History rows for the Listed cwds (plus pins), hydrated at startup and when a Project is added, and removed when a Project stops being tracked. A rebuildable cache, unlike Projects and pins. hoa-home calls the document it lives in the Application session index.
-_Avoid_: session store, history file
+**Tracked sessions store**:
+The on-disk record of a launch target's Tracked sessions, hydrated for the Listed cwds at startup and when a Project is added. hoa-home calls the document it lives in the Tracked sessions document.
+_Avoid_: session cache, session index, history file
 
 **Unavailable model**:
 A model id advertised on `session/new` whose `session/set_config_option(model)` soft-failed when picked; kept visible in model selects as disabled `(unavailable)`, with no row. Cleared when a later pick succeeds.
@@ -292,9 +292,9 @@ _Avoid_: VS Code theme preference, sync theme, follow VS Code
 The User setting (`chatWidth`, Comfortable when unset) that caps the Chat transcript and Composer column at the `md` breakpoint (Comfortable), the `lg` breakpoint (Wide), or the full pane (Full). The transcript scrollbar stays at the pane edge.
 _Avoid_: layout width, content width
 
-**Project list completeness**:
-State of one (launch target, Project) `session/list`: `loading` while paging, `complete` after the last page (the cwd-scoped replace and pin sweep run only then), `incomplete` after a failed page (rows already merged are kept; Retry re-lists only incomplete lists). A Project's aggregate is `loading` while any launch target loads, else `incomplete` if any is. Independent of Bootstrap phase `ready`.
-_Avoid_: list status, sync state
-
 **Session History search**:
-A search by Session title within the host’s Session History scope that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.
+A search by Session title within the host’s Session History scope (Tracked sessions only) that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.
+
+**Import**:
+The in-panel mode of Session History (not a route), opened from a Project's `⋯` menu on desktop or the Session History header in VS Code, scoped to one cwd. The only place `session/list` runs: one merged list of the cwd's untracked sessions across usable launch targets, newest Last prompt time first. Confirming a selected row loads it; only on success does it become a Tracked session and get Selected.
+_Avoid_: sync, reload sessions, refresh

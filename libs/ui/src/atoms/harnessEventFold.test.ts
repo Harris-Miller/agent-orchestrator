@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { pinSession, readConfigOptionIndexCache } from '@lib/hoa-home';
+import { readConfigOptionIndexCache } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
 import { Notifier } from '@lib/context-services';
@@ -23,7 +23,6 @@ import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { connectFakeAgent, enableProviders, installFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import {
   editVirtual,
@@ -493,7 +492,7 @@ describe('Harness event fold: Connection lost', () => {
       assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound-1');
 
       // The session died mid-Materialize: the Send fails, the blob keeps its draft and forgets the dead id.
-      const error = yield* Effect.flip(sendVirtual(h.registry, () => Effect.void));
+      const error = yield* Effect.flip(sendVirtual(h.registry, () => Effect.void).pipe(Effect.provide(h.layer)));
       yield* h.drain;
 
       assert.strictEqual(error._tag, 'ProviderUnavailable');
@@ -545,53 +544,23 @@ describe('Harness event fold: Connection lost', () => {
   );
 });
 
-describe('Harness event fold: Session History list', () => {
-  it.effect(
-    'a complete Project list replaces that cwd, hides the Bound Virtual id, and keeps pins made while the list was in flight',
-    () =>
-      Effect.gen(function* () {
-        const h = yield* setup();
-        updateHarnessSnapshot(h.registry, LT, current => ({
-          ...current,
-          sessionHistory: [
-            { cwd: '/a', sessionId: 'a-gone' },
-            { cwd: '/b', sessionId: 'b-kept' },
-          ],
-        }));
-        yield* fakeSessionNew('bound');
-        yield* seedVirtual(h);
-        h.fold.onPhase('usable');
-        yield* h.drain;
-        assert.strictEqual(h.registry.get(virtualSessionAtom)?.sessionId, 'bound');
-        const before = yield* pinSession(toLaunchTarget(LT), { cwd: '/a', sessionId: 'a-gone' }).pipe(
-          Effect.provide(h.layer),
-        );
-        h.registry.set(pinnedSessionsAtom(LT), before.pinned);
-        h.registry.set(pinsLoadedAtom(LT), true);
+describe('Harness event fold: Session History', () => {
+  it.effect('a live session_info_update updates a tracked row and never creates a row for an untracked id', () =>
+    Effect.gen(function* () {
+      const h = yield* setup();
+      updateHarnessSnapshot(h.registry, LT, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/a', sessionId: 'tracked', title: 'old' }],
+      }));
+      h.fold.onSessionUpdate('tracked', { sessionUpdate: 'session_info_update', title: 'new' });
+      h.fold.onSessionUpdate('untracked', { sessionUpdate: 'session_info_update', title: 'stranger' });
+      yield* h.drain;
 
-        const run = h.fold.onSessionListBegin('/a');
-        const during = yield* pinSession(toLaunchTarget(LT), { cwd: '/a', sessionId: 'a-new-pin' }).pipe(
-          Effect.provide(h.layer),
-        );
-        h.registry.set(pinnedSessionsAtom(LT), during.pinned);
-        run.page({
-          sessions: [
-            { cwd: '/a', sessionId: 'a-listed' },
-            { cwd: '/a', sessionId: 'bound' },
-          ],
-        });
-        yield* run.complete().pipe(Effect.provide(h.layer));
-        yield* h.drain;
-
-        assert.sameMembers(
-          h.snapshot().sessionHistory.map(entry => entry.sessionId),
-          ['b-kept', 'a-listed'],
-        );
-        assert.deepStrictEqual(
-          h.registry.get(pinnedSessionsAtom(LT)).map(pin => pin.sessionId),
-          ['a-new-pin'],
-        );
-      }).pipe(Effect.scoped),
+      assert.deepStrictEqual(
+        h.snapshot().sessionHistory.map(entry => [entry.sessionId, entry.title]),
+        [['tracked', 'new']],
+      );
+    }).pipe(Effect.scoped),
   );
 });
 

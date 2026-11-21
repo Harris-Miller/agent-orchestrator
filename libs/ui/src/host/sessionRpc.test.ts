@@ -3,7 +3,7 @@ import { Effect, Exit, Scope } from 'effect';
 
 import type { BackendConnectionReports } from './sessionRpc.ts';
 import { listSessionsPayload } from './sessionListScope.ts';
-import { BackendNotConnected, listSessions, registerBackendConnection } from './sessionRpc.ts';
+import { BackendNotConnected, listSessionsPage, registerBackendConnection } from './sessionRpc.ts';
 
 const LT = 'codex-acp' as const;
 const listPayload = listSessionsPayload(LT, '/w');
@@ -35,10 +35,9 @@ const recordingReports = (events: string[]): BackendConnectionReports => ({
 });
 
 const listedName = Effect.suspend(() => {
-  let name = '';
-  return listSessions(LT, listPayload, page => {
-    ({ name } = page as { name: string });
-  }).pipe(Effect.map(() => name));
+  return listSessionsPage(LT, listPayload, undefined).pipe(
+    Effect.map(page => (page as unknown as { name: string }).name),
+  );
 });
 
 describe('registerBackendConnection', () => {
@@ -76,7 +75,7 @@ describe('registerBackendConnection', () => {
     }),
   );
 
-  it.effect('listSessions hands over every page of the agent list', () =>
+  it.effect('listSessionsPage fetches the page the cursor names', () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make();
       const s = (sessionId: string) => ({ sessionId, cwd: '/w' });
@@ -85,16 +84,18 @@ describe('registerBackendConnection', () => {
         pagedConnection({ '': { sessions: [s('a')], nextCursor: 'c1' }, c1: { sessions: [s('b')] } }),
         recordingReports([]),
       ).pipe(Scope.provide(scope));
-      const ids: string[] = [];
-      yield* listSessions(LT, listPayload, page => {
-        ids.push(...(page as { sessions: { sessionId: string }[] }).sessions.map(x => x.sessionId));
-      });
-      assert.deepStrictEqual(ids, ['a', 'b']);
+      const first = yield* listSessionsPage(LT, listPayload, undefined);
+      assert.strictEqual(first.nextCursor, 'c1');
+      const second = yield* listSessionsPage(LT, listPayload, 'c1');
+      assert.deepStrictEqual(
+        second.sessions.map(row => row.sessionId),
+        ['b'],
+      );
       yield* Scope.close(scope, Exit.void);
     }),
   );
 
-  it.effect('listSessions fails when a later page fails (earlier pages were already handed over)', () =>
+  it.effect('listSessionsPage fails when the page fails', () =>
     Effect.gen(function* () {
       const scope = yield* Scope.make();
       yield* registerBackendConnection(
@@ -102,7 +103,7 @@ describe('registerBackendConnection', () => {
         pagedConnection({ '': { sessions: [{ sessionId: 'a', cwd: '/w' }], nextCursor: 'c1' }, c1: 'fail' }),
         recordingReports([]),
       ).pipe(Scope.provide(scope));
-      const exit = yield* Effect.exit(listSessions(LT, listPayload, () => undefined));
+      const exit = yield* Effect.exit(listSessionsPage(LT, listPayload, 'c1'));
       assert.isTrue(Exit.isFailure(exit));
       yield* Scope.close(scope, Exit.void);
     }),

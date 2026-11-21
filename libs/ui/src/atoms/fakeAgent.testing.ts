@@ -64,6 +64,7 @@ type FakeSetConfig =
     };
 
 export type FakeAgentOpts = FakeSetConfig & {
+  readonly failArchive?: boolean;
   readonly failClose?: boolean;
   readonly failDelete?: boolean;
   readonly failLoad?: boolean;
@@ -227,7 +228,7 @@ export const installFakeAgent = (
       },
       sessionArchive: ({ sessionId }: { sessionId: string }) => {
         calls.push(`archive:${sessionId}`);
-        return Effect.void;
+        return opts.failArchive === true ? Effect.die('archive-fail') : Effect.void;
       },
       sessionFork: ({
         _meta,

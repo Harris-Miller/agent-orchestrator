@@ -4,10 +4,10 @@ import {
   pinnedSessionsPath,
   pinSession,
   projectsPath,
-  readSessionIndex,
-  sessionIndexPath,
-  sessionIndexRows,
-  updateSessionIndex,
+  readTrackedSessions,
+  trackedSessionRows,
+  trackedSessionsPath,
+  upsertTrackedSessions,
 } from '@lib/hoa-home';
 import { mapFsTestServices } from '@lib/hoa-home/testing';
 import type { MapFsEntry } from '@lib/hoa-home/testing';
@@ -22,7 +22,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from './projects.atoms.ts';
-import { settleSessionCacheWrites } from './sessionCache.ts';
+import { settleTrackedSessionWrites } from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 
 const codex = toLaunchTarget(CODEX);
@@ -35,18 +35,17 @@ const setup = Effect.fnUntraced(function* () {
   const history = (launchTarget: typeof CODEX | typeof CLAUDE) =>
     registry.get(backendHarnessSnapshotAtom(launchTarget)).sessionHistory.map(row => row.sessionId);
   const seedIndex = (target: typeof codex, cwds: Record<string, string[]>) =>
-    updateSessionIndex(
+    upsertTrackedSessions(
       target,
-      Object.fromEntries(Object.entries(cwds).map(([cwd, ids]) => [cwd, ids.map(sessionId => ({ cwd, sessionId }))])),
-      new Set(),
+      Object.entries(cwds).flatMap(([cwd, ids]) => ids.map(sessionId => ({ cwd, sessionId }))),
     ).pipe(Effect.provide(layer));
   const indexed = (target: typeof codex) =>
-    readSessionIndex(target).pipe(
+    readTrackedSessions(target).pipe(
       Effect.provide(layer),
-      Effect.map(document => sessionIndexRows(document).map(row => row.sessionId)),
+      Effect.map(document => trackedSessionRows(document).map(row => row.sessionId)),
     );
   const hydrate = hydrateHarnessCaches(registry).pipe(Effect.provide(layer));
-  const settle = Effect.promise(settleSessionCacheWrites);
+  const settle = Effect.promise(settleTrackedSessionWrites);
   /** Registry whose `set` throws (a defect) for the given atoms. */
   const throwingOn = (...bad: readonly unknown[]) =>
     new Proxy(registry, {
@@ -69,7 +68,7 @@ const setup = Effect.fnUntraced(function* () {
 });
 
 describe('hydrateHarnessCaches', () => {
-  it.effect('reads Projects first, then hydrates cached rows only for the listed cwds', () =>
+  it.effect('reads Projects first, then hydrates Tracked sessions only for the listed cwds', () =>
     Effect.gen(function* () {
       const s = yield* setup();
       yield* addProject('/a').pipe(Effect.provide(s.layer));
@@ -78,6 +77,7 @@ describe('hydrateHarnessCaches', () => {
       assert.deepStrictEqual(s.registry.get(projectsAtom), ['/a']);
       assert.strictEqual(s.registry.get(projectsLoadedAtom), true);
       assert.deepStrictEqual(s.history(CODEX), ['a1']);
+      assert.isUndefined(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory[0].unavailable);
       unsubscribe();
     }).pipe(Effect.scoped),
   );
@@ -181,12 +181,12 @@ describe('hydrateHarnessCaches', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('an unreadable session index for one launch target leaves the other hydrated', () =>
+  it.effect('an unreadable tracked sessions file for one launch target leaves the other hydrated', () =>
     Effect.gen(function* () {
       const s = yield* setup();
       yield* addProject('/a').pipe(Effect.provide(s.layer));
       yield* s.seedIndex(claude, { '/a': ['c1'] });
-      const file = yield* sessionIndexPath(codex).pipe(Effect.provide(s.layer));
+      const file = yield* trackedSessionsPath(codex).pipe(Effect.provide(s.layer));
       s.store.set(file, { kind: 'dir' });
       const unsubscribe = yield* s.hydrate;
       assert.deepStrictEqual(s.history(CLAUDE), ['c1']);
@@ -209,11 +209,11 @@ describe('hydrateHarnessCaches', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('a launch target whose index read failed never persists', () =>
+  it.effect('a launch target whose tracked sessions read failed never persists', () =>
     Effect.gen(function* () {
       const s = yield* setup();
       yield* addProject('/a').pipe(Effect.provide(s.layer));
-      const badFile = yield* sessionIndexPath(claude).pipe(Effect.provide(s.layer));
+      const badFile = yield* trackedSessionsPath(claude).pipe(Effect.provide(s.layer));
       s.store.set(badFile, { kind: 'dir' });
       const unsubscribe = yield* s.hydrate;
       // With the blocker gone, a snapshot change still writes nothing.

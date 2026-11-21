@@ -5,7 +5,7 @@ import { AsyncResult } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
-import { normalizeConfigOptions, normalizeSessionHistory } from '../host/acpSessionBootstrap.ts';
+import { normalizeConfigOptions } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
@@ -41,7 +41,7 @@ import {
   resetVirtualOnProviderStopped,
   resetVirtualUnsupportedConfig,
   select,
-  sendVirtual,
+  sendVirtual as sendVirtualWith,
   setVirtualConfigOption,
   setVirtualLaunchTarget,
   updateVirtualDraft,
@@ -87,6 +87,11 @@ const seedBound = Effect.fnUntraced(function* (registry: Registry, calls: string
   yield* bindVirtualOnUsable(registry, opts.launchTarget ?? CODEX);
   calls.length = 0;
 });
+
+const sendVirtual = <E, R>(
+  registry: AtomRegistry.AtomRegistry,
+  prompt: (materialized: MaterializedVirtual) => Effect.Effect<unknown, E, R>,
+) => sendVirtualWith(registry, prompt).pipe(Effect.provide(mockHostLayer));
 
 /** A `prompt` for {@link sendVirtual} that records `prompt:<id>` into `calls` and keeps what it was handed. */
 const recordingPrompt = (calls: string[]) => {
@@ -292,30 +297,18 @@ describe('Bind', () => {
       }).pipe(Effect.scoped),
   );
 
-  it.effect('usable (probe not done) still Binds; a list that landed first has its Bound id dropped', () =>
+  it.effect('usable (probe not done) still Binds without adding a History row', () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       yield* installFakeAgent(calls);
       const registry = yield* freshRegistry;
       yield* seedUnbound(registry);
-      updateHarnessSnapshot(registry, CODEX, current => ({
-        ...current,
-        phase: 'usable',
-        sessionHistory: normalizeSessionHistory({
-          sessions: [
-            { cwd: '/proj', sessionId: 'bound-1' },
-            { cwd: '/proj', sessionId: 'other' },
-          ],
-        }),
-      }));
+      updateHarnessSnapshot(registry, CODEX, current => ({ ...current, phase: 'usable' }));
 
       yield* bindVirtualOnUsable(registry, CODEX);
 
       assert.deepStrictEqual(calls, ['new']);
-      assert.deepStrictEqual(
-        registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory.map(entry => entry.sessionId),
-        ['other'],
-      );
+      assert.deepStrictEqual(registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory, []);
     }).pipe(Effect.scoped),
   );
 

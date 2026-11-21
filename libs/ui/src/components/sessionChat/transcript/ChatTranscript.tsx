@@ -16,6 +16,7 @@ import { hasPendingInteraction } from '../../../host/pendingInteractions.ts';
 import { describeError } from '../../../host/requestError.ts';
 import { useChatWidthSx } from '../chatWidth.ts';
 import { PendingPermissionCard } from '../pendingInteractions/PendingPermissionCard.tsx';
+import { WaitingCount } from '../pendingInteractions/WaitingCount.tsx';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 import { sessionHasLiveWork } from '../../../host/subagent.ts';
 import { ChatItemView } from './ChatItemView.tsx';
@@ -157,6 +158,7 @@ export const ChatTranscript: FC<{
         )}
         {selectedSession?.pendingPermission !== undefined && selectedLaunchTarget !== undefined ? (
           <ListItem alignItems="flex-start" sx={{ display: 'block', px: 1, py: 1 }}>
+            <WaitingCount count={selectedSession.waitingPermissions?.length ?? 0} />
             <PendingPermissionCard
               agentTitle={agentTitle}
               onSelect={optionId => {

@@ -29,6 +29,8 @@ type SubagentSnapshotBase = {
   readonly pendingElicitation?: PendingElicitation;
   readonly pendingPermission?: PendingPermission;
   readonly sessionId: string;
+  readonly waitingElicitations?: readonly PendingElicitation[];
+  readonly waitingPermissions?: readonly PendingPermission[];
   /** Undefined until a state update arrives (and again after load/resume/connection loss). */
   readonly state?: SubagentWorkState;
   /** Set by a reset (load/resume/connection loss) while `state` is missing; cleared by the next state update. */
@@ -122,7 +124,10 @@ const toWorkState = (value: NonNullable<SubagentUpdate['state']>): SubagentWorkS
 export const initialSubagentSnapshot = (
   sessionId: string,
   parentSessionId: string,
-  early?: Pick<SubagentSnapshotBase, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+  early?: Pick<
+    SubagentSnapshotBase,
+    'pendingElicitation' | 'pendingPermission' | 'transcript' | 'waitingElicitations' | 'waitingPermissions'
+  >,
 ): NativeSubagentSnapshot =>
   withoutUndefined({
     kind: 'native' as const,
@@ -131,6 +136,8 @@ export const initialSubagentSnapshot = (
     pendingPermission: early?.pendingPermission,
     sessionId,
     transcript: early?.transcript ?? emptySessionTranscript(),
+    waitingElicitations: early?.waitingElicitations,
+    waitingPermissions: early?.waitingPermissions,
   });
 
 /** A Spawned subagent session's first snapshot: it lives on `launchTarget`'s connection, not the parent's. */
@@ -164,20 +171,28 @@ export const applySubagentPatch = (child: SubagentSnapshot, update: SubagentUpda
     task: patchField(update.task, child.task, identity),
   });
 
-/** Connection loss / load / resume: keep transcripts, drop anything that could be stale. */
+/**
+ * Connection loss / load / resume: keep transcripts, drop anything that could be stale. A Spawned subagent session's
+ * mirror keeps its Pending interactions: they belong to the child's root entry on its own launch target (ADR 0011),
+ * which still answers them, and its projection keeps the mirror equal to it.
+ */
 export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapshot => {
-  child.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
-  child.pendingElicitation?.resolve({ action: 'cancel' });
   const {
     capabilities: _c,
-    pendingElicitation: _e,
-    pendingPermission: _p,
+    pendingElicitation,
+    pendingPermission,
     state,
     stateUnconfirmed: _u,
+    waitingElicitations,
+    waitingPermissions,
     ...rest
   } = child;
+  const kept =
+    child.kind === 'spawned'
+      ? withoutUndefined({ pendingElicitation, pendingPermission, waitingElicitations, waitingPermissions })
+      : {};
   // Terminal states cannot revert; anything else (running, idle, requires_action, missing) may be stale.
-  return isSubagentTerminal(state) ? { ...rest, state } : { ...rest, stateUnconfirmed: true };
+  return isSubagentTerminal(state) ? { ...rest, ...kept, state } : { ...rest, ...kept, stateUnconfirmed: true };
 };
 
 /** Root ancestor of a child (walks parentSessionId through `subagents`); cycle-safe. */

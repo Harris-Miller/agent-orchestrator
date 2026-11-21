@@ -45,6 +45,10 @@ export type SessionSnapshot = {
   readonly pendingClientRequest?: PendingClientRequestKind | undefined;
   readonly pendingElicitation?: PendingElicitation;
   readonly pendingPermission?: PendingPermission;
+  /** Pending elicitations raised after the shown one, oldest first (absent when none). */
+  readonly waitingElicitations?: readonly PendingElicitation[];
+  /** Pending permissions raised after the shown one, oldest first (absent when none). */
+  readonly waitingPermissions?: readonly PendingPermission[];
   /** Set when the user requested Prompt turn cancel; cleared with pending client request. */
   readonly promptCancelRequested?: boolean;
   /** Session configuration (glossary): the agent's last-reported Config options. Absent until reported. */

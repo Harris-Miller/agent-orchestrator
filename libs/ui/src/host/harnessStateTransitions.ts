@@ -3,6 +3,7 @@
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
 import type { AcpError, SessionFailure } from '@libs/effect-acp';
+import { Option, Predicate } from 'effect';
 
 import type {
   AcpBootstrapPhase,
@@ -13,8 +14,10 @@ import type {
   SessionSnapshot,
 } from './acpSessionBootstrap.ts';
 import {
+  applySessionInfoTitle,
   clearHistoryActivityState,
   initialBackendHarnessSnapshot,
+  initialSessionSnapshot,
   isUsablePhase,
   normalizeConfigOptions,
   touchHistoryLastPromptAt,
@@ -23,12 +26,18 @@ import {
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { withArchived } from './airMeta.ts';
-import type { ApplySessionUpdateResult } from './applySessionUpdate.ts';
+import { isLoadReplayEnd, withArchived } from './airMeta.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
+import {
+  permissionsOf,
+  queueElicitation,
+  queuePermission,
+  withoutAllPendingInteractions,
+  withoutPendingInteractions,
+} from './pendingInteractions.ts';
 import { requestErrorDetails } from './requestError.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
 import type { ConfigValueDiff } from './sessionConfiguration.ts';
@@ -40,17 +49,24 @@ import {
   appendUserChatMessage,
   emptySessionTranscript,
   markNonFinishedToolCallsCancelled,
+  parseAvailableCommands,
+  parseUsageUpdate,
   reduceSessionUpdate,
   stampUserMessageTiming,
   upsertSessionFailure,
 } from './sessionUpdateReducer.ts';
 import type { ElicitationSummary, UserMessageImageRef } from './sessionUpdateReducer.ts';
 import {
+  applySubagentPatch,
+  decodeSubagentUpdate,
   getSubagent,
   hasBackgroundActivity,
   initialSpawnedSubagentSnapshot,
+  initialSubagentSnapshot,
   isSubagentTerminal,
+  reduceSubagentTranscriptUpdate,
   resetSubagentLiveState,
+  rootAncestorId,
   withSubagentWorkState,
 } from './subagent.ts';
 import type { SubagentWorkState } from './subagent.ts';
@@ -80,15 +96,7 @@ export const stripSessionPendings = (
     sessions: Object.fromEntries(
       Object.entries(snapshot.sessions).map(([sessionId, session]) =>
         idSet.has(sessionId)
-          ? [
-              sessionId,
-              {
-                ...session,
-                pendingClientRequest: undefined,
-                pendingElicitation: undefined,
-                pendingPermission: undefined,
-              },
-            ]
+          ? [sessionId, { ...withoutAllPendingInteractions(session), pendingClientRequest: undefined }]
           : [sessionId, session],
       ),
     ),
@@ -103,10 +111,8 @@ export const stripSessionPendings = (
 export const markSessionInactive = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
   ...snapshot,
   sessions: patchSession(snapshot.sessions, sessionId, session => ({
-    ...session,
+    ...withoutAllPendingInteractions(session),
     pendingClientRequest: undefined,
-    pendingElicitation: undefined,
-    pendingPermission: undefined,
     status: 'inactive',
   })),
 });
@@ -585,6 +591,12 @@ export const appendSteeredMessage = (
       }
     : snapshot;
 
+/** The Pending interactions a Prompt turn cancel answers: every one the Session held when the cancel started. */
+export type CancelledInteractions = {
+  readonly elicitations: readonly PendingElicitation[];
+  readonly permissions: readonly PendingPermission[];
+};
+
 /**
  * Prompt turn cancel requested: only the interactions just cancelled are cleared (one the agent raised meanwhile stays
  * answerable), unfinished tool calls are marked cancelled and `promptCancelRequested` is set. A dropped Session stays
@@ -593,16 +605,13 @@ export const appendSteeredMessage = (
 export const requestPromptCancel = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+  cancelled: CancelledInteractions,
 ): BackendHarnessSnapshot =>
   sessionId in snapshot.sessions
     ? {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, sessionId, session => ({
-          ...session,
-          pendingElicitation:
-            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
-          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
+          ...withoutPendingInteractions(session, cancelled),
           promptCancelRequested: true,
           transcript: markNonFinishedToolCallsCancelled(session.transcript),
         })),
@@ -616,33 +625,28 @@ export const requestPromptCancel = (
 export const clearCancelledInteractions = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+  cancelled: CancelledInteractions,
 ): BackendHarnessSnapshot =>
   sessionId in snapshot.sessions
     ? {
         ...snapshot,
-        sessions: patchSession(snapshot.sessions, sessionId, session => ({
-          ...session,
-          pendingElicitation:
-            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
-          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
-        })),
+        sessions: patchSession(snapshot.sessions, sessionId, session => withoutPendingInteractions(session, cancelled)),
       }
     : snapshot;
 
-/** An elicitation request raised on its Session or Subagent session (a newer one replaces it). */
+/** An elicitation request raised on its Session or Subagent session: shown, or waiting behind the ones raised before it. */
 export const raiseElicitation = (
   snapshot: BackendHarnessSnapshot,
   pending: PendingElicitation,
 ): BackendHarnessSnapshot =>
-  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingElicitation: pending }));
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => queueElicitation(holder, pending));
 
-/** A permission request raised on its Session or Subagent session (a newer one replaces it). */
+/** A permission request raised on its Session or Subagent session: shown, or waiting behind the ones raised before it. */
 export const raisePermission = (snapshot: BackendHarnessSnapshot, pending: PendingPermission): BackendHarnessSnapshot =>
-  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingPermission: pending }));
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => queuePermission(holder, pending));
 
 /**
- * An elicitation was answered: clear only that one (a newer one stays answerable) and append the accepted-form summary
+ * An elicitation was answered: clear only that one (the next waiting one is shown) and append the accepted-form summary
  * when there is one. A holder no longer in the snapshot is left alone.
  */
 export const answerElicitation = (
@@ -654,30 +658,23 @@ export const answerElicitation = (
   sessionOrSubagentOf(snapshot, sessionId) === undefined
     ? snapshot
     : patchSessionOrSubagent(snapshot, sessionId, holder => ({
-        ...holder,
-        pendingElicitation: holder.pendingElicitation === answered ? undefined : holder.pendingElicitation,
+        ...withoutPendingInteractions(holder, { elicitations: [answered] }),
         transcript: summary === undefined ? holder.transcript : appendElicitationSummary(holder.transcript, summary),
       }));
 
-/** A permission request was answered: cleared only while it is still the pending one. */
+/** A permission request was answered: cleared while the holder still has it (the next waiting one is shown). */
 export const answerPermission = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
   answered: PendingPermission,
-): BackendHarnessSnapshot =>
-  sessionOrSubagentOf(snapshot, sessionId)?.pendingPermission === answered
-    ? patchSessionOrSubagent(snapshot, sessionId, holder => ({ ...holder, pendingPermission: undefined }))
+): BackendHarnessSnapshot => {
+  const holder = sessionOrSubagentOf(snapshot, sessionId);
+  return holder !== undefined && permissionsOf(holder).includes(answered)
+    ? patchSessionOrSubagent(snapshot, sessionId, current =>
+        withoutPendingInteractions(current, { permissions: [answered] }),
+      )
     : snapshot;
-
-/** A live `session/update` applied to its Session: the patched Session upserted, and the History row retitled when the update carried one. */
-export const applySessionUpdatePatch = (
-  snapshot: BackendHarnessSnapshot,
-  patch: Extract<ApplySessionUpdateResult, { readonly kind: 'patch' }>,
-): BackendHarnessSnapshot => ({
-  ...snapshot,
-  sessionHistory: patch.sessionHistory ?? snapshot.sessionHistory,
-  sessions: upsertSession(snapshot.sessions, patch.session),
-});
+};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Spawned subagent session mirror (libs/ui ADR 0011): the child is a root Session on its own launch target; its parent's
@@ -775,14 +772,19 @@ export const restoreSubagentFromResult = (
 export const projectChildOnto = (
   snapshot: BackendHarnessSnapshot,
   childId: string,
-  root: Pick<SessionSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+  root: Pick<
+    SessionSnapshot,
+    'pendingElicitation' | 'pendingPermission' | 'transcript' | 'waitingElicitations' | 'waitingPermissions'
+  >,
 ): BackendHarnessSnapshot => {
   const mirror = getSubagent(snapshot.subagents, childId);
   if (
     mirror === undefined ||
     (mirror.transcript === root.transcript &&
       mirror.pendingPermission === root.pendingPermission &&
-      mirror.pendingElicitation === root.pendingElicitation)
+      mirror.pendingElicitation === root.pendingElicitation &&
+      mirror.waitingPermissions === root.waitingPermissions &&
+      mirror.waitingElicitations === root.waitingElicitations)
   ) {
     return snapshot;
   }
@@ -790,11 +792,14 @@ export const projectChildOnto = (
     ...snapshot,
     subagents: {
       ...snapshot.subagents,
+      // The root entry's own arrays, so an unchanged root compares equal next time.
       [childId]: withoutUndefined({
         ...mirror,
         pendingElicitation: root.pendingElicitation,
         pendingPermission: root.pendingPermission,
         transcript: root.transcript,
+        waitingElicitations: root.waitingElicitations,
+        waitingPermissions: root.waitingPermissions,
       }),
     },
   };
@@ -825,4 +830,168 @@ export const withHistoryEntryIfAbsent = (
 export const dropMirror = (snapshot: BackendHarnessSnapshot, childId: string): BackendHarnessSnapshot => {
   const { [childId]: _removed, ...subagents } = snapshot.subagents;
   return getSubagent(snapshot.subagents, childId) === undefined ? snapshot : { ...snapshot, subagents };
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Live session/update: one inbound `session/update` folded into the snapshot, routed to its Subagent session or its
+// root Session.
+// ---------------------------------------------------------------------------------------------------------------------
+
+const SUBAGENT_KINDS = new Set(['subagent_spawned', 'subagent_state_update', 'subagent_update']);
+
+/** A child newly linked to its parent by an update (for turn-correlated tracing). */
+export type SubagentLinked = { readonly childId: string; readonly parentId: string };
+
+type LiveUpdateResult = { readonly linked?: SubagentLinked; readonly snapshot: BackendHarnessSnapshot };
+
+/**
+ * An update that belongs to the Subagent tree, or `undefined` for a plain root-session update (unseen ids fall
+ * through: a root's first updates can precede its `session/new` response).
+ */
+const routeSubagentUpdate = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): LiveUpdateResult | undefined => {
+  if (
+    Predicate.isObject(update) &&
+    typeof update.sessionUpdate === 'string' &&
+    SUBAGENT_KINDS.has(update.sessionUpdate)
+  ) {
+    const decoded = decodeSubagentUpdate(update);
+    if (Option.isNone(decoded)) return { snapshot };
+    const patch = decoded.value;
+    const childId = patch.subagentSessionId;
+    const existing = getSubagent(snapshot.subagents, childId);
+    // Never self-reference, cycle, or reparent.
+    if (
+      childId === sessionId ||
+      (existing === undefined && rootAncestorId(snapshot.subagents, sessionId) === childId)
+    ) {
+      return { snapshot };
+    }
+    const parentId = existing?.parentSessionId ?? sessionId;
+    const migratedRoot = existing === undefined && childId in snapshot.sessions;
+    const { [childId]: stray, ...sessions } = snapshot.sessions;
+    // Updates and requests that raced ahead of the spawn landed on a stray root entry; keep them on the child.
+    const seed = existing ?? initialSubagentSnapshot(childId, parentId, migratedRoot ? stray : undefined);
+    const child = applySubagentPatch(seed, patch);
+    const withChild: BackendHarnessSnapshot = {
+      ...snapshot,
+      sessions: migratedRoot ? sessions : snapshot.sessions,
+      subagents: { ...snapshot.subagents, [childId]: child },
+    };
+    return {
+      linked: { childId, parentId },
+      snapshot: withParentChatItem(withChild, parentId, childId),
+    };
+  }
+
+  const child = getSubagent(snapshot.subagents, sessionId);
+  if (child === undefined) return undefined;
+  const next = reduceSubagentTranscriptUpdate(child, update);
+  return {
+    snapshot: next === child ? snapshot : { ...snapshot, subagents: { ...snapshot.subagents, [sessionId]: next } },
+  };
+};
+
+/** One root-session update: the transcript, the non-transcript kinds, and the History row's title / updated time. */
+const applyRootSessionUpdate = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): BackendHarnessSnapshot => {
+  const history = snapshot.sessionHistory;
+  const base = snapshot.sessions[sessionId] ?? initialSessionSnapshot(sessionId);
+  const nextTranscript = reduceSessionUpdate(base.transcript, update);
+  let next: SessionSnapshot = nextTranscript === base.transcript ? base : { ...base, transcript: nextTranscript };
+  let sessionChanged = next !== base;
+  let sessionHistory: readonly NormalizedSessionInfo[] | undefined;
+
+  if (Predicate.isObject(update) && typeof update.sessionUpdate === 'string') {
+    switch (update.sessionUpdate) {
+      case 'available_commands_update': {
+        next = { ...next, availableCommands: parseAvailableCommands(update.availableCommands) };
+        sessionChanged = true;
+        break;
+      }
+      case 'config_option_update': {
+        if (Array.isArray(update.configOptions)) {
+          next = { ...next, configuration: foldConfigOptions(next.configuration, update) };
+          sessionChanged = true;
+        }
+        break;
+      }
+      case 'session_info_update': {
+        if (isLoadReplayEnd(update)) {
+          if (base.status === 'activating') {
+            next = { ...next, replayComplete: true };
+            sessionChanged = true;
+          }
+        } else {
+          if (typeof update.title === 'string') {
+            sessionHistory = applySessionInfoTitle(history, sessionId, update.title);
+          }
+          if (typeof update.updatedAt === 'string') {
+            sessionHistory = touchHistoryUpdatedAt(sessionHistory ?? history, sessionId, update.updatedAt);
+          }
+        }
+        break;
+      }
+      case 'usage_update': {
+        const usage = parseUsageUpdate(update);
+        if (usage !== undefined) {
+          next = { ...next, usage };
+          sessionChanged = true;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  if (!sessionChanged && sessionHistory === undefined) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    sessionHistory: sessionHistory ?? snapshot.sessionHistory,
+    sessions: upsertSession(snapshot.sessions, next),
+  };
+};
+
+/** A Hub subagent tool call that now carries Subagent results restores each child they name (ADR 0013). */
+const restoreSubagentsOfToolCall = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): BackendHarnessSnapshot => {
+  if (!Predicate.isObject(update) || typeof update.toolCallId !== 'string') {
+    return snapshot;
+  }
+  const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
+  const index = transcript?.toolCallIndices.get(update.toolCallId);
+  const item = index === undefined ? undefined : transcript?.items[index];
+  return item?.kind !== 'tool_call' || item.subagentResults === undefined
+    ? snapshot
+    : item.subagentResults.reduce((next, result) => restoreSubagentFromResult(next, sessionId, result), snapshot);
+};
+
+/**
+ * A live `session/update` from the agent: routed to its Subagent session (spawn, state, transcript) or folded into its
+ * root Session (seeding one not seen yet), retitling the History row, and restoring the Subagents a Hub subagent tool
+ * call's results name. The same snapshot when nothing changed. `linked` names a child the update linked to its parent.
+ */
+export const applyLiveSessionUpdate = (
+  snapshot: BackendHarnessSnapshot,
+  sessionId: string,
+  update: unknown,
+): LiveUpdateResult => {
+  const routed = routeSubagentUpdate(snapshot, sessionId, update);
+  if (routed !== undefined) {
+    return routed;
+  }
+  const next = applyRootSessionUpdate(snapshot, sessionId, update);
+  return { snapshot: next === snapshot ? snapshot : restoreSubagentsOfToolCall(next, sessionId, update) };
 };

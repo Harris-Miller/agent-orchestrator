@@ -27,6 +27,7 @@ import { SubagentDock } from './SubagentDock.tsx';
 import { ChatItemView } from './transcript/ChatItemView.tsx';
 import { PendingElicitationCard } from './pendingInteractions/PendingElicitationCard.tsx';
 import { PendingPermissionCard } from './pendingInteractions/PendingPermissionCard.tsx';
+import { WaitingCount } from './pendingInteractions/WaitingCount.tsx';
 import { SubagentStatusIndicator } from './transcript/chatItems/SubagentStatusIndicator.tsx';
 import { SubagentTaskView } from './transcript/chatItems/SubagentTaskView.tsx';
 import { subagentStatus } from './transcript/chatItems/subagentStateLabel.ts';
@@ -106,6 +107,7 @@ const SubagentViewBody: FC<{
           ))}
           {child.pendingPermission === undefined ? null : (
             <ListItem sx={{ display: 'block' }}>
+              <WaitingCount count={child.waitingPermissions?.length ?? 0} />
               <PendingPermissionCard
                 agentTitle={child.name ?? 'Subagent'}
                 onSelect={optionId => {
@@ -123,6 +125,7 @@ const SubagentViewBody: FC<{
       </Box>
       {child.pendingElicitation === undefined ? null : (
         <Box sx={{ ...chatWidthSx, maxHeight: '40%', overflowY: 'auto', px: 1, py: 0.5 }}>
+          <WaitingCount count={child.waitingElicitations?.length ?? 0} />
           <PendingElicitationCard
             agentTitle={child.name ?? 'Subagent'}
             key={child.pendingElicitation.id}

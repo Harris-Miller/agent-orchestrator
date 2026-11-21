@@ -17,7 +17,6 @@ import {
   applyConfigResult,
   applyInitializeResult,
   applyLoadedConfiguration,
-  applySessionUpdatePatch,
   beginActivation,
   beginConfigChange,
   beginPromptTurn,
@@ -33,6 +32,7 @@ import {
   markActivationCwdMissing,
   markHistoryUnavailable,
   markSessionInactive,
+  projectChildOnto,
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
@@ -44,6 +44,7 @@ import {
   upsertIntoSnapshot,
 } from './harnessStateTransitions.ts';
 import { appendUserChatMessage } from './sessionUpdateReducer.ts';
+import { initialSpawnedSubagentSnapshot } from './subagent.ts';
 
 describe('markHistoryUnavailable', () => {
   const current = [
@@ -667,30 +668,78 @@ describe('prompt turn and interaction folds', () => {
     assert.strictEqual(appendSteeredMessage(snapshot, 'gone', 'x', []), snapshot);
   });
 
-  it('requestPromptCancel clears only the interactions it cancelled', () => {
+  it('requestPromptCancel clears only the interactions it cancelled; the next waiting one is shown', () => {
     const cancelled = pendingElicitation('e1', 's1');
     const newer = pendingElicitation('e2', 's1');
     const permission = pendingPermission('s1');
     const snapshot = readySnapshot({
       s1: activeSession('s1', {
         pendingClientRequest: 'prompt',
-        pendingElicitation: newer,
+        pendingElicitation: cancelled,
         pendingPermission: permission,
+        waitingElicitations: [newer],
       }),
     });
-    const next = requestPromptCancel(snapshot, 's1', { elicitation: cancelled, permission });
+    const next = requestPromptCancel(snapshot, 's1', { elicitations: [cancelled], permissions: [permission] });
     assert.strictEqual(next.sessions.s1.pendingElicitation, newer);
+    assert.strictEqual(next.sessions.s1.waitingElicitations, undefined);
     assert.strictEqual(next.sessions.s1.pendingPermission, undefined);
     assert.strictEqual(next.sessions.s1.promptCancelRequested, true);
-    assert.strictEqual(requestPromptCancel(snapshot, 'gone', {}), snapshot);
+    assert.strictEqual(requestPromptCancel(snapshot, 'gone', { elicitations: [], permissions: [] }), snapshot);
   });
 
-  it('raiseElicitation / raisePermission place the request on its Session and replace an older one', () => {
-    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: pendingElicitation('e1', 's1') }) });
+  it('raiseElicitation / raisePermission show the first request and queue later ones behind it', () => {
+    const first = pendingElicitation('e1', 's1');
+    const snapshot = readySnapshot({ s1: activeSession('s1', { pendingElicitation: first }) });
     const newer = pendingElicitation('e2', 's1');
-    assert.strictEqual(raiseElicitation(snapshot, newer).sessions.s1.pendingElicitation, newer);
+    const raised = raiseElicitation(snapshot, newer).sessions.s1;
+    assert.strictEqual(raised.pendingElicitation, first);
+    assert.deepStrictEqual(raised.waitingElicitations, [newer]);
     const permission = pendingPermission('s1');
-    assert.strictEqual(raisePermission(snapshot, permission).sessions.s1.pendingPermission, permission);
+    const second = pendingPermission('s1');
+    const withPermissions = raisePermission(raisePermission(snapshot, permission), second).sessions.s1;
+    assert.strictEqual(withPermissions.pendingPermission, permission);
+    assert.deepStrictEqual(withPermissions.waitingPermissions, [second]);
+  });
+
+  it('answering the shown request shows the next waiting one, oldest first', () => {
+    const [first, second, third] = [pendingPermission('s1'), pendingPermission('s1'), pendingPermission('s1')];
+    const snapshot = [first, second, third].reduce(
+      (next, pending) => raisePermission(next, pending),
+      readySnapshot({ s1: activeSession('s1') }),
+    );
+    const afterFirst = answerPermission(snapshot, 's1', first).sessions.s1;
+    assert.strictEqual(afterFirst.pendingPermission, second);
+    assert.deepStrictEqual(afterFirst.waitingPermissions, [third]);
+    const afterAll = answerPermission(answerPermission(snapshot, 's1', first), 's1', second);
+    assert.strictEqual(afterAll.sessions.s1.pendingPermission, third);
+    assert.strictEqual(afterAll.sessions.s1.waitingPermissions, undefined);
+  });
+
+  it("projectChildOnto copies the child root entry's shown and waiting requests onto its mirror", () => {
+    const child = activeSession('child');
+    const root = [pendingPermission('child'), pendingPermission('child')].reduce(
+      (next, pending) => raisePermission(next, pending),
+      readySnapshot({ child }),
+    ).sessions.child;
+    const parent = {
+      ...readySnapshot(),
+      subagents: { child: initialSpawnedSubagentSnapshot('child', 'p1', 'claude-agent-acp') },
+    };
+    const projected = projectChildOnto(parent, 'child', root);
+    assert.strictEqual(projected.subagents.child?.pendingPermission, root.pendingPermission);
+    assert.strictEqual(projected.subagents.child?.waitingPermissions, root.waitingPermissions);
+    assert.strictEqual(projectChildOnto(projected, 'child', root), projected);
+  });
+
+  it('markSessionInactive drops the shown and the waiting requests', () => {
+    const snapshot = [pendingPermission('s1'), pendingPermission('s1')].reduce(
+      (next, pending) => raisePermission(next, pending),
+      readySnapshot({ s1: activeSession('s1') }),
+    );
+    const inactive = markSessionInactive(snapshot, 's1').sessions.s1;
+    assert.strictEqual(inactive.pendingPermission, undefined);
+    assert.strictEqual(inactive.waitingPermissions, undefined);
   });
 
   it('an ExitPlanMode-shaped permission (no clear-context option) raised with no Prompt turn is answerable', () => {
@@ -778,25 +827,6 @@ describe('interaction folds on Subagent holders and accepted summaries', () => {
       answerElicitation(asked, 'c1', elicitation, undefined).subagents.c1.pendingElicitation,
       undefined,
     );
-  });
-});
-
-describe('applySessionUpdatePatch', () => {
-  it('upserts the patched Session and keeps the History when the update carried no retitle', () => {
-    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);
-    const next = applySessionUpdatePatch(snapshot, { kind: 'patch', session: activeSession('s1') });
-    assert.strictEqual(next.sessions.s1.status, 'active');
-    assert.strictEqual(next.sessionHistory, snapshot.sessionHistory);
-  });
-
-  it('replaces the History when the update carried a retitle', () => {
-    const retitled = [{ cwd: '/proj', sessionId: 's1', title: 'New' }];
-    const next = applySessionUpdatePatch(readySnapshot(), {
-      kind: 'patch',
-      session: activeSession('s1'),
-      sessionHistory: retitled,
-    });
-    assert.strictEqual(next.sessionHistory, retitled);
   });
 });
 

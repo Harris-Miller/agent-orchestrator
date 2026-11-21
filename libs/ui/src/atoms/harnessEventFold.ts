@@ -14,7 +14,6 @@ import type { AtomRegistry } from 'effect/reactivity';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { applySessionUpdate } from '../host/applySessionUpdate.ts';
 import type { BackendHarnessCallbacks } from '../host/backendHarness.ts';
 import { mergeConfigOptionIndex } from '../host/configOptionIndexHydrate.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
@@ -25,20 +24,17 @@ import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
 import {
   applyBootstrapPhase,
   applyInitializeResult,
-  applySessionUpdatePatch,
+  applyLiveSessionUpdate,
   raiseElicitation,
   raisePermission,
   reconcileConnectionLost,
-  restoreSubagentFromResult,
   setAntigravityAuthUrl,
 } from '../host/harnessStateTransitions.ts';
 import type { AttentionEvent } from '../host/notifyAttention.ts';
+import { pendingElicitation, pendingPermission } from '../host/pendingInteractions.ts';
 import { notifySessionAttention } from '../host/notifyAttention.ts';
-import { isRecord } from '../isRecord.ts';
 import { redactRpcWireMessage } from '../host/rpcWireRedact.ts';
 import { setSubagentParent } from '../host/sessionRpc.ts';
-import { routeSubagentUpdate, sessionOrSubagentOf } from '../host/subagentRouting.ts';
-import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -52,48 +48,6 @@ import {
 } from './virtualSession.atoms.ts';
 
 export type HarnessEventFold = BackendHarnessCallbacks;
-
-/** A Hub subagent tool call that now carries Subagent results restores each child they name (ADR 0013). */
-const restoreSubagentsOfToolCall = (
-  snapshot: BackendHarnessSnapshot,
-  sessionId: string,
-  update: unknown,
-): BackendHarnessSnapshot => {
-  if (!isRecord(update) || typeof update.toolCallId !== 'string') {
-    return snapshot;
-  }
-  const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;
-  const index = transcript?.toolCallIndices.get(update.toolCallId);
-  const item = index === undefined ? undefined : transcript?.items[index];
-  return item?.kind !== 'tool_call' || item.subagentResults === undefined
-    ? snapshot
-    : item.subagentResults.reduce((next, result) => restoreSubagentFromResult(next, sessionId, result), snapshot);
-};
-
-/** Applies one session/update; returns the Subagent link it established, if any. */
-const routeAndApplySessionUpdate = (
-  current: BackendHarnessSnapshot,
-  sessionId: string,
-  update: unknown,
-): [SubagentRouteResult['linked'], BackendHarnessSnapshot] => {
-  const routed = routeSubagentUpdate(current, sessionId, update);
-  if (routed !== undefined) {
-    return [routed.linked, routed.snapshot];
-  }
-  const result = applySessionUpdate(current.sessions[sessionId], sessionId, current.sessionHistory, update);
-  if (result.kind === 'noop') {
-    return [undefined, current];
-  }
-  return [undefined, restoreSubagentsOfToolCall(applySessionUpdatePatch(current, result), sessionId, update)];
-};
-
-/** Resolve outstanding permission / elicitation requests as cancelled so no agent-side promise is left dangling. */
-const cancelPendingRequests = (snapshot: BackendHarnessSnapshot): void => {
-  for (const session of [...Object.values(snapshot.sessions), ...Object.values(snapshot.subagents)]) {
-    session.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
-    session.pendingElicitation?.resolve({ action: 'cancel' });
-  }
-};
 
 export const makeHarnessEventFold = ({
   launchTarget,
@@ -166,16 +120,13 @@ export const makeHarnessEventFold = ({
     },
     onConfigOptionIndexPublish: publishConfigOptionIndex,
     onConnectionLost: () => {
-      const lost = modifyHarnessSnapshot(registry, launchTarget, current => [
-        current,
-        reconcileConnectionLost(current),
-      ]);
-      cancelPendingRequests(lost);
+      // The writer cancels the Pending interactions Connection lost drops.
+      update(reconcileConnectionLost);
       runFork(onLaunchTargetConnectionLost(registry, launchTarget));
       unbindVirtualOnConnectionLost(registry, launchTarget);
     },
     onElicitationCreate: (sessionId, request, resolve) => {
-      const pending = { id: crypto.randomUUID(), request, resolve, sessionId };
+      const pending = pendingElicitation({ id: crypto.randomUUID(), request, resolve, sessionId });
       setPending(sessionId, { kind: 'elicitation' }, current => raiseElicitation(current, pending));
     },
     onInitializeResult: initializeResult => {
@@ -183,7 +134,7 @@ export const makeHarnessEventFold = ({
     },
     onPermissionRequest: (sessionId, request, resolve) => {
       setPending(sessionId, { kind: 'permission' }, current =>
-        raisePermission(current, { request, resolve, sessionId }),
+        raisePermission(current, pendingPermission({ request, resolve, sessionId })),
       );
     },
     onPhase: (phase, failure) => {
@@ -205,9 +156,10 @@ export const makeHarnessEventFold = ({
       });
     },
     onSessionUpdate: (sessionId, sessionUpdate) => {
-      const linked = modifyHarnessSnapshot(registry, launchTarget, current =>
-        routeAndApplySessionUpdate(current, sessionId, sessionUpdate),
-      );
+      const linked = modifyHarnessSnapshot(registry, launchTarget, current => {
+        const applied = applyLiveSessionUpdate(current, sessionId, sessionUpdate);
+        return [applied.linked, applied.snapshot];
+      });
       if (linked !== undefined) {
         setSubagentParent(launchTarget, linked.childId, linked.parentId);
       }

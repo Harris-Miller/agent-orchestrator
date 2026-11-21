@@ -3,9 +3,9 @@ import { assert, describe, it } from '@effect/vitest';
 import fixture from '../../fixtures/claude_subagent_session_updates.json' with { type: 'json' };
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
-import { reconcileConnectionLost } from './harnessStateTransitions.ts';
+import { applyLiveSessionUpdate, reconcileConnectionLost } from './harnessStateTransitions.ts';
 import type { PendingPermission } from './pendingInteractions.ts';
-import { resetSubagentsOfRoot, routeSubagentUpdate } from './subagentRouting.ts';
+import { resetSubagentsOfRoot } from './subagentRouting.ts';
 
 const CHILD = 'p1:replay-subagent:toolu_A';
 const [spawn, childMessage, done] = fixture;
@@ -15,34 +15,39 @@ const withRoot = () => ({
   sessions: { p1: initialSessionSnapshot('p1', 'active') },
 });
 
-describe('routeSubagentUpdate', () => {
-  it('leaves root and unseen-id updates to the root path', () => {
+describe('applyLiveSessionUpdate on the Subagent tree', () => {
+  it('leaves root and unseen-id updates to the root Session', () => {
     const snapshot = withRoot();
-    assert.isUndefined(routeSubagentUpdate(snapshot, 'p1', childMessage.update));
-    assert.isUndefined(routeSubagentUpdate(snapshot, 'p1', { sessionUpdate: 'agent_message_chunk' }));
+    const routed = applyLiveSessionUpdate(snapshot, 'p1', childMessage.update);
+    assert.deepStrictEqual(routed.snapshot.subagents, {});
+    assert.isUndefined(routed.linked);
+    assert.strictEqual(
+      applyLiveSessionUpdate(snapshot, 'p1', { sessionUpdate: 'agent_message_chunk' }).snapshot,
+      snapshot,
+    );
   });
 
   it('spawn creates the child, one parent row, and replay does not duplicate', () => {
-    const once = routeSubagentUpdate(withRoot(), 'p1', spawn.update);
-    assert.deepStrictEqual(once?.linked, { childId: CHILD, parentId: 'p1' });
-    const twice = routeSubagentUpdate(once!.snapshot, 'p1', spawn.update);
-    assert.strictEqual(twice!.snapshot.sessions.p1.transcript.items.length, 1);
-    assert.strictEqual(Object.keys(twice!.snapshot.subagents).length, 1);
+    const once = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update);
+    assert.deepStrictEqual(once.linked, { childId: CHILD, parentId: 'p1' });
+    const twice = applyLiveSessionUpdate(once.snapshot, 'p1', spawn.update);
+    assert.strictEqual(twice.snapshot.sessions.p1.transcript.items.length, 1);
+    assert.strictEqual(Object.keys(twice.snapshot.subagents).length, 1);
   });
 
   it('routes child updates into the child transcript only', () => {
-    const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
-    const next = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
+    const spawned = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update).snapshot;
+    const next = applyLiveSessionUpdate(spawned, CHILD, childMessage.update).snapshot;
     assert.strictEqual(next.subagents[CHILD].transcript.items.length, 1);
     assert.strictEqual(next.sessions.p1.transcript.items.length, 1);
-    const finished = routeSubagentUpdate(next, 'p1', done.update)!.snapshot;
+    const finished = applyLiveSessionUpdate(next, 'p1', done.update).snapshot;
     assert.deepStrictEqual(finished.subagents[CHILD].state, { state: 'completed' });
   });
 
   it('routes child output that arrives with no Prompt turn in flight into the child transcript', () => {
-    const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
+    const spawned = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update).snapshot;
     assert.isUndefined(spawned.sessions.p1.pendingClientRequest);
-    const next = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
+    const next = applyLiveSessionUpdate(spawned, CHILD, childMessage.update).snapshot;
     assert.strictEqual(next.subagents[CHILD].transcript.items.length, 1);
   });
 
@@ -51,15 +56,15 @@ describe('routeSubagentUpdate', () => {
       ...withRoot(),
       sessions: { ...withRoot().sessions, [CHILD]: initialSessionSnapshot(CHILD, 'active') },
     };
-    const result = routeSubagentUpdate(base, 'p1', spawn.update)!;
+    const result = applyLiveSessionUpdate(base, 'p1', spawn.update);
     assert.notProperty(result.snapshot.sessions, CHILD);
-    const again = routeSubagentUpdate(result.snapshot, 'other', spawn.update)!;
+    const again = applyLiveSessionUpdate(result.snapshot, 'other', spawn.update);
     assert.strictEqual(again.snapshot.subagents[CHILD].parentSessionId, 'p1');
   });
 
   it('keeps the transcript and pending request that arrived before the spawn', () => {
-    const early = routeSubagentUpdate(withRoot(), CHILD, childMessage.update);
-    assert.isUndefined(early);
+    const early = applyLiveSessionUpdate(withRoot(), CHILD, childMessage.update);
+    assert.deepStrictEqual(early.snapshot.subagents, {});
     const resolved: unknown[] = [];
     const permission = {
       request: {} as PendingPermission['request'],
@@ -77,7 +82,7 @@ describe('routeSubagentUpdate', () => {
     const base = { ...withRoot(), sessions: { ...withRoot().sessions, [CHILD]: stray } } as never as ReturnType<
       typeof withRoot
     >;
-    const result = routeSubagentUpdate(base, 'p1', spawn.update)!;
+    const result = applyLiveSessionUpdate(base, 'p1', spawn.update);
     assert.notProperty(result.snapshot.sessions, CHILD);
     assert.strictEqual(result.snapshot.subagents[CHILD].transcript.items.length, 1);
     assert.strictEqual(result.snapshot.subagents[CHILD].pendingPermission, permission);
@@ -85,12 +90,21 @@ describe('routeSubagentUpdate', () => {
   });
 
   it('rejects self-reference and cycles; supports nesting', () => {
-    const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
-    const self = routeSubagentUpdate(spawned, CHILD, { sessionUpdate: 'subagent_spawned', subagentSessionId: CHILD })!;
+    const spawned = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update).snapshot;
+    const self = applyLiveSessionUpdate(spawned, CHILD, {
+      sessionUpdate: 'subagent_spawned',
+      subagentSessionId: CHILD,
+    });
     assert.isUndefined(self.linked);
-    const cycle = routeSubagentUpdate(spawned, CHILD, { sessionUpdate: 'subagent_spawned', subagentSessionId: 'p1' })!;
+    const cycle = applyLiveSessionUpdate(spawned, CHILD, {
+      sessionUpdate: 'subagent_spawned',
+      subagentSessionId: 'p1',
+    });
     assert.notProperty(cycle.snapshot.subagents, 'p1');
-    const nested = routeSubagentUpdate(spawned, CHILD, { sessionUpdate: 'subagent_spawned', subagentSessionId: 'g1' })!;
+    const nested = applyLiveSessionUpdate(spawned, CHILD, {
+      sessionUpdate: 'subagent_spawned',
+      subagentSessionId: 'g1',
+    });
     assert.strictEqual(nested.snapshot.subagents.g1.parentSessionId, CHILD);
     assert.strictEqual(nested.snapshot.subagents[CHILD].transcript.items.length, 1);
   });
@@ -98,9 +112,9 @@ describe('routeSubagentUpdate', () => {
 
 describe('load / connection loss', () => {
   it('keeps transcripts and terminal state, clears capabilities', () => {
-    const spawned = routeSubagentUpdate(withRoot(), 'p1', spawn.update)!.snapshot;
-    const replied = routeSubagentUpdate(spawned, CHILD, childMessage.update)!.snapshot;
-    const { snapshot } = routeSubagentUpdate(replied, 'p1', done.update)!;
+    const spawned = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update).snapshot;
+    const replied = applyLiveSessionUpdate(spawned, CHILD, childMessage.update).snapshot;
+    const { snapshot } = applyLiveSessionUpdate(replied, 'p1', done.update);
     for (const next of [resetSubagentsOfRoot(snapshot, 'p1'), reconcileConnectionLost(snapshot)]) {
       assert.deepStrictEqual(next.subagents[CHILD].state, { state: 'completed' });
       assert.isUndefined(next.subagents[CHILD].capabilities);

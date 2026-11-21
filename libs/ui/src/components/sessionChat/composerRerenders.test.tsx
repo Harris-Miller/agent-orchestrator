@@ -11,7 +11,7 @@ import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { harness, subagent } from '../../host/harnessSnapshot.testing.ts';
-import { routeSubagentUpdate } from '../../host/subagentRouting.ts';
+import { applyLiveSessionUpdate } from '../../host/harnessStateTransitions.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
 import { renderInSessionChatSurface } from './sessionChatSurface.testing.tsx';
 
@@ -81,8 +81,8 @@ it.effect('subagent child chunks do not re-render the Composer; each row renders
     });
     const feed = (i: number) => {
       updateHarnessSnapshot(registry, CODEX, current => {
-        const routed = routeSubagentUpdate(current, childIds[i % SUBAGENTS] ?? 'c0', chunk(i));
-        return routed === undefined ? current : routed.snapshot;
+        const routed = applyLiveSessionUpdate(current, childIds[i % SUBAGENTS] ?? 'c0', chunk(i));
+        return routed.snapshot;
       });
     };
 

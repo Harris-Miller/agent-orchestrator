@@ -41,7 +41,7 @@ const setup = Effect.fnUntraced(function* () {
   enableProviders(registry, [CLAUDE, CODEX]);
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   const atoms = createImportSessionsAtoms(runtime, lifecycle.activateSessionAtomFn);
   const ids = () => registry.get(importRowsAtom).map(entry => `${entry.launchTarget}:${entry.sessionId}`);
   return { atoms, ids, registry };

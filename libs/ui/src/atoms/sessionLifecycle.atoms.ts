@@ -190,10 +190,7 @@ export const createSessionLifecycleAtoms = (
   /** Stop then start a Provider and wait until usable again; see `restartBackendAwaitingUsable`. */
   restartBackend: RestartBackend,
 ) => {
-  const { atomRuntime, hostRunFork } = runtime;
-  const forkEffect: RunFork = effect => {
-    hostRunFork(effect);
-  };
+  const { atomRuntime } = runtime;
 
   const clearSelectedAtomFn = atomRuntime
     .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))

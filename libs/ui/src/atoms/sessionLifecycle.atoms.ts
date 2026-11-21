@@ -64,7 +64,7 @@ import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.
 import { removePins } from './pinnedSessions.atoms.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
-import { untrackSession } from './sessionCache.ts';
+import { untrackSession } from './trackedSessions.ts';
 import { trackSession } from './trackSession.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import {

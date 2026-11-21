@@ -1,4 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
+import { Effect } from 'effect';
 
 import {
   applyImportPage,
@@ -33,6 +34,17 @@ describe('importSessions', () => {
       ['codex-acp:c', 'claude-agent-acp:b', 'codex-acp:shared', 'claude-agent-acp:shared', 'codex-acp:a'],
     );
   });
+
+  it.effect('drops rows whose cwd differs from the Import cwd', () =>
+    Effect.gen(function* () {
+      const state = applyImportPage(initialImportState('/w', 1), 'codex-acp', {
+        sessions: [row('mine'), { cwd: '/w/', sessionId: 'slash' }, { cwd: '/other', sessionId: 'other' }],
+      });
+      yield* Effect.sync(() => {
+        assert.deepStrictEqual(state.rows.map(entry => entry.sessionId).toSorted(), ['mine', 'slash']);
+      });
+    }),
+  );
 
   it('follows each target cursor until it is exhausted', () => {
     let state = initialImportState('/w', 1);

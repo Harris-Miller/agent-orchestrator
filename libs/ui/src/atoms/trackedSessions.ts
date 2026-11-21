@@ -26,11 +26,11 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 /** A Session History row as stored: the live-only `unavailable` marker is not part of the record. */
 export const trackedRecordOf = ({ unavailable: _unavailable, ...record }: HistoryEntry): TrackedSessionRecord => record;
 
-type TargetCache = { writes: Promise<void>; lastWritten: Map<string, string> };
+type TargetTracked = { writes: Promise<void>; lastWritten: Map<string, string> };
 
-const caches = new Map<AgentLaunchTarget, TargetCache>();
+const caches = new Map<AgentLaunchTarget, TargetTracked>();
 
-const cacheOf = (launchTarget: AgentLaunchTarget): TargetCache => {
+const cacheOf = (launchTarget: AgentLaunchTarget): TargetTracked => {
   let cache = caches.get(launchTarget);
   if (cache === undefined) {
     cache = { lastWritten: new Map(), writes: Promise.resolve() };
@@ -43,7 +43,7 @@ const cacheOf = (launchTarget: AgentLaunchTarget): TargetCache => {
  * Queues `work` behind every earlier write of the launch target; resolves when it has run. Never rejects: a work item that
  * throws is logged as a warning and the queue carries on.
  */
-const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetCache) => Promise<void>): Promise<void> => {
+const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetTracked) => Promise<void>): Promise<void> => {
   const cache = cacheOf(launchTarget);
   const next = cache.writes
     .then(() => work(cache))
@@ -55,14 +55,14 @@ const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetCache) => 
 };
 
 /** Test/shutdown helper: resolves once every launch target's write queue has drained (including writes queued meanwhile). */
-export const settleSessionCacheWrites = async (): Promise<void> => {
+export const settleTrackedSessionWrites = async (): Promise<void> => {
   const pending = [...caches.values()].map(cache => cache.writes);
   await Promise.all(pending);
-  if ([...caches.values()].some((cache, i) => cache.writes !== pending[i])) await settleSessionCacheWrites();
+  if ([...caches.values()].some((cache, i) => cache.writes !== pending[i])) await settleTrackedSessionWrites();
 };
 
 /** Forgets what was last written for a launch target: a fresh startup hydration compares against the file again. */
-export const resetSessionCacheWrites = (launchTarget: AgentLaunchTarget): void => {
+export const resetTrackedSessionWrites = (launchTarget: AgentLaunchTarget): void => {
   cacheOf(launchTarget).lastWritten.clear();
 };
 
@@ -70,7 +70,7 @@ export const resetSessionCacheWrites = (launchTarget: AgentLaunchTarget): void =
  * Merges the Tracked sessions of `cwds` into the launch target's snapshot. Rows already in the snapshot win; stored
  * records are only added. Returns whether the file was read (a malformed file or IO failure is logged, not thrown).
  */
-export const hydrateSessionCache = (
+export const hydrateTrackedSessions = (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
   cwds: readonly string[],
@@ -98,7 +98,7 @@ export const hydrateSessionCache = (
  * Upserts a launch target's Session History rows whenever its snapshot changes. Writes are queued and skipped for rows
  * unchanged since they were last written; nothing is ever deleted. Returns the unsubscribe.
  */
-export const startSessionCachePersistence = Effect.fn('startSessionCachePersistence')(function* (
+export const startTrackedSessionsPersistence = Effect.fn('startTrackedSessionsPersistence')(function* (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
 ) {

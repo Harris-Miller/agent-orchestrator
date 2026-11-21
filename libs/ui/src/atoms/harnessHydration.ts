@@ -11,7 +11,11 @@ import { configOptionIndexAtom } from './backendState.atoms.ts';
 import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from './projects.atoms.ts';
-import { hydrateSessionCache, resetSessionCacheWrites, startSessionCachePersistence } from './sessionCache.ts';
+import {
+  hydrateTrackedSessions,
+  resetTrackedSessionWrites,
+  startTrackedSessionsPersistence,
+} from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 
 /** Runs a read; on success applies it, on failure logs a warning with `message` and carries on. */
@@ -28,7 +32,7 @@ const hydrateOrWarn = <A, E, R>(message: string, read: Effect.Effect<A, E, R>, a
 
 /**
  * Hydrates Projects, then (concurrently per mounted launch target) the tracked sessions, pins and config option index,
- * and starts session cache persistence for targets whose index was read. Never fails: a read failure is logged and that
+ * and starts tracked sessions persistence for targets whose index was read. Never fails: a read failure is logged and that
  * piece stays unhydrated (Projects/pins stay "not loaded", so writes against them stay disabled). Returns one
  * unsubscribe that stops every persistence subscription started.
  */
@@ -51,10 +55,10 @@ export const hydrateHarnessCaches = (
       launchTarget =>
         Effect.gen(function* () {
           const target = toLaunchTarget(launchTarget);
-          resetSessionCacheWrites(launchTarget);
+          resetTrackedSessionWrites(launchTarget);
           // Only the cwds this host lists hydrate; other cwds' records stay in the file untouched.
-          if (yield* hydrateSessionCache(registry, launchTarget, listedCwds())) {
-            unsubscribers.push(yield* startSessionCachePersistence(registry, launchTarget));
+          if (yield* hydrateTrackedSessions(registry, launchTarget, listedCwds())) {
+            unsubscribers.push(yield* startTrackedSessionsPersistence(registry, launchTarget));
           }
           yield* hydrateOrWarn(
             `pinned sessions hydrate failed for ${launchTarget}`,

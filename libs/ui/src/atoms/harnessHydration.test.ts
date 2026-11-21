@@ -22,7 +22,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { pinnedSessionsAtom, pinsLoadedAtom } from './pinnedSessions.atoms.ts';
 import { projectsAtom, projectsLoadedAtom } from './projects.atoms.ts';
-import { settleSessionCacheWrites } from './sessionCache.ts';
+import { settleTrackedSessionWrites } from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 
 const codex = toLaunchTarget(CODEX);
@@ -45,7 +45,7 @@ const setup = Effect.fnUntraced(function* () {
       Effect.map(document => trackedSessionRows(document).map(row => row.sessionId)),
     );
   const hydrate = hydrateHarnessCaches(registry).pipe(Effect.provide(layer));
-  const settle = Effect.promise(settleSessionCacheWrites);
+  const settle = Effect.promise(settleTrackedSessionWrites);
   /** Registry whose `set` throws (a defect) for the given atoms. */
   const throwingOn = (...bad: readonly unknown[]) =>
     new Proxy(registry, {

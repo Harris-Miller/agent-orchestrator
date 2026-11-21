@@ -14,7 +14,7 @@ import type { ProjectMembership } from '../host/projectSessions.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { hydrateSessionCache } from './sessionCache.ts';
+import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { virtualSessionAtom } from './virtualSession.atoms.ts';
 
 export const projectsAtom = Atom.make<readonly string[]>([]).pipe(Atom.withLabel('projects'), Atom.keepAlive);
@@ -86,7 +86,7 @@ export const createProjectsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomR
         if (added.length > 0) {
           yield* Effect.forEach(
             MOUNTED_AGENT_LAUNCH_TARGETS,
-            launchTarget => hydrateSessionCache(get.registry, launchTarget, added),
+            launchTarget => hydrateTrackedSessions(get.registry, launchTarget, added),
             { discard: true },
           );
         }

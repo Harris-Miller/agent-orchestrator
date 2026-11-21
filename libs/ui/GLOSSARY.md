@@ -176,7 +176,7 @@ The cwds whose Tracked sessions this host shows: every Project on desktop, the W
 _Avoid_: scope cwds, visible cwds
 
 **Tracked sessions store**:
-The on-disk record of a launch target's Tracked sessions, hydrated for the Listed cwds at startup and when a Project is added. Rows are written when they change and removed only by Delete; the store is never rebuilt from `session/list`. hoa-home calls the document it lives in the Tracked sessions document.
+The on-disk record of a launch target's Tracked sessions, hydrated for the Listed cwds at startup and when a Project is added. hoa-home calls the document it lives in the Tracked sessions document.
 _Avoid_: session cache, session index, history file
 
 **Unavailable model**:
@@ -296,5 +296,5 @@ _Avoid_: layout width, content width
 A search by Session title within the host’s Session History scope (Tracked sessions only) that includes archived and unarchived entries regardless of Show archived. Results list all unarchived matches before archived matches, with text relevance ordering within each group.
 
 **Import**:
-The in-panel mode of Session History (not a route), opened from a Project's `⋯` menu on desktop or the Session History header in VS Code, scoped to one cwd. The only place `session/list` runs: one merged list across usable launch targets, one cursor per target, newest Last prompt time first, paging on scroll and in the background while a search is typed. Already-tracked rows are hidden. Selecting a row and confirming runs `session/load`; only on success does the session become a Tracked session and get Selected.
+The in-panel mode of Session History (not a route), opened from a Project's `⋯` menu on desktop or the Session History header in VS Code, scoped to one cwd. The only place `session/list` runs: one merged list of the cwd's untracked sessions across usable launch targets, newest Last prompt time first. Confirming a selected row loads it; only on success does it become a Tracked session and get Selected.
 _Avoid_: sync, reload sessions, refresh

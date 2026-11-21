@@ -63,8 +63,14 @@ export const failImportPage = (state: ImportState, launchTarget: AgentLaunchTarg
 export const resetImportTargetError = (state: ImportState, launchTarget: AgentLaunchTarget): ImportState =>
   withTarget(state, launchTarget, { error: undefined, status: 'idle' });
 
+const trimTrailingSeparators = (path: string): string => path.replace(/[\\/]+$/, '');
+
+/** Only rows of the Import's cwd are offered: an agent may return other cwds' rows despite the `cwd` filter. */
+const sameCwd = (rowCwd: string | undefined, cwd: string): boolean =>
+  rowCwd !== undefined && trimTrailingSeparators(rowCwd) === trimTrailingSeparators(cwd);
+
 /**
- * Folds one `session/list` page of a target: rows merge into the list, the cursor advances. No `nextCursor` marks the
+ * Folds one `session/list` page of a target: rows of the Import's cwd merge into the list, the cursor advances. No `nextCursor` marks the
  * target done; a repeated cursor or the page cap marks only that target errored (the page's rows are kept).
  */
 export const applyImportPage = (
@@ -73,7 +79,10 @@ export const applyImportPage = (
   page: ListSessionsResponse,
 ): ImportState => {
   const byKey = new Map(state.rows.map(row => [sessionEntryKey(row), row]));
-  for (const entry of normalizeSessionHistory(page)) {
+  const { cwd } = state;
+  for (const entry of normalizeSessionHistory(page).filter(
+    ({ cwd: rowCwd }) => cwd === undefined || sameCwd(rowCwd, cwd),
+  )) {
     const row = { ...entry, launchTarget };
     byKey.set(sessionEntryKey(row), row);
   }

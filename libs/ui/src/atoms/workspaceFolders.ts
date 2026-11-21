@@ -12,7 +12,7 @@ import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.t
 import { deactivateSessionAtomFn, ensureVirtualSessionAtomFn } from './boundHarnessAtoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { hydrateSessionCache } from './sessionCache.ts';
+import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { clearSelectedIfMissing, discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
@@ -114,7 +114,7 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   if (nextSessionCwd !== undefined) {
     yield* Effect.forEach(
       MOUNTED_AGENT_LAUNCH_TARGETS,
-      launchTarget => hydrateSessionCache(registry, launchTarget, [nextSessionCwd]),
+      launchTarget => hydrateTrackedSessions(registry, launchTarget, [nextSessionCwd]),
       { discard: true },
     );
   }

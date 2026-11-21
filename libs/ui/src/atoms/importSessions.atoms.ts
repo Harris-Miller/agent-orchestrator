@@ -27,7 +27,7 @@ import {
   unifiedSessionHistoryAtom,
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { untrackSession } from './sessionCache.ts';
+import { untrackSession } from './trackedSessions.ts';
 import type { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { trackSession } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';

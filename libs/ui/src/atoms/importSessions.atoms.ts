@@ -6,7 +6,7 @@ import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import { isUsablePhase } from '../host/acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { dropSession, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { dropSession } from '../host/harnessStateTransitions.ts';
 import {
   applyImportPage,
   beginImportPage,
@@ -29,7 +29,7 @@ import {
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { untrackSession } from './sessionCache.ts';
 import type { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
-import { ensureWorkspaceProject } from './trackSession.ts';
+import { trackSession } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';
 
 /** The Confirm failed: `session/load` did not succeed, so nothing was tracked. */
@@ -139,7 +139,7 @@ export const createImportSessionsAtoms = (
           return yield* new ImportSessionFailed({ message: 'This session is no longer in the import list' });
         }
         const { launchTarget: _launchTarget, ...historyEntry } = row satisfies UnifiedHistoryEntry;
-        updateHarnessSnapshot(get.registry, launchTarget, current => upsertIntoSnapshot(current, { historyEntry }));
+        yield* trackSession(get.registry, launchTarget, historyEntry);
 
         yield* get.setResult(activateSessionAtomFn, { launchTarget, sessionId });
         const session = get.registry.get(backendHarnessSnapshotAtom(launchTarget)).sessions[sessionId];
@@ -152,7 +152,6 @@ export const createImportSessionsAtoms = (
           }
           return yield* new ImportSessionFailed({ message: 'The agent could not load this session' });
         }
-        yield* ensureWorkspaceProject(get.registry, historyEntry.cwd);
       }),
       { concurrent: true },
     )

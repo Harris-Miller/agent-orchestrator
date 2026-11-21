@@ -164,9 +164,29 @@ describe('Deactivate fails on an advertised close that fails; Delete always untr
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Delete only untracks where session/delete is not advertised: no RPC', () =>
+  it.effect('Delete without session/delete still closes an active session, then untracks', () =>
     Effect.gen(function* () {
       const s = yield* setup({}, { session: session('active') });
+      yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['close:s1']);
+      assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Delete without session/delete makes no RPC for an inactive session', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({}, { session: session('inactive') });
+      yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, []);
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('Delete still untracks when the provider is not usable: no RPC', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(sessionCapabilities({ delete: {} }), { session: session('active') });
+      updateHarnessSnapshot(s.registry, s.target.launchTarget, current => ({ ...current, phase: 'connecting' }));
       yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, []);
       assert.notProperty(s.snapshot().sessions, 's1');

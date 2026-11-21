@@ -3,13 +3,14 @@
  * `session/list` runs only from here; each launch target has its own cursor, rows from all of them are merged by
  * `(launchTarget, sessionId)` and shown newest Last prompt time first.
  */
-import { isRecord } from '../isRecord.ts';
+import type { ListSessionsResponse } from '@libs/effect-acp';
 
 import { compareHistoryEntriesByLastPromptDesc, normalizeSessionHistory } from './acpSessionBootstrap.ts';
 import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from './agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { MAX_LIST_PAGES } from './listSessionPages.ts';
+import { sessionEntryKey } from './sessionEntryKey.ts';
 
 /** `idle`: more pages may follow (a cursor, or the first page not yet fetched); `done`: cursor exhausted. */
 export type ImportTargetStatus = 'done' | 'error' | 'idle' | 'loading';
@@ -66,15 +67,20 @@ export const resetImportTargetError = (state: ImportState, launchTarget: AgentLa
  * Folds one `session/list` page of a target: rows merge into the list, the cursor advances. No `nextCursor` marks the
  * target done; a repeated cursor or the page cap marks only that target errored (the page's rows are kept).
  */
-export const applyImportPage = (state: ImportState, launchTarget: AgentLaunchTarget, page: unknown): ImportState => {
-  const byKey = new Map(state.rows.map(row => [`${row.launchTarget}\n${row.sessionId}`, row]));
+export const applyImportPage = (
+  state: ImportState,
+  launchTarget: AgentLaunchTarget,
+  page: ListSessionsResponse,
+): ImportState => {
+  const byKey = new Map(state.rows.map(row => [sessionEntryKey(row), row]));
   for (const entry of normalizeSessionHistory(page)) {
-    byKey.set(`${launchTarget}\n${entry.sessionId}`, { ...entry, launchTarget });
+    const row = { ...entry, launchTarget };
+    byKey.set(sessionEntryKey(row), row);
   }
   const next = { ...state, rows: [...byKey.values()] };
   const target = state.targets[launchTarget];
   const pages = target.pages + 1;
-  const nextCursor = isRecord(page) && typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+  const nextCursor = page.nextCursor ?? undefined;
   if (nextCursor === undefined) {
     return withTarget(next, launchTarget, { cursor: undefined, pages, status: 'done' });
   }
@@ -97,9 +103,9 @@ export const importableRows = (
   state: ImportState,
   tracked: readonly UnifiedHistoryEntry[],
 ): readonly UnifiedHistoryEntry[] => {
-  const trackedKeys = new Set(tracked.map(row => `${row.launchTarget}\n${row.sessionId}`));
+  const trackedKeys = new Set(tracked.map(sessionEntryKey));
   return state.rows
-    .filter(row => !trackedKeys.has(`${row.launchTarget}\n${row.sessionId}`))
+    .filter(row => !trackedKeys.has(sessionEntryKey(row)))
     .toSorted(compareHistoryEntriesByLastPromptDesc);
 };
 

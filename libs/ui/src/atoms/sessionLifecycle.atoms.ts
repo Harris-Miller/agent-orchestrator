@@ -666,10 +666,8 @@ export const createSessionLifecycleAtoms = (
       Effect.fn('deleteSessionAtomFn', { root: true })(
         function* (arg: SessionTarget, get: Atom.FnContext) {
           yield* sessionSpan(arg);
-          const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'deleteSession');
-          if (snapshot === undefined) {
-            return;
-          }
+          const snapshot = get(backendHarnessSnapshotAtom(arg.launchTarget));
+          const usable = isUsablePhase(snapshot.phase);
 
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           const needsClose = session !== undefined && session.status !== 'inactive';
@@ -689,12 +687,18 @@ export const createSessionLifecycleAtoms = (
           }
           yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
 
+          if (!usable) {
+            yield* Effect.logWarning('deleteSession untracked only; backend not usable', arg.launchTarget);
+            return;
+          }
+
+          // An active session is closed on the agent whether or not it advertises `session/delete`.
+          if (needsClose) {
+            yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
+            yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId).pipe(Effect.ignore);
+          }
           // `session/delete` only where the provider advertises it; its failure is raised after the untrack.
           if (snapshot.agentCapabilities.sessionDelete) {
-            if (needsClose) {
-              yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
-              yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId).pipe(Effect.ignore);
-            }
             yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
             yield* deleteSession(arg.launchTarget, arg.sessionId);
           }

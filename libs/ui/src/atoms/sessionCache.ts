@@ -6,7 +6,8 @@
  * Every write for a launch target runs through that target's one queue, so an upsert computed before an untrack can never
  * resurrect the removed record.
  *
- * Unlike pins and Projects, a malformed file is never overwritten either: persistence does not start for it.
+ * A malformed file is never overwritten (pins and Projects behave the same). Persistence has no start-guard for it: the
+ * upsert fails and is logged, and the file is left as it was.
  */
 import { readTrackedSessions, removeTrackedSession, trackedSessionRows, upsertTrackedSessions } from '@lib/hoa-home';
 import type { TrackedSessionRecord } from '@lib/hoa-home';

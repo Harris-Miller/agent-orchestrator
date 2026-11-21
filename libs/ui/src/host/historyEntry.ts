@@ -1,13 +1,13 @@
 /**
- * The Session History row's app-owned facts — the **archived** flag and the **Last prompt time** — as typed fields.
+ * A History entry's (Session History row's) app-owned facts — the **archived** flag and the **Last prompt time** — as typed fields.
  * Agents and the Tracked sessions store carry them as AIR meta (`_meta.jetbrains.air.archived` / `lastPromptAt`, hoa-home
  * ADR 0008); this module is the only place that encoding is read or written: rows are decoded where they enter (a
  * `session/list` / `session/new` result, a hydrated Tracked session) and encoded where they are stored.
  */
-import { Predicate } from 'effect';
+import { Predicate, Schema } from 'effect';
 
 /** The typed facts a decoded row carries; an AIR-encoded row carries neither. */
-export type HistoryRowFields = {
+export type HistoryEntryFields = {
   /** Archived in the app (Show archived); absent when not. */
   readonly archived?: true;
   /** **Last prompt time**, ISO string. */
@@ -39,23 +39,28 @@ const withAir = <T extends Row>(row: T, { jetbrains, meta }: AirParts, air: Read
   return (Object.keys(nextMeta).length === 0 ? rest : { ...rest, _meta: nextMeta }) as unknown as T;
 };
 
-/** A wire / stored row with its AIR `archived` and `lastPromptAt` lifted into typed fields (and out of `_meta`). */
-export const decodeHistoryRow = <T extends Row>(row: T): T & HistoryRowFields => {
-  const parts = airPartsOf(row);
+const isArchivedFlag = Schema.is(Schema.Literal(true));
+const isPromptTime = Schema.is(Schema.NonEmptyString);
+
+/**
+ * A wire / stored row with its AIR `archived` and `lastPromptAt` lifted into typed fields (and out of `_meta`). Top-level
+ * `archived` / `lastPromptTime` keys a wire row may carry are not trusted: only the AIR meta sets them.
+ */
+export const decodeHistoryEntry = <T extends Row>(row: T): T & HistoryEntryFields => {
+  const { archived: _archived, lastPromptTime: _lastPromptTime, ...untrusted } = row;
+  const unfielded = untrusted as T;
+  const parts = airPartsOf(unfielded);
   const { archived, lastPromptAt, ...air } = parts.air;
-  if (archived === undefined && lastPromptAt === undefined) {
-    return row;
-  }
-  const decoded: T = withAir(row, parts, air);
+  const decoded = archived === undefined && lastPromptAt === undefined ? unfielded : withAir(unfielded, parts, air);
   return {
     ...decoded,
-    ...(archived === true ? { archived: true as const } : {}),
-    ...(typeof lastPromptAt === 'string' && lastPromptAt !== '' ? { lastPromptTime: lastPromptAt } : {}),
+    ...(isArchivedFlag(archived) ? { archived: true as const } : {}),
+    ...(isPromptTime(lastPromptAt) ? { lastPromptTime: lastPromptAt } : {}),
   };
 };
 
 /** A decoded row encoded for the Tracked sessions store: the typed fields back into AIR meta. */
-export const encodeHistoryRow = <T extends Row & HistoryRowFields>(row: T): T => {
+export const encodeHistoryEntry = <T extends Row & HistoryEntryFields>(row: T): T => {
   const { archived, lastPromptTime, ...unfielded } = row;
   // Both fields are optional, so the row without them is still a `T`.
   const rest = unfielded as T;
@@ -71,7 +76,7 @@ export const encodeHistoryRow = <T extends Row & HistoryRowFields>(row: T): T =>
 };
 
 /** `row` archived or not. */
-export const withArchived = <T extends HistoryRowFields & { readonly sessionId: string }>(
+export const withArchived = <T extends HistoryEntryFields & { readonly sessionId: string }>(
   row: T,
   archived: boolean,
 ): T => {
@@ -86,7 +91,7 @@ export const withArchived = <T extends HistoryRowFields & { readonly sessionId: 
 };
 
 /** `row` with its Last prompt time advanced to `at`: only when it already has one, never backwards. */
-export const withLastPromptTime = <T extends HistoryRowFields & { readonly sessionId: string }>(
+export const withLastPromptTime = <T extends HistoryEntryFields & { readonly sessionId: string }>(
   row: T,
   at: string,
 ): T => {

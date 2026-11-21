@@ -7,8 +7,8 @@ import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
 import { recommendedValueOf, withoutLiveActivityState } from './airMeta.ts';
-import { decodeHistoryRow, withLastPromptTime } from './sessionHistoryRow.ts';
-import type { HistoryRowFields } from './sessionHistoryRow.ts';
+import { decodeHistoryEntry, withLastPromptTime } from './historyEntry.ts';
+import type { HistoryEntryFields } from './historyEntry.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -119,8 +119,8 @@ export const defectsFromActivationFailure = <E>(
   return defectsFromCause(cause);
 };
 
-/** A Session History row, decoded: the app-owned archived flag and Last prompt time are typed fields (`sessionHistoryRow.ts`). */
-export type NormalizedSessionInfo = HistoryRowFields & {
+/** A Session History row, decoded: the app-owned archived flag and Last prompt time are typed fields (`historyEntry.ts`). */
+export type NormalizedSessionInfo = HistoryEntryFields & {
   readonly [key: string]: unknown;
   readonly cwd: string;
   readonly sessionId: string;
@@ -246,7 +246,7 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
     return undefined;
   }
 
-  return decodeHistoryRow({
+  return decodeHistoryEntry({
     ...entry,
     cwd: entry.cwd,
     sessionId: entry.sessionId,
@@ -260,7 +260,7 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
     return undefined;
   }
 
-  return decodeHistoryRow({
+  return decodeHistoryEntry({
     ...result,
     cwd,
     sessionId: result.sessionId,
@@ -302,7 +302,7 @@ export const touchHistoryUpdatedAt = <T extends NormalizedSessionInfo>(
 };
 
 /** Optimistically advance the matching history row's **Last prompt time**, only when it already has one; never backwards. Unknown row: unchanged. */
-export const touchHistoryLastPromptAt = <T extends NormalizedSessionInfo>(
+export const touchHistoryLastPromptTime = <T extends NormalizedSessionInfo>(
   history: readonly T[],
   sessionId: string,
   at: string,

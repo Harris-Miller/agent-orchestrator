@@ -40,8 +40,9 @@ export const SessionTitleInlineRename: FC<{
       <Box
         onDoubleClick={event => {
           // Codex rejects renaming archived sessions.
-          if (entry.unavailable === true || entry.archived === true || !snapshot.agentCapabilities.sessionRename)
+          if (entry.unavailable === true || entry.archived === true || !snapshot.agentCapabilities.sessionRename) {
             return;
+          }
           event.stopPropagation();
           onEditingChange(true);
         }}

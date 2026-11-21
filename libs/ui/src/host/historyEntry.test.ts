@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { decodeHistoryRow, encodeHistoryRow, withArchived, withLastPromptTime } from './sessionHistoryRow.ts';
+import { decodeHistoryEntry, encodeHistoryEntry, withArchived, withLastPromptTime } from './historyEntry.ts';
 
 const wire = {
   _meta: {
@@ -11,9 +11,9 @@ const wire = {
   sessionId: 's1',
 };
 
-describe('decodeHistoryRow', () => {
+describe('decodeHistoryEntry', () => {
   it('lifts the archived flag and Last prompt time out of the AIR meta, keeping the rest', () => {
-    assert.deepStrictEqual<unknown>(decodeHistoryRow(wire), {
+    assert.deepStrictEqual<unknown>(decodeHistoryEntry(wire), {
       _meta: { jetbrains: { air: { model: 'opus', version: 1 } }, other: { kept: true } },
       archived: true,
       cwd: '/proj',
@@ -23,8 +23,8 @@ describe('decodeHistoryRow', () => {
   });
 
   it('reads a row without AIR meta, or with archived false and a malformed time, as neither', () => {
-    assert.deepStrictEqual(decodeHistoryRow({ cwd: '/proj', sessionId: 's1' }), { cwd: '/proj', sessionId: 's1' });
-    const decoded = decodeHistoryRow({
+    assert.deepStrictEqual(decodeHistoryEntry({ cwd: '/proj', sessionId: 's1' }), { cwd: '/proj', sessionId: 's1' });
+    const decoded = decodeHistoryEntry({
       _meta: { jetbrains: { air: { archived: false, lastPromptAt: 3 } } },
       cwd: '/proj',
       sessionId: 's1',
@@ -34,9 +34,9 @@ describe('decodeHistoryRow', () => {
   });
 });
 
-describe('encodeHistoryRow', () => {
+describe('encodeHistoryEntry', () => {
   it('round-trips a decoded row back to its stored AIR encoding', () => {
-    assert.deepStrictEqual<unknown>(encodeHistoryRow(decodeHistoryRow(wire)), {
+    assert.deepStrictEqual<unknown>(encodeHistoryEntry(decodeHistoryEntry(wire)), {
       _meta: {
         jetbrains: { air: { archived: true, lastPromptAt: '2026-01-01T00:00:00.000Z', model: 'opus', version: 1 } },
         other: { kept: true },
@@ -47,7 +47,7 @@ describe('encodeHistoryRow', () => {
   });
 
   it('leaves a row with neither field without AIR meta', () => {
-    assert.deepStrictEqual(encodeHistoryRow({ cwd: '/proj', sessionId: 's1' }), { cwd: '/proj', sessionId: 's1' });
+    assert.deepStrictEqual(encodeHistoryEntry({ cwd: '/proj', sessionId: 's1' }), { cwd: '/proj', sessionId: 's1' });
   });
 });
 
@@ -72,5 +72,13 @@ describe('withLastPromptTime', () => {
     assert.strictEqual(withLastPromptTime(row, 'nope'), row);
     const none = { cwd: '/proj', sessionId: 's1' };
     assert.strictEqual(withLastPromptTime(none, '2026-03-01T00:00:00.000Z'), none);
+  });
+});
+
+describe('decodeHistoryEntry on an untrusted wire row', () => {
+  it('ignores top-level archived / lastPromptTime keys: only the AIR meta sets them', () => {
+    const decoded = decodeHistoryEntry({ archived: 'yes', cwd: '/proj', lastPromptTime: 5, sessionId: 's1' });
+    assert.notProperty(decoded, 'archived');
+    assert.notProperty(decoded, 'lastPromptTime');
   });
 });

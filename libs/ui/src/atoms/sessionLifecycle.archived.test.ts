@@ -73,7 +73,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -83,7 +83,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup({}, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['load:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
     }).pipe(Effect.scoped),
   );
 
@@ -92,7 +92,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, fake: { failUnarchive: true } });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -102,7 +102,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, fake: { failLoad: true } });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
     }).pipe(Effect.scoped),
   );
@@ -112,7 +112,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, status: 'active' });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -134,7 +134,7 @@ describe('Archive', () => {
       yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['archive:s1']);
       assert.strictEqual(s.row()?.title, 'Old');
-      assert.isTrue(s.row()?.archived === true);
+      assert.isTrue(s.row()?.archived);
       assert.notProperty(s.snapshot().sessions, 's1');
       assert.isUndefined(s.registry.get(selectedAtom));
     }).pipe(Effect.scoped),
@@ -145,7 +145,7 @@ describe('Archive', () => {
       const s = yield* setup({}, { archived: false });
       yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, []);
-      assert.isTrue(s.row()?.archived === true);
+      assert.isTrue(s.row()?.archived);
     }).pipe(Effect.scoped),
   );
 
@@ -154,7 +154,7 @@ describe('Archive', () => {
       const s = yield* setup(advertisesArchive, { archived: false, fake: { failArchive: true } });
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target));
       assert.isTrue(Exit.isFailure(exit));
-      assert.isTrue(s.row()?.archived === true);
+      assert.isTrue(s.row()?.archived);
     }).pipe(Effect.scoped),
   );
 });
@@ -230,7 +230,7 @@ describe('Bulk archive / unarchive', () => {
       const s = yield* setup(advertisesArchive, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.unarchiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isFalse(s.row()?.archived === true);
+      assert.isUndefined(s.row()?.archived);
       assert.isUndefined(s.registry.get(selectedAtom));
     }).pipe(Effect.scoped),
   );

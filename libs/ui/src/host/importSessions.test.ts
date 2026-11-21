@@ -89,9 +89,7 @@ describe('importSessions', () => {
   it('hides rows that are already tracked, archived ones included', () => {
     let state = initialImportState('/w', 1);
     state = applyImportPage(state, 'codex-acp', { sessions: [row('a'), row('b')] });
-    const tracked = [
-      { ...row('a'), launchTarget: 'codex-acp' as const, _meta: { jetbrains: { air: { archived: true } } } },
-    ];
+    const tracked = [{ ...row('a'), archived: true as const, launchTarget: 'codex-acp' as const }];
     assert.deepStrictEqual(
       importableRows(state, tracked).map(entry => entry.sessionId),
       ['b'],

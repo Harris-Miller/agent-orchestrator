@@ -47,7 +47,7 @@ export const withoutLiveActivityState = <T extends Readonly<Record<string, unkno
 /** Activity state of a `session/list` row that earns a badge; `idle` and unknown states read as absent. */
 export type AirActivityState = 'error' | 'requires_action' | 'running';
 
-/** The AIR row metadata Session History shows (archived and Last prompt time are typed row fields, `sessionHistoryRow.ts`). Each field is decoded on its own: a malformed one drops only itself. */
+/** The AIR row metadata Session History shows (archived and Last prompt time are typed row fields, `historyEntry.ts`). Each field is decoded on its own: a malformed one drops only itself. */
 export type AirRowMeta = {
   readonly activityState?: AirActivityState;
   readonly cost?: { readonly amount: number; readonly currency: string };

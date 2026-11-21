@@ -100,7 +100,7 @@ describe('Import paging', () => {
       advertise(registry, CODEX, {});
       updateHarnessSnapshot(registry, CODEX, current => ({
         ...current,
-        sessionHistory: [{ _meta: { jetbrains: { air: { archived: true } } }, cwd: '/proj', sessionId: 'a' }],
+        sessionHistory: [{ archived: true, cwd: '/proj', sessionId: 'a' }],
       }));
 
       yield* runAtomFn(registry, atoms.openImportAtomFn, '/proj');

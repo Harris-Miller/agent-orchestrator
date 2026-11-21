@@ -1,4 +1,4 @@
-import { CreateElicitationFormRequest } from '@libs/effect-acp';
+import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@libs/effect-acp';
 import type { ElicitationContent } from '@libs/effect-acp';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -47,7 +47,10 @@ const codexNote = (questionId: string) => ({
   type: 'string',
 });
 
-type Scenario = { readonly request: ReturnType<typeof form>; readonly title: string };
+type Scenario = {
+  readonly request: ReturnType<typeof form> | CreateElicitationUrlSessionRequest;
+  readonly title: string;
+};
 
 const SINGLE_QUESTION: readonly Scenario[] = [
   {
@@ -142,6 +145,19 @@ const SINGLE_QUESTION: readonly Scenario[] = [
       q0_note: codexNote('q0'),
     }),
     title: 'Multi choice + note (Codex)',
+  },
+];
+
+const URL_MODE: readonly Scenario[] = [
+  {
+    request: Schema.decodeUnknownSync(CreateElicitationUrlSessionRequest)({
+      elicitationId: 'playground-url',
+      message: 'Sign in to continue',
+      mode: 'url',
+      sessionId: 'playground',
+      url: 'https://auth.example.com/login?token=abc',
+    }),
+    title: 'URL',
   },
 ];
 
@@ -302,5 +318,6 @@ export const ElicitationPlaygroundTab: FC = () => (
   <Stack spacing={4} sx={{ maxWidth: 720 }}>
     <Section scenarios={SINGLE_QUESTION} title="Single question" />
     <Section scenarios={MULTI_QUESTION} title="Multiple questions" />
+    <Section scenarios={URL_MODE} title="URL mode" />
   </Stack>
 );

@@ -63,11 +63,11 @@ Elicitation mode that collects non-sensitive fields via a restricted JSON Schema
 _Avoid_: Form elicitation (when naming the mode), dialog, questionnaire
 
 **URL mode**:
-Elicitation mode that asks the user to consent to an out-of-band URL (`mode: "url"`). `accept` means consent to open, not that the external flow finished; the Agent may later send `elicitation/complete` for that `elicitationId`.
+Elicitation mode that asks the user to consent to an out-of-band URL (`mode: "url"`). `accept` means the user consented to the URL and has finished the out-of-band step; opening the URL alone is not a response. The Agent may still send `elicitation/complete` for that `elicitationId`.
 _Avoid_: OAuth elicitation, redirect, external form
 
 **Elicitation content**:
-Optional structured field values on an `accept` response. Meaningful for form mode; normally omitted for URL mode.
+Optional structured field values on an `accept` response. Meaningful for form mode; empty for URL mode.
 _Avoid_: Form data, answers, payload
 
 ## Wire and API surface

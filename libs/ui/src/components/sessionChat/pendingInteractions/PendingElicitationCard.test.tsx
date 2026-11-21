@@ -1,14 +1,18 @@
 // @vitest-environment happy-dom
 import { assert, describe, it } from '@effect/vitest';
-import { CreateElicitationFormRequest } from '@libs/effect-acp';
+import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@libs/effect-acp';
 import { ThemeProvider } from '@mui/material/styles';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, vi } from 'vitest';
 
+import { hostRunPromise } from '../../../hostRuntime.ts';
 import { theme } from '../../../theme/themes.ts';
 
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
+
+vi.mock('../../../hostRuntime.ts', () => ({ hostRunPromise: vi.fn(() => Promise.resolve()) }));
+vi.mock('../../../host/openChatLink.ts', () => ({ openChatLink: vi.fn((link: unknown) => link) }));
 
 afterEach(cleanup);
 
@@ -58,6 +62,33 @@ const setup = (request = fourQuestions) => {
     </ThemeProvider>,
   );
   return { onAccept, onCancel };
+};
+
+const urlRequest = (url: string) =>
+  Schema.decodeUnknownSync(CreateElicitationUrlSessionRequest)({
+    elicitationId: 'e1',
+    message: 'Sign in please',
+    mode: 'url',
+    sessionId: 's',
+    url,
+  });
+
+const setupUrl = (url: string) => {
+  const onAccept = vi.fn();
+  const onCancel = vi.fn();
+  const onDecline = vi.fn();
+  render(
+    <ThemeProvider theme={theme}>
+      <PendingElicitationCard
+        agentTitle="Claude"
+        onAccept={onAccept}
+        onCancel={onCancel}
+        onDecline={onDecline}
+        request={urlRequest(url)}
+      />
+    </ThemeProvider>,
+  );
+  return { onAccept, onCancel, onDecline };
 };
 
 const press = (key: string) => {
@@ -177,5 +208,46 @@ describe('PendingElicitationCard', () => {
     assert.isNotNull(textbox);
     assert.isNotNull(screen.queryByText('Questions'));
     assert.strictEqual(screen.getAllByText('Which branch should I use for the release?').length, 1);
+  });
+
+  it('renders URL mode with message and full url, and routes buttons', () => {
+    const url = 'https://auth.example.com/login?token=abc#frag';
+    const { onAccept, onCancel, onDecline } = setupUrl(url);
+    assert.isNotNull(screen.queryByText('Sign in please'));
+    assert.isNotNull(screen.queryByText(url));
+    assert.isNull(screen.queryByText(/Unsupported/));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    assert.strictEqual(onAccept.mock.calls.length, 1);
+    assert.deepStrictEqual(onAccept.mock.calls[0], [{}, { message: 'Sign in please', rows: [] }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    assert.strictEqual(onDecline.mock.calls.length, 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    assert.strictEqual(onCancel.mock.calls.length, 1);
+  });
+
+  it('Open link calls the host and does not respond', () => {
+    const { onAccept, onCancel, onDecline } = setupUrl('https://example.com/x');
+    fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
+    assert.deepStrictEqual(vi.mocked(hostRunPromise).mock.calls.at(-1) as unknown[], [
+      { kind: 'url', url: 'https://example.com/x' },
+    ]);
+    assert.strictEqual(onAccept.mock.calls.length, 0);
+    assert.strictEqual(onCancel.mock.calls.length, 0);
+    assert.strictEqual(onDecline.mock.calls.length, 0);
+  });
+
+  it('focuses the URL card on mount and cancels on Escape', async () => {
+    const { onCancel } = setupUrl('https://example.com/x');
+    await waitFor(() => {
+      assert.strictEqual(document.activeElement, screen.getByText('Sign in please').closest('[tabindex="-1"]'));
+    });
+    press('Escape');
+    assert.strictEqual(onCancel.mock.calls.length, 1);
+  });
+
+  it('disables Open link for non-http urls', () => {
+    setupUrl('file:///etc/passwd');
+    assert.isTrue(screen.getByRole<HTMLButtonElement>('button', { name: 'Open link' }).disabled);
+    assert.isNotNull(screen.queryByText('file:///etc/passwd'));
   });
 });

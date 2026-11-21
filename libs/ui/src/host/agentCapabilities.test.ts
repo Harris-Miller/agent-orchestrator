@@ -110,7 +110,7 @@ describe('agentCapabilitiesFrom', () => {
 
 describe('clientCapabilitiesFor', () => {
   const base = {
-    elicitation: { form: {} },
+    elicitation: { form: {}, url: {} },
     session: { configOptions: { boolean: {} } },
     subagents: {},
   };

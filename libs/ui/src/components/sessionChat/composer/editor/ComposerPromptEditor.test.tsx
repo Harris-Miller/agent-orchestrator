@@ -338,6 +338,22 @@ describe('ComposerPromptEditor hidden block markers', () => {
     }),
   );
 
+  it.effect('wraps each quote line in its own bar element holding its marker', () =>
+    Effect.gen(function* () {
+      mount('a\n> b\n> c');
+      yield* eventually(() => {
+        assert.deepStrictEqual(
+          [...editable().querySelectorAll('.composer-quote-line')].map(line => line.textContent),
+          ['> b', '> c'],
+        );
+      });
+      for (const line of editable().querySelectorAll('.composer-quote-line')) {
+        assert.isNotNull(line.querySelector('[data-md-role="blockMarker"]'));
+      }
+      assert.strictEqual(editable().textContent, 'a> b> c');
+    }),
+  );
+
   it.effect('removes the marker on Backspace at the start of the line content', () =>
     Effect.gen(function* () {
       let last: ComposerPromptChange | undefined;
@@ -356,6 +372,7 @@ describe('ComposerPromptEditor hidden block markers', () => {
         assert.strictEqual(last?.text, 'q\nplain');
       });
       assert.isNull(editable().querySelector('[data-md-role="blockMarker"]'));
+      assert.isNull(editable().querySelector('.composer-quote-line'));
     }),
   );
 
@@ -400,6 +417,10 @@ describe('ComposerPromptEditor hidden block markers', () => {
         assert.strictEqual(
           editable().querySelectorAll('[data-md-block="quote"][data-md-role="blockMarker"]').length,
           2,
+        );
+        assert.deepStrictEqual(
+          [...editable().querySelectorAll('.composer-quote-line')].map(line => line.textContent),
+          ['> q', '> '],
         );
       });
       shiftEnter();

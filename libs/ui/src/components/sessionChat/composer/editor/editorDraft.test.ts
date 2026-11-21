@@ -96,4 +96,29 @@ describe('editorDraft', () => {
       assert.strictEqual(cursor, offset, `offset ${offset}`);
     }
   });
+
+  it('keeps text, pieces, and logical cursors intact for drafts with quote lines', () => {
+    for (const quoted of ['> q', 'a\n> b\n> c', '> a /status [d](/e)\n> ', '> > deep\nend', '> \n> ']) {
+      const { pieces, text } = withDraft(quoted, () => ({
+        pieces: $readEditorPieces(),
+        text: $getRoot().getTextContent(),
+      }));
+      assert.strictEqual(text, quoted);
+      assert.isTrue(composerPiecesEqual(pieces, buildComposerPieces(quoted, commands)), quoted);
+      for (let offset = 0; offset <= quoted.length; offset += 1) {
+        const cursor = withDraft(quoted, () => {
+          $setLogicalCursor(offset);
+          return $getLogicalCursorAndAdjacency().cursor;
+        });
+        // An offset inside a chip snaps to its end; everything else round-trips.
+        const chipStart = quoted.indexOf('/status');
+        const inChip = chipStart !== -1 && offset > chipStart && offset < chipStart + '/status'.length;
+        const linkStart = quoted.indexOf('[d]');
+        const inLink = linkStart !== -1 && offset > linkStart && offset < linkStart + '[d](/e)'.length;
+        if (!inChip && !inLink) {
+          assert.strictEqual(cursor, offset, `${JSON.stringify(quoted)} @ ${offset}`);
+        }
+      }
+    }
+  });
 });

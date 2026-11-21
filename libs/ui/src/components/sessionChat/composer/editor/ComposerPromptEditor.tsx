@@ -141,15 +141,16 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
               fontSize: 0,
             },
           '& [data-md-block="quote"]': { color: 'text.secondary' },
-          '& [data-md-block="quote"][data-md-role="blockMarker"]::before': {
-            bgcolor: 'divider',
-            content: '""',
+          // inline-block gives exact line boxes (stacked quote lines' bars join) and hangs wrapped rows after the bar.
+          '& .composer-quote-line': {
+            borderColor: 'divider',
+            borderLeft: 3,
+            boxSizing: 'border-box',
             display: 'inline-block',
-            // Exactly one line box tall (0.875rem × 1.43), aligned to its top, so stacked quote lines join up.
-            height: '1.25125rem',
-            mr: 1,
+            minHeight: '1.25125rem',
+            pl: 1,
             verticalAlign: 'top',
-            width: 3,
+            width: '100%',
           },
           '& [data-md-block="bullet"][data-md-role="blockMarker"]::before': {
             color: 'text.secondary',

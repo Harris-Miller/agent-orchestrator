@@ -20,11 +20,16 @@ export type ComposerTextStyle = {
 export type ComposerPiece =
   | { readonly kind: 'command'; readonly value: string }
   | { readonly kind: 'linebreak' }
+  | { readonly kind: 'quoteLine'; readonly pieces: readonly ComposerPiece[] }
   | { readonly href: string; readonly kind: 'markdownLink'; readonly label: string }
   | { readonly kind: 'text'; readonly style: ComposerTextStyle; readonly value: string };
 
-export const composerPieceText = (piece: ComposerPiece): string =>
-  piece.kind === 'linebreak' ? '\n' : segmentText(piece);
+export const composerPieceText = (piece: ComposerPiece): string => {
+  if (piece.kind === 'linebreak') {
+    return '\n';
+  }
+  return piece.kind === 'quoteLine' ? piece.pieces.map(composerPieceText).join('') : segmentText(piece);
+};
 
 const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   block: run.block,
@@ -61,6 +66,7 @@ export const buildComposerPieces = (
       pieces.push({ kind: 'linebreak' });
       offset += 1;
     }
+    const linePieces: ComposerPiece[] = [];
     for (const run of runs) {
       const style = styleOf(run, line);
       let pending = '';
@@ -72,17 +78,23 @@ export const buildComposerPieces = (
           index += 1;
         } else {
           if (pending.length > 0) {
-            pieces.push({ kind: 'text', style, value: pending });
+            linePieces.push({ kind: 'text', style, value: pending });
             pending = '';
           }
-          pieces.push(chip);
+          linePieces.push(chip);
           index += segmentText(chip).length;
         }
       }
       if (pending.length > 0) {
-        pieces.push({ kind: 'text', style, value: pending });
+        linePieces.push({ kind: 'text', style, value: pending });
       }
       offset += run.text.length;
+    }
+    const [first] = runs;
+    if (first?.role === 'blockMarker' && first.block === 'quote') {
+      pieces.push({ kind: 'quoteLine', pieces: linePieces });
+    } else {
+      pieces.push(...linePieces);
     }
   });
   return pieces;
@@ -103,6 +115,8 @@ export const mergeAdjacentTextPieces = (pieces: readonly ComposerPiece[]): reado
     const prev = merged.at(-1);
     if (piece.kind === 'text' && prev?.kind === 'text' && sameStyle(prev.style, piece.style)) {
       merged[merged.length - 1] = { ...prev, value: prev.value + piece.value };
+    } else if (piece.kind === 'quoteLine') {
+      merged.push({ kind: 'quoteLine', pieces: mergeAdjacentTextPieces(piece.pieces) });
     } else {
       merged.push(piece);
     }
@@ -110,7 +124,11 @@ export const mergeAdjacentTextPieces = (pieces: readonly ComposerPiece[]): reado
   return merged;
 };
 
-const pieceEqual = (left: ComposerPiece, right: ComposerPiece): boolean => {
+const pieceEqual = (
+  left: ComposerPiece,
+  right: ComposerPiece,
+  piecesEqual: (a: readonly ComposerPiece[], b: readonly ComposerPiece[]) => boolean,
+): boolean => {
   switch (left.kind) {
     case 'command': {
       return right.kind === 'command' && left.value === right.value;
@@ -121,6 +139,9 @@ const pieceEqual = (left: ComposerPiece, right: ComposerPiece): boolean => {
     case 'markdownLink': {
       return right.kind === 'markdownLink' && left.label === right.label && left.href === right.href;
     }
+    case 'quoteLine': {
+      return right.kind === 'quoteLine' && piecesEqual(left.pieces, right.pieces);
+    }
     case 'text': {
       return right.kind === 'text' && left.value === right.value && sameStyle(left.style, right.style);
     }
@@ -130,5 +151,5 @@ const pieceEqual = (left: ComposerPiece, right: ComposerPiece): boolean => {
 export const composerPiecesEqual = (left: readonly ComposerPiece[], right: readonly ComposerPiece[]): boolean => {
   const a = mergeAdjacentTextPieces(left);
   const b = mergeAdjacentTextPieces(right);
-  return a.length === b.length && a.every((piece, index) => pieceEqual(piece, b[index]));
+  return a.length === b.length && a.every((piece, index) => pieceEqual(piece, b[index], composerPiecesEqual));
 };

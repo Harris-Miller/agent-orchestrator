@@ -15,7 +15,7 @@ import {
   $isRangeSelection,
   $isTextNode,
 } from 'lexical';
-import type { LexicalNode } from 'lexical';
+import type { ElementNode, LexicalNode } from 'lexical';
 
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
@@ -23,12 +23,20 @@ import { $createComposerCommandNode, $isComposerCommandNode } from './nodes/Comp
 import { $createComposerMarkdownLinkNode, $isComposerMarkdownLinkNode } from './nodes/ComposerMarkdownLinkNode.tsx';
 import { $isComposerChipNode } from './nodes/composerChipNode.ts';
 import { $createComposerMarkdownTextNode, $readComposerTextStyle } from './nodes/ComposerMarkdownTextNode.ts';
+import { $createComposerQuoteLineNode, $isComposerQuoteLineNode } from './nodes/ComposerQuoteLineNode.ts';
 import { buildComposerPieces } from './composerPieces.ts';
 import type { ComposerPiece } from './composerPieces.ts';
 
 export const $readEditorPieces = (): readonly ComposerPiece[] => {
-  const pieces: ComposerPiece[] = [];
-  const visit = (node: LexicalNode): void => {
+  const visit = (node: LexicalNode, pieces: ComposerPiece[]): void => {
+    if ($isComposerQuoteLineNode(node)) {
+      const children: ComposerPiece[] = [];
+      for (const child of node.getChildren()) {
+        visit(child, children);
+      }
+      pieces.push({ kind: 'quoteLine', pieces: children });
+      return;
+    }
     if ($isComposerCommandNode(node)) {
       pieces.push({ kind: 'command', value: node.getInvocation() });
       return;
@@ -47,12 +55,42 @@ export const $readEditorPieces = (): readonly ComposerPiece[] => {
     }
     if ($isElementNode(node)) {
       for (const child of node.getChildren()) {
-        visit(child);
+        visit(child, pieces);
       }
     }
   };
-  visit($getRoot());
+  const pieces: ComposerPiece[] = [];
+  visit($getRoot(), pieces);
   return pieces;
+};
+
+const $appendPiece = (parent: ElementNode, piece: ComposerPiece): void => {
+  switch (piece.kind) {
+    case 'command': {
+      parent.append($createComposerCommandNode(piece.value));
+      break;
+    }
+    case 'linebreak': {
+      parent.append($createLineBreakNode());
+      break;
+    }
+    case 'markdownLink': {
+      parent.append($createComposerMarkdownLinkNode(piece.label, piece.href));
+      break;
+    }
+    case 'quoteLine': {
+      const line = $createComposerQuoteLineNode();
+      for (const child of piece.pieces) {
+        $appendPiece(line, child);
+      }
+      parent.append(line);
+      break;
+    }
+    case 'text': {
+      parent.append($createComposerMarkdownTextNode(piece.value, piece.style));
+      break;
+    }
+  }
 };
 
 export const $setComposerContent = (text: string, availableCommands: readonly AvailableCommand[]): void => {
@@ -60,24 +98,7 @@ export const $setComposerContent = (text: string, availableCommands: readonly Av
   root.clear();
   const paragraph = $createParagraphNode();
   for (const piece of buildComposerPieces(text, availableCommands)) {
-    switch (piece.kind) {
-      case 'command': {
-        paragraph.append($createComposerCommandNode(piece.value));
-        break;
-      }
-      case 'linebreak': {
-        paragraph.append($createLineBreakNode());
-        break;
-      }
-      case 'markdownLink': {
-        paragraph.append($createComposerMarkdownLinkNode(piece.label, piece.href));
-        break;
-      }
-      case 'text': {
-        paragraph.append($createComposerMarkdownTextNode(piece.value, piece.style));
-        break;
-      }
-    }
+    $appendPiece(paragraph, piece);
   }
   root.append(paragraph);
 };
@@ -189,7 +210,16 @@ export const $setLogicalCursor = (offset: number): void => {
     }
     if ($isLineBreakNode(node)) {
       if (remaining === 0) {
-        node.selectNext(0, 0);
+        // Land inside a following quote line's content, not on the wrapper element.
+        const next = node.getNextSibling();
+        const start = $isComposerQuoteLineNode(next) ? next.getFirstDescendant() : null;
+        if ($isTextNode(start)) {
+          start.select(0, 0);
+        } else if (start === null) {
+          node.selectNext(0, 0);
+        } else {
+          start.selectStart();
+        }
         return true;
       }
       remaining -= 1;

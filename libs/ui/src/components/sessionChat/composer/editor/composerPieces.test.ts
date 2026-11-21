@@ -22,6 +22,9 @@ const showPiece = (piece: ComposerPiece): string => {
     case 'markdownLink': {
       return `link:${piece.label}`;
     }
+    case 'quoteLine': {
+      return `quote[${piece.pieces.map(showPiece).join(',')}]`;
+    }
     case 'text': {
       const { style } = piece;
       const role = { blockMarker: 'b', fence: 'f', marker: 'm', text: '' }[style.role];
@@ -55,7 +58,17 @@ describe('buildComposerPieces', () => {
   });
 
   it('gives block markers no span', () => {
-    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/:a', 'br', 'text:b@quote/:> ', 'text:@quote/:q']);
+    assert.deepStrictEqual(show('a\n- q'), ['text:@paragraph/:a', 'br', 'text:b@bullet/:- ', 'text:@bullet/:q']);
+  });
+
+  it('wraps each quote line in one quoteLine piece, linebreaks outside', () => {
+    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/:a', 'br', 'quote[text:b@quote/:> ,text:@quote/:q]']);
+    assert.deepStrictEqual(show('> a\n> b'), [
+      'quote[text:b@quote/:> ,text:@quote/:a]',
+      'br',
+      'quote[text:b@quote/:> ,text:@quote/:b]',
+    ]);
+    assert.deepStrictEqual(show('> > deep'), ['quote[text:b@quote/:> > ,text:@quote/:deep]']);
   });
 
   it("emits a linebreak piece between lines and ties each span's markers together", () => {
@@ -102,5 +115,12 @@ describe('mergeAdjacentTextPieces and composerPiecesEqual', () => {
     assert.isTrue(composerPiecesEqual([piece('a'), piece('b')], [piece('ab')]));
     assert.isFalse(composerPiecesEqual([piece('ab')], [piece('ab', true)]));
     assert.isFalse(composerPiecesEqual([piece('ab')], [piece('ab'), { kind: 'linebreak' }]));
+    assert.isFalse(composerPiecesEqual([{ kind: 'quoteLine', pieces: [piece('ab')] }], [piece('ab')]));
+    assert.isTrue(
+      composerPiecesEqual(
+        [{ kind: 'quoteLine', pieces: [piece('a'), piece('b')] }],
+        [{ kind: 'quoteLine', pieces: [piece('ab')] }],
+      ),
+    );
   });
 });

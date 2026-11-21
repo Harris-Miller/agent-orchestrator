@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import type { FC } from 'react';
 
 import { $readComposerTextStyle } from '../nodes/ComposerMarkdownTextNode.ts';
+import { $isComposerQuoteLineNode } from '../nodes/ComposerQuoteLineNode.ts';
 
 /** A `#`, `>`, or bullet marker, which Markdown styling never shows (ordered numbers do show). */
 const $isHiddenBlockMarker = (node: LexicalNode | null | undefined): node is TextNode => {
@@ -42,17 +43,15 @@ const $hiddenMarkerBeforeCaret = (): TextNode | null => {
 
 /** The quote marker starting the line `node` is on, if that line is a quote. */
 const $quoteMarkerOfCaretLine = (node: LexicalNode): TextNode | null => {
-  let found: TextNode | null = null;
-  for (
-    let sibling: LexicalNode | null = node;
-    sibling !== null && sibling.getType() !== 'linebreak';
-    sibling = sibling.getPreviousSibling()
-  ) {
-    if ($isTextNode(sibling) && $isHiddenBlockMarker(sibling) && $readComposerTextStyle(sibling).block === 'quote') {
-      found = sibling;
+  for (let ancestor: LexicalNode | null = node; ancestor !== null; ancestor = ancestor.getParent()) {
+    if ($isComposerQuoteLineNode(ancestor)) {
+      const marker = ancestor.getFirstChild();
+      return $isTextNode(marker) && $isHiddenBlockMarker(marker) && $readComposerTextStyle(marker).block === 'quote'
+        ? marker
+        : null;
     }
   }
-  return found;
+  return null;
 };
 
 /** Whether anything but the marker (text or a chip) follows it on its line. */
@@ -109,7 +108,11 @@ export const BlockMarkerCaretPlugin: FC = () => {
             return false;
           }
           event.preventDefault();
-          marker.getPreviousSibling()?.selectPrevious();
+          // A quote marker is its wrapper's first child, so step out to the wrapper's previous sibling.
+          const parent = marker.getParent();
+          (
+            marker.getPreviousSibling() ?? ($isComposerQuoteLineNode(parent) ? parent.getPreviousSibling() : null)
+          )?.selectPrevious();
           return true;
         },
         COMMAND_PRIORITY_HIGH,

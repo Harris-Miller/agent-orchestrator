@@ -158,7 +158,7 @@ export const GeneralSettingsPane: FC = () => {
       <SettingsSection title="Advanced">
         <SettingsRow
           title="Experimental: App Orchestrated Agents"
-          description="Adds a Handoff button to the Session actions strip above the Composer, and lets agents start subagents on other providers. Agents call tools on a local MCP hub that HOA runs (a handoff document is delivered this way). Starts the hub, and needs Node.js 22 or later. Sessions opened before you turn this on must be reopened to use it."
+          description="Adds a Handoff button to the Session actions strip above the Composer, and lets agents start subagents on other providers. Agents call tools on a local MCP hub that HOA runs (a handoff document is delivered this way). Starts the hub, and needs Node.js 22 or later. Changing this reloads your active sessions, which cancels any turn running in them."
         >
           <Switch
             slotProps={{ input: { 'aria-label': 'Experimental: App Orchestrated Agents' } }}

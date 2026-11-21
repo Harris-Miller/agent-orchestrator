@@ -15,6 +15,8 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
+import { sessionsToReload } from '../host/sessionsToReload.ts';
+import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
 import type { BackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -53,6 +55,7 @@ import {
 import type { createChatAtoms } from './chat.atoms.ts';
 import { reportRequestError } from './reportRequestError.ts';
 import { endLinksOfParent } from './spawnedSubagent.ts';
+import { isChildIn, subagentLinksAtom } from './subagentLinkRegistry.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
@@ -68,6 +71,7 @@ import {
   clearSelectedIfMissing,
   discardVirtual,
   ensureVirtual,
+  rebindVirtual,
   select,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
@@ -206,7 +210,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
   const activateSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('activateSessionAtomFn', { root: true })(function* (
-        arg: { launchTarget: AgentLaunchTarget; sessionId: string },
+        arg: { launchTarget: AgentLaunchTarget; sessionId: string; keepSelection?: true },
         get: Atom.FnContext,
       ) {
         yield* Effect.annotateCurrentSpan({
@@ -242,7 +246,10 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           );
         }
 
-        yield* select(get.registry, { _tag: 'Session', sessionId: arg.sessionId });
+        // A reload re-opens a session in place: whatever is Selected (even the Virtual draft) stays.
+        if (arg.keepSelection !== true) {
+          yield* select(get.registry, { _tag: 'Session', sessionId: arg.sessionId });
+        }
 
         // Fresh session/new already materializes an active local snapshot. Re-entering via
         // session/load (empty transcript ⇒ load) breaks Codex ("no rollout found for thread id").
@@ -410,6 +417,49 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
             ),
           ),
       ),
+    )
+    .pipe(Atom.keepAlive);
+
+  /**
+   * Reload every active session (all launch targets) so its `session/load` / `session/resume` re-reads the current
+   * Experimental: App Orchestrated Agents state: Deactivate (cancels a running Prompt turn, ends Spawned subagent
+   * children, closes on the agent, revokes the credential), then Activate again. Spawned subagent sessions are skipped
+   * (they end with their parent); the Bound Virtual session is rebound instead. One session's failure is logged and
+   * never blocks the others; Selected is kept.
+   */
+  const reloadActiveSessionsAtomFn = atomRuntime
+    .fn(
+      Effect.fn('reloadActiveSessionsAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        const virtual = get(virtualSessionAtom);
+        const links = get(subagentLinksAtom);
+        const targets = sessionsToReload(
+          MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+            launchTarget,
+            snapshot: get(backendHarnessSnapshotAtom(launchTarget)),
+          })),
+          target =>
+            isChildIn(links, target) ||
+            (virtual?.launchTarget === target.launchTarget && virtual.sessionId === target.sessionId),
+        );
+        const selectedBefore = get(selectedAtom);
+        yield* Effect.forEach(
+          targets,
+          target =>
+            runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(
+              Effect.andThen(runAtomFn(get.registry, activateSessionAtomFn, { ...target, keepSelection: true })),
+              Effect.tapError(error =>
+                Effect.logError('reloadActiveSessions failed', target.launchTarget, target.sessionId, error),
+              ),
+              Effect.ignore,
+            ),
+          { concurrency: 1 },
+        );
+        // Deactivate clears Selected when it was the reloaded session; put it back unless the user moved meanwhile.
+        if (selectedBefore?._tag === 'Session' && get(selectedAtom) === undefined) {
+          get.registry.set(selectedAtom, selectedBefore);
+        }
+        yield* rebindVirtual(get.registry);
+      }),
     )
     .pipe(Atom.keepAlive);
 
@@ -607,6 +657,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
+    reloadActiveSessionsAtomFn,
     retryProjectListsAtomFn,
     renameSessionAtomFn,
     stopTrackingProjectAtomFn,

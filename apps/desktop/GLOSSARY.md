@@ -217,7 +217,7 @@ Agent-reported context-window fill and cumulative session cost on a session snap
 _Avoid_: Usage readout, token usage, telemetry, context meter
 
 **Handoff**:
-Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Agents (`appOrchestratedAgentsEnabled`, off when unset; also gates Spawned subagent sessions): while off, the Session actions strip has no Handoff button and the Hub client does not start.
+Harness action that asks the source active session to call the hub's `submit_handoff` tool with a handoff document, then creates a new session on a chosen agent launch target (same session cwd), applies chosen config options, and seeds it with a `session/prompt` containing that document. Fails when the source turn ends without the tool call, and is unavailable while the source session has no hub credential. Not an ACP protocol concept; not a durable Harness record (v1). Gated by the User setting Experimental: App Orchestrated Agents (`appOrchestratedAgentsEnabled`, off when unset; also gates Spawned subagent sessions): while off, the Session actions strip has no Handoff button and the Hub client does not start. Changing it reloads every active session (cancelling any running Prompt turn) so each picks up the new state.
 _Avoid_: Transfer, migrate session, export chat
 
 **Hub**:
@@ -225,7 +225,7 @@ The one machine-wide local process that agents call Harness tools on (hand a Han
 _Avoid_: MCP server (ambiguous with servers the user configured), daemon, broker
 
 **Hub client**:
-A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials (a credential's secret is its bearer token), answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened.
+A Harness's connection to the Hub: makes sure one is running, issues and revokes session credentials (a credential's secret is its bearer token), answers the tool calls routed to its sessions, and reports whether the Hub is available. While it is not, sessions start without a credential and Handoff is unavailable, with the reason; such a session stays unconnected until it is reopened or reloaded.
 _Avoid_: hub connection as a name for the role (in code, `HubConnection` is the transport the client installs; the client is the role)
 
 **Pending client request**:

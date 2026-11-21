@@ -855,6 +855,24 @@ export const select = Effect.fn('select')(function* (
   registry.set(selectedAtom, next);
 });
 
+/**
+ * The Bound session was opened with the MCP servers of an earlier setting: release it and Bind a fresh one, keeping the
+ * blob (draft, cwd, Config). A no-op while unbound; inert under the Lifecycle lock.
+ */
+export const rebindVirtual = Effect.fn('rebindVirtual')(function* (registry: Registry) {
+  if (registry.get(virtualSessionAtom)?.sessionId === undefined) {
+    return;
+  }
+  yield* mutateThenRebind(registry, {
+    mutate: () => {
+      const virtual = registry.get(virtualSessionAtom);
+      if (virtual !== null) {
+        setBlob(registry, { ...virtual, sessionId: undefined });
+      }
+    },
+  });
+});
+
 /** Workspace folder gone: drop the blob regardless of content (background Bound teardown) and clear Selected. */
 export const discardVirtual = Effect.fn('discardVirtual')(function* (registry: Registry) {
   yield* mutateThenRebind(registry, {

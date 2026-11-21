@@ -62,8 +62,6 @@ export const { effectiveThemeAtom } = createThemeAtoms({ matchVscodeThemeAtom, t
 export const { installVscodeExtensionAtomFn, skippedExtensionVersionAtom, vscodeExtensionAvailabilityAtom } =
   createVscodeExtensionAtoms(atomRuntime, { userSettingsAtom });
 
-export const { hubAtom } = createHubAtoms(atomRuntime);
-
 export const { keepAwakeAtom, keepAwakeSupportedAtom } = createKeepAwakeAtoms(atomRuntime, { keepAwakeEnabledAtom });
 
 export const {
@@ -117,12 +115,15 @@ export const {
   deleteSessionAtomFn,
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
+  reloadActiveSessionsAtomFn,
   renameSessionAtomFn,
   retryProjectListsAtomFn,
   stopTrackingProjectAtomFn,
   unarchiveSessionAtomFn,
   unarchiveSessionsAtomFn,
 } = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
+
+export const { hubAtom } = createHubAtoms(atomRuntime, reloadActiveSessionsAtomFn);
 
 export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime, deactivateSessionAtomFn);
 

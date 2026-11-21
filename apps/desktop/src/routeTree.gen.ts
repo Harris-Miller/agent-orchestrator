@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteRouteImport } from './routes/settings/route'
-import { Route as PrototypeFeaturesRouteImport } from './routes/prototype/features'
+import { Route as PrototypePagesRouteImport } from './routes/prototype/pages'
 import { Route as SettingsCategoryRouteImport } from './routes/settings/$category'
 
 const IndexRoute = IndexRouteImport.update({
@@ -24,9 +24,9 @@ const SettingsRouteRoute = SettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PrototypeFeaturesRoute = PrototypeFeaturesRouteImport.update({
-  id: '/prototype/features',
-  path: '/prototype/features',
+const PrototypePagesRoute = PrototypePagesRouteImport.update({
+  id: '/prototype/pages',
+  path: '/prototype/pages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsCategoryRoute = SettingsCategoryRouteImport.update({
@@ -38,39 +38,35 @@ const SettingsCategoryRoute = SettingsCategoryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
-  '/prototype/features': typeof PrototypeFeaturesRoute
+  '/prototype/pages': typeof PrototypePagesRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
-  '/prototype/features': typeof PrototypeFeaturesRoute
+  '/prototype/pages': typeof PrototypePagesRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
-  '/prototype/features': typeof PrototypeFeaturesRoute
+  '/prototype/pages': typeof PrototypePagesRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/prototype/features' | '/settings/$category'
+  fullPaths: '/' | '/settings' | '/prototype/pages' | '/settings/$category'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/prototype/features' | '/settings/$category'
+  to: '/' | '/settings' | '/prototype/pages' | '/settings/$category'
   id:
-    | '__root__'
-    | '/'
-    | '/settings'
-    | '/prototype/features'
-    | '/settings/$category'
+    '__root__' | '/' | '/settings' | '/prototype/pages' | '/settings/$category'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
-  PrototypeFeaturesRoute: typeof PrototypeFeaturesRoute
+  PrototypePagesRoute: typeof PrototypePagesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -89,11 +85,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/prototype/features': {
-      id: '/prototype/features'
-      path: '/prototype/features'
-      fullPath: '/prototype/features'
-      preLoaderRoute: typeof PrototypeFeaturesRouteImport
+    '/prototype/pages': {
+      id: '/prototype/pages'
+      path: '/prototype/pages'
+      fullPath: '/prototype/pages'
+      preLoaderRoute: typeof PrototypePagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/$category': {
@@ -121,7 +117,7 @@ const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRouteRoute: SettingsRouteRouteWithChildren,
-  PrototypeFeaturesRoute: PrototypeFeaturesRoute,
+  PrototypePagesRoute: PrototypePagesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

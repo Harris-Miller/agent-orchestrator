@@ -279,13 +279,15 @@ export const WorkbenchNavRail: FC<{
               navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
             }}
           />
-          {/* PROTOTYPE entry (#185 + #28): the Tauri window has no URL bar. */}
+          {/* PROTOTYPE entry (Epic #424): the Tauri window has no URL bar. */}
           {import.meta.env.DEV ? (
             <IconTooltipButton
               icon={FlaskConical}
-              label="Features + Missions prototype"
+              label="Sessions / Workstreams / Orchestration prototype"
               onClick={() => {
-                navigate({ search: { variant: 'D' }, to: '/prototype/features' }).catch(() => undefined);
+                navigate({ search: { page: 'orchestration', variant: 'A' }, to: '/prototype/pages' }).catch(
+                  () => undefined,
+                );
               }}
             />
           ) : null}

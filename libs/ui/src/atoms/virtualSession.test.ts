@@ -37,6 +37,7 @@ import {
   editVirtual,
   ensureVirtual,
   lastCreateDefaultsAtom,
+  rebindVirtual,
   resetVirtualOnProviderStopped,
   resetVirtualUnsupportedConfig,
   select,
@@ -1680,6 +1681,32 @@ describe('#278 regressions', () => {
       assert.notInclude(calls, 'prompt:bound-1');
       assert.strictEqual(blob(h.registry)?.draft, 'hello');
       assert.deepStrictEqual(blob(h.registry)?.attachments, [attachment]);
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe('rebindVirtual', () => {
+  it.effect('waits for an in-flight Bind (old mcpServers), then replaces its session with a fresh Bind', () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const gate = yield* gated;
+      yield* installFakeAgent(calls, { duringNew: gate.during });
+      const registry = yield* freshRegistry;
+      yield* seedUnbound(registry);
+      const binding = yield* Effect.forkChild(bindVirtualOnUsable(registry, CODEX));
+      yield* gate.started;
+
+      const rebinding = yield* Effect.forkChild(rebindVirtual(registry));
+      yield* Effect.yieldNow;
+      assert.isUndefined(blob(registry)?.sessionId);
+
+      yield* gate.release;
+      yield* Fiber.join(binding);
+      yield* Fiber.join(rebinding);
+      yield* Effect.yieldNow;
+
+      assert.include(calls, 'delete:bound-1');
+      assert.strictEqual(blob(registry)?.sessionId, 'bound-2');
     }).pipe(Effect.scoped),
   );
 });

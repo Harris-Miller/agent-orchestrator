@@ -1,6 +1,6 @@
-/** Reloading active sessions when Experimental: App Orchestrated Agents changes: `session/load` re-reads the hub state. */
+/** Reactivating active sessions when Experimental: App Orchestrated Agents changes: `session/load` re-reads the hub state. */
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { Effect, Fiber } from 'effect';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
@@ -10,7 +10,15 @@ import { reserveSlot } from './subagentLinkRegistry.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
-import { advertise, CLAUDE, CODEX, freshRegistry, installFakeAgent, installFakeHub } from './fakeAgent.testing.ts';
+import {
+  advertise,
+  CLAUDE,
+  CODEX,
+  freshRegistry,
+  gated,
+  installFakeAgent,
+  installFakeHub,
+} from './fakeAgent.testing.ts';
 import type { McpReceived } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
@@ -24,7 +32,9 @@ const allowedTools = (received: McpReceived): readonly string[] | undefined =>
   (received.meta as { claudeCode?: { options?: { allowedTools?: readonly string[] } } } | undefined)?.claudeCode
     ?.options?.allowedTools;
 
-const setup = Effect.fnUntraced(function* (options: { readonly failClaudeLoad?: boolean } = {}) {
+const setup = Effect.fnUntraced(function* (
+  options: { readonly duringClaudeLoad?: Effect.Effect<void>; readonly failClaudeLoad?: boolean } = {},
+) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
   const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
@@ -33,7 +43,11 @@ const setup = Effect.fnUntraced(function* (options: { readonly failClaudeLoad?: 
   const claudeReceived: McpReceived[] = [];
   const codexReceived: McpReceived[] = [];
   const calls: string[] = [];
-  yield* installFakeAgent(calls, { failLoad: options.failClaudeLoad, mcp: { received: claudeReceived } }, CLAUDE);
+  yield* installFakeAgent(
+    calls,
+    { duringLoad: options.duringClaudeLoad, failLoad: options.failClaudeLoad, mcp: { received: claudeReceived } },
+    CLAUDE,
+  );
   yield* installFakeAgent(calls, { mcp: { received: codexReceived } }, CODEX);
   advertise(registry, CLAUDE, {});
   advertise(registry, CODEX, {});
@@ -49,21 +63,21 @@ const setup = Effect.fnUntraced(function* (options: { readonly failClaudeLoad?: 
     ...current,
     sessions: { x1: { ...initialSessionSnapshot('x1', 'active'), cwd: '/w' } },
   }));
-  const reload = runAtomFn(registry, atoms.reloadActiveSessionsAtomFn, undefined);
-  return { calls, claudeReceived, codexReceived, registry, reload };
+  const reactivate = runAtomFn(registry, atoms.reactivateActiveSessionsAtomFn, undefined);
+  return { calls, claudeReceived, codexReceived, registry, reactivate };
 });
 
-describe('reloadActiveSessionsAtomFn', () => {
+describe('reactivateActiveSessionsAtomFn', () => {
   it.effect(
-    'turning the setting on: reloaded sessions carry the hub server and, for Claude, the tool pre-approval',
+    'turning the setting on: reactivated sessions carry the hub server and, for Claude, the tool pre-approval',
     () =>
       Effect.gen(function* () {
         const s = yield* setup();
         setHubAvailability({ _tag: 'unavailable', reason: 'off' });
-        // The setting flips on: the hub becomes available, then the reload runs.
+        // The setting flips on: the hub becomes available, then the reactivate runs.
         setHubAvailability({ _tag: 'available' });
         s.registry.set(selectedAtom, { _tag: 'Session', sessionId: 'c1' });
-        yield* s.reload;
+        yield* s.reactivate;
 
         const loads = s.claudeReceived.filter(r => r.rpc === 'load');
         assert.isAbove(loads.length, 0);
@@ -81,11 +95,11 @@ describe('reloadActiveSessionsAtomFn', () => {
       }).pipe(Effect.scoped),
   );
 
-  it.effect('turning the setting off: reloaded sessions carry no mcpServers and no tool pre-approval', () =>
+  it.effect('turning the setting off: reactivated sessions carry no mcpServers and no tool pre-approval', () =>
     Effect.gen(function* () {
       const s = yield* setup();
       setHubAvailability({ _tag: 'unavailable', reason: 'Experimental: App Orchestrated Agents is off in Settings.' });
-      yield* s.reload;
+      yield* s.reactivate;
 
       const loads = s.claudeReceived.filter(r => r.rpc === 'load');
       assert.isAbove(loads.length, 0);
@@ -104,7 +118,7 @@ describe('reloadActiveSessionsAtomFn', () => {
     Effect.gen(function* () {
       const s = yield* setup();
       setHubAvailability({ _tag: 'unavailable', reason: 'off' });
-      yield* s.reload;
+      yield* s.reactivate;
       yield* createSession(CLAUDE, '/w');
       assert.deepStrictEqual(s.claudeReceived.findLast(r => r.rpc === 'new')?.servers, []);
       setHubAvailability({ _tag: 'available' });
@@ -123,19 +137,64 @@ describe('reloadActiveSessionsAtomFn', () => {
         description: 'child',
         task: 'task',
       });
-      yield* s.reload;
+      yield* s.reactivate;
       assert.notInclude(s.calls, 'load:child');
       assert.include(s.calls, 'load:c1');
     }).pipe(Effect.scoped),
   );
 
-  it.effect('one session failing to reload does not block the others', () =>
+  it.effect('one session failing to reactivate does not block the others', () =>
     Effect.gen(function* () {
       const s = yield* setup({ failClaudeLoad: true });
-      yield* s.reload;
+      yield* s.reactivate;
       assert.include(s.calls, 'load:c1');
       assert.include(s.calls, 'load:x1');
       assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.x1?.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a second change mid-run never leaves a session inactive', () =>
+    Effect.gen(function* () {
+      const gate = yield* gated;
+      const s = yield* setup({ duringClaudeLoad: gate.during });
+      setHubAvailability({ _tag: 'available' });
+      const first = yield* Effect.forkChild(s.reactivate);
+      yield* gate.started;
+      // The second toggle re-runs the fn while the first is between Deactivate and Activate of c1.
+      const second = yield* Effect.forkChild(s.reactivate);
+      yield* Effect.yieldNow;
+      yield* gate.release;
+      yield* Fiber.join(second);
+      yield* Fiber.interrupt(first);
+
+      const claude = s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions;
+      assert.strictEqual(claude.c1?.status, 'active');
+      assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.x1?.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('waits for a connecting hub, however long, so sessions come back with the hub server', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      setHubAvailability({ _tag: 'connecting' });
+      const run = yield* Effect.forkChild(s.reactivate);
+      // Longer than a session RPC's own settle window (5s) would matter: nothing reactivates while connecting.
+      yield* Effect.promise(
+        () =>
+          new Promise<void>(resolve => {
+            setTimeout(resolve, 50);
+          }),
+      );
+      assert.deepStrictEqual(s.claudeReceived, []);
+      assert.deepStrictEqual(s.codexReceived, []);
+
+      setHubAvailability({ _tag: 'available' });
+      yield* Fiber.join(run);
+      const loads = s.claudeReceived.filter(r => r.rpc === 'load');
+      assert.isAbove(loads.length, 0);
+      for (const load of loads) {
+        assert.deepStrictEqual(hubServerNames(load), ['hoa-hub']);
+      }
     }).pipe(Effect.scoped),
   );
 });

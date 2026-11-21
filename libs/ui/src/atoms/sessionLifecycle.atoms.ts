@@ -1,6 +1,5 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
-import { Effect, Exit, Redacted } from 'effect';
-import type { Cause } from 'effect';
+import { Cause, Duration, Effect, Exit, Redacted, Semaphore } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -15,7 +14,8 @@ import {
 import { requireAgentCapability } from '../host/agentCapabilities.ts';
 import { closeOnAgent } from '../host/closeOnAgent.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
-import { sessionsToReload } from '../host/sessionsToReload.ts';
+import { awaitHubSettled } from '../host/hubConnection.ts';
+import { sessionsToReactivate } from '../host/sessionsToReactivate.ts';
 import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { isArchivedEntry } from '../host/airMeta.ts';
@@ -68,6 +68,7 @@ import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
 import type { RunFork } from './sessionLists.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import {
+  awaitVirtualSettled,
   clearSelectedIfMissing,
   discardVirtual,
   ensureVirtual,
@@ -420,45 +421,70 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     )
     .pipe(Atom.keepAlive);
 
+  /** Generous: a cold hub start (Node spawn) can outlast a session RPC's own settle window. */
+  const HUB_SETTLE_TIMEOUT = Duration.minutes(1);
+  /** One reactivation at a time, so a second change never starts while the first holds a session between steps. */
+  const reactivateLock = Semaphore.makeUnsafe(1);
+
   /**
-   * Reload every active session (all launch targets) so its `session/load` / `session/resume` re-reads the current
+   * Reactivate every active session (all launch targets) so its `session/load` / `session/resume` re-reads the current
    * Experimental: App Orchestrated Agents state: Deactivate (cancels a running Prompt turn, ends Spawned subagent
-   * children, closes on the agent, revokes the credential), then Activate again. Spawned subagent sessions are skipped
-   * (they end with their parent); the Bound Virtual session is rebound instead. One session's failure is logged and
-   * never blocks the others; Selected is kept.
+   * children, closes on the agent, revokes the credential), then Activate again. Waits for the hub to leave
+   * `connecting` first. Spawned subagent sessions are skipped (they end with their parent); the Bound Virtual session is
+   * rebound instead. One session's failure is logged and never blocks the others; Selected is kept. Each session's
+   * Deactivate + Activate pair is uninterruptible and serialized, so a second change mid-run (which re-runs this fn)
+   * never leaves a session Deactivated.
    */
-  const reloadActiveSessionsAtomFn = atomRuntime
+  const reactivateActiveSessionsAtomFn = atomRuntime
     .fn(
-      Effect.fn('reloadActiveSessionsAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
-        const virtual = get(virtualSessionAtom);
-        const links = get(subagentLinksAtom);
-        const targets = sessionsToReload(
-          MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
-            launchTarget,
-            snapshot: get(backendHarnessSnapshotAtom(launchTarget)),
-          })),
-          target =>
-            isChildIn(links, target) ||
-            (virtual?.launchTarget === target.launchTarget && virtual.sessionId === target.sessionId),
+      Effect.fn('reactivateActiveSessionsAtomFn', { root: true })(function* (_arg: undefined, get: Atom.FnContext) {
+        yield* awaitHubSettled(HUB_SETTLE_TIMEOUT);
+        // An in-flight Bind / Materialize decides whether the Virtual session counts as Bound below.
+        yield* awaitVirtualSettled(get.registry);
+        yield* reactivateLock.withPermits(1)(
+          Effect.gen(function* () {
+            const virtual = get(virtualSessionAtom);
+            const links = get(subagentLinksAtom);
+            const targets = sessionsToReactivate(
+              MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
+                launchTarget,
+                snapshot: get(backendHarnessSnapshotAtom(launchTarget)),
+              })),
+              target =>
+                isChildIn(links, target) ||
+                (virtual?.launchTarget === target.launchTarget && virtual.sessionId === target.sessionId),
+            );
+            const selectedBefore = get(selectedAtom);
+            // Another fn's run on the shared slot (a user click) can interrupt an Activate: retry so we never strand it.
+            const activate = (target: SessionTarget, attemptsLeft: number): Effect.Effect<void, unknown> =>
+              runAtomFn(get.registry, activateSessionAtomFn, { ...target, keepSelection: true }).pipe(
+                Effect.asVoid,
+                Effect.catchCause(cause =>
+                  attemptsLeft > 1 && Cause.hasInterrupts(cause)
+                    ? activate(target, attemptsLeft - 1)
+                    : Effect.failCause(cause),
+                ),
+              );
+            yield* Effect.forEach(
+              targets,
+              target =>
+                runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(
+                  Effect.andThen(activate(target, 3)),
+                  Effect.uninterruptible,
+                  Effect.tapError(error =>
+                    Effect.logError('reactivateActiveSessions failed', target.launchTarget, target.sessionId, error),
+                  ),
+                  Effect.ignore,
+                ),
+              { concurrency: 1 },
+            );
+            // Deactivate clears Selected when it was the reactivated session; put it back unless the user moved meanwhile.
+            if (selectedBefore?._tag === 'Session' && get(selectedAtom) === undefined) {
+              get.registry.set(selectedAtom, selectedBefore);
+            }
+            yield* rebindVirtual(get.registry);
+          }),
         );
-        const selectedBefore = get(selectedAtom);
-        yield* Effect.forEach(
-          targets,
-          target =>
-            runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(
-              Effect.andThen(runAtomFn(get.registry, activateSessionAtomFn, { ...target, keepSelection: true })),
-              Effect.tapError(error =>
-                Effect.logError('reloadActiveSessions failed', target.launchTarget, target.sessionId, error),
-              ),
-              Effect.ignore,
-            ),
-          { concurrency: 1 },
-        );
-        // Deactivate clears Selected when it was the reloaded session; put it back unless the user moved meanwhile.
-        if (selectedBefore?._tag === 'Session' && get(selectedAtom) === undefined) {
-          get.registry.set(selectedAtom, selectedBefore);
-        }
-        yield* rebindVirtual(get.registry);
       }),
     )
     .pipe(Atom.keepAlive);
@@ -657,7 +683,7 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
     deleteSessionAtomFn,
     forkSessionAtomFn,
     refreshAllSessionHistoriesAtomFn,
-    reloadActiveSessionsAtomFn,
+    reactivateActiveSessionsAtomFn,
     retryProjectListsAtomFn,
     renameSessionAtomFn,
     stopTrackingProjectAtomFn,

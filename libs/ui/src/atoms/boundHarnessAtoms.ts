@@ -115,7 +115,7 @@ export const {
   deleteSessionAtomFn,
   forkSessionAtomFn,
   refreshAllSessionHistoriesAtomFn,
-  reloadActiveSessionsAtomFn,
+  reactivateActiveSessionsAtomFn,
   renameSessionAtomFn,
   retryProjectListsAtomFn,
   stopTrackingProjectAtomFn,
@@ -123,7 +123,7 @@ export const {
   unarchiveSessionsAtomFn,
 } = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
 
-export const { hubAtom } = createHubAtoms(atomRuntime, reloadActiveSessionsAtomFn);
+export const { hubAtom } = createHubAtoms(atomRuntime, reactivateActiveSessionsAtomFn);
 
 export const { idleSweepAtom } = createIdleSweepAtoms(atomRuntime, deactivateSessionAtomFn);
 

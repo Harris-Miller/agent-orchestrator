@@ -63,14 +63,11 @@ export const onHubAvailability = (listener: (next: HubAvailability) => void): ((
   };
 };
 
-/** The connection, unless availability says `unavailable`: turning Experimental: App Orchestrated Agents off wins over a connection still closing. */
+/** The connection, unless `unavailable`: turning the setting off wins over a connection still closing. */
 const settledHub = (): HubConnection | undefined => (availability._tag === 'unavailable' ? undefined : current);
 
-/**
- * The connection once availability has settled, waiting at most `timeout` while it is `connecting` (e.g. the
- * Virtual session's eager `session/new` racing the hub client's first connect at startup).
- */
-export const awaitHub = (timeout: Duration.Input): Effect.Effect<HubConnection | undefined> =>
+/** Waits until availability leaves `connecting`, for at most `timeout`; returns at once when it is not `connecting`. */
+export const awaitHubSettled = (timeout: Duration.Input): Effect.Effect<void> =>
   Effect.suspend(() =>
     availability._tag === 'connecting'
       ? Effect.callback<undefined>(resume => {
@@ -80,6 +77,13 @@ export const awaitHub = (timeout: Duration.Input): Effect.Effect<HubConnection |
             }
           });
           return Effect.sync(unsubscribe);
-        }).pipe(Effect.timeoutOption(timeout), Effect.map(settledHub))
-      : Effect.sync(settledHub),
+        }).pipe(Effect.timeoutOption(timeout), Effect.asVoid)
+      : Effect.void,
   );
+
+/**
+ * The connection once availability has settled, waiting at most `timeout` while it is `connecting` (e.g. the
+ * Virtual session's eager `session/new` racing the hub client's first connect at startup).
+ */
+export const awaitHub = (timeout: Duration.Input): Effect.Effect<HubConnection | undefined> =>
+  awaitHubSettled(timeout).pipe(Effect.map(settledHub));

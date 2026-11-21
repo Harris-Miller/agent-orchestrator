@@ -23,7 +23,7 @@ const measure = (root: HTMLElement): void => {
     range.setStartBefore(marker);
     let end: Node | null = marker;
     while (end !== null && end.nodeName !== 'BR') {
-      end = end.nextSibling ?? null;
+      end = end.nextSibling;
     }
     if (end === null) {
       range.setEndAfter(marker.parentNode?.lastChild ?? marker);

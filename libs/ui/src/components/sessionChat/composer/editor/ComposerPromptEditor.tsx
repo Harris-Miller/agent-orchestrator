@@ -15,7 +15,6 @@ import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts'
 import { $getLogicalCursorAndAdjacency, $setComposerContent } from './editorDraft.ts';
 import { COMPOSER_NODES } from './nodes/composerChipNode.ts';
 import { BlockMarkerCaretPlugin } from './plugins/BlockMarkerCaretPlugin.tsx';
-import { QuoteBarPlugin } from './plugins/QuoteBarPlugin.tsx';
 import { ChipDeletePlugin } from './plugins/ChipDeletePlugin.tsx';
 import { ChipifyPlugin } from './plugins/ChipifyPlugin.tsx';
 import { CommandMenuKeyPlugin } from './plugins/CommandMenuKeyPlugin.tsx';
@@ -25,6 +24,7 @@ import { EscapePlugin } from './plugins/EscapePlugin.tsx';
 import { ExternalValuePlugin } from './plugins/ExternalValuePlugin.tsx';
 import { FocusEndApiPlugin } from './plugins/FocusEndApiPlugin.tsx';
 import { MarkerRevealPlugin } from './plugins/MarkerRevealPlugin.tsx';
+import { QuoteBarPlugin } from './plugins/QuoteBarPlugin.tsx';
 import { SubmitOnEnterPlugin } from './plugins/SubmitOnEnterPlugin.tsx';
 
 export type ComposerPromptChange = {
@@ -72,6 +72,11 @@ const ComposerErrorBoundary: FC<{
   <LexicalErrorBoundary onError={reportError}>{children}</LexicalErrorBoundary>
 );
 
+// One line box: 0.875rem font × 1.43 line-height.
+const LINE_BOX = '1.25125rem';
+const QUOTE_BAR_WIDTH_PX = 3;
+const QUOTE_BAR_GAP_PX = 6;
+
 export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
   availableCommands = [],
   commandMenu,
@@ -118,7 +123,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             minHeight: 40,
             outline: 'none',
             overflowY: 'auto',
-            px: 1.5,
+            px: 1.5, // 12px; the quote bar sits inside this left padding (see QUOTE_BAR_*)
             py: 1,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
@@ -146,15 +151,15 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             bgcolor: 'divider',
             content: '""',
             display: 'inline-block',
-            // One line box is 1.25125rem (0.875rem × 1.43). QuoteBarPlugin sets --composer-quote-lines to the visual lines the quote
+            // QuoteBarPlugin sets --composer-quote-lines to the visual lines the quote
             // line wraps to; the negative margin keeps the margin box one line tall so the first line box does not grow, and the bar
             // overflows down beside the wrapped lines. It sits in the editor's 12px left padding (net advance 0), so text stays aligned.
-            height: 'calc(var(--composer-quote-lines, 1) * 1.25125rem)',
-            marginBottom: 'calc((1 - var(--composer-quote-lines, 1)) * 1.25125rem)',
-            marginLeft: '-9px',
-            marginRight: '6px',
+            height: `calc(var(--composer-quote-lines, 1) * ${LINE_BOX})`,
+            marginBottom: `calc((1 - var(--composer-quote-lines, 1)) * ${LINE_BOX})`,
+            marginLeft: `-${QUOTE_BAR_WIDTH_PX + QUOTE_BAR_GAP_PX}px`,
+            marginRight: `${QUOTE_BAR_GAP_PX}px`,
             verticalAlign: 'top',
-            width: 3,
+            width: QUOTE_BAR_WIDTH_PX,
           },
           '& [data-md-block="bullet"][data-md-role="blockMarker"]::before': {
             color: 'text.secondary',

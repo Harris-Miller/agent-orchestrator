@@ -3,12 +3,12 @@ import { Deferred, Duration, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { attach, claimHandle, linkOf, reserveSlot } from './subagentLinkRegistry.ts';
-import type { SpawnedHandleState, SubagentOutcome } from './subagentLinkRegistry.ts';
-import type { SubagentResultStatus } from '../host/subagentResult.ts';
-import { parseSubagentResults } from '../host/subagentResult.ts';
-import { awaitOutcomeEntry, buildSubagentReport, startReporter, takeOutcomeAsToolResult } from './subagentOutcome.ts';
+import { mockHostLayer } from '../mockHostLayer.testing.ts';
+import { attach, claimHandle, linkOf, reserveSlot } from './links.ts';
+import type { SpawnedHandleState, SubagentOutcome } from './links.ts';
+import type { SubagentResultStatus } from '../../host/subagentResult.ts';
+import { parseSubagentResults } from '../../host/subagentResult.ts';
+import { awaitOutcomeEntry, buildSubagentReport, startReporter, takeOutcomeAsToolResult } from './report.ts';
 
 const child = { launchTarget: 'claude-agent-acp', sessionId: 'c1' } as const;
 

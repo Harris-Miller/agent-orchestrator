@@ -9,11 +9,11 @@ import type { HostServices } from '@lib/context-services';
 import { Clock, DateTime, Deferred, Effect, Exit, Schema, Stream } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { resolveSessionCwd } from '../host/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
-import { agentLaunchTargetLabel } from '../host/agentLaunchTarget.ts';
-import { closeOnAgent } from '../host/closeOnAgent.ts';
-import type { ConfigOptionValues } from '../host/configProbe.ts';
+import { resolveSessionCwd } from '../../host/acpSessionBootstrap.ts';
+import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
+import { agentLaunchTargetLabel } from '../../host/agentLaunchTarget.ts';
+import { closeOnAgent } from '../../host/closeOnAgent.ts';
+import type { ConfigOptionValues } from '../../host/configProbe.ts';
 import {
   bindSession,
   dropMirror,
@@ -23,29 +23,20 @@ import {
   projectChildOnto,
   setMirrorWorkState,
   withHistoryEntryIfAbsent,
-} from '../host/harnessStateTransitions.ts';
-import { describeError } from '../host/requestError.ts';
-import { createSession } from '../host/sessionRpc.ts';
-import { lastAgentMessage } from '../host/sessionUpdateReducer.ts';
-import { validateSubagentConfig } from '../host/subagentTargets.ts';
+} from '../../host/harnessStateTransitions.ts';
+import { describeError } from '../../host/requestError.ts';
+import { createSession } from '../../host/sessionRpc.ts';
+import { lastAgentMessage } from '../../host/sessionUpdateReducer.ts';
+import { validateSubagentConfig } from '../../host/subagentTargets.ts';
 
-import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { cancelPromptTurn, sendPromptTurn, sessionById, sessionIn } from './promptTurn.ts';
-import type { PromptTurnResult } from './promptTurn.ts';
-import { applySessionConfigValues } from './sessionConfigChange.ts';
-import {
-  allLinks,
-  atMaxSpawnDepth,
-  attach,
-  childrenOf,
-  end,
-  linkOf,
-  MAX_LIVE_CHILDREN,
-  reserveSlot,
-} from './subagentLinkRegistry.ts';
-import type { SpawnedLink, SubagentOutcome } from './subagentLinkRegistry.ts';
-import { usableSubagentTarget } from './subagentTargets.atoms.ts';
+import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
+import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
+import { cancelPromptTurn, sendPromptTurn, sessionById, sessionIn } from '../promptTurn.ts';
+import type { PromptTurnResult } from '../promptTurn.ts';
+import { applySessionConfigValues } from '../sessionConfigChange.ts';
+import { allLinks, atMaxSpawnDepth, attach, childrenOf, end, linkOf, MAX_LIVE_CHILDREN, reserveSlot } from './links.ts';
+import type { SpawnedLink, SubagentOutcome } from './links.ts';
+import { usableSubagentTarget } from '../subagentTargets.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -314,14 +305,20 @@ const endChild = Effect.fnUntraced(function* (registry: Registry, link: SpawnedL
 });
 
 /** The parent session was closed or deleted: every child it started ends with it. */
-export const endLinksOfParent = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {
+export const endSpawnedChildren = Effect.fnUntraced(function* (registry: Registry, parent: SessionRef) {
   for (const link of childrenOf(registry, parent)) {
     yield* endChild(registry, link, 'The parent session ended.');
   }
 });
 
+/** The parent of a Spawned subagent session while its link is live (an Attention event names it under its parent). */
+export const spawnedParentOf = (registry: Registry, child: SessionRef): SessionRef | undefined => {
+  const link = linkOf(registry, child);
+  return link === undefined ? undefined : { launchTarget: link.parentLaunchTarget, sessionId: link.parentSessionId };
+};
+
 /** The parent's launch target lost its Backend connection: its sessions died with it, and so do their children. */
-const endLinksOfParentTarget = Effect.fnUntraced(function* (registry: Registry, launchTarget: AgentLaunchTarget) {
+const endChildrenOfTarget = Effect.fnUntraced(function* (registry: Registry, launchTarget: AgentLaunchTarget) {
   for (const link of allLinks(registry)) {
     if (link.parentLaunchTarget === launchTarget) {
       yield* endChild(registry, link, 'The parent session ended.');
@@ -342,5 +339,5 @@ export const onLaunchTargetConnectionLost = (registry: Registry, launchTarget: A
       });
     }
   }
-  return endLinksOfParentTarget(registry, launchTarget).pipe(Effect.ignore);
+  return endChildrenOfTarget(registry, launchTarget).pipe(Effect.ignore);
 };

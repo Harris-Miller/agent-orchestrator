@@ -16,8 +16,8 @@ import { configOptionIndexAtom } from '../atoms/backendState.atoms.ts';
 import { makeHarnessEventFold } from '../atoms/harnessEventFold.ts';
 import { updateHarnessSnapshot } from '../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
-import { endLink } from '../atoms/spawnedSubagent.ts';
-import { allLinks } from '../atoms/subagentLinkRegistry.ts';
+import { endLink } from '../atoms/spawnedSubagent/lifecycle.ts';
+import { allLinks } from '../atoms/spawnedSubagent/links.ts';
 
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
 import { configOptionIndexFromProbeResponses } from './configOptionIndexFixtures.ts';

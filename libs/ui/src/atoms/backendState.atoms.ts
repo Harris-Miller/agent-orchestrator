@@ -21,7 +21,7 @@ import { getSubagent, hasBackgroundActivity, rootAncestorId } from '../host/suba
 
 import { backendHarnessSnapshotAtom } from './harnessSnapshot.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
-import { isChildIn, subagentLinksAtom } from './subagentLinkRegistry.ts';
+import { isChildIn, subagentLinksAtom } from './spawnedSubagent/links.ts';
 import {
   showArchivedAtom,
   unwrapUserSettings,

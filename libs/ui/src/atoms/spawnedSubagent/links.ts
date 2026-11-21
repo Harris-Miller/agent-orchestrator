@@ -1,17 +1,17 @@
 /**
- * Spawned subagent link registry: which `(launch target, session)` is a child the Harness started for a parent, plus the
- * live-children cap that guards spawning. In memory only (like credentials): after a restart the child is just a session
- * on its own launch target.
+ * Spawned subagent links (internal to the Spawned subagent module): which `(launch target, session)` is a child the
+ * Harness started for a parent, plus the live-children cap that guards spawning. In memory only (like credentials): after
+ * a restart the child is just a session on its own launch target. The read half (`subagentLinksAtom`, `isChild`,
+ * `isChildIn`) is public through `index.ts`; `backendState.atoms.ts` imports it from here (the barrel would cycle).
  */
 import { Deferred, Effect, Fiber } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
-import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget, SessionRef } from '../../host/agentLaunchTarget.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
-// Lives here, not in subagentOutcome.ts: `SpawnedLink` needs it and subagentOutcome imports this module (a move would cycle).
 /** How a Spawned subagent session's Prompt turn ended; `text` is its final message (completed) or the cause. */
 export type SubagentOutcome = {
   readonly status: 'cancelled' | 'completed' | 'failed';

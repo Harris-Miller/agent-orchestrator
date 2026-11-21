@@ -42,8 +42,7 @@ import type { SubagentRouteResult } from '../host/subagentRouting.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
-import { linkOf } from './subagentLinkRegistry.ts';
+import { onLaunchTargetConnectionLost, spawnedParentOf } from './spawnedSubagent/index.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
@@ -133,14 +132,14 @@ export const makeHarnessEventFold = ({
       return [raised, raised];
     });
     // A Spawned subagent session is a root here, but the user knows it as a child: name it under its parent's title.
-    const link = linkOf(registry, { launchTarget, sessionId });
+    const parent = spawnedParentOf(registry, { launchTarget, sessionId });
     runFork(
-      link === undefined
+      parent === undefined
         ? notifySessionAttention(currentUserSettings(registry), next, launchTarget, sessionId, event)
         : notifySessionAttention(
             currentUserSettings(registry),
-            registry.get(backendHarnessSnapshotAtom(link.parentLaunchTarget)),
-            link.parentLaunchTarget,
+            registry.get(backendHarnessSnapshotAtom(parent.launchTarget)),
+            parent.launchTarget,
             sessionId,
             event,
           ),

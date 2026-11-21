@@ -64,8 +64,7 @@ import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms
 import { reportRequestError } from './reportRequestError.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
-import { endLinksOfParent } from './spawnedSubagent.ts';
-import { isChildIn, subagentLinksAtom } from './subagentLinkRegistry.ts';
+import { endSpawnedChildren, isChildIn, subagentLinksAtom } from './spawnedSubagent/index.ts';
 import { untrackSession } from './trackedSessions.ts';
 import { trackSession } from './trackSession.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
@@ -265,7 +264,7 @@ export const deactivateSession = Effect.fn('deactivateSession')(
     }
 
     // Children the Harness started for this session end with it (a Prompt turn cancel alone spares background ones).
-    yield* endLinksOfParent(registry, arg);
+    yield* endSpawnedChildren(registry, arg);
 
     yield* Effect.logInfo('Deactivating session', arg.launchTarget, arg.sessionId);
     yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
@@ -294,7 +293,7 @@ export const deleteSession = Effect.fn('deleteSession')(
       snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId)?.cwd,
     );
 
-    yield* endLinksOfParent(registry, arg);
+    yield* endSpawnedChildren(registry, arg);
 
     yield* updateAndClearSelection(registry, arg.launchTarget, arg.sessionId, current =>
       dropSession(current, arg.sessionId),
@@ -556,7 +555,7 @@ export const reactivateActiveSessions = Effect.fn('reactivateActiveSessions')(fu
       const selectedBefore = registry.get(selectedAtom);
       // A Spawned subagent child on another target would otherwise die with that target's restart before its
       // parent's group ends its links.
-      yield* Effect.forEach(targets, target => endLinksOfParent(registry, target), { concurrency: 1 });
+      yield* Effect.forEach(targets, target => endSpawnedChildren(registry, target), { concurrency: 1 });
       yield* Effect.forEach(
         [...Map.groupBy(targets, target => target.launchTarget)],
         ([launchTarget, group]) =>

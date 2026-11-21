@@ -55,6 +55,7 @@ import {
   selectedAtom,
 } from './backendState.atoms.ts';
 import type { createChatAtoms } from './chat.atoms.ts';
+import type { BackendRestartFailed } from './harness.atoms.ts';
 import { reportRequestError } from './reportRequestError.ts';
 import { endLinksOfParent } from './spawnedSubagent.ts';
 import { isChildIn, subagentLinksAtom } from './subagentLinkRegistry.ts';
@@ -178,7 +179,12 @@ const forEachTargetContinuing = <E, R>(
 type RestartBackend = (
   launchTarget: AgentLaunchTarget,
   registry: AtomRegistry.AtomRegistry,
-) => Effect.Effect<void, unknown>;
+) => Effect.Effect<void, BackendRestartFailed>;
+
+const logReactivationFailure = (target: SessionTarget) =>
+  Effect.tapError((error: unknown) =>
+    Effect.logError('reactivateActiveSessions failed', target.launchTarget, target.sessionId, error),
+  );
 
 export const createSessionLifecycleAtoms = (
   runtime: HostRuntimeBag,
@@ -434,6 +440,59 @@ export const createSessionLifecycleAtoms = (
     )
     .pipe(Atom.keepAlive);
 
+  /** Another fn's run on the shared slot (a user click) can interrupt an Activate: retry so we never strand it. */
+  const activateWithRetry = (
+    registry: AtomRegistry.AtomRegistry,
+    target: SessionTarget,
+    attemptsLeft: number,
+  ): Effect.Effect<void, unknown> =>
+    runAtomFn(registry, activateSessionAtomFn, { ...target, keepSelection: true }).pipe(
+      Effect.asVoid,
+      Effect.catchCause(cause =>
+        attemptsLeft > 1 && Cause.hasInterrupts(cause)
+          ? activateWithRetry(registry, target, attemptsLeft - 1)
+          : Effect.failCause(cause),
+      ),
+    );
+
+  /** Deactivate every session of one launch target, restart its Provider, then Activate them again. */
+  const reactivateTargetGroup = Effect.fnUntraced(function* (
+    registry: AtomRegistry.AtomRegistry,
+    launchTarget: AgentLaunchTarget,
+    group: readonly SessionTarget[],
+  ) {
+    yield* Effect.forEach(
+      group,
+      target =>
+        runAtomFn(registry, deactivateSessionAtomFn, target).pipe(logReactivationFailure(target), Effect.ignore),
+      { concurrency: 1 },
+    );
+    // The restart drops a Bound Virtual draft's target and Config; capture them to restore it after.
+    const virtualBefore = registry.get(virtualSessionAtom);
+    // Restart rather than only close and resume: a Provider (Codex) may ignore changed MCP servers on a resume after a close.
+    const restartError = yield* restartBackend(launchTarget, registry).pipe(
+      Effect.as(undefined),
+      Effect.catch(error => Effect.succeed(error)),
+    );
+    if (restartError !== undefined) {
+      yield* Effect.logError('reactivateActiveSessions restart failed', launchTarget, restartError);
+      // The sessions stay inactive: say so in each one's chat (the "Activation failed" banner with Retry).
+      const message = `Provider restart failed: ${restartError.reason}`;
+      updateHarnessSnapshot(registry, launchTarget, current =>
+        group.reduce((next, target) => failActivation(next, target.sessionId, [{ message }], undefined), current),
+      );
+      return;
+    }
+    yield* Effect.forEach(
+      group,
+      target => activateWithRetry(registry, target, 3).pipe(logReactivationFailure(target), Effect.ignore),
+      { concurrency: 1 },
+    );
+    if (virtualBefore?.launchTarget === launchTarget) {
+      yield* restoreVirtualAfterProviderRestart(registry, virtualBefore);
+    }
+  });
+
   /** Generous: a cold hub start (Node spawn) can outlast a session RPC's own settle window. */
   const HUB_SETTLE_TIMEOUT = Duration.minutes(1);
   /** One reactivation at a time, so a second change never starts while the first holds a session between steps. */
@@ -472,54 +531,15 @@ export const createSessionLifecycleAtoms = (
                 (virtual?.launchTarget === target.launchTarget && virtual.sessionId === target.sessionId),
             );
             const selectedBefore = get(selectedAtom);
-            // Another fn's run on the shared slot (a user click) can interrupt an Activate: retry so we never strand it.
-            const activate = (target: SessionTarget, attemptsLeft: number): Effect.Effect<void, unknown> =>
-              runAtomFn(get.registry, activateSessionAtomFn, { ...target, keepSelection: true }).pipe(
-                Effect.asVoid,
-                Effect.catchCause(cause =>
-                  attemptsLeft > 1 && Cause.hasInterrupts(cause)
-                    ? activate(target, attemptsLeft - 1)
-                    : Effect.failCause(cause),
-                ),
-              );
-            const logFailure = (target: SessionTarget) =>
-              Effect.tapError((error: unknown) =>
-                Effect.logError('reactivateActiveSessions failed', target.launchTarget, target.sessionId, error),
-              );
-            const byLaunchTarget = Map.groupBy(targets, target => target.launchTarget);
-            // Per launch target: Deactivate all, restart the Provider (Codex ignores changed MCP servers on a resume
-            // after a close), then Activate all. The whole group is uninterruptible, so a second change mid-run never
-            // leaves a session Deactivated or a Provider stopped.
+            // A Spawned subagent child on another target would otherwise die with that target's restart before its
+            // parent's group ends its links.
+            yield* Effect.forEach(targets, target => endLinksOfParent(get.registry, target), { concurrency: 1 });
+            // Per launch target: Deactivate all, restart the Provider, then Activate all. The whole group is
+            // uninterruptible, so a second change mid-run never leaves a session Deactivated or a Provider stopped.
             yield* Effect.forEach(
-              [...byLaunchTarget],
+              [...Map.groupBy(targets, target => target.launchTarget)],
               ([launchTarget, group]) =>
-                Effect.gen(function* () {
-                  yield* Effect.forEach(
-                    group,
-                    target =>
-                      runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(logFailure(target), Effect.ignore),
-                    { concurrency: 1 },
-                  );
-                  // The restart drops a Bound Virtual draft's target and Config; capture them to restore it after.
-                  const virtualBefore = get.registry.get(virtualSessionAtom);
-                  const restarted = yield* restartBackend(launchTarget, get.registry).pipe(
-                    Effect.as(true),
-                    Effect.tapError(error =>
-                      Effect.logError('reactivateActiveSessions restart failed', launchTarget, error),
-                    ),
-                    Effect.orElseSucceed(() => false),
-                  );
-                  if (restarted) {
-                    yield* Effect.forEach(
-                      group,
-                      target => activate(target, 3).pipe(logFailure(target), Effect.ignore),
-                      { concurrency: 1 },
-                    );
-                    if (virtualBefore?.launchTarget === launchTarget) {
-                      yield* restoreVirtualAfterProviderRestart(get.registry, virtualBefore);
-                    }
-                  }
-                }).pipe(Effect.uninterruptible),
+                reactivateTargetGroup(get.registry, launchTarget, group).pipe(Effect.uninterruptible),
               { concurrency: 1 },
             );
             // Deactivate clears Selected when it was the reactivated session; put it back unless the user moved meanwhile.

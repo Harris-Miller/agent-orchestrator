@@ -6,6 +6,7 @@ import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { ALL_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { makeBackendLifecycle } from '../host/backendLifecycle.ts';
 import { requestAntigravitySignIn, runBackendHarness } from '../host/backendHarness.ts';
@@ -22,7 +23,7 @@ import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
 /** A Provider restart that did not reach `usable` again (stopped by the user, or timed out). */
 export class BackendRestartFailed extends Schema.TaggedError<BackendRestartFailed>()('BackendRestartFailed', {
-  launchTarget: Schema.String,
+  launchTarget: Schema.Literals(ALL_AGENT_LAUNCH_TARGETS),
   reason: Schema.String,
 }) {}
 
@@ -33,15 +34,13 @@ const RESTART_USABLE_TIMEOUT = Duration.minutes(2);
  * Resolves once the target's snapshot phase is `usable`/`ready` (its connection is registered before initialize, so
  * session RPCs work); fails when the user stops the Provider meanwhile or the timeout elapses. Reads the registry only.
  */
-const awaitBackendUsable = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
+export const awaitBackendUsable = (registry: AtomRegistry.AtomRegistry, launchTarget: AgentLaunchTarget) =>
   Effect.callback<undefined, BackendRestartFailed>(resume => {
     const fail = (reason: string) => {
       resume(Effect.fail(new BackendRestartFailed({ launchTarget, reason })));
     };
     const unsubscribes: (() => void)[] = [];
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const cleanup = () => {
-      clearTimeout(timer);
       unsubscribes.forEach(unsubscribe => {
         unsubscribe();
       });
@@ -59,13 +58,17 @@ const awaitBackendUsable = (registry: AtomRegistry.AtomRegistry, launchTarget: A
       registry.subscribe(backendHarnessSnapshotAtom(launchTarget), check),
       registry.subscribe(backendDesiredStateAtom(launchTarget), check),
     );
-    timer = setTimeout(() => {
-      cleanup();
-      fail('timed out waiting for the Provider to become usable');
-    }, Duration.toMillis(RESTART_USABLE_TIMEOUT));
     check();
     return Effect.sync(cleanup);
-  });
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: RESTART_USABLE_TIMEOUT,
+      orElse: () =>
+        Effect.fail(
+          new BackendRestartFailed({ launchTarget, reason: 'timed out waiting for the Provider to become usable' }),
+        ),
+    }),
+  );
 
 export const createHarnessAtoms = (
   runtime: HostRuntimeBag,

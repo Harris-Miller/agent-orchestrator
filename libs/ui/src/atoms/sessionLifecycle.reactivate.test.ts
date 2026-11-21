@@ -8,7 +8,8 @@ import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { setHubAvailability } from '../host/hubConnection.ts';
 import { createSession } from '../host/sessionRpc.ts';
-import { reserveSlot } from './subagentLinkRegistry.ts';
+import { isChildIn, reserveSlot, subagentLinksAtom } from './subagentLinkRegistry.ts';
+import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
 import { backendDesiredStateAtom, backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
@@ -22,6 +23,7 @@ import {
   installFakeHub,
 } from './fakeAgent.testing.ts';
 import type { McpReceived } from './fakeAgent.testing.ts';
+import { BackendRestartFailed } from './harness.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
@@ -56,10 +58,13 @@ const setup = Effect.fnUntraced(function* (
   const restartBackend = (launchTarget: AgentLaunchTarget, registry: AtomRegistry.AtomRegistry) =>
     Effect.gen(function* () {
       calls.push(`stop:${launchTarget}`);
+      if (isChildIn(registry.get(subagentLinksAtom), { launchTarget: CLAUDE, sessionId: 'child' })) {
+        calls.push(`child-linked-at-stop:${launchTarget}`);
+      }
       updateHarnessSnapshot(registry, launchTarget, reconcileConnectionLost);
       resetVirtualOnProviderStopped(registry, launchTarget);
       if (options.failRestart?.includes(launchTarget) === true) {
-        return yield* Effect.fail('restart-fail');
+        return yield* new BackendRestartFailed({ launchTarget, reason: 'restart-fail' });
       }
       calls.push(`start:${launchTarget}`);
       advertise(registry, launchTarget, {});
@@ -294,7 +299,10 @@ describe('reactivateActiveSessionsAtomFn', () => {
       const s = yield* setup({ failRestart: [CLAUDE] });
       yield* s.reactivate;
       assert.notInclude(s.calls, 'load:c1');
-      assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions.c1?.status, 'inactive');
+      const { c1 } = s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions;
+      assert.strictEqual(c1?.status, 'inactive');
+      // Visible to the user: the "Activation failed" defects name the Provider restart failure.
+      assert.deepStrictEqual(c1?.defects, [{ message: 'Provider restart failed: restart-fail' }]);
       assert.include(s.calls, 'load:x1');
       assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.x1?.status, 'active');
     }).pipe(Effect.scoped),
@@ -308,6 +316,44 @@ describe('reactivateActiveSessionsAtomFn', () => {
       yield* s.reactivate;
       const virtual = s.registry.get(virtualSessionAtom);
       assert.strictEqual(virtual?.launchTarget, CLAUDE);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('reactivates right after a restart while Session History entries are still unavailable', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      updateHarnessSnapshot(s.registry, CLAUDE, current => ({
+        ...current,
+        sessionHistory: [{ cwd: '/w', sessionId: 'c1', title: 'chat' }],
+        sessions: {
+          ...current.sessions,
+          c1: {
+            ...initialSessionSnapshot('c1', 'active'),
+            cwd: '/w',
+            transcript: appendUserChatMessage(initialSessionSnapshot('c1', 'active').transcript, 'hello'),
+          },
+        },
+      }));
+      yield* s.reactivate;
+      const claude = s.registry.get(backendHarnessSnapshotAtom(CLAUDE));
+      // The restart's Connection lost marked the entry unavailable; Activate still works from the local session.
+      assert.isTrue(claude.sessionHistory.find(entry => entry.sessionId === 'c1')?.unavailable === true);
+      assert.include(s.calls, 'load:c1');
+      assert.strictEqual(claude.sessions.c1?.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('ends Spawned subagent links of every reactivated parent before any Provider restarts', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      reserveSlot(s.registry, { launchTarget: CODEX, sessionId: 'x1' })?.register({
+        child: { launchTarget: CLAUDE, sessionId: 'child' },
+        description: 'child',
+        task: 'task',
+      });
+      yield* s.reactivate;
+      assert.include(s.calls, 'stop:claude-agent-acp');
+      assert.isFalse(s.calls.some(call => call.startsWith('child-linked-at-stop')));
     }).pipe(Effect.scoped),
   );
 });

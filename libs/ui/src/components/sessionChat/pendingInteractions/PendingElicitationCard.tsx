@@ -1,4 +1,4 @@
-import { CreateElicitationFormRequest } from '@libs/effect-acp';
+import { CreateElicitationFormRequest, CreateElicitationUrlSessionRequest } from '@libs/effect-acp';
 import type { CreateElicitationRequestBody, ElicitationContent } from '@libs/effect-acp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,6 +21,7 @@ import {
 } from './elicitationFormViews.ts';
 import type { ElicitationValues } from './elicitationFormViews.ts';
 import { isFlagged } from './elicitationQuestionNav.ts';
+import { PendingUrlElicitationCard } from './PendingUrlElicitationCard.tsx';
 
 export const PendingElicitationCard: FC<{
   readonly agentTitle: string;
@@ -36,6 +37,19 @@ export const PendingElicitationCard: FC<{
   const tabbed = views.length > 1;
 
   useQuestionFocus(cardRef, 0);
+
+  if (Schema.is(CreateElicitationUrlSessionRequest)(request)) {
+    return (
+      <PendingUrlElicitationCard
+        agentTitle={agentTitle}
+        message={request.message}
+        onAccept={onAccept}
+        onCancel={onCancel}
+        onDecline={onDecline}
+        url={request.url}
+      />
+    );
+  }
 
   if (formRequest === undefined) {
     return (

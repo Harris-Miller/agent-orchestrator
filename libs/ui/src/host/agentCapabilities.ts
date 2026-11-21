@@ -149,7 +149,7 @@ export const clientCapabilitiesFor = (launchTarget: AgentLaunchTarget): Initiali
   ...(PROVIDER_QUIRKS[launchTarget].airClientCapabilities.length > 0
     ? { _meta: airMeta({ capabilities: PROVIDER_QUIRKS[launchTarget].airClientCapabilities }) }
     : {}),
-  elicitation: { form: {} },
+  elicitation: { form: {}, url: {} },
   session: { configOptions: { boolean: {} } },
   subagents: {},
 });

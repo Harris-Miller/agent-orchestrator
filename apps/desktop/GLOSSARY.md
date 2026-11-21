@@ -115,7 +115,7 @@ An absolute directory the user chose to bring into the app, persisted in hoa-hom
 _Avoid_: tracked cwd, remembered folder, saved cwd, workspace
 
 **Project cwd group**:
-A desktop Session History accordion group for one Project, always shown ("No sessions yet. Create one with + or Import from the ⋯ menu." when empty), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: "+" (create a session there) and a `⋯` menu (Import, Stop tracking).
+A desktop Session History accordion group for one Project, always shown (blank when it has no sessions), sorted alphabetically by directory name (a parent-path caption appears only when two Projects share a basename). Header: "+" (create a session there) and a `⋯` menu (Import, Stop tracking).
 _Avoid_: empty cwd group, ghost group
 
 **Tracked session**:

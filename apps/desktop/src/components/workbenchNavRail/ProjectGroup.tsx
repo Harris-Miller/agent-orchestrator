@@ -34,8 +34,6 @@ const CWD_GROUP_ROW_LIMIT = 10;
 
 export type ProjectGroupData = {
   readonly cwd: string;
-  /** The Project had no Tracked sessions at all, before the pinned ones were taken out. */
-  readonly empty: boolean;
   readonly sessions: readonly UnifiedHistoryEntry[];
 };
 
@@ -136,11 +134,6 @@ export const ProjectGroup: FC<{
           </IconButton>
         </AccordionSummary>
         <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-          {group.empty ? (
-            <Typography color="text.secondary" sx={{ px: 2, py: 1 }} variant="body2">
-              No sessions yet. Create one with + or Import from the ⋯ menu.
-            </Typography>
-          ) : null}
           {(showAllRows ? group.sessions : group.sessions.slice(0, CWD_GROUP_ROW_LIMIT)).map(entry => (
             <SessionHistoryRow
               entry={entry}

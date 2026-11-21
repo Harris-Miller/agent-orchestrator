@@ -86,11 +86,9 @@ export const WorkbenchNavRail: FC<{
     caption: pinnedCaption,
   });
 
-  // Pinned rows render once, in the Pinned section; a Project group left with no rows keeps its header (and "+"). A group
-  // is empty ("No sessions") only when it had no rows before the pinned ones were taken out.
+  // Pinned rows render once, in the Pinned section; a Project group left with no rows keeps its header (and "+").
   const navGroups = groupAndSortSessionsForNav(history, projects).map(group => ({
     ...group,
-    empty: group.sessions.length === 0,
     sessions: withoutPinned(group.sessions, pinnedEntries),
   }));
 

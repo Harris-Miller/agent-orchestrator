@@ -3,13 +3,14 @@ import { mergeRegister } from 'lexical';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
-const SAME_LINE_TOLERANCE_PX = 2;
+// Half a line box (0.875rem * 1.43 ≈ 20px): inline code/chips have a different ascent, so same-line tops can differ by several px.
+const SAME_LINE_TOLERANCE_PX = 10;
 
 /** How many visual lines a set of client rects spans; zero-size rects are ignored. Always at least 1. */
 export const countVisualLines = (rects: readonly { top: number; width: number; height: number }[]): number => {
   const tops: number[] = [];
   for (const rect of rects) {
-    if (rect.width > 0 && rect.height > 0 && !tops.some(top => Math.abs(top - rect.top) <= SAME_LINE_TOLERANCE_PX)) {
+    if (rect.width > 0 && rect.height > 0 && !tops.some(top => Math.abs(top - rect.top) < SAME_LINE_TOLERANCE_PX)) {
       tops.push(rect.top);
     }
   }

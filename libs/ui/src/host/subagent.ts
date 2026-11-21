@@ -164,18 +164,16 @@ export const applySubagentPatch = (child: SubagentSnapshot, update: SubagentUpda
     task: patchField(update.task, child.task, identity),
   });
 
-/** Connection loss / load / resume: keep transcripts, drop anything that could be stale. */
+/**
+ * Connection loss / load / resume: keep transcripts, drop anything that could be stale. A Spawned subagent session's
+ * mirror keeps its Pending interactions: they belong to the child's root entry on its own launch target (ADR 0011),
+ * which still answers them, and its projection keeps the mirror equal to it.
+ */
 export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapshot => {
-  const {
-    capabilities: _c,
-    pendingElicitation: _e,
-    pendingPermission: _p,
-    state,
-    stateUnconfirmed: _u,
-    ...rest
-  } = child;
+  const { capabilities: _c, pendingElicitation, pendingPermission, state, stateUnconfirmed: _u, ...rest } = child;
+  const kept = child.kind === 'spawned' ? withoutUndefined({ pendingElicitation, pendingPermission }) : {};
   // Terminal states cannot revert; anything else (running, idle, requires_action, missing) may be stale.
-  return isSubagentTerminal(state) ? { ...rest, state } : { ...rest, stateUnconfirmed: true };
+  return isSubagentTerminal(state) ? { ...rest, ...kept, state } : { ...rest, ...kept, stateUnconfirmed: true };
 };
 
 /** Root ancestor of a child (walks parentSessionId through `subagents`); cycle-safe. */

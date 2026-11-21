@@ -29,7 +29,7 @@ describe('applyLiveSessionUpdate on the Subagent tree', () => {
 
   it('spawn creates the child, one parent row, and replay does not duplicate', () => {
     const once = applyLiveSessionUpdate(withRoot(), 'p1', spawn.update);
-    assert.deepStrictEqual(once?.linked, { childId: CHILD, parentId: 'p1' });
+    assert.deepStrictEqual(once.linked, { childId: CHILD, parentId: 'p1' });
     const twice = applyLiveSessionUpdate(once.snapshot, 'p1', spawn.update);
     assert.strictEqual(twice.snapshot.sessions.p1.transcript.items.length, 1);
     assert.strictEqual(Object.keys(twice.snapshot.subagents).length, 1);

@@ -3,9 +3,7 @@
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
 import type { AcpError, SessionFailure } from '@libs/effect-acp';
-import { Option } from 'effect';
-
-import { isRecord } from '../isRecord.ts';
+import { Option, Predicate } from 'effect';
 
 import type {
   AcpBootstrapPhase,
@@ -849,7 +847,11 @@ const routeSubagentUpdate = (
   sessionId: string,
   update: unknown,
 ): LiveUpdateResult | undefined => {
-  if (isRecord(update) && typeof update.sessionUpdate === 'string' && SUBAGENT_KINDS.has(update.sessionUpdate)) {
+  if (
+    Predicate.isObject(update) &&
+    typeof update.sessionUpdate === 'string' &&
+    SUBAGENT_KINDS.has(update.sessionUpdate)
+  ) {
     const decoded = decodeSubagentUpdate(update);
     if (Option.isNone(decoded)) return { snapshot };
     const patch = decoded.value;
@@ -900,7 +902,7 @@ const applyRootSessionUpdate = (
   let sessionChanged = next !== base;
   let sessionHistory: readonly NormalizedSessionInfo[] | undefined;
 
-  if (isRecord(update) && typeof update.sessionUpdate === 'string') {
+  if (Predicate.isObject(update) && typeof update.sessionUpdate === 'string') {
     switch (update.sessionUpdate) {
       case 'available_commands_update': {
         next = { ...next, availableCommands: parseAvailableCommands(update.availableCommands) };
@@ -959,7 +961,7 @@ const restoreSubagentsOfToolCall = (
   sessionId: string,
   update: unknown,
 ): BackendHarnessSnapshot => {
-  if (!isRecord(update) || typeof update.toolCallId !== 'string') {
+  if (!Predicate.isObject(update) || typeof update.toolCallId !== 'string') {
     return snapshot;
   }
   const transcript = sessionOrSubagentOf(snapshot, sessionId)?.transcript;

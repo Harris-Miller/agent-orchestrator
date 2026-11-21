@@ -3,13 +3,13 @@ import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import { initialSubagentSnapshot } from '../host/subagent.ts';
-import { markSessionInactive } from '../host/harnessStateTransitions.ts';
+import { initialSpawnedSubagentSnapshot, initialSubagentSnapshot } from '../host/subagent.ts';
+import { markSessionInactive, raisePermission, reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { pendingPermission } from '../host/pendingInteractions.ts';
 import type { PendingPermission } from '../host/pendingInteractions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { CODEX, freshRegistry } from './fakeAgent.testing.ts';
+import { CLAUDE, CODEX, freshRegistry } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
 const setup = Effect.fnUntraced(function* () {
@@ -57,6 +57,30 @@ describe('Pending interactions in the Backend harness snapshot', () => {
       });
       assert.deepStrictEqual(s.resolved, []);
       assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CODEX)).subagents.s1?.pendingPermission, s.pending);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('one replaced by a newer request on the same Session is cancelled', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      const newer = pendingPermission({ request: s.pending.request, resolve: () => undefined, sessionId: 's1' });
+      updateHarnessSnapshot(s.registry, CODEX, current => raisePermission(current, newer));
+      assert.deepStrictEqual(s.resolved, [{ outcome: { outcome: 'cancelled' } }]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a Spawned subagent mirror keeps the child root pending through the parent target Connection lost', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessions: {},
+        subagents: {
+          child: { ...initialSpawnedSubagentSnapshot('child', 'p1', CLAUDE), pendingPermission: s.pending },
+        },
+      }));
+      updateHarnessSnapshot(s.registry, CODEX, reconcileConnectionLost);
+      assert.deepStrictEqual(s.resolved, []);
     }).pipe(Effect.scoped),
   );
 });

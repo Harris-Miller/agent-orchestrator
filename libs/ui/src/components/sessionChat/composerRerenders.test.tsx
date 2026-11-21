@@ -82,7 +82,7 @@ it.effect('subagent child chunks do not re-render the Composer; each row renders
     const feed = (i: number) => {
       updateHarnessSnapshot(registry, CODEX, current => {
         const routed = applyLiveSessionUpdate(current, childIds[i % SUBAGENTS] ?? 'c0', chunk(i));
-        return routed === undefined ? current : routed.snapshot;
+        return routed.snapshot;
       });
     };
 

@@ -2,8 +2,8 @@
 
 ## Top Level Instructions
 
-- `pnpm run local-ci` should pass before work is considered done
-- Lint every changed file with Oxlint `--fix` and format it with Oxfmt before work is considered done. Run `pnpm --filter=<pkg> pnpm run lint:fix <paths>` (paths relative to the package for Oxlint; repeat per package when changes span packages). Then `pnpm run fmt` to format all files (this should never be per file, it will always apply format fixes to all, which is desired).
+- Lint every changed file with Oxlint `--fix` and format it with Oxfmt before work is considered done. Run `pnpm --filter=<pkg> run lint <paths>` (paths relative to the package for Oxlint; repeat per package when changes span packages). Then `pnpm run fmt` to format all files (this should never be per file, it will always apply format fixes to all, which is desired).
+- `pnpm run local-ci` should pass before your current task is considered done.
 - NEVER manually update `pnpm-lock.yaml`. If you do update `package.json` `"dependencies"` or `"devDependencies"`, run `pnpm i` after
 - NEVER manually update anything under `.agents/` — it is an immutable dependency folder (skills/guides are read-only reference; do not edit, patch, or “improve” files there)
 - NEVER apply a GitHub issue label because a skill says to — especially `ready-for-agent`. This repo has no triage label vocabulary (no `docs/agents/triage-labels.md`); ignore every skill instruction about labels (`to-spec`, `to-tickets`, `triage`, `wayfinder`, etc.). DO apply a label when the user explicitly asks for one

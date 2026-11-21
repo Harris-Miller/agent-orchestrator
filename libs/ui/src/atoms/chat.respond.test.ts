@@ -109,6 +109,59 @@ describe('respondElicitationAtomFn', () => {
 });
 
 describe('cancelPromptAtomFn', () => {
+  it.effect('cancels the shown permission and every one waiting behind it', () =>
+    Effect.gen(function* () {
+      const { cancelPromptAtomFn, fold, registry } = yield* setup();
+      updateHarnessSnapshot(registry, LT, current => ({
+        ...current,
+        phase: 'ready',
+        sessions: { s1: { ...initialSessionSnapshot('s1', 'active'), pendingClientRequest: 'prompt' } },
+      }));
+      const answers: unknown[] = [];
+      for (const name of ['first', 'second']) {
+        fold.onPermissionRequest('s1', permissionRequest, response => {
+          answers.push([name, response]);
+        });
+      }
+      assert.strictEqual(registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1.waitingPermissions?.length, 1);
+
+      // No connected agent: session/cancel fails after the snapshot is written.
+      yield* Effect.exit(runAtomFn(registry, cancelPromptAtomFn, { launchTarget: LT, sessionId: 's1' }));
+
+      const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
+      assert.strictEqual(session.pendingPermission, undefined);
+      assert.strictEqual(session.waitingPermissions, undefined);
+      assert.deepStrictEqual(answers, [
+        ['first', { outcome: { outcome: 'cancelled' } }],
+        ['second', { outcome: { outcome: 'cancelled' } }],
+      ]);
+    }),
+  );
+
+  it.effect('answering the shown permission shows the next one waiting', () =>
+    Effect.gen(function* () {
+      const { fold, registry, respondPermissionAtomFn } = yield* setup();
+      updateHarnessSnapshot(registry, LT, current => ({
+        ...current,
+        phase: 'ready',
+        sessions: { s1: { ...initialSessionSnapshot('s1', 'active'), pendingClientRequest: 'prompt' } },
+      }));
+      const answers: unknown[] = [];
+      for (const name of ['first', 'second']) {
+        fold.onPermissionRequest('s1', permissionRequest, response => {
+          answers.push([name, response]);
+        });
+      }
+
+      yield* runAtomFn(registry, respondPermissionAtomFn, { launchTarget: LT, optionId: 'allow', sessionId: 's1' });
+
+      const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
+      assert.isDefined(session.pendingPermission);
+      assert.strictEqual(session.waitingPermissions, undefined);
+      assert.deepStrictEqual(answers, [['first', { outcome: { optionId: 'allow', outcome: 'selected' } }]]);
+    }),
+  );
+
   it.effect('clears the cancelled permission but keeps one the agent raised while it resolved', () =>
     Effect.gen(function* () {
       const { cancelPromptAtomFn, fold, registry } = yield* setup();

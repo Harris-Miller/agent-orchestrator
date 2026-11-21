@@ -31,6 +31,13 @@ import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
+import {
+  permissionsOf,
+  queueElicitation,
+  queuePermission,
+  withoutAllPendingInteractions,
+  withoutPendingInteractions,
+} from './pendingInteractions.ts';
 import { requestErrorDetails } from './requestError.ts';
 import { configValue, foldConfigOptions, withConfigValue } from './sessionConfiguration.ts';
 import type { ConfigValueDiff } from './sessionConfiguration.ts';
@@ -89,15 +96,7 @@ export const stripSessionPendings = (
     sessions: Object.fromEntries(
       Object.entries(snapshot.sessions).map(([sessionId, session]) =>
         idSet.has(sessionId)
-          ? [
-              sessionId,
-              {
-                ...session,
-                pendingClientRequest: undefined,
-                pendingElicitation: undefined,
-                pendingPermission: undefined,
-              },
-            ]
+          ? [sessionId, { ...withoutAllPendingInteractions(session), pendingClientRequest: undefined }]
           : [sessionId, session],
       ),
     ),
@@ -112,10 +111,8 @@ export const stripSessionPendings = (
 export const markSessionInactive = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
   ...snapshot,
   sessions: patchSession(snapshot.sessions, sessionId, session => ({
-    ...session,
+    ...withoutAllPendingInteractions(session),
     pendingClientRequest: undefined,
-    pendingElicitation: undefined,
-    pendingPermission: undefined,
     status: 'inactive',
   })),
 });
@@ -594,6 +591,12 @@ export const appendSteeredMessage = (
       }
     : snapshot;
 
+/** The Pending interactions a Prompt turn cancel answers: every one the Session held when the cancel started. */
+export type CancelledInteractions = {
+  readonly elicitations: readonly PendingElicitation[];
+  readonly permissions: readonly PendingPermission[];
+};
+
 /**
  * Prompt turn cancel requested: only the interactions just cancelled are cleared (one the agent raised meanwhile stays
  * answerable), unfinished tool calls are marked cancelled and `promptCancelRequested` is set. A dropped Session stays
@@ -602,16 +605,13 @@ export const appendSteeredMessage = (
 export const requestPromptCancel = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+  cancelled: CancelledInteractions,
 ): BackendHarnessSnapshot =>
   sessionId in snapshot.sessions
     ? {
         ...snapshot,
         sessions: patchSession(snapshot.sessions, sessionId, session => ({
-          ...session,
-          pendingElicitation:
-            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
-          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
+          ...withoutPendingInteractions(session, cancelled),
           promptCancelRequested: true,
           transcript: markNonFinishedToolCallsCancelled(session.transcript),
         })),
@@ -625,33 +625,28 @@ export const requestPromptCancel = (
 export const clearCancelledInteractions = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
-  cancelled: { readonly elicitation?: PendingElicitation; readonly permission?: PendingPermission },
+  cancelled: CancelledInteractions,
 ): BackendHarnessSnapshot =>
   sessionId in snapshot.sessions
     ? {
         ...snapshot,
-        sessions: patchSession(snapshot.sessions, sessionId, session => ({
-          ...session,
-          pendingElicitation:
-            session.pendingElicitation === cancelled.elicitation ? undefined : session.pendingElicitation,
-          pendingPermission: session.pendingPermission === cancelled.permission ? undefined : session.pendingPermission,
-        })),
+        sessions: patchSession(snapshot.sessions, sessionId, session => withoutPendingInteractions(session, cancelled)),
       }
     : snapshot;
 
-/** An elicitation request raised on its Session or Subagent session (a newer one replaces it). */
+/** An elicitation request raised on its Session or Subagent session: shown, or waiting behind the ones raised before it. */
 export const raiseElicitation = (
   snapshot: BackendHarnessSnapshot,
   pending: PendingElicitation,
 ): BackendHarnessSnapshot =>
-  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingElicitation: pending }));
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => queueElicitation(holder, pending));
 
-/** A permission request raised on its Session or Subagent session (a newer one replaces it). */
+/** A permission request raised on its Session or Subagent session: shown, or waiting behind the ones raised before it. */
 export const raisePermission = (snapshot: BackendHarnessSnapshot, pending: PendingPermission): BackendHarnessSnapshot =>
-  patchSessionOrSubagent(snapshot, pending.sessionId, holder => ({ ...holder, pendingPermission: pending }));
+  patchSessionOrSubagent(snapshot, pending.sessionId, holder => queuePermission(holder, pending));
 
 /**
- * An elicitation was answered: clear only that one (a newer one stays answerable) and append the accepted-form summary
+ * An elicitation was answered: clear only that one (the next waiting one is shown) and append the accepted-form summary
  * when there is one. A holder no longer in the snapshot is left alone.
  */
 export const answerElicitation = (
@@ -663,20 +658,23 @@ export const answerElicitation = (
   sessionOrSubagentOf(snapshot, sessionId) === undefined
     ? snapshot
     : patchSessionOrSubagent(snapshot, sessionId, holder => ({
-        ...holder,
-        pendingElicitation: holder.pendingElicitation === answered ? undefined : holder.pendingElicitation,
+        ...withoutPendingInteractions(holder, { elicitations: [answered] }),
         transcript: summary === undefined ? holder.transcript : appendElicitationSummary(holder.transcript, summary),
       }));
 
-/** A permission request was answered: cleared only while it is still the pending one. */
+/** A permission request was answered: cleared while the holder still has it (the next waiting one is shown). */
 export const answerPermission = (
   snapshot: BackendHarnessSnapshot,
   sessionId: string,
   answered: PendingPermission,
-): BackendHarnessSnapshot =>
-  sessionOrSubagentOf(snapshot, sessionId)?.pendingPermission === answered
-    ? patchSessionOrSubagent(snapshot, sessionId, holder => ({ ...holder, pendingPermission: undefined }))
+): BackendHarnessSnapshot => {
+  const holder = sessionOrSubagentOf(snapshot, sessionId);
+  return holder !== undefined && permissionsOf(holder).includes(answered)
+    ? patchSessionOrSubagent(snapshot, sessionId, current =>
+        withoutPendingInteractions(current, { permissions: [answered] }),
+      )
     : snapshot;
+};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Spawned subagent session mirror (libs/ui ADR 0011): the child is a root Session on its own launch target; its parent's
@@ -774,14 +772,19 @@ export const restoreSubagentFromResult = (
 export const projectChildOnto = (
   snapshot: BackendHarnessSnapshot,
   childId: string,
-  root: Pick<SessionSnapshot, 'pendingElicitation' | 'pendingPermission' | 'transcript'>,
+  root: Pick<
+    SessionSnapshot,
+    'pendingElicitation' | 'pendingPermission' | 'transcript' | 'waitingElicitations' | 'waitingPermissions'
+  >,
 ): BackendHarnessSnapshot => {
   const mirror = getSubagent(snapshot.subagents, childId);
   if (
     mirror === undefined ||
     (mirror.transcript === root.transcript &&
       mirror.pendingPermission === root.pendingPermission &&
-      mirror.pendingElicitation === root.pendingElicitation)
+      mirror.pendingElicitation === root.pendingElicitation &&
+      mirror.waitingPermissions === root.waitingPermissions &&
+      mirror.waitingElicitations === root.waitingElicitations)
   ) {
     return snapshot;
   }
@@ -789,11 +792,14 @@ export const projectChildOnto = (
     ...snapshot,
     subagents: {
       ...snapshot.subagents,
+      // The root entry's own arrays, so an unchanged root compares equal next time.
       [childId]: withoutUndefined({
         ...mirror,
         pendingElicitation: root.pendingElicitation,
         pendingPermission: root.pendingPermission,
         transcript: root.transcript,
+        waitingElicitations: root.waitingElicitations,
+        waitingPermissions: root.waitingPermissions,
       }),
     },
   };

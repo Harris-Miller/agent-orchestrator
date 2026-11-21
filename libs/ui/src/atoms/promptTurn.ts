@@ -58,6 +58,7 @@ import {
 } from '../host/harnessStateTransitions.ts';
 import { sessionFailureOf } from '../host/airMeta.ts';
 import { isAttentionStopReason, notifySessionAttention } from '../host/notifyAttention.ts';
+import { elicitationsOf, permissionsOf } from '../host/pendingInteractions.ts';
 import { acpErrorOfCause } from '../host/requestError.ts';
 import { sessionHasLiveWork } from '../host/subagent.ts';
 import { cancelSession, sendPrompt, steerSession } from '../host/sessionRpc.ts';
@@ -304,15 +305,12 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
     return;
   }
 
-  const { pendingElicitation, pendingPermission } = session;
-  // Clear only these interactions (the writer cancels them on the agent): one raised meanwhile stays answerable.
+  // Every Pending interaction shown or waiting now; the writer cancels them on the agent. One raised meanwhile stays answerable.
+  const cancelled = { elicitations: elicitationsOf(session), permissions: permissionsOf(session) };
   updateHarnessSnapshot(registry, launchTarget, current =>
     inTurn
-      ? requestPromptCancel(current, sessionId, { elicitation: pendingElicitation, permission: pendingPermission })
-      : clearCancelledInteractions(current, sessionId, {
-          elicitation: pendingElicitation,
-          permission: pendingPermission,
-        }),
+      ? requestPromptCancel(current, sessionId, cancelled)
+      : clearCancelledInteractions(current, sessionId, cancelled),
   );
 
   yield* cancelSession(launchTarget, sessionId);

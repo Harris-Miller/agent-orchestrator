@@ -5,6 +5,7 @@ import { agentLaunchTargetLabel } from '../../../host/agentLaunchTarget.ts';
 import { useSessionChatSurface } from '../useSessionChatSurface.tsx';
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
 import { useElicitationReply } from './useElicitationReply.ts';
+import { WaitingCount } from './WaitingCount.tsx';
 
 /** Cap on the pinned Pending elicitation section so the transcript stays visible. */
 const PENDING_ELICITATION_MAX_HEIGHT = '65%';
@@ -29,6 +30,7 @@ export const PendingElicitationDock: FC = () => {
         py: 0.5,
       }}
     >
+      <WaitingCount count={selectedSession.waitingElicitations?.length ?? 0} />
       <PendingElicitationCard
         agentTitle={agentLaunchTargetLabel(selectedLaunchTarget)}
         key={selectedSession.pendingElicitation.id}

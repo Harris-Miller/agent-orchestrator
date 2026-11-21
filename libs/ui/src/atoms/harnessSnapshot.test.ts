@@ -1,4 +1,4 @@
-/** The single writer settles Pending interactions: answered at most once; one that leaves the snapshot unanswered is cancelled. */
+/** The single writer settles Pending interactions: answered at most once; one that leaves the snapshot unanswered (shown or waiting) is cancelled. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect } from 'effect';
 
@@ -60,12 +60,26 @@ describe('Pending interactions in the Backend harness snapshot', () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect('one replaced by a newer request on the same Session is cancelled', () =>
+  it.effect('one raised while another is shown waits, and both are cancelled when their Session is deactivated', () =>
     Effect.gen(function* () {
       const s = yield* setup();
-      const newer = pendingPermission({ request: s.pending.request, resolve: () => undefined, sessionId: 's1' });
+      const newer = pendingPermission({
+        request: s.pending.request,
+        resolve: response => {
+          s.resolved.push(['newer', response]);
+        },
+        sessionId: 's1',
+      });
       updateHarnessSnapshot(s.registry, CODEX, current => raisePermission(current, newer));
-      assert.deepStrictEqual(s.resolved, [{ outcome: { outcome: 'cancelled' } }]);
+      assert.deepStrictEqual(s.resolved, []);
+      const session = s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.s1;
+      assert.strictEqual(session.pendingPermission, s.pending);
+      assert.deepStrictEqual(session.waitingPermissions, [newer]);
+      updateHarnessSnapshot(s.registry, CODEX, current => markSessionInactive(current, 's1'));
+      assert.deepStrictEqual(s.resolved, [
+        { outcome: { outcome: 'cancelled' } },
+        ['newer', { outcome: { outcome: 'cancelled' } }],
+      ]);
     }).pipe(Effect.scoped),
   );
 

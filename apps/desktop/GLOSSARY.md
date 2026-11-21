@@ -265,7 +265,7 @@ Outstanding Agent `session/request_permission` held on a session snapshot until 
 _Avoid_: Permission card, approval prompt, open permission
 
 **Pending interaction**:
-A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present. Answered at most once; one that leaves the Backend harness snapshot unanswered is cancelled on the agent (its Session is deactivated, deleted, archived or reloaded, its Prompt turn cancelled, a newer request replaces it, or the connection is lost). A Spawned subagent session's mirror never cancels its child's.
+A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present. Each kind is a queue per Session (or Subagent session): the oldest is shown, with a count of the ones waiting behind it, and answering it shows the next. Answered at most once; one that leaves the Backend harness snapshot unanswered, shown or waiting, is cancelled on the agent (its Session is deactivated, deleted, archived or reloaded, its Prompt turn cancelled, or the connection is lost). A Spawned subagent session's mirror never cancels its child's.
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:

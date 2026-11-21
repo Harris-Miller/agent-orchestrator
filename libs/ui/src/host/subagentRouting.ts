@@ -1,6 +1,6 @@
 /** Pure helpers addressing a root Session or a Subagent session by id (pending interactions, parent rows, resets). */
 import type { BackendHarnessSnapshot } from './acpSessionBootstrap.ts';
-import type { PendingElicitation, PendingPermission } from './pendingInteractions.ts';
+import type { PendingHolder } from './pendingInteractions.ts';
 import { upsertSubagentChatItem } from './sessionUpdateReducer.ts';
 import type { SessionTranscript } from './sessionUpdateReducer.ts';
 import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
@@ -26,11 +26,7 @@ export const withParentChatItem = (
   };
 };
 
-type SessionOrSubagent = {
-  readonly pendingElicitation?: PendingElicitation | undefined;
-  readonly pendingPermission?: PendingPermission | undefined;
-  readonly transcript: SessionTranscript;
-};
+type SessionOrSubagent = PendingHolder & { readonly transcript: SessionTranscript };
 
 /** Apply `patch` to whichever of root session or subagent child owns `sessionId`. */
 export const patchSessionOrSubagent = (

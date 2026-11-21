@@ -5,7 +5,7 @@ import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
+import type { AgentLaunchTarget, SessionRef } from '../host/agentLaunchTarget.ts';
 import { answerElicitation, answerPermission } from '../host/harnessStateTransitions.ts';
 import { canCancelSubagent, getSubagent } from '../host/subagent.ts';
 import { sessionOrSubagentOf } from '../host/subagentRouting.ts';
@@ -30,10 +30,7 @@ export type ElicitationReply =
  * Prompt turn cancel (see the Prompt turn module), un-queuing the Session's Queued message first: a Queued message must
  * not auto-send once the turn is cancelled, so it goes back into the draft.
  */
-export const cancelPrompt = (
-  registry: AtomRegistry.AtomRegistry,
-  arg: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string },
-) =>
+export const cancelPrompt = (registry: AtomRegistry.AtomRegistry, arg: SessionRef) =>
   Effect.suspend(() => {
     unqueueSessionDraft(registry, arg.sessionId);
     return cancelPromptTurn(registry, arg);

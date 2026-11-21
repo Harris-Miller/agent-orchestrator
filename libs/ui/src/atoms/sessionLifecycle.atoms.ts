@@ -1,6 +1,6 @@
 /**
- * Session lifecycle AtomFns: the React edge over the verbs in `sessionLifecycle.ts`. Each runs one verb under a root
- * span and logs its failure. Non-React callers use the verbs directly, never these AtomFns (a non-concurrent AtomFn
+ * Session lifecycle AtomFns: the React edge over the verbs in `sessionLifecycle.ts`. Each runs one verb under the
+ * action's root span; the verbs log their own failures. Non-React callers use the verbs directly, never these AtomFns (a non-concurrent AtomFn
  * interrupts its previous run when set again).
  */
 import { Effect } from 'effect';
@@ -25,10 +25,12 @@ import {
 } from './sessionLifecycle.ts';
 import type { RestartBackend } from './sessionLifecycle.ts';
 
-const logFailure = (name: string, target: SessionTarget) =>
-  Effect.tapError((error: unknown) => Effect.logError(`${name} failed`, target.launchTarget, target.sessionId, error));
-
-const rootSpan = (name: string) => Effect.withSpan(name, { root: true });
+/** The action's root span (desktop ADR 0008), carrying the Session it acts on. */
+const rootSpan = (name: string, target?: SessionTarget) =>
+  Effect.withSpan(name, {
+    attributes: target === undefined ? {} : { 'acp.agent': target.launchTarget, 'acp.sessionId': target.sessionId },
+    root: true,
+  });
 
 export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBackend: RestartBackend) => {
   const { atomRuntime } = runtime;
@@ -39,22 +41,19 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const activateSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly keepSelection?: true }, get: Atom.FnContext) =>
-      activateSession(get.registry, arg).pipe(rootSpan('activateSessionAtomFn')),
+      activateSession(get.registry, arg).pipe(rootSpan('activateSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
   const forkSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly cwd: string }, get: Atom.FnContext) =>
-      forkSession(get.registry, arg).pipe(logFailure('forkSessionAtomFn', arg), rootSpan('forkSessionAtomFn')),
+      forkSession(get.registry, arg).pipe(rootSpan('forkSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
   const deactivateSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget, get: Atom.FnContext) =>
-      deactivateSession(get.registry, arg).pipe(
-        logFailure('deactivateSession', arg),
-        rootSpan('deactivateSessionAtomFn'),
-      ),
+      deactivateSession(get.registry, arg).pipe(rootSpan('deactivateSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
@@ -73,16 +72,13 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const archiveSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget, get: Atom.FnContext) =>
-      archiveSession(get.registry, arg).pipe(logFailure('archiveSessionAtomFn', arg), rootSpan('archiveSessionAtomFn')),
+      archiveSession(get.registry, arg).pipe(rootSpan('archiveSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
   const unarchiveSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget, get: Atom.FnContext) =>
-      unarchiveSession(get.registry, arg).pipe(
-        logFailure('unarchiveSessionAtomFn', arg),
-        rootSpan('unarchiveSessionAtomFn'),
-      ),
+      unarchiveSession(get.registry, arg).pipe(rootSpan('unarchiveSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
@@ -100,14 +96,14 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, restartBack
 
   const renameSessionAtomFn = atomRuntime
     .fn((arg: SessionTarget & { readonly title: string }, get: Atom.FnContext) =>
-      renameSession(get.registry, arg).pipe(logFailure('renameSessionAtomFn', arg), rootSpan('renameSessionAtomFn')),
+      renameSession(get.registry, arg).pipe(rootSpan('renameSessionAtomFn', arg)),
     )
     .pipe(Atom.keepAlive);
 
   const deleteSessionAtomFn = atomRuntime
     .fn(
       (arg: SessionTarget, get: Atom.FnContext) =>
-        deleteSession(get.registry, arg).pipe(logFailure('deleteSessionAtomFn', arg), rootSpan('deleteSessionAtomFn')),
+        deleteSession(get.registry, arg).pipe(rootSpan('deleteSessionAtomFn', arg)),
       // Callers do not await the RPC, so a later Delete must not interrupt an earlier one still in flight.
       { concurrent: true },
     )

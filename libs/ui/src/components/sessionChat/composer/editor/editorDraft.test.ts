@@ -1,5 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { $getRoot, createEditor } from 'lexical';
+import type { LexicalEditor } from 'lexical';
 
 import { mockHostLayer } from '../../../../atoms/mockHostLayer.testing.ts';
 import { createHostRuntime } from '../../../../createHostRuntime.ts';
@@ -95,5 +96,50 @@ describe('editorDraft', () => {
       });
       assert.strictEqual(cursor, offset, `offset ${offset}`);
     }
+  });
+
+  describe('quote lines', () => {
+    const quoted = '> a\n> b\nc';
+
+    it('round-trips text and pieces', () => {
+      const { pieces, text } = withDraft(quoted, () => ({
+        pieces: $readEditorPieces(),
+        text: $getRoot().getTextContent(),
+      }));
+      assert.strictEqual(text, quoted);
+      assert.isTrue(composerPiecesEqual(pieces, buildComposerPieces(quoted, commands)));
+      assert.deepStrictEqual(
+        pieces.map(piece => piece.kind),
+        ['quoteLine', 'linebreak', 'quoteLine', 'linebreak', 'text'],
+      );
+    });
+
+    it('round-trips the logical cursor at every offset', () => {
+      for (let offset = 0; offset <= quoted.length; offset += 1) {
+        const cursor = withDraft(quoted, () => {
+          $setLogicalCursor(offset);
+          return $getLogicalCursorAndAdjacency().cursor;
+        });
+        assert.strictEqual(cursor, offset, `offset ${offset}`);
+      }
+    });
+
+    it('survives a serialized editor state round-trip', () => {
+      const source = makeEditor();
+      source.update(
+        () => {
+          $setComposerContent(quoted, commands);
+        },
+        { discrete: true },
+      );
+      const target: LexicalEditor = makeEditor();
+      target.setEditorState(target.parseEditorState(JSON.stringify(source.getEditorState().toJSON())));
+      const { pieces, text } = target.getEditorState().read(() => ({
+        pieces: $readEditorPieces(),
+        text: $getRoot().getTextContent(),
+      }));
+      assert.strictEqual(text, quoted);
+      assert.isTrue(composerPiecesEqual(pieces, buildComposerPieces(quoted, commands)));
+    });
   });
 });

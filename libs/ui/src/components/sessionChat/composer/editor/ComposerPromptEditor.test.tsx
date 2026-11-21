@@ -409,3 +409,166 @@ describe('ComposerPromptEditor hidden block markers', () => {
     }),
   );
 });
+
+describe('ComposerPromptEditor quote line wrapper', () => {
+  const wrappers = (): readonly Element[] => [...editable().querySelectorAll('.composer-quote-line')];
+
+  const caretInWrapper = (): boolean =>
+    lexicalEditor()
+      .getEditorState()
+      .read(() => {
+        const selection = $getSelection();
+        return (
+          $isRangeSelection(selection) && selection.anchor.getNode().getParent()?.getType() === 'composer-quote-line'
+        );
+      });
+
+  it.effect('wraps each quote line in one element', () =>
+    Effect.gen(function* () {
+      mount('> a\n> b\nplain');
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 2);
+      });
+      assert.strictEqual(wrappers()[0]?.textContent, '> a');
+      assert.strictEqual(editable().textContent, '> a> bplain');
+    }),
+  );
+
+  it.effect('keeps text typed at the end of quote content inside the wrapper', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      editable().focus();
+      lexicalEditor().update(() => {
+        const node = $getRoot().getAllTextNodes().at(1);
+        node?.select(1, 1);
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          selection.insertText('x');
+        }
+      });
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> qx');
+      });
+      assert.strictEqual(wrappers().length, 1);
+      assert.strictEqual(wrappers()[0]?.textContent, '> qx');
+      assert.isTrue(caretInWrapper());
+    }),
+  );
+
+  it.effect('keeps text typed at the start of quote content inside the wrapper', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('a\n> q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      editable().focus();
+      lexicalEditor().update(() => {
+        const node = $getRoot().getAllTextNodes().at(2);
+        node?.select(0, 0);
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          selection.insertText('x');
+        }
+      });
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, 'a\n> xq');
+      });
+      assert.strictEqual(wrappers().length, 1);
+      assert.strictEqual(wrappers()[0]?.textContent, '> xq');
+    }),
+  );
+
+  it.effect('lands a text caret at the end of the previous quote line on ArrowLeft', () =>
+    Effect.gen(function* () {
+      mount('> a\n> q');
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 2);
+      });
+      editable().focus();
+      // Text nodes: `> `, `a`, `> `, `q`.
+      selectTextNode(3);
+      lexicalEditor().dispatchCommand(KEY_ARROW_LEFT_COMMAND, new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      yield* eventually(() => {
+        const caret = lexicalEditor()
+          .getEditorState()
+          .read(() => {
+            const selection = $getSelection();
+            return $isRangeSelection(selection)
+              ? {
+                  offset: selection.anchor.offset,
+                  text: selection.anchor.getNode().getTextContent(),
+                  type: selection.anchor.type,
+                }
+              : undefined;
+          });
+        assert.deepStrictEqual(caret, { offset: 1, text: 'a', type: 'text' });
+      });
+    }),
+  );
+
+  it.effect('removes the marker and the wrapper on Backspace at the start of quote content', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      editable().focus();
+      selectTextNode(1);
+      lexicalEditor().dispatchCommand(DELETE_CHARACTER_COMMAND, true);
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, 'q');
+        assert.strictEqual(wrappers().length, 0);
+      });
+    }),
+  );
+
+  it.effect('keeps one wrapper per line across Shift+Enter continue and exit', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      editable().focus();
+      selectTextNode(1, 1);
+      const shiftEnter = () =>
+        lexicalEditor().dispatchCommand(
+          KEY_ENTER_COMMAND,
+          new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }),
+        );
+      shiftEnter();
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> q\n> ');
+        assert.strictEqual(wrappers().length, 2);
+      });
+      assert.isTrue(caretInWrapper());
+      shiftEnter();
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> q\n');
+        assert.strictEqual(wrappers().length, 1);
+      });
+    }),
+  );
+});

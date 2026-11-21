@@ -22,6 +22,9 @@ const showPiece = (piece: ComposerPiece): string => {
     case 'markdownLink': {
       return `link:${piece.label}`;
     }
+    case 'quoteLine': {
+      return `quote[${piece.pieces.map(showPiece).join(',')}]`;
+    }
     case 'text': {
       const { style } = piece;
       const role = { blockMarker: 'b', fence: 'f', marker: 'm', text: '' }[style.role];
@@ -55,7 +58,20 @@ describe('buildComposerPieces', () => {
   });
 
   it('gives block markers no span', () => {
-    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/:a', 'br', 'text:b@quote/:> ', 'text:@quote/:q']);
+    assert.deepStrictEqual(show('a\n> q'), ['text:@paragraph/:a', 'br', 'quote[text:b@quote/:> ,text:@quote/:q]']);
+  });
+
+  it('wraps each quote line in its own quoteLine piece, outside the linebreaks', () => {
+    const pieces = buildComposerPieces('> a\n> b\nplain', commands);
+    assert.deepStrictEqual(
+      pieces.map(piece => piece.kind),
+      ['quoteLine', 'linebreak', 'quoteLine', 'linebreak', 'text'],
+    );
+    assert.strictEqual(pieces.map(composerPieceText).join(''), '> a\n> b\nplain');
+  });
+
+  it('nests a chip inside its quote line', () => {
+    assert.deepStrictEqual(show('> /status x'), ['quote[text:b@quote/:> ,cmd:/status,text:@quote/: x]']);
   });
 
   it("emits a linebreak piece between lines and ties each span's markers together", () => {
@@ -102,5 +118,12 @@ describe('mergeAdjacentTextPieces and composerPiecesEqual', () => {
     assert.isTrue(composerPiecesEqual([piece('a'), piece('b')], [piece('ab')]));
     assert.isFalse(composerPiecesEqual([piece('ab')], [piece('ab', true)]));
     assert.isFalse(composerPiecesEqual([piece('ab')], [piece('ab'), { kind: 'linebreak' }]));
+  });
+
+  it('compares quote lines by their children, merging inside them', () => {
+    const quote = (...pieces: ComposerPiece[]): ComposerPiece => ({ kind: 'quoteLine', pieces });
+    assert.isTrue(composerPiecesEqual([quote(piece('a'), piece('b'))], [quote(piece('ab'))]));
+    assert.isFalse(composerPiecesEqual([quote(piece('ab'))], [piece('ab')]));
+    assert.isFalse(composerPiecesEqual([quote(piece('ab'))], [quote(piece('ab', true))]));
   });
 });

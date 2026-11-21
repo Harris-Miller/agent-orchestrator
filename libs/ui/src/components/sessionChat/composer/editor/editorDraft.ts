@@ -15,70 +15,80 @@ import {
   $isRangeSelection,
   $isTextNode,
 } from 'lexical';
-import type { LexicalNode } from 'lexical';
+import type { ElementNode, LexicalNode } from 'lexical';
 
 import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts';
 
 import { $createComposerCommandNode, $isComposerCommandNode } from './nodes/ComposerCommandNode.tsx';
 import { $createComposerMarkdownLinkNode, $isComposerMarkdownLinkNode } from './nodes/ComposerMarkdownLinkNode.tsx';
 import { $isComposerChipNode } from './nodes/composerChipNode.ts';
+import { $createComposerQuoteLineNode, $isComposerQuoteLineNode } from './nodes/ComposerQuoteLineNode.ts';
 import { $createComposerMarkdownTextNode, $readComposerTextStyle } from './nodes/ComposerMarkdownTextNode.ts';
 import { buildComposerPieces } from './composerPieces.ts';
 import type { ComposerPiece } from './composerPieces.ts';
 
+const $collectPieces = (node: LexicalNode, out: ComposerPiece[]): void => {
+  if ($isComposerCommandNode(node)) {
+    out.push({ kind: 'command', value: node.getInvocation() });
+  } else if ($isComposerMarkdownLinkNode(node)) {
+    out.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
+  } else if ($isTextNode(node)) {
+    out.push({ kind: 'text', style: $readComposerTextStyle(node), value: node.getTextContent() });
+  } else if ($isLineBreakNode(node)) {
+    out.push({ kind: 'linebreak' });
+  } else if ($isComposerQuoteLineNode(node)) {
+    const inner: ComposerPiece[] = [];
+    for (const child of node.getChildren()) {
+      $collectPieces(child, inner);
+    }
+    out.push({ kind: 'quoteLine', pieces: inner });
+  } else if ($isElementNode(node)) {
+    for (const child of node.getChildren()) {
+      $collectPieces(child, out);
+    }
+  }
+};
+
 export const $readEditorPieces = (): readonly ComposerPiece[] => {
   const pieces: ComposerPiece[] = [];
-  const visit = (node: LexicalNode): void => {
-    if ($isComposerCommandNode(node)) {
-      pieces.push({ kind: 'command', value: node.getInvocation() });
-      return;
-    }
-    if ($isComposerMarkdownLinkNode(node)) {
-      pieces.push({ href: node.getHref(), kind: 'markdownLink', label: node.getLabel() });
-      return;
-    }
-    if ($isTextNode(node)) {
-      pieces.push({ kind: 'text', style: $readComposerTextStyle(node), value: node.getTextContent() });
-      return;
-    }
-    if ($isLineBreakNode(node)) {
-      pieces.push({ kind: 'linebreak' });
-      return;
-    }
-    if ($isElementNode(node)) {
-      for (const child of node.getChildren()) {
-        visit(child);
+  $collectPieces($getRoot(), pieces);
+  return pieces;
+};
+
+const $appendPieces = (parent: ElementNode, pieces: readonly ComposerPiece[]): void => {
+  for (const piece of pieces) {
+    switch (piece.kind) {
+      case 'command': {
+        parent.append($createComposerCommandNode(piece.value));
+        break;
+      }
+      case 'linebreak': {
+        parent.append($createLineBreakNode());
+        break;
+      }
+      case 'markdownLink': {
+        parent.append($createComposerMarkdownLinkNode(piece.label, piece.href));
+        break;
+      }
+      case 'quoteLine': {
+        const line = $createComposerQuoteLineNode();
+        $appendPieces(line, piece.pieces);
+        parent.append(line);
+        break;
+      }
+      case 'text': {
+        parent.append($createComposerMarkdownTextNode(piece.value, piece.style));
+        break;
       }
     }
-  };
-  visit($getRoot());
-  return pieces;
+  }
 };
 
 export const $setComposerContent = (text: string, availableCommands: readonly AvailableCommand[]): void => {
   const root = $getRoot();
   root.clear();
   const paragraph = $createParagraphNode();
-  for (const piece of buildComposerPieces(text, availableCommands)) {
-    switch (piece.kind) {
-      case 'command': {
-        paragraph.append($createComposerCommandNode(piece.value));
-        break;
-      }
-      case 'linebreak': {
-        paragraph.append($createLineBreakNode());
-        break;
-      }
-      case 'markdownLink': {
-        paragraph.append($createComposerMarkdownLinkNode(piece.label, piece.href));
-        break;
-      }
-      case 'text': {
-        paragraph.append($createComposerMarkdownTextNode(piece.value, piece.style));
-        break;
-      }
-    }
-  }
+  $appendPieces(paragraph, buildComposerPieces(text, availableCommands));
   root.append(paragraph);
 };
 
@@ -159,6 +169,19 @@ export const $getLogicalCursorAndAdjacency = (): { adjacentToToken: boolean; cur
   return hit;
 };
 
+/** Caret at the start of the line after a linebreak: in its first text node when it has one, else before the node. */
+const $selectAfterLineBreak = (lineBreak: LexicalNode): void => {
+  let next: LexicalNode | null = lineBreak.getNextSibling();
+  while ($isComposerQuoteLineNode(next)) {
+    next = next.getFirstChild();
+  }
+  if ($isTextNode(next)) {
+    next.select(0, 0);
+  } else {
+    lineBreak.selectNext(0, 0);
+  }
+};
+
 export const $setLogicalCursor = (offset: number): void => {
   const root = $getRoot();
   const target = Math.max(0, Math.min(offset, root.getTextContentSize()));
@@ -189,7 +212,7 @@ export const $setLogicalCursor = (offset: number): void => {
     }
     if ($isLineBreakNode(node)) {
       if (remaining === 0) {
-        node.selectNext(0, 0);
+        $selectAfterLineBreak(node);
         return true;
       }
       remaining -= 1;

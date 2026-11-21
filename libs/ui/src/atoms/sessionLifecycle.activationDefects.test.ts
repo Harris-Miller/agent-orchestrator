@@ -25,7 +25,7 @@ const wireFailure = (defect: unknown) => ({
 const failActivation = Effect.fnUntraced(function* (seed: unknown) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   const registry = yield* freshRegistry;
   yield* installFakeAgent([], { failLoad: true });
   updateHarnessSnapshot(registry, CODEX, current => ({
@@ -64,7 +64,7 @@ describe('AIR loadReplayEnd on a failing session/load', () => {
     Effect.gen(function* () {
       const runtime = createHostRuntime(mockHostLayer);
       const { cancelPromptAtomFn } = createChatAtoms(runtime);
-      const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+      const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
       const registry = yield* freshRegistry;
       const fold = makeHarnessEventFold({
         setModelPickerPrefs: () => undefined,

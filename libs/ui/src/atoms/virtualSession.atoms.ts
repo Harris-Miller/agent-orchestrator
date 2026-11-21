@@ -927,6 +927,27 @@ export const bindVirtualOnUsable = Effect.fn('bindVirtualOnUsable')(function* (
 });
 
 /**
+ * The Provider was restarted (it dropped the draft's launch target and Config): put them back and Bind a fresh session,
+ * unless the draft changed meanwhile (another draft, or a launch target chosen since).
+ */
+export const restoreVirtualAfterProviderRestart = Effect.fn('restoreVirtualAfterProviderRestart')(function* (
+  registry: Registry,
+  saved: Pick<VirtualSession, 'configValues' | 'id' | 'launchTarget'>,
+) {
+  const virtual = registry.get(virtualSessionAtom);
+  if (
+    virtual === null ||
+    virtual.id !== saved.id ||
+    virtual.launchTarget !== undefined ||
+    saved.launchTarget === undefined
+  ) {
+    return;
+  }
+  setBlob(registry, { ...virtual, configValues: saved.configValues, launchTarget: saved.launchTarget });
+  yield* bindVirtualOnUsable(registry, saved.launchTarget);
+});
+
+/**
  * Connection lost: the Bound session died with the connection. Drop it from the snapshot and clear the Bound id; keep
  * draft, cwd, launch target and Config so the next `usable` Binds again. No RPC (nothing to reach). Inert under the
  * Lifecycle lock: Materialize owns the blob there and fails or finishes on its own.

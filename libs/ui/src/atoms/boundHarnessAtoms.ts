@@ -121,7 +121,7 @@ export const {
   stopTrackingProjectAtomFn,
   unarchiveSessionAtomFn,
   unarchiveSessionsAtomFn,
-} = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn);
+} = createSessionLifecycleAtoms(hostBag, cancelPromptAtomFn, harnessAtoms.restartBackendAwaitingUsable);
 
 export const { hubAtom } = createHubAtoms(atomRuntime, reactivateActiveSessionsAtomFn);
 

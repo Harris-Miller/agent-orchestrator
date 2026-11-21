@@ -41,7 +41,7 @@ const setup = Effect.fnUntraced(function* (fake: FakeAgentOpts) {
   yield* installFakeAgent(calls, fake);
   const runtime = createHostRuntime(mockHostLayer);
   const chat = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn);
+  const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn, () => Effect.void);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Chat' }],

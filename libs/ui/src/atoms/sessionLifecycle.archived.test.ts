@@ -26,7 +26,7 @@ const archivedMeta = { jetbrains: { air: { archived: true, version: 1 } } };
 const makeAtoms = () => {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  return createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  return createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
 };
 
 const setup = Effect.fnUntraced(function* (

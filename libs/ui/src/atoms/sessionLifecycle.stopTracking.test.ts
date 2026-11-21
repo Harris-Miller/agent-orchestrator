@@ -35,7 +35,7 @@ const setup = Effect.fnUntraced(function* (options: {
   const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
   const runtime = createHostRuntime(layer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   const calls: string[] = [];
   const registry = yield* freshRegistry;
   yield* installFakeAgent(calls, { failClose: options.failClose });

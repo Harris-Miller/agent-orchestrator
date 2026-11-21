@@ -1,14 +1,16 @@
 /** Reactivating active sessions when Experimental: App Orchestrated Agents changes: `session/load` re-reads the hub state. */
 import { assert, describe, it } from '@effect/vitest';
 import { Effect, Fiber } from 'effect';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
+import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { setHubAvailability } from '../host/hubConnection.ts';
 import { createSession } from '../host/sessionRpc.ts';
 import { reserveSlot } from './subagentLinkRegistry.ts';
 
-import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
+import { backendDesiredStateAtom, backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
 import { createChatAtoms } from './chat.atoms.ts';
 import {
   advertise,
@@ -24,6 +26,13 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { runAtomFn } from './runAtomFn.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import {
+  ensureVirtual,
+  resetVirtualOnProviderStopped,
+  setVirtualLaunchTarget,
+  virtualSessionAtom,
+} from './virtualSession.atoms.ts';
+import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 
 const HUB_TOOLS_META = 'mcp__hoa-hub__submit_handoff';
 
@@ -37,16 +46,29 @@ const setup = Effect.fnUntraced(function* (
     readonly duringClaudeLoad?: Effect.Effect<void>;
     readonly failClaudeClose?: boolean;
     readonly failClaudeLoad?: boolean;
+    readonly failRestart?: readonly AgentLaunchTarget[];
   } = {},
 ) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const calls: string[] = [];
+  // Stand-in for `restartBackendAwaitingUsable`: the real Stop reconcile, then (unless failing) usable again.
+  const restartBackend = (launchTarget: AgentLaunchTarget, registry: AtomRegistry.AtomRegistry) =>
+    Effect.gen(function* () {
+      calls.push(`stop:${launchTarget}`);
+      updateHarnessSnapshot(registry, launchTarget, reconcileConnectionLost);
+      resetVirtualOnProviderStopped(registry, launchTarget);
+      if (options.failRestart?.includes(launchTarget) === true) {
+        return yield* Effect.fail('restart-fail');
+      }
+      calls.push(`start:${launchTarget}`);
+      advertise(registry, launchTarget, {});
+    });
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, restartBackend);
   const registry = yield* freshRegistry;
   yield* installFakeHub([]);
   const claudeReceived: McpReceived[] = [];
   const codexReceived: McpReceived[] = [];
-  const calls: string[] = [];
   yield* installFakeAgent(
     calls,
     {
@@ -221,6 +243,71 @@ describe('reactivateActiveSessionsAtomFn', () => {
       for (const load of loads) {
         assert.deepStrictEqual(hubServerNames(load), ['hoa-hub']);
       }
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('closes, restarts the Provider, then resumes/loads with the new mcpServers', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      setHubAvailability({ _tag: 'available' });
+      yield* s.reactivate;
+      const at = (call: string) => s.calls.indexOf(call);
+      assert.isAbove(at('stop:claude-agent-acp'), at('close:c1'));
+      assert.isAbove(at('start:claude-agent-acp'), at('stop:claude-agent-acp'));
+      assert.isAbove(at('load:c1'), at('start:claude-agent-acp'));
+      assert.isAbove(at('stop:codex-acp'), at('close:x1'));
+      assert.isAbove(at('load:x1'), at('start:codex-acp'));
+      // The Claude group finishes before Codex's restart: one launch target at a time.
+      assert.deepStrictEqual(
+        s.codexReceived.map(r => hubServerNames(r)),
+        [['hoa-hub']],
+      );
+      assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions.c1?.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('does not restart a launch target without sessions to reactivate', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessions: { x1: { ...initialSessionSnapshot('x1', 'inactive'), cwd: '/w' } },
+      }));
+      yield* s.reactivate;
+      assert.include(s.calls, 'stop:claude-agent-acp');
+      assert.notInclude(s.calls, 'stop:codex-acp');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('never restarts a Provider the user stopped', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      s.registry.set(backendDesiredStateAtom(CODEX), 'stopped');
+      yield* s.reactivate;
+      assert.notInclude(s.calls, 'stop:codex-acp');
+      assert.notInclude(s.calls, 'close:x1');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a failed restart leaves that target inactive and does not block another target', () =>
+    Effect.gen(function* () {
+      const s = yield* setup({ failRestart: [CLAUDE] });
+      yield* s.reactivate;
+      assert.notInclude(s.calls, 'load:c1');
+      assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions.c1?.status, 'inactive');
+      assert.include(s.calls, 'load:x1');
+      assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessions.x1?.status, 'active');
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a draft on a restarted launch target keeps its launch target', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* ensureVirtual(s.registry, { cwd: '/w' });
+      yield* setVirtualLaunchTarget(s.registry, CLAUDE);
+      yield* s.reactivate;
+      const virtual = s.registry.get(virtualSessionAtom);
+      assert.strictEqual(virtual?.launchTarget, CLAUDE);
     }).pipe(Effect.scoped),
   );
 });

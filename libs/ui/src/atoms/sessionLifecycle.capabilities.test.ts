@@ -56,7 +56,7 @@ const setup = Effect.fnUntraced(function* (
   yield* installFakeAgent(calls, options.fake, launchTarget);
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   updateHarnessSnapshot(registry, launchTarget, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Old' }],
@@ -273,7 +273,7 @@ describe('#278 F5: no-resume session/load replays into a clean transcript', () =
         );
         const runtime = createHostRuntime(mockHostLayer);
         const { cancelPromptAtomFn } = createChatAtoms(runtime);
-        const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+        const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
         // Local transcript already holds the same exchange (user + agent), as after a completed turn.
         const base = session('inactive');
         let { transcript } = base;

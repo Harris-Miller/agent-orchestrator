@@ -1,6 +1,7 @@
 /** Session history / lifecycle Atom fns (create, activate, deactivate, delete, refresh). */
 import { Cause, Duration, Effect, Exit, Redacted, Semaphore } from 'effect';
 import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 import {
@@ -47,6 +48,7 @@ import {
 } from '../host/sessionRpc.ts';
 
 import {
+  backendDesiredStateAtom,
   backendHarnessSnapshotAtom,
   configOptionIndexAtom,
   requireLaunchTargetUsable,
@@ -73,6 +75,7 @@ import {
   discardVirtual,
   ensureVirtual,
   rebindVirtual,
+  restoreVirtualAfterProviderRestart,
   select,
   virtualSessionAtom,
 } from './virtualSession.atoms.ts';
@@ -172,7 +175,17 @@ const forEachTargetContinuing = <E, R>(
     }
   });
 
-export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromptAtomFn: CancelPromptAtomFn) => {
+type RestartBackend = (
+  launchTarget: AgentLaunchTarget,
+  registry: AtomRegistry.AtomRegistry,
+) => Effect.Effect<void, unknown>;
+
+export const createSessionLifecycleAtoms = (
+  runtime: HostRuntimeBag,
+  cancelPromptAtomFn: CancelPromptAtomFn,
+  /** Stop then start a Provider and wait until usable again; see `restartBackendAwaitingUsable`. */
+  restartBackend: RestartBackend,
+) => {
   const { atomRuntime, hostRunFork } = runtime;
   const forkEffect: RunFork = effect => {
     hostRunFork(effect);
@@ -429,10 +442,12 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
   /**
    * Reactivate every active session (all launch targets) so its `session/load` / `session/resume` re-reads the current
    * Experimental: App Orchestrated Agents state: Deactivate (cancels a running Prompt turn, ends Spawned subagent
-   * children, closes on the agent, revokes the credential), then Activate again. Waits for the hub to leave
+   * children, closes on the agent, revokes the credential), then restart the Provider (Codex ignores changed MCP
+   * servers on a resume after a close) and Activate again. Waits for the hub to leave
    * `connecting` first. Spawned subagent sessions are skipped (they end with their parent); the Bound Virtual session is
-   * rebound instead. One session's failure is logged and never blocks the others; Selected is kept. Each session's
-   * Deactivate + Activate pair is uninterruptible and serialized, so a second change mid-run (which re-runs this fn)
+   * rebound instead. One session's failure is logged and never blocks the others; a Provider that fails to restart keeps
+   * its sessions inactive and never blocks other Providers; Selected is kept. Only Providers with sessions to reactivate
+   * restart, never a stopped one. Each launch target's Deactivate + restart + Activate group is uninterruptible and serialized, so a second change mid-run (which re-runs this fn)
    * never leaves a session Deactivated.
    */
   const reactivateActiveSessionsAtomFn = atomRuntime
@@ -445,12 +460,14 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
           Effect.gen(function* () {
             const virtual = get(virtualSessionAtom);
             const links = get(subagentLinksAtom);
+            // A Provider the user stopped is never started by this; its sessions are already inactive.
             const targets = sessionsToReactivate(
               MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget => ({
                 launchTarget,
                 snapshot: get(backendHarnessSnapshotAtom(launchTarget)),
               })),
               target =>
+                get(backendDesiredStateAtom(target.launchTarget)) === 'stopped' ||
                 isChildIn(links, target) ||
                 (virtual?.launchTarget === target.launchTarget && virtual.sessionId === target.sessionId),
             );
@@ -465,17 +482,44 @@ export const createSessionLifecycleAtoms = (runtime: HostRuntimeBag, cancelPromp
                     : Effect.failCause(cause),
                 ),
               );
+            const logFailure = (target: SessionTarget) =>
+              Effect.tapError((error: unknown) =>
+                Effect.logError('reactivateActiveSessions failed', target.launchTarget, target.sessionId, error),
+              );
+            const byLaunchTarget = Map.groupBy(targets, target => target.launchTarget);
+            // Per launch target: Deactivate all, restart the Provider (Codex ignores changed MCP servers on a resume
+            // after a close), then Activate all. The whole group is uninterruptible, so a second change mid-run never
+            // leaves a session Deactivated or a Provider stopped.
             yield* Effect.forEach(
-              targets,
-              target =>
-                runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(
-                  Effect.andThen(activate(target, 3)),
-                  Effect.uninterruptible,
-                  Effect.tapError(error =>
-                    Effect.logError('reactivateActiveSessions failed', target.launchTarget, target.sessionId, error),
-                  ),
-                  Effect.ignore,
-                ),
+              [...byLaunchTarget],
+              ([launchTarget, group]) =>
+                Effect.gen(function* () {
+                  yield* Effect.forEach(
+                    group,
+                    target =>
+                      runAtomFn(get.registry, deactivateSessionAtomFn, target).pipe(logFailure(target), Effect.ignore),
+                    { concurrency: 1 },
+                  );
+                  // The restart drops a Bound Virtual draft's target and Config; capture them to restore it after.
+                  const virtualBefore = get.registry.get(virtualSessionAtom);
+                  const restarted = yield* restartBackend(launchTarget, get.registry).pipe(
+                    Effect.as(true),
+                    Effect.tapError(error =>
+                      Effect.logError('reactivateActiveSessions restart failed', launchTarget, error),
+                    ),
+                    Effect.orElseSucceed(() => false),
+                  );
+                  if (restarted) {
+                    yield* Effect.forEach(
+                      group,
+                      target => activate(target, 3).pipe(logFailure(target), Effect.ignore),
+                      { concurrency: 1 },
+                    );
+                    if (virtualBefore?.launchTarget === launchTarget) {
+                      yield* restoreVirtualAfterProviderRestart(get.registry, virtualBefore);
+                    }
+                  }
+                }).pipe(Effect.uninterruptible),
               { concurrency: 1 },
             );
             // Deactivate clears Selected when it was the reactivated session; put it back unless the user moved meanwhile.

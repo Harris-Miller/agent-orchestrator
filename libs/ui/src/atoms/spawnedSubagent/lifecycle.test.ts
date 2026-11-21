@@ -8,28 +8,28 @@ import type { HostServices } from '@lib/context-services';
 import { Deferred, Effect, Fiber, Layer } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
-import { createHostRuntime } from '../createHostRuntime.ts';
-import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import { configOptionIndexFromProbeResponses } from '../host/configOptionIndexFixtures.ts';
-import { getSubagent, subagentTranscriptItems } from '../host/subagent.ts';
-import { anyPromptTurnWorking } from '../host/turnActivity.ts';
-import type { PendingPermission } from '../host/pendingInteractions.ts';
+import { createHostRuntime } from '../../createHostRuntime.ts';
+import { initialSessionSnapshot } from '../../host/acpSessionBootstrap.ts';
+import { configOptionIndexFromProbeResponses } from '../../host/configOptionIndexFixtures.ts';
+import { getSubagent, subagentTranscriptItems } from '../../host/subagent.ts';
+import { anyPromptTurnWorking } from '../../host/turnActivity.ts';
+import type { PendingPermission } from '../../host/pendingInteractions.ts';
 
 import {
   backendHarnessSnapshotAtom,
   configOptionIndexAtom,
   selectedAtom,
   unifiedSessionHistoryAtom,
-} from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
-import { advertise, CLAUDE, CODEX, freshRegistry, installFakeAgent, installFakeHub } from './fakeAgent.testing.ts';
-import type { FakeAgentOpts } from './fakeAgent.testing.ts';
-import { makeHarnessEventFold } from './harnessEventFold.ts';
-import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.testing.ts';
-import { endLink, SpawnSubagentError, startSpawnedSubagent } from './spawnedSubagent.ts';
-import { allLinks, slotsInUse } from './subagentLinkRegistry.ts';
+} from '../backendState.atoms.ts';
+import { createChatAtoms } from '../chat.atoms.ts';
+import { advertise, CLAUDE, CODEX, freshRegistry, installFakeAgent, installFakeHub } from '../fakeAgent.testing.ts';
+import type { FakeAgentOpts } from '../fakeAgent.testing.ts';
+import { makeHarnessEventFold } from '../harnessEventFold.ts';
+import { updateHarnessSnapshot } from '../harnessSnapshot.ts';
+import { mockHostLayer } from '../mockHostLayer.testing.ts';
+import { runAtomFn } from '../runAtomFn.testing.ts';
+import { endLink, SpawnSubagentError, startSpawnedSubagent } from './lifecycle.ts';
+import { allLinks, slotsInUse } from './links.ts';
 
 const CHILD = 'claude-1';
 const PARENT = 'bound-1';

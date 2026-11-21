@@ -15,7 +15,7 @@ import { hydrateTrackedSessions } from './trackedSessions.ts';
 import { clearSelectedIfMissing, discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { isChild } from './subagentLinkRegistry.ts';
+import { isChild } from './spawnedSubagent/index.ts';
 import { workspaceFolderPathsAtom } from './workspaceFolderPaths.atoms.ts';
 
 const stripPendingOnMatched = (

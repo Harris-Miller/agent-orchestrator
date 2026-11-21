@@ -10,18 +10,18 @@
 import { Deferred, Duration, Effect, Exit, Fiber, Semaphore, Stream } from 'effect';
 import { Atom, AtomRegistry } from 'effect/reactivity';
 
-import type { SessionRef } from '../host/agentLaunchTarget.ts';
-import { configValuesFromOptions } from '../host/configProbe.ts';
-import { sessionTurnAction } from '../host/harnessStateTransitions.ts';
-import type { HubToolResult } from '../host/hubToolHandler.ts';
-import { buildSubagentResult } from '../host/subagentResult.ts';
-import type { SubagentResultStatus } from '../host/subagentResult.ts';
+import type { SessionRef } from '../../host/agentLaunchTarget.ts';
+import { configValuesFromOptions } from '../../host/configProbe.ts';
+import { sessionTurnAction } from '../../host/harnessStateTransitions.ts';
+import type { HubToolResult } from '../../host/hubToolHandler.ts';
+import { buildSubagentResult } from '../../host/subagentResult.ts';
+import type { SubagentResultStatus } from '../../host/subagentResult.ts';
 
-import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { awaitQueuedMessageTaken, hasQueuedMessage } from './composer.atoms.ts';
-import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn } from './promptTurn.ts';
-import { attach, claimHandle, linkOf } from './subagentLinkRegistry.ts';
-import type { SpawnedLink, SubagentOutcome } from './subagentLinkRegistry.ts';
+import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
+import { awaitQueuedMessageTaken, hasQueuedMessage } from '../composer.atoms.ts';
+import { awaitTurnEnd, sendPromptTurn, sessionById, sessionIn, steerPromptTurn } from '../promptTurn.ts';
+import { attach, claimHandle, linkOf } from './links.ts';
+import type { SpawnedLink, SubagentOutcome } from './links.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 

@@ -3,19 +3,19 @@ import { assert, describe, it } from '@effect/vitest';
 import { Deferred, Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
 
-import { createHostRuntime } from '../createHostRuntime.ts';
-import { answer, CHILD, PARENT, setup, until } from '../host/spawnSubagent.testing.ts';
-import { getSubagent } from '../host/subagent.ts';
-import { parseSubagentResults } from '../host/subagentResult.ts';
+import { createHostRuntime } from '../../createHostRuntime.ts';
+import { answer, CHILD, PARENT, setup, until } from '../../host/spawnSubagent.testing.ts';
+import { getSubagent } from '../../host/subagent.ts';
+import { parseSubagentResults } from '../../host/subagentResult.ts';
 
-import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
-import { CODEX } from './fakeAgent.testing.ts';
-import { makeHarnessEventFold } from './harnessEventFold.ts';
-import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.testing.ts';
-import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
-import { allLinks } from './subagentLinkRegistry.ts';
+import { backendHarnessSnapshotAtom } from '../backendState.atoms.ts';
+import { createChatAtoms } from '../chat.atoms.ts';
+import { CODEX } from '../fakeAgent.testing.ts';
+import { makeHarnessEventFold } from '../harnessEventFold.ts';
+import { mockHostLayer } from '../mockHostLayer.testing.ts';
+import { runAtomFn } from '../runAtomFn.testing.ts';
+import { createSessionLifecycleAtoms } from '../sessionLifecycle.atoms.ts';
+import { allLinks } from './links.ts';
 
 const SECOND = 'claude-2';
 

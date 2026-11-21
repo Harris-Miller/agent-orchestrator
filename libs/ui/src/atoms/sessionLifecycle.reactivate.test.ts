@@ -8,7 +8,7 @@ import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { reconcileConnectionLost } from '../host/harnessStateTransitions.ts';
 import { setHubAvailability } from '../host/hubConnection.ts';
 import { createSession } from '../host/sessionRpc.ts';
-import { isChildIn, reserveSlot, subagentLinksAtom } from './subagentLinkRegistry.ts';
+import { isChildIn, reserveSlot, subagentLinksAtom } from './spawnedSubagent/links.ts';
 import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
 import { backendDesiredStateAtom, backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';

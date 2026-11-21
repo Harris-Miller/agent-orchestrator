@@ -10,7 +10,7 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { advertise, CODEX } from '../atoms/fakeAgent.testing.ts';
 import { mockHostLayer } from '../atoms/mockHostLayer.testing.ts';
 import { select } from '../atoms/virtualSession.atoms.ts';
-import { allLinks } from '../atoms/subagentLinkRegistry.ts';
+import { allLinks } from '../atoms/spawnedSubagent/links.ts';
 
 import { answer, CHILD, PARENT, setup, until } from './spawnSubagent.testing.ts';
 import { parseSubagentResults } from './subagentResult.ts';

@@ -5,7 +5,7 @@ import { TestClock } from 'effect/testing';
 
 import { backendHarnessSnapshotAtom } from '../atoms/backendState.atoms.ts';
 import { CODEX, enableProviders } from '../atoms/fakeAgent.testing.ts';
-import { allLinks } from '../atoms/subagentLinkRegistry.ts';
+import { allLinks } from '../atoms/spawnedSubagent/links.ts';
 
 import { getSubagent } from './subagent.ts';
 import { parseSubagentResults } from './subagentResult.ts';

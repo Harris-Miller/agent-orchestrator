@@ -10,7 +10,7 @@ export const IDLE_THRESHOLD_MS = 10 * 60_000;
 
 /**
  * Live work for the sweep: a Prompt turn, Background follow-up, or a running Spawned subagent mirror. Closing the parent
- * ends spawned children (`endLinksOfParent`), so they count here; `stateUnconfirmed` subagents (no state) never do.
+ * ends spawned children (`endSpawnedChildren`), so they count here; `stateUnconfirmed` subagents (no state) never do.
  */
 export const sessionIsBusy = (snapshot: BackendHarnessSnapshot, session: SessionSnapshot): boolean =>
   sessionHasLiveWork(snapshot, session) || hasWorkingSubagent(snapshot.subagents, session.sessionId, 'spawned');

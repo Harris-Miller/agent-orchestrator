@@ -52,6 +52,23 @@ describe('editorDraft', () => {
     assert.strictEqual(text, draft);
   });
 
+  it('round-trips quote lines through serialized editor state', () => {
+    const quoteDraft = '> a\n> b\nplain\n> c';
+    const source = makeEditor();
+    source.update(
+      () => {
+        $setComposerContent(quoteDraft, commands);
+      },
+      { discrete: true },
+    );
+    const json = JSON.stringify(source.getEditorState().toJSON());
+    const target = makeEditor();
+    target.setEditorState(target.parseEditorState(json));
+    const { pieces, text } = target.read(() => ({ pieces: $readEditorPieces(), text: $getRoot().getTextContent() }));
+    assert.strictEqual(text, quoteDraft);
+    assert.isTrue(composerPiecesEqual(pieces, buildComposerPieces(quoteDraft, commands)));
+  });
+
   it('chips count as their source text length for logical cursor offsets', () => {
     const offsets = [0, 2, 3, 3 + '/status'.length, draft.indexOf('[docs]'), draft.length - 2, draft.length];
     for (const offset of offsets) {

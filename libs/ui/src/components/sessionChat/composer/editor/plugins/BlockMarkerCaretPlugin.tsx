@@ -68,6 +68,23 @@ const $lineHasContentAfter = (marker: TextNode): boolean => {
   return false;
 };
 
+/** Puts a text caret at the end of the line before `marker`'s line, looking inside a quote wrapper. */
+const $selectPreviousLineEnd = (marker: TextNode): void => {
+  // A quote marker is its wrapper's first child, so step out to the wrapper's previous sibling.
+  const parent = marker.getParent();
+  const linebreak =
+    marker.getPreviousSibling() ?? ($isComposerQuoteLineNode(parent) ? parent.getPreviousSibling() : null);
+  const prev = linebreak?.getPreviousSibling();
+  if ($isComposerQuoteLineNode(prev)) {
+    const last = prev.getLastDescendant();
+    if (last !== null) {
+      last.selectEnd();
+      return;
+    }
+  }
+  linebreak?.selectPrevious();
+};
+
 /**
  * Hidden block markers are invisible, so keep the caret out of them: it snaps to the start of the line's content,
  * ArrowLeft there goes to the end of the previous line, and Backspace there removes the marker.
@@ -108,11 +125,7 @@ export const BlockMarkerCaretPlugin: FC = () => {
             return false;
           }
           event.preventDefault();
-          // A quote marker is its wrapper's first child, so step out to the wrapper's previous sibling.
-          const parent = marker.getParent();
-          (
-            marker.getPreviousSibling() ?? ($isComposerQuoteLineNode(parent) ? parent.getPreviousSibling() : null)
-          )?.selectPrevious();
+          $selectPreviousLineEnd(marker);
           return true;
         },
         COMMAND_PRIORITY_HIGH,

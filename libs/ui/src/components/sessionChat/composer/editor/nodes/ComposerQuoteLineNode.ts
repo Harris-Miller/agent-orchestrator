@@ -28,14 +28,6 @@ export class ComposerQuoteLineNode extends ElementNode {
   canBeEmpty(): boolean {
     return false;
   }
-
-  canInsertTextBefore(): boolean {
-    return false;
-  }
-
-  canInsertTextAfter(): boolean {
-    return false;
-  }
 }
 
 export const $createComposerQuoteLineNode = (): ComposerQuoteLineNode => $create(ComposerQuoteLineNode);

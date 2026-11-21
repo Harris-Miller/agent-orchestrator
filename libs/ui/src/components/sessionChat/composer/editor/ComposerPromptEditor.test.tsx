@@ -392,6 +392,74 @@ describe('ComposerPromptEditor hidden block markers', () => {
     }),
   );
 
+  it.effect('moves ArrowLeft from a quote line to a text caret at the end of the previous quote line', () =>
+    Effect.gen(function* () {
+      mount('> a\n> b');
+      yield* eventually(() => {
+        assert.strictEqual(editable().querySelectorAll('.composer-quote-line').length, 2);
+      });
+      editable().focus();
+      // Text nodes: `> `, `a`, `> `, `b`.
+      selectTextNode(3);
+      lexicalEditor().dispatchCommand(KEY_ARROW_LEFT_COMMAND, new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      yield* eventually(() => {
+        assert.deepStrictEqual(caret(), { offset: 1, text: 'a' });
+      });
+      const anchorType = lexicalEditor()
+        .getEditorState()
+        .read(() => {
+          const selection = $getSelection();
+          return $isRangeSelection(selection) ? selection.anchor.type : undefined;
+        });
+      assert.strictEqual(anchorType, 'text');
+    }),
+  );
+
+  it.effect('keeps text typed at the end or start of a quote line inside its bar', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('> abc', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.isNotNull(editable().querySelector('.composer-quote-line'));
+      });
+      editable().focus();
+      const insert = (index: number, offset: number, value: string): void => {
+        lexicalEditor().update(() => {
+          const node = $getRoot().getAllTextNodes().at(index);
+          if (node === undefined) {
+            throw new Error(`No text node at index ${index}`);
+          }
+          node.select(offset, offset);
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            selection.insertText(value);
+          }
+        });
+      };
+      // Text nodes: `> `, `abc`.
+      insert(1, 3, 'd');
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> abcd');
+      });
+      assert.deepStrictEqual(
+        [...editable().querySelectorAll('.composer-quote-line')].map(line => line.textContent),
+        ['> abcd'],
+      );
+      insert(1, 0, 'x');
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '> xabcd');
+      });
+      assert.deepStrictEqual(
+        [...editable().querySelectorAll('.composer-quote-line')].map(line => line.textContent),
+        ['> xabcd'],
+      );
+    }),
+  );
+
   it.effect('continues a quote on Shift+Enter and leaves it on an empty quote line', () =>
     Effect.gen(function* () {
       let last: ComposerPromptChange | undefined;

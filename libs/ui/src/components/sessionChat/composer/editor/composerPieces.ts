@@ -124,11 +124,7 @@ export const mergeAdjacentTextPieces = (pieces: readonly ComposerPiece[]): reado
   return merged;
 };
 
-const pieceEqual = (
-  left: ComposerPiece,
-  right: ComposerPiece,
-  piecesEqual: (a: readonly ComposerPiece[], b: readonly ComposerPiece[]) => boolean,
-): boolean => {
+const pieceEqual = (left: ComposerPiece, right: ComposerPiece): boolean => {
   switch (left.kind) {
     case 'command': {
       return right.kind === 'command' && left.value === right.value;
@@ -140,7 +136,8 @@ const pieceEqual = (
       return right.kind === 'markdownLink' && left.label === right.label && left.href === right.href;
     }
     case 'quoteLine': {
-      return right.kind === 'quoteLine' && piecesEqual(left.pieces, right.pieces);
+      // Nested pieces are compared by `composerPiecesEqual`, which is the only caller.
+      return right.kind === 'quoteLine';
     }
     case 'text': {
       return right.kind === 'text' && left.value === right.value && sameStyle(left.style, right.style);
@@ -151,5 +148,14 @@ const pieceEqual = (
 export const composerPiecesEqual = (left: readonly ComposerPiece[], right: readonly ComposerPiece[]): boolean => {
   const a = mergeAdjacentTextPieces(left);
   const b = mergeAdjacentTextPieces(right);
-  return a.length === b.length && a.every((piece, index) => pieceEqual(piece, b[index], composerPiecesEqual));
+  return (
+    a.length === b.length &&
+    a.every((piece, index) => {
+      const other = b[index];
+      return (
+        pieceEqual(piece, other) &&
+        (piece.kind !== 'quoteLine' || (other.kind === 'quoteLine' && composerPiecesEqual(piece.pieces, other.pieces)))
+      );
+    })
+  );
 };

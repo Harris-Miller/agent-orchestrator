@@ -229,7 +229,7 @@ A Harness's connection to the Hub: makes sure one is running, issues and revokes
 _Avoid_: hub connection as a name for the role (in code, `HubConnection` is the transport the client installs; the client is the role)
 
 **Session reactivation**:
-What changing the User setting Experimental: App Orchestrated Agents (on or off) does: every active session is Deactivated and Activated again so it picks up the new state, cancelling any running Prompt turn. Spawned subagent sessions are skipped (they end with their parent) and the Bound Virtual session is rebound; Selected is kept.
+What changing the User setting Experimental: App Orchestrated Agents (on or off) does: every active session is Deactivated and Activated again so it picks up the new state, cancelling any running Prompt turn. It applies to any change of the setting's effective value, however it arrives (the Settings pane, an external edit of the settings file, or another window). Spawned subagent sessions are skipped (they end with their parent) and the Bound Virtual session is rebound; Selected is kept.
 _Avoid_: Reload sessions (the Project list refresh)
 
 **Pending client request**:

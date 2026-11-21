@@ -33,7 +33,11 @@ const allowedTools = (received: McpReceived): readonly string[] | undefined =>
     ?.options?.allowedTools;
 
 const setup = Effect.fnUntraced(function* (
-  options: { readonly duringClaudeLoad?: Effect.Effect<void>; readonly failClaudeLoad?: boolean } = {},
+  options: {
+    readonly duringClaudeLoad?: Effect.Effect<void>;
+    readonly failClaudeClose?: boolean;
+    readonly failClaudeLoad?: boolean;
+  } = {},
 ) {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
@@ -45,7 +49,12 @@ const setup = Effect.fnUntraced(function* (
   const calls: string[] = [];
   yield* installFakeAgent(
     calls,
-    { duringLoad: options.duringClaudeLoad, failLoad: options.failClaudeLoad, mcp: { received: claudeReceived } },
+    {
+      duringLoad: options.duringClaudeLoad,
+      failClose: options.failClaudeClose,
+      failLoad: options.failClaudeLoad,
+      mcp: { received: claudeReceived },
+    },
     CLAUDE,
   );
   yield* installFakeAgent(calls, { mcp: { received: codexReceived } }, CODEX);
@@ -112,6 +121,23 @@ describe('reactivateActiveSessionsAtomFn', () => {
         [['load', []]],
       );
     }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    'an Agent without sessionClose that refuses the close still gets session/load with the new mcpServers',
+    () =>
+      Effect.gen(function* () {
+        const s = yield* setup({ failClaudeClose: true });
+        // `advertise(..., {})` leaves sessionClose unadvertised: the close is best-effort and its failure is swallowed.
+        assert.isFalse(s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).agentCapabilities.sessionClose);
+        setHubAvailability({ _tag: 'available' });
+        yield* s.reactivate;
+
+        assert.include(s.calls, 'close:c1');
+        const load = s.claudeReceived.find(r => r.rpc === 'load');
+        assert.deepStrictEqual(load === undefined ? [] : hubServerNames(load), ['hoa-hub']);
+        assert.strictEqual(s.registry.get(backendHarnessSnapshotAtom(CLAUDE)).sessions.c1?.status, 'active');
+      }).pipe(Effect.scoped),
   );
 
   it.effect('a session/new after the change follows the new state', () =>

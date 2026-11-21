@@ -11,23 +11,23 @@ export const CONTINUE_PROMPT_TEXT = 'Continue where you left off.';
 /**
  * Whether a Session failure row may offer an action at all: the Session has no turn or Client→Agent request in
  * flight, and the row is the latest Session failure and sits after the last user message (so an old row replayed by
- * `session/load`, or one a newer turn has superseded, offers none). Yields the last user message, if any.
+ * `session/load`, or one a newer turn has superseded, offers none). Yields the last user message (absent when there is none), or `undefined` when no action is offered.
  */
-const actionableLastUser = (
+const offeredActionContext = (
   session: SessionLike,
   items: readonly ChatItem[],
   failureId: string,
-): Option.Option<UserMessageItem | undefined> => {
+): { readonly lastUser: UserMessageItem | undefined } | undefined => {
   if (session.status !== 'active' || session.pendingClientRequest !== undefined) {
-    return Option.none();
+    return undefined;
   }
   const lastFailure = items.findLast(entry => entry.kind === 'session_failure');
   const lastUserIndex = items.findLastIndex(entry => entry.kind === 'user_message');
   if (lastFailure?.id !== failureId || items.findIndex(entry => entry.id === failureId) < lastUserIndex) {
-    return Option.none();
+    return undefined;
   }
   const lastUser = items[lastUserIndex];
-  return Option.some(lastUser?.kind === 'user_message' ? lastUser : undefined);
+  return { lastUser: lastUser?.kind === 'user_message' ? lastUser : undefined };
 };
 
 /**
@@ -39,10 +39,8 @@ export const retryableUserMessage = (
   items: readonly ChatItem[],
   failureId: string,
 ): Option.Option<UserMessageItem> =>
-  actionableLastUser(session, items, failureId).pipe(
-    Option.flatMap(lastUser =>
-      lastUser === undefined || (lastUser.images ?? []).length > 0 ? Option.none() : Option.some(lastUser),
-    ),
+  Option.fromNullishOr(offeredActionContext(session, items, failureId)?.lastUser).pipe(
+    Option.filter(lastUser => (lastUser.images ?? []).length === 0),
   );
 
 /** Whether a usage-limit (`limit`) Session failure row offers Continue; needs no re-sendable last user message. */
@@ -52,6 +50,6 @@ export const canContinueFailure = (session: SessionLike, items: readonly ChatIte
     row?.kind === 'session_failure' &&
     row.category === 'limit' &&
     row.actions.includes('retry') &&
-    Option.isSome(actionableLastUser(session, items, failureId))
+    offeredActionContext(session, items, failureId) !== undefined
   );
 };

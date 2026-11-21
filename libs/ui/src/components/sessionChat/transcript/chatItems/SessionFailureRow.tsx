@@ -39,6 +39,10 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
   const continuable = canContinueFailure(selectedSession, chatItems, item.id);
   const retryMessage = continuable ? Option.none() : retryableUserMessage(selectedSession, chatItems, item.id);
 
+  const send = (text: string) => {
+    resend({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId, text }).catch(onClientError);
+  };
+
   const handlers: SessionFailureHandlers = {
     login: {
       hint: PROVIDER_META[selectedLaunchTarget].signIn.hint,
@@ -58,22 +62,14 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
     ...(continuable
       ? {
           onContinue: () => {
-            resend({
-              launchTarget: selectedLaunchTarget,
-              sessionId: selectedSession.sessionId,
-              text: CONTINUE_PROMPT_TEXT,
-            }).catch(onClientError);
+            send(CONTINUE_PROMPT_TEXT);
           },
         }
       : {}),
     ...(Option.isSome(retryMessage)
       ? {
           onRetry: () => {
-            resend({
-              launchTarget: selectedLaunchTarget,
-              sessionId: selectedSession.sessionId,
-              text: retryMessage.value.text,
-            }).catch(onClientError);
+            send(retryMessage.value.text);
           },
         }
       : {}),

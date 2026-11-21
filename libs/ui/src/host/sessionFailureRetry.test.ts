@@ -54,8 +54,13 @@ describe('retryableUserMessage', () => {
 
 describe('canContinueFailure', () => {
   const limit = (id: string, overrides: Partial<Extract<ChatItem, { kind: 'session_failure' }>> = {}): ChatItem => ({
-    ...(failure(id) as Extract<ChatItem, { kind: 'session_failure' }>),
+    actions: ['retry'],
     category: 'limit',
+    id,
+    kind: 'session_failure',
+    revision: 1,
+    severity: 'error',
+    title: 't',
     ...overrides,
   });
 

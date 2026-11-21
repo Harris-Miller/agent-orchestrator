@@ -15,6 +15,7 @@ import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts'
 import { $getLogicalCursorAndAdjacency, $setComposerContent } from './editorDraft.ts';
 import { COMPOSER_NODES } from './nodes/composerChipNode.ts';
 import { BlockMarkerCaretPlugin } from './plugins/BlockMarkerCaretPlugin.tsx';
+import { QuoteBarPlugin } from './plugins/QuoteBarPlugin.tsx';
 import { ChipDeletePlugin } from './plugins/ChipDeletePlugin.tsx';
 import { ChipifyPlugin } from './plugins/ChipifyPlugin.tsx';
 import { CommandMenuKeyPlugin } from './plugins/CommandMenuKeyPlugin.tsx';
@@ -145,9 +146,13 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             bgcolor: 'divider',
             content: '""',
             display: 'inline-block',
-            // Exactly one line box tall (0.875rem × 1.43), aligned to its top, so stacked quote lines join up.
-            height: '1.25125rem',
-            mr: 1,
+            // One line box is 1.25125rem (0.875rem × 1.43). QuoteBarPlugin sets --composer-quote-lines to the visual lines the quote
+            // line wraps to; the negative margin keeps the margin box one line tall so the first line box does not grow, and the bar
+            // overflows down beside the wrapped lines. It sits in the editor's 12px left padding (net advance 0), so text stays aligned.
+            height: 'calc(var(--composer-quote-lines, 1) * 1.25125rem)',
+            marginBottom: 'calc((1 - var(--composer-quote-lines, 1)) * 1.25125rem)',
+            marginLeft: '-9px',
+            marginRight: '6px',
             verticalAlign: 'top',
             width: 3,
           },
@@ -218,6 +223,7 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
       <ChipifyPlugin availableCommands={availableCommands} />
       <MarkerRevealPlugin />
       <BlockMarkerCaretPlugin />
+      <QuoteBarPlugin />
       <ChipDeletePlugin />
       {onEscape === undefined ? null : <EscapePlugin onEscape={onEscape} />}
       <SubmitOnEnterPlugin menuOpen={commandMenu?.open === true} onSubmit={onSubmit} />

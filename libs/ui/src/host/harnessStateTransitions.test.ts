@@ -16,8 +16,8 @@ import {
   applyBootstrapPhase,
   applyConfigResult,
   applyInitializeResult,
+  applyLiveSessionUpdate,
   applyLoadedConfiguration,
-  applySessionUpdatePatch,
   beginActivation,
   beginConfigChange,
   beginPromptTurn,
@@ -781,22 +781,24 @@ describe('interaction folds on Subagent holders and accepted summaries', () => {
   });
 });
 
-describe('applySessionUpdatePatch', () => {
+describe('applyLiveSessionUpdate', () => {
   it('upserts the patched Session and keeps the History when the update carried no retitle', () => {
     const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);
-    const next = applySessionUpdatePatch(snapshot, { kind: 'patch', session: activeSession('s1') });
-    assert.strictEqual(next.sessions.s1.status, 'active');
+    const { snapshot: next } = applyLiveSessionUpdate(snapshot, 's1', {
+      content: { text: 'hi', type: 'text' },
+      sessionUpdate: 'agent_message_chunk',
+    });
+    assert.lengthOf(next.sessions.s1.transcript.items, 1);
     assert.strictEqual(next.sessionHistory, snapshot.sessionHistory);
   });
 
-  it('replaces the History when the update carried a retitle', () => {
-    const retitled = [{ cwd: '/proj', sessionId: 's1', title: 'New' }];
-    const next = applySessionUpdatePatch(readySnapshot(), {
-      kind: 'patch',
-      session: activeSession('s1'),
-      sessionHistory: retitled,
+  it('retitles the History row when the update carried a title', () => {
+    const snapshot = replaceSessionHistory(readySnapshot(), [{ cwd: '/proj', sessionId: 's1' }]);
+    const { snapshot: next } = applyLiveSessionUpdate(snapshot, 's1', {
+      sessionUpdate: 'session_info_update',
+      title: 'New',
     });
-    assert.strictEqual(next.sessionHistory, retitled);
+    assert.strictEqual(next.sessionHistory[0]?.title, 'New');
   });
 });
 

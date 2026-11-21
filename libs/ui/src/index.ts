@@ -78,7 +78,6 @@ export * from './createHostRuntime.ts';
 export * from './host/acpLaunchCommand.ts';
 export * from './host/acpSessionBootstrap.ts';
 export * from './host/agentLaunchTarget.ts';
-export * from './host/applySessionUpdate.ts';
 export * from './host/sessionEntryKey.ts';
 export * from './host/backendHarness.ts';
 export * from './host/clientHandlers.ts';

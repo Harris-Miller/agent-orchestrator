@@ -265,7 +265,7 @@ Outstanding Agent `session/request_permission` held on a session snapshot until 
 _Avoid_: Permission card, approval prompt, open permission
 
 **Pending interaction**:
-A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present.
+A pending elicitation or pending permission on a session snapshot. The Harness UI blocks sending another prompt while one is present. Answered at most once; one that leaves the Harness state unanswered (Deactivate, Delete, Prompt turn cancel, Connection lost) is cancelled on the agent.
 _Avoid_: Pending client request, blocking dialog, modal
 
 **Virtual session**:

@@ -1,19 +1,41 @@
 import { assert, describe, it } from '@effect/vitest';
 
-import { initialSessionSnapshot } from './acpSessionBootstrap.ts';
-import type { NormalizedSessionInfo } from './acpSessionBootstrap.ts';
-import { applySessionUpdate } from './applySessionUpdate.ts';
+import { initialBackendHarnessSnapshot, initialSessionSnapshot } from './acpSessionBootstrap.ts';
+import type { NormalizedSessionInfo, SessionSnapshot } from './acpSessionBootstrap.ts';
+import { applyLiveSessionUpdate } from './harnessStateTransitions.ts';
 import { configValue } from './sessionConfiguration.ts';
 import { emptySessionTranscript } from './sessionUpdateReducer.ts';
 
 const emptyHistory: readonly NormalizedSessionInfo[] = [];
+
+/** A root-session update through `applyLiveSessionUpdate`, read back as the Session (and History row) it changed. */
+const applySessionUpdate = (
+  session: SessionSnapshot | undefined,
+  sessionId: string,
+  history: readonly NormalizedSessionInfo[],
+  update: unknown,
+) => {
+  const before = {
+    ...initialBackendHarnessSnapshot(),
+    sessionHistory: history,
+    sessions: session === undefined ? {} : { [sessionId]: session },
+  };
+  const { snapshot } = applyLiveSessionUpdate(before, sessionId, update);
+  return snapshot === before
+    ? ({ kind: 'noop' } as const)
+    : ({
+        kind: 'patch',
+        session: snapshot.sessions[sessionId],
+        sessionHistory: snapshot.sessionHistory === before.sessionHistory ? undefined : snapshot.sessionHistory,
+      } as const);
+};
 
 const replayEnd = {
   _meta: { jetbrains: { air: { loadReplayEnd: true, version: 1 } } },
   sessionUpdate: 'session_info_update',
 };
 
-describe('applySessionUpdate', () => {
+describe('applyLiveSessionUpdate on a root Session', () => {
   it('loadReplayEnd marks an activating session replayComplete', () => {
     const result = applySessionUpdate(initialSessionSnapshot('s1', 'activating'), 's1', emptyHistory, replayEnd);
     assert.strictEqual(result.kind, 'patch');

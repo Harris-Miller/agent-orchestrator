@@ -6,7 +6,7 @@ import fixture from '../../fixtures/claude_subagent_session_updates.json' with {
 
 import { initialBackendHarnessSnapshot, initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSubagentSnapshot } from '../host/subagent.ts';
-import { routeSubagentUpdate } from '../host/subagentRouting.ts';
+import { applyLiveSessionUpdate } from '../host/harnessStateTransitions.ts';
 import { composerAtom } from './composer.atoms.ts';
 import { selectedActiveSessionAtom } from './selectedActiveSession.atoms.ts';
 import {
@@ -141,7 +141,7 @@ describe('Composer atoms vs Subagent child chunks (real routing)', () => {
         sessionHistory: [{ cwd: '/work', sessionId: 'p1', title: 'T' }],
         sessions: { p1: initialSessionSnapshot('p1', 'active') },
       };
-      return routeSubagentUpdate(base, 'p1', spawn.update)!.snapshot;
+      return applyLiveSessionUpdate(base, 'p1', spawn.update).snapshot;
     });
     registry.set(selectedAtom, { _tag: 'Session', sessionId: 'p1' });
     return registry;
@@ -156,7 +156,7 @@ describe('Composer atoms vs Subagent child chunks (real routing)', () => {
     updateHarnessSnapshot(
       registry,
       'claude-agent-acp',
-      current => routeSubagentUpdate(current, CHILD, childMessage.update)!.snapshot,
+      current => applyLiveSessionUpdate(current, CHILD, childMessage.update).snapshot,
     );
 
     assert.deepStrictEqual([composer.count, active.count], [0, 0]);

@@ -305,10 +305,7 @@ export const cancelPromptTurn = Effect.fnUntraced(function* (
   }
 
   const { pendingElicitation, pendingPermission } = session;
-  pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
-  pendingElicitation?.resolve({ action: 'cancel' });
-
-  // Clear only the interactions just cancelled: one the agent raised during `resolve` stays answerable.
+  // Clear only these interactions (the writer cancels them on the agent): one raised meanwhile stays answerable.
   updateHarnessSnapshot(registry, launchTarget, current =>
     inTurn
       ? requestPromptCancel(current, sessionId, { elicitation: pendingElicitation, permission: pendingPermission })

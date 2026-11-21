@@ -21,6 +21,65 @@ export type PendingPermission = {
   readonly sessionId: string;
 };
 
+/** A `resolve` that acts only on its first call: a Pending interaction is answered at most once. */
+const once = <A>(resolve: (response: A) => void): ((response: A) => void) => {
+  let settled = false;
+  return response => {
+    if (!settled) {
+      settled = true;
+      resolve(response);
+    }
+  };
+};
+
+/** A Pending permission whose `resolve` answers the agent at most once. */
+export const pendingPermission = (pending: PendingPermission): PendingPermission => ({
+  ...pending,
+  resolve: once(pending.resolve),
+});
+
+/** A Pending elicitation whose `resolve` answers the agent at most once. */
+export const pendingElicitation = (pending: PendingElicitation): PendingElicitation => ({
+  ...pending,
+  resolve: once(pending.resolve),
+});
+
+type PendingHolder = {
+  readonly pendingElicitation?: PendingElicitation | undefined;
+  readonly pendingPermission?: PendingPermission | undefined;
+};
+
+const pendingOf = (holders: Iterable<PendingHolder>) => {
+  const permissions = new Set<PendingPermission>();
+  const elicitations = new Set<PendingElicitation>();
+  for (const holder of holders) {
+    if (holder.pendingPermission !== undefined) permissions.add(holder.pendingPermission);
+    if (holder.pendingElicitation !== undefined) elicitations.add(holder.pendingElicitation);
+  }
+  return { elicitations, permissions };
+};
+
+/**
+ * Cancel every Pending interaction held `before` that is gone `after` (compared by identity, so one that only moved,
+ * e.g. from a stray root entry onto its Subagent session, stays open). An answered one is not resolved again.
+ */
+export const cancelDroppedPendingInteractions = (
+  before: Iterable<PendingHolder>,
+  after: Iterable<PendingHolder>,
+): void => {
+  const was = pendingOf(before);
+  if (was.permissions.size === 0 && was.elicitations.size === 0) {
+    return;
+  }
+  const kept = pendingOf(after);
+  for (const permission of was.permissions) {
+    if (!kept.permissions.has(permission)) permission.resolve({ outcome: { outcome: 'cancelled' } });
+  }
+  for (const elicitation of was.elicitations) {
+    if (!kept.elicitations.has(elicitation)) elicitation.resolve({ action: 'cancel' });
+  }
+};
+
 /** A permission or elicitation request awaits the user (on a Session or a Subagent session). */
 export const hasPendingInteraction = (target: {
   readonly pendingElicitation?: PendingElicitation;

@@ -112,7 +112,10 @@ describe('cancelPromptAtomFn', () => {
   it.effect('clears the cancelled permission but keeps one the agent raised while it resolved', () =>
     Effect.gen(function* () {
       const { cancelPromptAtomFn, fold, registry } = yield* setup();
-      const raisedDuringResolve: PendingPermission['resolve'] = () => undefined;
+      const answeredRaised: unknown[] = [];
+      const raisedDuringResolve: PendingPermission['resolve'] = response => {
+        answeredRaised.push(response);
+      };
       const pendingPermission: PendingPermission = {
         request: permissionRequest,
         resolve: () => {
@@ -133,7 +136,9 @@ describe('cancelPromptAtomFn', () => {
 
       const session = registry.get(backendHarnessSnapshotAtom(LT)).sessions.s1;
       assert.strictEqual(session.promptCancelRequested, true);
-      assert.strictEqual(session.pendingPermission?.resolve, raisedDuringResolve);
+      // The one the agent raised while the first was cancelled is still pending and answers the agent's new request.
+      session.pendingPermission?.resolve({ outcome: { optionId: 'allow', outcome: 'selected' } });
+      assert.deepStrictEqual(answeredRaised, [{ outcome: { optionId: 'allow', outcome: 'selected' } }]);
     }),
   );
 });

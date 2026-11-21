@@ -166,8 +166,6 @@ export const applySubagentPatch = (child: SubagentSnapshot, update: SubagentUpda
 
 /** Connection loss / load / resume: keep transcripts, drop anything that could be stale. */
 export const resetSubagentLiveState = (child: SubagentSnapshot): SubagentSnapshot => {
-  child.pendingPermission?.resolve({ outcome: { outcome: 'cancelled' } });
-  child.pendingElicitation?.resolve({ action: 'cancel' });
   const {
     capabilities: _c,
     pendingElicitation: _e,

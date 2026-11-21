@@ -13,6 +13,13 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
+## Write glossary entries and ADRs in the plan, not before
+
+New `GLOSSARY.md` terms and new ADRs describe the code as it will be, so they land with the implementation, not while grilling or refining an issue. Writing them early leaves docs that describe behavior the code doesn't have yet.
+
+- During `/grill-with-docs` (and any `/domain-modeling` use), resolve terms and decisions in conversation and record them in the issue description. Do **not** edit `GLOSSARY.md` or create ADRs at that point, whatever the skill says about updating inline.
+- When an implementation plan is made, every new or changed glossary term and every new ADR is an explicit line-item in that plan, delivered by the tickets that change the behavior.
+
 ## File structure
 
 Single-context repo (most repos):

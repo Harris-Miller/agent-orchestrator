@@ -17,7 +17,7 @@ import type { ChatItemOf } from './chatItemOf.ts';
 export type SessionFailureHandlers = {
   /** `login`: a sign-in button, or a caption hint when the provider signs in outside the app. */
   readonly login?: { readonly hint: string; readonly onSignIn?: () => void };
-  /** `limit` + `retry`: continues the Session with a fixed prompt; replaces Retry on that row. */
+  /** With the `retry` action: continues the Session with a fixed prompt. The Row supplies this or `onRetry`, not both. */
   readonly onContinue?: () => void;
   readonly onNewSession?: () => void;
   readonly onRetry?: () => void;
@@ -30,8 +30,8 @@ export const SessionFailureView: FC<{
 }> = ({ handlers = {}, item }) => {
   const [open, setOpen] = useState(false);
   const { login, onContinue, onNewSession, onRetry } = handlers;
-  const showContinue = item.actions.includes('retry') && item.category === 'limit' && onContinue !== undefined;
-  const showRetry = item.actions.includes('retry') && item.category !== 'limit' && onRetry !== undefined;
+  const showContinue = item.actions.includes('retry') && onContinue !== undefined;
+  const showRetry = item.actions.includes('retry') && onRetry !== undefined;
   const showLogin = item.actions.includes('login') && login !== undefined;
   const showNewSession = item.actions.includes('new_session') && onNewSession !== undefined;
   const hasButtons = showRetry || showNewSession || (showLogin && login.onSignIn !== undefined);

@@ -14,7 +14,7 @@ import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { subagent } from '../host/harnessSnapshot.testing.ts';
-import { CONTINUE_PROMPT_TEXT } from '../host/sessionFailureRetry.ts';
+import { canContinueFailure, CONTINUE_PROMPT_TEXT } from '../host/sessionFailureRetry.ts';
 import { dropSession, markSessionInactive } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
@@ -178,38 +178,58 @@ layer(hostLayer)('Send', layeredIt => {
     }),
   );
 
-  layeredIt.effect('Continue after a limit failure sends one prompt with the fixed text as a user message', () =>
-    Effect.gen(function* () {
-      const failure = {
-        actions: ['retry'],
-        category: 'limit',
-        id: 'f1',
-        revision: 1,
-        severity: 'error',
-        title: 'Limit',
-      };
-      const promptTexts: string[] = [];
-      const h = yield* harness({ promptMeta: { jetbrains: { air: { sessionFailure: failure } } }, promptTexts });
-      yield* send(h.registry, 'work');
-      promptTexts.length = 0;
-      const before = userMessages(h.registry).length;
-      const result = yield* send(h.registry, CONTINUE_PROMPT_TEXT);
-      assert.strictEqual(result._tag, 'Ended');
-      assert.deepStrictEqual(promptTexts, ['Continue where you left off.']);
-      const messages = userMessages(h.registry);
-      assert.strictEqual(messages.length, before + 1);
-      assert.strictEqual(messages.at(-1)?.text, 'Continue where you left off.');
-    }).pipe(Effect.scoped),
+  const limitFailure = {
+    actions: ['retry'],
+    category: 'limit',
+    id: 'f1',
+    revision: 1,
+    severity: 'error',
+    title: 'Limit',
+  };
+  const continuable = (registry: Registry) => {
+    const session = sessionOf(registry);
+    return canContinueFailure(session, session.transcript.items, 'f1');
+  };
+
+  layeredIt.effect(
+    'Continue after a limit failure sends one text block as a user message and ends continuability',
+    () =>
+      Effect.gen(function* () {
+        const promptBlocks: { type: string; text?: string }[][] = [];
+        const h = yield* harness({
+          promptBlocks,
+          promptMeta: { jetbrains: { air: { sessionFailure: limitFailure } } },
+        });
+        yield* send(h.registry, 'work');
+        assert.isTrue(continuable(h.registry));
+        promptBlocks.length = 0;
+        const before = userMessages(h.registry).length;
+        const result = yield* send(h.registry, CONTINUE_PROMPT_TEXT);
+        assert.strictEqual(result._tag, 'Ended');
+        assert.deepStrictEqual(promptBlocks, [[{ text: 'Continue where you left off.', type: 'text' }]]);
+        const messages = userMessages(h.registry);
+        assert.strictEqual(messages.length, before + 1);
+        assert.strictEqual(messages.at(-1)?.text, 'Continue where you left off.');
+        // The same limit failure (deduped by id/revision) now sits before the new user message.
+        assert.isFalse(continuable(h.registry));
+      }).pipe(Effect.scoped),
   );
 
-  layeredIt.effect('a Continue the Agent rejects shows the Request error like any Send', () =>
-    Effect.gen(function* () {
-      const h = yield* harness({ prompt: 'reject' });
-      const result = yield* send(h.registry, CONTINUE_PROMPT_TEXT);
-      yield* settle;
-      assert.deepStrictEqual(result, { _tag: 'Rejected', error: REJECTION });
-      assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
-    }).pipe(Effect.scoped),
+  layeredIt.effect(
+    'a Continue the Agent rejects after a limit failure shows the Request error and keeps the message',
+    () =>
+      Effect.gen(function* () {
+        const opts: FakeAgentOpts = { promptMeta: { jetbrains: { air: { sessionFailure: limitFailure } } } };
+        const h = yield* harness(opts);
+        yield* send(h.registry, 'work');
+        assert.isTrue(continuable(h.registry));
+        Object.assign(opts, { prompt: 'reject' });
+        const result = yield* send(h.registry, CONTINUE_PROMPT_TEXT);
+        yield* settle;
+        assert.deepStrictEqual(result, { _tag: 'Rejected', error: REJECTION });
+        assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
+        assert.strictEqual(userMessages(h.registry).at(-1)?.text, 'Continue where you left off.');
+      }).pipe(Effect.scoped),
   );
 
   layeredIt.effect('a turn records its timing and clears its request', () =>

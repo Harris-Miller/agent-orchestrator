@@ -35,8 +35,9 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
     return <SessionFailureView item={item} />;
   }
 
-  const retryMessage =
-    item.category === 'limit' ? Option.none() : retryableUserMessage(selectedSession, chatItems, item.id);
+  // A row offers Continue or Retry, never both: Continue (limit rows) takes precedence.
+  const continuable = canContinueFailure(selectedSession, chatItems, item.id);
+  const retryMessage = continuable ? Option.none() : retryableUserMessage(selectedSession, chatItems, item.id);
 
   const handlers: SessionFailureHandlers = {
     login: {
@@ -54,7 +55,7 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
         .then(() => setVirtualLaunchTarget(selectedLaunchTarget))
         .catch(onClientError);
     },
-    ...(canContinueFailure(selectedSession, chatItems, item.id)
+    ...(continuable
       ? {
           onContinue: () => {
             resend({

@@ -82,6 +82,8 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly duringPrompt?: Effect.Effect<void>;
   /** Collects the text of each `session/prompt` it receives. */
   readonly promptTexts?: string[];
+  /** Collects the content blocks of each `session/prompt` it receives. */
+  readonly promptBlocks?: { type: string; text?: string }[][];
   /** Record (and by default advertise `mcpCapabilities.http` for) the `mcpServers` each session RPC received into `mcp`. */
   readonly mcp?: { readonly http?: boolean; readonly received: McpReceived[] };
   /** `session/prompt` stop reason (default `end_turn`); `fail` makes the RPC fail after `duringPrompt`; `reject` answers with {@link REJECTION} then. */
@@ -179,6 +181,7 @@ export const installFakeAgent = (
           sessionId: string;
         }) => {
           calls.push(`prompt:${sessionId}`);
+          opts.promptBlocks?.push(prompt.map(block => ({ ...block })));
           opts.promptTexts?.push(prompt.map(block => block.text ?? '').join(''));
           const during = opts.duringPrompt ?? Effect.void;
           if (opts.prompt === 'reject') {

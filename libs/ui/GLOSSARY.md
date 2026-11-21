@@ -224,7 +224,7 @@ An in-progress `/`, `$`, or `@` token in the chat draft that opens a Composer Me
 _Avoid_: autocomplete, slash palette (when you mean the open-menu token)
 
 **Markdown styling**:
-The Composer's live view of Markdown in the draft: bold, italic, strikethrough, inline code, headings, quotes, lists, and fenced code are shown styled as they are typed or pasted. The draft text is unchanged and stays the only source; styling is derived from it, and Command Chips and Markdown Link Chips are never restyled.
+The Composer's live view of Markdown in the draft: bold, italic, strikethrough, inline code, headings, quotes, lists, and fenced code are shown styled as they are typed or pasted. The draft text is unchanged and stays the only source; styling is derived from it, and Command Chips and Markdown Link Chips are never restyled. A quote shows a bar beside every visual line of its text, including lines its text wraps to.
 _Avoid_: rich text, WYSIWYG, formatting (when you mean this view), Markdown mode
 
 **Marker reveal**:

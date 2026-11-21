@@ -17,6 +17,8 @@ import type { ChatItemOf } from './chatItemOf.ts';
 export type SessionFailureHandlers = {
   /** `login`: a sign-in button, or a caption hint when the provider signs in outside the app. */
   readonly login?: { readonly hint: string; readonly onSignIn?: () => void };
+  /** With the `retry` action: continues the Session with a fixed prompt. The Row supplies this or `onRetry`, not both. */
+  readonly onContinue?: () => void;
   readonly onNewSession?: () => void;
   readonly onRetry?: () => void;
 };
@@ -27,30 +29,38 @@ export const SessionFailureView: FC<{
   readonly item: ChatItemOf<'session_failure'>;
 }> = ({ handlers = {}, item }) => {
   const [open, setOpen] = useState(false);
-  const { login, onNewSession, onRetry } = handlers;
+  const { login, onContinue, onNewSession, onRetry } = handlers;
+  const showContinue = item.actions.includes('retry') && onContinue !== undefined;
   const showRetry = item.actions.includes('retry') && onRetry !== undefined;
   const showLogin = item.actions.includes('login') && login !== undefined;
   const showNewSession = item.actions.includes('new_session') && onNewSession !== undefined;
   const hasButtons = showRetry || showNewSession || (showLogin && login.onSignIn !== undefined);
   return (
     <ListItem sx={{ alignItems: 'flex-start', display: 'block', py: 0 }}>
-      <DisclosureButton
-        onToggle={() => {
-          setOpen(current => !current);
-        }}
-        open={open}
-        sx={{ alignItems: 'center', color: 'inherit', gap: 1, px: 0.5, py: 0.25, width: '100%' }}
-      >
-        <LucideMuiIcon
-          aria-label={item.severity}
-          icon={TriangleAlert}
-          sx={{ color: item.severity === 'error' ? 'error.main' : 'warning.main', fontSize: 16 }}
-        />
-        <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
-          {item.title}
-        </Typography>
-        <DisclosureChevron open={open} />
-      </DisclosureButton>
+      <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+        <DisclosureButton
+          onToggle={() => {
+            setOpen(current => !current);
+          }}
+          open={open}
+          sx={{ alignItems: 'center', color: 'inherit', flex: 1, gap: 1, minWidth: 0, px: 0.5, py: 0.25 }}
+        >
+          <LucideMuiIcon
+            aria-label={item.severity}
+            icon={TriangleAlert}
+            sx={{ color: item.severity === 'error' ? 'error.main' : 'warning.main', fontSize: 16 }}
+          />
+          <Typography noWrap sx={{ flex: 1, textAlign: 'left' }} variant="body2">
+            {item.title}
+          </Typography>
+          <DisclosureChevron open={open} />
+        </DisclosureButton>
+        {showContinue ? (
+          <Button onClick={onContinue} size="small" variant="contained">
+            Continue
+          </Button>
+        ) : null}
+      </Box>
       <Collapse in={open} unmountOnExit>
         <Stack spacing={0.5} sx={{ pl: 3.5, pt: 0.5 }}>
           {item.reason === undefined ? null : (

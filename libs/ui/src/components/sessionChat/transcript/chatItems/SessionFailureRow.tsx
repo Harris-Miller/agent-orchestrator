@@ -8,7 +8,11 @@ import {
   signInAntigravityAtomFn,
 } from '../../../../atoms/boundHarnessAtoms.ts';
 import { PROVIDER_META } from '../../../../host/providerView.ts';
-import { retryableUserMessage } from '../../../../host/sessionFailureRetry.ts';
+import {
+  canContinueFailure,
+  CONTINUE_PROMPT_TEXT,
+  retryableUserMessage,
+} from '../../../../host/sessionFailureRetry.ts';
 import { useSessionChatSurface } from '../../useSessionChatSurface.tsx';
 
 import type { ChatItemOf } from './chatItemOf.ts';
@@ -31,7 +35,13 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
     return <SessionFailureView item={item} />;
   }
 
-  const retryMessage = retryableUserMessage(selectedSession, chatItems, item.id);
+  // A row offers Continue or Retry, never both: Continue (limit rows) takes precedence.
+  const continuable = canContinueFailure(selectedSession, chatItems, item.id);
+  const retryMessage = continuable ? Option.none() : retryableUserMessage(selectedSession, chatItems, item.id);
+
+  const send = (text: string) => {
+    resend({ launchTarget: selectedLaunchTarget, sessionId: selectedSession.sessionId, text }).catch(onClientError);
+  };
 
   const handlers: SessionFailureHandlers = {
     login: {
@@ -49,14 +59,17 @@ export const SessionFailureRow: FC<{ readonly item: ChatItemOf<'session_failure'
         .then(() => setVirtualLaunchTarget(selectedLaunchTarget))
         .catch(onClientError);
     },
+    ...(continuable
+      ? {
+          onContinue: () => {
+            send(CONTINUE_PROMPT_TEXT);
+          },
+        }
+      : {}),
     ...(Option.isSome(retryMessage)
       ? {
           onRetry: () => {
-            resend({
-              launchTarget: selectedLaunchTarget,
-              sessionId: selectedSession.sessionId,
-              text: retryMessage.value.text,
-            }).catch(onClientError);
+            send(retryMessage.value.text);
           },
         }
       : {}),

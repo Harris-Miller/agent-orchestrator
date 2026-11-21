@@ -92,6 +92,31 @@ describe('SessionFailureView', () => {
     assert.deepStrictEqual(calls, ['in']);
   });
 
+  it('Continue handler with retry action shows Continue while collapsed and calls it', () => {
+    const calls: string[] = [];
+    renderView(item({ actions: ['retry'], category: 'limit' }), { onContinue: () => calls.push('continue') });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    assert.deepStrictEqual(calls, ['continue']);
+    expand();
+    assert.isNull(screen.queryByText('Retry'));
+  });
+
+  it('Continue hidden without retry action or without a handler', () => {
+    renderView(item({ actions: ['new_session'], category: 'limit' }), { onContinue: noop });
+    assert.isNull(screen.queryByText('Continue'));
+    cleanup();
+    renderView(item({ actions: ['retry'], category: 'limit' }));
+    assert.isNull(screen.queryByText('Continue'));
+  });
+
+  it('Retry handler shows Retry and calls it', () => {
+    const calls: string[] = [];
+    renderView(item({ actions: ['retry'] }), { onRetry: () => calls.push('retry') });
+    expand();
+    fireEvent.click(screen.getByText('Retry'));
+    assert.deepStrictEqual(calls, ['retry']);
+  });
+
   it('unknown actions never render buttons', () => {
     renderView(item({ actions: ['bogus' as never] }), { onNewSession: noop, onRetry: noop });
     expand();

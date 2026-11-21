@@ -49,8 +49,16 @@ _Avoid_: request, generation, Turn (unqualified: the ACP cycle)
 The Agent's error response (code, message, and its own details when it gives them) to a request the user made from a Session's chat, shown in that chat, not as a toast. It is a valid answer, not a failure of the Harness: the Prompt turn ends, a Steering message is not delivered and goes back into the Composer, a Config change is reverted. A Handoff step answered this way fails the Handoff with the Agent's message. Anything else that fails (no Backend connection, transport, activation, managing a Session in History) is not a Request error and reaches the user as a readable message in the host's error toast.
 _Avoid_: toast error, RPC failure, client error
 
+**Retry**:
+The Session failure action that re-sends the user's last message as a new Prompt turn on the same Session. Offered for failures other than usage-limit ones (which offer Continue instead). Distinct from `session/resume` (reattaches a Session, never restarts a turn).
+_Avoid_: resume
+
+**Continue**:
+The Session failure action shown on a usage-limit (`limit`) failure that offers retry. It starts a new Prompt turn on the same Session with the fixed text "Continue where you left off." as an ordinary user message, without needing a re-sendable last user message. Distinct from Retry (for other failures) and from `session/resume` (reattaches a Session, never restarts a turn).
+_Avoid_: resume
+
 **Session failure**:
-An error or warning the Agent itself reports about a Session as a typed record (a stable id, a revision, a severity, a title, optional details and reason, and the follow-up actions it offers), when the Harness has offered to receive them. Shown as one row in that Session's chat per id: a later report with a higher revision replaces the row's content (a retry counting "attempt 2 of 5"), an equal or lower revision changes nothing. It may end a Prompt turn the Agent answered normally, or report something outside any turn (a notice, a background incident). Distinct from a Request error: that is a JSON-RPC error response, this is the Agent's own account of what went wrong. An Agent that cannot sign the user in still answers with `auth_required`, which is not a Session failure. The user sees only the actions the Harness knows how to run (retry, new session, login); any other the Agent lists is ignored, and none is inferred from the failure's category.
+An error or warning the Agent itself reports about a Session as a typed record (a stable id, a revision, a severity, a title, optional details and reason, and the follow-up actions it offers), when the Harness has offered to receive them. Shown as one row in that Session's chat per id: a later report with a higher revision replaces the row's content (a retry counting "attempt 2 of 5"), an equal or lower revision changes nothing. It may end a Prompt turn the Agent answered normally, or report something outside any turn (a notice, a background incident). Distinct from a Request error: that is a JSON-RPC error response, this is the Agent's own account of what went wrong. An Agent that cannot sign the user in still answers with `auth_required`, which is not a Session failure. The user sees only the actions the Harness knows how to run (retry, new session, login); any other the Agent lists is ignored, and none is inferred from the failure's category. A usage-limit failure's retry is presented as Continue rather than Retry.
 _Avoid_: error row, warning text, incident (the Agent's own word for one kind)
 
 **Bind**:

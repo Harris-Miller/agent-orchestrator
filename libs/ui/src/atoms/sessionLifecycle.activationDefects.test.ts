@@ -7,12 +7,11 @@ import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { advertise, CODEX, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const wireFailure = (defect: unknown) => ({
@@ -24,8 +23,7 @@ const wireFailure = (defect: unknown) => ({
 
 const failActivation = Effect.fnUntraced(function* (seed: unknown) {
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
   const registry = yield* freshRegistry;
   yield* installFakeAgent([], { failLoad: true });
   updateHarnessSnapshot(registry, CODEX, current => ({
@@ -63,8 +61,7 @@ describe('AIR loadReplayEnd on a failing session/load', () => {
   const run = (withMarker: boolean) =>
     Effect.gen(function* () {
       const runtime = createHostRuntime(mockHostLayer);
-      const { cancelPromptAtomFn } = createChatAtoms(runtime);
-      const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+      const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
       const registry = yield* freshRegistry;
       const fold = makeHarnessEventFold({
         setModelPickerPrefs: () => undefined,

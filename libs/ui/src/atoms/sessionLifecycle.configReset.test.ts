@@ -8,12 +8,11 @@ import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configValue } from '../host/sessionConfiguration.ts';
 
 import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { advertise, CODEX, freshRegistry, installFakeAgent } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 /** An index that no longer offers `gpt` (the fake `session/load` reports `gpt`); its default model is `o1`. */
@@ -31,8 +30,7 @@ const activate = Effect.fnUntraced(function* (fake: FakeAgentOpts = {}) {
   const registry = yield* freshRegistry;
   yield* installFakeAgent(calls, fake);
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  const atoms = createSessionLifecycleAtoms(runtime, () => Effect.void);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1' }],

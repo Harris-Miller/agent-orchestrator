@@ -12,7 +12,7 @@ import type { FakeAgentOpts } from './fakeAgent.testing.ts';
 import { advertise, CODEX, enableProviders, freshRegistry, installFakeAgent, REJECTION } from './fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 
 const advertisesFork = { agentCapabilities: { sessionCapabilities: { fork: {} } } };
@@ -41,7 +41,7 @@ const setup = Effect.fnUntraced(function* (fake: FakeAgentOpts) {
   yield* installFakeAgent(calls, fake);
   const runtime = createHostRuntime(mockHostLayer);
   const chat = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn, () => Effect.void);
+  const lifecycle = createSessionLifecycleAtoms(runtime, () => Effect.void);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [{ cwd: '/proj', sessionId: 's1', title: 'Chat' }],

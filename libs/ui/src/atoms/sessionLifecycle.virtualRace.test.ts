@@ -8,10 +8,9 @@ import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createVirtualSessionAtoms, lastCreateDefaultsAtom, virtualSessionAtom } from './virtualSession.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
@@ -43,8 +42,7 @@ const installSlowAgent = () =>
 
 const setup = () => {
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  const lifecycle = createSessionLifecycleAtoms(runtime, () => Effect.void);
   const { ensureVirtualSessionAtomFn } = createVirtualSessionAtoms(runtime);
   const registry = AtomRegistry.make();
   registry.mount(lifecycle.archiveSessionAtomFn);

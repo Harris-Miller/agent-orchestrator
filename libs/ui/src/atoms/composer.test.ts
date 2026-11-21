@@ -24,7 +24,7 @@ import { handoffInProgressAtom } from './handoff.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { ComposerActionUnavailable, SteerFallbackTurnFailed } from './promptTurn.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import type { MidTurnSend } from './userSettings/userSettingsDocument.atoms.ts';
 import {

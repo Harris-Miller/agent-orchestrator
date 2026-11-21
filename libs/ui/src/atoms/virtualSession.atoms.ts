@@ -44,7 +44,8 @@ import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
 import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessStateTransitions.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
-import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
+import { closeOnAgent } from '../host/closeOnAgent.ts';
+import { createSession, deleteSession } from '../host/sessionRpc.ts';
 
 import {
   backendHarnessSnapshotAtom,
@@ -313,8 +314,10 @@ const teardownBound = Effect.fn('teardownBound')(function* (registry: Registry, 
   const snapshot = registry.get(backendHarnessSnapshotAtom(bound.launchTarget));
   const session = bound.sessionId in snapshot.sessions ? snapshot.sessions[bound.sessionId] : undefined;
   if (session !== undefined && session.status !== 'inactive') {
-    yield* Effect.exit(closeSession(bound.launchTarget, bound.sessionId));
+    yield* Effect.exit(closeOnAgent(snapshot.agentCapabilities, bound.launchTarget, bound.sessionId));
   }
+  // Deleted whatever the agent advertises (best-effort): a never-Materialized draft must not linger in the agent's
+  // `session/list`, where Import would offer it.
   yield* Effect.exit(deleteSession(bound.launchTarget, bound.sessionId));
 
   updateHarnessSnapshot(registry, bound.launchTarget, current => dropSessionIfPresent(current, bound.sessionId));

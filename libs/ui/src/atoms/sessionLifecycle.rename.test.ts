@@ -7,10 +7,9 @@ import { initialBackendHarnessSnapshot } from '../host/acpSessionBootstrap.ts';
 import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import { connectFakeAgent } from './fakeAgent.testing.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 
@@ -25,8 +24,7 @@ const setup = Effect.fnUntraced(function* (
     sessionRename,
   });
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { renameSessionAtomFn } = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
+  const { renameSessionAtomFn } = createSessionLifecycleAtoms(runtime, () => Effect.void);
   const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
     Effect.sync(() => {
       r.dispose();

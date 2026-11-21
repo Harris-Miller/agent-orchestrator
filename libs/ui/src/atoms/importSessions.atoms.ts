@@ -28,7 +28,7 @@ import {
 } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { untrackSession } from './trackedSessions.ts';
-import type { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
+import { activateSession } from './sessionLifecycle.ts';
 import { trackSession } from './trackSession.ts';
 import { select } from './virtualSession.atoms.ts';
 
@@ -47,10 +47,7 @@ export const importRowsAtom = Atom.make(get =>
   importableRows(get(importStateAtom), get(unifiedSessionHistoryAtom)),
 ).pipe(Atom.keepAlive);
 
-export const createImportSessionsAtoms = (
-  { atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>,
-  activateSessionAtomFn: ReturnType<typeof createSessionLifecycleAtoms>['activateSessionAtomFn'],
-) => {
+export const createImportSessionsAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
   /** Fetches the next page of each given target in parallel; one target's failure stays in that target. */
   const loadPages = (get: Atom.FnContext, targets: readonly AgentLaunchTarget[]) =>
     Effect.forEach(
@@ -141,7 +138,7 @@ export const createImportSessionsAtoms = (
         const { launchTarget: _launchTarget, ...historyEntry } = row satisfies UnifiedHistoryEntry;
         yield* trackSession(get.registry, launchTarget, historyEntry);
 
-        yield* get.setResult(activateSessionAtomFn, { launchTarget, sessionId });
+        yield* activateSession(get.registry, { launchTarget, sessionId });
         const session = get.registry.get(backendHarnessSnapshotAtom(launchTarget)).sessions[sessionId];
         if (session?.status !== 'active') {
           updateHarnessSnapshot(get.registry, launchTarget, current => dropSession(current, sessionId));

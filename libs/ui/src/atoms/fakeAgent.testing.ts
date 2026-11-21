@@ -76,6 +76,8 @@ export type FakeAgentOpts = FakeSetConfig & {
   readonly reports?: BackendConnectionReports;
   /** Runs inside `session/load` before it resolves (history replay). */
   readonly duringLoad?: Effect.Effect<void>;
+  /** Runs inside `session/close` before it resolves (the close still in flight). */
+  readonly duringClose?: Effect.Effect<void>;
   /** Runs inside `session/new` before it resolves (a user action mid-Bind). */
   readonly duringNew?: Effect.Effect<void>;
   /** Runs inside `session/prompt`. */
@@ -142,7 +144,9 @@ export const installFakeAgent = (
       agent: {
         'session/close': ({ sessionId }: { sessionId: string }) => {
           calls.push(`close:${sessionId}`);
-          return opts.failClose === true ? Effect.fail('close-fail') : Effect.void;
+          return (opts.duringClose ?? Effect.void).pipe(
+            Effect.andThen(opts.failClose === true ? Effect.fail('close-fail') : Effect.void),
+          );
         },
         'session/delete': ({ sessionId }: { sessionId: string }) => {
           calls.push(`delete:${sessionId}`);

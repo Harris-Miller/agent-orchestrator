@@ -12,7 +12,6 @@ import { isChildIn, reserveSlot, subagentLinksAtom } from './subagentLinkRegistr
 import { appendUserChatMessage } from '../host/sessionUpdateReducer.ts';
 
 import { backendDesiredStateAtom, backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import { createChatAtoms } from './chat.atoms.ts';
 import {
   advertise,
   CLAUDE,
@@ -26,7 +25,7 @@ import type { McpReceived } from './fakeAgent.testing.ts';
 import { BackendRestartFailed } from './harness.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
-import { runAtomFn } from './runAtomFn.ts';
+import { runAtomFn } from './runAtomFn.testing.ts';
 import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import {
   ensureVirtual,
@@ -52,7 +51,6 @@ const setup = Effect.fnUntraced(function* (
   } = {},
 ) {
   const runtime = createHostRuntime(mockHostLayer);
-  const { cancelPromptAtomFn } = createChatAtoms(runtime);
   const calls: string[] = [];
   // Stand-in for `restartBackendAwaitingUsable`: the real Stop reconcile, then (unless failing) usable again.
   const restartBackend = (launchTarget: AgentLaunchTarget, registry: AtomRegistry.AtomRegistry) =>
@@ -69,7 +67,7 @@ const setup = Effect.fnUntraced(function* (
       calls.push(`start:${launchTarget}`);
       advertise(registry, launchTarget, {});
     });
-  const atoms = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, restartBackend);
+  const atoms = createSessionLifecycleAtoms(runtime, restartBackend);
   const registry = yield* freshRegistry;
   yield* installFakeHub([]);
   const claudeReceived: McpReceived[] = [];

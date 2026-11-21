@@ -188,13 +188,13 @@ export const useStore = () => {
         ),
       );
     },
-    newOrchestration: () => {
+    newOrchestration: (id: string) => {
       update(current => ({
         ...current,
         orchestrations: [
           {
             brief: 'New plan, drafted with the Orchestrator.',
-            id: `new-${Date.now()}`,
+            id,
             milestones: [],
             orchestratorKey: 'new-orch',
             runState: 'drafting',
@@ -571,7 +571,13 @@ export const OrchestrationChat: FC<{
       ))}
     </Stack>
     <Box sx={{ flexShrink: 0, p: 2 }}>
-      <SteeringComposer api={api} orch={orch} session={session} />
+      {orch.runState === 'gated' && session.key === orch.orchestratorKey ? (
+        <Typography color="text.secondary" variant="caption">
+          Stopped at a milestone: answer with the gate feedback.
+        </Typography>
+      ) : (
+        <SteeringComposer api={api} orch={orch} session={session} />
+      )}
     </Box>
   </Box>
 );
@@ -773,7 +779,14 @@ export const OrchestrationList: FC<{
   <Box sx={{ bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
     <PanelTitle
       actions={
-        <Button onClick={api.actions.newOrchestration} size="small">
+        <Button
+          onClick={() => {
+            const id = `new-${Date.now()}`;
+            api.actions.newOrchestration(id);
+            onSelect(id);
+          }}
+          size="small"
+        >
           New
         </Button>
       }

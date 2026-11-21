@@ -35,7 +35,7 @@ const setup = Effect.fnUntraced(function* (
   enableProviders(registry, [CODEX]);
   yield* installFakeAgent(calls, options, CODEX);
   const runtime = createHostRuntime(mockHostLayer);
-  const atoms = createSessionLifecycleAtoms(runtime, createChatAtoms(runtime).cancelPromptAtomFn);
+  const atoms = createSessionLifecycleAtoms(runtime, createChatAtoms(runtime).cancelPromptAtomFn, () => Effect.void);
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [

@@ -26,7 +26,7 @@ const twoChildren = Effect.fnUntraced(function* () {
   const h = yield* setup({ duringPrompt: Deferred.await(release) }, { promptTexts: parentPrompts });
   const runtime = createHostRuntime(mockHostLayer);
   const chat = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn);
+  const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn, () => Effect.void);
   h.registry.mount(chat.cancelPromptAtomFn);
   h.registry.mount(lifecycle.deactivateSessionAtomFn);
   h.registry.mount(lifecycle.deleteSessionAtomFn);
@@ -144,7 +144,7 @@ describe('a finished child', () => {
       assert.strictEqual(parseSubagentResults(done.text)[0].body, 'done');
       const runtime = createHostRuntime(mockHostLayer);
       const chat = createChatAtoms(runtime);
-      const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn);
+      const lifecycle = createSessionLifecycleAtoms(runtime, chat.cancelPromptAtomFn, () => Effect.void);
       h.registry.mount(lifecycle.deactivateSessionAtomFn);
 
       yield* runAtomFn(h.registry, lifecycle.deactivateSessionAtomFn, { launchTarget: CODEX, sessionId: PARENT });

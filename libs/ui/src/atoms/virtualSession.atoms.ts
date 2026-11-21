@@ -855,6 +855,52 @@ export const select = Effect.fn('select')(function* (
   registry.set(selectedAtom, next);
 });
 
+/** Resolves once no Bind is in flight and no Materialize holds the Lifecycle lock. */
+export const awaitVirtualSettled = (registry: Registry) =>
+  Effect.callback<undefined>(resume => {
+    const settled = () =>
+      registry.get(virtualBindAtom).current === undefined && !registry.get(virtualMaterializingAtom);
+    if (settled()) {
+      resume(Effect.succeed(undefined));
+      return;
+    }
+    const unsubscribes: (() => void)[] = [];
+    const check = () => {
+      if (settled()) {
+        unsubscribes.forEach(unsubscribe => {
+          unsubscribe();
+        });
+        resume(Effect.succeed(undefined));
+      }
+    };
+    unsubscribes.push(registry.subscribe(virtualBindAtom, check), registry.subscribe(virtualMaterializingAtom, check));
+    return Effect.sync(() => {
+      unsubscribes.forEach(unsubscribe => {
+        unsubscribe();
+      });
+    });
+  });
+
+/**
+ * The Bound session was opened with the MCP servers of an earlier setting: release it and Bind a fresh one, keeping the
+ * blob (draft, cwd, Config). Waits for an in-flight Bind / Materialize first (its `session/new` may carry the old
+ * servers), then no-op while unbound; inert under the Lifecycle lock.
+ */
+export const rebindVirtual = Effect.fn('rebindVirtual')(function* (registry: Registry) {
+  yield* awaitVirtualSettled(registry);
+  if (registry.get(virtualSessionAtom)?.sessionId === undefined) {
+    return;
+  }
+  yield* mutateThenRebind(registry, {
+    mutate: () => {
+      const virtual = registry.get(virtualSessionAtom);
+      if (virtual !== null) {
+        setBlob(registry, { ...virtual, sessionId: undefined });
+      }
+    },
+  });
+});
+
 /** Workspace folder gone: drop the blob regardless of content (background Bound teardown) and clear Selected. */
 export const discardVirtual = Effect.fn('discardVirtual')(function* (registry: Registry) {
   yield* mutateThenRebind(registry, {
@@ -878,6 +924,27 @@ export const bindVirtualOnUsable = Effect.fn('bindVirtualOnUsable')(function* (
   }
   yield* requestBind(registry);
   yield* awaitCurrentBind(registry);
+});
+
+/**
+ * The Provider was restarted (it dropped the draft's launch target and Config): put them back and Bind a fresh session,
+ * unless the draft changed meanwhile (another draft, or a launch target chosen since).
+ */
+export const restoreVirtualAfterProviderRestart = Effect.fn('restoreVirtualAfterProviderRestart')(function* (
+  registry: Registry,
+  saved: Pick<VirtualSession, 'configValues' | 'id' | 'launchTarget'>,
+) {
+  const virtual = registry.get(virtualSessionAtom);
+  if (
+    virtual === null ||
+    virtual.id !== saved.id ||
+    virtual.launchTarget !== undefined ||
+    saved.launchTarget === undefined
+  ) {
+    return;
+  }
+  setBlob(registry, { ...virtual, configValues: saved.configValues, launchTarget: saved.launchTarget });
+  yield* bindVirtualOnUsable(registry, saved.launchTarget);
 });
 
 /**

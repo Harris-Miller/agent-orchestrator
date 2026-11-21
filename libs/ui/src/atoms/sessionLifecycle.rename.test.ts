@@ -26,7 +26,7 @@ const setup = Effect.fnUntraced(function* (
   });
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const { renameSessionAtomFn } = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const { renameSessionAtomFn } = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   const registry = yield* Effect.acquireRelease(Effect.sync(AtomRegistry.make), r =>
     Effect.sync(() => {
       r.dispose();

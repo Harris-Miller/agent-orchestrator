@@ -44,7 +44,7 @@ const installSlowAgent = () =>
 const setup = () => {
   const runtime = createHostRuntime(mockHostLayer);
   const { cancelPromptAtomFn } = createChatAtoms(runtime);
-  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn);
+  const lifecycle = createSessionLifecycleAtoms(runtime, cancelPromptAtomFn, () => Effect.void);
   const { ensureVirtualSessionAtomFn } = createVirtualSessionAtoms(runtime);
   const registry = AtomRegistry.make();
   registry.mount(lifecycle.archiveSessionAtomFn);

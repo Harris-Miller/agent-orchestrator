@@ -3,6 +3,7 @@ import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
+import { makeChangeTracker } from '../host/changeTracker.ts';
 import { runHubClient } from '../host/hubClient.ts';
 import { hubAvailability, onHubAvailability, setHubAvailability } from '../host/hubConnection.ts';
 import type { HubAvailability } from '../host/hubConnection.ts';
@@ -45,32 +46,45 @@ export const hubWireEntriesAtom = Atom.make((get): readonly HubWireEntry[] => {
   return hubWireEntries();
 }).pipe(Atom.keepAlive);
 
-export const createHubAtoms = (runtime: HostRuntimeBag['atomRuntime']) => ({
-  /**
-   * Mount for the app's lifetime (`HubMount`): while Experimental: App Orchestrated Agents is on, ensures a hub,
-   * connects, reconnects; degraded when it cannot. Turning the setting off closes the connection. The setting is awaited
-   * (as `connecting`) before deciding, so a session RPC at startup does not mistake "not loaded yet" for "off".
-   */
-  hubAtom: runtime.atom(get => {
-    if (!get(userSettingsLoadedAtom)) {
-      setHubAvailability({ _tag: 'connecting' });
-      return Effect.never;
-    }
-    if (!get(appOrchestratedAgentsEnabledAtom)) {
-      setHubAvailability({ _tag: 'unavailable', reason: HUB_DISABLED_REASON });
-      return Effect.void;
-    }
-    // Before any async work: `HubMount` mounts ahead of `AcpBackendsMount`, so by the time a backend can reach its first
-    // session RPC the hub reads `connecting` and that RPC waits for it (`awaitHub`) instead of finding it unavailable
-    // and starting the session without a credential for good.
-    setHubAvailability({ _tag: 'connecting' });
-    return hostHubClientOptions(get.registry).pipe(
-      Effect.flatMap(runHubClient),
-      Effect.catchTag('HubUnavailable', error =>
-        Effect.sync(() => {
-          setHubAvailability({ _tag: 'unavailable', reason: error.reason });
-        }),
-      ),
-    );
-  }),
-});
+export const createHubAtoms = (
+  runtime: HostRuntimeBag['atomRuntime'],
+  reactivateActiveSessionsAtomFn: Atom.Writable<unknown, undefined>,
+) => {
+  const enabledChange = makeChangeTracker();
+  return {
+    /**
+     * Mount for the app's lifetime (`HubMount`): while Experimental: App Orchestrated Agents is on, ensures a hub,
+     * connects, reconnects; degraded when it cannot. Turning the setting off closes the connection. The setting is awaited
+     * (as `connecting`) before deciding, so a session RPC at startup does not mistake "not loaded yet" for "off".
+     */
+    hubAtom: runtime.atom(get => {
+      if (!get(userSettingsLoadedAtom)) {
+        setHubAvailability({ _tag: 'connecting' });
+        return Effect.never;
+      }
+      const enabled = get(appOrchestratedAgentsEnabledAtom);
+      // A change after the first load (never the load itself): already-active sessions hold the old `mcpServers`, so
+      // reactivate them, once the availability below is set so their `session/load` / `session/resume` never reads a
+      // stale one. It runs on its own fiber, so this atom re-running does not interrupt it.
+      const changed = enabledChange.changed(enabled);
+      // On: set `connecting` before any async work: `HubMount` mounts ahead of `AcpBackendsMount`, so by the time a
+      // backend can reach its first session RPC the hub reads `connecting` and that RPC waits for it (`awaitHub`)
+      // instead of finding it unavailable and starting the session without a credential for good.
+      setHubAvailability(enabled ? { _tag: 'connecting' } : { _tag: 'unavailable', reason: HUB_DISABLED_REASON });
+      if (changed) {
+        get.set(reactivateActiveSessionsAtomFn, undefined);
+      }
+      if (!enabled) {
+        return Effect.void;
+      }
+      return hostHubClientOptions(get.registry).pipe(
+        Effect.flatMap(runHubClient),
+        Effect.catchTag('HubUnavailable', error =>
+          Effect.sync(() => {
+            setHubAvailability({ _tag: 'unavailable', reason: error.reason });
+          }),
+        ),
+      );
+    }),
+  };
+};

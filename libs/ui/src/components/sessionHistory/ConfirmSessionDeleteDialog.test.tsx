@@ -10,6 +10,7 @@ import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { connectFakeAgent } from '../../atoms/fakeAgent.testing.ts';
 import { updateHarnessSnapshot } from '../../atoms/harnessSnapshot.ts';
 import { mockHostLayer } from '../../atoms/mockHostLayer.testing.ts';
+import { NO_AGENT_CAPABILITIES } from '../../host/agentCapabilities.ts';
 import { createHostRuntime } from '../../createHostRuntime.ts';
 import { bindHostRuntime } from '../../hostRuntime.ts';
 
@@ -20,10 +21,11 @@ const target = { cwd: '/proj', launchTarget: 'codex-acp' as const, sessionId: 's
 
 afterEach(cleanup);
 
-const renderDialog = (onCancel: () => void, onClientError: (error: unknown) => void) => {
+const renderDialog = (onCancel: () => void, onClientError: (error: unknown) => void, advertisesDelete = true) => {
   const registry = AtomRegistry.make();
   updateHarnessSnapshot(registry, 'codex-acp', snapshot => ({
     ...snapshot,
+    agentCapabilities: { ...NO_AGENT_CAPABILITIES, sessionDelete: advertisesDelete },
     phase: 'ready',
     sessionHistory: [target],
   }));
@@ -34,6 +36,18 @@ const renderDialog = (onCancel: () => void, onClientError: (error: unknown) => v
   );
   return registry;
 };
+
+describe('ConfirmSessionDeleteDialog text', () => {
+  it('says the transcript stays on the agent when it cannot delete sessions', () => {
+    renderDialog(vi.fn(), vi.fn(), false).dispose();
+    assert.isNotNull(screen.queryByText(/transcript stays on the agent/));
+  });
+
+  it('says it is permanent when the agent deletes sessions', () => {
+    renderDialog(vi.fn(), vi.fn(), true).dispose();
+    assert.isNotNull(screen.queryByText(/This action cannot be undone/));
+  });
+});
 
 describe('ConfirmSessionDeleteDialog is optimistic', () => {
   it.effect('closes and drops the History entry without waiting for session/delete', () =>

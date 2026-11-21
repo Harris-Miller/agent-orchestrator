@@ -20,11 +20,11 @@ One root folder in the VS Code workspace. Distinct from OS snapshot `cwd` (exten
 _Avoid_: OS cwd, Host cwd, workspace root, project root (when you mean this VS Code root)
 
 **Workspace cwd**:
-The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for list/create/load (the user cannot pick another).
+The absolute path the sidebar treats as the project cwd — the first Workspace folder’s path when folders exist, else absent. vscode-only; not a desktop concept. When present, it is the Session cwd for create and Import (the user cannot pick another). The first time a session is tracked under it (a Virtual session materializes, or an Import is confirmed), it also becomes a Project if it is not one already.
 _Avoid_: Session cwd (when you mean this vscode binding), OS cwd, Host cwd
 
 **Session History**:
-The sidebar presentation of Session History (see desktop glossary), filtered to History entries for the current Workspace cwd, archived ones only when Show archived is on while browsing. Session History search includes archived entries regardless of that toggle. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings redirects from `/settings` to `/settings/general` and uses the shared responsive SettingsShell). Pinned entries for the Workspace cwd render once in a Pinned section above the rest (see desktop glossary). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
+The sidebar presentation of Session History (see desktop glossary), filtered to Tracked sessions for the current Workspace cwd whether or not that cwd is a Project (stopping tracking it on desktop does not hide them here), archived ones only when Show archived is on while browsing. An Import button in its header (hidden without a Workspace cwd) opens **Import** for the Workspace cwd. Session History search includes archived entries regardless of that toggle. On the vscode TanStack router this is the `/` shell when Selected is unset (Settings redirects from `/settings` to `/settings/general` and uses the shared responsive SettingsShell). Pinned entries for the Workspace cwd render once in a Pinned section above the rest (see desktop glossary). Create (+) ensures a Virtual session with Workspace cwd. With no Workspace cwd, History stays empty and no Virtual is created.
 _Avoid_: Roster, Session roster, nav rail, chats list
 
 **Chat**:

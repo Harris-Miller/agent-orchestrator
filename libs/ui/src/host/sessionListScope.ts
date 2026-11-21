@@ -3,7 +3,7 @@ import type { ListSessionsRequest } from '@libs/effect-acp';
 import { declaresSessionIndex } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 
-/** Which cwds Session History lists. Desktop lists every Project; vscode sets Cwd/Skip from the Workspace. */
+/** Which cwds Session History shows. Desktop shows every Project; vscode sets Cwd/Skip from the Workspace. */
 export type SessionListScope =
   | { readonly _tag: 'Cwd'; readonly cwd: string }
   | { readonly _tag: 'Projects' }
@@ -11,10 +11,10 @@ export type SessionListScope =
 
 export const projectsSessionListScope: SessionListScope = { _tag: 'Projects' };
 
-/** Only the desktop Projects scope reads `projects.json`; VS Code (Cwd/Skip) neither reads nor writes it. */
+/** Only the desktop Projects scope reads `projects.json`; VS Code (Cwd/Skip) never reads it, it only adds its Workspace cwd as a Project. */
 export const scopeReadsProjects = (scope: SessionListScope): boolean => scope._tag === 'Projects';
 
-/** The cwds one launch target lists under `scope`: one `session/list` per cwd. */
+/** The cwds Session History shows under `scope`. */
 export const listCwdsForScope = (scope: SessionListScope, projects: readonly string[]): readonly string[] => {
   switch (scope._tag) {
     case 'Cwd':

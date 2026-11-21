@@ -18,7 +18,6 @@ import type { createUserSettingsAtoms } from './userSettings/userSettings.atoms.
 import { makeHarnessEventFold } from './harnessEventFold.ts';
 import { backendHarnessSnapshotAtom, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { clearRpcWireLog } from './rpcWireLog.ts';
-import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { resetVirtualOnProviderStopped } from './virtualSession.atoms.ts';
 
 /** A Provider restart that did not reach `usable` again (stopped by the user, or timed out). */
@@ -98,10 +97,7 @@ export const createHarnessAtoms = (
           registry.set(setModelPickerPrefsAtom, { launchTarget, prefs });
         },
       });
-      lifecycle.start(
-        launchTarget,
-        runBackendHarness(launchTarget, fold, () => registry.get(listedCwdsAtom)),
-      );
+      lifecycle.start(launchTarget, runBackendHarness(launchTarget, fold));
     }).pipe(Atom.withLabel(`backendHarness:${launchTarget}`), Atom.keepAlive),
   );
 

@@ -23,6 +23,7 @@
  *
  * Review rule: write only from a value read in the same synchronous step, never from one read before a wait.
  */
+import type { HostServices } from '@lib/context-services';
 import { Deferred, Effect, Exit, Redacted } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -41,7 +42,7 @@ import {
 } from '../host/configOptionIndexUi.ts';
 import { preserveConfigValuesOnModelChange } from '../host/configProbe.ts';
 import type { ConfigOptionIndex, ConfigOptionValues } from '../host/configProbe.ts';
-import { bindSession, dropSession, dropSessionIfPresent, upsertIntoSnapshot } from '../host/harnessStateTransitions.ts';
+import { bindSession, dropSession, dropSessionIfPresent } from '../host/harnessStateTransitions.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { closeSession, createSession, deleteSession } from '../host/sessionRpc.ts';
 
@@ -58,6 +59,7 @@ import type { Selected } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
+import { trackSession } from './trackSession.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -640,7 +642,7 @@ const materialize = Effect.fn('materialize')(
 
     const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
     if (historyEntry !== undefined) {
-      updateHarnessSnapshot(registry, launchTarget, current => upsertIntoSnapshot(current, { historyEntry }));
+      yield* trackSession(registry, launchTarget, historyEntry);
     }
 
     registry.set(lastCreateDefaultsAtom, { configValues, launchTarget });
@@ -794,7 +796,7 @@ export const setVirtualConfigOption = Effect.fn('setVirtualConfigOption')(functi
 export const sendVirtual = Effect.fn('sendVirtual')(function* <E, R>(
   registry: Registry,
   prompt: (materialized: MaterializedVirtual) => Effect.Effect<unknown, E, R>,
-): Effect.fn.Return<void, E | ProviderUnavailable, R> {
+): Effect.fn.Return<void, E | ProviderUnavailable, R | HostServices> {
   if (
     registry.get(virtualMaterializingAtom) ||
     registry.get(virtualSendPendingAtom) ||

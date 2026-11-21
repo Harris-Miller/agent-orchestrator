@@ -1,4 +1,4 @@
-import { useAtomSet } from '@effect/atom-react';
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -8,6 +8,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Typography from '@mui/material/Typography';
 import type { FC } from 'react';
 
+import { backendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
 import { deleteSessionAtomFn } from '../../atoms/boundHarnessAtoms.ts';
 import type { UnifiedHistoryEntry } from '../../host/acpSessionBootstrap.ts';
 import { FONT_FAMILY_MONO } from '../../theme/tokens.ts';
@@ -22,17 +23,21 @@ export const ConfirmSessionDeleteDialog: FC<{
   readonly target: undefined | UnifiedHistoryEntry;
 }> = ({ onBeforeDelete, onCancel, onClientError = noopClientError, target }) => {
   const deleteSession = useAtomSet(deleteSessionAtomFn, { mode: 'promise' });
+  const agentDeletes = useAtomValue(backendHarnessSnapshotAtom(target?.launchTarget ?? 'codex-acp')).agentCapabilities
+    .sessionDelete;
 
   return (
     <Dialog onClose={onCancel} open={target !== undefined}>
       <DialogTitle>Delete session?</DialogTitle>
       <DialogContent>
         <DialogContentText>
-          This will permanently delete session{' '}
+          This will {agentDeletes ? 'permanently delete' : 'remove'} session{' '}
           <Typography component="span" sx={{ fontFamily: FONT_FAMILY_MONO }}>
             {target !== undefined ? truncateSessionId(target.sessionId) : ''}
           </Typography>
-          . This action cannot be undone.
+          {agentDeletes
+            ? '. This action cannot be undone.'
+            : ' from this app. The agent cannot delete sessions, so its transcript stays on the agent.'}
         </DialogContentText>
       </DialogContent>
       <DialogActions>

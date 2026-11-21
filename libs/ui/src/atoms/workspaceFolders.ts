@@ -9,14 +9,11 @@ import { MOUNTED_AGENT_LAUNCH_TARGETS } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionListScopeFromPaths } from '../host/sessionListScope.ts';
 import { backendHarnessSnapshotAtom, selectedAtom } from './backendState.atoms.ts';
-import {
-  deactivateSessionAtomFn,
-  ensureVirtualSessionAtomFn,
-  refreshAllSessionHistoriesAtomFn,
-} from './boundHarnessAtoms.ts';
+import { deactivateSessionAtomFn, ensureVirtualSessionAtomFn } from './boundHarnessAtoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { runAtomFn } from './runAtomFn.ts';
-import { discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
+import { hydrateSessionCache } from './sessionCache.ts';
+import { clearSelectedIfMissing, discardVirtual, ensureVirtual } from './virtualSession.atoms.ts';
 import { sessionHistorySearchAtom } from './sessionHistorySearch.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { isChild } from './subagentLinkRegistry.ts';
@@ -77,7 +74,7 @@ export const bootWorkspaceFolders = Effect.fn('bootWorkspaceFolders')(function* 
  * - Same first folder: store paths only.
  * - First folder changed, no ready backend: apply paths and re-point Virtual.
  * - First folder changed, a backend ready: cancel prompts and deactivate sessions on the previous cwd,
- *   strip pendings, clear Selected, apply paths, re-point Virtual, refresh histories.
+ *   strip pendings, clear Selected, apply paths, re-point Virtual, hydrate the new Workspace cwd's Tracked sessions.
  */
 export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersChanged')(function* (
   registry: AtomRegistry.AtomRegistry,
@@ -114,5 +111,12 @@ export const handleWorkspaceFoldersChanged = Effect.fn('handleWorkspaceFoldersCh
   stripPendingOnMatched(registry, matches);
   clearSelectedIfMatched(registry, matches);
   yield* repointVirtual(registry, nextSessionCwd);
-  yield* runAtomFn(registry, refreshAllSessionHistoriesAtomFn, undefined).pipe(Effect.ignore);
+  if (nextSessionCwd !== undefined) {
+    yield* Effect.forEach(
+      MOUNTED_AGENT_LAUNCH_TARGETS,
+      launchTarget => hydrateSessionCache(registry, launchTarget, [nextSessionCwd]),
+      { discard: true },
+    );
+  }
+  clearSelectedIfMissing(registry);
 });

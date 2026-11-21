@@ -1,20 +1,20 @@
 export {
-  capSessionIndexRows,
-  readSessionIndex,
-  removeSessionIndexCwds,
-  SESSION_INDEX_ROWS_PER_CWD,
-  sessionIndexPath,
-  sessionIndexRows,
-  updateSessionIndex,
-} from './sessionIndex.ts';
+  readTrackedSessions,
+  removeTrackedSession,
+  TrackedSessionsMalformed,
+  trackedSessionRows,
+  trackedSessionsPath,
+  updateTrackedSessions,
+  upsertTrackedSessions,
+} from './trackedSessions.ts';
 export {
-  emptySessionIndex,
-  SessionIndexDocumentJsonString,
-  SessionIndexDocumentSchema,
-  type SessionIndexDocument,
-  SessionIndexEntrySchema,
-  type SessionIndexEntry,
-} from './SessionIndexDocument.ts';
+  emptyTrackedSessions,
+  TrackedSessionRecordSchema,
+  type TrackedSessionRecord,
+  TrackedSessionsDocumentJsonString,
+  TrackedSessionsDocumentSchema,
+  type TrackedSessionsDocument,
+} from './TrackedSessionsDocument.ts';
 export {
   configOptionIndexCachePath,
   readConfigOptionIndexCache,

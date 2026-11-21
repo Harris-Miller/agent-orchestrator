@@ -9,13 +9,13 @@ import {
   ensureVirtualSessionAtomFn,
   groupAndSortSessionsForNav,
   IconTooltipButton,
+  ImportSessionsPanel,
   listedSessionHistoryAtom,
   LucideMuiIcon,
   navSessionGroupStableKey,
   PanelHeader,
   pinnedEntriesAtom,
   projectsAtom,
-  refreshAllSessionHistoriesAtomFn,
   selectedSessionIdAtom,
   sessionEntryKey,
   SessionHistoryRow,
@@ -36,7 +36,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useNavigate } from '@tanstack/react-router';
-import { FolderPlus, PanelLeftClose, Pin, RotateCw, Settings, SquarePen } from 'lucide-react';
+import { FolderPlus, PanelLeftClose, Pin, Settings, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
 
@@ -70,10 +70,11 @@ export const WorkbenchNavRail: FC<{
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const projects = useAtomValue(projectsAtom);
-  const refreshAllSessionHistories = useAtomSet(refreshAllSessionHistoriesAtomFn, { mode: 'promise' });
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [addingProject, setAddingProject] = useState(false);
+  /** The Project cwd whose Import replaces the rail body; undefined while Session History shows. */
+  const [importing, setImporting] = useState<{ readonly cwd: string } | undefined>();
   const { clearDeleteTarget, deleteTarget, requestDelete } = useSessionDeleteRequest(onClientError);
   const navigate = useNavigate();
   const search = useSessionHistorySearch({
@@ -142,13 +143,6 @@ export const WorkbenchNavRail: FC<{
             <>
               <BulkSelectToggle active={bulk.active} disabled={search.active} onToggle={bulk.toggleMode} />
               <ShowArchivedToggle />
-              <IconTooltipButton
-                icon={RotateCw}
-                label="Reload sessions"
-                onClick={() => {
-                  refreshAllSessionHistories(undefined).catch(() => undefined);
-                }}
-              />
             </>
           }
           closeAriaLabel="Close session history panel"
@@ -178,98 +172,115 @@ export const WorkbenchNavRail: FC<{
             </Typography>
           }
         />
-        <BulkActionBar onClientError={onClientError} selection={bulk} />
-        <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
-          <ListItemButton
-            onClick={() => {
-              ensureVirtualSession(undefined).catch(() => undefined);
-            }}
-            sx={{ borderRadius: 1, py: 0.75 }}
-          >
-            <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
-              <LucideMuiIcon fontSize="small" icon={SquarePen} />
-            </ListItemIcon>
-            <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
-          </ListItemButton>
-          <ListItemButton
-            onClick={() => {
-              setAddingProject(true);
-            }}
-            sx={{ borderRadius: 1, py: 0.75 }}
-          >
-            <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
-              <LucideMuiIcon fontSize="small" icon={FolderPlus} />
-            </ListItemIcon>
-            <ListItemText primary="Add Project" slotProps={{ primary: { variant: 'body2' } }} />
-          </ListItemButton>
-        </Box>
-        <Box sx={{ pl: 2 }}>{search.field}</Box>
-        <Box sx={{ flex: 1, minHeight: 0, overflow: search.active ? 'hidden' : 'auto' }}>
-          {search.active ? (
-            <Box sx={{ pl: 2, height: '100%', minHeight: 0 }}>{search.results}</Box>
-          ) : navGroups.length === 0 && pinnedEntries.length === 0 ? (
-            <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
-              No Projects yet. Add a Project to see its sessions.
-            </Typography>
-          ) : (
-            <Box sx={{ py: 0.5 }}>
-              {pinnedEntries.length > 0 ? (
-                <Accordion
-                  {...sectionExpansion(PINNED_SECTION_KEY)}
-                  key={PINNED_SECTION_KEY}
-                  sx={{ bgcolor: 'transparent', borderBottom: 0 }}
-                >
-                  <AccordionSummary
-                    sx={{
-                      '&:hover': { bgcolor: 'action.hover' },
-                      '& .MuiAccordionSummary-content': { gap: 0.75, m: 0, width: '100%' },
-                      fontWeight: 600,
-                      minHeight: 0,
-                      px: 2,
-                      py: 1,
-                    }}
-                  >
-                    <LucideMuiIcon icon={Pin} sx={{ flexShrink: 0, fontSize: '1rem' }} />
-                    <Box component="span" sx={{ flex: 1, minWidth: 0 }}>
-                      Pinned
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
-                    {pinnedEntries.map(entry => (
-                      <SessionHistoryRow
-                        caption={pinnedCaption(entry)}
-                        entry={entry}
-                        key={sessionEntryKey(entry)}
+        {importing === undefined ? (
+          <>
+            <BulkActionBar onClientError={onClientError} selection={bulk} />
+            <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
+              <ListItemButton
+                onClick={() => {
+                  ensureVirtualSession(undefined).catch(() => undefined);
+                }}
+                sx={{ borderRadius: 1, py: 0.75 }}
+              >
+                <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+                  <LucideMuiIcon fontSize="small" icon={SquarePen} />
+                </ListItemIcon>
+                <ListItemText primary="New Session" slotProps={{ primary: { variant: 'body2' } }} />
+              </ListItemButton>
+              <ListItemButton
+                onClick={() => {
+                  setAddingProject(true);
+                }}
+                sx={{ borderRadius: 1, py: 0.75 }}
+              >
+                <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+                  <LucideMuiIcon fontSize="small" icon={FolderPlus} />
+                </ListItemIcon>
+                <ListItemText primary="Add Project" slotProps={{ primary: { variant: 'body2' } }} />
+              </ListItemButton>
+            </Box>
+            <Box sx={{ pl: 2 }}>{search.field}</Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: search.active ? 'hidden' : 'auto' }}>
+              {search.active ? (
+                <Box sx={{ pl: 2, height: '100%', minHeight: 0 }}>{search.results}</Box>
+              ) : navGroups.length === 0 && pinnedEntries.length === 0 ? (
+                <Typography color="text.secondary" sx={{ p: 2 }} variant="body2">
+                  No Projects yet. Add a Project to see its sessions.
+                </Typography>
+              ) : (
+                <Box sx={{ py: 0.5 }}>
+                  {pinnedEntries.length > 0 ? (
+                    <Accordion
+                      {...sectionExpansion(PINNED_SECTION_KEY)}
+                      key={PINNED_SECTION_KEY}
+                      sx={{ bgcolor: 'transparent', borderBottom: 0 }}
+                    >
+                      <AccordionSummary
+                        sx={{
+                          '&:hover': { bgcolor: 'action.hover' },
+                          '& .MuiAccordionSummary-content': { gap: 0.75, m: 0, width: '100%' },
+                          fontWeight: 600,
+                          minHeight: 0,
+                          px: 2,
+                          py: 1,
+                        }}
+                      >
+                        <LucideMuiIcon icon={Pin} sx={{ flexShrink: 0, fontSize: '1rem' }} />
+                        <Box component="span" sx={{ flex: 1, minWidth: 0 }}>
+                          Pinned
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ pl: 2, pr: 0, py: 0 }}>
+                        {pinnedEntries.map(entry => (
+                          <SessionHistoryRow
+                            caption={pinnedCaption(entry)}
+                            entry={entry}
+                            key={sessionEntryKey(entry)}
+                            onClientError={onClientError}
+                            onDeleteRequest={requestDelete}
+                            selected={selectedSessionId === entry.sessionId}
+                            selection={rowSelection(entry)}
+                          />
+                        ))}
+                      </AccordionDetails>
+                    </Accordion>
+                  ) : null}
+                  {navGroups.map(group => {
+                    const key = navSessionGroupStableKey(group);
+                    return (
+                      <ProjectGroup
+                        expansion={sectionExpansion(key)}
+                        group={group}
+                        key={key}
                         onClientError={onClientError}
                         onDeleteRequest={requestDelete}
-                        selected={selectedSessionId === entry.sessionId}
-                        selection={rowSelection(entry)}
+                        onImport={cwd => {
+                          setImporting({ cwd });
+                        }}
+                        onToggleShowMore={() => {
+                          toggleShowMoreBox(key);
+                        }}
+                        rowSelection={rowSelection}
+                        selectedSessionId={selectedSessionId}
+                        showAllRows={showMoreExpandedGroups.has(key)}
                       />
-                    ))}
-                  </AccordionDetails>
-                </Accordion>
-              ) : null}
-              {navGroups.map(group => {
-                const key = navSessionGroupStableKey(group);
-                return (
-                  <ProjectGroup
-                    expansion={sectionExpansion(key)}
-                    group={group}
-                    key={key}
-                    onClientError={onClientError}
-                    onDeleteRequest={requestDelete}
-                    onToggleShowMore={() => {
-                      toggleShowMoreBox(key);
-                    }}
-                    rowSelection={rowSelection}
-                    selectedSessionId={selectedSessionId}
-                    showAllRows={showMoreExpandedGroups.has(key)}
-                  />
-                );
-              })}
+                    );
+                  })}
+                </Box>
+              )}
             </Box>
-          )}
-        </Box>
+          </>
+        ) : (
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <ImportSessionsPanel
+              cwd={importing.cwd}
+              onClientError={onClientError}
+              onDone={() => {
+                setImporting(undefined);
+              }}
+            />
+          </Box>
+        )}
         <Divider />
         <Box sx={{ flexShrink: 0, p: 1 }}>
           <IconTooltipButton

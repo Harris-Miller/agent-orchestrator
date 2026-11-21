@@ -29,10 +29,6 @@ import { runConfigProbe } from './configProbe.ts';
 import type { MissingLaunchPrerequisite } from './findExecutableOnPath.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
 import type { VendorNotAuthenticated } from './vendorCliAuth.ts';
-import { listSessionPages } from './listSessionPages.ts';
-import { listSessionsPayload } from './sessionListScope.ts';
-import { runSessionLists } from './sessionListRun.ts';
-import type { SessionListRun } from './sessionListRun.ts';
 import type { BackendConnectionReports } from './sessionRpc.ts';
 import { registerBackendConnection, setBackendMcpHttp } from './sessionRpc.ts';
 
@@ -62,8 +58,6 @@ export type BackendHarnessCallbacks = BackendConnectionReports & {
   ) => void;
   readonly onPhase: (phase: AcpBootstrapPhase, failure?: HarnessFailure) => void;
   readonly onRpcMessage: (direction: RpcWireEntry['direction'], message: unknown) => void;
-  /** One `session/list` for `cwd` is about to run; the returned run folds its pages (state: loading). */
-  readonly onSessionListBegin: (cwd: string) => SessionListRun;
   readonly onSessionUpdate: (sessionId: string, update: unknown) => void;
 };
 
@@ -89,14 +83,9 @@ export const requestAntigravitySignIn = Effect.fn('requestAntigravitySignIn')(fu
 
 const MAX_CONNECT_ATTEMPTS = 3;
 
-/** Connect + initialize + optional Sign in + Config probe when the index cache is missing (`usable`), then `ready`; Project lists run in the background. */
+/** Connect + initialize + optional Sign in + Config probe when the index cache is missing (`usable`), then `ready`. Session History is never listed here: `session/list` runs only from Import. */
 const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    handlers: BackendHarnessCallbacks,
-    resolveListCwds: () => readonly string[],
-    onReady: () => void,
-  ) {
+  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks, onReady: () => void) {
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
     });
@@ -161,16 +150,6 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
     handlers.onPhase('usable');
     yield* Effect.logInfo('ACP harness usable', launchTarget);
 
-    // One `session/list` per Project cwd runs in the background of `usable`: `ready` never waits for them and a
-    // list failure never fails the harness (it marks that list incomplete).
-    const lists = resolveListCwds().map(cwd => ({ cwd, run: handlers.onSessionListBegin(cwd) }));
-    if (lists.length > 0) {
-      yield* Effect.forkScoped(
-        runSessionLists(lists, (cwd, onPage) =>
-          listSessionPages(agent, listSessionsPayload(launchTarget, cwd), onPage),
-        ),
-      );
-    }
     handlers.onPhase('ready');
     yield* Effect.logInfo('ACP harness ready', launchTarget);
     onReady();
@@ -183,18 +162,14 @@ const bootstrapOnce = Effect.fn('bootstrapOnce', { root: true })(
  * Process lifetime is owned by `BackendLifecycle`; interruption kills the process tree and awaits exit.
  */
 export const runBackendHarness = Effect.fnUntraced(
-  function* (
-    launchTarget: AgentLaunchTarget,
-    handlers: BackendHarnessCallbacks,
-    resolveListCwds: () => readonly string[],
-  ) {
+  function* (launchTarget: AgentLaunchTarget, handlers: BackendHarnessCallbacks) {
     const consecutiveFailures = { count: 0 };
     yield* Effect.logInfo('ACP harness started', launchTarget);
 
     // Runs until interrupted: `BackendLifecycle.stop` interrupts this fiber and awaits the scope finalizers.
     while (true) {
       const exit = yield* Effect.exit(
-        bootstrapOnce(launchTarget, handlers, resolveListCwds, () => {
+        bootstrapOnce(launchTarget, handlers, () => {
           consecutiveFailures.count = 0;
         }).pipe(
           Effect.andThen(Effect.never),

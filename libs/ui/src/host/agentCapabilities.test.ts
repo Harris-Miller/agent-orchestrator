@@ -9,6 +9,7 @@ const ALL: AgentCapabilities = {
   promptImage: true,
   sessionArchive: true,
   sessionClose: true,
+  sessionDelete: true,
   sessionFork: true,
   sessionRename: true,
   sessionResume: true,
@@ -22,7 +23,7 @@ const claudeWithAir = {
   },
   agentCapabilities: {
     promptCapabilities: { embeddedContext: true, image: true },
-    sessionCapabilities: { close: {}, fork: {}, list: {}, resume: {} },
+    sessionCapabilities: { close: {}, delete: {}, fork: {}, list: {}, resume: {} },
   },
   protocolVersion: 1,
 };
@@ -30,7 +31,7 @@ const claudeWithAir = {
 const codexWithoutAir = {
   agentCapabilities: {
     promptCapabilities: { embeddedContext: true, image: true },
-    sessionCapabilities: { close: {}, fork: {}, list: {}, resume: {} },
+    sessionCapabilities: { close: {}, delete: {}, fork: {}, list: {}, resume: {} },
   },
   protocolVersion: 1,
 };

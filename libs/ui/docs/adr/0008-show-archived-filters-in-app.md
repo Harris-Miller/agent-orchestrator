@@ -1,5 +1,7 @@
 # Show archived filters cached Session History, not `session/list`
 
+_Amended by [ADR 0014](./0014-session-list-only-from-import.md): the pin sweep is gone and `session/list` runs only from Import; the filter still applies in the app._
+
 Every `session/list` request keeps sending the AIR filter `_meta.jetbrains.air.list.archived: "all"`. Show archived is applied in the app, as a predicate over the cached Session History, rather than being sent as the filter value. #143 originally asked for the opposite: send `"unarchived"`, `"archived"` or `"all"` from a User setting.
 
 We filter in the app for three reasons:

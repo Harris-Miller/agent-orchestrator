@@ -1,8 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Effect } from 'effect';
+import { upsertTrackedSessions } from '@lib/hoa-home';
+import { mapFsTestServices } from '@lib/hoa-home/testing';
+import type { MapFsEntry } from '@lib/hoa-home/testing';
+import { Effect, Layer } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
+import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { emptySessionTranscript } from '../host/sessionUpdateReducer.ts';
 import { bindHostRuntime } from '../hostRuntime.ts';
 
@@ -55,7 +59,7 @@ describe('workspace folder policy', () => {
         },
       }));
 
-      yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']);
+      yield* handleWorkspaceFoldersChanged(registry, ['/workspace', '/new']).pipe(Effect.provide(mockHostLayer));
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), ['/workspace', '/new']);
       assert.strictEqual(registry.get(backendHarnessSnapshotAtom('codex-acp')).sessions.session.status, 'active');
@@ -68,8 +72,30 @@ describe('workspace folder policy', () => {
       const registry = AtomRegistry.make();
       registry.set(workspaceFolderPathsAtom, ['/workspace']);
       registry.set(sessionHistorySearchAtom, { scope: '/workspace', query: 'old search' });
-      yield* handleWorkspaceFoldersChanged(registry, ['/new']);
+      yield* handleWorkspaceFoldersChanged(registry, ['/new']).pipe(Effect.provide(mockHostLayer));
       assert.deepStrictEqual(registry.get(sessionHistorySearchAtom), { scope: '/new', query: '' });
+      registry.dispose();
+    }),
+  );
+
+  it.effect('a changed first folder with a ready backend hydrates the new Workspace cwd from the tracked store', () =>
+    Effect.gen(function* () {
+      const store = new Map<string, MapFsEntry>();
+      const layer = Layer.mergeAll(mockHostLayer, mapFsTestServices(store));
+      const registry = AtomRegistry.make();
+      registry.set(workspaceFolderPathsAtom, ['/old']);
+      updateHarnessSnapshot(registry, 'codex-acp', current => ({ ...current, phase: 'ready' }));
+      yield* upsertTrackedSessions(toLaunchTarget('codex-acp'), [
+        { cwd: '/new', sessionId: 'tracked' },
+        { cwd: '/elsewhere', sessionId: 'other' },
+      ]).pipe(Effect.provide(layer));
+
+      yield* handleWorkspaceFoldersChanged(registry, ['/new']).pipe(Effect.provide(layer));
+
+      assert.deepStrictEqual(
+        registry.get(backendHarnessSnapshotAtom('codex-acp')).sessionHistory.map(entry => entry.sessionId),
+        ['tracked'],
+      );
       registry.dispose();
     }),
   );
@@ -80,7 +106,7 @@ describe('workspace folder policy', () => {
       registry.set(workspaceFolderPathsAtom, ['/workspace']);
       registry.set(selectedAtom, { _tag: 'Virtual' });
 
-      yield* handleWorkspaceFoldersChanged(registry, []);
+      yield* handleWorkspaceFoldersChanged(registry, []).pipe(Effect.provide(mockHostLayer));
 
       assert.deepStrictEqual(registry.get(workspaceFolderPathsAtom), []);
       assert.isUndefined(registry.get(selectedAtom));

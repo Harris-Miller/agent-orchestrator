@@ -1,48 +1,38 @@
 /**
- * Session cache: the persisted session index (`session-index.json` per launch target), owned in one place. Hydrates
- * cached rows into the Backend harness snapshot, persists listed cwds' rows and pins, and drops a cwd on Stop tracking.
- * Every write for a launch target (persist or remove) runs through that target's one queue, so a persist computed before
- * Stop tracking can never resurrect the removed cwd.
+ * Tracked sessions store, owned in one place: the persisted `tracked-sessions.json` per launch target. Hydrates the
+ * records of the cwds in scope into the Backend harness snapshot, upserts every changed Session History row, and removes a
+ * record only on an explicit {@link untrackSession}. The persister never deletes: Stop tracking a Project drops rows from
+ * memory only, so its records stay dormant in the file until the Project is added again.
+ * Every write for a launch target runs through that target's one queue, so an upsert computed before an untrack can never
+ * resurrect the removed record.
  *
- * The index is a rebuildable cache: an undecodable file reads empty and the next write overwrites it. Projects and pins
- * keep their never-overwrite-malformed policy.
+ * Unlike pins and Projects, a malformed file is never overwritten either: persistence does not start for it.
  */
-import { readSessionIndex, removeSessionIndexCwds, sessionIndexRows, updateSessionIndex } from '@lib/hoa-home';
-import type { SessionIndexEntry } from '@lib/hoa-home';
+import { readTrackedSessions, removeTrackedSession, trackedSessionRows, upsertTrackedSessions } from '@lib/hoa-home';
+import type { TrackedSessionRecord } from '@lib/hoa-home';
 import type { HostServices } from '@lib/context-services';
 import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { HistoryEntry } from '../host/acpSessionBootstrap.ts';
-import { MOUNTED_AGENT_LAUNCH_TARGETS, toLaunchTarget } from '../host/agentLaunchTarget.ts';
+import { toLaunchTarget } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { markHistoryUnavailable, replaceSessionHistory } from '../host/harnessStateTransitions.ts';
+import { replaceSessionHistory } from '../host/harnessStateTransitions.ts';
 
 import { backendHarnessSnapshotAtom } from './backendState.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
-import { pinnedSessionsAtom } from './pinnedSessions.atoms.ts';
-import { listKey, sessionListStatesAtom } from './sessionLists.atoms.ts';
 
-/** Rows of Session History grouped under each listed cwd (every listed cwd gets a key, so an emptied one is cleared). */
-export const indexRowsByCwd = (
-  history: readonly HistoryEntry[],
-  listedCwds: readonly string[],
-): Record<string, readonly SessionIndexEntry[]> => {
-  const byCwd: Record<string, SessionIndexEntry[]> = Object.fromEntries(listedCwds.map(cwd => [cwd, []]));
-  for (const { unavailable: _unavailable, ...entry } of history) {
-    byCwd[entry.cwd]?.push(entry);
-  }
-  return byCwd;
-};
+/** A Session History row as stored: the live-only `unavailable` marker is not part of the record. */
+export const trackedRecordOf = ({ unavailable: _unavailable, ...record }: HistoryEntry): TrackedSessionRecord => record;
 
-type TargetCache = { writes: Promise<void>; lastWritten: string };
+type TargetCache = { writes: Promise<void>; lastWritten: Map<string, string> };
 
 const caches = new Map<AgentLaunchTarget, TargetCache>();
 
 const cacheOf = (launchTarget: AgentLaunchTarget): TargetCache => {
   let cache = caches.get(launchTarget);
   if (cache === undefined) {
-    cache = { lastWritten: '', writes: Promise.resolve() };
+    cache = { lastWritten: new Map(), writes: Promise.resolve() };
     caches.set(launchTarget, cache);
   }
   return cache;
@@ -57,7 +47,7 @@ const enqueue = (launchTarget: AgentLaunchTarget, work: (cache: TargetCache) => 
   const next = cache.writes
     .then(() => work(cache))
     .catch((cause: unknown) => {
-      Effect.runFork(Effect.logWarning('session cache write failed', launchTarget, cause));
+      Effect.runFork(Effect.logWarning('tracked sessions write failed', launchTarget, cause));
     });
   cache.writes = next;
   return next;
@@ -70,65 +60,68 @@ export const settleSessionCacheWrites = async (): Promise<void> => {
   if ([...caches.values()].some((cache, i) => cache.writes !== pending[i])) await settleSessionCacheWrites();
 };
 
+/** Forgets what was last written for a launch target: a fresh startup hydration compares against the file again. */
+export const resetSessionCacheWrites = (launchTarget: AgentLaunchTarget): void => {
+  cacheOf(launchTarget).lastWritten.clear();
+};
+
 /**
- * Merges the cached rows of `cwds` into the launch target's snapshot as unavailable rows. Rows already in the snapshot
- * win; cached rows are only added. Returns whether the file was read (an IO failure is logged, not thrown).
+ * Merges the Tracked sessions of `cwds` into the launch target's snapshot. Rows already in the snapshot win; stored
+ * records are only added. Returns whether the file was read (a malformed file or IO failure is logged, not thrown).
  */
 export const hydrateSessionCache = (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
   cwds: readonly string[],
 ): Effect.Effect<boolean, never, HostServices> =>
-  readSessionIndex(toLaunchTarget(launchTarget)).pipe(
+  readTrackedSessions(toLaunchTarget(launchTarget)).pipe(
     Effect.map(document => {
-      const cached = markHistoryUnavailable(sessionIndexRows(document, new Set(cwds)));
+      const stored = trackedSessionRows(document, new Set(cwds));
+      const { lastWritten } = cacheOf(launchTarget);
+      for (const record of stored) lastWritten.set(record.sessionId, JSON.stringify(record));
       updateHarnessSnapshot(registry, launchTarget, current => {
         const present = new Set(current.sessionHistory.map(entry => entry.sessionId));
         return replaceSessionHistory(current, [
           ...current.sessionHistory,
-          ...cached.filter(entry => !present.has(entry.sessionId)),
+          ...stored.filter(record => !present.has(record.sessionId)),
         ]);
       });
       return true;
     }),
     Effect.catchCause(cause =>
-      Effect.as(Effect.logWarning('session index hydrate failed', launchTarget, cause), false),
+      Effect.as(Effect.logWarning('tracked sessions hydrate failed', launchTarget, cause), false),
     ),
   );
 
 /**
- * Persists a launch target's Session History rows (for `listedCwds()` only) and pins whenever its snapshot changes.
- * Writes are queued and skipped when unchanged; cwds this host does not list are never rewritten. Returns the unsubscribe.
+ * Upserts a launch target's Session History rows whenever its snapshot changes. Writes are queued and skipped for rows
+ * unchanged since they were last written; nothing is ever deleted. Returns the unsubscribe.
  */
 export const startSessionCachePersistence = Effect.fn('startSessionCachePersistence')(function* (
   registry: AtomRegistry.AtomRegistry,
   launchTarget: AgentLaunchTarget,
-  listedCwds: () => readonly string[],
 ) {
   const run = Effect.runPromiseWith(yield* Effect.context<HostServices>());
   const target = toLaunchTarget(launchTarget);
-  cacheOf(launchTarget).lastWritten = '';
   return registry.subscribe(backendHarnessSnapshotAtom(launchTarget), () => {
     enqueue(launchTarget, cache => {
-      const current = registry.get(backendHarnessSnapshotAtom(launchTarget));
-      // A listed cwd with no rows and no complete list yet keeps its cached entry (it may hold rows not hydrated yet).
-      const states = registry.get(sessionListStatesAtom);
-      const writable = listedCwds().filter(
-        cwd =>
-          states.get(listKey(launchTarget, cwd)) === 'complete' || current.sessionHistory.some(row => row.cwd === cwd),
-      );
-      const rowsByCwd = indexRowsByCwd(current.sessionHistory, writable);
-      const pinnedIds = new Set(registry.get(pinnedSessionsAtom(launchTarget)).map(pin => pin.sessionId));
-      const nextJson = JSON.stringify([rowsByCwd, [...pinnedIds]]);
-      if (nextJson === cache.lastWritten) return Promise.resolve();
+      const changed = registry
+        .get(backendHarnessSnapshotAtom(launchTarget))
+        .sessionHistory.map(trackedRecordOf)
+        .map(record => ({ json: JSON.stringify(record), record }))
+        .filter(({ json, record }) => cache.lastWritten.get(record.sessionId) !== json);
+      if (changed.length === 0) return Promise.resolve();
       return run(
-        updateSessionIndex(target, rowsByCwd, pinnedIds).pipe(
+        upsertTrackedSessions(
+          target,
+          changed.map(({ record }) => record),
+        ).pipe(
           Effect.andThen(
             Effect.sync(() => {
-              cache.lastWritten = nextJson;
+              for (const { json, record } of changed) cache.lastWritten.set(record.sessionId, json);
             }),
           ),
-          Effect.catchCause(cause => Effect.logWarning('session index persist failed', launchTarget, cause)),
+          Effect.catchCause(cause => Effect.logWarning('tracked sessions persist failed', launchTarget, cause)),
         ),
       );
     });
@@ -136,25 +129,24 @@ export const startSessionCachePersistence = Effect.fn('startSessionCachePersiste
 });
 
 /**
- * Drops `cwd` from every mounted launch target's index (Stop tracking), behind any write already queued, and forgets
- * what was last written so re-adding the Project rewrites its entry. Failures are logged, not thrown.
+ * Removes one Tracked session's record (Delete), behind any write already queued. Failures are logged, not thrown.
  */
-export const removeSessionCacheCwd = Effect.fn('removeSessionCacheCwd')(function* (cwd: string) {
+export const untrackSession = Effect.fn('untrackSession')(function* (
+  launchTarget: AgentLaunchTarget,
+  cwd: string,
+  sessionId: string,
+) {
   const run = Effect.runPromiseWith(yield* Effect.context<HostServices>());
   yield* Effect.promise(() =>
-    Promise.all(
-      MOUNTED_AGENT_LAUNCH_TARGETS.map(launchTarget =>
-        enqueue(launchTarget, cache =>
-          run(
-            removeSessionIndexCwds(toLaunchTarget(launchTarget), [cwd]).pipe(
-              Effect.catchCause(cause => Effect.logWarning('session index cleanup failed', launchTarget, cause)),
-              Effect.andThen(
-                Effect.sync(() => {
-                  cache.lastWritten = '';
-                }),
-              ),
-            ),
+    enqueue(launchTarget, cache =>
+      run(
+        removeTrackedSession(toLaunchTarget(launchTarget), cwd, sessionId).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              cache.lastWritten.delete(sessionId);
+            }),
           ),
+          Effect.catchCause(cause => Effect.logWarning('tracked session untrack failed', launchTarget, cause)),
         ),
       ),
     ),

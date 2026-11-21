@@ -66,23 +66,6 @@ import type { KnownSubagentResult } from './subagentResult.ts';
 export const markHistoryUnavailable = (history: readonly HistoryEntry[]): readonly HistoryEntry[] =>
   history.map(entry => ({ ...entry, unavailable: true }));
 
-/** Merge listed rows by `sessionId`: a listed row replaces its cached one (clearing `unavailable`); others stay. */
-export const mergeListedHistory = (
-  current: readonly HistoryEntry[],
-  listed: readonly NormalizedSessionInfo[],
-): readonly HistoryEntry[] => {
-  const byId = new Map(current.map(entry => [entry.sessionId, entry]));
-  for (const entry of listed) byId.set(entry.sessionId, entry);
-  return [...byId.values()];
-};
-
-/** Publish-policy filter: drop Bound Virtual id from history until Materialize. */
-export const excludeBoundVirtualFromHistory = (
-  history: readonly NormalizedSessionInfo[],
-  boundSessionId: string | undefined,
-): readonly NormalizedSessionInfo[] =>
-  boundSessionId === undefined ? history : history.filter(entry => entry.sessionId !== boundSessionId);
-
 /** Clear pending client request / elicitation / permission on the listed sessions. */
 export const stripSessionPendings = (
   snapshot: BackendHarnessSnapshot,
@@ -167,12 +150,6 @@ export const replaceSessionHistory = (
 export type UpsertIntoSnapshotArgs =
   | { readonly historyEntry: NormalizedSessionInfo; readonly session?: undefined }
   | { readonly historyEntry?: NormalizedSessionInfo; readonly session: SessionSnapshot };
-
-/** Drop one history row by id (e.g. a parallel startup list that landed before the Bound id existed). */
-export const withoutHistoryEntry = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot => ({
-  ...snapshot,
-  sessionHistory: snapshot.sessionHistory.filter(entry => entry.sessionId !== sessionId),
-});
 
 /** Upsert a session snapshot and/or history entry into the Backend harness snapshot (Bind or Materialize). */
 export const upsertIntoSnapshot = (
@@ -473,34 +450,6 @@ export const setAntigravityAuthUrl = (snapshot: BackendHarnessSnapshot, url: str
   antigravityAuthUrl: url,
 });
 
-/** Fold one `session/list` page into Session History: merge by `sessionId`, hiding the Bound Virtual id. */
-export const applySessionListPage = (
-  snapshot: BackendHarnessSnapshot,
-  rows: readonly NormalizedSessionInfo[],
-  boundSessionId: string | undefined,
-): BackendHarnessSnapshot =>
-  replaceSessionHistory(
-    snapshot,
-    mergeListedHistory(snapshot.sessionHistory, excludeBoundVirtualFromHistory(rows, boundSessionId)),
-  );
-
-/**
- * After a COMPLETE list of `cwd` (ADR 0016, cwd-scoped replace): drops that cwd's rows that were cached when the list
- * began (`idsAtStart`) and were not listed. Rows that appeared after the list began (a session created meanwhile) stay.
- */
-export const dropUnlistedRows = (
-  snapshot: BackendHarnessSnapshot,
-  cwd: string,
-  listedIds: ReadonlySet<string>,
-  idsAtStart: ReadonlySet<string>,
-): BackendHarnessSnapshot =>
-  replaceSessionHistory(
-    snapshot,
-    snapshot.sessionHistory.filter(
-      entry => entry.cwd !== cwd || listedIds.has(entry.sessionId) || !idsAtStart.has(entry.sessionId),
-    ),
-  );
-
 /**
  * Activation begins: cwd stamped, defects, usage and `replayComplete` cleared, status `activating`, descendant Subagents reset. A `load`
  * replays the whole history, so it starts from an empty transcript; a `resume` keeps the local one.
@@ -604,12 +553,9 @@ export const addCreatedSession = (snapshot: BackendHarnessSnapshot, created: Cre
     session: activatedFromNew(created),
   });
 
-/**
- * Bind created a session: it joins the sessions map only — not a History entry, not Materialize — and drops a row a
- * parallel startup `session/list` added before the id existed.
- */
+/** Bind created a session: it joins the sessions map only — not a History entry, not Materialize. */
 export const bindSession = (snapshot: BackendHarnessSnapshot, created: CreatedSession): BackendHarnessSnapshot =>
-  withoutHistoryEntry(upsertIntoSnapshot(snapshot, { session: activatedFromNew(created) }), created.result.sessionId);
+  upsertIntoSnapshot(snapshot, { session: activatedFromNew(created) });
 
 /** {@link dropSession} only while the Session or its History row is still there (a no-op returns `snapshot`). */
 export const dropSessionIfPresent = (snapshot: BackendHarnessSnapshot, sessionId: string): BackendHarnessSnapshot =>

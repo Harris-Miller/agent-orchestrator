@@ -44,7 +44,6 @@ import { backendHarnessSnapshotAtom, configOptionIndexAtom } from './backendStat
 import { modifyHarnessSnapshot, updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { onLaunchTargetConnectionLost } from './spawnedSubagent.ts';
 import { linkOf } from './subagentLinkRegistry.ts';
-import { beginSessionList } from './sessionLists.atoms.ts';
 import { appendRpcWireEntry } from './rpcWireLog.ts';
 import { currentUserSettings, modelPickerPrefsOf } from './userSettings/userSettingsDocument.atoms.ts';
 import {
@@ -206,7 +205,6 @@ export const makeHarnessEventFold = ({
         receivedAt: Date.now(),
       });
     },
-    onSessionListBegin: cwd => beginSessionList(registry, launchTarget, cwd, runFork),
     onSessionUpdate: (sessionId, sessionUpdate) => {
       const linked = modifyHarnessSnapshot(registry, launchTarget, current =>
         routeAndApplySessionUpdate(current, sessionId, sessionUpdate),

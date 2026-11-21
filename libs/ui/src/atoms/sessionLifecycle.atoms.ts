@@ -26,13 +26,11 @@ import {
   beginActivation,
   dropSession,
   failActivation,
-  failUnarchive,
   finishActivation,
   markActivationCwdMissing,
   markSessionInactive,
   replaceSessionHistory,
   setSessionArchived,
-  upsertIntoSnapshot,
 } from '../host/harnessStateTransitions.ts';
 import { historyEntryFromNew } from '../host/sessionMaterialize.ts';
 import { configValuesFromOptions } from '../host/configProbe.ts';
@@ -63,12 +61,11 @@ import { runAtomFn } from './runAtomFn.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
 import { applySessionConfigValues } from './sessionConfigChange.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
-import { listedCwdsAtom } from './listedCwds.atoms.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
 import type { SessionTarget } from '../host/projectSessions.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
-import { listCwdsOnUsableTargets } from './sessionLists.atoms.ts';
-import type { RunFork } from './sessionLists.atoms.ts';
+import { untrackSession } from './sessionCache.ts';
+import { trackSession } from './trackSession.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import {
   awaitVirtualSettled,
@@ -125,32 +122,33 @@ const updateAndClearSelection = Effect.fnUntraced(function* (
   }
 });
 
-/** `session/archive` then mark the row archived (and drop it from selection). A no-op when the backend is not usable. */
-const archiveOne = Effect.fnUntraced(function* (get: Atom.FnContext, arg: SessionTarget) {
-  const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'archiveSession');
-  if (snapshot === undefined) {
-    return;
-  }
-  yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
+/** Whether the harness is usable and declares the AIR archive capability: the only case an archive RPC is sent. */
+const canCallArchive = (get: Atom.FnContext, launchTarget: AgentLaunchTarget): boolean => {
+  const snapshot = usableHarness(get, launchTarget);
+  return snapshot?.agentCapabilities.sessionArchive === true;
+};
 
+/**
+ * Flips the app-owned archived flag (and drops the row from selection), then calls `session/archive` best-effort where
+ * declared: a failed call is raised to the caller but the flag stays flipped. Archiving never un-imports.
+ */
+const archiveOne = Effect.fnUntraced(function* (get: Atom.FnContext, arg: SessionTarget) {
   yield* Effect.logInfo('Archiving session', arg.launchTarget, arg.sessionId);
-  yield* archiveSession(arg.launchTarget, arg.sessionId);
   yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
     setSessionArchived(current, arg.sessionId, true),
   );
+  if (canCallArchive(get, arg.launchTarget)) {
+    yield* archiveSession(arg.launchTarget, arg.sessionId);
+  }
 });
 
-/** `session/unarchive` then mark the row unarchived. Unlike activate, never opens or selects the session. */
+/** Flips the flag back, then `session/unarchive` best-effort where declared. Unlike activate, never opens or selects the session. */
 const unarchiveOne = Effect.fnUntraced(function* (get: Atom.FnContext, arg: SessionTarget) {
-  const snapshot = yield* usableHarnessOrSkip(get, arg.launchTarget, 'unarchiveSession');
-  if (snapshot === undefined) {
-    return;
-  }
-  yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
-
   yield* Effect.logInfo('Unarchiving session', arg.launchTarget, arg.sessionId);
-  yield* unarchiveSession(arg.launchTarget, arg.sessionId);
   updateHarnessSnapshot(get.registry, arg.launchTarget, current => setSessionArchived(current, arg.sessionId, false));
+  if (canCallArchive(get, arg.launchTarget)) {
+    yield* unarchiveSession(arg.launchTarget, arg.sessionId);
+  }
 });
 
 /** Run `one` for each target in order, continuing past failures; then fail with the first failure, if any. */
@@ -201,32 +199,6 @@ export const createSessionLifecycleAtoms = (
     .fn((_arg: undefined, get: Atom.FnContext) => select(get.registry, undefined))
     .pipe(Atom.keepAlive);
 
-  /**
-   * Re-lists Session History: one `session/list` per (usable launch target, cwd), where the cwds are every Project (or the
-   * VS Code Workspace cwd), or just `arg.cwd` when given. A list's failure is scoped to it (marks it incomplete).
-   */
-  const refreshAllSessionHistoriesAtomFn = atomRuntime
-    .fn(
-      Effect.fn('refreshAllSessionHistoriesAtomFn', { root: true })(function* (
-        arg: { readonly cwd: string } | undefined,
-        get: Atom.FnContext,
-      ) {
-        const cwds = arg === undefined ? get(listedCwdsAtom) : [arg.cwd];
-        yield* listCwdsOnUsableTargets(get.registry, cwds, forkEffect);
-        clearSelectedIfMissing(get.registry);
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
-  /** Retry: re-lists only the (launch target, Project) lists that are incomplete. */
-  const retryProjectListsAtomFn = atomRuntime
-    .fn(
-      Effect.fn('retryProjectListsAtomFn', { root: true })(function* (cwd: string, get: Atom.FnContext) {
-        yield* listCwdsOnUsableTargets(get.registry, [cwd], forkEffect, { onlyIncomplete: true });
-      }),
-    )
-    .pipe(Atom.keepAlive);
-
   const activateSessionAtomFn = atomRuntime
     .fn(
       Effect.fn('activateSessionAtomFn', { root: true })(function* (
@@ -252,18 +224,15 @@ export const createSessionLifecycleAtoms = (
         const cwd = resolveSessionCwd(existingSession?.cwd, historyEntry?.cwd);
         const archived = historyEntry !== undefined && isArchivedEntry(historyEntry);
         if (archived) {
-          yield* requireAgentCapability(snapshot.agentCapabilities, arg.launchTarget, 'sessionArchive');
-          const unarchiveExit = yield* Effect.exit(unarchiveSession(arg.launchTarget, arg.sessionId));
-          if (Exit.isFailure(unarchiveExit)) {
-            const defects = activationDefects(get, arg.launchTarget, unarchiveExit.cause);
-            updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-              failUnarchive(current, arg.sessionId, defects),
-            );
-            return yield* Effect.failCause(unarchiveExit.cause);
-          }
+          // Unarchive first; the agent-side call is best-effort, so a failure never blocks opening the session.
           updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
             setSessionArchived(current, arg.sessionId, false),
           );
+          if (snapshot.agentCapabilities.sessionArchive) {
+            yield* unarchiveSession(arg.launchTarget, arg.sessionId).pipe(
+              Effect.catchCause(cause => Effect.logWarning('session/unarchive failed', arg.launchTarget, cause)),
+            );
+          }
         }
 
         // A reload re-opens a session in place: whatever is Selected (even the Virtual draft) stays.
@@ -375,9 +344,7 @@ export const createSessionLifecycleAtoms = (
           const historyEntry =
             parentEntry?.title !== undefined ? { ...createdEntry, title: parentEntry.title } : createdEntry;
 
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current =>
-            upsertIntoSnapshot(current, { historyEntry }),
-          );
+          yield* trackSession(get.registry, arg.launchTarget, historyEntry);
 
           yield* get.setResult(activateSessionAtomFn, {
             launchTarget: arg.launchTarget,
@@ -706,25 +673,31 @@ export const createSessionLifecycleAtoms = (
 
           const session = arg.sessionId in snapshot.sessions ? snapshot.sessions[arg.sessionId] : undefined;
           const needsClose = session !== undefined && session.status !== 'inactive';
+          const cwd = resolveSessionCwd(
+            session?.cwd,
+            snapshot.sessionHistory.find(entry => entry.sessionId === arg.sessionId)?.cwd,
+          );
 
           yield* endLinksOfParent(get.registry, arg);
 
-          // Optimistic: drop locally first; a failed RPC surfaces to the caller and the next list refresh reconciles. Pins stay until the RPC succeeds.
+          // Delete always untracks: the row, its Tracked session record and its pin go whatever the agent-side call does.
           yield* updateAndClearSelection(get, arg.launchTarget, arg.sessionId, current =>
             dropSession(current, arg.sessionId),
           );
-
-          if (needsClose) {
-            yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
-            yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId);
+          if (cwd !== undefined) {
+            yield* untrackSession(arg.launchTarget, cwd, arg.sessionId);
           }
-
-          yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
-          yield* deleteSession(arg.launchTarget, arg.sessionId);
-
-          // Sweep what a list refresh or a late session/update re-added while the RPC was in flight.
-          updateHarnessSnapshot(get.registry, arg.launchTarget, current => dropSession(current, arg.sessionId));
           yield* removePins(get.registry, arg.launchTarget, [arg.sessionId]);
+
+          // `session/delete` only where the provider advertises it; its failure is raised after the untrack.
+          if (snapshot.agentCapabilities.sessionDelete) {
+            if (needsClose) {
+              yield* Effect.logInfo('Closing session before delete', arg.launchTarget, arg.sessionId);
+              yield* closeOnAgent(snapshot.agentCapabilities, arg.launchTarget, arg.sessionId).pipe(Effect.ignore);
+            }
+            yield* Effect.logInfo('Deleting session', arg.launchTarget, arg.sessionId);
+            yield* deleteSession(arg.launchTarget, arg.sessionId);
+          }
         },
         (effect, arg) =>
           effect.pipe(
@@ -746,9 +719,7 @@ export const createSessionLifecycleAtoms = (
     deactivateSessionAtomFn,
     deleteSessionAtomFn,
     forkSessionAtomFn,
-    refreshAllSessionHistoriesAtomFn,
     reactivateActiveSessionsAtomFn,
-    retryProjectListsAtomFn,
     renameSessionAtomFn,
     stopTrackingProjectAtomFn,
     unarchiveSessionAtomFn,

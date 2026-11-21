@@ -74,42 +74,49 @@ const refusable: readonly {
   readonly capability: AgentCapability;
   readonly expectedCalls: readonly string[];
   readonly name: string;
+  /** Archive is never refused: its agent-side call is best-effort, the flag flips locally. */
+  readonly refused: boolean;
   readonly run: (s: Setup) => Effect.Effect<unknown, unknown>;
 }[] = [
   {
     capability: 'sessionFork',
     expectedCalls: ['fork:s1', 'load:fork-1'],
     name: 'Fork',
+    refused: true,
     run: ({ atoms, registry, target }) => runAtomFn(registry, atoms.forkSessionAtomFn, { ...target, cwd: '/proj' }),
   },
   {
     capability: 'sessionArchive',
     expectedCalls: ['archive:s1'],
     name: 'Archive',
+    refused: false,
     run: ({ atoms, registry, target }) => runAtomFn(registry, atoms.archiveSessionAtomFn, target),
   },
   {
     capability: 'sessionRename',
     expectedCalls: ['rename:s1'],
     name: 'Rename',
+    refused: true,
     run: ({ atoms, registry, target }) => runAtomFn(registry, atoms.renameSessionAtomFn, { ...target, title: 'New' }),
   },
 ];
 
 describe('Fork, Archive and Rename obey the Agent capabilities', () => {
-  for (const { capability, expectedCalls, name, run } of refusable) {
-    it.effect(`${name} is refused without ${capability}: no RPC, snapshot untouched`, () =>
-      Effect.gen(function* () {
-        const s = yield* setup({});
-        const before = s.snapshot();
-        const error = yield* Effect.flip(run(s));
-        assert.instanceOf(error, AgentCapabilityMissing);
-        assert.strictEqual(error.capability, capability);
-        assert.deepStrictEqual(s.calls, []);
-        assert.deepStrictEqual(s.snapshot().sessionHistory, before.sessionHistory);
-        assert.deepStrictEqual(s.snapshot().sessions, before.sessions);
-      }).pipe(Effect.scoped),
-    );
+  for (const { capability, expectedCalls, name, refused, run } of refusable) {
+    if (refused) {
+      it.effect(`${name} is refused without ${capability}: no RPC, snapshot untouched`, () =>
+        Effect.gen(function* () {
+          const s = yield* setup({});
+          const before = s.snapshot();
+          const error = yield* Effect.flip(run(s));
+          assert.instanceOf(error, AgentCapabilityMissing);
+          assert.strictEqual(error.capability, capability);
+          assert.deepStrictEqual(s.calls, []);
+          assert.deepStrictEqual(s.snapshot().sessionHistory, before.sessionHistory);
+          assert.deepStrictEqual(s.snapshot().sessions, before.sessions);
+        }).pipe(Effect.scoped),
+      );
+    }
 
     it.effect(`${name} runs when ${capability} is advertised`, () =>
       Effect.gen(function* () {
@@ -121,7 +128,7 @@ describe('Fork, Archive and Rename obey the Agent capabilities', () => {
   }
 });
 
-describe('Deactivate and delete fail on an advertised close that fails; an unadvertised close is best-effort', () => {
+describe('Deactivate fails on an advertised close that fails; Delete always untracks', () => {
   it.effect('Deactivate fails when an advertised close fails; the Session stays active', () =>
     Effect.gen(function* () {
       const s = yield* setup(sessionCapabilities({ close: {} }), {
@@ -144,31 +151,35 @@ describe('Deactivate and delete fail on an advertised close that fails; an unadv
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Delete of an active Session goes ahead when an unadvertised close fails', () =>
+  it.effect('Delete deletes on the agent after a best-effort close where session/delete is advertised', () =>
     Effect.gen(function* () {
-      const s = yield* setup({}, { fake: { failClose: true }, session: session('active') });
-      yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
-      assert.deepStrictEqual(s.calls, ['close:s1', 'delete:s1']);
-      assert.notProperty(s.snapshot().sessions, 's1');
-    }).pipe(Effect.scoped),
-  );
-
-  it.effect('Delete skips session/delete when an advertised close fails; the Session is already dropped', () =>
-    Effect.gen(function* () {
-      const s = yield* setup(sessionCapabilities({ close: {} }), {
+      const s = yield* setup(sessionCapabilities({ delete: {} }), {
         fake: { failClose: true },
         session: session('active'),
       });
-      const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
-      assert.isTrue(Exit.isFailure(exit));
-      assert.deepStrictEqual(s.calls, ['close:s1']);
+      yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, ['close:s1', 'delete:s1']);
       assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
     }).pipe(Effect.scoped),
   );
 
-  it.effect('Delete is optimistic: a failed session/delete still drops the History entry and Session', () =>
+  it.effect('Delete only untracks where session/delete is not advertised: no RPC', () =>
     Effect.gen(function* () {
-      const s = yield* setup({}, { fake: { failDelete: true }, session: session('active') });
+      const s = yield* setup({}, { session: session('active') });
+      yield* runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target);
+      assert.deepStrictEqual(s.calls, []);
+      assert.notProperty(s.snapshot().sessions, 's1');
+      assert.isUndefined(s.snapshot().sessionHistory.find(entry => entry.sessionId === 's1'));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect('a failed session/delete is raised, but the session is untracked regardless', () =>
+    Effect.gen(function* () {
+      const s = yield* setup(sessionCapabilities({ delete: {} }), {
+        fake: { failDelete: true },
+        session: session('active'),
+      });
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.deleteSessionAtomFn, s.target));
       assert.isTrue(Exit.isFailure(exit));
       assert.deepStrictEqual(s.calls, ['close:s1', 'delete:s1']);

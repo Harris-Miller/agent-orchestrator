@@ -19,6 +19,7 @@ const AGENT_CAPABILITY_KEYS = [
   'promptImage',
   'sessionArchive',
   'sessionClose',
+  'sessionDelete',
   'sessionFork',
   'sessionRename',
   'sessionResume',
@@ -30,7 +31,7 @@ export type AgentCapability = (typeof AGENT_CAPABILITY_KEYS)[number];
 /**
  * - `promptEmbeddedContext` / `promptImage`: `agentCapabilities.promptCapabilities.*`
  * - `sessionArchive` / `sessionRename`: AIR `_meta.jetbrains.air.capabilities`
- * - `sessionClose` / `sessionFork` / `sessionResume`: `agentCapabilities.sessionCapabilities.*` (resume minus never-resume Providers)
+ * - `sessionClose` / `sessionFork` / `sessionResume`: `agentCapabilities.sessionCapabilities.*` (`sessionDelete`: `session/delete`; resume minus never-resume Providers)
  * - `steeringSupported`: top-level `_meta.steering.supported === true`
  */
 export type AgentCapabilities = Readonly<Record<AgentCapability, boolean>>;
@@ -40,6 +41,7 @@ export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
   promptImage: false,
   sessionArchive: false,
   sessionClose: false,
+  sessionDelete: false,
   sessionFork: false,
   sessionRename: false,
   sessionResume: false,
@@ -112,6 +114,7 @@ export const agentCapabilitiesFrom = (
     promptImage: prompt('image'),
     sessionArchive: air.includes(airCapability.sessionArchive),
     sessionClose: session('close'),
+    sessionDelete: session('delete'),
     sessionFork: session('fork'),
     sessionRename: air.includes(airCapability.sessionRename),
     sessionResume: !PROVIDER_QUIRKS[launchTarget].neverResume && session('resume'),

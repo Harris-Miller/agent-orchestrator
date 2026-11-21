@@ -107,7 +107,7 @@ const Edge: FC<{
   );
 };
 
-const Lanes: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
+export const Lanes: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
   const theme = useTheme();
   const { feature } = ctx;
   const { height, lanes, placed, width } = layout(feature);
@@ -328,7 +328,7 @@ const FeatureList: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => (
   </Box>
 );
 
-const Legend: FC = () => {
+export const Legend: FC = () => {
   const theme = useTheme();
   const item = (label: string, color: string, dash?: string) => (
     <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>

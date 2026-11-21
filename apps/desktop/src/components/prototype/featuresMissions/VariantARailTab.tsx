@@ -191,7 +191,7 @@ const FeaturesRail: FC<{ readonly ctx: PrototypeContext; readonly onShowSessions
   );
 };
 
-const MissionPanel: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
+export const MissionPanel: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
   const { mission } = ctx.feature;
   if (mission === undefined) return null;
   const orchestrator = sessionByKey(ctx.feature, mission.orchestratorKey);
@@ -271,39 +271,48 @@ const MissionPanel: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
   );
 };
 
+export type RailTab = 'features' | 'sessions';
+
+/** The Sessions | Features rail; also used by the A+C variants. */
+export const RailPane: FC<{
+  readonly ctx: PrototypeContext;
+  readonly onTabChange: (tab: RailTab) => void;
+  readonly tab: RailTab;
+}> = ({ ctx, onTabChange, tab }) => (
+  <Box sx={{ bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <Tabs
+      onChange={(_event, value: RailTab) => {
+        onTabChange(value);
+      }}
+      sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
+      value={tab}
+      variant="fullWidth"
+    >
+      <Tab label="Sessions" value="sessions" />
+      <Tab label="Features" value="features" />
+    </Tabs>
+    {tab === 'sessions' ? (
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <WorkbenchNavRail onClientError={ctx.onClientError} onClose={() => undefined} />
+      </Box>
+    ) : (
+      <FeaturesRail
+        ctx={ctx}
+        onShowSessions={() => {
+          onTabChange('sessions');
+        }}
+      />
+    )}
+  </Box>
+);
+
 export const VariantARailTab: FC<{ readonly ctx: PrototypeContext }> = ({ ctx }) => {
-  const [tab, setTab] = useState<'features' | 'sessions'>('features');
+  const [tab, setTab] = useState<RailTab>('features');
   return (
     <Box sx={theme => ({ ...allotmentSashSx(theme), bgcolor: 'background.default', height: '100%' })}>
       <Allotment>
         <Allotment.Pane minSize={260} preferredSize={380}>
-          <Box
-            sx={{ bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
-          >
-            <Tabs
-              onChange={(_event, value: 'features' | 'sessions') => {
-                setTab(value);
-              }}
-              sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}
-              value={tab}
-              variant="fullWidth"
-            >
-              <Tab label="Sessions" value="sessions" />
-              <Tab label="Features" value="features" />
-            </Tabs>
-            {tab === 'sessions' ? (
-              <Box sx={{ flex: 1, minHeight: 0 }}>
-                <WorkbenchNavRail onClientError={ctx.onClientError} onClose={() => undefined} />
-              </Box>
-            ) : (
-              <FeaturesRail
-                ctx={ctx}
-                onShowSessions={() => {
-                  setTab('sessions');
-                }}
-              />
-            )}
-          </Box>
+          <RailPane ctx={ctx} onTabChange={setTab} tab={tab} />
         </Allotment.Pane>
         <Allotment.Pane minSize={320}>
           {tab === 'sessions' ? (

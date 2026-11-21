@@ -285,7 +285,7 @@ export const WorkbenchNavRail: FC<{
               icon={FlaskConical}
               label="Features + Missions prototype"
               onClick={() => {
-                navigate({ search: { variant: 'A' }, to: '/prototype/features' }).catch(() => undefined);
+                navigate({ search: { variant: 'D' }, to: '/prototype/features' }).catch(() => undefined);
               }}
             />
           ) : null}

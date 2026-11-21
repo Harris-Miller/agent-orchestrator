@@ -4,7 +4,6 @@ import { Effect, Exit, Fiber } from 'effect';
 
 import { createHostRuntime } from '../createHostRuntime.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
-import { isArchivedEntry } from '../host/airMeta.ts';
 
 import { backendHarnessSnapshotAtom, selectedAtom, selectedSessionLaunchTargetAtom } from './backendState.atoms.ts';
 import type { FakeAgentOpts } from './fakeAgent.testing.ts';
@@ -17,8 +16,6 @@ import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 const advertisesArchive = {
   _meta: { jetbrains: { air: { capabilities: ['sessionIndex', 'sessionArchive'], version: 1 } } },
 };
-
-const archivedMeta = { jetbrains: { air: { archived: true, version: 1 } } };
 
 const makeAtoms = () => {
   const runtime = createHostRuntime(mockHostLayer);
@@ -36,7 +33,7 @@ const setup = Effect.fnUntraced(function* (
   updateHarnessSnapshot(registry, CODEX, current => ({
     ...current,
     sessionHistory: [
-      { cwd: '/proj', sessionId: 's1', title: 'Old', ...(options.archived ? { _meta: archivedMeta } : {}) },
+      { cwd: '/proj', sessionId: 's1', title: 'Old', ...(options.archived ? { archived: true as const } : {}) },
     ],
     sessions: { s1: { ...initialSessionSnapshot('s1', options.status ?? 'inactive'), cwd: '/proj' } },
   }));
@@ -56,7 +53,7 @@ describe('Activating an archived History entry', () => {
       const atoms = makeAtoms();
       updateHarnessSnapshot(registry, CODEX, current => ({
         ...current,
-        sessionHistory: [{ cwd: '/proj', sessionId: 's1', _meta: archivedMeta }],
+        sessionHistory: [{ archived: true, cwd: '/proj', sessionId: 's1' }],
         sessions: { s1: { ...initialSessionSnapshot('s1', 'inactive'), cwd: '/proj' } },
       }));
       advertise(registry, CODEX, advertisesArchive);
@@ -76,7 +73,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -86,7 +83,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup({}, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['load:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
     }).pipe(Effect.scoped),
   );
 
@@ -95,7 +92,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, fake: { failUnarchive: true } });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -105,7 +102,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, fake: { failLoad: true } });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1', 'load:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'inactive');
     }).pipe(Effect.scoped),
   );
@@ -115,7 +112,7 @@ describe('Activating an archived History entry', () => {
       const s = yield* setup(advertisesArchive, { archived: true, status: 'active' });
       yield* runAtomFn(s.registry, s.atoms.activateSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
       assert.strictEqual(s.snapshot().sessions.s1.status, 'active');
     }).pipe(Effect.scoped),
   );
@@ -137,7 +134,7 @@ describe('Archive', () => {
       yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['archive:s1']);
       assert.strictEqual(s.row()?.title, 'Old');
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      assert.isTrue(s.row()?.archived === true);
       assert.notProperty(s.snapshot().sessions, 's1');
       assert.isUndefined(s.registry.get(selectedAtom));
     }).pipe(Effect.scoped),
@@ -148,7 +145,7 @@ describe('Archive', () => {
       const s = yield* setup({}, { archived: false });
       yield* runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, []);
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      assert.isTrue(s.row()?.archived === true);
     }).pipe(Effect.scoped),
   );
 
@@ -157,7 +154,7 @@ describe('Archive', () => {
       const s = yield* setup(advertisesArchive, { archived: false, fake: { failArchive: true } });
       const exit = yield* Effect.exit(runAtomFn(s.registry, s.atoms.archiveSessionAtomFn, s.target));
       assert.isTrue(Exit.isFailure(exit));
-      assert.isTrue(isArchivedEntry(s.row() ?? {}));
+      assert.isTrue(s.row()?.archived === true);
     }).pipe(Effect.scoped),
   );
 });
@@ -186,14 +183,14 @@ describe('Bulk archive / unarchive', () => {
       sessionHistory: targets.map(({ sessionId }) => ({
         cwd: '/proj',
         sessionId,
-        ...(options.archived ? { _meta: archivedMeta } : {}),
+        ...(options.archived ? { archived: true as const } : {}),
       })),
     }));
     advertise(registry, CODEX, advertisesArchive);
     const archivedIds = () =>
       registry
         .get(backendHarnessSnapshotAtom(CODEX))
-        .sessionHistory.filter(entry => isArchivedEntry(entry))
+        .sessionHistory.filter(entry => entry.archived === true)
         .map(entry => entry.sessionId);
     return { archiveCalls, archivedIds, atoms, registry };
   });
@@ -233,7 +230,7 @@ describe('Bulk archive / unarchive', () => {
       const s = yield* setup(advertisesArchive, { archived: true });
       yield* runAtomFn(s.registry, s.atoms.unarchiveSessionAtomFn, s.target);
       assert.deepStrictEqual(s.calls, ['unarchive:s1']);
-      assert.isFalse(isArchivedEntry(s.row() ?? {}));
+      assert.isFalse(s.row()?.archived === true);
       assert.isUndefined(s.registry.get(selectedAtom));
     }).pipe(Effect.scoped),
   );

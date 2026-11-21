@@ -297,11 +297,16 @@ describe('endPromptTurn', () => {
   });
 
   it('advances an existing Last prompt time to the turn end, never backwards, and never adds one', () => {
-    const air = (lastPromptAt: string) => ({ _meta: { jetbrains: { air: { lastPromptAt, model: 'm' } } } });
+    const prompted = (lastPromptTime: string) => ({ lastPromptTime });
     const snapshot: BackendHarnessSnapshot = {
       ...readySnapshot({ s1: activeSession('s1') }),
       sessionHistory: [
-        { cwd: '/proj', sessionId: 's1', updatedAt: '2020-01-01T00:00:00.000Z', ...air('2020-01-01T00:00:00.000Z') },
+        {
+          cwd: '/proj',
+          sessionId: 's1',
+          updatedAt: '2020-01-01T00:00:00.000Z',
+          ...prompted('2020-01-01T00:00:00.000Z'),
+        },
         { cwd: '/proj', sessionId: 's2', updatedAt: '2020-01-01T00:00:00.000Z' },
       ],
     };
@@ -309,16 +314,14 @@ describe('endPromptTurn', () => {
     assert.strictEqual(begun._tag, 'Begun');
     if (begun._tag !== 'Begun') return;
     const ended = endPromptTurn(begun.snapshot, 's1', begun.turnId, 1_700_000_000_000);
-    assert.deepStrictEqual(ended.sessionHistory[0]._meta, {
-      jetbrains: { air: { lastPromptAt: '2023-11-14T22:13:20.000Z', model: 'm' } },
-    });
+    assert.strictEqual(ended.sessionHistory[0].lastPromptTime, '2023-11-14T22:13:20.000Z');
     const future: BackendHarnessSnapshot = {
       ...begun.snapshot,
-      sessionHistory: [{ cwd: '/proj', sessionId: 's1', ...air('2099-01-01T00:00:00.000Z') }],
+      sessionHistory: [{ cwd: '/proj', sessionId: 's1', ...prompted('2099-01-01T00:00:00.000Z') }],
     };
     assert.deepStrictEqual(
-      endPromptTurn(future, 's1', begun.turnId, 1_700_000_000_000).sessionHistory[0]._meta,
-      air('2099-01-01T00:00:00.000Z')._meta,
+      endPromptTurn(future, 's1', begun.turnId, 1_700_000_000_000).sessionHistory[0].lastPromptTime,
+      '2099-01-01T00:00:00.000Z',
     );
     const noMeta = endPromptTurn(
       { ...begun.snapshot, sessionHistory: [{ cwd: '/proj', sessionId: 's1' }] },
@@ -326,7 +329,7 @@ describe('endPromptTurn', () => {
       begun.turnId,
       1_700_000_000_000,
     );
-    assert.isUndefined(noMeta.sessionHistory[0]._meta);
+    assert.isUndefined(noMeta.sessionHistory[0].lastPromptTime);
   });
 
   it('drops a running / requires_action Activity state on turn end, keeping error and the rest of _meta', () => {

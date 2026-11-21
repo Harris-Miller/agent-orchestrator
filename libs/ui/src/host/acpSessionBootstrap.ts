@@ -6,13 +6,9 @@ import type { Cause } from 'effect';
 import { isRecord } from '../isRecord.ts';
 
 import { NO_AGENT_CAPABILITIES } from './agentCapabilities.ts';
-import {
-  airRowMetaOf,
-  isArchivedEntry,
-  recommendedValueOf,
-  withLastPromptAt,
-  withoutLiveActivityState,
-} from './airMeta.ts';
+import { recommendedValueOf, withoutLiveActivityState } from './airMeta.ts';
+import { decodeHistoryRow, withLastPromptTime } from './sessionHistoryRow.ts';
+import type { HistoryRowFields } from './sessionHistoryRow.ts';
 import type { AgentCapabilities } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import type { HarnessFailure } from './harnessFailure.ts';
@@ -123,7 +119,8 @@ export const defectsFromActivationFailure = <E>(
   return defectsFromCause(cause);
 };
 
-export type NormalizedSessionInfo = {
+/** A Session History row, decoded: the app-owned archived flag and Last prompt time are typed fields (`sessionHistoryRow.ts`). */
+export type NormalizedSessionInfo = HistoryRowFields & {
   readonly [key: string]: unknown;
   readonly cwd: string;
   readonly sessionId: string;
@@ -249,13 +246,13 @@ export const normalizeSessionInfo = (entry: unknown): NormalizedSessionInfo | un
     return undefined;
   }
 
-  return {
+  return decodeHistoryRow({
     ...entry,
     cwd: entry.cwd,
     sessionId: entry.sessionId,
     title: typeof entry.title === 'string' ? entry.title : undefined,
     updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : undefined,
-  };
+  });
 };
 
 export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): NormalizedSessionInfo | undefined => {
@@ -263,13 +260,13 @@ export const normalizeSessionInfoFromNew = (result: unknown, cwd: string): Norma
     return undefined;
   }
 
-  return {
+  return decodeHistoryRow({
     ...result,
     cwd,
     sessionId: result.sessionId,
     title: typeof result.title === 'string' ? result.title : undefined,
     updatedAt: typeof result.updatedAt === 'string' ? result.updatedAt : new Date(Date.now()).toISOString(),
-  };
+  });
 };
 
 export const upsertHistoryEntry = (
@@ -309,7 +306,7 @@ export const touchHistoryLastPromptAt = <T extends NormalizedSessionInfo>(
   history: readonly T[],
   sessionId: string,
   at: string,
-): readonly T[] => history.map(entry => (entry.sessionId === sessionId ? withLastPromptAt(entry, at) : entry));
+): readonly T[] => history.map(entry => (entry.sessionId === sessionId ? withLastPromptTime(entry, at) : entry));
 
 /** Drop the matching history row's stale running / requires-action **Activity state** (its turn has ended). Unknown row: unchanged. */
 export const clearHistoryActivityState = <T extends NormalizedSessionInfo>(
@@ -328,9 +325,9 @@ export const normalizeSessionHistory = (listResult: unknown): readonly Normalize
   });
 };
 
-/** The time a row sorts by: its **Last prompt time** (`_meta.jetbrains.air.lastPromptAt`), else `updatedAt` (also when the Last prompt time is unparseable). Neither usable reads as negative infinity. */
+/** The time a row sorts by: its **Last prompt time**, else `updatedAt` (also when the Last prompt time is unparseable). Neither usable reads as negative infinity. */
 const sortTimeMs = (entry: NormalizedSessionInfo): number => {
-  const prompted = Date.parse(airRowMetaOf(entry).lastPromptTime ?? '');
+  const prompted = Date.parse(entry.lastPromptTime ?? '');
   const time = Number.isFinite(prompted) ? prompted : Date.parse(entry.updatedAt ?? '');
   return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
 };
@@ -350,7 +347,8 @@ export const compareHistoryEntriesByLastPromptDesc = (
 
 /** Session History order: unarchived rows before archived ones, each newest **Last prompt time** first. */
 export const compareHistoryEntries = (left: NormalizedSessionInfo, right: NormalizedSessionInfo): number =>
-  Number(isArchivedEntry(left)) - Number(isArchivedEntry(right)) || compareHistoryEntriesByLastPromptDesc(left, right);
+  Number(left.archived === true) - Number(right.archived === true) ||
+  compareHistoryEntriesByLastPromptDesc(left, right);
 
 /** History entries for `cwd` in Session History order (empty when `cwd` is undefined). */
 export const sessionsForCwd = <T extends NormalizedSessionInfo>(
@@ -365,7 +363,7 @@ export const recentSessionsForCwd = <T extends NormalizedSessionInfo>(
   limit: number,
 ): readonly T[] =>
   sessionsForCwd(
-    history.filter(entry => !isArchivedEntry(entry)),
+    history.filter(entry => entry.archived !== true),
     cwd,
   ).slice(0, limit);
 

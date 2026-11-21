@@ -8,11 +8,9 @@ import { findLaunchTargetForSessionId, visibleSessionHistoryAtom } from './backe
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
 
-const archivedMeta = { jetbrains: { air: { archived: true } } };
-
 const snapshotWith = (archived: boolean, loaded: boolean): BackendHarnessSnapshot => ({
   ...initialBackendHarnessSnapshot(),
-  sessionHistory: [{ _meta: archived ? archivedMeta : undefined, cwd: '/x', sessionId: 's1' }],
+  sessionHistory: [{ ...(archived ? { archived: true as const } : {}), cwd: '/x', sessionId: 's1' }],
   sessions: loaded ? { s1: initialSessionSnapshot('s1') } : {},
 });
 
@@ -44,7 +42,7 @@ describe('visibleSessionHistoryAtom', () => {
       ...current,
       sessionHistory: [
         { cwd: '/x', sessionId: 'live' },
-        { _meta: archivedMeta, cwd: '/x', sessionId: 'archived' },
+        { archived: true, cwd: '/x', sessionId: 'archived' },
       ],
     }));
     const visibleIds = () => registry.get(visibleSessionHistoryAtom).map(entry => entry.sessionId);

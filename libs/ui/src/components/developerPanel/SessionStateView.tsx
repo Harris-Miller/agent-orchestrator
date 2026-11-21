@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import type { FC, ReactNode } from 'react';
 
 import { selectedBackendHarnessSnapshotAtom } from '../../atoms/backendState.atoms.ts';
-import { airRowMetaOf, isArchivedEntry } from '../../host/airMeta.ts';
+import { airRowMetaOf } from '../../host/airMeta.ts';
 import type {
   NormalizedConfigChoice,
   NormalizedConfigOption,
@@ -255,7 +255,6 @@ export const SessionStateContent: FC<{
 
 const ROW_FIELD_LABELS = [
   ['Activity state', 'activityState'],
-  ['Last prompt time', 'lastPromptTime'],
   ['Model', 'model'],
   ['Cost', 'cost'],
   ['Fork source', 'forkSource'],
@@ -278,8 +277,9 @@ const HistoryRowState: FC<{ readonly sessionId: string }> = ({ sessionId }) => {
       const value = meta[key];
       return [label, value === undefined ? '—' : typeof value === 'object' ? JSON.stringify(value) : value] as const;
     }),
+    ['Last prompt time', entry.lastPromptTime ?? '—'],
     ['Updated at', entry.updatedAt ?? '—'],
-    ['Archived', String(isArchivedEntry(entry))],
+    ['Archived', String(entry.archived === true)],
     ['Unavailable', String('unavailable' in entry && entry.unavailable === true)],
   ];
   return (

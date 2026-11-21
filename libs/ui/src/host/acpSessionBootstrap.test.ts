@@ -169,7 +169,6 @@ describe('isConfigProbeCwd / normalizeSessionHistory', () => {
       }),
       [
         {
-          _meta: { jetbrains: { air: { archived: false } } },
           cwd: '/proj',
           sessionId: 'real',
           title: 'Real',
@@ -233,7 +232,7 @@ describe('sessionsForCwd', () => {
 
 describe('recentSessionsForCwd', () => {
   it('lists the newest unarchived entries for cwd, never archived ones', () => {
-    const archived = { _meta: { jetbrains: { air: { archived: true } } } };
+    const archived = { archived: true as const };
     const history: readonly UnifiedHistoryEntry[] = [
       { ...archived, cwd: '/x', launchTarget: 'codex-acp', sessionId: 'archived', updatedAt: '2024-09-01T00:00:00Z' },
       { cwd: '/x', launchTarget: 'codex-acp', sessionId: 'a', updatedAt: '2024-03-01T00:00:00Z' },
@@ -251,7 +250,7 @@ describe('recentSessionsForCwd', () => {
 
 describe('compareHistoryEntries', () => {
   it('puts unarchived rows before archived ones, each newest updatedAt first', () => {
-    const archived = { _meta: { jetbrains: { air: { archived: true } } } };
+    const archived = { archived: true as const };
     const history: readonly UnifiedHistoryEntry[] = [
       {
         ...archived,

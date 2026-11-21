@@ -26,7 +26,8 @@ import {
 } from './acpSessionBootstrap.ts';
 import { agentCapabilitiesFrom } from './agentCapabilities.ts';
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
-import { isLoadReplayEnd, withArchived } from './airMeta.ts';
+import { isLoadReplayEnd } from './airMeta.ts';
+import { withArchived } from './sessionHistoryRow.ts';
 import { turnAction } from './composerAction.ts';
 import type { ComposerAction, TurnActionInput } from './composerAction.ts';
 import type { HarnessFailure } from './harnessFailure.ts';

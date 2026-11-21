@@ -194,6 +194,39 @@ describe('hydrateHarnessCaches', () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect('an archived row with a Last prompt time is stored as AIR meta and hydrates back as typed fields', () =>
+    Effect.gen(function* () {
+      const s = yield* setup();
+      yield* addProject('/a').pipe(Effect.provide(s.layer));
+      yield* upsertTrackedSessions(codex, [
+        {
+          _meta: { jetbrains: { air: { archived: true, lastPromptAt: '2026-01-01T00:00:00.000Z', model: 'm' } } },
+          cwd: '/a',
+          sessionId: 'a1',
+        },
+      ]).pipe(Effect.provide(s.layer));
+      const unsubscribe = yield* s.hydrate;
+      const [row] = s.registry.get(backendHarnessSnapshotAtom(CODEX)).sessionHistory;
+      assert.deepStrictEqual<unknown>(
+        [row.archived, row.lastPromptTime, row._meta],
+        [true, '2026-01-01T00:00:00.000Z', { jetbrains: { air: { model: 'm' } } }],
+      );
+      updateHarnessSnapshot(s.registry, CODEX, current => ({
+        ...current,
+        sessionHistory: current.sessionHistory.map(entry => ({ ...entry, title: 'Renamed' })),
+      }));
+      yield* s.settle;
+      const stored = yield* readTrackedSessions(codex).pipe(Effect.provide(s.layer));
+      assert.deepStrictEqual<unknown>(trackedSessionRows(stored)[0], {
+        _meta: { jetbrains: { air: { archived: true, lastPromptAt: '2026-01-01T00:00:00.000Z', model: 'm' } } },
+        cwd: '/a',
+        sessionId: 'a1',
+        title: 'Renamed',
+      });
+      unsubscribe();
+    }).pipe(Effect.scoped),
+  );
+
   it.effect('unsubscribe stops persistence', () =>
     Effect.gen(function* () {
       const s = yield* setup();

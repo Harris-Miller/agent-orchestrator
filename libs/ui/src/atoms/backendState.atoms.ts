@@ -9,7 +9,6 @@ import {
   MOUNTED_AGENT_LAUNCH_TARGETS,
 } from '../host/agentLaunchTarget.ts';
 import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
-import { isArchivedEntry } from '../host/airMeta.ts';
 import { configurationFromValues } from '../host/configOptionIndexUi.ts';
 import type { ConfigOptionIndex } from '../host/configProbe.ts';
 import { configOptionIndexIsNonempty } from '../host/configProbe.ts';
@@ -137,7 +136,7 @@ export const archiveCapableLaunchTargetsAtom = Atom.make(
 /** Session History rows the UI shows: every row is listed (`archived: 'all'`); archived ones only with Show archived. */
 export const visibleSessionHistoryAtom = Atom.make(get => {
   const history = get(unifiedSessionHistoryAtom);
-  return get(showArchivedAtom) ? history : history.filter(entry => !isArchivedEntry(entry));
+  return get(showArchivedAtom) ? history : history.filter(entry => entry.archived !== true);
 }).pipe(Atom.keepAlive);
 
 export const findLaunchTargetForSessionId = (
@@ -149,7 +148,7 @@ export const findLaunchTargetForSessionId = (
     const snapshot = getSnapshot(launchTarget);
     const entry = snapshot.sessionHistory.find(candidate => candidate.sessionId === sessionId);
     // While Show archived is off, an archived row counts as missing even while loaded.
-    const visible = entry !== undefined && (showArchived || !isArchivedEntry(entry));
+    const visible = entry !== undefined && (showArchived || entry.archived !== true);
     if (visible || (entry === undefined && sessionId in snapshot.sessions)) {
       return launchTarget;
     }

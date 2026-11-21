@@ -3,6 +3,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useEffect, useRef } from 'react';
 import type { FC, KeyboardEvent } from 'react';
 
 import { openChatLink } from '../../../host/openChatLink.ts';
@@ -19,11 +20,21 @@ export const PendingUrlElicitationCard: FC<{
   readonly onDecline: () => void;
   readonly url: string;
 }> = ({ agentTitle, message, onAccept, onCancel, onDecline, url }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onCancel();
   };
   return (
-    <Paper onKeyDown={onKeyDown} sx={{ bgcolor: 'action.hover', p: 2 }} variant="outlined">
+    <Paper
+      onKeyDown={onKeyDown}
+      ref={ref}
+      sx={{ bgcolor: 'action.hover', outline: 'none', p: 2 }}
+      tabIndex={-1}
+      variant="outlined"
+    >
       <Typography color="text.secondary" variant="caption">
         {agentTitle} asks
       </Typography>

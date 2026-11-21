@@ -6,9 +6,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { Schema } from 'effect';
 import { afterEach, vi } from 'vitest';
 
+import { hostRunPromise } from '../../../hostRuntime.ts';
 import { theme } from '../../../theme/themes.ts';
 
 import { PendingElicitationCard } from './PendingElicitationCard.tsx';
+
+vi.mock('../../../hostRuntime.ts', () => ({ hostRunPromise: vi.fn(() => Promise.resolve()) }));
+vi.mock('../../../host/openChatLink.ts', () => ({ openChatLink: vi.fn((link: unknown) => link) }));
 
 afterEach(cleanup);
 
@@ -59,9 +63,6 @@ const setup = (request = fourQuestions) => {
   );
   return { onAccept, onCancel };
 };
-
-vi.mock('../../../hostRuntime.ts', () => ({ hostRunPromise: vi.fn(() => Promise.resolve()) }));
-vi.mock('../../../host/openChatLink.ts', () => ({ openChatLink: vi.fn((link: unknown) => link) }));
 
 const urlRequest = (url: string) =>
   Schema.decodeUnknownSync(CreateElicitationUrlSessionRequest)({
@@ -224,14 +225,24 @@ describe('PendingElicitationCard', () => {
     assert.strictEqual(onCancel.mock.calls.length, 1);
   });
 
-  it('Open link calls the host and does not respond', async () => {
-    const { hostRunPromise } = await import('../../../hostRuntime.ts');
+  it('Open link calls the host and does not respond', () => {
     const { onAccept, onCancel, onDecline } = setupUrl('https://example.com/x');
     fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
     assert.deepStrictEqual(vi.mocked(hostRunPromise).mock.calls.at(-1) as unknown[], [
       { kind: 'url', url: 'https://example.com/x' },
     ]);
-    assert.strictEqual(onAccept.mock.calls.length + onCancel.mock.calls.length + onDecline.mock.calls.length, 0);
+    assert.strictEqual(onAccept.mock.calls.length, 0);
+    assert.strictEqual(onCancel.mock.calls.length, 0);
+    assert.strictEqual(onDecline.mock.calls.length, 0);
+  });
+
+  it('focuses the URL card on mount and cancels on Escape', async () => {
+    const { onCancel } = setupUrl('https://example.com/x');
+    await waitFor(() => {
+      assert.strictEqual(document.activeElement, screen.getByText('Sign in please').closest('[tabindex="-1"]'));
+    });
+    press('Escape');
+    assert.strictEqual(onCancel.mock.calls.length, 1);
   });
 
   it('disables Open link for non-http urls', () => {

@@ -571,4 +571,51 @@ describe('ComposerPromptEditor quote line wrapper', () => {
       });
     }),
   );
+
+  it.effect('wraps indented quote lines and continues them on Shift+Enter', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('  > q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      assert.strictEqual(wrappers()[0]?.textContent, '  > q');
+      editable().focus();
+      // Text nodes: `  `, `> `, `q`.
+      selectTextNode(2, 1);
+      lexicalEditor().dispatchCommand(
+        KEY_ENTER_COMMAND,
+        new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }),
+      );
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '  > q\n> ');
+        assert.strictEqual(wrappers().length, 2);
+      });
+    }),
+  );
+
+  it.effect('removes the marker and wrapper on Backspace at the start of indented quote content', () =>
+    Effect.gen(function* () {
+      let last: ComposerPromptChange | undefined;
+      mount('  > q', {
+        onChange: next => {
+          last = next;
+        },
+      });
+      yield* eventually(() => {
+        assert.strictEqual(wrappers().length, 1);
+      });
+      editable().focus();
+      selectTextNode(2);
+      lexicalEditor().dispatchCommand(DELETE_CHARACTER_COMMAND, true);
+      yield* eventually(() => {
+        assert.strictEqual(last?.text, '  q');
+        assert.strictEqual(wrappers().length, 0);
+      });
+    }),
+  );
 });

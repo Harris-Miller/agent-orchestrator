@@ -70,8 +70,28 @@ describe('buildComposerPieces', () => {
     assert.strictEqual(pieces.map(composerPieceText).join(''), '> a\n> b\nplain');
   });
 
+  it('wraps quote lines however they are written, keeping the draft text', () => {
+    const cases: readonly (readonly [string, readonly string[]])[] = [
+      [' > a', ['quoteLine']],
+      ['  > a', ['quoteLine']],
+      ['> ', ['quoteLine']],
+      ['> a', ['quoteLine']],
+      ['\n> a', ['linebreak', 'quoteLine']],
+      ['a\n  > b', ['text', 'linebreak', 'quoteLine']],
+    ];
+    for (const [text, kinds] of cases) {
+      const pieces = buildComposerPieces(text, commands);
+      assert.deepStrictEqual(
+        pieces.map(piece => piece.kind),
+        kinds,
+        text,
+      );
+      assert.strictEqual(pieces.map(composerPieceText).join(''), text, text);
+    }
+  });
+
   it('nests a chip inside its quote line', () => {
-    assert.deepStrictEqual(show('> /status x'), ['quote[text:b@quote/:> ,cmd:/status,text:@quote/: x]']);
+    assert.deepStrictEqual(show('> /status now'), ['quote[text:b@quote/:> ,cmd:/status,text:@quote/: now]']);
   });
 
   it("emits a linebreak piece between lines and ties each span's markers together", () => {

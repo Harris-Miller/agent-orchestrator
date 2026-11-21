@@ -101,6 +101,21 @@ describe('editorDraft', () => {
   describe('quote lines', () => {
     const quoted = '> a\n> b\nc';
 
+    it('round-trips indented, empty, leading and chip-bearing quote lines', () => {
+      for (const text of [' > a', '  > a', '> ', '\n> a', '> /status now']) {
+        const { pieces, read } = withDraft(text, () => ({
+          pieces: $readEditorPieces(),
+          read: $getRoot().getTextContent(),
+        }));
+        assert.strictEqual(read, text);
+        assert.isTrue(composerPiecesEqual(pieces, buildComposerPieces(text, commands)), text);
+        assert.isTrue(
+          pieces.some(piece => piece.kind === 'quoteLine'),
+          text,
+        );
+      }
+    });
+
     it('round-trips text and pieces', () => {
       const { pieces, text } = withDraft(quoted, () => ({
         pieces: $readEditorPieces(),

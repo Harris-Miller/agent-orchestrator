@@ -14,6 +14,7 @@ import type { AvailableCommand } from '../../../../host/sessionUpdateReducer.ts'
 
 import { $getLogicalCursorAndAdjacency, $setComposerContent } from './editorDraft.ts';
 import { COMPOSER_NODES } from './nodes/composerChipNode.ts';
+import { COMPOSER_QUOTE_LINE_CLASS } from './nodes/ComposerQuoteLineNode.ts';
 import { BlockMarkerCaretPlugin } from './plugins/BlockMarkerCaretPlugin.tsx';
 import { ChipDeletePlugin } from './plugins/ChipDeletePlugin.tsx';
 import { ChipifyPlugin } from './plugins/ChipifyPlugin.tsx';
@@ -142,11 +143,13 @@ export const ComposerPromptEditor: FC<ComposerPromptEditorProps> = ({
             },
           '& [data-md-block="quote"]': { color: 'text.secondary' },
           // The quote bar is the line wrapper's left border, so it spans soft-wrapped rows; no vertical margin keeps stacked lines joined.
-          '& .composer-quote-line': {
+          [`& .${COMPOSER_QUOTE_LINE_CLASS}`]: {
             borderLeft: 3,
             borderLeftColor: 'divider',
             boxSizing: 'border-box',
             display: 'inline-block',
+            // One line box (0.875rem x 1.43), so an empty `> ` line (its marker has font-size 0) keeps its bar.
+            minHeight: '1.25125rem',
             pl: 1,
             verticalAlign: 'top',
             width: '100%',

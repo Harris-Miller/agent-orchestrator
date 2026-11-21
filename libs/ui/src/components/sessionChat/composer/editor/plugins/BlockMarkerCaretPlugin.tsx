@@ -15,6 +15,7 @@ import type { LexicalNode, TextNode } from 'lexical';
 import { useEffect } from 'react';
 import type { FC } from 'react';
 
+import { isQuoteMarkerStyle } from '../composerPieces.ts';
 import { $readComposerTextStyle } from '../nodes/ComposerMarkdownTextNode.ts';
 import { $isComposerQuoteLineNode } from '../nodes/ComposerQuoteLineNode.ts';
 
@@ -62,11 +63,11 @@ const $selectEndOf = (node: LexicalNode): void => {
 const $quoteMarkerOfCaretLine = (node: LexicalNode): TextNode | null => {
   let found: TextNode | null = null;
   for (
-    let sibling: LexicalNode | null = $isComposerQuoteLineNode(node) ? node.getFirstChild() : node;
+    let sibling: LexicalNode | null = $isComposerQuoteLineNode(node) ? node.getLastChild() : node;
     sibling !== null && sibling.getType() !== 'linebreak';
     sibling = sibling.getPreviousSibling()
   ) {
-    if ($isTextNode(sibling) && $isHiddenBlockMarker(sibling) && $readComposerTextStyle(sibling).block === 'quote') {
+    if ($isTextNode(sibling) && $isHiddenBlockMarker(sibling) && isQuoteMarkerStyle($readComposerTextStyle(sibling))) {
       found = sibling;
     }
   }
@@ -105,8 +106,11 @@ export const BlockMarkerCaretPlugin: FC = () => {
           const node = selection.anchor.getNode();
           // An element caret at the start of a quote line sits before the hidden marker.
           if (selection.anchor.type === 'element') {
-            const first = $isComposerQuoteLineNode(node) && selection.anchor.offset === 0 ? node.getFirstChild() : null;
-            return $isHiddenBlockMarker(first) ? first.getKey() : null;
+            const marker =
+              $isComposerQuoteLineNode(node) && selection.anchor.offset === 0
+                ? (node.getChildren().find(child => $isHiddenBlockMarker(child)) ?? null)
+                : null;
+            return marker === null ? null : marker.getKey();
           }
           return $isHiddenBlockMarker(node) && selection.anchor.offset < node.getTextContentSize()
             ? node.getKey()
@@ -132,7 +136,7 @@ export const BlockMarkerCaretPlugin: FC = () => {
             return false;
           }
           event.preventDefault();
-          // A quote marker is its line wrapper's first child, so step out from the wrapper.
+          // A quote line's marker sits inside its wrapper, so step out from the wrapper.
           const parent = marker.getParent();
           const lineStart = $isComposerQuoteLineNode(parent) ? parent : marker;
           const lineBreak = lineStart.getPreviousSibling();

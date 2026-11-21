@@ -1,6 +1,8 @@
 import { $create, ElementNode } from 'lexical';
 import type { LexicalNode } from 'lexical';
 
+export const COMPOSER_QUOTE_LINE_CLASS = 'composer-quote-line';
+
 /**
  * One quote line's nodes, wrapped so the Composer can draw the quote bar as this element's left border and have it
  * span soft-wrapped rows. Inline and text-less of its own: the editor's text content is still the draft (ADR-0009).
@@ -12,7 +14,7 @@ export class ComposerQuoteLineNode extends ElementNode {
 
   createDOM(): HTMLElement {
     const dom = document.createElement('span');
-    dom.className = 'composer-quote-line';
+    dom.className = COMPOSER_QUOTE_LINE_CLASS;
     return dom;
   }
 

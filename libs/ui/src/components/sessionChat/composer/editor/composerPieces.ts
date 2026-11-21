@@ -39,6 +39,10 @@ export const composerPieceText = (piece: ComposerPiece): string => {
   }
 };
 
+/** Whether a text style is a quote line's `>` marker; a line holding one is wrapped as a `quoteLine`. */
+export const isQuoteMarkerStyle = (style: Pick<ComposerTextStyle, 'block' | 'role'>): boolean =>
+  style.role === 'blockMarker' && style.block === 'quote';
+
 const styleOf = (run: MarkdownRun, line: number): ComposerTextStyle => ({
   block: run.block,
   bold: run.bold,
@@ -98,8 +102,7 @@ export const buildComposerPieces = (
       }
       offset += run.text.length;
     }
-    const [first] = runs;
-    if (first?.role === 'blockMarker' && first.block === 'quote') {
+    if (runs.some(isQuoteMarkerStyle)) {
       pieces.push({ kind: 'quoteLine', pieces: linePieces });
     } else {
       pieces.push(...linePieces);

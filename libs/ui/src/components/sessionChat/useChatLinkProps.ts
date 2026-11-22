@@ -25,15 +25,20 @@ export const chatLinkHandlers = (open: () => void): ChatLinkProps => {
   return { onClick: handle, onKeyDown: handle, role: 'link', tabIndex: 0 };
 };
 
+/** `unknown` while the Host capability is still resolving (or failed); only `unsupported` is a resolved `false`. */
+export type OpenFileSupport = 'supported' | 'unknown' | 'unsupported';
+
+export const useOpenFileSupport = (): OpenFileSupport => {
+  const result = useAtomValue(openFileSupportedAtom);
+  if (!AsyncResult.isSuccess(result)) return 'unknown';
+  return result.value ? 'supported' : 'unsupported';
+};
+
 /** Click/keyboard props for a clickable Chat link, or `undefined` when the href is inert. Never navigates the webview. */
 export const useChatLinkProps = (href: string): ChatLinkProps | undefined => {
-  const supported = useAtomValue(openFileSupportedAtom);
+  const support = useOpenFileSupport();
   const { sessionCwd } = useSelectedSessionFsListing();
-  const link = classifyChatLinkHref(
-    href,
-    AsyncResult.getOrElse(supported, () => false),
-    sessionCwd,
-  );
+  const link = classifyChatLinkHref(href, support === 'supported', sessionCwd);
   if (link.kind === 'inert') return undefined;
   return chatLinkHandlers(() => {
     hostRunPromise(openChatLink(link)).catch(() => undefined);

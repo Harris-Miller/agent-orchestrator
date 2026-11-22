@@ -7,7 +7,7 @@ import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC, PointerEvent as ReactPointerEvent } from 'react';
 
-import { MAX_SCALE, MIN_SCALE, RESET_VIEW, ZOOM_STEP, zoomAt } from '../host/imageLightboxZoom.ts';
+import { clampPan, MAX_SCALE, MIN_SCALE, RESET_VIEW, ZOOM_STEP, zoomAt } from '../host/imageLightboxZoom.ts';
 import type { ZoomView } from '../host/imageLightboxZoom.ts';
 import { IconTooltipButton } from './IconTooltipButton.tsx';
 
@@ -28,7 +28,7 @@ const LightboxBody: FC<{ readonly name?: string; readonly onClose: () => void; r
       rect === undefined || client === undefined
         ? { x: 0, y: 0 }
         : { x: client.x - rect.left - rect.width / 2, y: client.y - rect.top - rect.height / 2 };
-    setView(v => zoomAt(v, factor, anchor));
+    setView(v => clampPan(zoomAt(v, factor, anchor), rect ?? { height: 0, width: 0 }));
   };
 
   // React's onWheel is passive, so attach natively to preventDefault.
@@ -55,7 +55,8 @@ const LightboxBody: FC<{ readonly name?: string; readonly onClose: () => void; r
     const dx = event.clientX - last.x;
     const dy = event.clientY - last.y;
     drag.current = { x: event.clientX, y: event.clientY };
-    setView(v => (v.scale === MIN_SCALE ? v : { ...v, x: v.x + dx, y: v.y + dy }));
+    const rect = event.currentTarget.getBoundingClientRect();
+    setView(v => clampPan({ ...v, x: v.x + dx, y: v.y + dy }, rect));
   };
   const endDrag = () => {
     drag.current = null;

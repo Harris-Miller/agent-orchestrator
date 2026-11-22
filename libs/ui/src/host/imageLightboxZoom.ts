@@ -19,3 +19,11 @@ export const zoomAt = (
   const ratio = scale / view.scale;
   return { scale, x: anchor.x - (anchor.x - view.x) * ratio, y: anchor.y - (anchor.y - view.y) * ratio };
 };
+
+/** Keep the image from being dragged fully out of `bounds` (viewport size): its edge may reach the viewport center at most. */
+export const clampPan = (view: ZoomView, bounds: { readonly height: number; readonly width: number }): ZoomView => {
+  if (view.scale <= MIN_SCALE) return RESET_VIEW;
+  const maxX = (bounds.width * view.scale) / 2;
+  const maxY = (bounds.height * view.scale) / 2;
+  return { ...view, x: Math.min(maxX, Math.max(-maxX, view.x)), y: Math.min(maxY, Math.max(-maxY, view.y)) };
+};

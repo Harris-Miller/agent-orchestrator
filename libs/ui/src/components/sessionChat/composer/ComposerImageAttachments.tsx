@@ -6,16 +6,11 @@ import { alpha } from '@mui/material/styles';
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
-import { useAtomValue } from '@effect/atom-react';
-import { AsyncResult } from 'effect/reactivity';
-
-import { openFileSupportedAtom } from '../../../atoms/boundHarnessAtoms.ts';
-
 import type { ComposerImageAttachment } from '../../../host/composerImageAttachment.ts';
 import { ImageLightbox } from '../../ImageLightbox.tsx';
 import { LucideMuiIcon } from '../../LucideMuiIcon.tsx';
 
-import { chatLinkHandlers, useChatLinkProps } from '../useChatLinkProps.ts';
+import { chatLinkHandlers, useChatLinkProps, useOpenFileSupport } from '../useChatLinkProps.ts';
 
 const THUMB_PX = 56;
 
@@ -24,14 +19,14 @@ const AttachmentTile: FC<{
   readonly disabled: boolean;
   readonly onRemove: (id: string) => void;
 }> = ({ attachment, disabled, onRemove }) => {
-  const supported = AsyncResult.getOrElse(useAtomValue(openFileSupportedAtom), () => false);
+  const useLightbox = useOpenFileSupport() === 'unsupported';
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const hostLinkProps = useChatLinkProps(attachment.uri);
-  const linkProps = supported
-    ? hostLinkProps
-    : chatLinkHandlers(() => {
+  const linkProps = useLightbox
+    ? chatLinkHandlers(() => {
         setLightboxOpen(true);
-      });
+      })
+    : hostLinkProps;
   return (
     <>
       <Box
@@ -88,7 +83,7 @@ const AttachmentTile: FC<{
           <LucideMuiIcon icon={X} sx={{ fontSize: 14 }} />
         </IconButton>
       </Box>
-      {!supported && (
+      {useLightbox && (
         <ImageLightbox
           name={attachment.name}
           onClose={() => {

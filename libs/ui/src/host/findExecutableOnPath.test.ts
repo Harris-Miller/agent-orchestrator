@@ -1,6 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { BundledResource, OpenUrl, OS } from '@lib/context-services';
 import { PathLive } from '@lib/context-services-tauri';
+import { makeAcpError } from '@libs/effect-acp';
 import { Cause, Effect, Layer, Option, Sink, Stream } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { FetchHttpClient } from 'effect/http';
@@ -470,24 +471,21 @@ describe('auth messages through bootstrap publication', () => {
       message: 'spawn node ENOENT',
     });
     // An `AcpError` arrives as a plain struct, not an `Error`: its message must be read, not JSON-stringified.
-    assert.deepStrictEqual(
-      classifyBootstrapFailure('codex-acp', Cause.fail({ code: -32000, message: 'Not logged in' })),
-      { _tag: 'NotSignedIn', message: '`codex` is not authenticated — run `codex login`' },
-    );
+    assert.deepStrictEqual(classifyBootstrapFailure('codex-acp', Cause.fail(makeAcpError(-32000, 'Not logged in'))), {
+      _tag: 'NotSignedIn',
+      message: '`codex` is not authenticated — run `codex login`',
+    });
     // Wording never decides: only the ACP `auth_required` code or our own timeout do.
     assert.deepStrictEqual(classifyBootstrapFailure('antigravity-acp', Cause.fail(new Error('please sign in'))), {
       _tag: 'Failed',
       message: 'please sign in',
     });
     assert.deepStrictEqual(
-      classifyBootstrapFailure(
-        'antigravity-acp',
-        Cause.fail({ code: -32603, message: 'Could not sign in to telemetry' }),
-      ),
+      classifyBootstrapFailure('antigravity-acp', Cause.fail(makeAcpError(-32603, 'Could not sign in to telemetry'))),
       { _tag: 'Failed', message: 'Could not sign in to telemetry' },
     );
     assert.deepStrictEqual(
-      classifyBootstrapFailure('antigravity-acp', Cause.fail({ code: -32000, message: 'Session unavailable' })),
+      classifyBootstrapFailure('antigravity-acp', Cause.fail(makeAcpError(-32000, 'Session unavailable'))),
       { _tag: 'NotSignedIn', message: 'Session unavailable' },
     );
     // The sign-in timeout stays NotSignedIn (Sign in button shows) but keeps its own wording.

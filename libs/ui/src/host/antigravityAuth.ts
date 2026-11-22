@@ -2,7 +2,7 @@
  * Antigravity oauth-personal Sign in helpers for the ACP harness bootstrap.
  */
 import { OpenUrl } from '@lib/context-services';
-import { isAuthRequiredError } from '@libs/effect-acp';
+import { acpErrorMessage, isAuthRequiredError } from '@libs/effect-acp';
 import { Cause, Effect, Option, Schema, Stream } from 'effect';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
@@ -27,7 +27,10 @@ const formatError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
-  // ACP wire errors arrive as a plain `AcpError` struct, not an `Error`.
+  // ACP wire errors arrive as a plain `AcpError` struct, not an `Error`, with their text redacted.
+  if (isAcpError(error)) {
+    return acpErrorMessage(error);
+  }
   if (isRecord(error) && typeof error.message === 'string') {
     return error.message;
   }

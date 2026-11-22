@@ -324,6 +324,10 @@ describe('makeStdioDemuxRoute', () => {
           Effect.sync(() => {
             delivered.push(clientId);
           }),
+        pendingRequests: new Map([
+          ['1', { method: 'session/new', sentAtMs: 0 }],
+          ['2', { method: 'session/prompt', sentAtMs: 0 }],
+        ]),
         rpcClientId: 3,
         serverWriteRequest: undefined,
       };
@@ -333,6 +337,10 @@ describe('makeStdioDemuxRoute', () => {
 
       assert.deepStrictEqual(delivered, [0]);
       assert.isFalse(writes.clientIdByRequest.has('1'));
+      assert.deepStrictEqual([...writes.pendingRequests.keys()], ['2']);
+
+      yield* route({ _tag: 'ClientProtocolError', error: new Error('exited') });
+      assert.strictEqual(writes.pendingRequests.size, 0);
     }),
   );
 });

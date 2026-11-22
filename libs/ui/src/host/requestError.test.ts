@@ -1,17 +1,24 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Cause } from 'effect';
+import { AcpError } from '@libs/effect-acp';
+import { Cause, Schema } from 'effect';
 
 import { acpErrorOfCause, describeError, isAcpError } from './requestError.ts';
 
-const rejection = { code: -32603, data: { details: 'limit is 100000' }, message: 'Exceeds max character length' };
+/** As decoded off the wire: the Agent's text is `Redacted`. */
+const rejection = Schema.decodeUnknownSync(AcpError)({
+  code: -32603,
+  data: { details: 'limit is 100000' },
+  message: 'Exceeds max character length',
+});
 
 describe('isAcpError', () => {
   it('accepts a JSON-RPC error response, with or without data', () => {
     assert.isTrue(isAcpError(rejection));
-    assert.isTrue(isAcpError({ code: -32000, message: 'auth_required' }));
+    assert.isTrue(isAcpError(Schema.decodeUnknownSync(AcpError)({ code: -32000, message: 'auth_required' })));
   });
 
-  it('rejects transport failures and anything without a numeric code', () => {
+  it('rejects transport failures, undecoded wire errors and anything without a numeric code', () => {
+    assert.isFalse(isAcpError({ code: -32000, message: 'auth_required' }));
     assert.isFalse(isAcpError(new Error('boom')));
     assert.isFalse(isAcpError({ _tag: 'BackendNotConnected', launchTarget: 'codex-acp' }));
     assert.isFalse(isAcpError({ code: 'ENOENT', message: 'missing' }));

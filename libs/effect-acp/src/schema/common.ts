@@ -1,4 +1,4 @@
-import { Option, Schema, SchemaGetter } from 'effect';
+import { Option, Redacted, Schema, SchemaGetter } from 'effect';
 
 /**
  * Optional struct field; explicit `undefined` is omitted when encoding.
@@ -26,13 +26,34 @@ export const EmptyResult = Schema.Struct({
 });
 export type EmptyResult = typeof EmptyResult.Type;
 
-/** JSON-RPC / ACP error (`code`, `message`, optional `data`). */
+/**
+ * JSON-RPC / ACP error (`code`, `message`, optional `data`). The Agent's `message` and `data` are free text that can
+ * echo the user's input, and an error lands on span exception events wherever it fails an Effect, so both decode as
+ * `Redacted` (ADR 0002). Read them for the user with {@link acpErrorMessage} / {@link acpErrorData}.
+ */
 export const AcpError = Schema.Struct({
   code: Schema.Number,
-  data: optional(Schema.Unknown),
-  message: Schema.String,
+  data: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
+  message: Schema.RedactedFromValue(Schema.String),
 });
 export type AcpError = typeof AcpError.Type;
+
+/** An {@link AcpError} as it travels on the wire, before its text is wrapped. */
+export const AcpErrorEncoded = Schema.toEncoded(AcpError);
+
+/** Build an {@link AcpError} from plain text (tests, Agent-side handlers). */
+export const makeAcpError = (code: number, message: string, data?: unknown): AcpError => ({
+  code,
+  ...(data === undefined ? {} : { data: Redacted.make(data) }),
+  message: Redacted.make(message),
+});
+
+/** The Agent's error text, for the user only: never log it. */
+export const acpErrorMessage = (error: AcpError): string => Redacted.value(error.message);
+
+/** The Agent's error `data`, for the user only: never log it. */
+export const acpErrorData = (error: AcpError): unknown =>
+  error.data === undefined ? undefined : Redacted.value(error.data);
 
 /** ACP V1 `auth_required`. Also the generic JSON-RPC server-error code, so only trust it from agents known to use it for auth. */
 export const ACP_AUTH_REQUIRED = -32000;

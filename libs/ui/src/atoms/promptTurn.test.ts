@@ -4,7 +4,9 @@
  */
 import { assert, layer } from '@effect/vitest';
 import { Notifier, OS } from '@lib/context-services';
-import { Clock, Effect, Exit, Fiber, Layer, Option } from 'effect';
+import { acpErrorData, acpErrorMessage } from '@libs/effect-acp';
+import type { AcpError } from '@libs/effect-acp';
+import { Clock, Effect, Exit, Fiber, Layer, Option, Predicate } from 'effect';
 import { layerNoop } from 'effect/FileSystem';
 import { layer as posixPathLayer } from 'effect/Path';
 import type { AtomRegistry } from 'effect/reactivity';
@@ -100,6 +102,13 @@ const requestErrors = (registry: Registry, sessionId = 's1') =>
   sessionId in snapshotOf(registry).sessions
     ? sessionOf(registry, sessionId).transcript.items.flatMap(item => (item.kind === 'request_error' ? [item] : []))
     : [];
+
+/** The Prompt turn ended with the fake Agent's {@link REJECTION}, its text intact for the user. */
+const assertRejected = (result: unknown) => {
+  assert.isTrue(Predicate.isTagged(result, 'Rejected'));
+  const { error } = result as { readonly error: AcpError };
+  assert.deepStrictEqual({ code: error.code, data: acpErrorData(error), message: acpErrorMessage(error) }, REJECTION);
+};
 
 /** The Request error the fake Agent's {@link REJECTION} becomes in a transcript (id aside). */
 const rejectionItem = (method: string) => ({
@@ -226,7 +235,7 @@ layer(hostLayer)('Send', layeredIt => {
         Object.assign(opts, { prompt: 'reject' });
         const result = yield* send(h.registry, CONTINUE_PROMPT_TEXT);
         yield* settle;
-        assert.deepStrictEqual(result, { _tag: 'Rejected', error: REJECTION });
+        assertRejected(result);
         assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
         assert.strictEqual(userMessages(h.registry).at(-1)?.text, 'Continue where you left off.');
       }).pipe(Effect.scoped),
@@ -327,7 +336,7 @@ layer(hostLayer)('Send', layeredIt => {
       const result = yield* send(h.registry);
       yield* settle;
 
-      assert.deepStrictEqual(result, { _tag: 'Rejected', error: REJECTION });
+      assertRejected(result);
       assert.deepStrictEqual(
         sessionOf(h.registry).transcript.items.map(item => item.kind),
         ['user_message', 'request_error'],

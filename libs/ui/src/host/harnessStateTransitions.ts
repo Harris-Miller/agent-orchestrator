@@ -2,6 +2,7 @@
  * Pure Harness state transitions over BackendHarnessSnapshot: the only place the snapshot's next value is computed.
  * Atoms, the Harness event fold and host churn apply these to the latest snapshot and own no snapshot spreads.
  */
+import { acpErrorMessage } from '@libs/effect-acp';
 import type { AcpError, SessionFailure } from '@libs/effect-acp';
 import { Option, Predicate } from 'effect';
 
@@ -396,7 +397,7 @@ export const appendRequestError = (
       transcript: appendRequestErrorItem(session.transcript, {
         code: error.code,
         ...(details === undefined ? {} : { details }),
-        message: error.message,
+        message: acpErrorMessage(error),
         method,
       }),
     })),

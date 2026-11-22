@@ -198,7 +198,8 @@ export const runBackendHarness = Effect.fnUntraced(
         return;
       }
       const failure = classifyBootstrapFailure(launchTarget, exit.cause);
-      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, failure.message);
+      // `failure.message` can quote the Agent's error text; the cause carries it redacted.
+      yield* Effect.logError('ACP harness bootstrap failed', launchTarget, failure._tag, exit.cause);
       handlers.onPhase('error', failure);
       consecutiveFailures.count += 1;
       if (consecutiveFailures.count >= MAX_CONNECT_ATTEMPTS) {

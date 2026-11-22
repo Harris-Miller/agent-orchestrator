@@ -25,7 +25,9 @@ import {
 } from '@lib/ui';
 import type { Workstream } from '@lib/hoa-home';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
@@ -117,16 +119,20 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
               <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
                 Workstreams
               </Typography>
-              <IconButton
-                aria-label="New Workstream"
+            </Stack>
+            <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
+              <ListItemButton
                 onClick={() => {
                   setDialog({ workstream: undefined });
                 }}
-                size="small"
+                sx={{ borderRadius: 1, py: 0.75 }}
               >
-                <LucideMuiIcon fontSize="small" icon={Plus} />
-              </IconButton>
-            </Stack>
+                <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+                  <LucideMuiIcon fontSize="small" icon={Plus} />
+                </ListItemIcon>
+                <ListItemText primary="New Workstream" slotProps={{ primary: { variant: 'body2' } }} />
+              </ListItemButton>
+            </Box>
             <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               {shown.map(ws => {
                 const rows = ws.sessions.flatMap(session => {

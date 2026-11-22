@@ -150,7 +150,7 @@ export const SessionHistoryRow: FC<{
           <Box sx={{ display: 'inline-flex', opacity: archived ? 0.5 : 1 }}>
             <AgentLaunchTargetIcon launchTarget={entry.launchTarget} />
           </Box>
-          <Stack sx={{ flex: 1, minWidth: 0 }}>
+          <Stack sx={{ flex: rename.titleProps.editing ? 1 : '0 1 auto', minWidth: 0 }}>
             <SessionTitleInlineRename {...rename.titleProps} entry={entry} onClientError={onClientError}>
               <Typography
                 color={archived ? 'text.secondary' : undefined}
@@ -158,6 +158,7 @@ export const SessionHistoryRow: FC<{
                   display: '-webkit-box',
                   fontWeight: selected ? 600 : 400,
                   lineHeight: 1.4,
+                  opacity: archived ? 0.5 : 1,
                   overflow: 'hidden',
                   WebkitBoxOrient: 'vertical',
                   WebkitLineClamp: 2,
@@ -181,6 +182,7 @@ export const SessionHistoryRow: FC<{
           {archived ? (
             <LucideMuiIcon icon={Archive} titleAccess="Archived" sx={{ color: 'text.disabled', fontSize: '0.9rem' }} />
           ) : null}
+          <Box sx={{ flex: 1 }} />
           {pendingClientRequest ? (
             <CircularProgress aria-label="Pending client request" size={14} sx={{ flexShrink: 0 }} />
           ) : null}

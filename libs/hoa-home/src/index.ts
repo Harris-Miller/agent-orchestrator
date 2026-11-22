@@ -131,12 +131,13 @@ export {
   PinnedSessionsDocumentSchema,
 } from './PinnedSessionsDocument.ts';
 export {
+  addWorkstream,
   adoptSession,
   createWorkstream,
   deleteWorkstream,
+  makeWorkstream,
   orphanSession,
   readWorkstreams,
-  removeSessionEverywhere,
   setWorkstreamArchived,
   updateWorkstream,
   updateWorkstreams,

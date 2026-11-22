@@ -1,5 +1,6 @@
 import { assert, describe, layer } from '@effect/vitest';
 import { Effect, Exit } from 'effect';
+import { FileSystem } from 'effect/FileSystem';
 import { beforeEach } from 'vitest';
 
 import {
@@ -8,7 +9,6 @@ import {
   deleteWorkstream,
   orphanSession,
   readWorkstreams,
-  removeSessionEverywhere,
   setWorkstreamArchived,
   updateWorkstream,
   workstreamsPath,
@@ -55,8 +55,34 @@ describe('workstreams', () => {
         yield* orphanSession(s1);
         docs = (yield* readWorkstreams()).workstreams;
         assert.deepStrictEqual(docs[1]?.sessions, [s2]);
-        yield* removeSessionEverywhere(s2);
+        yield* orphanSession(s2);
         assert.deepStrictEqual((yield* readWorkstreams()).workstreams[1]?.sessions, []);
+      }),
+    );
+
+    testIt.effect('concurrent updates are serialized, none is lost', () =>
+      Effect.gen(function* () {
+        const slowRead = Effect.updateService(FileSystem, fs => ({
+          ...fs,
+          readFileString: (...args: Parameters<typeof fs.readFileString>) =>
+            fs.readFileString(...args).pipe(Effect.tap(() => Effect.yieldNow)),
+        }));
+        const created = yield* Effect.forEach(
+          Array.from({ length: 10 }, (_, index) => `W${String(index)}`),
+          name => createWorkstream(name, []),
+          { concurrency: 'unbounded' },
+        ).pipe(slowRead);
+        assert.strictEqual((yield* readWorkstreams()).workstreams.length, 10);
+        yield* Effect.forEach(
+          created,
+          ws => adoptSession(ws.id, { launchTarget: 'codex-acp', sessionId: `s-${ws.name}` }),
+          { concurrency: 'unbounded' },
+        ).pipe(slowRead);
+        const docs = (yield* readWorkstreams()).workstreams;
+        assert.deepStrictEqual(
+          docs.map(ws => ws.sessions.length),
+          Array.from({ length: 10 }, () => 1),
+        );
       }),
     );
 

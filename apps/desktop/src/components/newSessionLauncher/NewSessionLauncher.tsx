@@ -9,6 +9,7 @@ import {
   patchVirtualSessionAtomFn,
   projectDisplayAtom,
   projectsAtom,
+  projectsLoadedAtom,
   setVirtualLaunchTargetAtomFn,
   virtualSessionAtom,
 } from '@lib/ui';
@@ -72,6 +73,8 @@ export type NewSessionLauncherViewProps = {
   readonly onPickProject: (cwd: string) => void;
   readonly onPickTarget: (launchTarget: AgentLaunchTarget) => void;
   readonly projects: readonly string[];
+  /** False until projects have loaded; the empty hint is withheld so it cannot flash at startup. */
+  readonly projectsLoaded: boolean;
   readonly targets: readonly AgentLaunchTarget[];
   /** Targets the composer can launch (usable); others are disabled. Defaults to all `targets`. */
   readonly usableTargets?: readonly AgentLaunchTarget[];
@@ -86,6 +89,7 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
   onPickProject,
   onPickTarget,
   projects,
+  projectsLoaded,
   usableTargets,
   targets,
   unavailableReasons,
@@ -139,9 +143,11 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
       ))}
     </Box>
     {projects.length === 0 ? (
-      <Typography color="text.secondary" variant="body2">
-        No projects yet. Use “Choose Project” above the prompt.
-      </Typography>
+      projectsLoaded ? (
+        <Typography color="text.secondary" variant="body2">
+          No projects yet. Use “Choose Project” above the prompt.
+        </Typography>
+      ) : null
     ) : (
       <Box
         aria-label="Project"
@@ -174,6 +180,7 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
   const virtual = useAtomValue(virtualSessionAtom);
   const targets = useAtomValue(enabledLaunchTargetsAtom);
   const projects = useAtomValue(projectsAtom);
+  const projectsLoaded = useAtomValue(projectsLoadedAtom);
   const { locked } = useAtomValue(composerAtom);
   const { reasons, usable } = useAtomValue(launchTargetAvailabilityAtom);
   const setLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
@@ -182,15 +189,18 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
   return (
     <NewSessionLauncherView
       cwd={virtual?.cwd}
-      disabled={locked}
+      disabled={locked || virtual == null}
       launchTarget={virtual?.launchTarget}
       onPickProject={cwd => {
+        if (cwd === virtual?.cwd) return;
         patchVirtual({ cwd }).catch(onClientError);
       }}
       onPickTarget={target => {
+        if (target === virtual?.launchTarget) return;
         setLaunchTarget(target).catch(onClientError);
       }}
       projects={projects}
+      projectsLoaded={projectsLoaded}
       usableTargets={usable}
       targets={targets}
       unavailableReasons={reasons}

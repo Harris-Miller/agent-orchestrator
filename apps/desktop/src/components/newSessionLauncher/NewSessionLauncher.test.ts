@@ -26,6 +26,7 @@ const render = (props: Partial<NewSessionLauncherViewProps>) =>
         onPickProject: () => undefined,
         onPickTarget: () => undefined,
         projects: [],
+        projectsLoaded: true,
         targets: [],
         ...props,
       }),
@@ -51,8 +52,14 @@ describe('NewSessionLauncher', () => {
     assert.include(html, 'aria-label="Project"');
   });
 
-  it('shows the hint when there are no projects', () => {
+  it('shows the hint when loaded with no projects', () => {
     assert.include(render({}), 'No projects yet.');
+  });
+
+  it('shows no hint before projects have loaded', () => {
+    const html = render({ projectsLoaded: false });
+    assert.notInclude(html, 'No projects yet');
+    assert.notInclude(html, 'aria-label="Project"');
   });
 
   it('disables tiles and pills while disabled', () => {

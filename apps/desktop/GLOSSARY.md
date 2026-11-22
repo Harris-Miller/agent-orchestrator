@@ -273,7 +273,7 @@ At most one process-lifetime in-memory draft (composer text, agent launch target
 _Avoid_: Draft session, pending session, unsaved session
 
 **New session launcher**:
-The desktop Sessions page's empty-Virtual-session surface, where the agent and Project are picked before describing the work. VS Code shows Recent sessions there instead.
+The surface shown on the **Sessions Page** while the **Virtual session** is empty, where the agent and **Project** are picked before describing the work.
 _Avoid_: new session screen, welcome screen
 
 **Selected**:

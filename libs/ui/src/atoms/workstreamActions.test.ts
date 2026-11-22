@@ -11,7 +11,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { mockHostLayer } from './mockHostLayer.testing.ts';
 import { projectsAtom } from './projects.atoms.ts';
 import { groupAndSortSessionsForNav } from '../host/groupAndSortSessionsForNav.ts';
-import { workstreamsEnabledAtom, userSettingsDocumentAtom } from './userSettings/userSettingsDocument.atoms.ts';
+import { userSettingsDocumentAtom, workstreamsEnabledAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import {
   adoptIntoWorkstream,
   createWorkstreamIn,

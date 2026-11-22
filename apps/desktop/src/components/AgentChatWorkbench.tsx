@@ -26,6 +26,7 @@ import { useEffect, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { RIGHT_PANEL_ENABLED, RIGHT_PANEL_WIDTH, RightPanelPlaceholder } from './rightPanel/BootstrapStatePanel.tsx';
+import { NewSessionLauncher } from './newSessionLauncher/NewSessionLauncher.tsx';
 import { SessionCwdStrip } from './SessionCwdStrip.tsx';
 import { WORKBENCH_NAV_RAIL_WIDTH, WorkbenchNavRail } from './workbenchNavRail/WorkbenchNavRail.tsx';
 
@@ -164,7 +165,11 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody aboveComposer={cwdStrip} onClientError={onClientError} />
+                <SessionChatBody
+                  aboveComposer={cwdStrip}
+                  onClientError={onClientError}
+                  virtualEmptyState={<NewSessionLauncher onClientError={onClientError} />}
+                />
               </Box>
             </Allotment.Pane>
 

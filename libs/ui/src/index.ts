@@ -3,6 +3,7 @@ export * from './atoms/importSessions.atoms.ts';
 export * from './atoms/listedCwds.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
+export { composerAtom } from './atoms/composer.atoms.ts';
 export * from './atoms/projects.atoms.ts';
 export * from './atoms/workstreams.atoms.ts';
 export { userSettingsLoadedAtom, workstreamsEnabledAtom } from './atoms/userSettings/userSettingsDocument.atoms.ts';

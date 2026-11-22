@@ -17,3 +17,6 @@ scripts/**
 **/*.vsix
 /node_modules/**
 dist/**/*.map
+DEVELOPMENT.md
+GLOSSARY.md
+docs/**

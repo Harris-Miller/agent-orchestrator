@@ -23,7 +23,7 @@ export const activate = function (context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, provider, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
-    vscode.commands.registerCommand('hoa.helloWorld', () => vscode.commands.executeCommand('hoa.sidebar.focus')),
+    vscode.commands.registerCommand('hoa.focus', () => vscode.commands.executeCommand('hoa.sidebar.focus')),
   );
 };
 

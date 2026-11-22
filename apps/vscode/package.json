@@ -3,10 +3,24 @@
   "displayName": "Harness Orchestrating Agents",
   "version": "0.0.1",
   "private": true,
-  "description": "Harness Orchestrating Agents VS Code extension (local development scaffold).",
+  "description": "Run and orchestrate coding agents from a sidebar in VS Code.",
   "categories": [
+    "AI",
     "Other"
   ],
+  "keywords": [
+    "acp",
+    "agents",
+    "ai",
+    "claude",
+    "codex",
+    "orchestration"
+  ],
+  "homepage": "https://github.com/Harris-Miller/agent-orchestrator#readme",
+  "bugs": {
+    "url": "https://github.com/Harris-Miller/agent-orchestrator/issues"
+  },
+  "license": "ISC",
   "repository": {
     "type": "git",
     "url": "https://github.com/Harris-Miller/agent-orchestrator.git"
@@ -84,13 +98,18 @@
     },
     "commands": [
       {
-        "command": "hoa.helloWorld",
-        "title": "HOA: Hello World"
+        "command": "hoa.focus",
+        "title": "Focus Sidebar",
+        "category": "HOA"
       }
     ]
   },
   "activationEvents": [],
   "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.140.0"
   }

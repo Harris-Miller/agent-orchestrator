@@ -9,18 +9,7 @@ const { version } = JSON.parse(
 
 const { status } = spawnSync(
   'pnpm',
-  [
-    'exec',
-    'vsce',
-    'package',
-    version,
-    '--no-update-package-json',
-    '--no-dependencies',
-    '--allow-missing-repository',
-    '--skip-license',
-    '--out',
-    'hoa-vscode.vsix',
-  ],
+  ['exec', 'vsce', 'package', version, '--no-update-package-json', '--no-dependencies', '--out', 'hoa-vscode.vsix'],
   { shell: process.platform === 'win32', stdio: 'inherit' },
 );
 process.exit(status ?? 1);

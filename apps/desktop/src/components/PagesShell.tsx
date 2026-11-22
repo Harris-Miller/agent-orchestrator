@@ -5,7 +5,7 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import { useNavigate } from '@tanstack/react-router';
-import { Layers, MessagesSquare } from 'lucide-react';
+import { Layers, MessagesSquare, Settings } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
 const PAGES = [
@@ -13,9 +13,9 @@ const PAGES = [
   { icon: Layers, label: 'Workstreams Page', page: 'workstreams', to: '/workstreams' },
 ] as const;
 
-export type Page = (typeof PAGES)[number]['page'];
+export type Page = (typeof PAGES)[number]['page'] | 'settings';
 
-/** Left page switcher beside the active page; hidden unless Experimental: Workstreams is on. */
+/** Left page switcher (with the Settings gear at the bottom) beside the active page, including Settings; hidden unless Experimental: Workstreams is on. */
 export const PagesShell: FC<{ readonly children: ReactNode; readonly page: Page }> = ({ children, page }) => {
   const enabled = useAtomValue(workstreamsEnabledAtom);
   const navigate = useNavigate();
@@ -50,6 +50,17 @@ export const PagesShell: FC<{ readonly children: ReactNode; readonly page: Page 
               </IconButton>
             </Tooltip>
           ))}
+          <Tooltip placement="right" title="Settings">
+            <IconButton
+              aria-label="Settings"
+              onClick={() => {
+                navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
+              }}
+              sx={{ bgcolor: page === 'settings' ? 'action.selected' : 'transparent', borderRadius: 1.5, mt: 'auto' }}
+            >
+              <LucideMuiIcon icon={Settings} sx={{ color: page === 'settings' ? 'primary.main' : 'text.secondary' }} />
+            </IconButton>
+          </Tooltip>
         </Stack>
       ) : null}
       <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>

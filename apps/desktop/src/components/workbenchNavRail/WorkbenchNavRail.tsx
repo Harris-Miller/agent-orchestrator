@@ -25,6 +25,7 @@ import {
   useSessionHistorySearch,
   visibleListedSessionHistoryAtom,
   withoutPinned,
+  workstreamsEnabledAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -70,6 +71,7 @@ export const WorkbenchNavRail: FC<{
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const projects = useAtomValue(projectsAtom);
+  const workstreamsEnabled = useAtomValue(workstreamsEnabledAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [addingProject, setAddingProject] = useState(false);
@@ -279,16 +281,20 @@ export const WorkbenchNavRail: FC<{
             />
           </Box>
         )}
-        <Divider />
-        <Box sx={{ flexShrink: 0, p: 1 }}>
-          <IconTooltipButton
-            icon={Settings}
-            label="Settings"
-            onClick={() => {
-              navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
-            }}
-          />
-        </Box>
+        {workstreamsEnabled ? null : (
+          <>
+            <Divider />
+            <Box sx={{ flexShrink: 0, p: 1 }}>
+              <IconTooltipButton
+                icon={Settings}
+                label="Settings"
+                onClick={() => {
+                  navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
+                }}
+              />
+            </Box>
+          </>
+        )}
       </Box>
 
       {addingProject ? (

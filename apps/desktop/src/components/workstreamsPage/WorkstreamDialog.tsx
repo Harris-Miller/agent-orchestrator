@@ -1,4 +1,5 @@
 import type { TrackerProvider, TrackerRef, Workstream } from '@lib/hoa-home';
+import { FieldLabel } from '@lib/ui';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -39,49 +40,55 @@ export const WorkstreamDialog: FC<{
       <DialogTitle>{workstream === undefined ? 'New Workstream' : 'Edit Workstream'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField
-            autoFocus
-            label="Name"
-            onChange={event => {
-              setName(event.target.value);
-            }}
-            size="small"
-            value={name}
-          />
-          <Stack direction="row" spacing={1}>
-            <Select
-              inputProps={{ 'aria-label': 'Tracker provider' }}
-              onChange={event => {
-                setProvider(event.target.value);
-              }}
-              size="small"
-              value={provider}
-            >
-              {TRACKER_PROVIDERS.map(candidate => (
-                <MenuItem key={candidate} value={candidate}>
-                  {TRACKER_LABEL[candidate]}
-                </MenuItem>
-              ))}
-            </Select>
+          <FieldLabel fullWidth htmlFor="workstream-name" label="Name">
             <TextField
-              label="Issue key or URL"
+              autoFocus
+              fullWidth
+              id="workstream-name"
               onChange={event => {
-                setKey(event.target.value);
-              }}
-              onKeyDown={event => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  addTracker();
-                }
+                setName(event.target.value);
               }}
               size="small"
-              sx={{ flex: 1 }}
-              value={key}
+              value={name}
             />
-            <Button disabled={trimmedKey === ''} onClick={addTracker}>
-              Add
-            </Button>
-          </Stack>
+          </FieldLabel>
+          <FieldLabel fullWidth htmlFor="workstream-tracker-key" label="Tracker">
+            <Stack direction="row" spacing={1}>
+              <Select
+                inputProps={{ 'aria-label': 'Tracker provider' }}
+                onChange={event => {
+                  setProvider(event.target.value);
+                }}
+                size="small"
+                value={provider}
+              >
+                {TRACKER_PROVIDERS.map(candidate => (
+                  <MenuItem key={candidate} value={candidate}>
+                    {TRACKER_LABEL[candidate]}
+                  </MenuItem>
+                ))}
+              </Select>
+              <TextField
+                id="workstream-tracker-key"
+                onChange={event => {
+                  setKey(event.target.value);
+                }}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addTracker();
+                  }
+                }}
+                placeholder="Issue key or URL"
+                size="small"
+                sx={{ flex: 1 }}
+                value={key}
+              />
+              <Button disabled={trimmedKey === ''} onClick={addTracker}>
+                Add
+              </Button>
+            </Stack>
+          </FieldLabel>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
             {trackers.map(ref => (
               <TrackerChip

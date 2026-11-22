@@ -6,6 +6,8 @@
 import { Clock, Effect, Exit, Schema } from 'effect';
 import type { Tracer } from 'effect';
 
+import type { StopReason } from '@libs/effect-acp';
+
 import type { AcpTelemetry, SessionUpdateSummary } from './acpTelemetry.ts';
 import { promptTurnTelemetry, sessionUpdateTelemetry } from './acpTelemetry.ts';
 
@@ -94,8 +96,8 @@ export type TurnAlarm =
   | { readonly _tag: 'CancelUnanswered'; readonly sinceCancelMs: number }
   | { readonly _tag: 'Silent'; readonly openToolCalls: number; readonly silentMs: number };
 
-/** Alarms due at `nowMs`; each fires once (silence re-arms on the next activity). */
-export const dueTurnAlarms = (turn: PromptTurn, nowMs: number): readonly TurnAlarm[] => {
+/** Take the alarms due at `nowMs`: each fires once (silence re-arms on the next activity). */
+export const takeDueTurnAlarms = (turn: PromptTurn, nowMs: number): readonly TurnAlarm[] => {
   const alarms: TurnAlarm[] = [];
   const silentMs = nowMs - turn.lastActivityAtMs;
   if (turn.awaitingUser === 0 && !turn.silenceWarned && silentMs >= SILENT_TURN_MS) {
@@ -178,7 +180,10 @@ export const recordToolCall = Effect.fnUntraced(function* (
 });
 
 /** Close every tool call span still open when its turn ends, and report each as orphaned. */
-export const closeOrphanedToolCalls = Effect.fnUntraced(function* (turn: PromptTurn, stopReason: string | undefined) {
+export const closeOrphanedToolCalls = Effect.fnUntraced(function* (
+  turn: PromptTurn,
+  stopReason: StopReason | undefined,
+) {
   if (turn.toolCalls.size === 0) {
     return;
   }

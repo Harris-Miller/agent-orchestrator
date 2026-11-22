@@ -51,23 +51,26 @@ const withTurnCorrelatedSpan = <A, E, R>(
 };
 
 /** Run `wait` (a request waiting on the user) with the turn's silence clock paused. */
-const awaitingUser = <A>(launchTarget: AgentLaunchTarget, sessionId: string, wait: Effect.Effect<A>) =>
-  Effect.gen(function* () {
-    const turn = getPromptTurn(launchTarget, sessionId);
-    if (turn === undefined) {
-      return yield* wait;
-    }
-    recordAwaitingUser(turn, 1, yield* Clock.currentTimeMillis);
-    return yield* wait.pipe(
-      Effect.ensuring(
-        Effect.flatMap(Clock.currentTimeMillis, nowMs =>
-          Effect.sync(() => {
-            recordAwaitingUser(turn, -1, nowMs);
-          }),
-        ),
+const awaitingUser = Effect.fnUntraced(function* <A>(
+  launchTarget: AgentLaunchTarget,
+  sessionId: string,
+  wait: Effect.Effect<A>,
+) {
+  const turn = getPromptTurn(launchTarget, sessionId);
+  if (turn === undefined) {
+    return yield* wait;
+  }
+  recordAwaitingUser(turn, 1, yield* Clock.currentTimeMillis);
+  return yield* wait.pipe(
+    Effect.ensuring(
+      Effect.flatMap(Clock.currentTimeMillis, nowMs =>
+        Effect.sync(() => {
+          recordAwaitingUser(turn, -1, nowMs);
+        }),
       ),
-    );
-  });
+    ),
+  );
+});
 
 export const makeClientHandlers = (
   launchTarget: AgentLaunchTarget,

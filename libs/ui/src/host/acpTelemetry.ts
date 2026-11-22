@@ -2,8 +2,11 @@
  * ACP telemetry projections (ADR 0002): the only way an ACP object reaches a span attribute or log. Each projection
  * copies an allowlist of protocol discriminators, ids, counts and durations and never reads free text, so Private data
  * (prompt and Agent text, tool titles, raw tool input and output, paths) cannot leak through it. Agent-supplied
- * discriminators are free strings on the wire: anything outside the ACP literal set becomes `other`.
+ * discriminators are free strings on the wire: anything outside the ACP literal set becomes `unrecognized` (distinct from
+ * ACP's own `other` tool kind).
  */
+import { PermissionOptionKind } from '@libs/effect-acp';
+import type { StopReason } from '@libs/effect-acp';
 import { Predicate, Schema } from 'effect';
 
 declare const acpTelemetryBrand: unique symbol;
@@ -53,9 +56,6 @@ export type ToolCallStatus = typeof ToolCallStatus.Type;
 const ContentType = Schema.Literals(['audio', 'image', 'resource', 'resource_link', 'text']);
 type ContentType = typeof ContentType.Type;
 
-const PermissionOptionKind = Schema.Literals(['allow_always', 'allow_once', 'reject_always', 'reject_once']);
-type PermissionOptionKind = typeof PermissionOptionKind.Type;
-
 const PermissionOutcome = Schema.Literals(['cancelled', 'selected']);
 const ElicitationMode = Schema.Literals(['form', 'url']);
 const ElicitationAction = Schema.Literals(['accept', 'cancel', 'decline']);
@@ -63,9 +63,12 @@ const ElicitationAction = Schema.Literals(['accept', 'cancel', 'decline']);
 /** Longest id kept; an id is an identifier, not a place for an Agent to put text. */
 const MAX_ID_LENGTH = 128;
 
-/** A literal from `schema`'s set, `other` for any other value, `undefined` when absent. */
-const literalOrOther = <A extends string>(schema: Schema.Codec<A>, value: unknown): A | 'other' | undefined =>
-  value === undefined || value === null ? undefined : Schema.is(schema)(value) ? value : 'other';
+/** A value outside the ACP literal set. */
+type Unrecognized = 'unrecognized';
+
+/** A literal from `schema`'s set, `unrecognized` for any other value, `undefined` when absent. */
+const literalOrOther = <A extends string>(schema: Schema.Codec<A>, value: unknown): A | Unrecognized | undefined =>
+  value === undefined || value === null ? undefined : Schema.is(schema)(value) ? value : 'unrecognized';
 
 const idOf = (value: unknown): string | undefined =>
   Predicate.isString(value) && value.length > 0 && value.length <= MAX_ID_LENGTH ? value : undefined;
@@ -74,14 +77,14 @@ const countOf = (value: unknown): number | undefined => (Array.isArray(value) ? 
 
 /** What a `session/update` was, never what it said. */
 export type SessionUpdateSummary = {
-  readonly contentType?: ContentType | 'other';
-  readonly kind: SessionUpdateKind | 'other';
+  readonly contentType?: ContentType | Unrecognized;
+  readonly kind: SessionUpdateKind | Unrecognized;
   readonly locations?: number;
   readonly planEntries?: number;
   readonly textChars?: number;
   readonly toolCallId?: string;
-  readonly toolKind?: ToolKind | 'other';
-  readonly toolStatus?: ToolCallStatus | 'other';
+  readonly toolKind?: ToolKind | Unrecognized;
+  readonly toolStatus?: ToolCallStatus | Unrecognized;
 };
 
 const isChunk = (kind: SessionUpdateSummary['kind']): boolean =>
@@ -92,9 +95,9 @@ const isChunk = (kind: SessionUpdateSummary['kind']): boolean =>
 
 export const summarizeSessionUpdate = (update: unknown): SessionUpdateSummary => {
   if (!Predicate.isObject(update)) {
-    return { kind: 'other' };
+    return { kind: 'unrecognized' };
   }
-  const kind = literalOrOther(SessionUpdateKind, update.sessionUpdate) ?? 'other';
+  const kind = literalOrOther(SessionUpdateKind, update.sessionUpdate) ?? 'unrecognized';
   if (kind === 'tool_call' || kind === 'tool_call_update') {
     const toolCallId = idOf(update.toolCallId);
     const toolKind = literalOrOther(ToolKind, update.kind);
@@ -136,21 +139,25 @@ export const sessionUpdateTelemetry = (summary: SessionUpdateSummary): AcpTeleme
     'acp.update': summary.kind,
   });
 
-const optionKindsOf = (options: unknown): readonly (PermissionOptionKind | 'other')[] =>
+const optionKindsOf = (options: unknown): readonly (PermissionOptionKind | Unrecognized)[] =>
   Array.isArray(options)
     ? options.map((option: unknown) =>
-        Predicate.isObject(option) ? (literalOrOther(PermissionOptionKind, option.kind) ?? 'other') : 'other',
+        Predicate.isObject(option)
+          ? (literalOrOther(PermissionOptionKind, option.kind) ?? 'unrecognized')
+          : 'unrecognized',
       )
     : [];
 
 /** Which option kind the user picked, looked up by `optionId` among the offered options (the id itself is not kept). */
-const selectedOptionKind = (options: unknown, optionId: unknown): PermissionOptionKind | 'other' => {
+const selectedOptionKind = (options: unknown, optionId: unknown): PermissionOptionKind | Unrecognized => {
   const option: unknown = Array.isArray(options)
     ? (options as readonly unknown[]).find(
         candidate => Predicate.isObject(candidate) && candidate.optionId === optionId,
       )
     : undefined;
-  return Predicate.isObject(option) ? (literalOrOther(PermissionOptionKind, option.kind) ?? 'other') : 'other';
+  return Predicate.isObject(option)
+    ? (literalOrOther(PermissionOptionKind, option.kind) ?? 'unrecognized')
+    : 'unrecognized';
 };
 
 /** A `session/request_permission` and, once answered, its outcome: tool call id and kind, offered and chosen option kinds. */
@@ -188,7 +195,7 @@ const USAGE_FIELDS = [
 ] as const;
 
 /** A `session/prompt` response: stop reason and token counts. */
-export const promptResponseTelemetry = (response: { readonly stopReason: string; readonly usage?: unknown }) =>
+export const promptResponseTelemetry = (response: { readonly stopReason: StopReason; readonly usage?: unknown }) =>
   telemetry({
     'acp.stopReason': response.stopReason,
     ...Object.fromEntries(
@@ -207,7 +214,7 @@ export const promptTurnTelemetry = (tally: {
   readonly toolCalls: number;
   readonly toolCallsFailed: number;
   readonly toolCallsOrphaned: number;
-  readonly updates: ReadonlyMap<SessionUpdateKind | 'other', number>;
+  readonly updates: ReadonlyMap<SessionUpdateKind | Unrecognized, number>;
 }): AcpTelemetry =>
   telemetry({
     'acp.turn.firstAgentChunkMs': tally.firstAgentChunkMs,

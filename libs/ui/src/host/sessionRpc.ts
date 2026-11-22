@@ -5,7 +5,7 @@
  * runtime Install or Remove, Recheck), on a failed bootstrap attempt before its retry, and on the last failed attempt.
  * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
-import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
+import type { AcpAgentConnection, ContentBlock, StopReason } from '@libs/effect-acp';
 import { Clock, Effect, Exit, Predicate, Redacted, Schedule, Schema } from 'effect';
 import type { Scope, Tracer } from 'effect';
 
@@ -19,10 +19,10 @@ import { listSessionPage } from './listSessionPages.ts';
 import type { PromptTurn } from './promptTurnTelemetry.ts';
 import {
   closeOrphanedToolCalls,
-  dueTurnAlarms,
   makePromptTurn,
   promptTurnSummary,
   recordCancelRequested,
+  takeDueTurnAlarms,
 } from './promptTurnTelemetry.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
@@ -269,43 +269,42 @@ export const deleteSession = Effect.fn('deleteSession')(
 );
 
 /** Warn while a turn is silent too long or ignores a cancel: a hung turn never ends its span, so this is its only trace. */
+const checkPromptTurn = Effect.fnUntraced(function* (sessionId: string, turn: PromptTurn) {
+  for (const alarm of takeDueTurnAlarms(turn, yield* Clock.currentTimeMillis)) {
+    yield* alarm._tag === 'Silent'
+      ? Effect.logWarning('Prompt turn silent', sessionId, {
+          openToolCalls: alarm.openToolCalls,
+          silentMs: alarm.silentMs,
+        })
+      : Effect.logWarning('Prompt turn unresolved after session/cancel', sessionId, {
+          sinceCancelMs: alarm.sinceCancelMs,
+        });
+  }
+});
+
 const watchPromptTurn = (sessionId: string, turn: PromptTurn) =>
-  Effect.gen(function* () {
-    for (const alarm of dueTurnAlarms(turn, yield* Clock.currentTimeMillis)) {
-      yield* alarm._tag === 'Silent'
-        ? Effect.logWarning('Prompt turn silent', sessionId, {
-            openToolCalls: alarm.openToolCalls,
-            silentMs: alarm.silentMs,
-          })
-        : Effect.logWarning('Prompt turn unresolved after session/cancel', sessionId, {
-            sinceCancelMs: alarm.sinceCancelMs,
-          });
-    }
-  }).pipe(Effect.repeat(Schedule.spaced('5 seconds')), Effect.withParentSpan(turn.span));
+  checkPromptTurn(sessionId, turn).pipe(Effect.repeat(Schedule.spaced('5 seconds')), Effect.withParentSpan(turn.span));
 
 /** Record the turn's tally and stop reason on its span, close orphaned tool calls, and forget the turn. */
-const endPromptTurn = (
+const endPromptTurn = Effect.fnUntraced(function* (
   promptTurns: Map<string, PromptTurn>,
   sessionId: string,
   turn: PromptTurn,
   span: Tracer.Span,
-  exit: Exit.Exit<{ readonly stopReason: string; readonly usage?: unknown }, unknown>,
-) =>
-  Effect.gen(function* () {
-    if (promptTurns.get(sessionId) === turn) {
-      promptTurns.delete(sessionId);
-    }
-    for (const [key, value] of Object.entries(promptTurnSummary(turn, yield* Clock.currentTimeMillis))) {
-      span.attribute(key, value);
-    }
-    const stopReason = Exit.isSuccess(exit) ? exit.value.stopReason : undefined;
-    if (Exit.isSuccess(exit)) {
-      for (const [key, value] of Object.entries(promptResponseTelemetry(exit.value))) {
-        span.attribute(key, value);
-      }
-    }
-    yield* closeOrphanedToolCalls(turn, stopReason);
-  });
+  exit: Exit.Exit<{ readonly stopReason: StopReason; readonly usage?: unknown }, unknown>,
+) {
+  if (promptTurns.get(sessionId) === turn) {
+    promptTurns.delete(sessionId);
+  }
+  const attributes = {
+    ...promptTurnSummary(turn, yield* Clock.currentTimeMillis),
+    ...(Exit.isSuccess(exit) ? promptResponseTelemetry(exit.value) : {}),
+  };
+  for (const [key, value] of Object.entries(attributes)) {
+    span.attribute(key, value);
+  }
+  yield* closeOrphanedToolCalls(turn, Exit.isSuccess(exit) ? exit.value.stopReason : undefined);
+});
 
 export const sendPrompt = Effect.fn('sendPrompt')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {

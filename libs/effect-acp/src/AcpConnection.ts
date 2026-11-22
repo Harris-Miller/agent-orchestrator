@@ -159,6 +159,10 @@ const trackClientSend = (
   }
 };
 
+/** A JSON-RPC method name, or `unrecognized`: the Agent chooses it, so free text never rides along. */
+const methodName = (tag: unknown): string =>
+  Predicate.isString(tag) && /^[\w./-]{1,64}$/.test(tag) ? tag : 'unrecognized';
+
 /**
  * Log one inbound frame by what it is, never what it carries: a request's ACP method, a response's method and latency,
  * or the requests left unanswered when the connection fails.
@@ -169,7 +173,7 @@ const logInbound = (
   nowMs: number,
 ): Effect.Effect<void> => {
   if (message._tag === 'Request') {
-    return Effect.logDebug('ACP inbound request', Predicate.isString(message.tag) ? message.tag : 'unknown');
+    return Effect.logDebug('ACP inbound request', methodName(message.tag));
   }
   const { requestId } = message;
   if (message._tag === 'Exit' && (Predicate.isString(requestId) || Predicate.isNumber(requestId))) {

@@ -48,6 +48,15 @@ const sessionUpdates = [
   { currentModeId: CANARY, sessionUpdate: 'current_mode_update' },
   { sessionUpdate: CANARY },
   { kind: CANARY, sessionUpdate: 'tool_call', status: CANARY, toolCallId: CANARY.repeat(20) },
+  { content: { text: CANARY, type: 'text' }, sessionUpdate: 'session_message_chunk' },
+  { sessionUpdate: 'usage_update', size: 100, used: 10, note: CANARY },
+  { configOptions: [{ currentValue: CANARY, id: 'model', name: CANARY }], sessionUpdate: 'config_option_update' },
+  {
+    content: [{ terminalId: CANARY, type: 'terminal' }],
+    sessionUpdate: 'tool_call_update',
+    status: 'in_progress',
+    toolCallId: 'call_3',
+  },
 ];
 
 describe('summarizeSessionUpdate', () => {
@@ -77,13 +86,13 @@ describe('summarizeSessionUpdate', () => {
     });
   });
 
-  it('maps an unknown discriminator to other and drops an oversized id', () => {
+  it('maps an unknown discriminator to unrecognized and drops an oversized id', () => {
     assert.deepStrictEqual(summarizeSessionUpdate(sessionUpdates[12]), {
       kind: 'tool_call',
-      toolKind: 'other',
-      toolStatus: 'other',
+      toolKind: 'unrecognized',
+      toolStatus: 'unrecognized',
     });
-    assert.deepStrictEqual(summarizeSessionUpdate(sessionUpdates[11]), { kind: 'other' });
+    assert.deepStrictEqual(summarizeSessionUpdate(sessionUpdates[11]), { kind: 'unrecognized' });
   });
 
   it('builds span attributes from a summary', () => {
@@ -133,6 +142,9 @@ describe('elicitationTelemetry', () => {
       { action: 'accept', content: { [CANARY]: CANARY } },
     );
     assertNoCanary(attributes);
+    assertNoCanary(
+      elicitationTelemetry({ message: CANARY, mode: 'url', url: `https://${CANARY}` }, { action: CANARY }),
+    );
     assert.deepStrictEqual(plain(attributes), { 'acp.elicitation.action': 'accept', 'acp.elicitation.mode': 'form' });
   });
 });

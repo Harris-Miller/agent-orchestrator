@@ -16,6 +16,7 @@ import type { SessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { initialSessionSnapshot } from '../host/acpSessionBootstrap.ts';
 import { NO_AGENT_CAPABILITIES } from '../host/agentCapabilities.ts';
 import { subagent } from '../host/harnessSnapshot.testing.ts';
+import { describeError } from '../host/requestError.ts';
 import { canContinueFailure, CONTINUE_PROMPT_TEXT } from '../host/sessionFailureRetry.ts';
 import { dropSession, markSessionInactive } from '../host/harnessStateTransitions.ts';
 
@@ -671,7 +672,8 @@ layer(hostLayer)('Handoff prompt', layeredIt => {
       const error = yield* Effect.flip(handoffPrompt(h.registry, CODEX, 's1', 'hand off'));
 
       assert.instanceOf(error, HandoffError);
-      assert.match(error.message, /Exceeds max character length: Prompt is 120000 characters/);
+      assert.match(describeError(error), /Exceeds max character length: Prompt is 120000 characters/);
+      assert.notInclude(error.message, 'Exceeds');
       assert.deepStrictEqual(requestErrors(h.registry).map(stripId), [rejectionItem('session/prompt')]);
     }).pipe(Effect.scoped),
   );

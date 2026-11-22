@@ -6,7 +6,6 @@ import type { SessionUpdateSummary } from './acpTelemetry.ts';
 import {
   CANCEL_UNANSWERED_MS,
   closeOrphanedToolCalls,
-  dueTurnAlarms,
   makePromptTurn,
   promptTurnSummary,
   recordAwaitingUser,
@@ -14,6 +13,7 @@ import {
   recordSessionUpdate,
   recordToolCall,
   SILENT_TURN_MS,
+  takeDueTurnAlarms,
 } from './promptTurnTelemetry.ts';
 
 const turnAt = (nowMs: number) =>
@@ -58,17 +58,17 @@ describe('Prompt turn tally', () => {
   );
 });
 
-describe('dueTurnAlarms', () => {
+describe('takeDueTurnAlarms', () => {
   it.effect('warns once per silence and re-arms on activity', () =>
     Effect.gen(function* () {
       const { turn } = yield* turnAt(0);
-      assert.deepStrictEqual(dueTurnAlarms(turn, SILENT_TURN_MS - 1), []);
-      assert.deepStrictEqual(dueTurnAlarms(turn, SILENT_TURN_MS), [
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, SILENT_TURN_MS - 1), []);
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, SILENT_TURN_MS), [
         { _tag: 'Silent', openToolCalls: 0, silentMs: SILENT_TURN_MS },
       ]);
-      assert.deepStrictEqual(dueTurnAlarms(turn, SILENT_TURN_MS * 2), []);
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, SILENT_TURN_MS * 2), []);
       recordSessionUpdate(turn, chunk, SILENT_TURN_MS * 2);
-      assert.strictEqual(dueTurnAlarms(turn, SILENT_TURN_MS * 3).length, 1);
+      assert.strictEqual(takeDueTurnAlarms(turn, SILENT_TURN_MS * 3).length, 1);
     }),
   );
 
@@ -76,7 +76,7 @@ describe('dueTurnAlarms', () => {
     Effect.gen(function* () {
       const { turn } = yield* turnAt(0);
       recordAwaitingUser(turn, 1, 0);
-      assert.deepStrictEqual(dueTurnAlarms(turn, SILENT_TURN_MS * 5), []);
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, SILENT_TURN_MS * 5), []);
     }),
   );
 
@@ -85,10 +85,10 @@ describe('dueTurnAlarms', () => {
       const { turn } = yield* turnAt(0);
       recordCancelRequested(turn, 1000);
       recordSessionUpdate(turn, chunk, 1000 + CANCEL_UNANSWERED_MS);
-      assert.deepStrictEqual(dueTurnAlarms(turn, 1000 + CANCEL_UNANSWERED_MS), [
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, 1000 + CANCEL_UNANSWERED_MS), [
         { _tag: 'CancelUnanswered', sinceCancelMs: CANCEL_UNANSWERED_MS },
       ]);
-      assert.deepStrictEqual(dueTurnAlarms(turn, 1000 + CANCEL_UNANSWERED_MS * 2), []);
+      assert.deepStrictEqual(takeDueTurnAlarms(turn, 1000 + CANCEL_UNANSWERED_MS * 2), []);
     }),
   );
 });

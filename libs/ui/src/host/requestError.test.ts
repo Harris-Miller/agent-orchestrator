@@ -2,7 +2,12 @@ import { assert, describe, it } from '@effect/vitest';
 import { AcpError } from '@libs/effect-acp';
 import { Cause, Schema } from 'effect';
 
-import { acpErrorOfCause, describeError, isAcpError } from './requestError.ts';
+import { acpErrorOfCause, describeError, isAcpError, RequestErrorDetail, requestErrorDetail } from './requestError.ts';
+
+class QuotingError extends Schema.TaggedError<QuotingError>()('QuotingError', {
+  detail: RequestErrorDetail,
+  message: Schema.String,
+}) {}
 
 /** As decoded off the wire: the Agent's text is `Redacted`. */
 const rejection = Schema.decodeUnknownSync(AcpError)({
@@ -61,5 +66,15 @@ describe('describeError', () => {
     assert.strictEqual(describeError({ code: 1 }), '{"code":1}');
     assert.strictEqual(describeError('plain'), 'plain');
     assert.strictEqual(describeError(42), '42');
+  });
+});
+
+describe('RequestErrorDetail', () => {
+  it('shows the Agent text to the user but keeps it out of the message, the cause and JSON', () => {
+    const error = new QuotingError({ detail: requestErrorDetail(rejection), message: 'The agent rejected it' });
+    assert.strictEqual(describeError(error), 'The agent rejected it: Exceeds max character length: limit is 100000');
+    assert.notInclude(error.message, 'Exceeds');
+    assert.notInclude(Cause.pretty(Cause.fail(error)), 'Exceeds');
+    assert.notInclude(JSON.stringify(error), 'Exceeds');
   });
 });

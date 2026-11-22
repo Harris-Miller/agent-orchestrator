@@ -36,6 +36,7 @@ import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
 import { AppTitle } from '../workbenchNavRail/AppTitle.tsx';
+import { PageTitle } from '../workbenchNavRail/PageTitle.tsx';
 import { WorkstreamDialog } from './WorkstreamDialog.tsx';
 import { WorkstreamMenu } from './WorkstreamMenu.tsx';
 import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
@@ -115,11 +116,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
               }}
               title={<AppTitle />}
             />
-            <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 1, px: 2 }}>
-              <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-                Workstreams
-              </Typography>
-            </Stack>
+            <PageTitle>Workstreams</PageTitle>
             <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
               <ListItemButton
                 onClick={() => {

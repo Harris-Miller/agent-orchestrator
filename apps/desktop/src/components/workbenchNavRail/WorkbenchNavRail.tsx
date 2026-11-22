@@ -42,6 +42,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 
 import { AppTitle } from './AppTitle.tsx';
+import { PageTitle } from './PageTitle.tsx';
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { ProjectGroup } from './ProjectGroup.tsx';
 
@@ -149,6 +150,7 @@ export const WorkbenchNavRail: FC<{
         />
         {importing === undefined ? (
           <>
+            {workstreamsEnabled ? <PageTitle>Sessions</PageTitle> : null}
             <BulkActionBar onClientError={onClientError} selection={bulk} />
             <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
               <ListItemButton

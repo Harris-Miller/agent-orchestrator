@@ -16,9 +16,10 @@ Each log line that would carry private data wraps it so it prints as `<redacted>
 
 ## What leaves your machine
 
-HOA itself talks to:
+HOA's own network traffic is about getting agents running. For example:
 
-- **npm**, when you download a provider runtime,
-- the **Antigravity** download and Google sign-in, if you use Antigravity.
+- **npm**, when you download Codex's or Claude's ACP adapter,
+- the **ACP registry** on GitHub and Google's download server, when you download Antigravity — plus Google sign-in, which opens in your browser,
+- in development builds only, your OTLP endpoint.
 
 Your agents talk to their own vendors under their own terms — HOA spawns them, but does not proxy or inspect their network traffic.

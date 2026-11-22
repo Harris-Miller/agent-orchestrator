@@ -27,7 +27,7 @@
   max-width: none !important;
   padding: 0 !important;
 }
-.VPNavBar:not(.has-sidebar):not(.top) {
+.dark .VPNavBar:not(.has-sidebar):not(.top) {
   background: rgb(11 13 16 / 0.72) !important;
   backdrop-filter: blur(12px);
 }

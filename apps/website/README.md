@@ -25,4 +25,6 @@ Edit one variant with hot reload: `pnpm --filter=@apps/website dev:a` (`:5181`),
 - `variants/<key>/.vitepress/` — each variant's config and theme.
 - `scripts/build.ts` — builds every variant into `dist/<key>/` and writes `dist/index.html`.
 
-`WEBSITE_BASE` sets the path the whole `dist/` is served under (`/<repo>/` on GitHub Pages); `WEBSITE_PROTOTYPE=1` shows the switcher. `.github/workflows/website.yml` deploys `dist/` to Pages on manual dispatch.
+`WEBSITE_BASE` sets the path the whole `dist/` is served under (`/<repo>/` on GitHub Pages); `WEBSITE_PROTOTYPE=1` shows the switcher.
+
+`.github/workflows/website.yml` is the Pages deploy for **after** a winner lands on `main`: GitHub only dispatches workflows that exist on the default branch, and the `github-pages` environment deploys from it. Until then, review the variants locally with `pnpm website`.

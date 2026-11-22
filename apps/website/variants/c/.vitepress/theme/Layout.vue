@@ -55,6 +55,8 @@ const onClick = (e: MouseEvent) => {
 };
 
 const paletteOpen = ref(false);
+// The index sits above the page on phones: start it folded there.
+const indexOpen = ref(true);
 const onKey = (e: KeyboardEvent) => {
   const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]');
   if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
@@ -64,6 +66,7 @@ const onKey = (e: KeyboardEvent) => {
 };
 
 onMounted(() => {
+  indexOpen.value = !window.matchMedia('(max-width: 760px)').matches;
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('keydown', onKey);
   document.addEventListener('click', onClick);
@@ -120,7 +123,7 @@ const github = computed(() => theme.value.socialLinks?.[0]?.link ?? '#');
     <!-- DOCS: a man page -->
     <div v-else class="docs">
       <aside class="index">
-        <details open>
+        <details :open="indexOpen">
           <summary>INDEX</summary>
           <div v-for="g in groups" :key="g.text" class="group">
             <div class="group-name">{{ g.text?.toUpperCase() }}</div>

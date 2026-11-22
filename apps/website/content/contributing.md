@@ -1,6 +1,6 @@
 # Develop HOA
 
-HOA is developed in the open on [GitHub](https://github.com/Harris-Miller/agent-orchestrator). Issues live there too.
+HOA is developed on [GitHub](https://github.com/Harris-Miller/agent-orchestrator), where its issues live too.
 
 ## Setup
 

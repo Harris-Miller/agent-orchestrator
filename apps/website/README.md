@@ -2,11 +2,11 @@
 
 Three complete [VitePress](https://vitepress.dev/) variants of the HOA marketing + docs site, built from one shared `content/` tree so they can be compared page-for-page.
 
-| Key | Variant          | Shape                                                                                                                                                                   |
-| --- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `a` | Docs-first       | Stock default theme: `layout: home` hero + feature grid, one global sidebar, local search.                                                                              |
-| `b` | Product story    | Default theme for docs, but a custom long-scroll landing (animated app mock, how-it-works, feature rows), dropdown product nav, a sidebar per docs section, dark-first. |
-| `c` | Terminal landing | Variant A's navigation (default theme, one sidebar, local search) around a terminal-session landing page running `man hoa`.                                             |
+| Key | Variant           | Shape                                                                                                                                                                   |
+| --- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `a` | Docs-first        | Stock default theme: `layout: home` hero + feature grid, one global sidebar, local search.                                                                              |
+| `b` | Product story     | Default theme for docs, but a custom long-scroll landing (animated app mock, how-it-works, feature rows), dropdown product nav, a sidebar per docs section, dark-first. |
+| `c` | A nav + B landing | Variant A's navigation (default theme, one sidebar, local search, light/dark toggle) with variant B's product landing page.                                             |
 
 ## Run
 

@@ -34,9 +34,14 @@ export const SettingsShell: FC<{
   /** Extra top inset in CSS pixels for the temporary drawer only. */
   readonly floatingDrawerTopPadding?: number;
   readonly onSelectCategory: (category: SettingsCategoryId) => void;
-  readonly onBack: () => void;
+  /** Renders a "Back to app" button when given; omit where the host has its own navigation. */
+  readonly onBack?: () => void;
+  /** Replaces the drawer header's "Settings" text (e.g. the application title). */
+  readonly appTitle?: ReactNode;
+  /** Page title rendered under the drawer header, above the search field. */
+  readonly pageTitle?: ReactNode;
   readonly children: ReactNode;
-}> = ({ category, onSelectCategory, onBack, children, floatingDrawerTopPadding = 0 }) => {
+}> = ({ appTitle, category, onSelectCategory, onBack, pageTitle, children, floatingDrawerTopPadding = 0 }) => {
   const settingsTheme = useTheme();
   const wideQuery = settingsTheme.breakpoints.up('md').replace('@media ', '');
   const [query, setQuery] = useState('');
@@ -67,9 +72,13 @@ export const SettingsShell: FC<{
           px: 2,
         }}
       >
-        <Typography component="h2" noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
-          Settings
-        </Typography>
+        {appTitle === undefined ? (
+          <Typography component="h2" noWrap sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
+            Settings
+          </Typography>
+        ) : (
+          <Box sx={{ flex: 1, minWidth: 0 }}>{appTitle}</Box>
+        )}
         {floating ? (
           <IconTooltipButton
             icon={X}
@@ -80,6 +89,7 @@ export const SettingsShell: FC<{
           />
         ) : null}
       </Box>
+      {pageTitle}
       <Box sx={{ p: 1.5 }}>
         <TextField
           fullWidth
@@ -132,7 +142,14 @@ export const SettingsShell: FC<{
           [theme.breakpoints.up('md')]: { display: 'block' },
           width: 260,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { position: 'relative', width: 260, height: '100%', boxSizing: 'border-box', pt: 0 },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            containerType: 'inline-size',
+            height: '100%',
+            position: 'relative',
+            pt: 0,
+            width: 260,
+          },
         })}
       >
         {drawerContent(false)}
@@ -163,7 +180,7 @@ export const SettingsShell: FC<{
             gap: 1,
           }}
         >
-          <IconTooltipButton icon={ArrowLeft} label="Back to app" onClick={onBack} />
+          {onBack === undefined ? null : <IconTooltipButton icon={ArrowLeft} label="Back to app" onClick={onBack} />}
           <Box sx={theme => ({ display: 'block', [theme.breakpoints.up('md')]: { display: 'none' } })}>
             <IconTooltipButton
               icon={Menu}

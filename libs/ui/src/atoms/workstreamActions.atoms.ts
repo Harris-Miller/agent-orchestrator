@@ -1,4 +1,4 @@
-import type { TrackerRef, WorkstreamSession } from '@lib/hoa-home';
+import type { WorkstreamSession } from '@lib/hoa-home';
 import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
@@ -8,24 +8,19 @@ import { adoptIntoWorkstream, orphanFromWorkstream } from './workstreams.atoms.t
 import {
   createWorkstreamIn,
   deleteWorkstreamIn,
+  renameWorkstreamIn,
   setWorkstreamArchivedIn,
   startSessionInWorkstream,
-  updateWorkstreamIn,
 } from './workstreamActions.ts';
 
 export const createWorkstreamActionAtoms = ({ atomRuntime }: Pick<HostRuntimeBag, 'atomRuntime'>) => {
   const createWorkstreamAtomFn = atomRuntime
-    .fn((arg: { readonly name: string; readonly trackers: readonly TrackerRef[] }, get: Atom.FnContext) =>
-      createWorkstreamIn(get.registry, arg.name, arg.trackers),
-    )
+    .fn((name: string, get: Atom.FnContext) => createWorkstreamIn(get.registry, name))
     .pipe(Atom.keepAlive);
 
-  const updateWorkstreamAtomFn = atomRuntime
-    .fn(
-      (
-        arg: { readonly id: string; readonly name: string; readonly trackers: readonly TrackerRef[] },
-        get: Atom.FnContext,
-      ) => updateWorkstreamIn(get.registry, arg.id, { name: arg.name, trackers: arg.trackers }),
+  const renameWorkstreamAtomFn = atomRuntime
+    .fn((arg: { readonly id: string; readonly name: string }, get: Atom.FnContext) =>
+      renameWorkstreamIn(get.registry, arg.id, arg.name),
     )
     .pipe(Atom.keepAlive);
 
@@ -62,6 +57,6 @@ export const createWorkstreamActionAtoms = ({ atomRuntime }: Pick<HostRuntimeBag
     orphanSessionAtomFn,
     setWorkstreamArchivedAtomFn,
     startSessionInWorkstreamAtomFn,
-    updateWorkstreamAtomFn,
+    renameWorkstreamAtomFn,
   };
 };

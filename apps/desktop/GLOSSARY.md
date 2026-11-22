@@ -443,16 +443,12 @@ The page of Session History grouped by Project with the Selected session's chat.
 _Avoid_: home page, main page
 
 **Workstreams Page**:
-The page that lists Workstreams with their Tracker refs and sessions, beside the Selected session's chat. Exists only while Experimental: Workstreams is on; a page switcher beside the active page moves between it and the Sessions Page.
+The page that lists Workstreams with their sessions, beside the Selected session's chat. Exists only while Experimental: Workstreams is on; a page switcher beside the active page moves between it and the Sessions Page.
 _Avoid_: Features page, Missions page
 
 **Workstream**:
-A named, user-created collection of sessions (across Projects and launch targets) that follows external work, carrying zero or more Tracker refs. A session belongs to at most one Workstream. Archiving a Workstream archives its sessions; deleting it Orphans them.
+A named, user-created collection of sessions (across Projects and launch targets). A session belongs to at most one Workstream. Archiving a Workstream archives its sessions; deleting it Orphans them.
 _Avoid_: Feature, Mission, group, folder
-
-**Tracker ref**:
-A link from a Workstream to one external work item (an issue or ticket): a provider (GitHub, GitLab, Jira, Linear) and a key or URL. Only recorded; nothing is fetched.
-_Avoid_: issue link, ticket
 
 **Adopt**:
 Move a session from the Sessions Page into a Workstream, which removes it from any other Workstream first.

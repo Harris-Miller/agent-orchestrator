@@ -57,7 +57,7 @@ describe('Workstreams visibility on the Sessions Page', () => {
     it.effect('flag on hides owned sessions from the lists; adopt and orphan move them between lists', () =>
       Effect.gen(function* () {
         const s = yield* setup(true);
-        const ws = yield* createWorkstreamIn(s.registry, 'W', []);
+        const ws = yield* createWorkstreamIn(s.registry, 'W');
         assert.deepStrictEqual(s.ids(visibleListedSessionHistoryAtom), ['a', 'b']);
         yield* adoptIntoWorkstream(s.registry, ws.id, a);
         assert.deepStrictEqual(s.ids(visibleListedSessionHistoryAtom), ['b']);
@@ -71,7 +71,7 @@ describe('Workstreams visibility on the Sessions Page', () => {
     it.effect('flag off shows owned sessions under their Project; ownership persists', () =>
       Effect.gen(function* () {
         const s = yield* setup(true);
-        const ws = yield* createWorkstreamIn(s.registry, 'W', []);
+        const ws = yield* createWorkstreamIn(s.registry, 'W');
         yield* adoptIntoWorkstream(s.registry, ws.id, a);
         s.registry.set(userSettingsDocumentAtom, AsyncResult.success({ workstreamsEnabled: false }));
         assert.isFalse(s.registry.get(workstreamsEnabledAtom));
@@ -87,7 +87,7 @@ describe('Workstreams visibility on the Sessions Page', () => {
     it.effect('deleting a Workstream returns its sessions to the lists', () =>
       Effect.gen(function* () {
         const s = yield* setup(true);
-        const ws = yield* createWorkstreamIn(s.registry, 'W', []);
+        const ws = yield* createWorkstreamIn(s.registry, 'W');
         yield* adoptIntoWorkstream(s.registry, ws.id, a);
         yield* deleteWorkstreamIn(s.registry, ws.id);
         assert.deepStrictEqual(s.ids(visibleListedSessionHistoryAtom), ['a', 'b']);
@@ -97,7 +97,7 @@ describe('Workstreams visibility on the Sessions Page', () => {
     it.effect('archiving a Workstream archives its sessions; unarchiving restores them', () =>
       Effect.gen(function* () {
         const s = yield* setup(true);
-        const ws = yield* createWorkstreamIn(s.registry, 'W', []);
+        const ws = yield* createWorkstreamIn(s.registry, 'W');
         yield* adoptIntoWorkstream(s.registry, ws.id, a);
         yield* adoptIntoWorkstream(s.registry, ws.id, b);
         const archived = () => s.registry.get(unifiedSessionHistoryAtom).map(entry => entry.archived === true);
@@ -113,7 +113,7 @@ describe('Workstreams visibility on the Sessions Page', () => {
     it.effect('deleting a session drops it from its Workstream', () =>
       Effect.gen(function* () {
         const s = yield* setup(true);
-        const ws = yield* createWorkstreamIn(s.registry, 'W', []);
+        const ws = yield* createWorkstreamIn(s.registry, 'W');
         yield* adoptIntoWorkstream(s.registry, ws.id, a);
         yield* orphanFromWorkstream(s.registry, a);
         assert.deepStrictEqual(s.registry.get(workstreamsAtom)[0]?.sessions, []);

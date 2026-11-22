@@ -5,7 +5,7 @@ import { Path } from 'effect/Path';
 import { writeJsonFile } from './harnessFiles.ts';
 import { resolveHome } from './home.ts';
 import { emptyWorkstreams, WorkstreamsDocumentJsonString } from './WorkstreamsDocument.ts';
-import type { TrackerRef, Workstream, WorkstreamsDocument, WorkstreamSession } from './WorkstreamsDocument.ts';
+import type { Workstream, WorkstreamsDocument, WorkstreamSession } from './WorkstreamsDocument.ts';
 
 /** `workstreams.json` exists but cannot be decoded. Never treated as "no Workstreams", so it is never overwritten. */
 export class WorkstreamsMalformed extends Schema.TaggedError<WorkstreamsMalformed>()('WorkstreamsMalformed', {
@@ -57,10 +57,9 @@ const mapWorkstream = (workstreams: readonly Workstream[], id: string, change: (
   workstreams.map(ws => (ws.id === id ? change(ws) : ws));
 
 /** A new empty, unarchived Workstream (not yet written). */
-export const makeWorkstream = (name: string, trackers: readonly TrackerRef[]): Workstream => ({
+export const makeWorkstream = (name: string): Workstream => ({
   id: crypto.randomUUID(),
   name,
-  trackers,
   archived: false,
   sessions: [],
 });
@@ -69,27 +68,15 @@ export const makeWorkstream = (name: string, trackers: readonly TrackerRef[]): W
 export const addWorkstream = (workstream: Workstream) => updateWorkstreams(workstreams => [...workstreams, workstream]);
 
 /** Creates an empty, unarchived Workstream and returns it. */
-export const createWorkstream = Effect.fn('createWorkstream')(function* (
-  name: string,
-  trackers: readonly TrackerRef[],
-) {
-  const workstream = makeWorkstream(name, trackers);
+export const createWorkstream = Effect.fn('createWorkstream')(function* (name: string) {
+  const workstream = makeWorkstream(name);
   yield* addWorkstream(workstream);
   return workstream;
 });
 
-/** Renames and/or replaces the Tracker refs of a Workstream. */
-export const updateWorkstream = (
-  id: string,
-  patch: { readonly name?: string; readonly trackers?: readonly TrackerRef[] },
-) =>
-  updateWorkstreams(workstreams =>
-    mapWorkstream(workstreams, id, ws => ({
-      ...ws,
-      name: patch.name ?? ws.name,
-      trackers: patch.trackers ?? ws.trackers,
-    })),
-  );
+/** Renames a Workstream. */
+export const renameWorkstream = (id: string, name: string) =>
+  updateWorkstreams(workstreams => mapWorkstream(workstreams, id, ws => ({ ...ws, name })));
 
 export const setWorkstreamArchived = (id: string, archived: boolean) =>
   updateWorkstreams(workstreams => mapWorkstream(workstreams, id, ws => ({ ...ws, archived })));

@@ -29,7 +29,7 @@ _Avoid_: Pin list, favorites
 _Avoid_: tracked cwds, cwd history
 
 **Workstreams document**:
-`workstreams.json` at the HOA home root listing the Workstreams (desktop glossary) as `{ workstreams: [...] }` (provisional shape), each with its name, Tracker refs, archived flag and the sessions it owns as `{ launchTarget, sessionId }`. One file for all launch targets, since a Workstream spans them (see ADR 0010). Each change re-reads the file and applies only that change; an undecodable file is never overwritten.
+`workstreams.json` at the HOA home root listing the Workstreams (desktop glossary) as `{ workstreams: [...] }` (provisional shape), each with its name, archived flag and the sessions it owns as `{ launchTarget, sessionId }`. One file for all launch targets, since a Workstream spans them (see ADR 0010). Each change re-reads the file and applies only that change; an undecodable file is never overwritten.
 _Avoid_: features file, groups file
 
 **Experimental: Workstreams**:

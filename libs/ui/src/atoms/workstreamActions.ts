@@ -3,10 +3,9 @@ import {
   addWorkstream,
   deleteWorkstream,
   makeWorkstream,
+  renameWorkstream,
   setWorkstreamArchived,
-  updateWorkstream,
 } from '@lib/hoa-home';
-import type { TrackerRef } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -20,21 +19,14 @@ import { ensureVirtual, virtualSessionAtom } from './virtualSession.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
-export const createWorkstreamIn = Effect.fn('createWorkstreamIn')(function* (
-  registry: Registry,
-  name: string,
-  trackers: readonly TrackerRef[],
-) {
-  const workstream = makeWorkstream(name, trackers);
+export const createWorkstreamIn = Effect.fn('createWorkstreamIn')(function* (registry: Registry, name: string) {
+  const workstream = makeWorkstream(name);
   yield* mutateWorkstreams(registry, addWorkstream(workstream));
   return workstream;
 });
 
-export const updateWorkstreamIn = (
-  registry: Registry,
-  id: string,
-  patch: { readonly name?: string; readonly trackers?: readonly TrackerRef[] },
-) => mutateWorkstreams(registry, updateWorkstream(id, patch));
+export const renameWorkstreamIn = (registry: Registry, id: string, name: string) =>
+  mutateWorkstreams(registry, renameWorkstream(id, name));
 
 export const deleteWorkstreamIn = (registry: Registry, id: string) => mutateWorkstreams(registry, deleteWorkstream(id));
 

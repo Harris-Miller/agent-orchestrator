@@ -152,5 +152,5 @@ export const {
   orphanSessionAtomFn,
   setWorkstreamArchivedAtomFn,
   startSessionInWorkstreamAtomFn,
-  updateWorkstreamAtomFn,
+  renameWorkstreamAtomFn,
 } = createWorkstreamActionAtoms(hostBag);

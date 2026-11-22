@@ -9,8 +9,8 @@ import {
   deleteWorkstream,
   orphanSession,
   readWorkstreams,
+  renameWorkstream,
   setWorkstreamArchived,
-  updateWorkstream,
   workstreamsPath,
 } from './index.ts';
 import { mapFsTestServices } from './testing/mapFsTestServices.ts';
@@ -26,25 +26,24 @@ describe('workstreams', () => {
     store.clear();
   });
   layer(mapFsTestServices(store))(testIt => {
-    testIt.effect('reads empty when missing; creates and updates name + trackers', () =>
+    testIt.effect('reads empty when missing; creates and renames', () =>
       Effect.gen(function* () {
         assert.strictEqual(yield* workstreamsPath(), file);
         assert.deepStrictEqual(yield* readWorkstreams(), { workstreams: [] });
-        const created = yield* createWorkstream('Auth', [{ provider: 'github', key: '#1' }]);
+        const created = yield* createWorkstream('Auth');
         assert.strictEqual(created.name, 'Auth');
         assert.isFalse(created.archived);
         assert.deepStrictEqual(created.sessions, []);
-        yield* updateWorkstream(created.id, { name: 'Auth 2', trackers: [] });
+        yield* renameWorkstream(created.id, 'Auth 2');
         const [ws] = (yield* readWorkstreams()).workstreams;
         assert.strictEqual(ws?.name, 'Auth 2');
-        assert.deepStrictEqual(ws?.trackers, []);
       }),
     );
 
     testIt.effect('adopt moves a session out of any other Workstream; orphan removes it', () =>
       Effect.gen(function* () {
-        const a = yield* createWorkstream('A', []);
-        const b = yield* createWorkstream('B', []);
+        const a = yield* createWorkstream('A');
+        const b = yield* createWorkstream('B');
         yield* adoptSession(a.id, s1);
         yield* adoptSession(a.id, s1);
         yield* adoptSession(b.id, s1);
@@ -69,7 +68,7 @@ describe('workstreams', () => {
         }));
         const created = yield* Effect.forEach(
           Array.from({ length: 10 }, (_, index) => `W${String(index)}`),
-          name => createWorkstream(name, []),
+          name => createWorkstream(name),
           { concurrency: 'unbounded' },
         ).pipe(slowRead);
         assert.strictEqual((yield* readWorkstreams()).workstreams.length, 10);
@@ -88,7 +87,7 @@ describe('workstreams', () => {
 
     testIt.effect('archives and deletes (sessions are orphaned with it)', () =>
       Effect.gen(function* () {
-        const a = yield* createWorkstream('A', []);
+        const a = yield* createWorkstream('A');
         yield* adoptSession(a.id, s1);
         yield* setWorkstreamArchived(a.id, true);
         assert.isTrue((yield* readWorkstreams()).workstreams[0]?.archived);
@@ -100,7 +99,7 @@ describe('workstreams', () => {
     testIt.effect('never overwrites a malformed file', () =>
       Effect.gen(function* () {
         store.set(file, { kind: 'file', content: '{bad' });
-        assert.isTrue(Exit.isFailure(yield* Effect.exit(createWorkstream('A', []))));
+        assert.isTrue(Exit.isFailure(yield* Effect.exit(createWorkstream('A'))));
         assert.deepStrictEqual(store.get(file), { kind: 'file', content: '{bad' });
         assert.isTrue(Exit.isFailure(yield* Effect.exit(readWorkstreams())));
       }),

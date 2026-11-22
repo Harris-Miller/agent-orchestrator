@@ -8,13 +8,13 @@ import {
   ownedSessionKeysAtom,
   PANEL_HEADER_HEIGHT,
   pendingWorkstreamAtom,
+  renameWorkstreamAtomFn,
   selectedAtom,
   selectedSessionIdAtom,
   SessionChatBody,
   sessionEntryKey,
   SessionHeader,
   showArchivedSettingAtom,
-  updateWorkstreamAtomFn,
   virtualSessionAtom,
   visibleListedSessionHistoryAtom,
   visibleSessionHistoryAtom,
@@ -32,7 +32,6 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
-import { TrackerChip } from './TrackerChip.tsx';
 import { WorkstreamDialog } from './WorkstreamDialog.tsx';
 import { WorkstreamMenu } from './WorkstreamMenu.tsx';
 import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
@@ -51,7 +50,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
   const setPending = useAtomSet(pendingWorkstreamAtom);
   const virtualBlob = useAtomValue(virtualSessionAtom);
   const createWorkstream = useAtomSet(createWorkstreamAtomFn, { mode: 'promise' });
-  const updateWorkstream = useAtomSet(updateWorkstreamAtomFn, { mode: 'promise' });
+  const renameWorkstream = useAtomSet(renameWorkstreamAtomFn, { mode: 'promise' });
   const [dialog, setDialog] = useState<{ readonly workstream: Workstream | undefined } | undefined>();
 
   // A Virtual draft is on this page only when "New session in ›" started it (it has a pending Workstream).
@@ -138,11 +137,6 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
                         ws={ws}
                       />
                     </Stack>
-                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5, pb: 0.5, px: 2 }}>
-                      {ws.trackers.map(ref => (
-                        <TrackerChip key={`${ref.provider}:${ref.key}`} trackerRef={ref} />
-                      ))}
-                    </Stack>
                     {rows.map(entry => (
                       <WorkstreamSessionRow
                         entry={entry}
@@ -209,12 +203,11 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
           onClose={() => {
             setDialog(undefined);
           }}
-          onSubmit={value => {
+          onSubmit={name => {
             const { workstream } = dialog;
-            (workstream === undefined
-              ? createWorkstream(value)
-              : updateWorkstream({ id: workstream.id, ...value })
-            ).catch(onClientError);
+            (workstream === undefined ? createWorkstream(name) : renameWorkstream({ id: workstream.id, name })).catch(
+              onClientError,
+            );
             setDialog(undefined);
           }}
           workstream={dialog.workstream}

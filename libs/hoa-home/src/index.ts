@@ -139,17 +139,13 @@ export {
   orphanSession,
   readWorkstreams,
   setWorkstreamArchived,
-  updateWorkstream,
+  renameWorkstream,
   updateWorkstreams,
   workstreamsPath,
   WorkstreamsMalformed,
 } from './workstreams.ts';
 export {
   emptyWorkstreams,
-  type TrackerProvider,
-  TrackerProviderSchema,
-  type TrackerRef,
-  TrackerRefSchema,
   type Workstream,
   WorkstreamSchema,
   type WorkstreamSession,

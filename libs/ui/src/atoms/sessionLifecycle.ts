@@ -59,7 +59,7 @@ import { cancelPrompt } from './chat.atoms.ts';
 import type { BackendRestartFailed } from './harness.atoms.ts';
 import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { removePins } from './pinnedSessions.atoms.ts';
-import { removeSessionEverywhere } from './workstreams.atoms.ts';
+import { orphanFromWorkstream } from './workstreams.atoms.ts';
 import { projectMembershipAtom, removeProjectEverywhere } from './projects.atoms.ts';
 import { reportRequestError } from './reportRequestError.ts';
 import { rpcWireLogAtom } from './rpcWireLog.ts';
@@ -302,7 +302,9 @@ export const deleteSession = Effect.fn('deleteSession')(
       yield* untrackSession(arg.launchTarget, cwd, arg.sessionId);
     }
     yield* removePins(registry, arg.launchTarget, [arg.sessionId]);
-    yield* removeSessionEverywhere(registry, arg);
+    yield* orphanFromWorkstream(registry, arg).pipe(
+      Effect.catchCause(cause => Effect.logWarning('orphan deleted session failed', cause)),
+    );
 
     if (!usable) {
       yield* Effect.logWarning('deleteSession untracked only; backend not usable', arg.launchTarget);

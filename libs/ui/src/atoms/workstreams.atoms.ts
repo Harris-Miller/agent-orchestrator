@@ -3,14 +3,13 @@
  * belongs to a Workstream leaves the Sessions Page lists while Experimental: Workstreams is on; ownership persists
  * while it is off.
  */
-import { adoptSession, orphanSession, removeSessionEverywhere as removeSessionEverywhereFromFile } from '@lib/hoa-home';
+import { adoptSession, orphanSession, WorkstreamsMalformed } from '@lib/hoa-home';
 import type { Workstream, WorkstreamSession } from '@lib/hoa-home';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 
 import type { UnifiedHistoryEntry } from '../host/acpSessionBootstrap.ts';
-import type { AgentLaunchTarget } from '../host/agentLaunchTarget.ts';
 import { sessionEntryKey } from '../host/sessionEntryKey.ts';
 
 import { workstreamsEnabledAtom } from './userSettings/userSettingsDocument.atoms.ts';
@@ -25,59 +24,46 @@ export const pendingWorkstreamAtom = Atom.make<{ readonly blobId: string; readon
   null,
 ).pipe(Atom.withLabel('pendingWorkstream'), Atom.keepAlive);
 
-const keyOf = (session: WorkstreamSession): string => `${session.launchTarget}:${session.sessionId}`;
-
 /** Keys (`launchTarget:sessionId`) of every session some Workstream owns, whether or not the flag is on. */
 export const ownedSessionKeysAtom = Atom.make(
-  (get): ReadonlySet<string> => new Set(get(workstreamsAtom).flatMap(ws => ws.sessions.map(keyOf))),
+  (get): ReadonlySet<string> => new Set(get(workstreamsAtom).flatMap(ws => ws.sessions.map(sessionEntryKey))),
 ).pipe(Atom.keepAlive);
 
-/** The keys the Sessions Page hides: owned sessions while the flag is on, nothing while off. */
-export const hiddenFromSessionsPageKeysAtom = Atom.make((get): ReadonlySet<string> => {
+/** The keys the Sessions Page leaves out: owned sessions while the flag is on, nothing while off. */
+export const workstreamOwnedKeysAtom = Atom.make((get): ReadonlySet<string> => {
   return get(workstreamsEnabledAtom) ? get(ownedSessionKeysAtom) : new Set<string>();
 }).pipe(Atom.keepAlive);
 
-/** `entries` without the sessions the Sessions Page hides (see {@link hiddenFromSessionsPageKeysAtom}). */
+/** `entries` without the sessions Workstreams own (see {@link workstreamOwnedKeysAtom}). */
 export const withoutWorkstreamOwned = (
   entries: readonly UnifiedHistoryEntry[],
-  hidden: ReadonlySet<string>,
+  owned: ReadonlySet<string>,
 ): readonly UnifiedHistoryEntry[] =>
-  hidden.size === 0 ? entries : entries.filter(entry => !hidden.has(sessionEntryKey(entry)));
+  owned.size === 0 ? entries : entries.filter(entry => !owned.has(sessionEntryKey(entry)));
 
-/** The Workstream that owns a session, if any. */
-export const owningWorkstream = (
-  workstreams: readonly Workstream[],
-  session: { readonly launchTarget: AgentLaunchTarget; readonly sessionId: string },
-): Workstream | undefined => workstreams.find(ws => ws.sessions.some(item => keyOf(item) === sessionEntryKey(session)));
+/**
+ * Runs one file change, then mirrors the returned document into state. Fails (writing nothing) until the file was read,
+ * so a malformed file is never overwritten.
+ */
+export const mutateWorkstreams = <E, R>(
+  registry: AtomRegistry.AtomRegistry,
+  change: Effect.Effect<{ readonly workstreams: readonly Workstream[] }, E, R>,
+) =>
+  Effect.gen(function* () {
+    if (!registry.get(workstreamsLoadedAtom)) {
+      return yield* new WorkstreamsMalformed({
+        message: 'Workstreams file could not be read; fix or remove workstreams.json to change Workstreams.',
+      });
+    }
+    const document = yield* change;
+    registry.set(workstreamsAtom, document.workstreams);
+    return document;
+  });
 
-/** Writes through to disk and state. No-op until the file was read; failures only warn. */
-const applyDocument = (registry: AtomRegistry.AtomRegistry, workstreams: readonly Workstream[]): void => {
-  registry.set(workstreamsAtom, workstreams);
-};
+/** Adopt: moves a session into a Workstream (out of any other). */
+export const adoptIntoWorkstream = (registry: AtomRegistry.AtomRegistry, id: string, session: WorkstreamSession) =>
+  mutateWorkstreams(registry, adoptSession(id, session));
 
-/** Adds a session to a Workstream (removing it from any other). No-op until loaded; failures only warn. */
-export const joinWorkstream = Effect.fn('joinWorkstream')(
-  function* (registry: AtomRegistry.AtomRegistry, workstreamId: string, session: WorkstreamSession) {
-    if (!registry.get(workstreamsLoadedAtom)) return;
-    applyDocument(registry, (yield* adoptSession(workstreamId, session)).workstreams);
-  },
-  Effect.catchCause(cause => Effect.logWarning('join workstream failed', cause)),
-);
-
-/** Takes a session out of its Workstream (it returns to the Sessions Page). No-op until loaded; failures only warn. */
-export const leaveWorkstream = Effect.fn('leaveWorkstream')(
-  function* (registry: AtomRegistry.AtomRegistry, session: WorkstreamSession) {
-    if (!registry.get(workstreamsLoadedAtom)) return;
-    applyDocument(registry, (yield* orphanSession(session)).workstreams);
-  },
-  Effect.catchCause(cause => Effect.logWarning('leave workstream failed', cause)),
-);
-
-/** Session delete: drops the session from every Workstream. */
-export const removeSessionEverywhere = Effect.fn('removeSessionEverywhere')(
-  function* (registry: AtomRegistry.AtomRegistry, session: WorkstreamSession) {
-    if (!registry.get(workstreamsLoadedAtom)) return;
-    applyDocument(registry, (yield* removeSessionEverywhereFromFile(session)).workstreams);
-  },
-  Effect.catchCause(cause => Effect.logWarning('remove session from workstreams failed', cause)),
-);
+/** Orphan: takes a session out of its Workstream (session delete uses it too). */
+export const orphanFromWorkstream = (registry: AtomRegistry.AtomRegistry, session: WorkstreamSession) =>
+  mutateWorkstreams(registry, orphanSession(session));

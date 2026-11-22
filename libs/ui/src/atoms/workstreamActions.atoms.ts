@@ -3,11 +3,11 @@ import { Atom } from 'effect/reactivity';
 
 import type { HostRuntimeBag } from '../createHostRuntime.ts';
 
+import { adoptIntoWorkstream, orphanFromWorkstream } from './workstreams.atoms.ts';
+
 import {
-  adoptIntoWorkstream,
   createWorkstreamIn,
   deleteWorkstreamIn,
-  orphanFromWorkstream,
   setWorkstreamArchivedIn,
   startSessionInWorkstream,
   updateWorkstreamIn,

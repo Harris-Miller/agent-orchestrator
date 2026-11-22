@@ -61,7 +61,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
-import { joinWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
+import { adoptIntoWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -175,6 +175,9 @@ const pickKey = (virtual: VirtualSession): string =>
 
 const setBlob = (registry: Registry, blob: null | VirtualSession): void => {
   registry.set(writableVirtualSessionAtom, blob);
+  // A pending Workstream join belongs to one blob: dropping or replacing it abandons the join.
+  const pending = registry.get(pendingWorkstreamAtom);
+  if (pending !== null && pending.blobId !== blob?.id) registry.set(pendingWorkstreamAtom, null);
 };
 
 // Blob transitions (synchronous, inert under the Lifecycle lock)
@@ -650,7 +653,9 @@ const materialize = Effect.fn('materialize')(
       // A session started from "New session in Workstream" belongs to it from creation.
       const pending = registry.get(pendingWorkstreamAtom);
       if (pending !== null && pending.blobId === registry.get(virtualSessionAtom)?.id) {
-        yield* joinWorkstream(registry, pending.workstreamId, { launchTarget, sessionId });
+        yield* adoptIntoWorkstream(registry, pending.workstreamId, { launchTarget, sessionId }).pipe(
+          Effect.catchCause(cause => Effect.logWarning('adopt new session into Workstream failed', cause)),
+        );
       }
     }
     registry.set(pendingWorkstreamAtom, null);
@@ -835,6 +840,8 @@ export const sendVirtual = Effect.fn('sendVirtual')(function* <E, R>(
 
 /** Leaving Virtual: content keeps the blob (+ Bound); empty discards it with background teardown. Never waits. */
 const leaveVirtual = Effect.fn('leaveVirtual')(function* (registry: Registry, next: Selected | undefined) {
+  // Navigating away abandons a pending Workstream join (Materialize still needs it, so not while it holds the lock).
+  if (!registry.get(virtualMaterializingAtom)) registry.set(pendingWorkstreamAtom, null);
   const virtual = registry.get(virtualSessionAtom);
   if (virtual !== null && hasComposerContent(virtual)) {
     registry.set(selectedAtom, next);

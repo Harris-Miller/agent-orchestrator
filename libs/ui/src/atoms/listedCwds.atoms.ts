@@ -7,7 +7,7 @@ import { listCwdsForScope } from '../host/sessionListScope.ts';
 import { unifiedSessionHistoryAtom, visibleSessionHistoryAtom } from './backendState.atoms.ts';
 import { projectsAtom } from './projects.atoms.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
-import { hiddenFromSessionsPageKeysAtom, withoutWorkstreamOwned } from './workstreams.atoms.ts';
+import { withoutWorkstreamOwned, workstreamOwnedKeysAtom } from './workstreams.atoms.ts';
 
 /** Every Project on desktop, the Workspace cwd in VS Code, none when skipped. */
 export const listedCwdsAtom = Atom.make(get => listCwdsForScope(get(sessionListScopeAtom), get(projectsAtom))).pipe(
@@ -23,7 +23,7 @@ const rowsInListedCwds = (listedCwds: readonly string[], rows: readonly UnifiedH
 export const listedSessionHistoryAtom = Atom.make(get =>
   withoutWorkstreamOwned(
     rowsInListedCwds(get(listedCwdsAtom), get(unifiedSessionHistoryAtom)),
-    get(hiddenFromSessionsPageKeysAtom),
+    get(workstreamOwnedKeysAtom),
   ),
 ).pipe(Atom.keepAlive);
 
@@ -31,6 +31,6 @@ export const listedSessionHistoryAtom = Atom.make(get =>
 export const visibleListedSessionHistoryAtom = Atom.make(get =>
   withoutWorkstreamOwned(
     rowsInListedCwds(get(listedCwdsAtom), get(visibleSessionHistoryAtom)),
-    get(hiddenFromSessionsPageKeysAtom),
+    get(workstreamOwnedKeysAtom),
   ),
 ).pipe(Atom.keepAlive);

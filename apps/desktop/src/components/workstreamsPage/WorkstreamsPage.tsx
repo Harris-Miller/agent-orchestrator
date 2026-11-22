@@ -7,6 +7,7 @@ import {
   LucideMuiIcon,
   ownedSessionKeysAtom,
   PANEL_HEADER_HEIGHT,
+  pendingWorkstreamAtom,
   selectedAtom,
   selectedSessionIdAtom,
   SessionChatBody,
@@ -14,6 +15,7 @@ import {
   SessionHeader,
   showArchivedSettingAtom,
   updateWorkstreamAtomFn,
+  virtualSessionAtom,
   visibleListedSessionHistoryAtom,
   visibleSessionHistoryAtom,
   workstreamsAtom,
@@ -46,16 +48,35 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
   const setSelected = useAtomSet(selectedAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const owned = useAtomValue(ownedSessionKeysAtom);
+  const pending = useAtomValue(pendingWorkstreamAtom);
+  const setPending = useAtomSet(pendingWorkstreamAtom);
+  const virtualBlob = useAtomValue(virtualSessionAtom);
   const createWorkstream = useAtomSet(createWorkstreamAtomFn, { mode: 'promise' });
   const updateWorkstream = useAtomSet(updateWorkstreamAtomFn, { mode: 'promise' });
   const [dialog, setDialog] = useState<{ readonly workstream: Workstream | undefined } | undefined>();
 
-  // A Selected session no Workstream owns is not on this page: clear it rather than show it here.
+  // A Virtual draft is on this page only when "New session in ›" started it (it has a pending Workstream).
+  const virtualHere = pending !== null && virtualBlob?.id === pending.blobId;
+
+  // A Selected session no Workstream owns is not on this page: clear it. A Virtual draft nobody started here is only
+  // hidden (see `shownSelected`); the Sessions Page keeps it.
   useEffect(() => {
+    if (selected?._tag === 'Virtual') return;
+    if (pending !== null) setPending(null);
     if (selected?._tag !== 'Session') return;
     const entry = history.find(candidate => candidate.sessionId === selected.sessionId);
     if (entry === undefined || !owned.has(sessionEntryKey(entry))) setSelected(undefined);
-  }, [selected, history, owned, setSelected]);
+  }, [selected, history, owned, pending, setSelected, setPending]);
+
+  // Leaving the page abandons a pending "New session in ›" join.
+  useEffect(
+    () => () => {
+      setPending(null);
+    },
+    [setPending],
+  );
+
+  const shownSelected = selected?._tag === 'Virtual' && !virtualHere ? undefined : selected;
 
   const byKey = new Map(history.map(entry => [sessionEntryKey(entry), entry]));
   const shown = workstreams.filter(ws => showArchived || !ws.archived);
@@ -100,7 +121,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
             <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               {shown.map(ws => {
                 const rows = ws.sessions.flatMap(session => {
-                  const entry = byKey.get(`${session.launchTarget}:${session.sessionId}`);
+                  const entry = byKey.get(sessionEntryKey(session));
                   return entry === undefined ? [] : [entry];
                 });
                 return (
@@ -157,7 +178,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
           </Box>
         </Allotment.Pane>
         <Allotment.Pane minSize={320}>
-          {selected === undefined ? (
+          {shownSelected === undefined ? (
             <Box
               sx={{
                 alignItems: 'center',

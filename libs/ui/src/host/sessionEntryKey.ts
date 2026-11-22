@@ -1,6 +1,5 @@
-import type { UnifiedHistoryEntry } from './acpSessionBootstrap.ts';
-
-type SessionEntryRef = Pick<UnifiedHistoryEntry, 'launchTarget' | 'sessionId'>;
+/** Anything identifying a session: a History row, or a Workstream's persisted `{ launchTarget, sessionId }`. */
+type SessionEntryRef = { readonly launchTarget: string; readonly sessionId: string };
 
 /** A Session History row's identity across launch targets (a bare `sessionId` can repeat between providers). */
 export const sessionEntryKey = (entry: SessionEntryRef): string => `${entry.launchTarget}:${entry.sessionId}`;

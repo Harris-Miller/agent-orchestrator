@@ -7,6 +7,7 @@ import {
   directoryBasename,
   LucideMuiIcon,
   projectsAtom,
+  sessionEntryKey,
   setWorkstreamArchivedAtomFn,
   startSessionInWorkstreamAtomFn,
   visibleListedSessionHistoryAtom,
@@ -114,7 +115,7 @@ export const WorkstreamMenu: FC<{
             ))
           : adoptable.map(entry => (
               <MenuItem
-                key={`${entry.launchTarget}:${entry.sessionId}`}
+                key={sessionEntryKey(entry)}
                 onClick={() => {
                   run(
                     adopt({

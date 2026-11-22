@@ -16,15 +16,17 @@ import {
 import type { AgentLaunchTarget } from '@lib/ui';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
+import type { Theme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { FolderOpen } from 'lucide-react';
 import type { FC } from 'react';
 
-const selectableSx = (selected: boolean) =>
+const selectableSx = (selected: boolean, theme: Theme) =>
   ({
     bgcolor: selected ? 'action.selected' : 'background.paper',
     border: 1,
     borderColor: selected ? 'primary.main' : 'divider',
+    transition: theme.transitions.create('border-color'),
     '&:hover:not(:disabled)': { borderColor: 'primary.main' },
     '&:disabled': { opacity: 0.6 },
   }) as const;
@@ -43,14 +45,14 @@ const ProjectPill: FC<{
       onClick={() => {
         onPick(cwd);
       }}
-      sx={{
-        ...selectableSx(selected),
+      sx={theme => ({
+        ...selectableSx(selected, theme),
         alignItems: 'center',
         borderRadius: 99,
         gap: 0.75,
         px: 1.5,
         py: 0.5,
-      }}
+      })}
       type="button"
     >
       <LucideMuiIcon icon={FolderOpen} sx={{ fontSize: 14 }} />
@@ -116,13 +118,12 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
         <ButtonBase
           aria-pressed={launchTarget === target}
           disabled={disabled || (usableTargets !== undefined && !usableTargets.includes(target))}
-          title={unavailableReasons?.[target]}
           key={target}
           onClick={() => {
             onPickTarget(target);
           }}
           sx={theme => ({
-            ...selectableSx(launchTarget === target),
+            ...selectableSx(launchTarget === target, theme),
             alignItems: 'center',
             borderRadius: 2,
             flexDirection: 'column',
@@ -131,7 +132,6 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
             minWidth: 112,
             px: 2,
             py: 1.75,
-            transition: theme.transitions.create('border-color'),
           })}
           type="button"
         >
@@ -139,6 +139,13 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
           <Typography component="span" variant="body2">
             {agentLaunchTargetLabel(target)}
           </Typography>
+          {usableTargets !== undefined &&
+          !usableTargets.includes(target) &&
+          unavailableReasons?.[target] !== undefined ? (
+            <Typography color="text.secondary" component="span" sx={{ maxWidth: 112 }} variant="caption">
+              {unavailableReasons[target]}
+            </Typography>
+          ) : null}
         </ButtonBase>
       ))}
     </Box>

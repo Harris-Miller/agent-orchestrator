@@ -69,7 +69,6 @@ export const AgentChatWorkbench: FC<{
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   // Stable element so `memo(Composer)` holds when this component re-renders on the selected session's own chunks.
   const cwdStrip = useMemo(() => <SessionCwdStrip onClientError={onClientError} />, [onClientError]);
-  const launcher = useMemo(() => <NewSessionLauncher onClientError={onClientError} />, [onClientError]);
 
   // Desktop keeps Virtual or a Session Selected: fall back to Virtual whenever Selected is cleared (boot, Archive,
   // Delete, Deactivate). Re-runs when Materialize ends, since ensureVirtual is inert under the Lifecycle lock.
@@ -166,7 +165,11 @@ export const AgentChatWorkbench: FC<{
                   )}
                 </Box>
 
-                <SessionChatBody aboveComposer={cwdStrip} onClientError={onClientError} virtualEmptyState={launcher} />
+                <SessionChatBody
+                  aboveComposer={cwdStrip}
+                  onClientError={onClientError}
+                  virtualEmptyState={<NewSessionLauncher onClientError={onClientError} />}
+                />
               </Box>
             </Allotment.Pane>
 

@@ -74,6 +74,6 @@ describe('NewSessionLauncher', () => {
       unavailableReasons: { 'claude-agent-acp': 'Not installed' },
     });
     assert.strictEqual(html.match(/disabled=""/g)?.length, 1);
-    assert.include(html, 'title="Not installed"');
+    assert.include(html, 'Not installed');
   });
 });

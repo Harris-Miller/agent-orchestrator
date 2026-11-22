@@ -6,14 +6,24 @@
  * A Provider process that dies after `ready` is not yet noticed: its registration stays until one of those.
  */
 import type { AcpAgentConnection, ContentBlock } from '@libs/effect-acp';
-import { Effect, Predicate, Redacted, Schema } from 'effect';
+import { Clock, Effect, Exit, Predicate, Redacted, Schedule, Schema } from 'effect';
 import type { Scope, Tracer } from 'effect';
+
+import { promptResponseTelemetry } from './acpTelemetry.ts';
 
 import type { AgentLaunchTarget } from './agentLaunchTarget.ts';
 import { rootAncestor } from './ancestry.ts';
 import type { ConfigIndexEvent } from './configOptionIndexHydrate.ts';
 import { beginMcp, revokeLaunchTargetMcp, revokeSessionMcp } from './hubSessions.ts';
 import { listSessionPage } from './listSessionPages.ts';
+import type { PromptTurn } from './promptTurnTelemetry.ts';
+import {
+  closeOrphanedToolCalls,
+  dueTurnAlarms,
+  makePromptTurn,
+  promptTurnSummary,
+  recordCancelRequested,
+} from './promptTurnTelemetry.ts';
 import type { ListSessionsPayload } from './sessionListScope.ts';
 
 /** What a Backend connection reports to its owner (the Harness event fold). */
@@ -33,8 +43,8 @@ type BackendConnection = ConnectionHandles & {
   /** The Agent advertised `mcpCapabilities.http`, so the hub can be injected as an MCP server. */
   mcpHttp: boolean;
   readonly onConfigIndexEvent: BackendConnectionReports['onConfigIndexEvent'];
-  /** Active `sendPrompt` spans by session id, for turn-correlated Agent→Client work. */
-  readonly promptSpans: Map<string, Tracer.AnySpan>;
+  /** In-flight Prompt turns by session id: their span parents turn-correlated Agent→Client work. */
+  readonly promptTurns: Map<string, PromptTurn>;
   /** child session id → announcing parent, so child work parents under the root ancestor's prompt span. */
   readonly subagentParents: Map<string, string>;
 };
@@ -63,7 +73,7 @@ export const registerBackendConnection = (
         mcpHttp: false,
         notify: connection.notify,
         onConfigIndexEvent: reports.onConfigIndexEvent,
-        promptSpans: new Map(),
+        promptTurns: new Map(),
         sessionArchive: connection.sessionArchive,
         sessionFork: connection.sessionFork,
         sessionRename: connection.sessionRename,
@@ -81,8 +91,13 @@ export const registerBackendConnection = (
         }
         backendConnections.delete(launchTarget);
         reports.onConnectionLost();
+        const turns = [...record.promptTurns.values()];
+        record.promptTurns.clear();
         // Its sessions died with the agent process: their hub credentials must stop working too.
-        return revokeLaunchTargetMcp(launchTarget);
+        return Effect.andThen(
+          Effect.forEach(turns, turn => closeOrphanedToolCalls(turn, undefined), { discard: true }),
+          revokeLaunchTargetMcp(launchTarget),
+        );
       }),
   ).pipe(Effect.asVoid);
 
@@ -94,11 +109,15 @@ export const setBackendMcpHttp = (launchTarget: AgentLaunchTarget, supported: bo
   }
 };
 
-/** Child ids resolve to the root ancestor's in-flight prompt span; a closed root turn yields undefined (short root). */
-export const getPromptSpan = (launchTarget: AgentLaunchTarget, sessionId: string): Tracer.AnySpan | undefined => {
+/** Child ids resolve to the root ancestor's in-flight Prompt turn; a closed root turn yields undefined (short root). */
+export const getPromptTurn = (launchTarget: AgentLaunchTarget, sessionId: string): PromptTurn | undefined => {
   const connection = backendConnections.get(launchTarget);
-  return connection?.promptSpans.get(rootAncestor(id => connection.subagentParents.get(id), sessionId));
+  return connection?.promptTurns.get(rootAncestor(id => connection.subagentParents.get(id), sessionId));
 };
+
+/** The span of {@link getPromptTurn}. */
+export const getPromptSpan = (launchTarget: AgentLaunchTarget, sessionId: string): Tracer.AnySpan | undefined =>
+  getPromptTurn(launchTarget, sessionId)?.span;
 
 /** Record `childId`'s announcing parent on the live connection (first link wins; no-op when not connected). */
 export const setSubagentParent = (launchTarget: AgentLaunchTarget, childId: string, parentId: string): void => {
@@ -249,28 +268,64 @@ export const deleteSession = Effect.fn('deleteSession')(
     effect.pipe(Effect.tapError(error => Effect.logError('session/delete failed', sessionId, error))),
 );
 
+/** Warn while a turn is silent too long or ignores a cancel: a hung turn never ends its span, so this is its only trace. */
+const watchPromptTurn = (sessionId: string, turn: PromptTurn) =>
+  Effect.gen(function* () {
+    for (const alarm of dueTurnAlarms(turn, yield* Clock.currentTimeMillis)) {
+      yield* alarm._tag === 'Silent'
+        ? Effect.logWarning('Prompt turn silent', sessionId, {
+            openToolCalls: alarm.openToolCalls,
+            silentMs: alarm.silentMs,
+          })
+        : Effect.logWarning('Prompt turn unresolved after session/cancel', sessionId, {
+            sinceCancelMs: alarm.sinceCancelMs,
+          });
+    }
+  }).pipe(Effect.repeat(Schedule.spaced('5 seconds')), Effect.withParentSpan(turn.span));
+
+/** Record the turn's tally and stop reason on its span, close orphaned tool calls, and forget the turn. */
+const endPromptTurn = (
+  promptTurns: Map<string, PromptTurn>,
+  sessionId: string,
+  turn: PromptTurn,
+  span: Tracer.Span,
+  exit: Exit.Exit<{ readonly stopReason: string; readonly usage?: unknown }, unknown>,
+) =>
+  Effect.gen(function* () {
+    if (promptTurns.get(sessionId) === turn) {
+      promptTurns.delete(sessionId);
+    }
+    for (const [key, value] of Object.entries(promptTurnSummary(turn, yield* Clock.currentTimeMillis))) {
+      span.attribute(key, value);
+    }
+    const stopReason = Exit.isSuccess(exit) ? exit.value.stopReason : undefined;
+    if (Exit.isSuccess(exit)) {
+      for (const [key, value] of Object.entries(promptResponseTelemetry(exit.value))) {
+        span.attribute(key, value);
+      }
+    }
+    yield* closeOrphanedToolCalls(turn, stopReason);
+  });
+
 export const sendPrompt = Effect.fn('sendPrompt')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string, prompt: readonly ContentBlock[]) {
-    const { agent, promptSpans } = yield* requireBackendConnection(launchTarget);
+    const { agent, promptTurns } = yield* requireBackendConnection(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
       'acp.sessionId': sessionId,
     });
     const span = yield* Effect.currentSpan;
-    promptSpans.set(sessionId, span);
+    const turn = makePromptTurn(span, yield* Clock.currentTimeMillis);
+    promptTurns.set(sessionId, turn);
     const textChars = prompt.reduce((sum, block) => sum + (block.type === 'text' ? block.text.length : 0), 0);
     yield* Effect.logDebug('session/prompt', sessionId, { blocks: prompt.length, textChars });
+    yield* Effect.forkScoped(watchPromptTurn(sessionId, turn));
     return yield* agent['session/prompt']({
       prompt: [...prompt],
       sessionId,
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          promptSpans.delete(sessionId);
-        }),
-      ),
-    );
+    }).pipe(Effect.onExit(exit => endPromptTurn(promptTurns, sessionId, turn, span, exit)));
   },
+  Effect.scoped,
   (effect, launchTarget, sessionId) =>
     effect.pipe(Effect.tapError(error => Effect.logError('session/prompt failed', launchTarget, sessionId, error))),
 );
@@ -300,12 +355,16 @@ export const steerSession = Effect.fn('steerSession')(
 /** ACP Client→Agent notification (no JSON-RPC id). Must use transport.notify, not RpcClient. */
 export const cancelSession = Effect.fn('cancelSession')(
   function* (launchTarget: AgentLaunchTarget, sessionId: string) {
-    const { notify } = yield* requireBackendConnection(launchTarget);
+    const { notify, promptTurns } = yield* requireBackendConnection(launchTarget);
     yield* Effect.annotateCurrentSpan({
       'acp.agent': launchTarget,
       'acp.sessionId': sessionId,
     });
     yield* Effect.logDebug('session/cancel', sessionId);
+    const turn = promptTurns.get(sessionId);
+    if (turn !== undefined) {
+      recordCancelRequested(turn, yield* Clock.currentTimeMillis);
+    }
     yield* notify('session/cancel', { sessionId });
   },
   (effect, launchTarget, sessionId) =>

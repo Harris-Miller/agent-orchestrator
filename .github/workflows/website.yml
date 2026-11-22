@@ -1,6 +1,5 @@
-# PROTOTYPE (#435) — builds apps/website and deploys it to GitHub Pages at https://<owner>.github.io/<repo>/.
-# Not runnable from this prototype branch: GitHub dispatches only workflows on the default branch, and the
-# github-pages environment deploys from it. Once on main, switch the trigger to `push: branches: [main]`.
+# Builds apps/website (VitePress) and deploys it to GitHub Pages at https://<owner>.github.io/<repo>/.
+# Run it from the Actions tab (workflow_dispatch).
 # Requires Settings › Pages › Source: GitHub Actions; on a private repo Pages needs a paid plan and the site is public.
 name: Website
 

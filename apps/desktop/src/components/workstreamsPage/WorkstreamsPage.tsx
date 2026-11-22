@@ -17,6 +17,7 @@ import {
   sessionEntryKey,
   SessionHeader,
   showArchivedSettingAtom,
+  ShowArchivedToggle,
   usePersistedLayout,
   virtualSessionAtom,
   visibleSessionHistoryAtom,
@@ -24,10 +25,8 @@ import {
 } from '@lib/ui';
 import type { Workstream } from '@lib/hoa-home';
 import Box from '@mui/material/Box';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
 import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
@@ -50,7 +49,6 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
   const workstreams = useAtomValue(workstreamsAtom);
   const history = useAtomValue(visibleSessionHistoryAtom);
   const showArchived = useAtomValue(showArchivedSettingAtom);
-  const setShowArchived = useAtomSet(showArchivedSettingAtom);
   const selected = useAtomValue(selectedAtom);
   const setSelected = useAtomSet(selectedAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
@@ -107,6 +105,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
             }}
           >
             <PanelHeader
+              beforeClose={<ShowArchivedToggle />}
               closeAriaLabel="Close workstreams panel"
               closeIcon={PanelLeftClose}
               onClose={() => {
@@ -128,19 +127,6 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
                 <LucideMuiIcon fontSize="small" icon={Plus} />
               </IconButton>
             </Stack>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showArchived}
-                  onChange={(_event, checked) => {
-                    setShowArchived(checked);
-                  }}
-                  size="small"
-                />
-              }
-              label={<Typography variant="caption">Show archived</Typography>}
-              sx={{ px: 2 }}
-            />
             <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               {shown.map(ws => {
                 const rows = ws.sessions.flatMap(session => {

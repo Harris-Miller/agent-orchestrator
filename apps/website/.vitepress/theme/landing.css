@@ -1,0 +1,7 @@
+/* Let the landing page run full-bleed below the nav. */
+.VPContent:has(.ph) {
+  padding: var(--vp-nav-height) 0 0 !important;
+}
+.VPContent:has(.ph) .VPPage {
+  padding: 0 !important;
+}

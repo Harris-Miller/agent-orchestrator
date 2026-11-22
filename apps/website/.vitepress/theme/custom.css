@@ -1,0 +1,15 @@
+/* Brand the default theme with the app icon's teal. */
+:root {
+  --vp-c-brand-1: #0f8f84;
+  --vp-c-brand-2: #12a598;
+  --vp-c-brand-3: #14b8a9;
+  --vp-c-brand-soft: rgb(31 200 184 / 0.14);
+}
+.dark {
+  --vp-c-brand-1: #1fc8b8;
+  --vp-c-brand-2: #19b0a2;
+  --vp-c-brand-3: #14958a;
+  --vp-c-bg: #121214;
+  --vp-c-bg-alt: #0c0c0e;
+  --vp-c-bg-elv: #18181b;
+}

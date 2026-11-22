@@ -35,3 +35,5 @@ jobs:
             turbo-${{ runner.os }}-
 
       - run: pnpm run local-ci
+
+      - run: pnpm --filter=@apps/website run build

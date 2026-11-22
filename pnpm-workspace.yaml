@@ -67,6 +67,8 @@ catalog:
   '@agentclientprotocol/codex-acp': ^2.7.0
   '@testing-library/react': ^16.3.3
   happy-dom: ^21.0.4
+  vitepress: 2.0.0-alpha.21
+  vue: ^3.5.46
 
 allowBuilds:
   '@vscode/vsce-sign': false # optional; only needed to sign Marketplace VSIX

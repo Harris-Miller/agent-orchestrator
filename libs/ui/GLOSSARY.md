@@ -306,3 +306,7 @@ A search by Session title within the host’s Session History scope (Tracked ses
 **Import**:
 The in-panel mode of Session History (not a route), opened from a Project's `⋯` menu on desktop or the Session History header in VS Code, scoped to one cwd. The only place `session/list` runs: one merged list of the cwd's untracked sessions across usable launch targets, newest Last prompt time first. Confirming a selected row loads it; only on success does it become a Tracked session and get Selected.
 _Avoid_: sync, reload sessions, refresh
+
+**Workstream-owned session**:
+A session some Workstream owns. While Experimental: Workstreams is on it is left out of the Sessions Page lists and search; while off, ownership is kept but ignored and the session shows under its Project.
+_Avoid_: hidden session, grouped session

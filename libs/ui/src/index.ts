@@ -4,6 +4,8 @@ export * from './atoms/listedCwds.atoms.ts';
 export * from './atoms/pinnedSessions.atoms.ts';
 export * from './atoms/boundHarnessAtoms.ts';
 export * from './atoms/projects.atoms.ts';
+export * from './atoms/workstreams.atoms.ts';
+export { userSettingsLoadedAtom, workstreamsEnabledAtom } from './atoms/userSettings/userSettingsDocument.atoms.ts';
 export { hostThemeAtom } from './atoms/theme.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';
 export * from './atoms/developerPanelOpen.atoms.ts';
@@ -128,3 +130,4 @@ export { SettingsSection, SettingsRow } from './components/SettingsSection.tsx';
 
 export * from './components/sessionHistory/useSessionHistorySearch.tsx';
 export * from './components/sessionHistory/ImportSessionsPanel.tsx';
+export * from './host/cwdCaption.ts';

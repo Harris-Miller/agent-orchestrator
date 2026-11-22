@@ -22,6 +22,7 @@ import {
   notifierSupportedAtom,
   notifyOnlyWhenUnfocusedAtom,
   userSettingsAtom,
+  workstreamsSettingAtom,
 } from '../atoms/boundHarnessAtoms.ts';
 import { userSettingsEditsDisabled } from '../atoms/userSettings/userSettings.atoms.ts';
 import type { MidTurnSend } from '../atoms/userSettings/userSettings.atoms.ts';
@@ -35,6 +36,8 @@ export const GeneralSettingsPane: FC = () => {
   const setConfirmSessionDelete = useAtomSet(confirmSessionDeleteAtom);
   const appOrchestratedAgents = useAtomValue(appOrchestratedAgentsAtom);
   const setAppOrchestratedAgents = useAtomSet(appOrchestratedAgentsAtom);
+  const workstreams = useAtomValue(workstreamsSettingAtom);
+  const setWorkstreams = useAtomSet(workstreamsSettingAtom);
   const developerMode = useAtomValue(developerModeAtom);
   const setDeveloperMode = useAtomSet(developerModeAtom);
   const midTurnSend = useAtomValue(midTurnSendAtom);
@@ -166,6 +169,19 @@ export const GeneralSettingsPane: FC = () => {
             disabled={editsDisabled}
             onChange={(_event, checked) => {
               setAppOrchestratedAgents(checked);
+            }}
+          />
+        </SettingsRow>
+        <SettingsRow
+          title="Experimental: Workstreams"
+          description="Adds a Workstreams page: group sessions into Workstreams that follow external work items. Sessions in a Workstream leave the Sessions page while this is on."
+        >
+          <Switch
+            slotProps={{ input: { 'aria-label': 'Experimental: Workstreams' } }}
+            checked={workstreams}
+            disabled={editsDisabled}
+            onChange={(_event, checked) => {
+              setWorkstreams(checked);
             }}
           />
         </SettingsRow>

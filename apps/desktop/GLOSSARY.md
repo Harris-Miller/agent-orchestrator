@@ -437,3 +437,27 @@ A subagent's open-union state: `running`, `requires_action`, `idle`, `completed`
 
 **Inter-session message**:
 A directed message between sessions (`session_message` / `session_message_chunk`), upserted by `messageId` within its owning transcript. Shown with sender/recipient; never rendered as a user prompt or tool call.
+
+**Sessions Page**:
+The page of Session History grouped by Project with the Selected session's chat. The default page. While Experimental: Workstreams is on, it lists only sessions no Workstream owns.
+_Avoid_: home page, main page
+
+**Workstreams Page**:
+The page that lists Workstreams with their sessions, beside the Selected session's chat. Exists only while Experimental: Workstreams is on; a page switcher beside the active page moves between it and the Sessions Page.
+_Avoid_: Features page, Missions page
+
+**Workstream**:
+A named, user-created collection of sessions (across Projects and launch targets). A session belongs to at most one Workstream. Archiving a Workstream archives its sessions; deleting it Orphans them.
+_Avoid_: Feature, Mission, group, folder
+
+**Adopt**:
+Move a session from the Sessions Page into a Workstream, which removes it from any other Workstream first.
+_Avoid_: assign, add to group
+
+**Orphan**:
+Take a session out of its Workstream so it returns to the Sessions Page, under its cwd's Project.
+_Avoid_: unassign, detach, remove
+
+**Experimental: Workstreams**:
+User setting `workstreamsEnabled` (off when unset). While on, the Workstreams Page and its page switcher exist and the Sessions Page lists only sessions no Workstream owns; while off, owned sessions show under their Project again and ownership persists. Changing it does not reactivate sessions.
+_Avoid_: Features setting, Missions setting

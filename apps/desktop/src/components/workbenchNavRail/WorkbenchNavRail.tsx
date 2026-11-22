@@ -25,6 +25,7 @@ import {
   useSessionHistorySearch,
   visibleListedSessionHistoryAtom,
   withoutPinned,
+  workstreamsEnabledAtom,
 } from '@lib/ui';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -40,6 +41,8 @@ import { FolderPlus, PanelLeftClose, Pin, Settings, SquarePen } from 'lucide-rea
 import { useState } from 'react';
 import type { FC } from 'react';
 
+import { AppTitle } from './AppTitle.tsx';
+import { PageTitle } from './PageTitle.tsx';
 import { CreateSessionDirectoryPicker } from './CreateSessionDirectoryPicker.tsx';
 import { ProjectGroup } from './ProjectGroup.tsx';
 
@@ -47,10 +50,6 @@ export const WORKBENCH_NAV_RAIL_WIDTH = 400;
 
 /** Never a cwd (absolute paths), so it cannot clash with `navSessionGroupStableKey`. */
 const PINNED_SECTION_KEY = '__pinned__';
-// Panel widths (px) at which the header title grows from "HOA" to "The HOA" to the full name; leaves room for header actions.
-// Kept just under WORKBENCH_NAV_RAIL_WIDTH so the full name shows at the default width.
-const TITLE_MEDIUM_MIN_WIDTH = 260;
-const TITLE_FULL_MIN_WIDTH = 390;
 
 const withKey = (keys: ReadonlySet<string>, key: string, present: boolean): ReadonlySet<string> => {
   const next = new Set(keys);
@@ -70,6 +69,7 @@ export const WorkbenchNavRail: FC<{
   const pinnedEntries = useAtomValue(pinnedEntriesAtom);
   const selectedSessionId = useAtomValue(selectedSessionIdAtom);
   const projects = useAtomValue(projectsAtom);
+  const workstreamsEnabled = useAtomValue(workstreamsEnabledAtom);
   const ensureVirtualSession = useAtomSet(ensureVirtualSessionAtomFn, { mode: 'promise' });
   const addProject = useAtomSet(addProjectAtomFn, { mode: 'promise' });
   const [addingProject, setAddingProject] = useState(false);
@@ -146,32 +146,11 @@ export const WorkbenchNavRail: FC<{
           closeAriaLabel="Close session history panel"
           closeIcon={PanelLeftClose}
           onClose={onClose}
-          title={
-            <Typography
-              noWrap
-              sx={{
-                fontWeight: 600,
-                // Title shortens with the panel width: full name, then "The HOA", then "HOA".
-                '& .title-full, & .title-medium': { display: 'none' },
-                [`@container (min-width: ${TITLE_MEDIUM_MIN_WIDTH}px)`]: {
-                  '& .title-medium': { display: 'inline' },
-                  '& .title-short': { display: 'none' },
-                },
-                [`@container (min-width: ${TITLE_FULL_MIN_WIDTH}px)`]: {
-                  '& .title-full': { display: 'inline' },
-                  '& .title-medium': { display: 'none' },
-                },
-              }}
-              variant="subtitle1"
-            >
-              <span className="title-full">Harness Orchestrating Agents</span>
-              <span className="title-medium">The HOA</span>
-              <span className="title-short">HOA</span>
-            </Typography>
-          }
+          title={<AppTitle />}
         />
         {importing === undefined ? (
           <>
+            {workstreamsEnabled ? <PageTitle>Sessions</PageTitle> : null}
             <BulkActionBar onClientError={onClientError} selection={bulk} />
             <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
               <ListItemButton
@@ -279,16 +258,20 @@ export const WorkbenchNavRail: FC<{
             />
           </Box>
         )}
-        <Divider />
-        <Box sx={{ flexShrink: 0, p: 1 }}>
-          <IconTooltipButton
-            icon={Settings}
-            label="Settings"
-            onClick={() => {
-              navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
-            }}
-          />
-        </Box>
+        {workstreamsEnabled ? null : (
+          <>
+            <Divider />
+            <Box sx={{ flexShrink: 0, p: 1 }}>
+              <IconTooltipButton
+                icon={Settings}
+                label="Settings"
+                onClick={() => {
+                  navigate({ params: { category: 'general' }, to: '/settings/$category' }).catch(() => undefined);
+                }}
+              />
+            </Box>
+          </>
+        )}
       </Box>
 
       {addingProject ? (

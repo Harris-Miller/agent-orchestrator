@@ -1,0 +1,229 @@
+import 'allotment/dist/style.css';
+
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
+import {
+  allotmentSashSx,
+  createWorkstreamAtomFn,
+  IconTooltipButton,
+  LucideMuiIcon,
+  ownedSessionKeysAtom,
+  PANEL_HEADER_HEIGHT,
+  PanelHeader,
+  pendingWorkstreamAtom,
+  renameWorkstreamAtomFn,
+  selectedAtom,
+  selectedSessionIdAtom,
+  SessionChatBody,
+  sessionEntryKey,
+  SessionHeader,
+  showArchivedSettingAtom,
+  ShowArchivedToggle,
+  usePersistedLayout,
+  virtualSessionAtom,
+  visibleSessionHistoryAtom,
+  workstreamsAtom,
+} from '@lib/ui';
+import type { Workstream } from '@lib/hoa-home';
+import Box from '@mui/material/Box';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { Allotment } from 'allotment';
+import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { FC } from 'react';
+
+import { AppTitle } from '../workbenchNavRail/AppTitle.tsx';
+import { PageTitle } from '../workbenchNavRail/PageTitle.tsx';
+import { WorkstreamDialog } from './WorkstreamDialog.tsx';
+import { WorkstreamMenu } from './WorkstreamMenu.tsx';
+import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
+
+const WORKSTREAMS_LAYOUT_KEY = 'workstreams-page-layout';
+
+const parseLayout = (raw: Record<string, unknown>) => ({
+  railOpen: typeof raw.railOpen === 'boolean' ? raw.railOpen : true,
+});
+
+export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
+  const { commit: commitLayout, layout } = usePersistedLayout({ key: WORKSTREAMS_LAYOUT_KEY, parse: parseLayout });
+  const workstreams = useAtomValue(workstreamsAtom);
+  const history = useAtomValue(visibleSessionHistoryAtom);
+  const showArchived = useAtomValue(showArchivedSettingAtom);
+  const selected = useAtomValue(selectedAtom);
+  const setSelected = useAtomSet(selectedAtom);
+  const selectedSessionId = useAtomValue(selectedSessionIdAtom);
+  const owned = useAtomValue(ownedSessionKeysAtom);
+  const pending = useAtomValue(pendingWorkstreamAtom);
+  const setPending = useAtomSet(pendingWorkstreamAtom);
+  const virtualBlob = useAtomValue(virtualSessionAtom);
+  const createWorkstream = useAtomSet(createWorkstreamAtomFn, { mode: 'promise' });
+  const renameWorkstream = useAtomSet(renameWorkstreamAtomFn, { mode: 'promise' });
+  const [dialog, setDialog] = useState<{ readonly workstream: Workstream | undefined } | undefined>();
+
+  // A Virtual draft is on this page only when "New session in ›" started it (it has a pending Workstream).
+  const virtualHere = pending !== null && virtualBlob?.id === pending.blobId;
+
+  // A Selected session no Workstream owns is not on this page: clear it. A Virtual draft nobody started here is only
+  // hidden (see `shownSelected`); the Sessions Page keeps it.
+  useEffect(() => {
+    if (selected?._tag === 'Virtual') return;
+    if (pending !== null) setPending(null);
+    if (selected?._tag !== 'Session') return;
+    const entry = history.find(candidate => candidate.sessionId === selected.sessionId);
+    if (entry === undefined || !owned.has(sessionEntryKey(entry))) setSelected(undefined);
+  }, [selected, history, owned, pending, setSelected, setPending]);
+
+  // Leaving the page abandons a pending "New session in ›" join.
+  useEffect(
+    () => () => {
+      setPending(null);
+    },
+    [setPending],
+  );
+
+  const shownSelected = selected?._tag === 'Virtual' && !virtualHere ? undefined : selected;
+
+  const byKey = new Map(history.map(entry => [sessionEntryKey(entry), entry]));
+  const shown = workstreams.filter(ws => showArchived || !ws.archived);
+
+  return (
+    <Box sx={theme => ({ ...allotmentSashSx(theme), height: '100%' })}>
+      <Allotment
+        onVisibleChange={(index, visible) => {
+          if (index === 0) commitLayout({ railOpen: visible });
+        }}
+      >
+        <Allotment.Pane minSize={280} preferredSize={380} snap visible={layout.railOpen}>
+          <Box
+            sx={{
+              bgcolor: 'background.paper',
+              containerType: 'inline-size',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              minHeight: 0,
+            }}
+          >
+            <PanelHeader
+              beforeClose={<ShowArchivedToggle />}
+              closeAriaLabel="Close workstreams panel"
+              closeIcon={PanelLeftClose}
+              onClose={() => {
+                commitLayout({ railOpen: false });
+              }}
+              title={<AppTitle />}
+            />
+            <PageTitle>Workstreams</PageTitle>
+            <Box sx={{ flexShrink: 0, pt: 1, px: 1 }}>
+              <ListItemButton
+                onClick={() => {
+                  setDialog({ workstream: undefined });
+                }}
+                sx={{ borderRadius: 1, py: 0.75 }}
+              >
+                <ListItemIcon sx={{ color: 'text.secondary', minWidth: 32 }}>
+                  <LucideMuiIcon fontSize="small" icon={Plus} />
+                </ListItemIcon>
+                <ListItemText primary="New Workstream" slotProps={{ primary: { variant: 'body2' } }} />
+              </ListItemButton>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {shown.map(ws => {
+                const rows = ws.sessions.flatMap(session => {
+                  const entry = byKey.get(sessionEntryKey(session));
+                  return entry === undefined ? [] : [entry];
+                });
+                return (
+                  <Box key={ws.id} sx={{ opacity: ws.archived ? 0.6 : 1, pb: 1 }}>
+                    <Stack direction="row" sx={{ alignItems: 'center', gap: 1, pl: 2, pr: 1, pt: 1 }}>
+                      <Typography noWrap sx={{ flex: 1, fontWeight: 600 }} variant="body2">
+                        {ws.name}
+                        {ws.archived ? ' (archived)' : ''}
+                      </Typography>
+                      <WorkstreamMenu
+                        onClientError={onClientError}
+                        onEdit={() => {
+                          setDialog({ workstream: ws });
+                        }}
+                        ws={ws}
+                      />
+                    </Stack>
+                    {rows.map(entry => (
+                      <WorkstreamSessionRow
+                        entry={entry}
+                        key={sessionEntryKey(entry)}
+                        onClientError={onClientError}
+                        selected={selectedSessionId === entry.sessionId}
+                        workstreamArchived={ws.archived}
+                      />
+                    ))}
+                    {rows.length === 0 ? (
+                      <Typography color="text.disabled" sx={{ display: 'block', pl: 3 }} variant="caption">
+                        No sessions. Start one, or adopt one from the Sessions Page.
+                      </Typography>
+                    ) : null}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Allotment.Pane>
+        <Allotment.Pane minSize={320}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+            <Box
+              sx={{
+                alignItems: 'center',
+                bgcolor: 'background.paper',
+                display: 'flex',
+                flexShrink: 0,
+                gap: 1,
+                height: PANEL_HEADER_HEIGHT,
+                px: 2,
+              }}
+            >
+              {layout.railOpen ? null : (
+                <IconTooltipButton
+                  icon={PanelLeftOpen}
+                  label="Open workstreams panel"
+                  onClick={() => {
+                    commitLayout({ railOpen: true });
+                  }}
+                />
+              )}
+              {shownSelected === undefined ? null : (
+                <SessionHeader onClientError={onClientError} titleProps={{ variant: 'h6' }} />
+              )}
+            </Box>
+            {shownSelected === undefined ? (
+              <Box sx={{ alignItems: 'center', display: 'flex', flex: 1, justifyContent: 'center', p: 4 }}>
+                <Typography color="text.secondary" variant="body2">
+                  Pick a session.
+                </Typography>
+              </Box>
+            ) : (
+              <SessionChatBody onClientError={onClientError} />
+            )}
+          </Box>
+        </Allotment.Pane>
+      </Allotment>
+      {dialog === undefined ? null : (
+        <WorkstreamDialog
+          onClose={() => {
+            setDialog(undefined);
+          }}
+          onSubmit={name => {
+            const { workstream } = dialog;
+            (workstream === undefined ? createWorkstream(name) : renameWorkstream({ id: workstream.id, name })).catch(
+              onClientError,
+            );
+            setDialog(undefined);
+          }}
+          workstream={dialog.workstream}
+        />
+      )}
+    </Box>
+  );
+};

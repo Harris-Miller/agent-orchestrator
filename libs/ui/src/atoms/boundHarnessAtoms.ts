@@ -20,6 +20,7 @@ import { createSessionLifecycleAtoms } from './sessionLifecycle.atoms.ts';
 import { createThemeAtoms } from './theme.atoms.ts';
 import { createNotifierAtoms } from './notifier.atoms.ts';
 import { createProjectsAtoms } from './projects.atoms.ts';
+import { createWorkstreamActionAtoms } from './workstreamActions.atoms.ts';
 import { createUserSettingsAtoms } from './userSettings/userSettings.atoms.ts';
 import { createVirtualSessionAtoms } from './virtualSession.atoms.ts';
 import { createVscodeExtensionAtoms } from './vscodeExtension.atoms.ts';
@@ -40,6 +41,7 @@ export const { openFileSupportedAtom } = createOpenFileAtoms(atomRuntime);
 export const {
   alwaysHiddenGlobsAtom,
   appOrchestratedAgentsAtom,
+  workstreamsSettingAtom,
   chatWidthAtom,
   confirmSessionDeleteAtom,
   developerModeAtom,
@@ -142,3 +144,13 @@ export const { ensureVirtualSessionAtomFn, patchVirtualSessionAtomFn, setVirtual
 export const { pinSessionAtomFn, unpinSessionAtomFn } = createPinnedSessionsAtoms(hostBag);
 
 export const { addProjectAtomFn } = createProjectsAtoms(hostBag);
+
+export const {
+  adoptSessionAtomFn,
+  createWorkstreamAtomFn,
+  deleteWorkstreamAtomFn,
+  orphanSessionAtomFn,
+  setWorkstreamArchivedAtomFn,
+  startSessionInWorkstreamAtomFn,
+  renameWorkstreamAtomFn,
+} = createWorkstreamActionAtoms(hostBag);

@@ -130,3 +130,27 @@ export {
   PinnedSessionsDocumentJsonString,
   PinnedSessionsDocumentSchema,
 } from './PinnedSessionsDocument.ts';
+export {
+  addWorkstream,
+  adoptSession,
+  createWorkstream,
+  deleteWorkstream,
+  makeWorkstream,
+  orphanSession,
+  readWorkstreams,
+  setWorkstreamArchived,
+  renameWorkstream,
+  updateWorkstreams,
+  workstreamsPath,
+  WorkstreamsMalformed,
+} from './workstreams.ts';
+export {
+  emptyWorkstreams,
+  type Workstream,
+  WorkstreamSchema,
+  type WorkstreamSession,
+  WorkstreamSessionSchema,
+  type WorkstreamsDocument,
+  WorkstreamsDocumentJsonString,
+  WorkstreamsDocumentSchema,
+} from './WorkstreamsDocument.ts';

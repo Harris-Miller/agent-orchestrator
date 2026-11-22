@@ -1,6 +1,6 @@
 /** Startup hydration: Projects, then per launch target the tracked sessions, pins and config option index. */
 import type { HostServices } from '@lib/context-services';
-import { readConfigOptionIndexCache, readPinnedSessions, readProjects } from '@lib/hoa-home';
+import { readConfigOptionIndexCache, readPinnedSessions, readProjects, readWorkstreams } from '@lib/hoa-home';
 import { Effect, Option } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 
@@ -17,6 +17,7 @@ import {
   startTrackedSessionsPersistence,
 } from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
+import { workstreamsAtom, workstreamsLoadedAtom } from './workstreams.atoms.ts';
 
 /** Runs a read; on success applies it, on failure logs a warning with `message` and carries on. */
 const hydrateOrWarn = <A, E, R>(message: string, read: Effect.Effect<A, E, R>, apply: (value: A) => void) =>
@@ -48,6 +49,13 @@ export const hydrateHarnessCaches = (
         registry.set(projectsAtom, projects);
         registry.set(projectsLoadedAtom, true);
       }).pipe(Effect.catchCause(cause => Effect.logWarning('projects hydrate crashed', cause)));
+    }
+    // Workstreams are a desktop feature too; the file is shared by all launch targets.
+    if (scopeReadsProjects(registry.get(sessionListScopeAtom))) {
+      yield* hydrateOrWarn('workstreams hydrate failed', readWorkstreams(), ({ workstreams }) => {
+        registry.set(workstreamsAtom, workstreams);
+        registry.set(workstreamsLoadedAtom, true);
+      }).pipe(Effect.catchCause(cause => Effect.logWarning('workstreams hydrate crashed', cause)));
     }
     const listedCwds = () => registry.get(listedCwdsAtom);
     yield* Effect.forEach(

@@ -3,9 +3,10 @@ import { assert, describe, it } from '@effect/vitest';
 import type { RpcWireEntry } from '../../host/backendHarness.ts';
 
 import {
+  cascadedTags,
   cascadedWireIds,
   classifyRpcWireLog,
-  coerceWireIdFilter,
+  coerceToAvailable,
   filterClassifiedRpcWireEntries,
   mergeClassifiedRpcWireLogs,
   resolveSessionFilter,
@@ -71,7 +72,7 @@ describe('classifyRpcWireLog', () => {
       }),
     ]);
     assert.strictEqual(classified[0]?.meta.tag, 'session/update agent_message_chunk');
-    assert.strictEqual(classified[0]?.meta.wireId, '');
+    assert.strictEqual(classified[0]?.meta.wireId, null);
     assert.strictEqual(classified[0]?.meta.sessionKey, 'sess-a');
     assert.strictEqual(classified[0]?.meta.title, '← session/update agent_message_chunk');
   });
@@ -129,8 +130,8 @@ describe('classifyRpcWireLog', () => {
     assert.strictEqual(classified[1]?.meta.title, '← session/new');
   });
 
-  it('collects distinct session and tag options from the full log', () => {
-    const { sessionKeys, tags } = classify([
+  it('collects distinct session options from the full log', () => {
+    const { sessionKeys } = classify([
       entry('out', { _tag: 'Request', id: 1, payload: {}, tag: 'initialize' }),
       entry('out', {
         _tag: 'Request',
@@ -146,7 +147,37 @@ describe('classifyRpcWireLog', () => {
       }),
     ]);
     assert.deepStrictEqual(sessionKeys, [RPC_WIRE_SYSTEM_SESSION_KEY, 'sess-a']);
-    assert.deepStrictEqual(tags, ['initialize', 'session/prompt', 'session/update plan']);
+  });
+});
+
+describe('classifyRpcWireLog id correlation', () => {
+  const notification = (tag: string, payload: unknown) => ({
+    _tag: 'Request',
+    headers: [],
+    id: '',
+    isNotification: true,
+    payload,
+    tag,
+  });
+
+  it('keeps a notification without sessionId in system (no inheritance via shared "" id)', () => {
+    const { classified } = classify([
+      entry('in', notification('session/update', { sessionId: 'sess-a', update: { sessionUpdate: 'plan' } })),
+      entry('in', notification('_auth/status_update', { status: 'ok' })),
+      entry('in', notification('session/update', { sessionId: 'sess-b', update: { sessionUpdate: 'plan' } })),
+    ]);
+    assert.strictEqual(classified[1]?.meta.sessionKey, RPC_WIRE_SYSTEM_SESSION_KEY);
+    assert.strictEqual(classified[1]?.meta.wireId, null);
+  });
+
+  it('does not correlate an agent-originated request id with a client request of the same id', () => {
+    const { classified } = classify([
+      entry('in', { _tag: 'Request', id: 3, payload: { sessionId: 'sess-b' }, tag: 'session/request_permission' }),
+      entry('out', { _tag: 'Request', id: 3, payload: { prompt: [], sessionId: 'sess-a' }, tag: 'session/prompt' }),
+      entry('out', { _tag: 'Exit', exit: { _tag: 'Success', value: {} }, requestId: 3 }),
+    ]);
+    assert.strictEqual(classified[2]?.meta.tag, 'session/request_permission');
+    assert.strictEqual(classified[2]?.meta.sessionKey, 'sess-b');
   });
 });
 
@@ -275,7 +306,7 @@ describe('sessionKeysForLaunchTarget', () => {
   });
 });
 
-describe('cascadedWireIds / coerceWireIdFilter', () => {
+describe('cascadedWireIds / coerceToAvailable', () => {
   const { classified } = classify([
     entry('out', { _tag: 'Request', id: 1, payload: {}, tag: 'initialize' }),
     entry('out', {
@@ -299,7 +330,7 @@ describe('cascadedWireIds / coerceWireIdFilter', () => {
         sessionKey: 'sess-a',
         tag: RPC_WIRE_FILTER_ALL,
       }),
-      ['2', ''],
+      ['2'],
     );
     assert.deepStrictEqual(
       cascadedWireIds(classified, {
@@ -312,10 +343,35 @@ describe('cascadedWireIds / coerceWireIdFilter', () => {
   });
 
   it('resets stale wireId to All when missing from cascaded options', () => {
-    assert.strictEqual(coerceWireIdFilter('1', ['2', '']), RPC_WIRE_FILTER_ALL);
-    assert.strictEqual(coerceWireIdFilter('2', ['2', '']), '2');
-    assert.strictEqual(coerceWireIdFilter('', ['2', '']), '');
-    assert.strictEqual(coerceWireIdFilter(RPC_WIRE_FILTER_ALL, ['2']), RPC_WIRE_FILTER_ALL);
+    assert.strictEqual(coerceToAvailable('1', ['2', '']), RPC_WIRE_FILTER_ALL);
+    assert.strictEqual(coerceToAvailable('2', ['2', '']), '2');
+    assert.strictEqual(coerceToAvailable('', ['2', '']), '');
+    assert.strictEqual(coerceToAvailable(RPC_WIRE_FILTER_ALL, ['2']), RPC_WIRE_FILTER_ALL);
+  });
+});
+
+describe('cascadedTags / coerceToAvailable', () => {
+  const { classified } = classifyRpcWireLog(
+    [
+      entry('out', { _tag: 'Request', id: 1, payload: { prompt: [], sessionId: 'sess-a' }, tag: 'session/prompt' }),
+      entry('out', { _tag: 'Request', id: 2, payload: { sessionId: 'sess-b' }, tag: 'session/cancel' }),
+    ],
+    'codex-acp',
+  );
+
+  it('lists only tags present in the launchTarget + session slice', () => {
+    assert.deepStrictEqual(cascadedTags(classified, { launchTarget: 'codex-acp', sessionKey: 'sess-a' }), [
+      'session/prompt',
+    ]);
+    assert.deepStrictEqual(
+      cascadedTags(classified, { launchTarget: RPC_WIRE_FILTER_ALL, sessionKey: RPC_WIRE_FILTER_ALL }),
+      ['session/prompt', 'session/cancel'],
+    );
+  });
+
+  it('resets a stale tag to All', () => {
+    assert.strictEqual(coerceToAvailable('session/cancel', ['session/prompt']), RPC_WIRE_FILTER_ALL);
+    assert.strictEqual(coerceToAvailable('session/prompt', ['session/prompt']), 'session/prompt');
   });
 });
 

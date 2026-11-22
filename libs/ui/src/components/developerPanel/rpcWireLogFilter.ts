@@ -38,7 +38,6 @@ export type ClassifiedRpcWireEntry = {
 export type RpcWireLogClassification = {
   readonly classified: readonly ClassifiedRpcWireEntry[];
   readonly sessionKeys: readonly string[];
-  readonly tags: readonly string[];
 };
 
 export type RpcWireFilters = {
@@ -106,16 +105,37 @@ const titleFallback = (message: Record<string, unknown>): string => {
   return 'message';
 };
 
+/** JSON-RPC ids are per sender: a client request and an agent request may share an id. Key by the requester. */
+const requesterKey = (requester: RpcWireEntry['direction'], id: string): string => `${requester}:${id}`;
+
+/** Notifications carry id "" (no JSON-RPC id), so they can never be correlated with anything. */
+const isNotificationMessage = (message: Record<string, unknown>): boolean =>
+  message.isNotification === true || message.id === '';
+
+/** Cache key of the request this message is, or responds to; `null` for notifications / uncorrelatable rows. */
+const correlationKey = (entry: RpcWireEntry, message: Record<string, unknown>): null | string => {
+  if (isNotificationMessage(message)) {
+    return null;
+  }
+  const requestId = wireIdString(message.requestId);
+  if (requestId != null) {
+    // A response travels opposite to the request it answers.
+    return requesterKey(entry.direction === 'out' ? 'in' : 'out', requestId);
+  }
+  const ownId = wireIdString(message.id);
+  return ownId == null ? null : requesterKey(entry.direction, ownId);
+};
+
 const buildIdCache = (entries: readonly RpcWireEntry[]): Map<string, IdCacheEntry> => {
   const cache = new Map<string, IdCacheEntry>();
 
   for (const entry of entries) {
     if (isRecord(entry.message)) {
       const { message } = entry;
-      const id = wireIdString(message.id);
-      if (typeof message.tag === 'string' && id != null) {
+      const key = message.requestId === undefined ? correlationKey(entry, message) : null;
+      if (typeof message.tag === 'string' && key != null) {
         const tag = tagLabelFromMessage(message) ?? message.tag;
-        cache.set(id, {
+        cache.set(key, {
           sessionKey: payloadSessionId(message) ?? RPC_WIRE_SYSTEM_SESSION_KEY,
           tag,
         });
@@ -125,11 +145,11 @@ const buildIdCache = (entries: readonly RpcWireEntry[]): Map<string, IdCacheEntr
 
   for (const entry of entries) {
     const message = isRecord(entry.message) ? entry.message : null;
-    const requestId = message == null ? null : wireIdString(message.requestId);
-    const cached = requestId == null ? undefined : cache.get(requestId);
+    const key = message?.requestId === undefined ? null : correlationKey(entry, message);
+    const cached = key == null ? undefined : cache.get(key);
     const sessionId = message != null && cached?.tag === 'session/new' ? exitSuccessSessionId(message) : null;
-    if (requestId != null && cached != null && sessionId != null) {
-      cache.set(requestId, { sessionKey: sessionId, tag: cached.tag });
+    if (key != null && cached != null && sessionId != null) {
+      cache.set(key, { sessionKey: sessionId, tag: cached.tag });
     }
   }
 
@@ -143,10 +163,9 @@ const metaForEntry = (entry: RpcWireEntry, cache: ReadonlyMap<string, IdCacheEnt
   }
 
   const { message } = entry;
-  const wireId = wireIdFromMessage(message);
-  const requestId = wireIdString(message.requestId);
-  const ownId = wireIdString(message.id);
-  const requestCache = requestId != null ? cache.get(requestId) : ownId != null ? cache.get(ownId) : undefined;
+  const wireId = isNotificationMessage(message) ? null : wireIdFromMessage(message);
+  const key = correlationKey(entry, message);
+  const requestCache = key == null ? undefined : cache.get(key);
 
   const tagFromMessage = tagLabelFromMessage(message);
   const tag = tagFromMessage ?? requestCache?.tag ?? null;
@@ -190,9 +209,8 @@ export const classifyRpcWireLog = (
   }));
 
   const sessionKeys = uniqueInOrder(classified.map(row => row.meta.sessionKey));
-  const tags = uniqueInOrder(classified.map(row => row.meta.tag));
 
-  return { classified, sessionKeys, tags };
+  return { classified, sessionKeys };
 };
 
 /** Merge per-launch-target classifications; sort by capture time. */
@@ -203,7 +221,6 @@ export const mergeClassifiedRpcWireLogs = (parts: readonly RpcWireLogClassificat
   return {
     classified,
     sessionKeys: uniqueInOrder(classified.map(row => row.meta.sessionKey)),
-    tags: uniqueInOrder(classified.map(row => row.meta.tag)),
   };
 };
 
@@ -248,9 +265,22 @@ export const cascadedWireIds = (
     }).map(row => row.meta.wireId),
   );
 
-export const coerceWireIdFilter = (wireId: string, available: readonly string[]): string => {
-  if (wireId === RPC_WIRE_FILTER_ALL) {
-    return RPC_WIRE_FILTER_ALL;
-  }
-  return available.includes(wireId) ? wireId : RPC_WIRE_FILTER_ALL;
-};
+/** A filter value no longer among its options falls back to All. */
+export const coerceToAvailable = (value: string, available: readonly string[]): string =>
+  value === RPC_WIRE_FILTER_ALL || available.includes(value) ? value : RPC_WIRE_FILTER_ALL;
+
+/** Tags present in the launchTarget + session slice (`sessionKey: null` = match nothing). */
+export const cascadedTags = (
+  classified: readonly ClassifiedRpcWireEntry[],
+  filters: { readonly launchTarget: RpcWireLaunchTargetFilter; readonly sessionKey: null | string },
+): readonly string[] =>
+  filters.sessionKey === null
+    ? []
+    : uniqueInOrder(
+        filterClassifiedRpcWireEntries(classified, {
+          launchTarget: filters.launchTarget,
+          sessionKey: filters.sessionKey,
+          tag: RPC_WIRE_FILTER_ALL,
+          wireId: RPC_WIRE_FILTER_ALL,
+        }).map(row => row.meta.tag),
+      );

@@ -16,7 +16,6 @@ import {
   SessionHeader,
   showArchivedSettingAtom,
   virtualSessionAtom,
-  visibleListedSessionHistoryAtom,
   visibleSessionHistoryAtom,
   workstreamsAtom,
 } from '@lib/ui';
@@ -39,7 +38,6 @@ import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
 export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
   const workstreams = useAtomValue(workstreamsAtom);
   const history = useAtomValue(visibleSessionHistoryAtom);
-  const adoptable = useAtomValue(visibleListedSessionHistoryAtom);
   const showArchived = useAtomValue(showArchivedSettingAtom);
   const setShowArchived = useAtomSet(showArchivedSettingAtom);
   const selected = useAtomValue(selectedAtom);
@@ -155,13 +153,6 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
                 );
               })}
             </Box>
-            <Typography
-              color="text.secondary"
-              sx={{ borderColor: 'divider', borderTop: 1, px: 2, py: 1 }}
-              variant="caption"
-            >
-              Sessions Page sessions available to adopt: {adoptable.length}
-            </Typography>
           </Box>
         </Allotment.Pane>
         <Allotment.Pane minSize={320}>

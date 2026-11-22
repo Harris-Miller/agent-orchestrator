@@ -20,10 +20,12 @@ import {
   unwrapUserSettings,
   userSettingsDocumentAtom,
   withModelPickerPrefs,
+  workstreamsEnabled,
+  workstreamsEnabledAtom,
 } from './userSettingsDocument.atoms.ts';
 import type { ChatWidth, MidTurnSend } from './userSettingsDocument.atoms.ts';
 
-export { appOrchestratedAgentsEnabled, showArchivedEnabled, unwrapUserSettings };
+export { appOrchestratedAgentsEnabled, showArchivedEnabled, unwrapUserSettings, workstreamsEnabled };
 export type { ChatWidth, MidTurnSend };
 
 type AtomRuntime = HostRuntimeBag['atomRuntime'];
@@ -116,6 +118,14 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
         ...unwrapUserSettings(ctx.get(userSettingsAtom)),
         appOrchestratedAgentsEnabled: enabled,
       });
+    },
+  ).pipe(Atom.keepAlive);
+
+  /** Effective Experimental: Workstreams (off when unset). Write patches User settings. */
+  const workstreamsSettingAtom = Atom.writable(
+    get => get(workstreamsEnabledAtom),
+    (ctx, enabled: boolean) => {
+      ctx.set(userSettingsAtom, { ...unwrapUserSettings(ctx.get(userSettingsAtom)), workstreamsEnabled: enabled });
     },
   ).pipe(Atom.keepAlive);
 
@@ -235,6 +245,7 @@ export const createUserSettingsAtoms = (runtime: AtomRuntime) => {
   return {
     alwaysHiddenGlobsAtom,
     appOrchestratedAgentsAtom,
+    workstreamsSettingAtom,
     chatWidthAtom,
     confirmSessionDeleteAtom,
     developerModeAtom,

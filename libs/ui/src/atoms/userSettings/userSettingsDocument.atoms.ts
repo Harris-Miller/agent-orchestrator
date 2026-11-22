@@ -43,6 +43,14 @@ export const appOrchestratedAgentsEnabledAtom = Atom.make(get =>
   appOrchestratedAgentsEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
 ).pipe(Atom.withLabel('appOrchestratedAgents'), Atom.keepAlive);
 
+/** Experimental: Workstreams is off when the Settings field is unset. */
+export const workstreamsEnabled = (settings: UserSettings): boolean => settings.workstreamsEnabled === true;
+
+/** Effective Experimental: Workstreams, read from the User settings document. Write through `workstreamsAtom`. */
+export const workstreamsEnabledAtom = Atom.make(get =>
+  workstreamsEnabled(unwrapUserSettings(get(userSettingsDocumentAtom))),
+).pipe(Atom.withLabel('workstreamsEnabled'), Atom.keepAlive);
+
 /** Whether the User settings document has been read yet (the hub waits for it to know if it is wanted). */
 export const userSettingsLoadedAtom = Atom.make(get => !AsyncResult.isInitial(get(userSettingsDocumentAtom))).pipe(
   Atom.withLabel('userSettingsLoaded'),

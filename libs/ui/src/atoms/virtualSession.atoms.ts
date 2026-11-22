@@ -61,6 +61,7 @@ import { updateHarnessSnapshot } from './harnessSnapshot.ts';
 import { modelPickerPrefsAtom } from './userSettings/userSettingsDocument.atoms.ts';
 import { applySessionConfigValue, applySessionConfigValues } from './sessionConfigChange.ts';
 import { trackSession } from './trackSession.ts';
+import { joinWorkstream, pendingWorkstreamAtom } from './workstreams.atoms.ts';
 
 type Registry = AtomRegistry.AtomRegistry;
 
@@ -646,7 +647,13 @@ const materialize = Effect.fn('materialize')(
     const historyEntry = historyEntryFromNew({ sessionId }, liveSession.cwd ?? cwd);
     if (historyEntry !== undefined) {
       yield* trackSession(registry, launchTarget, historyEntry);
+      // A session started from "New session in Workstream" belongs to it from creation.
+      const pending = registry.get(pendingWorkstreamAtom);
+      if (pending !== null && pending.blobId === registry.get(virtualSessionAtom)?.id) {
+        yield* joinWorkstream(registry, pending.workstreamId, { launchTarget, sessionId });
+      }
     }
+    registry.set(pendingWorkstreamAtom, null);
 
     registry.set(lastCreateDefaultsAtom, { configValues, launchTarget });
     setBlob(registry, null);

@@ -26,6 +26,7 @@ export const UserSettingsSchema = Schema.StructWithRest(
     showArchived: Schema.optionalKey(Schema.Boolean),
     showProvidersOnStartup: Schema.optionalKey(Schema.Boolean),
     theme: Schema.optionalKey(Schema.String),
+    workstreamsEnabled: Schema.optionalKey(Schema.Boolean),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)],
 );

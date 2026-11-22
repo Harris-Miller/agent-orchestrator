@@ -19,6 +19,15 @@ describe('UserSettings provider fields', () => {
     }),
   );
 
+  it.effect('round-trips workstreamsEnabled', () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeEffect(UserSettingsJsonString)(JSON.stringify({ workstreamsEnabled: true }));
+      assert.strictEqual(decoded.workstreamsEnabled, true);
+      const encoded = yield* Schema.encodeEffect(UserSettingsJsonString)(decoded);
+      assert.deepStrictEqual(JSON.parse(encoded), { workstreamsEnabled: true });
+    }),
+  );
+
   it.effect('round-trips hiddenModels and modelOrder per launch target', () =>
     Effect.gen(function* () {
       const input = JSON.stringify({

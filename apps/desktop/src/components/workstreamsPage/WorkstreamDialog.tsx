@@ -1,0 +1,114 @@
+import type { TrackerProvider, TrackerRef, Workstream } from '@lib/hoa-home';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import { useState } from 'react';
+import type { FC } from 'react';
+
+import { TRACKER_LABEL, TRACKER_PROVIDERS, trackerChipLabel } from './workstreamViews.ts';
+
+const sameRef = (a: TrackerRef, b: TrackerRef): boolean => a.provider === b.provider && a.key === b.key;
+
+/** Create a Workstream, or (with `workstream`) rename it and link / unlink Tracker refs. */
+export const WorkstreamDialog: FC<{
+  readonly onClose: () => void;
+  readonly onSubmit: (value: { readonly name: string; readonly trackers: readonly TrackerRef[] }) => void;
+  readonly workstream?: Workstream;
+}> = ({ onClose, onSubmit, workstream }) => {
+  const [name, setName] = useState(workstream?.name ?? '');
+  const [trackers, setTrackers] = useState<readonly TrackerRef[]>(workstream?.trackers ?? []);
+  const [provider, setProvider] = useState<TrackerProvider>('github');
+  const [key, setKey] = useState('');
+  const trimmedKey = key.trim();
+  const addTracker = () => {
+    if (trimmedKey === '') return;
+    const ref: TrackerRef = { key: trimmedKey, provider };
+    setTrackers(current => (current.some(item => sameRef(item, ref)) ? current : [...current, ref]));
+    setKey('');
+  };
+  return (
+    <Dialog fullWidth maxWidth="xs" onClose={onClose} open>
+      <DialogTitle>{workstream === undefined ? 'New Workstream' : 'Edit Workstream'}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          <TextField
+            autoFocus
+            label="Name"
+            onChange={event => {
+              setName(event.target.value);
+            }}
+            size="small"
+            value={name}
+          />
+          <Stack direction="row" spacing={1}>
+            <Select
+              inputProps={{ 'aria-label': 'Tracker provider' }}
+              onChange={event => {
+                setProvider(event.target.value);
+              }}
+              size="small"
+              value={provider}
+            >
+              {TRACKER_PROVIDERS.map(candidate => (
+                <MenuItem key={candidate} value={candidate}>
+                  {TRACKER_LABEL[candidate]}
+                </MenuItem>
+              ))}
+            </Select>
+            <TextField
+              label="Issue key or URL"
+              onChange={event => {
+                setKey(event.target.value);
+              }}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addTracker();
+                }
+              }}
+              size="small"
+              sx={{ flex: 1 }}
+              value={key}
+            />
+            <Button disabled={trimmedKey === ''} onClick={addTracker}>
+              Add
+            </Button>
+          </Stack>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {trackers.map(ref => (
+              <Chip
+                key={`${ref.provider}:${ref.key}`}
+                label={trackerChipLabel(ref)}
+                onDelete={() => {
+                  setTrackers(current => current.filter(item => !sameRef(item, ref)));
+                }}
+                size="small"
+                sx={{ fontSize: '0.65rem', height: 18 }}
+                variant="outlined"
+              />
+            ))}
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          disabled={name.trim() === ''}
+          onClick={() => {
+            onSubmit({ name: name.trim(), trackers });
+          }}
+        >
+          {workstream === undefined ? 'Create' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};

@@ -6,7 +6,7 @@ export * from './atoms/boundHarnessAtoms.ts';
 export * from './atoms/projects.atoms.ts';
 export * from './atoms/workstreams.atoms.ts';
 export { workstreamsEnabled } from './atoms/userSettings/userSettings.atoms.ts';
-export { workstreamsEnabledAtom } from './atoms/userSettings/userSettingsDocument.atoms.ts';
+export { userSettingsLoadedAtom, workstreamsEnabledAtom } from './atoms/userSettings/userSettingsDocument.atoms.ts';
 export { clearSelectedIfMissing } from './atoms/virtualSession.atoms.ts';
 export { hostThemeAtom } from './atoms/theme.atoms.ts';
 export { createChatAtoms } from './atoms/chat.atoms.ts';

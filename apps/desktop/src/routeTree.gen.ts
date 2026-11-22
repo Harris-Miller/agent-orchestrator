@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteRouteImport } from './routes/settings/route'
+import { Route as WorkstreamsRouteImport } from './routes/workstreams'
 import { Route as SettingsCategoryRouteImport } from './routes/settings/$category'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const SettingsRouteRoute = SettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkstreamsRoute = WorkstreamsRouteImport.update({
+  id: '/workstreams',
+  path: '/workstreams',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsCategoryRoute = SettingsCategoryRouteImport.update({
   id: '/$category',
   path: '/$category',
@@ -32,30 +38,34 @@ const SettingsCategoryRoute = SettingsCategoryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
+  '/workstreams': typeof WorkstreamsRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
+  '/workstreams': typeof WorkstreamsRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRouteRouteWithChildren
+  '/workstreams': typeof WorkstreamsRoute
   '/settings/$category': typeof SettingsCategoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/settings/$category'
+  fullPaths: '/' | '/settings' | '/workstreams' | '/settings/$category'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/settings/$category'
-  id: '__root__' | '/' | '/settings' | '/settings/$category'
+  to: '/' | '/settings' | '/workstreams' | '/settings/$category'
+  id: '__root__' | '/' | '/settings' | '/workstreams' | '/settings/$category'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
+  WorkstreamsRoute: typeof WorkstreamsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -72,6 +82,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workstreams': {
+      id: '/workstreams'
+      path: '/workstreams'
+      fullPath: '/workstreams'
+      preLoaderRoute: typeof WorkstreamsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/$category': {
@@ -99,6 +116,7 @@ const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRouteRoute: SettingsRouteRouteWithChildren,
+  WorkstreamsRoute: WorkstreamsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

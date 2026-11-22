@@ -2,8 +2,8 @@
  * PROTOTYPE (#435) — config shared by all three website variants.
  *
  * Every variant builds the same `content/` tree (srcDir) and swaps in its own home page
- * (`index-<key>.md` rewritten to `index.md`) and its own theme. Variants publish side by side:
- * `<WEBSITE_BASE><key>/`, so the switcher can hop between them keeping the current path.
+ * (`index-<key>.md` rewritten to `index.md`) and its own theme. The site publishes at
+ * `<WEBSITE_BASE>` (the site root).
  */
 import { fileURLToPath } from 'node:url';
 import type { DefaultTheme, UserConfig } from 'vitepress';
@@ -69,13 +69,13 @@ export const sharedConfig = (key: VariantKey): UserConfig<DefaultTheme.Config> =
     description:
       'A desktop home for your coding agents — Codex, Claude, Cursor and more, over the Agent Client Protocol.',
     lang: 'en-US',
-    base: `${root}${key}/`,
+    base: root,
     srcDir: contentDir,
     srcExclude: [...others, '**/README.md'],
     rewrites: { [`index-${key}.md`]: 'index.md' },
-    outDir: fileURLToPath(new URL(`../dist/${key}`, import.meta.url)),
+    outDir: fileURLToPath(new URL('../dist', import.meta.url)),
     cleanUrls: true,
-    head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${root}${key}/logo.svg` }]],
+    head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${root}logo.svg` }]],
     markdown: { theme: { light: 'github-light', dark: 'github-dark' } },
     vite: {
       define: {

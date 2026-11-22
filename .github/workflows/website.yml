@@ -1,6 +1,5 @@
-# PROTOTYPE (#435) — builds all three website variants into one Pages site:
-#   https://<owner>.github.io/<repo>/      → variant index
-#   https://<owner>.github.io/<repo>/a|b|c/ → each variant (with the variant switcher)
+# PROTOTYPE (#435) — builds the website into one Pages site:
+#   https://<owner>.github.io/<repo>/ → the site
 # Not runnable from this prototype branch: GitHub dispatches only workflows on the default branch, and the
 # github-pages environment deploys from it. Fold it into main with the winning variant (then switch the trigger to
 # `push: branches: [main]`). Requires Settings › Pages › Source: GitHub Actions; on a private repo Pages needs a

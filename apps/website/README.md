@@ -9,7 +9,7 @@ Originally three; only variant C remains (A and B were removed). The remaining [
 ## Run
 
 ```sh
-pnpm website            # from the repo root: build all three + preview at http://localhost:4173/
+pnpm website            # from the repo root: build + preview at http://localhost:4173/
 ```
 
 Edit with hot reload: `pnpm --filter=@apps/website dev:c` (`:5183`).
@@ -19,7 +19,7 @@ Edit with hot reload: `pnpm --filter=@apps/website dev:c` (`:5183`).
 - `content/` — the Markdown every variant renders (`index-<key>.md` is each variant's home, rewritten to `/`), plus `public/`.
 - `shared/site.ts` — config every variant spreads (srcDir, rewrites, base, sidebar); `shared/PrototypeSwitcher.vue` — the switcher.
 - `variants/<key>/.vitepress/` — each variant's config and theme.
-- `scripts/build.ts` — builds every variant into `dist/<key>/` and writes `dist/index.html`.
+- `scripts/build.ts` — builds the site into `dist/`.
 
 `WEBSITE_BASE` sets the path the whole `dist/` is served under (`/<repo>/` on GitHub Pages); `WEBSITE_PROTOTYPE=1` shows the switcher.
 

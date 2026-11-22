@@ -1,0 +1,47 @@
+/* PROTOTYPE (#435) variant B — dark-first, product-site chrome around the default theme. */
+:root {
+  --vp-c-brand-1: #0f8f84;
+  --vp-c-brand-2: #12a598;
+  --vp-c-brand-3: #14b8a9;
+  --vp-c-brand-soft: rgb(31 200 184 / 0.14);
+  --vp-font-family-base: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.dark {
+  --vp-c-bg: #0b0d10;
+  --vp-c-bg-alt: #101317;
+  --vp-c-bg-soft: #161a20;
+  --vp-c-bg-elv: #161a20;
+  --vp-c-brand-1: #1fc8b8;
+  --vp-c-brand-2: #19b0a2;
+  --vp-c-brand-3: #14958a;
+  --vp-c-brand-soft: rgb(31 200 184 / 0.16);
+}
+/* The landing owns the whole viewport: no content padding, translucent nav over the hero. */
+.VPContent.is-home,
+.VPPage:has(.ph),
+.VPContent:has(.ph) {
+  padding: 0 !important;
+}
+.VPContent:has(.ph) .container,
+.VPContent:has(.ph) .VPDoc {
+  max-width: none !important;
+  padding: 0 !important;
+}
+.VPNavBar:not(.has-sidebar):not(.top) {
+  background: rgb(11 13 16 / 0.72) !important;
+  backdrop-filter: blur(12px);
+}
+.VPNavBar .title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+/* Docs pages: wider reading column, stronger section headings. */
+.vp-doc h2 {
+  border-top: 0;
+  margin-top: 56px;
+  font-size: 28px;
+}
+.vp-doc h1 {
+  font-size: 40px;
+  letter-spacing: -0.02em;
+}

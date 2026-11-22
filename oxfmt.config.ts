@@ -14,5 +14,6 @@ export default defineConfig({
     'graphify-out/**',
     'pnpm-lock.yaml',
     'apps/desktop/src/routeTree.gen.ts',
+    '**/.vitepress/cache/**',
   ],
 });

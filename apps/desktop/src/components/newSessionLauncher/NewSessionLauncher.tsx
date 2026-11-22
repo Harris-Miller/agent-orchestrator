@@ -2,13 +2,14 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   AgentLaunchTargetIcon,
   agentLaunchTargetLabel,
+  composerAtom,
   enabledLaunchTargetsAtom,
+  launchTargetAvailabilityAtom,
   LucideMuiIcon,
   patchVirtualSessionAtomFn,
   projectDisplayAtom,
   projectsAtom,
   setVirtualLaunchTargetAtomFn,
-  virtualMaterializingAtom,
   virtualSessionAtom,
 } from '@lib/ui';
 import type { AgentLaunchTarget } from '@lib/ui';
@@ -72,6 +73,9 @@ export type NewSessionLauncherViewProps = {
   readonly onPickTarget: (launchTarget: AgentLaunchTarget) => void;
   readonly projects: readonly string[];
   readonly targets: readonly AgentLaunchTarget[];
+  /** Targets the composer can launch (usable); others are disabled. Defaults to all `targets`. */
+  readonly usableTargets?: readonly AgentLaunchTarget[];
+  readonly unavailableReasons?: Readonly<Partial<Record<AgentLaunchTarget, string>>>;
 };
 
 /** Presentational part, kept prop-driven so it renders without atoms. */
@@ -82,7 +86,9 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
   onPickProject,
   onPickTarget,
   projects,
+  usableTargets,
   targets,
+  unavailableReasons,
 }) => (
   <Box
     sx={{
@@ -101,11 +107,12 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
         Pick an agent and a project, then describe the work below.
       </Typography>
     </Box>
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
+    <Box aria-label="Agent" role="group" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
       {targets.map(target => (
         <ButtonBase
           aria-pressed={launchTarget === target}
-          disabled={disabled}
+          disabled={disabled || (usableTargets !== undefined && !usableTargets.includes(target))}
+          title={unavailableReasons?.[target]}
           key={target}
           onClick={() => {
             onPickTarget(target);
@@ -137,6 +144,8 @@ export const NewSessionLauncherView: FC<NewSessionLauncherViewProps> = ({
       </Typography>
     ) : (
       <Box
+        aria-label="Project"
+        role="group"
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -165,14 +174,15 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
   const virtual = useAtomValue(virtualSessionAtom);
   const targets = useAtomValue(enabledLaunchTargetsAtom);
   const projects = useAtomValue(projectsAtom);
-  const materializing = useAtomValue(virtualMaterializingAtom);
+  const { locked } = useAtomValue(composerAtom);
+  const { reasons, usable } = useAtomValue(launchTargetAvailabilityAtom);
   const setLaunchTarget = useAtomSet(setVirtualLaunchTargetAtomFn, { mode: 'promise' });
   const patchVirtual = useAtomSet(patchVirtualSessionAtomFn, { mode: 'promise' });
 
   return (
     <NewSessionLauncherView
       cwd={virtual?.cwd}
-      disabled={materializing}
+      disabled={locked}
       launchTarget={virtual?.launchTarget}
       onPickProject={cwd => {
         patchVirtual({ cwd }).catch(onClientError);
@@ -181,7 +191,9 @@ export const NewSessionLauncher: FC<{ readonly onClientError: (error: unknown) =
         setLaunchTarget(target).catch(onClientError);
       }}
       projects={projects}
+      usableTargets={usable}
       targets={targets}
+      unavailableReasons={reasons}
     />
   );
 };

@@ -22,7 +22,6 @@ import {
 } from '@lib/ui';
 import type { Workstream } from '@lib/hoa-home';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
@@ -33,10 +32,10 @@ import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
+import { TrackerChip } from './TrackerChip.tsx';
 import { WorkstreamDialog } from './WorkstreamDialog.tsx';
 import { WorkstreamMenu } from './WorkstreamMenu.tsx';
 import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
-import { trackerChipLabel } from './workstreamViews.ts';
 
 export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
   const workstreams = useAtomValue(workstreamsAtom);
@@ -141,13 +140,7 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
                     </Stack>
                     <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5, pb: 0.5, px: 2 }}>
                       {ws.trackers.map(ref => (
-                        <Chip
-                          key={`${ref.provider}:${ref.key}`}
-                          label={trackerChipLabel(ref)}
-                          size="small"
-                          sx={{ fontSize: '0.65rem', height: 18 }}
-                          variant="outlined"
-                        />
+                        <TrackerChip key={`${ref.provider}:${ref.key}`} trackerRef={ref} />
                       ))}
                     </Stack>
                     {rows.map(entry => (

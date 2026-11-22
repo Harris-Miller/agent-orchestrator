@@ -1,7 +1,6 @@
 import type { TrackerProvider, TrackerRef, Workstream } from '@lib/hoa-home';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -13,7 +12,8 @@ import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import type { FC } from 'react';
 
-import { TRACKER_LABEL, TRACKER_PROVIDERS, trackerChipLabel } from './workstreamViews.ts';
+import { TrackerChip } from './TrackerChip.tsx';
+import { TRACKER_LABEL, TRACKER_PROVIDERS } from './workstreamViews.ts';
 
 const sameRef = (a: TrackerRef, b: TrackerRef): boolean => a.provider === b.provider && a.key === b.key;
 
@@ -84,15 +84,12 @@ export const WorkstreamDialog: FC<{
           </Stack>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
             {trackers.map(ref => (
-              <Chip
+              <TrackerChip
                 key={`${ref.provider}:${ref.key}`}
-                label={trackerChipLabel(ref)}
                 onDelete={() => {
                   setTrackers(current => current.filter(item => !sameRef(item, ref)));
                 }}
-                size="small"
-                sx={{ fontSize: '0.65rem', height: 18 }}
-                variant="outlined"
+                trackerRef={ref}
               />
             ))}
           </Box>

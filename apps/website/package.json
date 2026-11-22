@@ -2,16 +2,16 @@
   "name": "@apps/website",
   "version": "0.1.0",
   "private": true,
-  "description": "PROTOTYPE (#435): three VitePress variants of the HOA marketing + docs site, sharing one content/ tree",
+  "description": "HOA marketing + docs site (VitePress)",
   "license": "ISC",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.ts",
-    "dev:c": "WEBSITE_PROTOTYPE=1 vitepress dev variants/c --port 5183",
+    "dev": "vitepress dev --port 5183",
     "lint": "pnpm run lint:check --fix",
     "lint:check": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
     "preview": "vite preview --outDir dist --port 4173 --strictPort",
-    "prototype": "WEBSITE_PROTOTYPE=1 pnpm run build && pnpm run preview",
+    "start": "pnpm run build && pnpm run preview",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

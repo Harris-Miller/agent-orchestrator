@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * PROTOTYPE (#435) variant B — "Product story": a long-scroll marketing landing that leads with
+ * The landing page: a long-scroll marketing landing that leads with
  * a live-looking mock of the app, then explains the model in steps, then sends you to the docs.
  */
 import { withBase } from 'vitepress';
+import { REPO_URL } from '../../shared/site.ts';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
-const REPO = 'https://github.com/Harris-Miller/agent-orchestrator';
+const REPO = REPO_URL;
 
 // The mock "plays" a turn: work items appear, then a permission request waits on the user.
 const step = ref(0);

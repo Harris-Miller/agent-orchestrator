@@ -24,7 +24,7 @@
     "vscode:build": "turbo run build --filter=hoa-vscode",
     "vscode:dev": "turbo run watch:main watch:renderer --filter=hoa-vscode",
     "vscode:open": "code --remote-debugging-port=9222 --extensionDevelopmentPath=\"$PWD/apps/vscode\"",
-    "website": "pnpm --filter=@apps/website run prototype"
+    "website": "pnpm --filter=@apps/website run start"
   },
   "devDependencies": {
     "@agentclientprotocol/claude-agent-acp": "catalog:",

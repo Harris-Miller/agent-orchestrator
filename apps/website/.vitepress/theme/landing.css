@@ -1,4 +1,4 @@
-/* PROTOTYPE (#435) variant C — let variant B's landing run full-bleed below variant A's nav. */
+/* Let the landing page run full-bleed below the nav. */
 .VPContent:has(.ph) {
   padding: var(--vp-nav-height) 0 0 !important;
 }

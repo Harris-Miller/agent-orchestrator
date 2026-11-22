@@ -6,6 +6,6 @@
     "lib": ["esnext", "dom", "dom.iterable"],
     "types": ["node", "vite/client"]
   },
-  "include": ["shared/**/*.ts", "scripts/**/*.ts", "variants/*/.vitepress/**/*.ts", "variants/*/.vitepress/**/*.mts"],
+  "include": ["shared/**/*.ts", "scripts/**/*.ts", ".vitepress/**/*.ts", ".vitepress/**/*.mts"],
   "exclude": ["node_modules", "dist", "**/.vitepress/cache"]
 }

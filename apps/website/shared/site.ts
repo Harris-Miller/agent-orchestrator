@@ -1,14 +1,6 @@
-/**
- * PROTOTYPE (#435) — config shared by all three website variants.
- *
- * Every variant builds the same `content/` tree (srcDir) and swaps in its own home page
- * (`index-<key>.md` rewritten to `index.md`) and its own theme. The site publishes at
- * `<WEBSITE_BASE>` (the site root).
- */
+/** Shared VitePress config for the website. The site publishes at `<WEBSITE_BASE>` (default `/`). */
 import { fileURLToPath } from 'node:url';
 import type { DefaultTheme, UserConfig } from 'vitepress';
-import { VARIANTS } from './variants.ts';
-import type { VariantKey } from './variants.ts';
 
 export const REPO_URL = 'https://github.com/Harris-Miller/agent-orchestrator';
 
@@ -48,7 +40,7 @@ export const sidebar: DefaultTheme.SidebarItem[] = [
   { text: 'Contributing', items: [{ text: 'Develop HOA', link: '/contributing' }] },
 ];
 
-/** Variant A's docs navigation (also used by C): top nav, one global sidebar, local search. */
+/** Docs navigation: top nav, one global sidebar, local search. */
 export const docsThemeConfig: DefaultTheme.Config = {
   logo: '/logo.svg',
   nav,
@@ -60,9 +52,8 @@ export const docsThemeConfig: DefaultTheme.Config = {
   footer: { message: 'Pre-alpha software. Built with VitePress.' },
 };
 
-export const sharedConfig = (key: VariantKey): UserConfig<DefaultTheme.Config> => {
+export const siteConfig = (): UserConfig<DefaultTheme.Config> => {
   const root = websiteRoot();
-  const others = VARIANTS.filter(v => v.key !== key).map(v => `index-${v.key}.md`);
   return {
     title: 'HOA',
     titleTemplate: ':title · Harness Orchestrating Agents',
@@ -71,17 +62,12 @@ export const sharedConfig = (key: VariantKey): UserConfig<DefaultTheme.Config> =
     lang: 'en-US',
     base: root,
     srcDir: contentDir,
-    srcExclude: [...others, '**/README.md'],
-    rewrites: { [`index-${key}.md`]: 'index.md' },
+    srcExclude: ['**/README.md'],
     outDir: fileURLToPath(new URL('../dist', import.meta.url)),
     cleanUrls: true,
     head: [['link', { rel: 'icon', type: 'image/svg+xml', href: `${root}logo.svg` }]],
     markdown: { theme: { light: 'github-light', dark: 'github-dark' } },
     vite: {
-      define: {
-        __PROTOTYPE_SWITCHER__: JSON.stringify(process.env.WEBSITE_PROTOTYPE === '1'),
-        __WEBSITE_ROOT__: JSON.stringify(root),
-      },
       server: { fs: { allow: [websiteDir] } },
     },
   };

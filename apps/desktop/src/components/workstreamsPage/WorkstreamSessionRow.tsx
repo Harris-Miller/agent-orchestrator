@@ -5,6 +5,7 @@ import {
   AgentLaunchTargetIcon,
   archiveSessionAtomFn,
   backendHarnessSnapshotAtom,
+  cwdCaption,
   LucideMuiIcon,
   orphanSessionAtomFn,
   unarchiveSessionAtomFn,
@@ -14,8 +15,6 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Archive, ArchiveRestore, Unlink } from 'lucide-react';
 import type { FC } from 'react';
-
-import { cwdCaption } from './workstreamViews.ts';
 
 export const WorkstreamSessionRow: FC<{
   readonly entry: UnifiedHistoryEntry;

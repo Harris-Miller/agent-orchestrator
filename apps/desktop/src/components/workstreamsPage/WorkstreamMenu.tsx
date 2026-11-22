@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import type { Workstream } from '@lib/hoa-home';
 import {
   adoptSessionAtomFn,
+  cwdCaption,
   deleteWorkstreamAtomFn,
   directoryBasename,
   LucideMuiIcon,
@@ -18,8 +19,6 @@ import Typography from '@mui/material/Typography';
 import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
 import type { FC } from 'react';
-
-import { cwdCaption } from './workstreamViews.ts';
 
 type Submenu = 'adopt' | 'new';
 

@@ -132,3 +132,4 @@ export { SettingsSection, SettingsRow } from './components/SettingsSection.tsx';
 
 export * from './components/sessionHistory/useSessionHistorySearch.tsx';
 export * from './components/sessionHistory/ImportSessionsPanel.tsx';
+export * from './host/cwdCaption.ts';

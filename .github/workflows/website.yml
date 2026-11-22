@@ -1,6 +1,5 @@
 # Builds apps/website (VitePress) and deploys it to GitHub Pages at https://<owner>.github.io/<repo>/.
-# Run it from the Actions tab (workflow_dispatch).
-# Requires Settings › Pages › Source: GitHub Actions; on a private repo Pages needs a paid plan and the site is public.
+# Disabled while the repository is private: remove `if: false` from the build job to enable it.
 name: Website
 
 on:
@@ -17,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

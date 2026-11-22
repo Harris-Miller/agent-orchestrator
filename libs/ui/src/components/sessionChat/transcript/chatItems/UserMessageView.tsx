@@ -18,6 +18,7 @@ import {
 } from '../../../../host/openChatLink.ts';
 import type { AvailableCommand, UserMessageImageRef } from '../../../../host/sessionUpdateReducer.ts';
 import { hostRunPromise, hostRuntime } from '../../../../hostRuntime.ts';
+import { ImageLightbox } from '../../../ImageLightbox.tsx';
 import { LucideMuiIcon } from '../../../LucideMuiIcon.tsx';
 import { ChipContent } from '../../chips/ChipContent.tsx';
 import { segmentText, splitChipSegments } from '../../chips/chipSegments.ts';
@@ -53,6 +54,7 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
   const supported = useAtomValue(openFileSupportedAtom);
   const label = image.name ?? `Image ${String(index + 1)}`;
   const { previewDataUrl, uri } = image;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
   const src = previewDataUrl ?? (uri?.startsWith('data:') === true ? uri : undefined) ?? hydratedSrc;
 
@@ -105,6 +107,28 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
   const imageData = openSupported && src !== undefined ? base64ImageFromDataUrl(src) : undefined;
   const openEffect =
     link.kind === 'file' ? openChatLink(link) : imageData === undefined ? undefined : openChatImageData(imageData);
+  if (!openSupported && src !== undefined) {
+    return (
+      <>
+        <Box
+          {...chatLinkHandlers(() => {
+            setLightboxOpen(true);
+          })}
+          sx={{ cursor: 'pointer' }}
+        >
+          {tile}
+        </Box>
+        <ImageLightbox
+          name={label}
+          onClose={() => {
+            setLightboxOpen(false);
+          }}
+          open={lightboxOpen}
+          src={src}
+        />
+      </>
+    );
+  }
   if (openEffect === undefined) return tile;
   return (
     <Box

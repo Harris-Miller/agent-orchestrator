@@ -377,8 +377,16 @@ _Avoid_: Ignored version, dismissed update
 ## Observability
 
 **Private data**:
-User and workspace content that never reaches telemetry as plain text: prompt and Agent response text, file content, file paths and `file://` URIs (session cwd included), URLs, command lines, and environment values. Identifiers (session id, launch target, pid), counts, and exit codes are not private data.
+User and workspace content that never reaches telemetry as plain text: prompt and Agent response text, Agent error text, tool call titles, inputs and outputs, plan entries, elicitation messages and answers, permission option labels, file content, file paths and `file://` URIs (session cwd included), URLs, command lines, and environment values. Identifiers (session id, launch target, pid, tool call id), counts, durations, exit codes, and ACP protocol discriminators (session update kind, tool kind, tool call status, stop reason, permission option kind and outcome, elicitation mode and action, error code) are not private data.
 _Avoid_: PII, sensitive data, secrets
+
+**Orphaned tool call**:
+A tool call the Agent announced during a **Turn** but never reported completed or failed before that Turn ended.
+_Avoid_: Dangling tool call, lost tool call
+
+**Silent turn**:
+A **Turn** that has gone a minute without any Agent→Client traffic while not waiting on the user for a permission or elicitation answer.
+_Avoid_: Hung turn, stuck turn (it may still finish)
 
 **Action root**:
 A Harness-initiated unit of work that owns one distributed trace — either a **user action** (composer send, session lifecycle, config change, handoff, restart) or a **system action** (bootstrap). Sibling action roots do not nest under each other. Responding to a pending interaction is not an action root when a turn is open — see **Turn-correlated work**.

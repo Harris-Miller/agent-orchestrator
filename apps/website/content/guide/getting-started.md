@@ -4,12 +4,12 @@ HOA has no published installers yet, so getting started means building the deskt
 
 ## Prerequisites
 
-| Requirement                                                                                   | Why                                                                                                                             |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Node ≥ 22** and **npm** on your `PATH`                                                      | HOA installs the agents' ACP adapters with npm and runs them with Node. The app checks at startup and explains what is missing. |
-| **pnpm** (the version in `package.json`'s `packageManager`)                                   | The repository is a pnpm workspace.                                                                                             |
-| **Rust** and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS | The desktop app is a Tauri app.                                                                                                 |
-| An account with at least one agent provider                                                   | Codex and Claude sign in through their own CLIs or keys.                                                                        |
+| Requirement                                                                                   | Why                                                                                          |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Node ≥ 22** and **npm** on your `PATH`                                                      | HOA uses them to download and run agents. It checks at startup and tells you what's missing. |
+| **pnpm** (the version in `package.json`'s `packageManager`)                                   | The repository is a pnpm workspace.                                                          |
+| **Rust** and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS | The desktop app is a Tauri app.                                                              |
+| An account with at least one agent provider                                                   | Codex and Claude sign in through their own CLIs or keys.                                     |
 
 ## Build and run
 
@@ -30,10 +30,10 @@ pnpm run tauri:build
 
 ## Install an agent
 
-Nothing is bundled: each agent's runtime is downloaded on demand.
+Agents aren't bundled with HOA; you download the ones you want.
 
 1. Open **Settings › Providers** (the Providers modal also opens on first launch).
-2. Pick a provider — **Codex** or **Claude** — and download its runtime. HOA runs `npm install` for the provider's ACP adapter into `~/.hoa/providers/<launch target>/runtime/<version>/`.
+2. Pick an agent — **Codex** or **Claude** — and download it.
 3. Sign in if the provider asks you to.
 
 See [Agent providers](./providers) for what each provider needs.

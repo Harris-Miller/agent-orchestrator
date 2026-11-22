@@ -23,7 +23,7 @@ const workItems = ['Read apps/desktop/src/main.tsx', 'Searched “SessionHistory
 const steps = [
   {
     title: 'You pick the agent',
-    body: 'Codex, Claude, Cursor or Antigravity. HOA downloads the agent’s runtime into ~/.hoa and spawns it as its own process.',
+    body: 'Codex, Claude, Cursor or Antigravity. HOA downloads it for you and runs it on your machine.',
   },
   {
     title: 'HOA speaks ACP to it',

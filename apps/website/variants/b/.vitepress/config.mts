@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress';
 import { REPO_URL, sharedConfig, sidebar } from '../../../shared/site.ts';
 
-const [intro, using, reference, contributing] = sidebar;
+const [intro, using, contributing] = sidebar;
 const items = (group: (typeof sidebar)[number] | undefined) =>
   (group?.items ?? []).map(i => ({ text: i.text ?? '', link: i.link ?? '/' }));
 
@@ -30,13 +30,11 @@ export default defineConfig({
           { text: 'Using HOA', items: items(using) },
         ],
       },
-      { text: 'Reference', activeMatch: '/reference/', items: items(reference) },
       { text: 'Contribute', link: '/contributing' },
       { text: 'Get started', link: '/guide/getting-started' },
     ],
     sidebar: {
       '/guide/': [intro, using].filter(g => g !== undefined),
-      '/reference/': [reference].filter(g => g !== undefined),
       '/contributing': [contributing].filter(g => g !== undefined),
     },
     socialLinks: [{ icon: 'github', link: REPO_URL }],

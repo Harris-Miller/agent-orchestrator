@@ -1,32 +1,32 @@
 # Agent providers
 
-An **Agent provider** is an external coding-agent backend HOA can connect to. Every provider is reached as an ACP agent subprocess — never through an in-process SDK.
+HOA works with these coding agents:
 
-| Provider        | Launch target      | How HOA reaches it                                                                                            | Availability |
-| --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Codex**       | `codex-acp`        | ACP adapter [`codex-acp`](https://github.com/agentclientprotocol/codex-acp), installed with npm               | Available    |
-| **Claude**      | `claude-agent-acp` | ACP adapter [`claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp), installed with npm | Available    |
-| **Cursor**      | `cursor-acp`       | Cursor CLI's native ACP mode (`cursor-agent acp`) found on your `PATH`                                        | Beta flag    |
-| **Antigravity** | `antigravity-acp`  | Managed ACP binary (`agy_acp_server`) that HOA downloads into the HOA home                                    | Beta flag    |
+| Agent           | What you need                                                 | Availability |
+| --------------- | ------------------------------------------------------------- | ------------ |
+| **Codex**       | A Codex account. HOA downloads what it needs to run Codex.    | Available    |
+| **Claude**      | A Claude account. HOA downloads what it needs to run Claude.  | Available    |
+| **Cursor**      | The Cursor CLI (`cursor-agent`) installed and on your `PATH`. | Beta         |
+| **Antigravity** | A personal Google account. HOA downloads Antigravity for you. | Beta         |
 
-::: info Beta providers
-Cursor and Antigravity are enabled by compile-time beta flags. Builds without those flags show only Codex and Claude.
+::: info Beta agents
+Cursor and Antigravity appear only in builds with their beta flags turned on.
 :::
 
-## Launch targets
+## Install an agent
 
-A provider is the _name_ (Codex, Claude); a **launch target** is the _process_ HOA spawns for it. Sessions, pins and caches are stored per launch target. There are three kinds:
+Agents aren't bundled with HOA; you download the ones you want.
 
-- **ACP adapter** — a stdio process that wraps a vendor CLI or SDK which is not ACP-native. Codex and Claude work this way.
-- **Vendor CLI ACP** — a vendor CLI that speaks ACP itself. HOA spawns it directly from your `PATH` (Cursor).
-- **Managed ACP agent** — an ACP binary HOA downloads and pins under `~/.hoa/` (Antigravity).
+1. Open **Settings › Providers**. (The Providers window also opens the first time you start HOA.)
+2. Choose an agent and download it.
+3. Sign in if the agent asks you to.
 
-## Provider runtimes
+The desktop app and the VS Code extension share downloads — install an agent once and it works in both.
 
-A **provider runtime** is the program behind a launch target: an npm install of an adapter, or extracted binaries. HOA keeps each runtime under `~/.hoa/providers/<launch target>/runtime/<version>/`, and a `current.json` file records which downloaded version is active. Manage runtimes in **Settings › Providers**: download a new version, switch the active one, or delete old ones.
+## Update or remove an agent
 
-The desktop app and the VS Code extension share these runtimes — install once, use from both.
+**Settings › Providers** lists the versions you've downloaded for each agent. From there you can download a newer version, switch which version HOA uses, or delete versions you no longer need.
 
 ## Antigravity sign-in
 
-Antigravity signs in with a personal Google account through OAuth. HOA keeps its credentials in `~/.hoa/providers/antigravity-acp/home/`; they are **not** shared with an `agy` or Gemini CLI login on your `PATH`.
+Antigravity signs in with a personal Google account; HOA opens the sign-in page in your browser. This sign-in is separate from any `agy` or Gemini CLI login you already have.

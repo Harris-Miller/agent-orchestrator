@@ -23,7 +23,6 @@ const websiteRoot = (): string => {
 
 export const nav: DefaultTheme.NavItem[] = [
   { text: 'Guide', link: '/guide/what-is-hoa', activeMatch: '/guide/' },
-  { text: 'Reference', link: '/reference/architecture', activeMatch: '/reference/' },
   { text: 'Contributing', link: '/contributing' },
 ];
 
@@ -46,17 +45,20 @@ export const sidebar: DefaultTheme.SidebarItem[] = [
       { text: 'VS Code extension', link: '/guide/vscode' },
     ],
   },
-  {
-    text: 'Reference',
-    items: [
-      { text: 'Architecture', link: '/reference/architecture' },
-      { text: 'The HOA home (~/.hoa)', link: '/reference/hoa-home' },
-      { text: 'Privacy & telemetry', link: '/reference/privacy' },
-      { text: 'Glossary', link: '/reference/glossary' },
-    ],
-  },
   { text: 'Contributing', items: [{ text: 'Develop HOA', link: '/contributing' }] },
 ];
+
+/** Variant A's docs navigation (also used by C): top nav, one global sidebar, local search. */
+export const docsThemeConfig: DefaultTheme.Config = {
+  logo: '/logo.svg',
+  nav,
+  sidebar,
+  socialLinks: [{ icon: 'github', link: REPO_URL }],
+  search: { provider: 'local' },
+  editLink: { pattern: `${REPO_URL}/edit/main/apps/website/content/:path`, text: 'Edit this page on GitHub' },
+  outline: [2, 3],
+  footer: { message: 'Pre-alpha software. Built with VitePress.' },
+};
 
 export const sharedConfig = (key: VariantKey): UserConfig<DefaultTheme.Config> => {
   const root = websiteRoot();

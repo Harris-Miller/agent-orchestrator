@@ -2,7 +2,7 @@
 
 ## Projects
 
-A **Project** is an absolute directory you bring into HOA. Add one with **Add Project** or from the composer's **Choose Project**. Projects are shared by every agent and by both the desktop app and VS Code; they are stored in `~/.hoa/projects.json`.
+A **Project** is an absolute directory you bring into HOA. Add one with **Add Project** or from the composer's **Choose Project**. Projects are shared by every agent and by both the desktop app and VS Code.
 
 Remove a Project with **Stop tracking**. Its sessions stay on disk with the agent; HOA just stops listing them.
 
@@ -30,6 +30,6 @@ Agents keep their own session stores. **Import** asks an agent which sessions it
 
 Enter **bulk select** from the Session History header to check several rows — across Projects — and archive, unarchive or delete them together.
 
-## Session cwd
+## A session's folder
 
-Every session has a **session cwd**: the directory the agent works in. You choose it when you create the session, and it cannot change afterwards. A Handoff or spawned subagent always starts in the same cwd as the session it came from.
+Every session works in one folder, chosen when you create it; it can't change afterwards. A Handoff or subagent always starts in the same folder as the session it came from.

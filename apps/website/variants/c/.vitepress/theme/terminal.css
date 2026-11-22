@@ -1,0 +1,188 @@
+/* PROTOTYPE (#435) variant C — terminal landing. Everything is scoped under .terminal-home. */
+.terminal-home {
+  --t-bg: #f6f5ef;
+  --t-ink: #1d1d1b;
+  --t-muted: #6b6a63;
+  --t-line: #d6d4c8;
+  --t-code: #ecebe3;
+  --t-accent: #0b7f75;
+  --t-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  display: flex;
+  justify-content: center;
+  padding: 48px 24px 120px;
+  font: 14px/1.7 var(--t-mono);
+  color: var(--t-ink);
+}
+.dark .terminal-home {
+  --t-bg: #16181b;
+  --t-ink: #d9dcd6;
+  --t-muted: #7c8079;
+  --t-line: #2a2d31;
+  --t-code: #0e0f11;
+  --t-accent: #1fc8b8;
+}
+.terminal-home .window {
+  width: min(100%, 92ch);
+  border: 1px solid var(--t-line);
+  border-radius: 10px;
+  background: var(--t-bg);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.18);
+  overflow: hidden;
+}
+.terminal-home .window-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--t-line);
+  color: var(--t-muted);
+  font-size: 12px;
+}
+.terminal-home .window-bar i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--t-line);
+}
+.terminal-home .window-bar span {
+  margin: 0 auto;
+}
+.terminal-home .window-body {
+  padding: 16px 24px 24px;
+}
+.terminal-home .banner {
+  margin: 0 0 16px;
+  color: var(--t-accent);
+  font: 13px/1.2 var(--t-mono);
+  overflow-x: auto;
+}
+.terminal-home .cmd {
+  margin: 0;
+}
+.terminal-home .prompt {
+  color: var(--t-accent);
+  margin-right: 1ch;
+}
+.terminal-home .hint {
+  color: var(--t-muted);
+}
+.terminal-home .cursor {
+  display: inline-block;
+  width: 1ch;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--t-accent);
+  animation: terminal-blink 1s steps(1) infinite;
+}
+@keyframes terminal-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The man page (markdown in the slot) */
+.terminal-home .man-page {
+  padding: 8px 0 16px;
+}
+.terminal-home .man-page h2 {
+  margin: 24px 0 6px;
+  padding: 0;
+  border: 0;
+  font: 700 15px/1.4 var(--t-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t-ink);
+}
+.terminal-home .man-page h2 .header-anchor {
+  display: none;
+}
+.terminal-home .man-page > :not(h2) {
+  margin-left: 4ch;
+}
+.terminal-home .man-page p,
+.terminal-home .man-page ul {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+.terminal-home .man-page ul {
+  padding-left: 2ch;
+  list-style: '- ';
+}
+.terminal-home a {
+  color: var(--t-accent);
+  text-decoration: none;
+}
+.terminal-home a:hover {
+  text-decoration: underline;
+}
+.terminal-home :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--t-code);
+  font: 13px var(--t-mono);
+  color: var(--t-ink);
+}
+.terminal-home table {
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.terminal-home th,
+.terminal-home td {
+  padding: 6px 16px 6px 0;
+  border: 0;
+  border-bottom: 1px dashed var(--t-line);
+  background: none;
+  text-align: left;
+}
+.terminal-home th {
+  color: var(--t-muted);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.terminal-home tr {
+  background: none !important;
+}
+.terminal-home div[class*='language-'] {
+  position: relative;
+  margin-bottom: 16px;
+  border-left: 2px solid var(--t-accent);
+  background: var(--t-code);
+}
+.terminal-home pre.shiki {
+  margin: 0;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font: 13px/1.6 var(--t-mono);
+  background: transparent !important;
+}
+.terminal-home .shiki span {
+  color: var(--shiki-light);
+}
+.dark .terminal-home .shiki span {
+  color: var(--shiki-dark);
+}
+.terminal-home span.lang {
+  position: absolute;
+  top: 4px;
+  right: 10px;
+  font-size: 11px;
+  color: var(--t-muted);
+}
+.terminal-home button.copy {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .terminal-home {
+    padding: 16px 12px 96px;
+  }
+  .terminal-home .window-body {
+    padding: 12px 14px 18px;
+  }
+  .terminal-home .man-page > :not(h2) {
+    margin-left: 0;
+  }
+}

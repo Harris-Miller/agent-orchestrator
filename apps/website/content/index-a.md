@@ -22,13 +22,13 @@ hero:
 
 features:
   - icon: 🔌
-    title: Agents over ACP, not SDKs
-    details: Every agent runs as its own subprocess and talks the open Agent Client Protocol. No vendor SDK is embedded, so new agents are a launch target away.
+    title: Bring the agents you already use
+    details: Codex and Claude today, Cursor and Antigravity in beta. Each runs on your machine and works the same way in HOA, through the open Agent Client Protocol.
     link: /guide/providers
     linkText: Agent providers
   - icon: 🗂️
     title: One Session History
-    details: Sessions from every agent, grouped by Project. Pin, archive, fork, and import the sessions your agents already have on disk.
+    details: Sessions from every agent, grouped by Project. Pin, archive, and import the sessions your agents already have on disk.
     link: /guide/sessions
     linkText: Projects & sessions
   - icon: 🧭
@@ -42,10 +42,10 @@ features:
     link: /guide/handoff-and-subagents
     linkText: Handoff & subagents
   - icon: 🪄
-    title: Agents that spawn agents
-    details: An agent can start a subagent on a different provider through the local Hub and get the result back in its own turn.
-    link: /guide/handoff-and-subagents#spawned-subagents
-    linkText: Spawned subagents
+    title: Agents that ask agents
+    details: An agent can ask a different agent for help — Claude asking Codex for a second opinion — and get the result back.
+    link: /guide/handoff-and-subagents#subagents
+    linkText: Subagents
   - icon: 🧩
     title: Desktop and VS Code
     details: The same UI in a Tauri desktop app and in VS Code's Secondary Side Bar, sharing runtimes, Projects and settings.

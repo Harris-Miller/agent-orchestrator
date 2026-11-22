@@ -1,7 +1,11 @@
 ---
-layout: home
-title: hoa(1)
+layout: page
+title: Every coding agent, one harness
+sidebar: false
+aside: false
 ---
+
+<TerminalHome>
 
 ## NAME
 
@@ -18,36 +22,32 @@ pnpm run tauri:dev
 
 ## DESCRIPTION
 
-**hoa** runs coding agents as local subprocesses and drives them over the [Agent Client Protocol](https://agentclientprotocol.com/) (ACP). It embeds no vendor SDK: every agent is a process that speaks ACP on stdin/stdout, and **hoa** is its client.
-
-For each session the Agent Harness spawns the agent, negotiates capabilities, sends your prompts, streams the agent's work back, and fulfills what the agent asks of the client — files, terminals, and your permission.
+**hoa** runs the coding agents you already use — Codex, Claude, and more — side by side in one app. Start a session in any project folder, pick an agent, and talk to it. Every session from every agent lands in one Session History, and every time an agent wants to run a command or needs an answer, it asks you in the same place.
 
 ## AGENTS
 
-| Launch target      | Provider    | Kind                             |
-| ------------------ | ----------- | -------------------------------- |
-| `codex-acp`        | Codex       | ACP adapter (npm)                |
-| `claude-agent-acp` | Claude      | ACP adapter (npm)                |
-| `cursor-acp`       | Cursor      | Vendor CLI ACP — _beta flag_     |
-| `antigravity-acp`  | Antigravity | Managed ACP binary — _beta flag_ |
+| Agent       | Availability |
+| ----------- | ------------ |
+| Codex       | Available    |
+| Claude      | Available    |
+| Cursor      | Beta         |
+| Antigravity | Beta         |
 
 ## FEATURES
 
 - **Session History** — every agent's sessions, grouped by Project; pin, archive, import, bulk-select.
 - **Steer / Queue** — send into a running turn, or hold one message for when it ends.
-- **Permission requests** — the agent waits on the session until you answer.
-- **Handoff** — continue the work on another agent from a document the first one writes.
-- **Spawned subagents** — an agent starts a session on a different agent and gets its result back.
-- **VS Code** — the same UI in the Secondary Side Bar.
-
-## FILES
-
-`~/.hoa/settings.json`, `~/.hoa/projects.json`, `~/.hoa/providers/<launch target>/` — see [hoa-home(5)](/reference/hoa-home).
+- **Permission prompts** — the agent waits until you answer, and HOA can notify you.
+- **Handoff** — continue the work on another agent, in the same folder.
+- **Subagents** — an agent can ask a different agent for help and get the result back.
+- **VS Code** — the same app in VS Code's Secondary Side Bar.
 
 ## SEE ALSO
 
-[getting-started(1)](/guide/getting-started), [providers(7)](/guide/providers), [sessions(7)](/guide/sessions), [architecture(7)](/reference/architecture), [glossary(7)](/reference/glossary)
+[getting-started](/guide/getting-started), [providers](/guide/providers), [sessions](/guide/sessions), [working-with-agents](/guide/working-with-agents), [handoff-and-subagents](/guide/handoff-and-subagents), [vscode](/guide/vscode)
 
 ## STATUS
 
-Pre-alpha. No installers; formats change without migration.
+Pre-alpha. No installers yet; settings can change between versions.
+
+</TerminalHome>

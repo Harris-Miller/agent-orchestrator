@@ -19,4 +19,4 @@ With Workstreams on, HOA has two pages, switched from the page switcher:
 | **Sessions Page**    | Session History grouped by Project — only sessions that no Workstream owns. |
 | **Workstreams Page** | Your Workstreams with their sessions, beside the selected session's chat.   |
 
-Workstreams are stored in `~/.hoa/workstreams.json`. Turning the setting off hides the page but keeps every Workstream and its sessions.
+Turning the setting off hides the page but keeps every Workstream and its sessions.

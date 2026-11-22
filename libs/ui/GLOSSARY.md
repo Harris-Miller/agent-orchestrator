@@ -267,7 +267,7 @@ A draft-side image added from the Host FileDialog, by an image Filesystem Mentio
 _Avoid_: embedded resource, clipboard image, paste/drop attach (follow-ups)
 
 **Image Lightbox**:
-A large dialog that shows the one image the user clicked (a Composer Image Attachment thumbnail or a transcript image thumbnail), with zoom and pan by mouse and zoom in / zoom out / reset buttons, closed only by its Close action (or Esc / backdrop). Shown only where the Host cannot open the image itself (OpenFile unsupported, i.e. desktop); a Host that supports OpenFile opens the image in its own viewer instead. Never a gallery: it has no previous/next and shows no other images of the message or draft. A transcript thumbnail whose file cannot be read shows a broken-image placeholder and does not open it.
+A large dialog that shows the one image the user clicked (a Composer Image Attachment thumbnail or a transcript image thumbnail), with zoom and pan by mouse and zoom in / zoom out / reset buttons, its only action is Close (Esc and backdrop click also close it). Shown only where the Host cannot open the image itself (OpenFile unsupported, i.e. desktop); a Host that supports OpenFile opens the image in its own viewer instead. Never a gallery: it has no previous/next and shows no other images of the message or draft. A transcript thumbnail whose file cannot be read shows a broken-image placeholder and does not open it.
 _Avoid_: image viewer, carousel, gallery, preview pane
 
 **Attention event**:

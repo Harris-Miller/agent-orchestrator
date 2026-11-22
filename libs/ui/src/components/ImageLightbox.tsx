@@ -7,9 +7,19 @@ import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FC, PointerEvent as ReactPointerEvent } from 'react';
 
-import { clampPan, MAX_SCALE, MIN_SCALE, RESET_VIEW, ZOOM_STEP, zoomAt } from '../host/imageLightboxZoom.ts';
+import {
+  clampPan,
+  MAX_SCALE,
+  MIN_SCALE,
+  RESET_VIEW,
+  wheelFactor,
+  ZOOM_STEP,
+  zoomAt,
+} from '../host/imageLightboxZoom.ts';
 import type { ZoomView } from '../host/imageLightboxZoom.ts';
 import { IconTooltipButton } from './IconTooltipButton.tsx';
+
+const TITLE_ID = 'image-lightbox-title';
 
 /** Zoom/pan state lives here so it resets whenever the Dialog (un)mounts its content. */
 const LightboxBody: FC<{ readonly name?: string; readonly onClose: () => void; readonly src: string }> = ({
@@ -36,15 +46,18 @@ const LightboxBody: FC<{ readonly name?: string; readonly onClose: () => void; r
     if (viewport === null) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      zoom(event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, { x: event.clientX, y: event.clientY });
+      const rect = viewport.getBoundingClientRect();
+      const anchor = { x: event.clientX - rect.left - rect.width / 2, y: event.clientY - rect.top - rect.height / 2 };
+      setView(v => clampPan(zoomAt(v, wheelFactor(-event.deltaY, event.deltaMode), anchor), rect));
     };
     viewport.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       viewport.removeEventListener('wheel', onWheel);
     };
-  });
+  }, [viewport]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { x: event.clientX, y: event.clientY };
     setDragging(true);
@@ -65,7 +78,11 @@ const LightboxBody: FC<{ readonly name?: string; readonly onClose: () => void; r
 
   return (
     <>
-      {name !== undefined && <DialogTitle sx={{ fontSize: 14, py: 1 }}>{name}</DialogTitle>}
+      {name !== undefined && (
+        <DialogTitle id={TITLE_ID} sx={{ fontSize: 14, py: 1 }}>
+          {name}
+        </DialogTitle>
+      )}
       <Box
         onPointerCancel={endDrag}
         onPointerDown={onPointerDown}
@@ -148,6 +165,8 @@ export const ImageLightbox: FC<{
   readonly src: string;
 }> = ({ name, onClose, open, src }) => (
   <Dialog
+    aria-label={name === undefined ? 'Image preview' : undefined}
+    aria-labelledby={name === undefined ? undefined : TITLE_ID}
     maxWidth={false}
     onClose={onClose}
     open={open}

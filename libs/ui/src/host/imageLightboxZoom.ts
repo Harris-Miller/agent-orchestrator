@@ -27,3 +27,13 @@ export const clampPan = (view: ZoomView, bounds: { readonly height: number; read
   const maxY = (bounds.height * view.scale) / 2;
   return { ...view, x: Math.min(maxX, Math.max(-maxX, view.x)), y: Math.min(maxY, Math.max(-maxY, view.y)) };
 };
+
+const WHEEL_SENSITIVITY = 0.002;
+const WHEEL_LINE_PX = 16;
+const MAX_WHEEL_FACTOR = 1.5;
+
+/** Zoom factor for one wheel event: proportional to `deltaY` (pixels, or lines when `deltaMode` is 1), clamped per event. */
+export const wheelFactor = (deltaY: number, deltaMode = 0): number => {
+  const px = deltaMode === 1 ? deltaY * WHEEL_LINE_PX : deltaY;
+  return Math.min(MAX_WHEEL_FACTOR, Math.max(1 / MAX_WHEEL_FACTOR, Math.exp(-px * WHEEL_SENSITIVITY)));
+};

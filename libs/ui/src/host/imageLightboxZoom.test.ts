@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampPan, clampScale, MAX_SCALE, RESET_VIEW, zoomAt } from './imageLightboxZoom.ts';
+import { clampPan, clampScale, MAX_SCALE, RESET_VIEW, wheelFactor, zoomAt } from './imageLightboxZoom.ts';
 
 describe('imageLightboxZoom', () => {
   it('clamps scale to [1, 8]', () => {
@@ -33,5 +33,15 @@ describe('imageLightboxZoom', () => {
 
   it('resets a stale offset at min scale', () => {
     expect(clampPan({ scale: 1, x: 50, y: 50 }, { height: 100, width: 100 })).toEqual(RESET_VIEW);
+  });
+
+  it('scales wheel zoom by delta and clamps per event', () => {
+    expect(wheelFactor(0)).toBe(1);
+    expect(wheelFactor(-100)).toBeGreaterThan(1);
+    expect(wheelFactor(100)).toBeLessThan(1);
+    expect(wheelFactor(-100)).toBeLessThan(wheelFactor(-200));
+    expect(wheelFactor(-100000)).toBe(1.5);
+    expect(wheelFactor(100000)).toBeCloseTo(1 / 1.5);
+    expect(wheelFactor(-3, 1)).toBeCloseTo(wheelFactor(-48, 0));
   });
 });

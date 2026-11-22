@@ -272,6 +272,10 @@ _Avoid_: Pending client request, blocking dialog, modal
 At most one process-lifetime in-memory draft (composer text, agent launch target, Config choices, optional Session cwd, optional Bound `sessionId`) owned by Harness application state. Not a History entry until Materialize on first Send. May be Bound (Active on the agent via Bind) while Selected stays Virtual. Discarded on app restart. Leaving it keeps the blob when the Composer has content, else discards it (best-effort Bound teardown); leaving is never blocked by Bind / Materialize. New Session / cwd-group (+) ensure and Select it; Bind runs once cwd + launch target are known and the provider is Bootstrap `usable`.
 _Avoid_: Draft session, pending session, unsaved session
 
+**New session launcher**:
+The desktop Sessions page's empty-Virtual-session surface, where the agent and Project are picked before describing the work. VS Code shows Recent sessions there instead.
+_Avoid_: new session screen, welcome screen
+
 **Selected**:
 App-wide UI focus: either the Virtual session or a real Session by `sessionId`, or none (transient on desktop: a cleared Selected — boot, Archive, Delete, Deactivate — falls back to the Virtual session once no Materialize is running). Determines which transcript/composer the main chat shows and what the Session state panel displays. Not per-agent.
 _Avoid_: Selected session (when you mean the union including Virtual), current session, focused session

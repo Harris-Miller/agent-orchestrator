@@ -8,10 +8,10 @@ import { type VariantKey, VARIANTS } from './variants.ts';
 
 const props = defineProps<{ current: VariantKey }>();
 
-const enabled = __PROTOTYPE_SWITCHER__;
+const enabled = __PROTOTYPE_SWITCHER__ && VARIANTS.length > 1;
 const index = VARIANTS.findIndex(v => v.key === props.current);
 const variant = VARIANTS[index];
-const DEV_PORTS: Record<VariantKey, number> = { a: 5181, b: 5182, c: 5183 };
+const DEV_PORTS: Record<VariantKey, number> = { c: 5183 };
 
 const go = (step: number) => {
   const target = VARIANTS[(index + step + VARIANTS.length) % VARIANTS.length];

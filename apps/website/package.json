@@ -7,8 +7,6 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.ts",
-    "dev:a": "WEBSITE_PROTOTYPE=1 vitepress dev variants/a --port 5181",
-    "dev:b": "WEBSITE_PROTOTYPE=1 vitepress dev variants/b --port 5182",
     "dev:c": "WEBSITE_PROTOTYPE=1 vitepress dev variants/c --port 5183",
     "lint": "pnpm run lint:check --fix",
     "lint:check": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",

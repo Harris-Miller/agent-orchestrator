@@ -4,9 +4,11 @@ import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import {
   allotmentSashSx,
   createWorkstreamAtomFn,
+  IconTooltipButton,
   LucideMuiIcon,
   ownedSessionKeysAtom,
   PANEL_HEADER_HEIGHT,
+  PanelHeader,
   pendingWorkstreamAtom,
   renameWorkstreamAtomFn,
   selectedAtom,
@@ -15,6 +17,7 @@ import {
   sessionEntryKey,
   SessionHeader,
   showArchivedSettingAtom,
+  usePersistedLayout,
   virtualSessionAtom,
   visibleSessionHistoryAtom,
   workstreamsAtom,
@@ -27,15 +30,23 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { Allotment } from 'allotment';
-import { Plus } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 
+import { AppTitle } from '../workbenchNavRail/AppTitle.tsx';
 import { WorkstreamDialog } from './WorkstreamDialog.tsx';
 import { WorkstreamMenu } from './WorkstreamMenu.tsx';
 import { WorkstreamSessionRow } from './WorkstreamSessionRow.tsx';
 
+const WORKSTREAMS_LAYOUT_KEY = 'workstreams-page-layout';
+
+const parseLayout = (raw: Record<string, unknown>) => ({
+  railOpen: typeof raw.railOpen === 'boolean' ? raw.railOpen : true,
+});
+
 export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => void }> = ({ onClientError }) => {
+  const { commit: commitLayout, layout } = usePersistedLayout({ key: WORKSTREAMS_LAYOUT_KEY, parse: parseLayout });
   const workstreams = useAtomValue(workstreamsAtom);
   const history = useAtomValue(visibleSessionHistoryAtom);
   const showArchived = useAtomValue(showArchivedSettingAtom);
@@ -79,16 +90,32 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
 
   return (
     <Box sx={theme => ({ ...allotmentSashSx(theme), height: '100%' })}>
-      <Allotment>
-        <Allotment.Pane minSize={280} preferredSize={380}>
+      <Allotment
+        onVisibleChange={(index, visible) => {
+          if (index === 0) commitLayout({ railOpen: visible });
+        }}
+      >
+        <Allotment.Pane minSize={280} preferredSize={380} snap visible={layout.railOpen}>
           <Box
-            sx={{ bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+            sx={{
+              bgcolor: 'background.paper',
+              containerType: 'inline-size',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              minHeight: 0,
+            }}
           >
-            <Stack
-              direction="row"
-              sx={{ alignItems: 'center', flexShrink: 0, gap: 1, height: PANEL_HEADER_HEIGHT, px: 2 }}
-            >
-              <Typography sx={{ flex: 1 }} variant="h6">
+            <PanelHeader
+              closeAriaLabel="Close workstreams panel"
+              closeIcon={PanelLeftClose}
+              onClose={() => {
+                commitLayout({ railOpen: false });
+              }}
+              title={<AppTitle />}
+            />
+            <Stack direction="row" sx={{ alignItems: 'center', flexShrink: 0, gap: 1, px: 2 }}>
+              <Typography sx={{ flex: 1, fontWeight: 600 }} variant="subtitle1">
                 Workstreams
               </Typography>
               <IconButton
@@ -156,37 +183,41 @@ export const WorkstreamsPage: FC<{ readonly onClientError: (error: unknown) => v
           </Box>
         </Allotment.Pane>
         <Allotment.Pane minSize={320}>
-          {shownSelected === undefined ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
             <Box
               sx={{
                 alignItems: 'center',
+                bgcolor: 'background.paper',
                 display: 'flex',
-                height: '100%',
-                justifyContent: 'center',
-                p: 4,
+                flexShrink: 0,
+                gap: 1,
+                height: PANEL_HEADER_HEIGHT,
+                px: 2,
               }}
             >
-              <Typography color="text.secondary" variant="body2">
-                Pick a session.
-              </Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-              <Box
-                sx={{
-                  alignItems: 'center',
-                  bgcolor: 'background.paper',
-                  display: 'flex',
-                  flexShrink: 0,
-                  height: PANEL_HEADER_HEIGHT,
-                  px: 2,
-                }}
-              >
+              {layout.railOpen ? null : (
+                <IconTooltipButton
+                  icon={PanelLeftOpen}
+                  label="Open workstreams panel"
+                  onClick={() => {
+                    commitLayout({ railOpen: true });
+                  }}
+                />
+              )}
+              {shownSelected === undefined ? null : (
                 <SessionHeader onClientError={onClientError} titleProps={{ variant: 'h6' }} />
-              </Box>
-              <SessionChatBody onClientError={onClientError} />
+              )}
             </Box>
-          )}
+            {shownSelected === undefined ? (
+              <Box sx={{ alignItems: 'center', display: 'flex', flex: 1, justifyContent: 'center', p: 4 }}>
+                <Typography color="text.secondary" variant="body2">
+                  Pick a session.
+                </Typography>
+              </Box>
+            ) : (
+              <SessionChatBody onClientError={onClientError} />
+            )}
+          </Box>
         </Allotment.Pane>
       </Allotment>
       {dialog === undefined ? null : (

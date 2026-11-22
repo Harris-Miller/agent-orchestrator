@@ -28,6 +28,14 @@ _Avoid_: Pin list, favorites
 `projects.json` at the HOA home root listing the Projects (desktop glossary) as `{ projects: string[] }` (provisional shape). One file for all launch targets, since cwd groups are unified across them (see ADR 0007). Paths are normalized for trailing separators. Each change re-reads the file and applies only that change; an undecodable file is never overwritten. Desktop reads and writes it; VS Code only adds its Workspace cwd (see ADR 0009).
 _Avoid_: tracked cwds, cwd history
 
+**Workstreams document**:
+`workstreams.json` at the HOA home root listing the Workstreams (desktop glossary) as `{ workstreams: [...] }` (provisional shape), each with its name, Tracker refs, archived flag and the sessions it owns as `{ launchTarget, sessionId }`. One file for all launch targets, since a Workstream spans them (see ADR 0010). Each change re-reads the file and applies only that change; an undecodable file is never overwritten.
+_Avoid_: features file, groups file
+
+**Experimental: Workstreams**:
+User setting `workstreamsEnabled` in `settings.json` (off when unset). Gates the Workstreams Page and the Sessions Page hiding of owned sessions; the Workstreams document and each Workstream's ownership persist while it is off.
+_Avoid_: Features setting, Missions setting
+
 **Config option index cache**:
 Durable per-launch-target copy of the Config option index under `providers/<launchTarget>/config-option-index.json`, used to show choices while a Harness probes its agent.
 _Avoid_: Provider catalog, session configuration
@@ -57,7 +65,3 @@ _Avoid_: system browser, Host OpenUrl (when you mean the helper path)
 ## Package law
 
 Every filesystem read or write under the HOA home goes through `@lib/hoa-home`. Apps must not perform ad-hoc `FileSystem` I/O against that tree.
-
-**Workstreams document**:
-`workstreams.json` at the HOA home root listing the Workstreams (desktop glossary) as `{ workstreams: [...] }` (provisional shape), each with its name, Tracker refs, archived flag and the sessions it owns as `{ launchTarget, sessionId }`. One file for all launch targets, since a Workstream spans them (see ADR 0010). Each change re-reads the file and applies only that change; an undecodable file is never overwritten.
-_Avoid_: features file, groups file

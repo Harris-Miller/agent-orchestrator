@@ -461,3 +461,7 @@ _Avoid_: assign, add to group
 **Orphan**:
 Take a session out of its Workstream so it returns to the Sessions Page, under its cwd's Project.
 _Avoid_: unassign, detach, remove
+
+**Experimental: Workstreams**:
+User setting `workstreamsEnabled` (off when unset). While on, the Workstreams Page and its page switcher exist and the Sessions Page lists only sessions no Workstream owns; while off, owned sessions show under their Project again and ownership persists. Changing it does not reactivate sessions.
+_Avoid_: Features setting, Missions setting

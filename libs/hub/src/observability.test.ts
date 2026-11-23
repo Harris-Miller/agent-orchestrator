@@ -10,7 +10,9 @@ interface FetchCall {
   readonly url: string;
 }
 
-const exportedWith = (target: HubBuildTarget) =>
+const ENDPOINT_ENV = { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318' };
+
+const exportedWith = (target: HubBuildTarget, env: Record<string, string> = ENDPOINT_ENV) =>
   Effect.gen(function* () {
     const calls: FetchCall[] = [];
     const fetchLive = Layer.succeed(FetchHttpClient.Fetch, (input, init) => {
@@ -21,9 +23,7 @@ const exportedWith = (target: HubBuildTarget) =>
       });
       return Promise.resolve(new Response(null, { status: 200 }));
     });
-    const configLive = ConfigProvider.layer(
-      ConfigProvider.fromUnknown({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318' }),
-    );
+    const configLive = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
 
     yield* Effect.logInfo('hello').pipe(
       Effect.provide(makeHubObservabilityLive(target).pipe(Layer.provide(fetchLive), Layer.provide(configLive))),
@@ -40,6 +40,28 @@ describe('makeHubObservabilityLive', () => {
       assert.isTrue(calls.every(call => call.url.startsWith('http://127.0.0.1:4318/')));
       assert.isTrue(calls.some(call => call.body.includes('build_target') && call.body.includes('dev')));
       assert.isTrue(calls.some(call => call.body.includes('hoa-hub')));
+    }),
+  );
+
+  it.effect('dev with no endpoint in the env falls back to the local LGTM stack', () =>
+    Effect.gen(function* () {
+      const calls = yield* exportedWith('dev', {});
+      assert.isAbove(calls.length, 0);
+      assert.isTrue(calls.every(call => call.url.startsWith('http://127.0.0.1:4318/')));
+    }),
+  );
+
+  it.effect('dev honours an endpoint from the env over the fallback', () =>
+    Effect.gen(function* () {
+      const calls = yield* exportedWith('dev', { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:9999' });
+      assert.isAbove(calls.length, 0);
+      assert.isTrue(calls.every(call => call.url.startsWith('http://127.0.0.1:9999/')));
+    }),
+  );
+
+  it.effect('prod never exports (no endpoint fallback either)', () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* exportedWith('prod', {}), []);
     }),
   );
 

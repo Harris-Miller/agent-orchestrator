@@ -1,14 +1,11 @@
-import { useAtomValue } from '@effect/atom-react';
 import Box from '@mui/material/Box';
 import ListItem from '@mui/material/ListItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { AsyncResult } from 'effect/reactivity';
 import { ImageOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ClipboardEventHandler, FC } from 'react';
 
-import { openFileSupportedAtom } from '../../../../atoms/boundHarnessAtoms.ts';
 import { loadFileUriThumbnail } from '../../../../host/loadFileUriThumbnail.ts';
 import {
   base64ImageFromDataUrl,
@@ -18,10 +15,11 @@ import {
 } from '../../../../host/openChatLink.ts';
 import type { AvailableCommand, UserMessageImageRef } from '../../../../host/sessionUpdateReducer.ts';
 import { hostRunPromise, hostRuntime } from '../../../../hostRuntime.ts';
+import { ImageLightbox } from '../../../ImageLightbox.tsx';
 import { LucideMuiIcon } from '../../../LucideMuiIcon.tsx';
 import { ChipContent } from '../../chips/ChipContent.tsx';
 import { segmentText, splitChipSegments } from '../../chips/chipSegments.ts';
-import { chatLinkHandlers, useChatLinkProps } from '../../useChatLinkProps.ts';
+import { chatLinkHandlers, useChatLinkProps, useOpenFileSupport } from '../../useChatLinkProps.ts';
 import { CopyMessageButton } from '../CopyMessageButton.tsx';
 import { ChatMarkdown } from '../markdown/ChatMarkdown.tsx';
 import { escapeMarkdownBlockMarkers, hasInlineMarkdown } from '../markdown/escapeMarkdownBlockMarkers.ts';
@@ -49,10 +47,14 @@ const BrokenImagePlaceholder: FC<{ readonly label: string }> = ({ label }) => (
   </Box>
 );
 
-const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({ image, index }) => {
-  const supported = useAtomValue(openFileSupportedAtom);
+export const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly index: number }> = ({
+  image,
+  index,
+}) => {
+  const support = useOpenFileSupport();
   const label = image.name ?? `Image ${String(index + 1)}`;
   const { previewDataUrl, uri } = image;
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [hydratedSrc, setHydratedSrc] = useState<string | undefined>(undefined);
   const src = previewDataUrl ?? (uri?.startsWith('data:') === true ? uri : undefined) ?? hydratedSrc;
 
@@ -100,21 +102,41 @@ const TranscriptImageTile: FC<{ readonly image: UserMessageImageRef; readonly in
     ) : (
       <BrokenImagePlaceholder label={`Broken image: ${label}`} />
     );
-  const openSupported = AsyncResult.getOrElse(supported, () => false);
-  const link = uri === undefined ? { kind: 'inert' as const } : classifyChatLinkHref(uri, openSupported);
-  const imageData = openSupported && src !== undefined ? base64ImageFromDataUrl(src) : undefined;
-  const openEffect =
-    link.kind === 'file' ? openChatLink(link) : imageData === undefined ? undefined : openChatImageData(imageData);
-  if (openEffect === undefined) return tile;
+  const useLightbox = support === 'unsupported' && src !== undefined;
+  const onOpen = (): (() => void) | undefined => {
+    if (useLightbox) {
+      return () => {
+        setLightboxOpen(true);
+      };
+    }
+    const openSupported = support === 'supported';
+    const link = uri === undefined ? { kind: 'inert' as const } : classifyChatLinkHref(uri, openSupported);
+    const imageData = openSupported && src !== undefined ? base64ImageFromDataUrl(src) : undefined;
+    const openEffect =
+      link.kind === 'file' ? openChatLink(link) : imageData === undefined ? undefined : openChatImageData(imageData);
+    if (openEffect === undefined) return undefined;
+    return () => {
+      hostRunPromise(openEffect).catch(() => undefined);
+    };
+  };
+  const open = onOpen();
+  if (open === undefined) return tile;
   return (
-    <Box
-      {...chatLinkHandlers(() => {
-        hostRunPromise(openEffect).catch(() => undefined);
-      })}
-      sx={{ cursor: 'pointer' }}
-    >
-      {tile}
-    </Box>
+    <>
+      <Box {...chatLinkHandlers(open)} sx={{ cursor: 'pointer' }}>
+        {tile}
+      </Box>
+      {useLightbox && (
+        <ImageLightbox
+          name={label}
+          onClose={() => {
+            setLightboxOpen(false);
+          }}
+          open={lightboxOpen}
+          src={src}
+        />
+      )}
+    </>
   );
 };
 

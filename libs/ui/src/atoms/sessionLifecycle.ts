@@ -119,7 +119,7 @@ const clearSelectionOf = Effect.fnUntraced(function* (registry: Registry, sessio
   }
 });
 
-const updateAndClearSelection = Effect.fnUntraced(function* (
+export const updateAndClearSelection = Effect.fnUntraced(function* (
   registry: Registry,
   launchTarget: AgentLaunchTarget,
   sessionId: string,

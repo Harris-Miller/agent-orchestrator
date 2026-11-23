@@ -15,6 +15,7 @@ import {
   hydrateTrackedSessions,
   resetTrackedSessionWrites,
   startTrackedSessionsPersistence,
+  startTrackedSessionsWatch,
 } from './trackedSessions.ts';
 import { sessionListScopeAtom } from './sessionListScope.atoms.ts';
 import { workstreamsAtom, workstreamsLoadedAtom } from './workstreams.atoms.ts';
@@ -67,6 +68,7 @@ export const hydrateHarnessCaches = (
           // Only the cwds this host lists hydrate; other cwds' records stay in the file untouched.
           if (yield* hydrateTrackedSessions(registry, launchTarget, listedCwds())) {
             unsubscribers.push(yield* startTrackedSessionsPersistence(registry, launchTarget));
+            unsubscribers.push(yield* startTrackedSessionsWatch(registry, launchTarget));
           }
           yield* hydrateOrWarn(
             `pinned sessions hydrate failed for ${launchTarget}`,
